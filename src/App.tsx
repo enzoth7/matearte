@@ -278,8 +278,9 @@ export default function App() {
     if (previewContainerRef.current) {
       try {
         const blob = await captureElementAsBlob(previewContainerRef.current);
-        if (blob && designId) {
-          previewImageUrl = await uploadOrderPreview(blob, designId);
+        if (blob) {
+          const idForImage = designId || `design-${Date.now()}`;
+          previewImageUrl = await uploadOrderPreview(blob, idForImage);
         }
       } catch (err) {
         console.warn('No se pudo capturar/subir la imagen de preview:', err);

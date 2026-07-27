@@ -11,15 +11,18 @@ export async function uploadOrderPreview(blob: Blob, designId: string): Promise<
     const fileName = `${designId}-${Date.now()}.png`;
     const filePath = `orders/${fileName}`;
 
+    console.log(`Subiendo preview a Supabase Storage: ${filePath} (${blob.size} bytes)...`);
+
     const { error: uploadError } = await supabase.storage
       .from(BUCKET_NAME)
       .upload(filePath, blob, {
         contentType: 'image/png',
-        upsert: false,
+        upsert: true,
+        cacheControl: '3600',
       });
 
     if (uploadError) {
-      console.error('Error uploading preview to Storage:', uploadError.message);
+      console.error('Error uploading preview to Supabase Storage:', uploadError.message, uploadError);
       return null;
     }
 
@@ -27,6 +30,7 @@ export async function uploadOrderPreview(blob: Blob, designId: string): Promise<
       .from(BUCKET_NAME)
       .getPublicUrl(filePath);
 
+    console.log('Imagen subida con éxito a Supabase Storage:', urlData?.publicUrl);
     return urlData?.publicUrl ?? null;
   } catch (err) {
     console.error('Unexpected error in uploadOrderPreview:', err);
