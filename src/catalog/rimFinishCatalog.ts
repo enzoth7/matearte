@@ -9,8 +9,8 @@ export interface RimFinish {
 }
 
 export const rimFinishCatalog: RimFinish[] = [
-  { id: "finish-1", name: "Terminación 1", image: "/assets/virola/finishes/finish-1.png", width: 1093, height: 1093 },
-  { id: "finish-2", name: "Terminación 2", image: "/assets/virola/finishes/finish-2.png", width: 1093, height: 1093 },
+  { id: "finish-1", name: "Terminación 1", image: "/assets/virola/finishes/finish-3.png", width: 1093, height: 1093 },
+  { id: "finish-2", name: "Terminación 2", image: "/assets/virola/finishes/finish-3.png", width: 1093, height: 1093 },
   { id: "finish-3", name: "Terminación 3", image: "/assets/virola/finishes/finish-3.png", width: 1093, height: 1093 },
 ];
 
