@@ -21,9 +21,10 @@ export function FlatFlejePreview({ flejeConfig }: { flejeConfig: FlejeCustomizat
   const hasIcon = imageMode === "image" && Boolean(selectedImageId);
   const icon = hasIcon ? rimIconCatalog.find(i => i.id === selectedImageId) : null;
 
-  const fontSize = Math.max(70, Math.min(130, 190 - text.length * 6.5));
+  const maxTextWidth = hasText && icon ? 480 : 760;
+  const fontSize = Math.max(55, Math.min(110, 160 - text.length * 4.5));
   const strokeWidth = fontSize * 0.65;
-  const letterSpacing = text.length > 10 ? 8 : 12;
+  const letterSpacing = text.length > 12 ? 4 : (text.length > 8 ? 6 : 10);
   
   let textX = 627;
   let textY = 630;
@@ -82,6 +83,8 @@ export function FlatFlejePreview({ flejeConfig }: { flejeConfig: FlejeCustomizat
                   fontSize={fontSize}
                   fontWeight="700"
                   letterSpacing={letterSpacing}
+                  textLength={text.length > 10 ? maxTextWidth : undefined}
+                  lengthAdjust={text.length > 10 ? "spacingAndGlyphs" : undefined}
                 >
                   {text}
                 </text>
@@ -135,6 +138,8 @@ export function FlatFlejePreview({ flejeConfig }: { flejeConfig: FlejeCustomizat
             fontSize={fontSize}
             fontWeight="700"
             letterSpacing={letterSpacing}
+            textLength={text.length > 10 ? maxTextWidth : undefined}
+            lengthAdjust={text.length > 10 ? "spacingAndGlyphs" : undefined}
           >
             {text}
           </text>
