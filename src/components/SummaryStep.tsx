@@ -44,12 +44,15 @@ export function SummaryStep({
   const rimIcon = configuration.rim.selectedImageId ? rimIconCatalog.find((i) => i.id === configuration.rim.selectedImageId) : null;
   const flejeIcon = flejeConfig.selectedImageId ? rimIconCatalog.find((i) => i.id === flejeConfig.selectedImageId) : null;
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     setIsSubmitting(true);
-    setTimeout(() => {
+    try {
+      await onSendToProduction();
+    } catch (err) {
+      console.error('Error enviando a producción:', err);
+    } finally {
       setIsSubmitting(false);
-      onSendToProduction();
-    }, 1200);
+    }
   };
 
   const handleDraft = () => {

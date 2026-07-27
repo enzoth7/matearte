@@ -262,7 +262,21 @@ export default function App() {
   };
 
   const handleSendToProduction = async () => {
-    // 1. Guardar en Supabase
+    // 1. Capturar screenshot del preview DE INMEDIATO mientras el componente está montado y visible
+    let previewBlob: Blob | null = null;
+    if (previewContainerRef.current) {
+      try {
+        console.log('📸 Capturando vista previa en SummaryStep...');
+        previewBlob = await captureElementAsBlob(previewContainerRef.current);
+      } catch (err) {
+        console.warn('⚠️ Error al capturar vista previa:', err);
+      }
+    } else {
+      console.warn('⚠️ previewContainerRef.current era NULL al enviar a producción');
+    }
+
+    // 2. Guardar en Supabase DB
+    console.log('💾 Guardando pedido en base de datos Supabase...');
     const { data: designData } = await saveDesignToSupabase({
       userId: userData?.id,
       configuration,
@@ -271,24 +285,25 @@ export default function App() {
       status: 'submitted',
     });
 
-    const designId = designData?.[0]?.id || null;
+    const designId = designData?.[0]?.id || `design-${Date.now()}`;
 
-    // 2. Capturar screenshot del preview y subir a Storage
+    // 3. Subir a Supabase Storage
     let previewImageUrl: string | null = null;
-    if (previewContainerRef.current) {
+    if (previewBlob) {
       try {
-        const blob = await captureElementAsBlob(previewContainerRef.current);
-        if (blob) {
-          const idForImage = designId || `design-${Date.now()}`;
-          previewImageUrl = await uploadOrderPreview(blob, idForImage);
-        }
+        console.log('☁️ Subiendo imagen a Supabase Storage...');
+        previewImageUrl = await uploadOrderPreview(previewBlob, designId);
+        console.log('✅ URL de la imagen generada:', previewImageUrl);
       } catch (err) {
-        console.warn('No se pudo capturar/subir la imagen de preview:', err);
+        console.warn('⚠️ Error al subir la imagen al Storage:', err);
       }
+    } else {
+      console.warn('⚠️ No se capturó Blob de imagen para subir');
     }
 
-    // 3. Enviar al Google Sheet
+    // 4. Enviar al Google Sheet
     try {
+      console.log('📊 Enviando pedido a Google Sheet...');
       await sendOrderToGoogleSheet({
         userData: effectiveUserData,
         configuration,
@@ -297,7 +312,7 @@ export default function App() {
         designId,
       });
     } catch (err) {
-      console.warn('No se pudo enviar al Google Sheet:', err);
+      console.warn('⚠️ Error al enviar a Google Sheet:', err);
     }
 
     changeStep("success");
