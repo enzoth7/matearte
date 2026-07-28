@@ -77,6 +77,7 @@ export async function saveUserProfileToSupabase(userData: {
 }
 
 export async function saveDesignToSupabase(params: {
+  designId?: string | null;
   userId?: string;
   configuration: any;
   flejeConfig: any;
@@ -88,6 +89,26 @@ export async function saveDesignToSupabase(params: {
       console.warn('saveDesignToSupabase called without userId, skipping or saving unassigned');
     }
 
+    if (params.designId) {
+      // ACTUALIZAR el diseño existente
+      const { data, error } = await supabase
+        .from('designs')
+        .update({
+          user_id: params.userId || null,
+          title: params.title || 'Mi Mate Custom',
+          configuration: params.configuration,
+          fleje_config: params.flejeConfig,
+          status: params.status || 'draft',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', params.designId)
+        .select();
+
+      if (error) throw error;
+      return { data, error: null };
+    }
+
+    // INSERTAR nuevo diseño si no existía designId
     const { data, error } = await supabase.from('designs').insert([
       {
         user_id: params.userId || null,

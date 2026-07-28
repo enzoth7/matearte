@@ -224,6 +224,7 @@ export default function App() {
     setSaveStatus("saving");
 
     const { data } = await saveDesignToSupabase({
+      designId: lastSavedDesignId,
       userId: userData?.id,
       configuration,
       flejeConfig,
@@ -245,17 +246,16 @@ export default function App() {
   };
 
   const handleSaveDraftFromSummary = async () => {
-    if (!lastSavedDesignId) {
-      const { data } = await saveDesignToSupabase({
-        userId: userData?.id,
-        configuration,
-        flejeConfig,
-        title: `Mate ${selectedMate.name}`,
-        status: 'draft',
-      });
-      if (data && data[0]?.id) {
-        setLastSavedDesignId(data[0].id);
-      }
+    const { data } = await saveDesignToSupabase({
+      designId: lastSavedDesignId,
+      userId: userData?.id,
+      configuration,
+      flejeConfig,
+      title: `Mate ${selectedMate.name}`,
+      status: 'draft',
+    });
+    if (data && data[0]?.id) {
+      setLastSavedDesignId(data[0].id);
     }
 
     changeStep("profile");
@@ -275,9 +275,10 @@ export default function App() {
       console.warn('⚠️ previewContainerRef.current era NULL al enviar a producción');
     }
 
-    // 2. Guardar en Supabase DB
-    console.log('💾 Guardando pedido en base de datos Supabase...');
+    // 2. Guardar o actualizar en Supabase DB
+    console.log('💾 Guardando/Actualizando pedido en base de datos Supabase...');
     const { data: designData } = await saveDesignToSupabase({
+      designId: lastSavedDesignId,
       userId: userData?.id,
       configuration,
       flejeConfig,
@@ -285,7 +286,10 @@ export default function App() {
       status: 'submitted',
     });
 
-    const designId = designData?.[0]?.id || `design-${Date.now()}`;
+    const designId = designData?.[0]?.id || lastSavedDesignId || `design-${Date.now()}`;
+    if (designData?.[0]?.id) {
+      setLastSavedDesignId(designData[0].id);
+    }
 
     // 3. Subir a Supabase Storage
     let previewImageUrl: string | null = null;
@@ -330,6 +334,7 @@ export default function App() {
   };
 
   const handleReset = () => {
+    setLastSavedDesignId(null);
     changeStep("welcome");
   };
 
@@ -566,7 +571,10 @@ export default function App() {
             userData={effectiveUserData}
             localDesigns={localDesigns}
             onLoadDesign={handleLoadDesignFromProfile}
-            onNewDesign={() => changeStep("product_selection")}
+            onNewDesign={() => {
+              setLastSavedDesignId(null);
+              changeStep("product_selection");
+            }}
             onUpdateUserData={handleUpdateUserData}
           />
         )}
