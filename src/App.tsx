@@ -205,7 +205,7 @@ export default function App() {
   useEffect(() => {
     fetchProductPricesFromSupabase();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         const email = session.user.email || "";
         const name = session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split("@")[0] || "Usuario Google";
@@ -220,8 +220,13 @@ export default function App() {
         localStorage.setItem("matearte_user", JSON.stringify(userObj));
         saveUserProfileToSupabase(userObj);
 
-        if (window.location.search.includes('error') || window.location.hash.includes('access_token')) {
+        if (window.location.search.includes('error') || window.location.hash.includes('access_token') || window.location.search.includes('code')) {
           window.history.replaceState(null, '', window.location.pathname);
+        }
+
+        // Si inició sesión (ej. OAuth Google) o está en la página de inicio estando logueado, redirigir a /selection
+        if (event === "SIGNED_IN" || location.pathname === "/" || location.pathname === "") {
+          changeStep("product_selection");
         }
       }
     });
