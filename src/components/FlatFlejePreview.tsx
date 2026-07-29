@@ -2,6 +2,7 @@ import { rimIconCatalog } from "../catalog/rimIconCatalog";
 import { flejeFinishCatalog, type FlejeFinishId } from "../catalog/flejeFinishCatalog";
 
 export interface FlejeCustomization {
+  finishMode?: "none" | "finish";
   finishId: FlejeFinishId;
   textMode: "none" | "text";
   text: string;
@@ -13,9 +14,9 @@ export function FlatFlejePreview({ flejeConfig }: { flejeConfig: FlejeCustomizat
   const flejeBaseAsset = "/assets/svg/fleje-base.svg";
   const flejeOutlineAsset = "/assets/svg/fleje-outline.svg";
 
-  const { finishId, textMode, text, imageMode, selectedImageId } = flejeConfig;
+  const { finishMode, finishId, textMode, text, imageMode, selectedImageId } = flejeConfig;
   
-  const selectedFinish = flejeFinishCatalog.find(f => f.id === finishId);
+  const selectedFinish = finishMode === "finish" ? flejeFinishCatalog.find(f => f.id === finishId) : undefined;
   
   const hasText = textMode === "text" && Boolean(text.trim());
   const hasIcon = imageMode === "image" && Boolean(selectedImageId);

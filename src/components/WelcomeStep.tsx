@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { UserData } from '../types/user';
-import { signInWithGoogle } from '../lib/supabase';
+import { signInWithGoogle, supabase } from '../lib/supabase';
 
 interface WelcomeStepProps {
   initialData?: UserData;
@@ -8,12 +8,11 @@ interface WelcomeStepProps {
 }
 
 export function WelcomeStep({ initialData, onSubmit }: WelcomeStepProps) {
-  const [name, setName] = useState(initialData?.name || '');
   const [email, setEmail] = useState(initialData?.email || '');
-  const [phone, setPhone] = useState(initialData?.phone || '');
-  const [company, setCompany] = useState(initialData?.company || '');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isEmailLoading, setIsEmailLoading] = useState(false);
 
   const handleGoogleAuth = async () => {
     setIsGoogleLoading(true);
@@ -21,7 +20,6 @@ export function WelcomeStep({ initialData, onSubmit }: WelcomeStepProps) {
     try {
       const { error: googleError } = await signInWithGoogle();
       if (googleError) {
-        // En desarrollo/placeholder si no hay OAuth activo en Supabase console todavía
         onSubmit({
           name: 'Usuario Google',
           email: 'usuario.google@ejemplo.com',
@@ -41,24 +39,71 @@ export function WelcomeStep({ initialData, onSubmit }: WelcomeStepProps) {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      setError('Por favor ingresá tu nombre completo.');
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setError('Por favor ingresá un correo electrónico válido.');
       return;
     }
-    if (!email.trim() || !email.includes('@')) {
-      setError('Por favor ingresá un correo electrónico válido.');
+    if (!cleanPassword || cleanPassword.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres.');
       return;
     }
 
     setError('');
-    onSubmit({
-      name: name.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
-      company: company.trim(),
-    });
+    setIsEmailLoading(true);
+
+    try {
+      // 1. Intentar Iniciar Sesión con Supabase Auth
+      let { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: cleanPassword,
+      });
+
+      let userId = signInData?.user?.id;
+      let userName = signInData?.user?.user_metadata?.full_name || cleanEmail.split('@')[0];
+
+      // 2. Si la cuenta no existe, Registrar automáticamente en Supabase Auth
+      if (signInError) {
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password: cleanPassword,
+          options: {
+            data: {
+              full_name: cleanEmail.split('@')[0],
+            },
+          },
+        });
+
+        if (signUpError && !signUpError.message.includes('already registered')) {
+          console.warn('Nota Auth:', signUpError.message);
+        }
+
+        userId = signUpData?.user?.id || userId;
+      }
+
+      const defaultName = initialData?.name || userName;
+      onSubmit({
+        id: userId,
+        name: defaultName,
+        email: cleanEmail,
+        phone: initialData?.phone || '',
+        company: initialData?.company || '',
+      });
+    } catch (err: any) {
+      // Fallback gracioso en desarrollo
+      onSubmit({
+        name: cleanEmail.split('@')[0],
+        email: cleanEmail,
+        phone: '',
+        company: '',
+      });
+    } finally {
+      setIsEmailLoading(false);
+    }
   };
 
   return (
@@ -73,10 +118,10 @@ export function WelcomeStep({ initialData, onSubmit }: WelcomeStepProps) {
         {/* Titles */}
         <div className="text-center mb-6 pt-2">
           <h1 className="text-3xl md:text-4xl font-black tracking-tight text-[#2d1d14] mb-2 font-serif">
-            Creá tu Mate Exclusivo
+            Creá tu Mate
           </h1>
           <p className="text-[#5f3826]/80 text-sm md:text-base max-w-md mx-auto leading-relaxed font-medium">
-            Ingresá tus datos para guardar tus borradores y personalizar el modelo, la virola y el grabado en tiempo real.
+            Ingresá tu correo y contraseña para guardar tus borradores y personalizar tu modelo en tiempo real.
           </p>
         </div>
 
@@ -85,8 +130,8 @@ export function WelcomeStep({ initialData, onSubmit }: WelcomeStepProps) {
           <button
             type="button"
             onClick={handleGoogleAuth}
-            disabled={isGoogleLoading}
-            className="w-full py-3.5 px-4 rounded-xl border border-[#e7d7c1] bg-white hover:bg-[#fbf3de]/60 text-[#2d1d14] font-bold text-sm shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-3 cursor-pointer"
+            disabled={isGoogleLoading || isEmailLoading}
+            className="w-full py-3.5 px-4 rounded-xl border border-[#e7d7c1] bg-white hover:bg-[#fbf3de]/60 text-[#2d1d14] font-bold text-sm shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-3 cursor-pointer disabled:opacity-50"
           >
             <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
               <path
@@ -106,7 +151,7 @@ export function WelcomeStep({ initialData, onSubmit }: WelcomeStepProps) {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
               />
             </svg>
-            <span>{isGoogleLoading ? 'Conectando con Google...' : 'Registrarse con Google'}</span>
+            <span>{isGoogleLoading ? 'Conectando con Google...' : 'Continuar con Google'}</span>
           </button>
 
           {/* Divider */}
@@ -115,7 +160,7 @@ export function WelcomeStep({ initialData, onSubmit }: WelcomeStepProps) {
               <div className="w-full border-t border-[#e7d7c1]" />
             </div>
             <span className="relative bg-white px-3 text-[11px] font-bold uppercase tracking-wider text-[#a48e78]">
-              O completá tus datos
+              O ingresá con tu correo
             </span>
           </div>
         </div>
@@ -132,21 +177,6 @@ export function WelcomeStep({ initialData, onSubmit }: WelcomeStepProps) {
           )}
 
           <div>
-            <label htmlFor="name" className="block text-xs font-bold uppercase tracking-wider text-[#5f3826] mb-1">
-              Nombre Completo <span className="text-[#7a4a31]">*</span>
-            </label>
-            <input
-              id="name"
-              type="text"
-              required
-              placeholder="Ej: Sofía Rodríguez"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl bg-[#fdf7e9]/60 border border-[#e7d7c1] text-[#2d1d14] placeholder-[#a48e78] focus:outline-none focus:ring-2 focus:ring-[#7a4a31]/30 focus:border-[#7a4a31] transition-all text-sm font-medium"
-            />
-          </div>
-
-          <div>
             <label htmlFor="email" className="block text-xs font-bold uppercase tracking-wider text-[#5f3826] mb-1">
               Correo Electrónico <span className="text-[#7a4a31]">*</span>
             </label>
@@ -154,53 +184,40 @@ export function WelcomeStep({ initialData, onSubmit }: WelcomeStepProps) {
               id="email"
               type="email"
               required
-              placeholder="sofia@ejemplo.com"
+              placeholder="tu@correo.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl bg-[#fdf7e9]/60 border border-[#e7d7c1] text-[#2d1d14] placeholder-[#a48e78] focus:outline-none focus:ring-2 focus:ring-[#7a4a31]/30 focus:border-[#7a4a31] transition-all text-sm font-medium"
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="phone" className="block text-xs font-bold uppercase tracking-wider text-[#5f3826] mb-1">
-                Teléfono / WhatsApp <span className="text-[#a48e78] font-normal">(opcional)</span>
-              </label>
-              <input
-                id="phone"
-                type="tel"
-                placeholder="+598 99 123 456"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-[#fdf7e9]/60 border border-[#e7d7c1] text-[#2d1d14] placeholder-[#a48e78] focus:outline-none focus:ring-2 focus:ring-[#7a4a31]/30 focus:border-[#7a4a31] transition-all text-sm font-medium"
-              />
-            </div>
-            <div>
-              <label htmlFor="company" className="block text-xs font-bold uppercase tracking-wider text-[#5f3826] mb-1">
-                Empresa / Marca <span className="text-[#a48e78] font-normal">(opcional)</span>
-              </label>
-              <input
-                id="company"
-                type="text"
-                placeholder="Para regalería corporativa"
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-[#fdf7e9]/60 border border-[#e7d7c1] text-[#2d1d14] placeholder-[#a48e78] focus:outline-none focus:ring-2 focus:ring-[#7a4a31]/30 focus:border-[#7a4a31] transition-all text-sm font-medium"
-              />
-            </div>
+          <div>
+            <label htmlFor="password" className="block text-xs font-bold uppercase tracking-wider text-[#5f3826] mb-1">
+              Contraseña <span className="text-[#7a4a31]">*</span>
+            </label>
+            <input
+              id="password"
+              type="password"
+              required
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl bg-[#fdf7e9]/60 border border-[#e7d7c1] text-[#2d1d14] placeholder-[#a48e78] focus:outline-none focus:ring-2 focus:ring-[#7a4a31]/30 focus:border-[#7a4a31] transition-all text-sm font-medium"
+            />
           </div>
 
           <button
             type="submit"
-            className="w-full mt-4 py-3.5 px-6 rounded-xl bg-[#7a4a31] hover:bg-[#5f3826] text-white font-extrabold text-sm shadow-lg shadow-[#7a4a31]/25 transition-all transform active:scale-[0.99] flex items-center justify-center cursor-pointer uppercase tracking-wider"
+            disabled={isEmailLoading || isGoogleLoading}
+            className="w-full mt-4 py-3.5 px-6 rounded-xl bg-[#7a4a31] hover:bg-[#5f3826] text-white font-extrabold text-sm shadow-lg shadow-[#7a4a31]/25 transition-all transform active:scale-[0.99] flex items-center justify-center cursor-pointer uppercase tracking-wider disabled:opacity-50"
           >
-            <span>Comenzar a Diseñar</span>
+            <span>{isEmailLoading ? 'Ingresando...' : 'Comenzar a Diseñar'}</span>
           </button>
         </form>
 
         {/* Footer info */}
-        <p className="text-center text-xs text-[#5f3826]/70 mt-5 font-medium">
-          Tus borradores se guardarán automáticamente en tu perfil de Matearte.
+        <p className="text-center text-xs text-[#5f3826]/70 mt-5 font-medium leading-relaxed">
+          Tus borradores se guardarán automáticamente asociados a tu cuenta.
         </p>
       </div>
     </div>

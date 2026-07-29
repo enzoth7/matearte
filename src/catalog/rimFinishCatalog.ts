@@ -1,4 +1,4 @@
-export type RimFinishId = "finish-1" | "finish-2" | "finish-3";
+export type RimFinishId = "finish-1" | "frame-1" | "frame-5" | "frame-14" | "frame-25";
 
 export interface RimFinish {
   id: RimFinishId;
@@ -9,9 +9,10 @@ export interface RimFinish {
 }
 
 export const rimFinishCatalog: RimFinish[] = [
-  { id: "finish-1", name: "Terminación 1", image: "/assets/virola/finishes/finish-3.png", width: 1093, height: 1093 },
-  { id: "finish-2", name: "Terminación 2", image: "/assets/virola/finishes/finish-3.png", width: 1093, height: 1093 },
-  { id: "finish-3", name: "Terminación 3", image: "/assets/virola/finishes/finish-3.png", width: 1093, height: 1093 },
+  { id: "finish-1", name: "Laureles", image: "/assets/virola/finishes/Frame 14.svg", width: 1093, height: 1093 },
+  { id: "frame-1", name: "Sol", image: "/assets/virola/finishes/Frame 1.svg", width: 1093, height: 1093 },
+  { id: "frame-5", name: "Azteca", image: "/assets/virola/finishes/Frame 5.svg", width: 1093, height: 1093 },
+  { id: "frame-25", name: "Hojas", image: "/assets/virola/finishes/Frame 25.svg", width: 1093, height: 1093 },
 ];
 
 export function getRimFinish(finishId: RimFinishId): RimFinish | undefined {

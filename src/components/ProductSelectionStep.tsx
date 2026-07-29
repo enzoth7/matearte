@@ -98,19 +98,12 @@ export function ProductSelectionStep({ onSelectMate }: ProductSelectionStepProps
               ✕
             </button>
 
-            <div className="h-16 w-16 mx-auto rounded-full bg-[#fbf3de] border border-[#e7d7c1] flex items-center justify-center text-3xl shadow-sm">
-              ✨
-            </div>
-
-            <div className="space-y-2">
-              <span className="inline-block px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#f3e1b9] text-[#7a4a31] border border-[#e7d7c1]">
-                En Desarrollo en Taller
-              </span>
-              <h3 className="text-2xl font-black text-[#2d1d14] font-serif">
+            <div className="space-y-3 pt-4">
+              <h3 className="text-2xl font-black text-[#2d1d14] font-serif uppercase tracking-tight">
                 Próximamente
               </h3>
-              <p className="text-xs text-[#5f3826]/80 leading-relaxed font-medium">
-                Estamos terminando de ajustar la experiencia 3D para la personalización de materas de cuero vacuno artesanal. ¡Muy pronto vas a poder diseñarla!
+              <p className="text-sm text-[#5f3826]/80 leading-relaxed font-medium">
+                Estamos trabajando en ajustar la experiencia. Muy pronto podrás hacerlo.
               </p>
             </div>
 

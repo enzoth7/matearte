@@ -2,6 +2,7 @@ import type { MateVariant } from "./mateCatalog";
 import type { RimFinishId } from "./rimFinishCatalog";
 
 export type RimMaterial = "original" | "acero" | "alpaca" | "alpaca-grande" | "alpaca-bronce" | "acero-bronce" | "plata-900";
+export type RimFinishMode = "none" | "finish";
 export type RimTextMode = "none" | "text";
 export type RimImageMode = "none" | "image";
 
@@ -14,6 +15,7 @@ export interface RimOption {
 
 export interface RimCustomization {
   rimId: string;
+  finishMode: RimFinishMode;
   finishId: RimFinishId;
   textMode: RimTextMode;
   text: string;
@@ -48,7 +50,7 @@ export function createDefaultRimSelection(variant: MateVariant): RimCustomizatio
   const compatibleRims = getCompatibleRims(variant);
   const rim = compatibleRims.find((item) => item.id === variant.defaultRimId) ?? compatibleRims[0];
   if (!rim) throw new Error(`La variante ${variant.id} no tiene virolas compatibles válidas`);
-  return { rimId: rim.id, finishId: "finish-1", textMode: "none", text: "", imageMode: "none", selectedImageId: null };
+  return { rimId: rim.id, finishMode: "none", finishId: "finish-1", textMode: "none", text: "", imageMode: "none", selectedImageId: null };
 }
 
 export function normalizeRimSelection(variant: MateVariant, current: RimCustomization): RimCustomization {

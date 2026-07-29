@@ -56,9 +56,9 @@ export function SuccessStep({ userData, onReset }: SuccessStepProps) {
           <button
             type="button"
             onClick={onReset}
-            className="w-full py-3.5 px-6 rounded-xl bg-[#7a4a31] hover:bg-[#5f3826] text-white font-extrabold text-xs uppercase tracking-wider transition-all border border-[#7a4a31]/20 shadow-md cursor-pointer"
+            className="w-full py-3.5 px-6 rounded-xl bg-[#7a4a31] hover:bg-[#5f3826] text-white font-extrabold text-xs uppercase tracking-wider transition-all border border-[#7a4a31]/20 shadow-md cursor-pointer flex items-center justify-center gap-2"
           >
-            Diseñar Otro Mate
+            <span>👤 Volver a Mi Perfil</span>
           </button>
         </div>
 

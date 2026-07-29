@@ -5,6 +5,7 @@ import { getRimOption, type RimCustomization } from '../catalog/rimCatalog';
 import { getRimFinish } from '../catalog/rimFinishCatalog';
 import { getFlejeFinish } from '../catalog/flejeFinishCatalog';
 import { rimIconCatalog } from '../catalog/rimIconCatalog';
+import { getVariantPrice, getCustomizationPrice } from '../catalog/pricingCatalog';
 import { ConfiguratorPreview } from './ConfiguratorPreview';
 import { FlatFlejePreview, type FlejeCustomization } from './FlatFlejePreview';
 
@@ -44,6 +45,22 @@ export function SummaryStep({
   const rimIcon = configuration.rim.selectedImageId ? rimIconCatalog.find((i) => i.id === configuration.rim.selectedImageId) : null;
   const flejeIcon = flejeConfig.selectedImageId ? rimIconCatalog.find((i) => i.id === flejeConfig.selectedImageId) : null;
 
+  const basePrice = getVariantPrice(configuration.variantId);
+
+  // Virola extras dinámicos desde Supabase
+  const rimFinishExtraUYU = configuration.rim.finishMode === "finish" ? getCustomizationPrice("rim_finish") : 0;
+  const rimTextExtraUYU = configuration.rim.textMode === "text" ? getCustomizationPrice("rim_text") : 0;
+  const rimImageExtraUYU = configuration.rim.imageMode === "image" ? getCustomizationPrice("rim_image") : 0;
+  const totalExtraVirolaUYU = rimFinishExtraUYU + rimTextExtraUYU + rimImageExtraUYU;
+
+  // Fleje extras dinámicos desde Supabase
+  const flejeFinishExtraUYU = (modelDef.hasFleje && flejeConfig.finishMode === "finish") ? getCustomizationPrice("fleje_finish") : 0;
+  const flejeTextExtraUYU = (modelDef.hasFleje && flejeConfig.textMode === "text") ? getCustomizationPrice("fleje_text") : 0;
+  const flejeImageExtraUYU = (modelDef.hasFleje && flejeConfig.imageMode === "image") ? getCustomizationPrice("fleje_image") : 0;
+  const totalExtraFlejeUYU = flejeFinishExtraUYU + flejeTextExtraUYU + flejeImageExtraUYU;
+
+  const totalPriceUYU = basePrice.priceUYU + totalExtraVirolaUYU + totalExtraFlejeUYU;
+
   const handleConfirm = async () => {
     setIsSubmitting(true);
     try {
@@ -62,6 +79,8 @@ export function SummaryStep({
       onSaveDraft();
     }, 800);
   };
+
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
 
   return (
     <div className="py-6 md:py-10 px-4 flex flex-col justify-center items-center">
@@ -228,12 +247,26 @@ export function SummaryStep({
               </dl>
             </div>
 
+            {/* Total Price Card */}
+            <div className="bg-emerald-50 border-2 border-emerald-600/80 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+              <div>
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-900 block">
+                  Precio Total
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-2xl font-black text-emerald-950 font-serif block leading-none">
+                  $ {totalPriceUYU.toLocaleString('es-UY')} UYU
+                </span>
+              </div>
+            </div>
+
             {/* Actions */}
             <div className="space-y-3 pt-2">
               <button
                 type="button"
                 disabled={isSubmitting || isDrafting}
-                onClick={handleConfirm}
+                onClick={() => setShowDisclaimer(true)}
                 className="w-full py-4 px-6 rounded-xl bg-[#7a4a31] hover:bg-[#5f3826] text-white font-extrabold text-base shadow-xl shadow-[#7a4a31]/20 transition-all transform active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider disabled:opacity-50"
               >
                 {isSubmitting ? (
@@ -279,6 +312,50 @@ export function SummaryStep({
         </div>
 
       </div>
+
+      {/* Production Disclaimer Confirmation Modal */}
+      {showDisclaimer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="w-full max-w-md bg-white border border-[#e7d7c1] rounded-3xl p-6 md:p-8 shadow-2xl space-y-5 relative animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center gap-3 text-amber-700 border-b border-[#e7d7c1] pb-3">
+              <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                <svg className="w-6 h-6 text-amber-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-black text-[#2d1d14] font-serif">Confirmar Envío a Producción</h3>
+            </div>
+
+            <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 text-xs font-semibold text-amber-900 leading-relaxed shadow-inner">
+              ⚠️ Una vez enviado a la producción ya no puedes editar o eliminar este pedido.
+            </div>
+
+            <p className="text-xs text-[#5f3826]/80 font-medium">
+              Tu mate se enviará directamente al taller para comenzar su fabricación. ¿Deseás confirmar el envío?
+            </p>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDisclaimer(false)}
+                className="flex-1 py-3 px-4 rounded-xl border border-[#e7d7c1] bg-[#fbf3de]/60 hover:bg-[#fbf3de] text-[#5f3826] font-bold text-xs transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDisclaimer(false);
+                  handleConfirm();
+                }}
+                className="flex-1 py-3 px-4 rounded-xl bg-[#7a4a31] hover:bg-[#5f3826] text-white font-extrabold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer"
+              >
+                Sí, Enviar a Producción
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,18 +1,18 @@
-import type { RimTextMode } from "../catalog/rimCatalog";
+export type RimFinishMode = "none" | "finish";
 
-interface RimTextModeSelectorProps {
-  mode: RimTextMode;
-  onSelect: (mode: RimTextMode) => void;
+interface RimFinishModeSelectorProps {
+  mode: RimFinishMode;
+  onSelect: (mode: RimFinishMode) => void;
 }
 
-export function RimTextModeSelector({ mode, onSelect }: RimTextModeSelectorProps) {
-  const options: Array<{ id: RimTextMode; label: string }> = [
-    { id: "none", label: "Sin texto" },
-    { id: "text", label: "Con texto" },
+export function RimFinishModeSelector({ mode, onSelect }: RimFinishModeSelectorProps) {
+  const options: Array<{ id: RimFinishMode; label: string }> = [
+    { id: "none", label: "Sin terminación" },
+    { id: "finish", label: "Con terminación" },
   ];
   return (
     <div>
-      <span className="mb-2 block text-[9px] font-bold uppercase tracking-widest text-zinc-400">Texto</span>
+      <span className="mb-2 block text-[9px] font-bold uppercase tracking-widest text-zinc-400">Terminación</span>
       <div className="grid grid-cols-2 gap-2">
         {options.map((option) => (
           <button

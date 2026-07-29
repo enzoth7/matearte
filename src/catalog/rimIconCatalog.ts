@@ -7,7 +7,13 @@ export interface RimIconAsset {
 export const rimIconCatalog: RimIconAsset[] = [
   { id: "auf", name: "AUF", src: "/assets/virola/icons/AUF.svg" },
   { id: "corazon", name: "Corazón", src: "/assets/virola/icons/corazon.svg" },
-  { id: "destello", name: "Destello", src: "/assets/virola/icons/destello.svg" },
-  { id: "estrella", name: "Estrella", src: "/assets/virola/icons/estrella.svg" },
-  { id: "sol", name: "Sol", src: "/assets/virola/icons/sol.svg" },
+  { id: "frame-15", name: "Diseño 15", src: "/assets/virola/icons/Frame 15.svg" },
+  { id: "frame-17", name: "Diseño 17", src: "/assets/virola/icons/Frame 17.svg" },
+  { id: "frame-18", name: "Diseño 18", src: "/assets/virola/icons/Frame 18.svg" },
+  { id: "frame-19", name: "Diseño 19", src: "/assets/virola/icons/Frame 19.svg" },
+  { id: "frame-20", name: "Diseño 20", src: "/assets/virola/icons/Frame 20.svg" },
+  { id: "frame-21", name: "Diseño 21", src: "/assets/virola/icons/Frame 21.svg" },
+  { id: "frame-22", name: "Diseño 22", src: "/assets/virola/icons/Frame 22.svg" },
+  { id: "frame-23", name: "Diseño 23", src: "/assets/virola/icons/Frame 23.svg" },
+  { id: "frame-24", name: "Diseño 24", src: "/assets/virola/icons/Frame 24.svg" },
 ];

@@ -9,7 +9,7 @@ import { RIM_VIEWBOX_SIZE } from "../catalog/rimGeometry";
 interface ConfiguratorPreviewProps { rim: RimCustomization }
 
 export function ConfiguratorPreview({ rim }: ConfiguratorPreviewProps) {
-  const finish = getRimFinish(rim.finishId);
+  const finish = rim.finishMode === "finish" ? getRimFinish(rim.finishId) : undefined;
   const hasTextKnockout = rim.textMode === "text" && Boolean(rim.text.trim());
   const outlineAsset = "/assets/svg/rim-outline.svg";
   const baseAsset = "/assets/svg/rim-base.svg";
