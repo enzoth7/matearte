@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.codex-workbook-preview/
+.codex-extracted-seed.json
+.codex-inspect-workbook.mjs
+.dev.stdout.log
+.dev.stderr.log
+data/dashboard.json
+data/dashboard.json.tmp
+
+.vercel
+.env*.local

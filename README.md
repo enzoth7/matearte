@@ -1,32 +1,29 @@
-# React + TypeScript + Vite
+# MateArte
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Monorepo de la experiencia digital de MateArte. Cada carpeta se despliega como un proyecto independiente de Vercel desde el mismo repositorio.
 
-Currently, two official plugins are available:
+| Aplicación | Carpeta | URL temporal |
+| --- | --- | --- |
+| Sitio público | `paginaweb` | <https://matearte-web.vercel.app> |
+| Personalizador | `visualizador` | <https://matearte.vercel.app> |
+| Operaciones demo | `dashboard` | <https://matearte-dashboard.vercel.app> |
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Demo para cliente
 
-## React Compiler
+Mientras no exista un dominio propio, las aplicaciones usan sus dominios `*.vercel.app`. El sitio público debe recibir `NEXT_PUBLIC_CUSTOMIZER_URL` con la URL del proyecto del visualizador.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+El visualizador entra automáticamente en modo invitado cuando no se configuran las variables públicas de Supabase. El dashboard funciona por defecto en modo demo y persiste los cambios en `localStorage`. Cada navegador mantiene su propia copia; no existe sincronización entre personas. Para volver a usar el servidor Express local, definir `VITE_DASHBOARD_DATA_MODE=api`.
 
-## Expanding the Oxlint configuration
+## Despliegue en Vercel
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+Importar este repositorio tres veces y configurar un Root Directory diferente en cada proyecto:
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
+1. `paginaweb`
+2. `visualizador`
+3. `dashboard`
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Los comandos y directorios de salida se detectan desde los `package.json` de cada aplicación. Antes de publicar, ejecutar las verificaciones documentadas en el README de cada carpeta.
+
+## Etapa productiva posterior
+
+El dashboard demo no debe utilizarse como base compartida de operaciones. La siguiente etapa es migrar clientes, pedidos, productos y producción a Supabase con autenticación y RLS antes de habilitarlo para uso interno real.

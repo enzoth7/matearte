@@ -1,0 +1,7 @@
+dist/
+node_modules/
+coverage/
+.codex-workbook-preview/
+/data/
+MATEARTE.xlsx
+*.log
