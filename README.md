@@ -4,8 +4,8 @@ Monorepo de la experiencia digital de MateArte. Cada carpeta se despliega como u
 
 | Aplicación | Carpeta | URL temporal |
 | --- | --- | --- |
-| Sitio público | `paginaweb` | <https://matearte-web.vercel.app> |
-| Personalizador | `visualizador` | <https://matearte.vercel.app> |
+| Sitio público | `paginaweb` | <https://matearte.vercel.app> |
+| Personalizador | `visualizador` | <https://matearte-visualizador.vercel.app> |
 | Operaciones demo | `dashboard` | <https://matearte-dashboard.vercel.app> |
 
 ## Demo para cliente
@@ -24,7 +24,7 @@ Importar este repositorio tres veces y configurar un Root Directory diferente en
 
 Los comandos y directorios de salida se detectan desde los `package.json` de cada aplicación. Antes de publicar, ejecutar las verificaciones documentadas en el README de cada carpeta.
 
-El `vercel.json` de la raíz mantiene compatible el proyecto histórico `matearte`: si su integración de GitHub todavía apunta a la raíz del repositorio, instala y construye `visualizador` y publica `visualizador/dist`.
+El `vercel.json` de la raíz mantiene compatible el proyecto `matearte-visualizador`: como su integración de GitHub apunta a la raíz del repositorio, instala y construye `visualizador` y publica `visualizador/dist`.
 
 ## Etapa productiva posterior
 
