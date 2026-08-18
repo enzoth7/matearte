@@ -1,7 +1,341 @@
 {
   "source": "MATEARTE.xlsx",
-  "generatedAt": "2026-08-13T17:24:58.445Z",
+  "generatedAt": "2026-08-18T05:16:55.245Z",
   "exchangeRate": 0.026,
+  "customers": [
+    "ABIGAIL",
+    "ANAHI",
+    "BAUTISTA",
+    "BAUTISTA MENTAS",
+    "FRANCISCO GAUCHAT",
+    "FRANCO PICCIOLA",
+    "GASPAR",
+    "GASTON",
+    "GASTON MERCADO",
+    "GIAN LUCA BARTOLO",
+    "GIMENA",
+    "HERNAN",
+    "JOAO",
+    "JUAMPI ROMAN",
+    "JUAN",
+    "KEVIN",
+    "MANU",
+    "MARIANO",
+    "MARIANO DALBY",
+    "MASI",
+    "MASIO",
+    "MATIAS",
+    "MAXI",
+    "MIRIAM",
+    "MIRIAM BOCHATAY",
+    "NICO PEREZ",
+    "NICOLAS HEILI",
+    "NICOLAS HELI",
+    "NICOLAS PRUCCA",
+    "PABLO",
+    "PATO EME",
+    "RODRIGO SCANDROLI",
+    "YAMIL"
+  ],
+  "customerProfiles": [
+    {
+      "fullName": "ABIGAIL",
+      "firstName": "ABIGAIL",
+      "lastName": "",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "ANAHI",
+      "firstName": "ANAHI",
+      "lastName": "",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "BAUTISTA",
+      "firstName": "BAUTISTA",
+      "lastName": "",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "BAUTISTA MENTAS",
+      "firstName": "BAUTISTA",
+      "lastName": "MENTAS",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "FRANCISCO GAUCHAT",
+      "firstName": "FRANCISCO",
+      "lastName": "GAUCHAT",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "FRANCO PICCIOLA",
+      "firstName": "FRANCO",
+      "lastName": "PICCIOLA",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "GASPAR",
+      "firstName": "GASPAR",
+      "lastName": "",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "GASTON",
+      "firstName": "GASTON",
+      "lastName": "",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "GASTON MERCADO",
+      "firstName": "GASTON",
+      "lastName": "MERCADO",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "GIAN LUCA BARTOLO",
+      "firstName": "GIAN",
+      "lastName": "LUCA BARTOLO",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "GIMENA",
+      "firstName": "GIMENA",
+      "lastName": "",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "HERNAN",
+      "firstName": "HERNAN",
+      "lastName": "",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "JOAO",
+      "firstName": "JOAO",
+      "lastName": "",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "JUAMPI ROMAN",
+      "firstName": "JUAMPI",
+      "lastName": "ROMAN",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "JUAN",
+      "firstName": "JUAN",
+      "lastName": "",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "KEVIN",
+      "firstName": "KEVIN",
+      "lastName": "",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "MANU",
+      "firstName": "MANU",
+      "lastName": "",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "MARIANO",
+      "firstName": "MARIANO",
+      "lastName": "",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "MARIANO DALBY",
+      "firstName": "MARIANO",
+      "lastName": "DALBY",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "MASI",
+      "firstName": "MASI",
+      "lastName": "",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "MASIO",
+      "firstName": "MASIO",
+      "lastName": "",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "MATIAS",
+      "firstName": "MATIAS",
+      "lastName": "",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "MAXI",
+      "firstName": "MAXI",
+      "lastName": "",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "MIRIAM",
+      "firstName": "MIRIAM",
+      "lastName": "",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "MIRIAM BOCHATAY",
+      "firstName": "MIRIAM",
+      "lastName": "BOCHATAY",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "NICO PEREZ",
+      "firstName": "NICO",
+      "lastName": "PEREZ",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "NICOLAS HEILI",
+      "firstName": "NICOLAS",
+      "lastName": "HEILI",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "NICOLAS HELI",
+      "firstName": "NICOLAS",
+      "lastName": "HELI",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "NICOLAS PRUCCA",
+      "firstName": "NICOLAS",
+      "lastName": "PRUCCA",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "PABLO",
+      "firstName": "PABLO",
+      "lastName": "",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "PATO EME",
+      "firstName": "PATO",
+      "lastName": "EME",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "RODRIGO SCANDROLI",
+      "firstName": "RODRIGO",
+      "lastName": "SCANDROLI",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    },
+    {
+      "fullName": "YAMIL",
+      "firstName": "YAMIL",
+      "lastName": "",
+      "phone": "",
+      "email": "",
+      "address": "",
+      "notes": ""
+    }
+  ],
   "products": [
     {
       "id": "1",
@@ -10,7 +344,7 @@
       "rimType": "Alpaca Cincelada",
       "leatherType": "",
       "priceArg": 31900.000000000004,
-      "priceUyu": 829.4000000000001
+      "priceUyu": 829.4
     },
     {
       "id": "2",
@@ -24,6 +358,15 @@
     {
       "id": "3",
       "model": "Camionero",
+      "variant": "Criollo con Posa Mate de Cuero Crudo",
+      "rimType": "Acero Liso",
+      "leatherType": "",
+      "priceArg": 25100,
+      "priceUyu": 652.6
+    },
+    {
+      "id": "4",
+      "model": "Camionero",
       "variant": "Acero Liso",
       "rimType": "Acero Liso",
       "leatherType": "",
@@ -31,7 +374,7 @@
       "priceUyu": 546.26
     },
     {
-      "id": "4",
+      "id": "5",
       "model": "Criollo",
       "variant": "Natural con Posa Mate Copa Virola de Acero",
       "rimType": "Acero Liso",
@@ -40,7 +383,7 @@
       "priceUyu": 529.1
     },
     {
-      "id": "5",
+      "id": "6",
       "model": "Criollo",
       "variant": "Virola de Acero con Posa Mate de Cuero Crudo",
       "rimType": "Acero Liso",
@@ -49,7 +392,7 @@
       "priceUyu": 652.08
     },
     {
-      "id": "6",
+      "id": "7",
       "model": "Criollo",
       "variant": "Alpaca Grande Lisa con Posa Mate Cuero Crudo",
       "rimType": "Alpaca",
@@ -58,7 +401,7 @@
       "priceUyu": 815.1
     },
     {
-      "id": "7",
+      "id": "8",
       "model": "Criollo",
       "variant": "Alpaca Grande Cincelada con Posa Mate Cuero Crudo",
       "rimType": "Alpaca",
@@ -67,7 +410,7 @@
       "priceUyu": 920.92
     },
     {
-      "id": "8",
+      "id": "9",
       "model": "Criollo",
       "variant": "Natural con Posa Mate Cinta",
       "rimType": "Acero Liso",
@@ -76,7 +419,7 @@
       "priceUyu": 489.06
     },
     {
-      "id": "9",
+      "id": "10",
       "model": "Criollo",
       "variant": "Oscuro Posa Mate Copa",
       "rimType": "Acero Liso",
@@ -85,7 +428,7 @@
       "priceUyu": 566.28
     },
     {
-      "id": "10",
+      "id": "11",
       "model": "Criollo",
       "variant": "Alpaca Grande Cincelada Posa Mate Vaqueta",
       "rimType": "Alpaca",
@@ -94,7 +437,7 @@
       "priceUyu": 757.9
     },
     {
-      "id": "11",
+      "id": "12",
       "model": "Imperial",
       "variant": "Cincelado a Lacre",
       "rimType": "Imperial",
@@ -103,7 +446,7 @@
       "priceUyu": 4576
     },
     {
-      "id": "12",
+      "id": "13",
       "model": "Imperial",
       "variant": "Premium",
       "rimType": "Imperial",
@@ -112,7 +455,7 @@
       "priceUyu": 1141.14
     },
     {
-      "id": "13",
+      "id": "14",
       "model": "Imperial",
       "variant": "Cuero Crudo",
       "rimType": "Imperial",
@@ -121,7 +464,7 @@
       "priceUyu": 1367.08
     },
     {
-      "id": "14",
+      "id": "15",
       "model": "Imperial",
       "variant": "Criollo con Posa Mate de Cuero Crudo",
       "rimType": "Imperial",
@@ -130,7 +473,7 @@
       "priceUyu": 978.12
     },
     {
-      "id": "15",
+      "id": "16",
       "model": "Imperial",
       "variant": "Virola Plata 900",
       "rimType": "Plata 900",
@@ -139,7 +482,7 @@
       "priceUyu": 14300
     },
     {
-      "id": "16",
+      "id": "17",
       "model": "Imperial",
       "variant": "Print",
       "rimType": "Imperial",
@@ -148,7 +491,7 @@
       "priceUyu": 1304.16
     },
     {
-      "id": "17",
+      "id": "18",
       "model": "Torpedo",
       "variant": "Alpaca Cincelado al Lacre",
       "rimType": "Alpaca Cincelado al Lacre",
@@ -157,7 +500,7 @@
       "priceUyu": 2588.3
     },
     {
-      "id": "18",
+      "id": "19",
       "model": "Torpedo",
       "variant": "Cuero Crudo Virola Grande Cincelada",
       "rimType": "Alpaca Grande Cincelada",
@@ -166,7 +509,7 @@
       "priceUyu": 1075.36
     },
     {
-      "id": "19",
+      "id": "20",
       "model": "Torpedo",
       "variant": "Cuero Liso Alpaca Grande Lisa",
       "rimType": "Alpaca Grande Lisa",
@@ -175,7 +518,7 @@
       "priceUyu": 797.94
     },
     {
-      "id": "20",
+      "id": "21",
       "model": "Torpedo",
       "variant": "Alpaca Grande Cincelada con Cuero Croco/Pelos",
       "rimType": "Alpaca Grande Cincelada",
@@ -184,7 +527,7 @@
       "priceUyu": 1035.32
     },
     {
-      "id": "21",
+      "id": "22",
       "model": "Torpedo",
       "variant": "Alpaca Cuero Croco/Pelos",
       "rimType": "Alpaca Común",
@@ -193,7 +536,7 @@
       "priceUyu": 938.08
     },
     {
-      "id": "22",
+      "id": "23",
       "model": "Torpedo",
       "variant": "Cuero Liso Virola Alpaca Grande",
       "rimType": "Alpaca Grande Cincelada",
@@ -202,7 +545,7 @@
       "priceUyu": 872.3
     },
     {
-      "id": "23",
+      "id": "24",
       "model": "Torpedo",
       "variant": "Alpaca y Bronce Cuero Estampado",
       "rimType": "Alpaca y Bronce",
@@ -211,7 +554,7 @@
       "priceUyu": 1041.04
     },
     {
-      "id": "24",
+      "id": "25",
       "model": "Torpedo",
       "variant": "Alpaca y Bronce Croco/Pelos",
       "rimType": "Alpaca y Bronce",
@@ -220,7 +563,7 @@
       "priceUyu": 1123.98
     },
     {
-      "id": "25",
+      "id": "26",
       "model": "Torpedo",
       "variant": "Cuero Liso Virola Acero y Bronce Liso",
       "rimType": "Acero y Bronce Liso",
@@ -229,7 +572,7 @@
       "priceUyu": 592.02
     },
     {
-      "id": "26",
+      "id": "27",
       "model": "Torpedo",
       "variant": "Cuero Liso Alpaca y Bronce",
       "rimType": "Alpaca y Bronce",
@@ -238,7 +581,7 @@
       "priceUyu": 960.96
     },
     {
-      "id": "27",
+      "id": "28",
       "model": "Torpedo",
       "variant": "Cuero Liso Alpaca Cincelada",
       "rimType": "Alpaca Cincelada",
@@ -247,7 +590,7 @@
       "priceUyu": 775.06
     },
     {
-      "id": "28",
+      "id": "29",
       "model": "Torpedo",
       "variant": "Cuero Crudo Virola Alpaca y Bronce",
       "rimType": "Alpaca y Bronce",
@@ -256,7 +599,7 @@
       "priceUyu": 1106.82
     },
     {
-      "id": "29",
+      "id": "30",
       "model": "Torpedo",
       "variant": "Cuero Crudo Virola Alpaca Cincelada",
       "rimType": "Alpaca Cincelada",
@@ -265,34 +608,34 @@
       "priceUyu": 978.12
     },
     {
-      "id": "30",
+      "id": "31",
       "model": "Torpedo",
-      "variant": "Cuero Estampado Virola Alpaca Comun",
+      "variant": "Cuero Estampado Virola Alpaca Comun Cincelada",
       "rimType": "Alpaca Cincelada",
       "leatherType": "Estampado",
       "priceArg": 35090,
       "priceUyu": 912.34
     },
     {
-      "id": "31",
+      "id": "32",
       "model": "Torpedo",
-      "variant": "Cuero Estampado Virola Alpaca Grande",
+      "variant": "Cuero Estampado Virola Alpaca Grande Cincelada",
       "rimType": "Alpaca Grande Cincelada",
       "leatherType": "Estampado",
       "priceArg": 34760,
       "priceUyu": 903.76
     },
     {
-      "id": "32",
+      "id": "33",
       "model": "Torpedo",
-      "variant": "Cuero Estampado Alpaca Lisa",
+      "variant": "Cuero Estampado Alpaca Grande Lisa",
       "rimType": "Alpaca Grande Lisa",
       "leatherType": "Estampado",
       "priceArg": 29590.000000000004,
       "priceUyu": 769.34
     },
     {
-      "id": "33",
+      "id": "34",
       "model": "Torpedo",
       "variant": "Virola Acero Liso",
       "rimType": "Acero Liso",
@@ -301,7 +644,7 @@
       "priceUyu": 489.06
     },
     {
-      "id": "34",
+      "id": "35",
       "model": "Bombilla",
       "variant": "Con Aplique",
       "rimType": "-",
@@ -310,7 +653,7 @@
       "priceUyu": 426.14
     },
     {
-      "id": "35",
+      "id": "36",
       "model": "Bombillón",
       "variant": "Alpaca",
       "rimType": "-",
@@ -319,7 +662,7 @@
       "priceUyu": 328.9
     },
     {
-      "id": "36",
+      "id": "37",
       "model": "Bombillón",
       "variant": "Pico de Loro",
       "rimType": "-",
@@ -328,7 +671,7 @@
       "priceUyu": 391.82
     },
     {
-      "id": "37",
+      "id": "38",
       "model": "Bombillón",
       "variant": "Con Aros",
       "rimType": "-",
@@ -337,22 +680,13 @@
       "priceUyu": 423.28
     },
     {
-      "id": "38",
+      "id": "39",
       "model": "Bombillón",
       "variant": "Campeón del Mundo",
       "rimType": "-",
       "leatherType": "",
       "priceArg": 30800.000000000004,
       "priceUyu": 800.8
-    },
-    {
-      "id": "39",
-      "model": "Bombilla",
-      "variant": "Cincelada",
-      "rimType": "-",
-      "leatherType": "",
-      "priceArg": 15070.000000000002,
-      "priceUyu": 391.82
     }
   ],
   "production": [
@@ -748,7 +1082,7 @@
       "orderId": "PED-336325",
       "customer": "RODRIGO SCANDROLI",
       "model": "Torpedo",
-      "variant": "Cuero Estampado Virola Alpaca Grande",
+      "variant": "Cuero Estampado Virola Alpaca Grande Cincelada",
       "quantity": 10,
       "status": "En producción"
     },
@@ -817,24 +1151,6 @@
     },
     {
       "lineId": "prod-61",
-      "orderId": "PED-218726",
-      "customer": "FRANCISCO GAUCHAT",
-      "model": "Torpedo",
-      "variant": "Cuero Liso Virola Alpaca Grande",
-      "quantity": 13,
-      "status": "En producción"
-    },
-    {
-      "lineId": "prod-62",
-      "orderId": "PED-517172",
-      "customer": "FRANCISCO GAUCHAT",
-      "model": "Torpedo",
-      "variant": "Virola Acero Liso",
-      "quantity": 10,
-      "status": "En producción"
-    },
-    {
-      "lineId": "prod-63",
       "orderId": "PED-717216",
       "customer": "BAUTISTA MENTAS",
       "model": "Criollo",
@@ -843,70 +1159,25 @@
       "status": "En producción"
     },
     {
-      "lineId": "prod-64",
-      "orderId": "PED-473679",
-      "customer": "HERNAN",
-      "model": "Torpedo",
-      "variant": "Cuero Liso Alpaca y Bronce",
-      "quantity": 10,
-      "status": "En producción"
-    },
-    {
-      "lineId": "prod-65",
-      "orderId": "PED-771745",
-      "customer": "HERNAN",
-      "model": "Criollo",
-      "variant": "Oscuro Posa Mate Copa",
-      "quantity": 10,
-      "status": "En producción"
-    },
-    {
-      "lineId": "prod-66",
-      "orderId": "PED-859947",
-      "customer": "HERNAN",
-      "model": "Imperial",
-      "variant": "Premium",
-      "quantity": 10,
-      "status": "En producción"
-    },
-    {
-      "lineId": "prod-67",
-      "orderId": "PED-988889",
-      "customer": "HERNAN",
-      "model": "Criollo",
-      "variant": "Virola de Acero con Posa Mate de Cuero Crudo",
-      "quantity": 10,
-      "status": "En producción"
-    },
-    {
-      "lineId": "prod-68",
-      "orderId": "PED-401259",
-      "customer": "HERNAN",
-      "model": "Criollo",
-      "variant": "Alpaca Grande Cincelada con Posa Mate Cuero Crudo",
-      "quantity": 10,
-      "status": "En producción"
-    },
-    {
-      "lineId": "prod-69",
+      "lineId": "prod-62",
       "orderId": "PED-384170",
       "customer": "NICOLAS PRUCCA",
       "model": "Torpedo",
-      "variant": "Cuero Estampado Alpaca Lisa",
+      "variant": "Cuero Estampado Alpaca Grande Lisa",
       "quantity": 10,
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-70",
+      "lineId": "prod-63",
       "orderId": "PED-230804",
       "customer": "NICOLAS PRUCCA",
       "model": "Torpedo",
-      "variant": "Cuero Estampado Virola Alpaca Grande",
+      "variant": "Cuero Estampado Virola Alpaca Grande Cincelada",
       "quantity": 10,
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-71",
+      "lineId": "prod-64",
       "orderId": "PED-549848",
       "customer": "NICOLAS PRUCCA",
       "model": "Bombillón",
@@ -915,7 +1186,7 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-72",
+      "lineId": "prod-65",
       "orderId": "PED-654756",
       "customer": "NICOLAS PRUCCA",
       "model": "Bombillón",
@@ -924,7 +1195,7 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-73",
+      "lineId": "prod-66",
       "orderId": "PED-555934",
       "customer": "NICOLAS PRUCCA",
       "model": "Torpedo",
@@ -933,7 +1204,7 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-74",
+      "lineId": "prod-67",
       "orderId": "PED-600646",
       "customer": "NICOLAS PRUCCA",
       "model": "Torpedo",
@@ -942,7 +1213,7 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-75",
+      "lineId": "prod-68",
       "orderId": "PED-841811",
       "customer": "NICOLAS PRUCCA",
       "model": "Bombillón",
@@ -951,7 +1222,7 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-76",
+      "lineId": "prod-69",
       "orderId": "PED-876811",
       "customer": "GIMENA",
       "model": "Torpedo",
@@ -960,7 +1231,7 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-77",
+      "lineId": "prod-70",
       "orderId": "PED-182530",
       "customer": "PATO EME",
       "model": "Torpedo",
@@ -969,7 +1240,7 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-78",
+      "lineId": "prod-71",
       "orderId": "PED-182530",
       "customer": "PATO EME",
       "model": "Torpedo",
@@ -978,7 +1249,7 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-79",
+      "lineId": "prod-72",
       "orderId": "PED-182530",
       "customer": "PATO EME",
       "model": "Torpedo",
@@ -987,7 +1258,7 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-80",
+      "lineId": "prod-73",
       "orderId": "PED-182530",
       "customer": "PATO EME",
       "model": "Torpedo",
@@ -996,7 +1267,7 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-81",
+      "lineId": "prod-74",
       "orderId": "PED-431220",
       "customer": "BAUTISTA",
       "model": "Criollo",
@@ -1005,7 +1276,7 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-82",
+      "lineId": "prod-75",
       "orderId": "PED-972254",
       "customer": "MAXI",
       "model": "Bombillón",
@@ -1014,7 +1285,7 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-83",
+      "lineId": "prod-76",
       "orderId": "PED-972254",
       "customer": "MAXI",
       "model": "Torpedo",
@@ -1023,7 +1294,7 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-84",
+      "lineId": "prod-77",
       "orderId": "PED-972254",
       "customer": "MAXI",
       "model": "Torpedo",
@@ -1032,7 +1303,7 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-85",
+      "lineId": "prod-78",
       "orderId": "PED-972254",
       "customer": "MAXI",
       "model": "Torpedo",
@@ -1041,7 +1312,7 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-86",
+      "lineId": "prod-79",
       "orderId": "PED-687266",
       "customer": "ABIGAIL",
       "model": "Torpedo",
@@ -1050,7 +1321,7 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-87",
+      "lineId": "prod-80",
       "orderId": "PED-687266",
       "customer": "ABIGAIL",
       "model": "Criollo",
@@ -1059,7 +1330,7 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-88",
+      "lineId": "prod-81",
       "orderId": "PED-977623",
       "customer": "GASTON MERCADO",
       "model": "Criollo",
@@ -1068,25 +1339,25 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-89",
+      "lineId": "prod-82",
       "orderId": "PED-977623",
       "customer": "GASTON MERCADO",
       "model": "Torpedo",
-      "variant": "Cuero Estampado Virola Alpaca Grande",
+      "variant": "Cuero Estampado Virola Alpaca Grande Cincelada",
       "quantity": 30,
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-90",
+      "lineId": "prod-83",
       "orderId": "PED-977623",
       "customer": "GASTON MERCADO",
       "model": "Torpedo",
-      "variant": "Cuero Estampado Alpaca Lisa",
+      "variant": "Cuero Estampado Alpaca Grande Lisa",
       "quantity": 30,
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-91",
+      "lineId": "prod-84",
       "orderId": "PED-220467",
       "customer": "MANU",
       "model": "Torpedo",
@@ -1095,7 +1366,7 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-92",
+      "lineId": "prod-85",
       "orderId": "PED-220467",
       "customer": "MANU",
       "model": "Criollo",
@@ -1104,7 +1375,7 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-93",
+      "lineId": "prod-86",
       "orderId": "PED-725335",
       "customer": "GASPAR",
       "model": "Torpedo",
@@ -1113,12 +1384,183 @@
       "status": "Pendiente"
     },
     {
-      "lineId": "prod-94",
+      "lineId": "prod-87",
       "orderId": "PED-725335",
       "customer": "GASPAR",
       "model": "Criollo",
       "variant": "Virola de Acero con Posa Mate de Cuero Crudo",
       "quantity": 10,
+      "status": "Pendiente"
+    },
+    {
+      "lineId": "prod-88",
+      "orderId": "PED-288715",
+      "customer": "NICO PEREZ",
+      "model": "Torpedo",
+      "variant": "Virola Acero Liso",
+      "quantity": 5,
+      "status": "Pendiente"
+    },
+    {
+      "lineId": "prod-89",
+      "orderId": "PED-288715",
+      "customer": "NICO PEREZ",
+      "model": "Bombillón",
+      "variant": "Con Aros",
+      "quantity": 5,
+      "status": "Pendiente"
+    },
+    {
+      "lineId": "prod-90",
+      "orderId": "PED-288715",
+      "customer": "NICO PEREZ",
+      "model": "Torpedo",
+      "variant": "Cuero Crudo Virola Grande Cincelada",
+      "quantity": 5,
+      "status": "Pendiente"
+    },
+    {
+      "lineId": "prod-91",
+      "orderId": "PED-288715",
+      "customer": "NICO PEREZ",
+      "model": "Bombillón",
+      "variant": "Pico de Loro",
+      "quantity": 5,
+      "status": "Pendiente"
+    },
+    {
+      "lineId": "prod-92",
+      "orderId": "PED-288715",
+      "customer": "NICO PEREZ",
+      "model": "Bombillón",
+      "variant": "Alpaca",
+      "quantity": 5,
+      "status": "Pendiente"
+    },
+    {
+      "lineId": "prod-93",
+      "orderId": "PED-288715",
+      "customer": "NICO PEREZ",
+      "model": "Torpedo",
+      "variant": "Cuero Estampado Virola Alpaca Comun Cincelada",
+      "quantity": 5,
+      "status": "Pendiente"
+    },
+    {
+      "lineId": "prod-94",
+      "orderId": "PED-950722",
+      "customer": "JOAO",
+      "model": "criollo",
+      "variant": "Virola de Acero con Posa Mate de Cuero Crudo",
+      "quantity": 90,
+      "status": "Pendiente"
+    },
+    {
+      "lineId": "prod-95",
+      "orderId": "PED-950722",
+      "customer": "JOAO",
+      "model": "Criollo",
+      "variant": "Oscuro Posa Mate Copa",
+      "quantity": 30,
+      "status": "Pendiente"
+    },
+    {
+      "lineId": "prod-96",
+      "orderId": "PED-950722",
+      "customer": "JOAO",
+      "model": "Camionero",
+      "variant": "Criollo con Posa Mate de Cuero Crudo",
+      "quantity": 90,
+      "status": "Pendiente"
+    },
+    {
+      "lineId": "prod-97",
+      "orderId": "PED-950722",
+      "customer": "JOAO",
+      "model": "Criollo",
+      "variant": "Oscuro Posa Mate Copa",
+      "quantity": 30,
+      "status": "Pendiente"
+    },
+    {
+      "lineId": "prod-98",
+      "orderId": "PED-580288",
+      "customer": "YAMIL",
+      "model": "Torpedo",
+      "variant": "Virola Acero Liso",
+      "quantity": 30,
+      "status": "Pendiente"
+    },
+    {
+      "lineId": "prod-99",
+      "orderId": "PED-580288",
+      "customer": "YAMIL",
+      "model": "Torpedo",
+      "variant": "Cuero Crudo Virola Alpaca Cincelada",
+      "quantity": 13,
+      "status": "Pendiente"
+    },
+    {
+      "lineId": "prod-100",
+      "orderId": "PED-580288",
+      "customer": "YAMIL",
+      "model": "Torpedo",
+      "variant": "Cuero Crudo Virola Alpaca y Bronce",
+      "quantity": 15,
+      "status": "Pendiente"
+    },
+    {
+      "lineId": "prod-101",
+      "orderId": "PED-580288",
+      "customer": "YAMIL",
+      "model": "Torpedo",
+      "variant": "Cuero Liso Alpaca Cincelada",
+      "quantity": 8,
+      "status": "Pendiente"
+    },
+    {
+      "lineId": "prod-102",
+      "orderId": "PED-580288",
+      "customer": "YAMIL",
+      "model": "Torpedo",
+      "variant": "Alpaca y Bronce Cuero Estampado",
+      "quantity": 13,
+      "status": "Pendiente"
+    },
+    {
+      "lineId": "prod-103",
+      "orderId": "PED-580288",
+      "customer": "YAMIL",
+      "model": "Torpedo",
+      "variant": "Cuero Estampado Virola Alpaca Grande Cincelada",
+      "quantity": 5,
+      "status": "Pendiente"
+    },
+    {
+      "lineId": "prod-104",
+      "orderId": "PED-580288",
+      "customer": "YAMIL",
+      "model": "Torpedo",
+      "variant": "Cuero Crudo Virola Alpaca Cincelada",
+      "quantity": 10,
+      "status": "Pendiente"
+    },
+    {
+      "lineId": "prod-105",
+      "orderId": "PED-580288",
+      "customer": "YAMIL",
+      "model": "Imperial",
+      "variant": "Premium",
+      "quantity": 5,
+      "status": "Pendiente"
+    },
+    {
+      "lineId": "prod-106",
+      "orderId": "PED-580288",
+      "customer": "YAMIL",
+      "model": "Camionero",
+      "variant": "Alpaca Cincelado",
+      "quantity": 5,
       "status": "Pendiente"
     }
   ],
@@ -1126,7 +1568,7 @@
     {
       "lineId": "hist-2",
       "orderId": null,
-      "createdAt": "2026-07-15T15:33:19.302Z",
+      "createdAt": "2026-07-15T15:33:19.303Z",
       "customer": "MASI",
       "model": "Torpedo",
       "variant": "Cuero Liso Alpaca Cincelada",
@@ -1161,12 +1603,12 @@
       "model": "Imperial",
       "variant": "Premium",
       "quantity": 1,
-      "completedAt": "2026-07-23T16:01:28.633Z"
+      "completedAt": "2026-07-23T16:01:28.634Z"
     },
     {
       "lineId": "hist-6",
       "orderId": null,
-      "createdAt": "2026-07-15T15:41:09.605Z",
+      "createdAt": "2026-07-15T15:41:09.606Z",
       "customer": "GASTON",
       "model": "Torpedo",
       "variant": "Alpaca Cuero Croco/Pelos",
@@ -1211,12 +1653,12 @@
       "model": "Torpedo",
       "variant": "Cuero Crudo Virola Alpaca Cincelada",
       "quantity": 20,
-      "completedAt": "2026-07-23T15:59:57.009Z"
+      "completedAt": "2026-07-23T15:59:57.010Z"
     },
     {
       "lineId": "hist-11",
       "orderId": null,
-      "createdAt": "2026-07-15T15:44:23.479Z",
+      "createdAt": "2026-07-15T15:44:23.480Z",
       "customer": "GASTON",
       "model": "Criollo",
       "variant": "Criolla Posa con Mate Vaqueta",
@@ -1226,7 +1668,7 @@
     {
       "lineId": "hist-12",
       "orderId": null,
-      "createdAt": "2026-07-15T15:47:30.760Z",
+      "createdAt": "2026-07-15T15:47:30.761Z",
       "customer": "MATIAS",
       "model": "Torpedo",
       "variant": "Alpaca y Bronce Croco/Pelos",
@@ -1266,7 +1708,7 @@
     {
       "lineId": "hist-16",
       "orderId": null,
-      "createdAt": "2026-07-15T16:16:13.460Z",
+      "createdAt": "2026-07-15T16:16:13.461Z",
       "customer": "NICOLAS HEILI",
       "model": "Bombillon",
       "variant": "Pico de Loro",
@@ -1306,7 +1748,7 @@
     {
       "lineId": "hist-20",
       "orderId": null,
-      "createdAt": "2026-07-15T16:27:34.738Z",
+      "createdAt": "2026-07-15T16:27:34.739Z",
       "customer": "ANAHI",
       "model": "Bombillón",
       "variant": "Alpaca",
@@ -1316,7 +1758,7 @@
     {
       "lineId": "hist-21",
       "orderId": null,
-      "createdAt": "2026-07-15T16:28:20.443Z",
+      "createdAt": "2026-07-15T16:28:20.444Z",
       "customer": "ANAHI",
       "model": "Torpedo",
       "variant": "Alpaca Cuero Croco/Pelos",
@@ -1346,7 +1788,7 @@
     {
       "lineId": "hist-24",
       "orderId": null,
-      "createdAt": "2026-07-15T16:30:26.595Z",
+      "createdAt": "2026-07-15T16:30:26.596Z",
       "customer": "ANAHI",
       "model": "Torpedo",
       "variant": "Alpaca y Bronce Croco/Pelos",
@@ -1406,7 +1848,7 @@
     {
       "lineId": "hist-30",
       "orderId": null,
-      "createdAt": "2026-07-15T16:34:54.452Z",
+      "createdAt": "2026-07-15T16:34:54.453Z",
       "customer": "ANAHI",
       "model": "Bombilla",
       "variant": "Cincelada",
@@ -1486,7 +1928,7 @@
     {
       "lineId": "hist-38",
       "orderId": null,
-      "createdAt": "2026-07-15T16:39:45.802Z",
+      "createdAt": "2026-07-15T16:39:45.803Z",
       "customer": "KEVIN",
       "model": "Camionero",
       "variant": "Acero Liso",
@@ -1501,12 +1943,12 @@
       "model": "Torpedo",
       "variant": "Alpaca y Bronce Cuero Estampado",
       "quantity": 10,
-      "completedAt": "2026-07-31T16:10:25.634Z"
+      "completedAt": "2026-07-31T16:10:25.635Z"
     },
     {
       "lineId": "hist-40",
       "orderId": null,
-      "createdAt": "2026-07-15T16:41:37.895Z",
+      "createdAt": "2026-07-15T16:41:37.896Z",
       "customer": "YAMIL",
       "model": "Torpedo",
       "variant": "Alpaca Grande Cincelada con Cuero Croco/Pelos",
@@ -1551,7 +1993,7 @@
       "model": "Torpedo",
       "variant": "Acero Liso",
       "quantity": 16,
-      "completedAt": "2026-07-31T16:16:05.522Z"
+      "completedAt": "2026-07-31T16:16:05.523Z"
     },
     {
       "lineId": "hist-45",
@@ -1686,7 +2128,7 @@
     {
       "lineId": "hist-58",
       "orderId": null,
-      "createdAt": "2026-07-15T20:18:43.653Z",
+      "createdAt": "2026-07-15T20:18:43.654Z",
       "customer": "MIRIAM BOCHATAY",
       "model": "Torpedo",
       "variant": "Cuero Crudo Virola Alpaca Cincelada",
@@ -1816,7 +2258,7 @@
     {
       "lineId": "hist-71",
       "orderId": "PED-417842",
-      "createdAt": "2026-07-22T16:24:58.167Z",
+      "createdAt": "2026-07-22T16:24:58.168Z",
       "customer": "JUAMPI ROMAN",
       "model": "Imperial",
       "variant": "Cuero Crudo",
@@ -1831,7 +2273,7 @@
       "model": "Imperial",
       "variant": "Criollo con Posa Mate de Cuero Crudo",
       "quantity": 4,
-      "completedAt": "2026-07-31T16:11:16.129Z"
+      "completedAt": "2026-07-31T16:11:16.130Z"
     },
     {
       "lineId": "hist-73",
@@ -1851,12 +2293,12 @@
       "model": "Bombillón",
       "variant": "Con Aros",
       "quantity": 4,
-      "completedAt": "2026-07-31T16:11:26.831Z"
+      "completedAt": "2026-07-31T16:11:26.832Z"
     },
     {
       "lineId": "hist-75",
       "orderId": "PED-965393",
-      "createdAt": "2026-07-22T16:27:06.372Z",
+      "createdAt": "2026-07-22T16:27:06.373Z",
       "customer": "JUAMPI ROMAN",
       "model": "Criollo",
       "variant": "Alpaca Grande Cincelada con Posa Mate Cuero Crudo",
@@ -1976,7 +2418,7 @@
     {
       "lineId": "hist-87",
       "orderId": "PED-999156",
-      "createdAt": "2026-07-24T14:25:23.580Z",
+      "createdAt": "2026-07-24T14:25:23.581Z",
       "customer": "GIAN LUCA BARTOLO",
       "model": "Torpedo",
       "variant": "Cuero Crudo Virola Alpaca y Bronce",
@@ -2006,7 +2448,7 @@
     {
       "lineId": "hist-90",
       "orderId": "PED-540309",
-      "createdAt": "2026-07-24T14:34:28.522Z",
+      "createdAt": "2026-07-24T14:34:28.523Z",
       "customer": "RODRIGO SCANDROLI",
       "model": "Torpedo",
       "variant": "Cuero Crudo Virola Alpaca y Bronce",
@@ -2016,7 +2458,7 @@
     {
       "lineId": "hist-91",
       "orderId": "PED-640683",
-      "createdAt": "2026-07-24T14:35:23.403Z",
+      "createdAt": "2026-07-24T14:35:23.404Z",
       "customer": "RODRIGO SCANDROLI",
       "model": "Torpedo",
       "variant": "Cuero Liso Alpaca y Bronce",
@@ -2046,7 +2488,7 @@
     {
       "lineId": "hist-94",
       "orderId": "PED-614146",
-      "createdAt": "2026-07-24T14:39:22.518Z",
+      "createdAt": "2026-07-24T14:39:22.519Z",
       "customer": "RODRIGO SCANDROLI",
       "model": "Bombilla",
       "variant": "Cincelada",
@@ -2076,7 +2518,7 @@
     {
       "lineId": "hist-97",
       "orderId": "PED-386618",
-      "createdAt": "2026-07-24T15:00:56.108Z",
+      "createdAt": "2026-07-24T15:00:56.109Z",
       "customer": "RODRIGO SCANDROLI",
       "model": "Torpedo",
       "variant": "Cuero Crudo Virola Grande Cincelada",
@@ -2111,7 +2553,7 @@
       "model": "Torpedo",
       "variant": "Cuero Liso Virola Alpaca Grande",
       "quantity": 13,
-      "completedAt": null
+      "completedAt": "2026-08-14T12:17:59.742Z"
     },
     {
       "lineId": "hist-101",
@@ -2121,7 +2563,7 @@
       "model": "Torpedo",
       "variant": "Virola Acero Liso",
       "quantity": 10,
-      "completedAt": null
+      "completedAt": "2026-08-14T12:18:12.277Z"
     },
     {
       "lineId": "hist-102",
@@ -2141,7 +2583,7 @@
       "model": "Torpedo",
       "variant": "Cuero Liso Alpaca y Bronce",
       "quantity": 10,
-      "completedAt": null
+      "completedAt": "2026-08-14T08:22:32.077Z"
     },
     {
       "lineId": "hist-104",
@@ -2151,7 +2593,7 @@
       "model": "Criollo",
       "variant": "Oscuro Posa Mate Copa",
       "quantity": 10,
-      "completedAt": null
+      "completedAt": "2026-08-14T08:22:30.665Z"
     },
     {
       "lineId": "hist-105",
@@ -2161,7 +2603,7 @@
       "model": "Imperial",
       "variant": "Premium",
       "quantity": 10,
-      "completedAt": null
+      "completedAt": "2026-08-14T08:22:28.287Z"
     },
     {
       "lineId": "hist-106",
@@ -2171,7 +2613,7 @@
       "model": "Criollo",
       "variant": "Virola de Acero con Posa Mate de Cuero Crudo",
       "quantity": 10,
-      "completedAt": null
+      "completedAt": "2026-08-14T08:22:26.875Z"
     },
     {
       "lineId": "hist-107",
@@ -2181,7 +2623,7 @@
       "model": "Criollo",
       "variant": "Alpaca Grande Cincelada con Posa Mate Cuero Crudo",
       "quantity": 10,
-      "completedAt": null
+      "completedAt": "2026-08-14T08:22:25.061Z"
     },
     {
       "lineId": "hist-108",
@@ -2246,7 +2688,7 @@
     {
       "lineId": "hist-114",
       "orderId": "PED-841811",
-      "createdAt": "2026-08-04T15:44:10.257Z",
+      "createdAt": "2026-08-04T15:44:10.258Z",
       "customer": "NICOLAS PRUCCA",
       "model": "Bombillón",
       "variant": "Con Aros",
@@ -2411,7 +2853,7 @@
       "model": "Criollo",
       "variant": "Criollo con Posa Mate de Cuero Crudo",
       "quantity": 1,
-      "completedAt": "2026-08-09T22:30:35.730Z"
+      "completedAt": "2026-08-09T22:30:35.731Z"
     },
     {
       "lineId": "hist-131",
@@ -2451,6 +2893,196 @@
       "model": "Criollo",
       "variant": "Virola de Acero con Posa Mate de Cuero Crudo",
       "quantity": 10,
+      "completedAt": null
+    },
+    {
+      "lineId": "hist-135",
+      "orderId": "PED-288715",
+      "createdAt": "2026-08-15T12:38:37.001Z",
+      "customer": "NICO PEREZ",
+      "model": "Torpedo",
+      "variant": "Acero Liso",
+      "quantity": 5,
+      "completedAt": null
+    },
+    {
+      "lineId": "hist-136",
+      "orderId": "PED-288715",
+      "createdAt": "2026-08-15T12:38:37.001Z",
+      "customer": "NICO PEREZ",
+      "model": "Bombillón",
+      "variant": "Con Aros",
+      "quantity": 5,
+      "completedAt": null
+    },
+    {
+      "lineId": "hist-137",
+      "orderId": "PED-288715",
+      "createdAt": "2026-08-15T12:38:37.001Z",
+      "customer": "NICO PEREZ",
+      "model": "Torpedo",
+      "variant": "Cuero Crudo Virola Grande Cincelada",
+      "quantity": 5,
+      "completedAt": null
+    },
+    {
+      "lineId": "hist-138",
+      "orderId": "PED-288715",
+      "createdAt": "2026-08-15T12:38:37.001Z",
+      "customer": "NICO PEREZ",
+      "model": "Bombillón",
+      "variant": "Pico de Loro",
+      "quantity": 5,
+      "completedAt": null
+    },
+    {
+      "lineId": "hist-139",
+      "orderId": "PED-288715",
+      "createdAt": "2026-08-15T12:38:37.001Z",
+      "customer": "NICO PEREZ",
+      "model": "Bombillón",
+      "variant": "Alpaca",
+      "quantity": 5,
+      "completedAt": null
+    },
+    {
+      "lineId": "hist-140",
+      "orderId": "PED-288715",
+      "createdAt": "2026-08-15T12:38:37.001Z",
+      "customer": "NICO PEREZ",
+      "model": "Torpedo",
+      "variant": "Cuero Estampado Virola Alpaca Comun Cincelada",
+      "quantity": 5,
+      "completedAt": null
+    },
+    {
+      "lineId": "hist-141",
+      "orderId": "PED-950722",
+      "createdAt": "2026-08-15T12:46:45.323Z",
+      "customer": "JOAO",
+      "model": "Camionero",
+      "variant": "Criollo con Posa Mate de Cuero Crudo",
+      "quantity": 90,
+      "completedAt": null
+    },
+    {
+      "lineId": "hist-142",
+      "orderId": "PED-950722",
+      "createdAt": "2026-08-15T12:46:45.323Z",
+      "customer": "JOAO",
+      "model": "Criollo",
+      "variant": "Oscuro Posa Mate Copa",
+      "quantity": 30,
+      "completedAt": null
+    },
+    {
+      "lineId": "hist-143",
+      "orderId": "PED-950722",
+      "createdAt": "2026-08-15T12:46:45.323Z",
+      "customer": "JOAO",
+      "model": "Criollo",
+      "variant": "Criollo con Posa Mate de Cuero Crudo",
+      "quantity": 90,
+      "completedAt": null
+    },
+    {
+      "lineId": "hist-144",
+      "orderId": "PED-950722",
+      "createdAt": "2026-08-15T12:46:45.323Z",
+      "customer": "JOAO",
+      "model": "Criollo",
+      "variant": "Oscuro Posa Mate Copa",
+      "quantity": 30,
+      "completedAt": null
+    },
+    {
+      "lineId": "hist-145",
+      "orderId": "PED-580288",
+      "createdAt": "2026-08-15T12:53:53.325Z",
+      "customer": "YAMIL",
+      "model": "Torpedo",
+      "variant": "Acero Liso",
+      "quantity": 30,
+      "completedAt": null
+    },
+    {
+      "lineId": "hist-146",
+      "orderId": "PED-580288",
+      "createdAt": "2026-08-15T12:53:53.325Z",
+      "customer": "YAMIL",
+      "model": "Torpedo",
+      "variant": "Cuero Crudo Virola Alpaca Cincelada",
+      "quantity": 13,
+      "completedAt": null
+    },
+    {
+      "lineId": "hist-147",
+      "orderId": "PED-580288",
+      "createdAt": "2026-08-15T12:53:53.325Z",
+      "customer": "YAMIL",
+      "model": "Torpedo",
+      "variant": "Cuero Crudo Virola Alpaca y Bronce",
+      "quantity": 15,
+      "completedAt": null
+    },
+    {
+      "lineId": "hist-148",
+      "orderId": "PED-580288",
+      "createdAt": "2026-08-15T12:53:53.325Z",
+      "customer": "YAMIL",
+      "model": "Torpedo",
+      "variant": "Cuero Liso Alpaca Cincelada",
+      "quantity": 8,
+      "completedAt": null
+    },
+    {
+      "lineId": "hist-149",
+      "orderId": "PED-580288",
+      "createdAt": "2026-08-15T12:53:53.325Z",
+      "customer": "YAMIL",
+      "model": "Torpedo",
+      "variant": "Alpaca y Bronce Cuero Estampado",
+      "quantity": 13,
+      "completedAt": null
+    },
+    {
+      "lineId": "hist-150",
+      "orderId": "PED-580288",
+      "createdAt": "2026-08-15T12:53:53.325Z",
+      "customer": "YAMIL",
+      "model": "Torpedo",
+      "variant": "Cuero Estampado Virola Alpaca Grande Cincelada",
+      "quantity": 5,
+      "completedAt": null
+    },
+    {
+      "lineId": "hist-151",
+      "orderId": "PED-580288",
+      "createdAt": "2026-08-15T12:53:53.325Z",
+      "customer": "YAMIL",
+      "model": "Torpedo",
+      "variant": "Cuero Crudo Virola Alpaca Cincelada",
+      "quantity": 10,
+      "completedAt": null
+    },
+    {
+      "lineId": "hist-152",
+      "orderId": "PED-580288",
+      "createdAt": "2026-08-15T12:53:53.325Z",
+      "customer": "YAMIL",
+      "model": "Imperial",
+      "variant": "Premium",
+      "quantity": 5,
+      "completedAt": null
+    },
+    {
+      "lineId": "hist-153",
+      "orderId": "PED-580288",
+      "createdAt": "2026-08-15T12:53:53.325Z",
+      "customer": "YAMIL",
+      "model": "Camionero",
+      "variant": "Alpaca Cincelado",
+      "quantity": 5,
       "completedAt": null
     }
   ]
