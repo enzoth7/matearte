@@ -121,4 +121,17 @@ describe("ProductionView", () => {
     expect(camioneroCard).toHaveAttribute("aria-pressed", "false");
     expect(within(valueKpi).getByText(/21\.400/)).toBeInTheDocument();
   });
+
+  it("exporta a Excel al presionar el botón de exportación", async () => {
+    const formatModule = await import("../lib/format");
+    const exportSpy = vi.spyOn(formatModule, "exportProductionToExcel").mockImplementation(() => undefined);
+    render(<ProductionView data={data} onUpdate={vi.fn()} onComplete={vi.fn()} />);
+
+    const exportBtn = screen.getByRole("button", { name: /exportar excel/i });
+    expect(exportBtn).toBeInTheDocument();
+    fireEvent.click(exportBtn);
+
+    expect(exportSpy).toHaveBeenCalledWith(data.production, data.products, data.exchangeRate);
+    exportSpy.mockRestore();
+  });
 });

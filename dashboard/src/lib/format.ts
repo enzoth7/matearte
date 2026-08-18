@@ -1,4 +1,19 @@
+import * as XLSX from "xlsx";
 import type { Product, ProductionItem } from "../types";
+
+export interface ProductionExportRow {
+  Pedido: string;
+  Cliente: string;
+  Modelo: string;
+  Variante: string;
+  Virola: string;
+  Cuero: string;
+  Cantidad: number;
+  Estado: string;
+  "Precio Unitario ARG": number;
+  "Total ARG": number;
+  "Total UYU": number;
+}
 
 export const formatArg = (value: number) =>
   new Intl.NumberFormat("es-UY", {
@@ -56,4 +71,74 @@ export const downloadCsv = (filename: string, rows: Array<Array<string | number>
   anchor.download = filename;
   anchor.click();
   URL.revokeObjectURL(url);
+};
+
+export const getProductionExportFilename = (date: Date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `matearte-produccion-${year}-${month}-${day}.xlsx`;
+};
+
+export const buildProductionExportRows = (
+  items: ProductionItem[],
+  products: Product[],
+  exchangeRate: number,
+): ProductionExportRow[] =>
+  items.map((item) => {
+    const product = findProduct(products, item);
+    const priceArg = product?.priceArg ?? 0;
+    const totalArg = item.quantity * priceArg;
+    const totalUyu = Math.round(totalArg * exchangeRate * 100) / 100;
+
+    return {
+      Pedido: item.orderId?.trim() || "-",
+      Cliente: item.customer?.trim() || "-",
+      Modelo: item.model?.trim() || "-",
+      Variante: item.variant?.trim() || "-",
+      Virola: product?.rimType?.trim() || "-",
+      Cuero: product?.leatherType?.trim() || "-",
+      Cantidad: item.quantity,
+      Estado: item.status,
+      "Precio Unitario ARG": priceArg,
+      "Total ARG": totalArg,
+      "Total UYU": totalUyu,
+    };
+  });
+
+export const createProductionWorkbook = (
+  items: ProductionItem[],
+  products: Product[],
+  exchangeRate: number,
+) => {
+  const rows = buildProductionExportRows(items, products, exchangeRate);
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+
+  worksheet["!cols"] = [
+    { wch: 14 },
+    { wch: 22 },
+    { wch: 16 },
+    { wch: 20 },
+    { wch: 16 },
+    { wch: 16 },
+    { wch: 10 },
+    { wch: 16 },
+    { wch: 22 },
+    { wch: 16 },
+    { wch: 16 },
+  ];
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Producción");
+  return workbook;
+};
+
+export const exportProductionToExcel = (
+  items: ProductionItem[],
+  products: Product[],
+  exchangeRate: number,
+  filename: string = getProductionExportFilename(),
+) => {
+  const workbook = createProductionWorkbook(items, products, exchangeRate);
+  XLSX.writeFile(workbook, filename);
 };

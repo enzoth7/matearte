@@ -46,6 +46,9 @@ dashboard/MATEARTE.xlsx
 dashboard/.codex-extracted-seed.json
 dashboard/.codex-inspect-workbook.mjs
 
+# Large binaries and documents (available on Google Drive)
+*.pdf
+
 # Editors and operating systems
 .vscode/*
 !.vscode/extensions.json
@@ -57,3 +60,4 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+

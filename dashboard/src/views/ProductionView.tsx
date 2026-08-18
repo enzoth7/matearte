@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { CaretDownIcon, CaretUpDownIcon, CaretUpIcon, CheckCircleIcon, MagnifyingGlassIcon, PencilSimpleIcon, XIcon } from "@phosphor-icons/react";
+import { CaretDownIcon, CaretUpDownIcon, CaretUpIcon, CheckCircleIcon, DownloadSimpleIcon, MagnifyingGlassIcon, PencilSimpleIcon, XIcon } from "@phosphor-icons/react";
 import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
-import { findProduct, formatArg, formatNumber, getLineValueArg, normalizeText } from "../lib/format";
+import { exportProductionToExcel, findProduct, formatArg, formatNumber, getLineValueArg, normalizeText } from "../lib/format";
 import type { DashboardData, ProductionItem, ProductionStatus } from "../types";
 
 type StatusFilter = "Todos" | ProductionStatus;
@@ -307,10 +307,15 @@ export function ProductionView({ data, onUpdate, onComplete }: ProductionViewPro
   return (
     <div className="page-stack production-page">
       <PageHeader title="Producción" description="Seguimiento y análisis de todas las unidades activas." actions={
-        <article className="production-value-kpi" aria-live="polite">
-          <p>Valor</p>
-          <strong>{formatArg(filteredValueArg)}</strong>
-        </article>
+        <>
+          <button type="button" className="button-secondary" onClick={() => exportProductionToExcel(sortedFiltered, data.products, data.exchangeRate)}>
+            <DownloadSimpleIcon size={18} aria-hidden="true" /> Exportar Excel
+          </button>
+          <article className="production-value-kpi" aria-live="polite">
+            <p>Valor</p>
+            <strong>{formatArg(filteredValueArg)}</strong>
+          </article>
+        </>
       } />
       <nav className="production-subnav" aria-label="Vistas de producción" role="tablist">
         {sectionLabels.map((item) => <button key={item.id} type="button" role="tab" aria-selected={section === item.id} className={section === item.id ? "is-active" : ""} onClick={() => setSection(item.id)}>{item.label}</button>)}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowsClockwiseIcon, CalculatorIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
+import { CalculatorIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
 import { formatUyu, normalizeText } from "../lib/format";
@@ -9,10 +9,9 @@ interface ProductsViewProps {
   data: DashboardData;
   onUpdate: (product: Product) => Promise<unknown>;
   onUpdateExchangeRate: (rate: number) => Promise<unknown>;
-  onReset: () => Promise<unknown>;
 }
 
-export function ProductsView({ data, onUpdate, onUpdateExchangeRate, onReset }: ProductsViewProps) {
+export function ProductsView({ data, onUpdate, onUpdateExchangeRate }: ProductsViewProps) {
   const [query, setQuery] = useState("");
   const [rate, setRate] = useState(String(data.exchangeRate));
   const [savingProduct, setSavingProduct] = useState("");
@@ -30,9 +29,7 @@ export function ProductsView({ data, onUpdate, onUpdateExchangeRate, onReset }: 
 
   return (
     <div className="page-stack">
-      <PageHeader title="Productos" description="Modelo, variante, materiales y precios son editables." actions={
-        <button type="button" className="button-quiet" onClick={() => onReset()}><ArrowsClockwiseIcon size={18} aria-hidden="true" /> Restaurar Excel</button>
-      } />
+      <PageHeader title="Productos" description="Modelo, variante, materiales y precios son editables." />
       <section className="catalog-summary-grid">
         <article className="panel exchange-card">
           <div className="summary-icon"><CalculatorIcon size={24} aria-hidden="true" /></div>

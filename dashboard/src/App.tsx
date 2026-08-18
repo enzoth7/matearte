@@ -56,7 +56,6 @@ export default function App() {
             data={dashboard.data}
             onUpdate={dashboard.updateProduct}
             onUpdateExchangeRate={dashboard.updateExchangeRate}
-            onReset={dashboard.resetData}
           />
         );
       default:

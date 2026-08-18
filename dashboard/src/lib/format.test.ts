@@ -1,6 +1,17 @@
+import * as XLSX from "xlsx";
 import { describe, expect, it, vi } from "vitest";
 import type { Product, ProductionItem } from "../types";
-import { downloadCsv, findProduct, formatDate, getLineValueArg, normalizeText } from "./format";
+import {
+  buildProductionExportRows,
+  createProductionWorkbook,
+  downloadCsv,
+  exportProductionToExcel,
+  findProduct,
+  formatDate,
+  getLineValueArg,
+  getProductionExportFilename,
+  normalizeText,
+} from "./format";
 
 const product: Product = {
   id: "1",
@@ -50,5 +61,70 @@ describe("format helpers", () => {
     downloadCsv("test.csv", [["Cliente", "Modelo"], ['Casa "Sur"', "Torpedo"]]);
 
     expect(click).toHaveBeenCalledOnce();
+  });
+
+  it("genera nombre de archivo de producción con la fecha correcta", () => {
+    const date = new Date(2026, 7, 18);
+    expect(getProductionExportFilename(date)).toBe("matearte-produccion-2026-08-18.xlsx");
+  });
+
+  it("construye filas de exportación de producción con todos los campos requeridos", () => {
+    const customProduct: Product = {
+      id: "p-custom",
+      model: "Torpedo",
+      variant: "Cincelado",
+      rimType: "Alpaca",
+      leatherType: "Crudo",
+      priceArg: 2000,
+      priceUyu: 52,
+    };
+    const customLine: ProductionItem = {
+      lineId: "line-custom",
+      orderId: null,
+      customer: "Juan Pérez",
+      model: "Torpedo",
+      variant: "Cincelado",
+      quantity: 5,
+      status: "En producción",
+    };
+
+    const rows = buildProductionExportRows([customLine], [customProduct], 0.026);
+    expect(rows).toEqual([
+      {
+        Pedido: "-",
+        Cliente: "Juan Pérez",
+        Modelo: "Torpedo",
+        Variante: "Cincelado",
+        Virola: "Alpaca",
+        Cuero: "Crudo",
+        Cantidad: 5,
+        Estado: "En producción",
+        "Precio Unitario ARG": 2000,
+        "Total ARG": 10000,
+        "Total UYU": 260,
+      },
+    ]);
+  });
+
+  it("crea un workbook de producción con la hoja y estructura esperada", () => {
+    const workbook = createProductionWorkbook([line], [product], 0.026);
+    expect(workbook.SheetNames).toEqual(["Producción"]);
+    const sheet = workbook.Sheets["Producción"];
+    expect(sheet).toBeDefined();
+    const rows = XLSX.utils.sheet_to_json(sheet);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toEqual({
+      Pedido: "PED-100001",
+      Cliente: "Cliente",
+      Modelo: "Bombillon",
+      Variante: "Pico de Loro",
+      Virola: "-",
+      Cuero: "-",
+      Cantidad: 3,
+      Estado: "Pendiente",
+      "Precio Unitario ARG": 15070,
+      "Total ARG": 45210,
+      "Total UYU": 1175.46,
+    });
   });
 });
