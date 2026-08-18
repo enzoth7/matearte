@@ -25,6 +25,7 @@ import { TorpedoVariantSelector } from "./components/TorpedoVariantSelector";
 import { CustomImageUpload } from "./components/CustomImageUpload";
 import { PlacementControls } from "./components/PlacementControls";
 import { CheckoutStep } from "./components/CheckoutStep";
+import { VirolaIconSelector } from "./components/VirolaIconSelector";
 import { getDefaultColor, getDefaultVariant, getModelDefinition, getVariantsByModel, mateVariants, type EngravingArea, type MateModel, type MateSize, type MateVariant } from "./catalog/mateCatalog";
 import { createDefaultRimSelection, normalizeRimSelection } from "./catalog/rimCatalog";
 import { getRimFinish } from "./catalog/rimFinishCatalog";
@@ -277,7 +278,7 @@ export default function App() {
   const selectedMate = mateVariants.find((variant) => variant.id === configuration.variantId) ?? initialVariant;
   const [flejeConfig, setFlejeConfig] = useState<FlejeCustomization>(() => createDefaultFlejeCustomization());
   const [activeFlejeSide, setActiveFlejeSide] = useState<FlejeSide>("front");
-  const [selectedRimElement, setSelectedRimElement] = useState<EditableElement | null>("text");
+  const [selectedRimElement, setSelectedRimElement] = useState<string | null>("text");
   const [selectedFlejeElement, setSelectedFlejeElement] = useState<EditableElement | null>("text");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [localDesigns] = useState<SavedDesignItem[]>([]);
@@ -578,27 +579,40 @@ export default function App() {
                       onSelect={(imageMode) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, imageMode } }))}
                     />
                     {configuration.rim.imageMode === "image" && (
-                      <div className="space-y-3" onFocus={() => setSelectedRimElement("image")}>
-                        <RimIconSelector
-                          selectedImageId={configuration.rim.selectedImageId}
-                          onSelect={(selectedImageId) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, selectedImageId } }))}
-                        />
-                        <CustomImageUpload
-                          value={configuration.rim.customImage}
-                          onChange={(asset) => setConfiguration((current) => ({
-                            ...current,
-                            rim: {
-                              ...current.rim,
-                              customImage: asset,
-                              selectedImageId: asset?.id ?? (current.rim.selectedImageId === current.rim.customImage?.id ? null : current.rim.selectedImageId),
-                            },
-                          }))}
-                        />
-                        <PlacementControls
-                          label="imagen"
-                          value={configuration.rim.imageTransform}
-                          onChange={(imageTransform) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, imageTransform } }))}
-                        />
+                      <div className="space-y-3">
+                        <div className="rounded-xl border border-[#e7d7c1] bg-white p-3">
+                          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[#5f3826]">
+                            Íconos ({configuration.rim.icons.length}/3)
+                          </p>
+                          <VirolaIconSelector
+                            icons={configuration.rim.icons}
+                            onChange={(icons) => setConfiguration((current) => ({
+                              ...current,
+                              rim: { ...current.rim, icons },
+                            }))}
+                          />
+                        </div>
+                        {configuration.rim.icons.length < 3 && (
+                          <CustomImageUpload
+                            value={null}
+                            onChange={(asset) => {
+                              if (asset) {
+                                setConfiguration((current) => ({
+                                  ...current,
+                                  rim: {
+                                    ...current.rim,
+                                    icons: [...current.rim.icons, {
+                                      id: crypto.randomUUID(),
+                                      selectedImageId: asset.id,
+                                      customImage: asset,
+                                      transform: { x: 0.5, y: 0.5, scale: 1, rotation: 0, side: "rim" }
+                                    }]
+                                  }
+                                }));
+                              }
+                            }}
+                          />
+                        )}
                       </div>
                     )}
                   </div>
@@ -727,7 +741,13 @@ export default function App() {
                       onSelectElement={setSelectedRimElement}
                       onTransformChange={(element, transform) => setConfiguration((current) => ({
                         ...current,
-                        rim: { ...current.rim, [element === "text" ? "textTransform" : "imageTransform"]: transform },
+                        rim: {
+                          ...current.rim,
+                          ...(element === "text"
+                            ? { textTransform: transform }
+                            : { icons: current.rim.icons.map((icon) => icon.id === element ? { ...icon, transform } : icon) }
+                          )
+                        },
                       }))}
                     />
                   ) : selectedModelDefinition.hasFleje ? (

@@ -33,10 +33,15 @@ export async function sendOrderToGoogleSheet(payload: OrderPayload): Promise<boo
     const rimFinish = getRimFinish(payload.configuration.rim.finishId);
     const flejeFinish = getFlejeFinish(payload.flejeConfig.finishId);
 
-    const rimIcon = payload.configuration.rim.selectedImageId
-      ? rimIconCatalog.find((i) => i.id === payload.configuration.rim.selectedImageId)
-      : null;
-
+    const rimIcons = payload.configuration.rim.icons.map(icon => 
+      icon.customImage?.id === icon.selectedImageId 
+        ? icon.customImage.name 
+        : rimIconCatalog.find(i => i.id === icon.selectedImageId)?.name || ''
+    ).filter(Boolean).join(", ");
+    
+    const rimOriginalUrls = payload.configuration.rim.icons.map(icon => 
+      icon.customImage?.originalUrl
+    ).filter(Boolean).join(", ");
     const color = variantDef?.colors.find((item) => item.id === payload.configuration.colorId);
     const flejeSides = payload.flejeConfig.sides;
     const getSideIconName = (side: "front" | "back") => {
@@ -67,10 +72,8 @@ export async function sendOrderToGoogleSheet(payload: OrderPayload): Promise<boo
       materialVirola: rimMaterial?.name || 'Original',
       cinceladoVirola: rimFinish?.name || 'Liso',
       textoVirola: payload.configuration.rim.text || '',
-      iconoVirola: payload.configuration.rim.customImage?.id === payload.configuration.rim.selectedImageId
-        ? payload.configuration.rim.customImage.name
-        : rimIcon?.name || '',
-      archivoOriginalVirola: payload.configuration.rim.customImage?.originalUrl || '',
+      iconoVirola: rimIcons,
+      archivoOriginalVirola: rimOriginalUrls,
       acabadoFleje: modelDef.hasFleje ? (flejeFinish?.name || 'Liso') : 'N/A (sin fleje)',
       textoFlejeFrente: modelDef.hasFleje ? flejeSides.front.text : '',
       textoFlejeDorso: modelDef.hasFleje ? flejeSides.back.text : '',

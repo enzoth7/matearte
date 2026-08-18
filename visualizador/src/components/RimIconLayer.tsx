@@ -11,6 +11,7 @@ interface RimIconLayerProps {
   transform?: ElementTransform;
   selected?: boolean;
   onPointerDown?: PointerEventHandler<SVGGElement>;
+  onResizeDown?: PointerEventHandler<SVGGElement>;
 }
 
 export function RimIconLayer({
@@ -20,6 +21,7 @@ export function RimIconLayer({
   transform,
   selected,
   onPointerDown,
+  onResizeDown,
 }: RimIconLayerProps) {
   const catalogIcon = rimIconCatalog.find((item) => item.id === selectedImageId);
   const src = customImage?.id === selectedImageId ? customImage.previewUrl : catalogIcon?.src;
@@ -38,7 +40,23 @@ export function RimIconLayer({
     >
       <circle cx={placement.x} cy={placement.y} r={92} fill="#EAE4DC" />
       <circle cx={placement.x} cy={placement.y} r={112} fill="transparent" pointerEvents={onPointerDown ? "all" : "none"} />
-      {selected && <circle cx={placement.x} cy={placement.y} r={105} fill="none" stroke="#7a4a31" strokeWidth="5" strokeDasharray="18 12" pointerEvents="none" />}
+      {selected && (
+        <g pointerEvents="none">
+          <circle cx={placement.x} cy={placement.y} r={105} fill="none" stroke="#7a4a31" strokeWidth="5" strokeDasharray="18 12" />
+          {onResizeDown && (
+            <circle 
+              cx={placement.x + 74} cy={placement.y + 74} r={16} 
+              fill="#fff" stroke="#7a4a31" strokeWidth="4"
+              pointerEvents="all"
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                onResizeDown(e);
+              }}
+              className="cursor-nwse-resize"
+            />
+          )}
+        </g>
+      )}
       <image
         href={src}
         x={placement.x - halfSize}

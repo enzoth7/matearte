@@ -201,7 +201,7 @@ export function calculateOrderPricing(
 
   if (configuration.rim.finishMode === "finish") addItem("rim_finish", "Terminación de virola");
   if (configuration.rim.textMode === "text" && configuration.rim.text.trim()) addItem("rim_text", "Texto en virola");
-  if (configuration.rim.imageMode === "image" && configuration.rim.selectedImageId) addItem("rim_image", "Imagen o escudo en virola");
+  if (configuration.rim.imageMode === "image" && configuration.rim.icons.length > 0) addItem("rim_image", "Imagen o escudo en virola");
 
   if (model.hasFleje) {
     if (flejeConfig.finishMode === "finish") addItem("fleje_finish", "Terminación de fleje");

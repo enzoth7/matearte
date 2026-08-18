@@ -45,8 +45,7 @@ export function SummaryStep({
   const rimFinish = getRimFinish(configuration.rim.finishId);
   const flejeFinish = getFlejeFinish(flejeConfig.finishId);
   const pricing = calculateOrderPricing(configuration, flejeConfig);
-  const rimImageName = imageName(configuration.rim.selectedImageId, configuration.rim.customImage?.name);
-
+  const rimImageName = configuration.rim.icons.map(icon => imageName(icon.selectedImageId, icon.customImage?.name)).filter(Boolean).join(", ");
   const saveDraft = () => {
     setIsDrafting(true);
     window.setTimeout(() => {

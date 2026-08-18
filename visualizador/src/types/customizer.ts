@@ -24,6 +24,13 @@ export interface CustomImageAsset {
   source: "upload";
 }
 
+export interface IconElement {
+  id: string;
+  selectedImageId: string | null;
+  customImage: CustomImageAsset | null;
+  transform: ElementTransform;
+}
+
 export interface FlejeSideCustomization {
   textMode: "none" | "text";
   text: string;

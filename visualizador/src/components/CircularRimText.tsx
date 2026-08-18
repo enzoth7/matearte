@@ -9,6 +9,7 @@ interface CircularRimTextProps {
   transform?: ElementTransform;
   selected?: boolean;
   onPointerDown?: PointerEventHandler<SVGGElement>;
+  onResizeDown?: PointerEventHandler<SVGGElement>;
 }
 interface RimTextFinishMaskProps { id: string; text: string; geometry?: RimTextGeometry; transform?: ElementTransform }
 
@@ -55,8 +56,13 @@ export function RimTextFinishMask({ id, text, geometry = rimTextGeometry, transf
   );
 }
 
-export function CircularRimText({ text, geometry = rimTextGeometry, transform, selected, onPointerDown }: CircularRimTextProps) {
+export function CircularRimText({ text, geometry = rimTextGeometry, transform, selected, onPointerDown, onResizeDown }: CircularRimTextProps) {
   if (!text.trim()) return null;
+  
+  // Calculate bounding box center roughly
+  const cx = geometry.centerX;
+  const cy = geometry.centerY - geometry.radius;
+
   return (
     <g
       transform={createElementSvgTransform(transform, geometry)}
@@ -65,7 +71,23 @@ export function CircularRimText({ text, geometry = rimTextGeometry, transform, s
       style={{ touchAction: "none" }}
     >
       {onPointerDown && <path d={createArcPath(geometry)} fill="none" stroke="transparent" strokeWidth="170" pointerEvents="stroke" />}
-      {selected && <path d={createArcPath(geometry)} fill="none" stroke="#7a4a31" strokeWidth="5" strokeDasharray="18 12" pointerEvents="none" />}
+      {selected && (
+        <g pointerEvents="none">
+          <path d={createArcPath(geometry)} fill="none" stroke="#7a4a31" strokeWidth="5" strokeDasharray="18 12" />
+          {onResizeDown && (
+            <circle 
+              cx={cx + 150} cy={cy + 150} r={16} 
+              fill="#fff" stroke="#7a4a31" strokeWidth="4"
+              pointerEvents="all"
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                onResizeDown(e);
+              }}
+              className="cursor-nwse-resize"
+            />
+          )}
+        </g>
+      )}
       <RimCharacters text={text} geometry={geometry} />
     </g>
   );

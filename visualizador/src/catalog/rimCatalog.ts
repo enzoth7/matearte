@@ -3,8 +3,8 @@ import type { RimFinishId } from "./rimFinishCatalog";
 import {
   createDefaultElementTransform,
   normalizeElementTransform,
-  type CustomImageAsset,
   type ElementTransform,
+  type IconElement,
 } from "../types/customizer";
 
 export type RimMaterial = "original" | "acero" | "alpaca" | "alpaca-grande" | "alpaca-bronce" | "acero-bronce" | "plata-900";
@@ -26,10 +26,8 @@ export interface RimCustomization {
   textMode: RimTextMode;
   text: string;
   imageMode: RimImageMode;
-  selectedImageId: string | null;
-  customImage: CustomImageAsset | null;
+  icons: IconElement[];
   textTransform: ElementTransform;
-  imageTransform: ElementTransform;
 }
 
 export const MAX_RIM_TEXT_LENGTH = 40;
@@ -66,10 +64,8 @@ export function createDefaultRimSelection(variant: MateVariant): RimCustomizatio
     textMode: "none",
     text: "",
     imageMode: "none",
-    selectedImageId: null,
-    customImage: null,
+    icons: [],
     textTransform: createDefaultElementTransform("rim"),
-    imageTransform: createDefaultElementTransform("rim"),
   };
 }
 
@@ -85,9 +81,15 @@ export function normalizeRimSelection(variant: MateVariant, current?: Partial<Ri
     ...createDefaultRimSelection(variant),
     ...safeCurrent,
     rimId: rim.id,
-    customImage: safeCurrent.customImage ?? null,
+    icons: Array.isArray(safeCurrent.icons)
+      ? safeCurrent.icons.map((icon) => ({
+          id: typeof icon.id === "string" ? icon.id : crypto.randomUUID(),
+          selectedImageId: typeof icon.selectedImageId === "string" ? icon.selectedImageId : null,
+          customImage: icon.customImage ?? null,
+          transform: normalizeElementTransform(icon.transform, "rim"),
+        }))
+      : [],
     textTransform: normalizeElementTransform(safeCurrent.textTransform, "rim"),
-    imageTransform: normalizeElementTransform(safeCurrent.imageTransform, "rim"),
   };
 }
 
