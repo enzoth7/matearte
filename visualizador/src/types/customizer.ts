@@ -77,8 +77,8 @@ export function normalizeElementTransform(
   const rotation = Number(value?.rotation);
 
   return {
-    x: Number.isFinite(x) ? Math.min(0.9, Math.max(0.1, x)) : 0.5,
-    y: Number.isFinite(y) ? Math.min(0.85, Math.max(0.15, y)) : 0.5,
+    x: Number.isFinite(x) ? Math.min(0.98, Math.max(0.02, x)) : 0.5,
+    y: Number.isFinite(y) ? Math.min(0.98, Math.max(0.02, y)) : 0.5,
     scale: Number.isFinite(scale) ? Math.min(1.6, Math.max(0.5, scale)) : 1,
     rotation: Number.isFinite(rotation) ? Math.min(180, Math.max(-180, rotation)) : 0,
     side,

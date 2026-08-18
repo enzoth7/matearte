@@ -9,13 +9,24 @@ interface VirolaIconSelectorProps {
 export function VirolaIconSelector({ icons, onChange }: VirolaIconSelectorProps) {
   if (rimIconCatalog.length === 0) return <p className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-[10px] text-zinc-500">No hay imágenes disponibles en la biblioteca.</p>;
 
+  const getInitialPosition = (count: number) => {
+    const angles = [90, 45, 135];
+    const angle = angles[count] ?? 90;
+    const rad = angle * (Math.PI / 180);
+    return {
+      x: Math.round((0.5 + Math.cos(rad) * 0.378) * 1000) / 1000,
+      y: Math.round((0.5 + Math.sin(rad) * 0.378) * 1000) / 1000,
+    };
+  };
+
   const handleAdd = (imageId: string) => {
     if (icons.length >= 3) return;
+    const pos = getInitialPosition(icons.length);
     onChange([...icons, {
       id: crypto.randomUUID(),
       selectedImageId: imageId,
       customImage: null,
-      transform: { x: 0.5, y: 0.5, scale: 1, rotation: 0, side: "rim" }
+      transform: { x: pos.x, y: pos.y, scale: 1, rotation: 0, side: "rim" }
     }]);
   };
 

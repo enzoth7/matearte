@@ -72,10 +72,10 @@ export const rimTextGeometry: RimTextGeometry = { centerX: 627, centerY: 627, ra
 export const defaultRimIconPlacement: RimIconPlacement = { angle: 90, radius: 474, size: 120, rotationMode: "upright" };
 
 const rimGeometryProfiles: Record<MateModel, RimGeometryProfile> = {
-  imperial: { textGeometry: rimTextGeometry, iconPlacement: defaultRimIconPlacement, bounds: { minX: 0.16, maxX: 0.84, minY: 0.16, maxY: 0.84 }, radiusBounds: { min: 0.20, max: 0.34 } },
-  camionero: { textGeometry: { ...rimTextGeometry, radius: 455 }, iconPlacement: { ...defaultRimIconPlacement, radius: 455 }, bounds: { minX: 0.17, maxX: 0.83, minY: 0.17, maxY: 0.83 }, radiusBounds: { min: 0.20, max: 0.33 } },
-  torpedo: { textGeometry: { ...rimTextGeometry, radius: 435, fontSize: 74 }, iconPlacement: { ...defaultRimIconPlacement, radius: 435, size: 112 }, bounds: { minX: 0.19, maxX: 0.81, minY: 0.19, maxY: 0.81 }, radiusBounds: { min: 0.20, max: 0.31 } },
-  criollo: { textGeometry: { ...rimTextGeometry, radius: 448, fontSize: 76 }, iconPlacement: { ...defaultRimIconPlacement, radius: 448, size: 116 }, bounds: { minX: 0.18, maxX: 0.82, minY: 0.18, maxY: 0.82 }, radiusBounds: { min: 0.20, max: 0.32 } },
+  imperial: { textGeometry: rimTextGeometry, iconPlacement: defaultRimIconPlacement, bounds: { minX: 0.05, maxX: 0.95, minY: 0.05, maxY: 0.95 }, radiusBounds: { min: 0.33, max: 0.42 } },
+  camionero: { textGeometry: { ...rimTextGeometry, radius: 455 }, iconPlacement: { ...defaultRimIconPlacement, radius: 455 }, bounds: { minX: 0.05, maxX: 0.95, minY: 0.05, maxY: 0.95 }, radiusBounds: { min: 0.32, max: 0.41 } },
+  torpedo: { textGeometry: { ...rimTextGeometry, radius: 435, fontSize: 74 }, iconPlacement: { ...defaultRimIconPlacement, radius: 435, size: 112 }, bounds: { minX: 0.05, maxX: 0.95, minY: 0.05, maxY: 0.95 }, radiusBounds: { min: 0.31, max: 0.39 } },
+  criollo: { textGeometry: { ...rimTextGeometry, radius: 448, fontSize: 76 }, iconPlacement: { ...defaultRimIconPlacement, radius: 448, size: 116 }, bounds: { minX: 0.05, maxX: 0.95, minY: 0.05, maxY: 0.95 }, radiusBounds: { min: 0.32, max: 0.40 } },
 };
 
 export function getRimGeometryProfile(model: MateModel): RimGeometryProfile {

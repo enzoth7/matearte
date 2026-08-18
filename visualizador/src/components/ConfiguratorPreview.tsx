@@ -80,23 +80,36 @@ export function ConfiguratorPreview({
     const current = getElementTransform(drag.elementId);
     
     if (drag.mode === "resize") {
-      // Simple resize by moving pointer up/down
-      const scaleDelta = (drag.offsetY + point.y - current.y) * -2;
+      const dx = point.x - current.x;
+      const dy = point.y - current.y;
+      const dist = Math.hypot(dx, dy);
+      const newScale = Math.min(1.6, Math.max(0.5, dist / 0.065));
       onTransformChange(drag.elementId, {
         ...current,
-        scale: Math.min(1.6, Math.max(0.5, drag.initialScale + scaleDelta)),
+        scale: Math.round(newScale * 100) / 100,
       });
       return;
     }
 
-    // Move mode with polar constraints
+    if (drag.elementId === "text") {
+      const targetX = point.x + drag.offsetX;
+      const targetY = point.y + drag.offsetY;
+      onTransformChange("text", {
+        ...current,
+        x: Math.min(0.95, Math.max(0.05, targetX)),
+        y: Math.min(0.95, Math.max(0.05, targetY)),
+      });
+      return;
+    }
+
+    // Icon move mode with polar constraints on the virola ring
     const targetX = point.x + drag.offsetX;
     const targetY = point.y + drag.offsetY;
     
-    // Distance from center (0.5, 0.5)
+    // Distance from center of mate (0.5, 0.5)
     const dx = targetX - 0.5;
     const dy = targetY - 0.5;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const distance = Math.hypot(dx, dy);
     
     let constrainedX = targetX;
     let constrainedY = targetY;
@@ -112,9 +125,8 @@ export function ConfiguratorPreview({
         constrainedY = 0.5 + dy * ratio;
       }
     } else {
-      // Fallback to bounding box if radius bounds are not available
-      constrainedX = Math.min(profile.bounds.maxX, Math.max(profile.bounds.minX, targetX));
-      constrainedY = Math.min(profile.bounds.maxY, Math.max(profile.bounds.minY, targetY));
+      constrainedX = Math.min(0.95, Math.max(0.05, targetX));
+      constrainedY = Math.min(0.95, Math.max(0.05, targetY));
     }
 
     onTransformChange(drag.elementId, {

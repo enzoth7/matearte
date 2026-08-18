@@ -1,8 +1,7 @@
 import type { PointerEventHandler } from "react";
-import { calculateRimIconPlacement, type RimGeometryProfile } from "../catalog/rimGeometry";
+import { RIM_VIEWBOX_SIZE, type RimGeometryProfile } from "../catalog/rimGeometry";
 import { rimIconCatalog } from "../catalog/rimIconCatalog";
 import type { CustomImageAsset, ElementTransform } from "../types/customizer";
-import { createElementSvgTransform } from "../lib/svgTransform";
 
 interface RimIconLayerProps {
   selectedImageId: string | null;
@@ -27,25 +26,30 @@ export function RimIconLayer({
   const src = customImage?.id === selectedImageId ? customImage.previewUrl : catalogIcon?.src;
   if (!src) return null;
 
-  const placement = calculateRimIconPlacement(profile.iconPlacement, profile.textGeometry);
-  const size = profile.iconPlacement.size;
+  const x = (transform?.x ?? 0.5) * RIM_VIEWBOX_SIZE;
+  const y = (transform?.y ?? 0.878) * RIM_VIEWBOX_SIZE;
+  const scale = transform?.scale ?? 1;
+  const size = profile.iconPlacement.size * scale;
   const halfSize = size / 2;
+  const radiusKnockout = Math.max(70, halfSize * 1.35);
+  const hitRadius = Math.max(85, halfSize * 1.55);
+  const selectionRadius = Math.max(80, halfSize * 1.45);
+  const handleOffset = selectionRadius * 0.707;
 
   return (
     <g
-      transform={createElementSvgTransform(transform, profile.textGeometry)}
       onPointerDown={onPointerDown}
       className={onPointerDown ? "cursor-grab active:cursor-grabbing" : undefined}
       style={{ touchAction: "none" }}
     >
-      <circle cx={placement.x} cy={placement.y} r={92} fill="#EAE4DC" />
-      <circle cx={placement.x} cy={placement.y} r={112} fill="transparent" pointerEvents={onPointerDown ? "all" : "none"} />
+      <circle cx={x} cy={y} r={radiusKnockout} fill="#EAE4DC" />
+      <circle cx={x} cy={y} r={hitRadius} fill="transparent" pointerEvents={onPointerDown ? "all" : "none"} />
       {selected && (
         <g pointerEvents="none">
-          <circle cx={placement.x} cy={placement.y} r={105} fill="none" stroke="#7a4a31" strokeWidth="5" strokeDasharray="18 12" />
+          <circle cx={x} cy={y} r={selectionRadius} fill="none" stroke="#7a4a31" strokeWidth="5" strokeDasharray="18 12" />
           {onResizeDown && (
             <circle 
-              cx={placement.x + 74} cy={placement.y + 74} r={16} 
+              cx={x + handleOffset} cy={y + handleOffset} r={16} 
               fill="#fff" stroke="#7a4a31" strokeWidth="4"
               pointerEvents="all"
               onPointerDown={(e) => {
@@ -59,14 +63,14 @@ export function RimIconLayer({
       )}
       <image
         href={src}
-        x={placement.x - halfSize}
-        y={placement.y - halfSize}
+        x={x - halfSize}
+        y={y - halfSize}
         width={size}
         height={size}
-        transform={`rotate(${placement.rotation} ${placement.x} ${placement.y})`}
         preserveAspectRatio="xMidYMid meet"
         pointerEvents="none"
       />
     </g>
   );
 }
+
