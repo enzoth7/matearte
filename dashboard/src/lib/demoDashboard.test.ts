@@ -22,6 +22,23 @@ describe("demo dashboard", () => {
     expect(reloaded.production.some((item) => item.orderId === result.orderId && item.quantity === 2)).toBe(true);
   });
 
+  it("crea un nuevo producto en el catálogo", async () => {
+    const res = await demoRequest<DashboardData>("/api/products", {
+      method: "POST",
+      body: JSON.stringify({
+        model: "Imperial",
+        variant: "Test Nuevo",
+        rimType: "Alpaca",
+        leatherType: "Vaqueta",
+        priceArg: 50000,
+      }),
+    });
+    const created = res.products.find((p) => p.model === "Imperial" && p.variant === "Test Nuevo");
+    expect(created).toBeDefined();
+    expect(created?.priceArg).toBe(50000);
+    expect(created?.priceUyu).toBe(50000 * res.exchangeRate);
+  });
+
   it("restaura los datos originales", async () => {
     await demoRequest<DashboardData>("/api/customers", {
       method: "POST",

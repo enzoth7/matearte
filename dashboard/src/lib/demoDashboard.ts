@@ -179,6 +179,34 @@ export async function demoRequest<T>(url: string, options?: RequestInit): Promis
     return persistDemoData(data) as T;
   }
 
+  if (path === "/api/products" && method === "POST") {
+    const body = parseBody<{
+      model?: string;
+      variant?: string;
+      rimType?: string;
+      leatherType?: string;
+      priceArg?: number;
+    }>(options);
+    const model = cleanText(body.model);
+    const variant = cleanText(body.variant);
+    if (!model || !variant) throw new Error("Modelo y variante son obligatorios.");
+    const maxId = data.products.reduce((max, p) => Math.max(max, Number(p.id) || 0), 0);
+    const id = String(maxId + 1);
+    const priceArg = Math.max(0, Number(body.priceArg) || 0);
+    const priceUyu = priceArg * data.exchangeRate;
+    const newProduct: Product = {
+      id,
+      model,
+      variant,
+      rimType: cleanText(body.rimType),
+      leatherType: cleanText(body.leatherType),
+      priceArg,
+      priceUyu,
+    };
+    data.products.push(newProduct);
+    return persistDemoData(data) as T;
+  }
+
   const productMatch = path.match(/^\/api\/products\/([^/]+)$/);
   if (productMatch && method === "PATCH") {
     const productId = decodeURIComponent(productMatch[1]);

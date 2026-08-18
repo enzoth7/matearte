@@ -21,16 +21,20 @@ export default function App() {
   const dashboard = useDashboard();
 
   useEffect(() => {
-    const handleHashChange = () => setActiveView(viewFromHash());
+    const handleHashChange = () => {
+      setActiveView(viewFromHash());
+      void dashboard.refresh();
+    };
     window.addEventListener("hashchange", handleHashChange);
     if (!window.location.hash) window.history.replaceState(null, "", "#nuevo");
     return () => window.removeEventListener("hashchange", handleHashChange);
-  }, []);
+  }, [dashboard.refresh]);
 
   const navigate = (view: ViewId) => {
     if (view === activeView) return;
     window.location.hash = view;
     setActiveView(view);
+    void dashboard.refresh();
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -54,6 +58,7 @@ export default function App() {
         return (
           <ProductsView
             data={dashboard.data}
+            onAdd={dashboard.addProduct}
             onUpdate={dashboard.updateProduct}
             onUpdateExchangeRate={dashboard.updateExchangeRate}
           />

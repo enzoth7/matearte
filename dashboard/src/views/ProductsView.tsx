@@ -1,20 +1,41 @@
-import { useEffect, useMemo, useState } from "react";
-import { CalculatorIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { CalculatorIcon, MagnifyingGlassIcon, PlusIcon, XIcon } from "@phosphor-icons/react";
 import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
 import { formatUyu, normalizeText } from "../lib/format";
 import type { DashboardData, Product } from "../types";
 
+export interface AddProductInput {
+  model: string;
+  variant: string;
+  rimType?: string;
+  leatherType?: string;
+  priceArg: number;
+}
+
 interface ProductsViewProps {
   data: DashboardData;
+  onAdd: (product: AddProductInput) => Promise<unknown>;
   onUpdate: (product: Product) => Promise<unknown>;
   onUpdateExchangeRate: (rate: number) => Promise<unknown>;
 }
 
-export function ProductsView({ data, onUpdate, onUpdateExchangeRate }: ProductsViewProps) {
+const initialProductForm = {
+  model: "",
+  variant: "",
+  rimType: "",
+  leatherType: "",
+  priceArg: "",
+};
+
+export function ProductsView({ data, onAdd, onUpdate, onUpdateExchangeRate }: ProductsViewProps) {
   const [query, setQuery] = useState("");
   const [rate, setRate] = useState(String(data.exchangeRate));
   const [savingProduct, setSavingProduct] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [form, setForm] = useState(initialProductForm);
+  const [savingNewProduct, setSavingNewProduct] = useState(false);
+
   useEffect(() => setRate(String(data.exchangeRate)), [data.exchangeRate]);
 
   const filtered = useMemo(() => {
@@ -27,9 +48,52 @@ export function ProductsView({ data, onUpdate, onUpdateExchangeRate }: ProductsV
     try { await onUpdate({ ...product, ...patch }); } finally { setSavingProduct(""); }
   };
 
+  const openAddDialog = () => {
+    setForm(initialProductForm);
+    setDialogOpen(true);
+  };
+
+  const closeDialog = () => {
+    if (savingNewProduct) return;
+    setDialogOpen(false);
+  };
+
+  const handleAddSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    const model = form.model.trim();
+    const variant = form.variant.trim();
+    if (!model || !variant) return;
+
+    const priceArg = Math.max(0, Number(form.priceArg) || 0);
+
+    setSavingNewProduct(true);
+    try {
+      await onAdd({
+        model,
+        variant,
+        rimType: form.rimType.trim() || undefined,
+        leatherType: form.leatherType.trim() || undefined,
+        priceArg,
+      });
+      setDialogOpen(false);
+      setForm(initialProductForm);
+    } finally {
+      setSavingNewProduct(false);
+    }
+  };
+
   return (
     <div className="page-stack">
-      <PageHeader title="Productos" description="Modelo, variante, materiales y precios son editables." />
+      <PageHeader
+        title="Productos"
+        description="Modelo, variante, materiales y precios son editables."
+        actions={
+          <button type="button" className="button-primary" onClick={openAddDialog}>
+            <PlusIcon size={18} weight="bold" aria-hidden="true" />
+            Agregar producto
+          </button>
+        }
+      />
       <section className="catalog-summary-grid">
         <article className="panel exchange-card">
           <div className="summary-icon"><CalculatorIcon size={24} aria-hidden="true" /></div>
@@ -62,6 +126,101 @@ export function ProductsView({ data, onUpdate, onUpdateExchangeRate }: ProductsV
           </div>
         ) : <EmptyState title="No encontramos productos" description="Probá con otra búsqueda." />}
       </section>
+
+      {dialogOpen && (
+        <div
+          className="customer-dialog-layer"
+          onMouseDown={(event) => event.target === event.currentTarget && closeDialog()}
+        >
+          <dialog
+            className="customer-dialog"
+            open
+            aria-modal="true"
+            aria-labelledby="product-dialog-title"
+            onCancel={closeDialog}
+          >
+            <form onSubmit={handleAddSubmit}>
+              <header>
+                <div>
+                  <h2 id="product-dialog-title">Agregar producto</h2>
+                  <p>Completá los datos para incorporar un nuevo producto al catálogo.</p>
+                </div>
+                <button type="button" className="icon-button" aria-label="Cerrar" onClick={closeDialog}>
+                  <XIcon size={20} aria-hidden="true" />
+                </button>
+              </header>
+
+              <div className="customer-dialog-fields">
+                <label htmlFor="product-model">
+                  Modelo
+                  <input
+                    id="product-model"
+                    value={form.model}
+                    onChange={(event) => setForm((curr) => ({ ...curr, model: event.target.value }))}
+                    placeholder="Ej: Imperial, Camionero, Torpedo..."
+                    autoFocus
+                    required
+                  />
+                </label>
+                <label htmlFor="product-variant">
+                  Variante
+                  <input
+                    id="product-variant"
+                    value={form.variant}
+                    onChange={(event) => setForm((curr) => ({ ...curr, variant: event.target.value }))}
+                    placeholder="Ej: Cincelado, Vaqueta..."
+                    required
+                  />
+                </label>
+                <label htmlFor="product-rim-type">
+                  Tipo de Virola
+                  <input
+                    id="product-rim-type"
+                    value={form.rimType}
+                    onChange={(event) => setForm((curr) => ({ ...curr, rimType: event.target.value }))}
+                    placeholder="Ej: Alpaca, Lisa, Cincelada..."
+                  />
+                </label>
+                <label htmlFor="product-leather-type">
+                  Tipo de Cuero
+                  <input
+                    id="product-leather-type"
+                    value={form.leatherType}
+                    onChange={(event) => setForm((curr) => ({ ...curr, leatherType: event.target.value }))}
+                    placeholder="Ej: Vaqueta, Crudo..."
+                  />
+                </label>
+                <label className="customer-field-wide" htmlFor="product-price-arg">
+                  Precio ARG
+                  <input
+                    id="product-price-arg"
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={form.priceArg}
+                    onChange={(event) => setForm((curr) => ({ ...curr, priceArg: event.target.value }))}
+                    placeholder="0"
+                    required
+                  />
+                </label>
+              </div>
+
+              <footer>
+                <button type="button" className="button-quiet" onClick={closeDialog}>
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="button-primary"
+                  disabled={savingNewProduct || !form.model.trim() || !form.variant.trim()}
+                >
+                  {savingNewProduct ? "Guardando…" : "Guardar producto"}
+                </button>
+              </footer>
+            </form>
+          </dialog>
+        </div>
+      )}
     </div>
   );
 }

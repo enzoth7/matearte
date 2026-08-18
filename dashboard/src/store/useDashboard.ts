@@ -41,12 +41,53 @@ export function useDashboard() {
     }
   }, []);
 
-  useEffect(() => {
-    request<DashboardData>("/api/dashboard")
-      .then(setData)
-      .catch((caught) => setError(caught instanceof Error ? caught.message : "No se pudieron cargar los datos."))
-      .finally(() => setLoading(false));
+  const refresh = useCallback(async () => {
+    try {
+      const nextData = await request<DashboardData>("/api/dashboard");
+      setData(nextData);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No se pudieron cargar los datos.");
+    }
   }, []);
+
+  useEffect(() => {
+    refresh().finally(() => setLoading(false));
+  }, [refresh]);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      void refresh();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void refresh();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    const interval = setInterval(() => {
+      void refresh();
+    }, 8000);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      clearInterval(interval);
+    };
+  }, [refresh]);
+
+  const addProduct = useCallback(
+    (product: { model: string; variant: string; rimType?: string; leatherType?: string; priceArg: number }) => run(
+      () => request<DashboardData>("/api/products", {
+        method: "POST",
+        body: JSON.stringify(product),
+      }),
+      (payload) => payload,
+    ),
+    [run],
+  );
 
   const addOrder = useCallback(
     async (customer: string, items: DraftOrderItem[]) => {
@@ -137,6 +178,8 @@ export function useDashboard() {
     data,
     loading,
     error,
+    refresh,
+    addProduct,
     addOrder,
     addCustomer,
     renameCustomer,

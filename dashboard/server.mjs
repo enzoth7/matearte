@@ -230,6 +230,49 @@ app.post("/api/production/:lineId/complete", async (request, response, next) => 
   }
 });
 
+app.post("/api/products", async (request, response, next) => {
+  try {
+    const model = cleanText(request.body.model);
+    const variant = cleanText(request.body.variant);
+    const rimType = cleanText(request.body.rimType ?? request.body.rim_type);
+    const leatherType = cleanText(request.body.leatherType ?? request.body.leather_type);
+    const priceArg = Math.max(0, Number(request.body.priceArg ?? request.body.price_arg) || 0);
+
+    if (!model || !variant) {
+      return response.status(400).json({ error: "Modelo y variante son obligatorios." });
+    }
+
+    const { data: settings } = await supabase.from("settings").select("exchange_rate").eq("id", 1).single();
+    const rate = settings ? Number(settings.exchange_rate) : 1;
+    const priceUyu = priceArg * rate;
+
+    const { data: productsData, error: pError } = await supabase.from("products").select("id");
+    if (pError) throw pError;
+
+    const maxId = productsData && productsData.length
+      ? Math.max(...productsData.map((p) => Number(p.id) || 0), 0)
+      : 0;
+    const id = String(maxId + 1);
+
+    const newProduct = {
+      id,
+      model,
+      variant,
+      rim_type: rimType,
+      leather_type: leatherType,
+      price_arg: priceArg,
+      price_uyu: priceUyu,
+    };
+
+    const { error } = await supabase.from("products").insert(newProduct);
+    if (error) throw error;
+
+    response.status(201).json(await getDashboardData());
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.patch("/api/products/:id", async (request, response, next) => {
   try {
     const patch = request.body ?? {};
