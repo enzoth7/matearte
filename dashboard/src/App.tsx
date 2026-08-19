@@ -1,49 +1,89 @@
 import { useEffect, useState } from "react";
 import { AppShell } from "./components/AppShell";
+import { useAuth } from "./store/useAuth";
 import { useDashboard } from "./store/useDashboard";
 import type { ViewId } from "./types";
-import { HistoryView } from "./views/HistoryView";
 import { CustomersView } from "./views/CustomersView";
+import { HistoryView } from "./views/HistoryView";
+import { LoginView } from "./views/LoginView";
 import { NewOrderView } from "./views/NewOrderView";
 import { OverviewView } from "./views/OverviewView";
-import { ProductsView } from "./views/ProductsView";
 import { ProductionView } from "./views/ProductionView";
+import { ProductsView } from "./views/ProductsView";
 
-const validViews: ViewId[] = ["resumen", "nuevo", "clientes", "produccion", "historico", "productos"];
+const validViews: ViewId[] = [
+  "resumen",
+  "nuevo",
+  "clientes",
+  "produccion",
+  "historico",
+  "productos",
+];
 
-const viewFromHash = (): ViewId => {
-  const hash = window.location.hash.replace("#", "") as ViewId;
-  return validViews.includes(hash) ? hash : "nuevo";
+const viewFromPathname = (): ViewId => {
+  if (typeof window === "undefined") return "nuevo";
+  const path = window.location.pathname.replace(/^\/+|\/+$/g, "");
+  if (!path || path === "nuevo") return "nuevo";
+  if (validViews.includes(path as ViewId)) return path as ViewId;
+  return "nuevo";
 };
 
 export default function App() {
-  const [activeView, setActiveView] = useState<ViewId>(viewFromHash);
+  const auth = useAuth();
+  const [activeView, setActiveView] = useState<ViewId>(viewFromPathname);
   const dashboard = useDashboard();
 
   useEffect(() => {
-    const handleHashChange = () => {
-      setActiveView(viewFromHash());
+    const handlePopState = () => {
+      setActiveView(viewFromPathname());
       void dashboard.refresh();
     };
-    window.addEventListener("hashchange", handleHashChange);
-    if (!window.location.hash) window.history.replaceState(null, "", "#nuevo");
-    return () => window.removeEventListener("hashchange", handleHashChange);
+
+    window.addEventListener("popstate", handlePopState);
+
+    // Backward compatibility: migrate old #view hashes to clean pathname URLs
+    if (typeof window !== "undefined" && window.location.hash) {
+      const hashView = window.location.hash.replace("#", "") as ViewId;
+      if (validViews.includes(hashView)) {
+        window.history.replaceState(null, "", `/${hashView}`);
+        setActiveView(hashView);
+      }
+    }
+
+    return () => window.removeEventListener("popstate", handlePopState);
   }, [dashboard.refresh]);
 
   const navigate = (view: ViewId) => {
-    if (view === activeView) return;
-    window.location.hash = view;
+    const targetPath = `/${view}`;
+    if (view === activeView && window.location.pathname === targetPath) return;
+    window.history.pushState(null, "", targetPath);
     setActiveView(view);
     void dashboard.refresh();
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  if (!auth.isAuthenticated) {
+    return <LoginView onLogin={auth.login} />;
+  }
+
   const content = (() => {
     switch (activeView) {
       case "nuevo":
-        return <NewOrderView data={dashboard.data} onAddOrder={dashboard.addOrder} onNavigate={navigate} />;
+        return (
+          <NewOrderView
+            data={dashboard.data}
+            onAddOrder={dashboard.addOrder}
+            onNavigate={navigate}
+          />
+        );
       case "clientes":
-        return <CustomersView data={dashboard.data} onAdd={dashboard.addCustomer} onRename={dashboard.renameCustomer} />;
+        return (
+          <CustomersView
+            data={dashboard.data}
+            onAdd={dashboard.addCustomer}
+            onRename={dashboard.renameCustomer}
+          />
+        );
       case "produccion":
         return (
           <ProductionView
@@ -69,8 +109,18 @@ export default function App() {
   })();
 
   return (
-    <AppShell activeView={activeView} onNavigate={navigate} error={dashboard.error}>
-      {dashboard.loading ? <div className="loading-screen">Cargando datos…</div> : content}
+    <AppShell
+      activeView={activeView}
+      onNavigate={navigate}
+      error={dashboard.error}
+      currentUser={auth.user?.username}
+      onLogout={auth.logout}
+    >
+      {dashboard.loading ? (
+        <div className="loading-screen">Cargando datos…</div>
+      ) : (
+        content
+      )}
     </AppShell>
   );
 }

@@ -9,6 +9,7 @@ import {
   findProduct,
   formatDate,
   getLineValueArg,
+  getLineValueUyu,
   getProductionExportFilename,
   normalizeText,
 } from "./format";
@@ -43,6 +44,24 @@ describe("format helpers", () => {
     expect(getLineValueArg([product], line)).toBe(45210);
   });
 
+  it("prioriza los snapshots sobre los precios del catálogo", () => {
+    const lineWithSnapshot: ProductionItem = {
+      ...line,
+      unitPriceArg: 10000,
+      totalArg: 30000,
+      unitPriceUyu: 250,
+      totalUyu: 750,
+      exchangeRate: 0.025,
+    };
+
+    expect(getLineValueArg([product], lineWithSnapshot)).toBe(30000);
+    expect(getLineValueUyu([product], lineWithSnapshot, 0.03)).toBe(750);
+  });
+
+  it("calcula valor UYU con fallback cuando no hay snapshot", () => {
+    expect(getLineValueUyu([product], line, 0.026)).toBe(45210 * 0.026);
+  });
+
   it("muestra un guion cuando falta una fecha", () => {
     expect(formatDate(null, true)).toBe("-");
     expect(formatDate("fecha-inválida", true)).toBe("-");
@@ -68,7 +87,7 @@ describe("format helpers", () => {
     expect(getProductionExportFilename(date)).toBe("matearte-produccion-2026-08-18.xlsx");
   });
 
-  it("construye filas de exportación de producción con todos los campos requeridos", () => {
+  it("construye filas de exportación de producción con todos los campos requeridos y snapshots", () => {
     const customProduct: Product = {
       id: "p-custom",
       model: "Torpedo",
@@ -86,6 +105,11 @@ describe("format helpers", () => {
       variant: "Cincelado",
       quantity: 5,
       status: "En producción",
+      unitPriceArg: 1800,
+      totalArg: 9000,
+      unitPriceUyu: 45,
+      totalUyu: 225,
+      exchangeRate: 0.025,
     };
 
     const rows = buildProductionExportRows([customLine], [customProduct], 0.026);
@@ -99,9 +123,9 @@ describe("format helpers", () => {
         Cuero: "Crudo",
         Cantidad: 5,
         Estado: "En producción",
-        "Precio Unitario ARG": 2000,
-        "Total ARG": 10000,
-        "Total UYU": 260,
+        "Precio Unitario ARG": 1800,
+        "Total ARG": 9000,
+        "Total UYU": 225,
       },
     ]);
   });

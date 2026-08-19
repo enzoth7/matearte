@@ -24,6 +24,15 @@ const mockData: DashboardData = {
       priceArg: 50000,
       priceUyu: 1300,
     },
+    {
+      id: "3",
+      model: "Imperial",
+      variant: "Premium",
+      rimType: "Acero",
+      leatherType: "Vaqueta",
+      priceArg: 80000,
+      priceUyu: 2080,
+    },
   ],
   customers: [],
   production: [],
@@ -48,9 +57,10 @@ describe("ProductsView", () => {
     );
 
     expect(screen.getByRole("heading", { level: 1, name: "Productos" })).toBeInTheDocument();
-    expect(screen.getByText("2 productos editables")).toBeInTheDocument();
+    expect(screen.getByText("3 productos editables")).toBeInTheDocument();
     expect(screen.getByLabelText("Modelo producto 1")).toHaveValue("Imperial");
     expect(screen.getByLabelText("Modelo producto 2")).toHaveValue("Torpedo");
+    expect(screen.getByLabelText("Modelo producto 3")).toHaveValue("Imperial");
   });
 
   it("filtra productos por búsqueda", () => {
@@ -73,6 +83,69 @@ describe("ProductsView", () => {
     expect(screen.getByLabelText("Modelo producto 2")).toHaveValue("Torpedo");
     expect(screen.queryByLabelText("Modelo producto 1")).not.toBeInTheDocument();
     expect(screen.getByText("1 productos editables")).toBeInTheDocument();
+  });
+
+  it("filtra productos por selectores y sincroniza variantes dependientes", () => {
+    const onAdd = vi.fn().mockResolvedValue(undefined);
+    const onUpdate = vi.fn().mockResolvedValue(undefined);
+    const onUpdateExchangeRate = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <ProductsView
+        data={mockData}
+        onAdd={onAdd}
+        onUpdate={onUpdate}
+        onUpdateExchangeRate={onUpdateExchangeRate}
+      />
+    );
+
+    const modelSelect = screen.getByLabelText("Filtrar por modelo");
+    const variantSelect = screen.getByLabelText("Filtrar por variante");
+    const rimSelect = screen.getByLabelText("Filtrar por virola");
+    const leatherSelect = screen.getByLabelText("Filtrar por cuero");
+
+    // Filtrar por modelo Imperial
+    fireEvent.change(modelSelect, { target: { value: "Imperial" } });
+    expect(screen.getByLabelText("Modelo producto 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Modelo producto 3")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Modelo producto 2")).not.toBeInTheDocument();
+
+    // Las opciones de variante ahora deben ser solo las de Imperial ("Cincelado a Lacre", "Premium")
+    const variantOptions = within(variantSelect).getAllByRole("option").map((opt) => opt.textContent);
+    expect(variantOptions).toContain("Todas las variantes");
+    expect(variantOptions).toContain("Cincelado a Lacre");
+    expect(variantOptions).toContain("Premium");
+    expect(variantOptions).not.toContain("Liso");
+
+    // Filtrar por variante Premium
+    fireEvent.change(variantSelect, { target: { value: "Premium" } });
+    expect(screen.queryByLabelText("Modelo producto 1")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Modelo producto 3")).toBeInTheDocument();
+
+    // Cambiar a modelo Torpedo -> resetea variante porque Torpedo no tiene "Premium"
+    fireEvent.change(modelSelect, { target: { value: "Torpedo" } });
+    expect(variantSelect).toHaveValue("");
+    expect(screen.getByLabelText("Modelo producto 2")).toBeInTheDocument();
+
+    // Filtrar por virola y cuero
+    fireEvent.change(modelSelect, { target: { value: "" } });
+    fireEvent.change(rimSelect, { target: { value: "Alpaca" } });
+    expect(screen.getByLabelText("Modelo producto 2")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Modelo producto 1")).not.toBeInTheDocument();
+
+    fireEvent.change(rimSelect, { target: { value: "" } });
+    fireEvent.change(leatherSelect, { target: { value: "Vaqueta" } });
+    expect(screen.getByLabelText("Modelo producto 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Modelo producto 3")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Modelo producto 2")).not.toBeInTheDocument();
+
+    // Limpiar filtros con el botón
+    const clearButton = screen.getByRole("button", { name: "Limpiar filtros" });
+    fireEvent.click(clearButton);
+    expect(leatherSelect).toHaveValue("");
+    expect(modelSelect).toHaveValue("");
+    expect(screen.getByText("3 productos editables")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Limpiar filtros" })).not.toBeInTheDocument();
   });
 
   it("edita un producto inline llamando a onUpdate", async () => {

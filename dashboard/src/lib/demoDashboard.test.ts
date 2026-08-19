@@ -39,6 +39,92 @@ describe("demo dashboard", () => {
     expect(created?.priceUyu).toBe(50000 * res.exchangeRate);
   });
 
+  it("guarda snapshots de precios en los pedidos y mantiene su inmutabilidad", async () => {
+    const initial = await demoRequest<DashboardData>("/api/dashboard");
+    const product = initial.products[0];
+    const originalPriceArg = product.priceArg;
+    const originalPriceUyu = product.priceUyu;
+    const originalRate = initial.exchangeRate;
+
+    const result = await demoRequest<{ data: DashboardData; orderId: string }>("/api/orders", {
+      method: "POST",
+      body: JSON.stringify({
+        customer: "Cliente Inmutable",
+        items: [{ key: "1", productId: product.id, quantity: 3 }],
+      }),
+    });
+
+    const createdLine = result.data.production.find((item) => item.orderId === result.orderId);
+    expect(createdLine).toBeDefined();
+    expect(createdLine?.unitPriceArg).toBe(originalPriceArg);
+    expect(createdLine?.unitPriceUyu).toBe(originalPriceUyu);
+    expect(createdLine?.exchangeRate).toBe(originalRate);
+    expect(createdLine?.totalArg).toBe(originalPriceArg * 3);
+    expect(createdLine?.totalUyu).toBe(originalPriceUyu * 3);
+
+    // Cambiar tipo de cambio y precio del producto
+    await demoRequest<DashboardData>("/api/settings/exchange-rate", {
+      method: "PUT",
+      body: JSON.stringify({ exchangeRate: 0.05 }),
+    });
+    await demoRequest<DashboardData>(`/api/products/${product.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ priceArg: 99999 }),
+    });
+
+    const updated = await demoRequest<DashboardData>("/api/dashboard");
+    const persistingLine = updated.production.find((item) => item.orderId === result.orderId);
+
+    // Los snapshots en la orden existente deben mantenerse intactos
+    expect(persistingLine?.unitPriceArg).toBe(originalPriceArg);
+    expect(persistingLine?.totalArg).toBe(originalPriceArg * 3);
+    expect(persistingLine?.totalUyu).toBe(originalPriceUyu * 3);
+  });
+
+  it("fusiona clientes reasignando pedidos y combinando notas al renombrar hacia un cliente existente", async () => {
+    const initial = await demoRequest<DashboardData>("/api/dashboard");
+    const pId = initial.products[0].id;
+
+    // Crear Cliente Origen y Cliente Destino
+    await demoRequest<DashboardData>("/api/customers", {
+      method: "POST",
+      body: JSON.stringify({ fullName: "CLIENTE ORIGEN", phone: "099111111", notes: "Nota origen" }),
+    });
+    await demoRequest<DashboardData>("/api/customers", {
+      method: "POST",
+      body: JSON.stringify({ fullName: "CLIENTE DESTINO", phone: "099222222", notes: "Nota destino" }),
+    });
+
+    // Crear pedidos para Cliente Origen
+    const orderRes = await demoRequest<{ data: DashboardData; orderId: string }>("/api/orders", {
+      method: "POST",
+      body: JSON.stringify({
+        customer: "CLIENTE ORIGEN",
+        items: [{ key: "1", productId: pId, quantity: 5 }],
+      }),
+    });
+
+    // Renombrar CLIENTE ORIGEN -> CLIENTE DESTINO (merge)
+    const merged = await demoRequest<DashboardData>("/api/customers/CLIENTE%20ORIGEN", {
+      method: "PUT",
+      body: JSON.stringify({ fullName: "CLIENTE DESTINO", notes: "Nota adicional" }),
+    });
+
+    // CLIENTE ORIGEN ya no debe existir en la lista de clientes
+    expect(merged.customers).not.toContain("CLIENTE ORIGEN");
+    expect(merged.customers).toContain("CLIENTE DESTINO");
+
+    // Las líneas de pedido deben haberse reasignado a CLIENTE DESTINO
+    const mergedLine = merged.production.find((l) => l.orderId === orderRes.orderId);
+    expect(mergedLine).toBeDefined();
+    expect(mergedLine?.customer).toBe("CLIENTE DESTINO");
+
+    // El perfil de CLIENTE DESTINO debe contener las notas combinadas
+    const targetProfile = merged.customerProfiles?.find((p) => p.fullName === "CLIENTE DESTINO");
+    expect(targetProfile?.notes).toContain("Nota destino");
+    expect(targetProfile?.notes).toContain("Nota origen");
+  });
+
   it("restaura los datos originales", async () => {
     await demoRequest<DashboardData>("/api/customers", {
       method: "POST",
@@ -50,3 +136,4 @@ describe("demo dashboard", () => {
     expect(localStorage.length).toBe(0);
   });
 });
+

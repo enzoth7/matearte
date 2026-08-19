@@ -31,11 +31,16 @@ const profileFromName = (fullName: string): CustomerProfile => {
 
 export function CustomersView({ data, onAdd, onRename }: CustomersViewProps) {
   const [query, setQuery] = useState("");
+  const [customerFilter, setCustomerFilter] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<string | null>(null);
   const [form, setForm] = useState<CustomerProfile>(emptyCustomer);
   const [saving, setSaving] = useState(false);
   const [customerSort, setCustomerSort] = useState<{ key: CustomerSortKey; direction: CustomerSortDirection }>({ key: "latestPurchase", direction: "desc" });
+
+  const customerOptions = useMemo(() => {
+    return Array.from(new Set(data.customers ?? [])).sort((a, b) => a.localeCompare(b, "es"));
+  }, [data.customers]);
 
   const customerRows = useMemo(() => {
     const profiles = new Map(
@@ -56,8 +61,10 @@ export function CustomersView({ data, onAdd, onRename }: CustomersViewProps) {
         .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
       return { profile, currentOrders, totalOrders, latestPurchase };
     }).filter(({ profile }) => {
-      const searchable = `${profile.firstName} ${profile.lastName} ${profile.phone} ${profile.email}`;
-      return !normalizedQuery || normalizeText(searchable).includes(normalizedQuery);
+      const matchesCustomer = !customerFilter || profile.fullName === customerFilter;
+      const searchable = `${profile.fullName} ${profile.firstName} ${profile.lastName} ${profile.phone} ${profile.email}`;
+      const matchesQuery = !normalizedQuery || normalizeText(searchable).includes(normalizedQuery);
+      return matchesCustomer && matchesQuery;
     }).sort((a, b) => {
       if (customerSort.key === "latestPurchase") {
         const aTime = a.latestPurchase ? new Date(a.latestPurchase).getTime() : null;
@@ -72,7 +79,7 @@ export function CustomersView({ data, onAdd, onRename }: CustomersViewProps) {
       if (comparison === 0) return a.profile.fullName.localeCompare(b.profile.fullName, "es");
       return customerSort.direction === "desc" ? -comparison : comparison;
     });
-  }, [customerSort, data.customerProfiles, data.customers, data.history, data.production, query]);
+  }, [customerFilter, customerSort, data.customerProfiles, data.customers, data.history, data.production, query]);
 
   const editingHistory = useMemo(() => {
     if (!editingCustomer) return { rows: [], totalOrders: 0, totalUnits: 0 };
@@ -177,6 +184,21 @@ export function CustomersView({ data, onAdd, onRename }: CustomersViewProps) {
                 onChange={(event) => setQuery(event.target.value)}
               />
             </div>
+            <label className="sr-only" htmlFor="customer-select-filter">Filtrar por cliente</label>
+            <select
+              id="customer-select-filter"
+              aria-label="Filtrar por cliente"
+              className="filter-select customer-filter-select"
+              value={customerFilter}
+              onChange={(event) => setCustomerFilter(event.target.value)}
+            >
+              <option value="">Todos los clientes</option>
+              {customerOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
             <button type="button" className="button-primary" onClick={openNewCustomer}>
               <PlusIcon size={18} weight="bold" aria-hidden="true" />
               Agregar cliente

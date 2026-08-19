@@ -23,4 +23,34 @@ describe("OverviewView", () => {
     expect(within(argKpi).getByText(/2\.000/)).toBeInTheDocument();
     expect(screen.queryByText("Carga activa")).not.toBeInTheDocument();
   });
+
+  it("utiliza los snapshots de precios cuando están presentes", () => {
+    const dataWithSnapshot: DashboardData = {
+      ...data,
+      production: [
+        {
+          lineId: "line-1",
+          orderId: "PED-1",
+          customer: "GASPAR",
+          model: "Torpedo",
+          variant: "Natural",
+          quantity: 2,
+          status: "Pendiente",
+          unitPriceArg: 1500,
+          totalArg: 3000,
+          unitPriceUyu: 45,
+          totalUyu: 90,
+          exchangeRate: 0.03,
+        },
+      ],
+    };
+
+    render(<OverviewView data={dataWithSnapshot} />);
+
+    const uyuKpi = screen.getByRole("heading", { name: "Valor uruguayo" }).closest("article") as HTMLElement;
+    const argKpi = screen.getByRole("heading", { name: "Valor argentino" }).closest("article") as HTMLElement;
+
+    expect(within(uyuKpi).getByText(/90/)).toBeInTheDocument();
+    expect(within(argKpi).getByText(/3\.000/)).toBeInTheDocument();
+  });
 });

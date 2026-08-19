@@ -5,6 +5,8 @@ import {
   CubeIcon,
   ListIcon,
   PlusCircleIcon,
+  SignOutIcon,
+  UserIcon,
   UsersThreeIcon,
 } from "@phosphor-icons/react";
 import type { ViewId } from "../types";
@@ -22,17 +24,28 @@ interface AppShellProps {
   activeView: ViewId;
   onNavigate: (view: ViewId) => void;
   error?: string;
+  currentUser?: string;
+  onLogout?: () => void;
   children: ReactNode;
 }
 
-export function AppShell({ activeView, onNavigate, error, children }: AppShellProps) {
+export function AppShell({
+  activeView,
+  onNavigate,
+  error,
+  currentUser,
+  onLogout,
+  children,
+}: AppShellProps) {
   return (
     <div className="app-shell">
-      <a className="skip-link" href="#main-content">Saltar al contenido</a>
+      <a className="skip-link" href="#main-content">
+        Saltar al contenido
+      </a>
 
       <aside className="side-navigation">
         <header className="side-brand">
-          <img src="/logo-matearte.avif" alt="MateArte Arte y TradiciÃ³n" />
+          <img src="/logo-matearte.avif" alt="MateArte Arte y Tradición" />
           <strong>MateArte</strong>
           <small>Operaciones</small>
         </header>
@@ -53,10 +66,35 @@ export function AppShell({ activeView, onNavigate, error, children }: AppShellPr
             </button>
           ))}
         </nav>
+
+        <footer className="side-footer">
+          {currentUser && (
+            <div className="side-user-info" title={`Sesión: ${currentUser}`}>
+              <UserIcon size={18} weight="bold" aria-hidden="true" />
+              <strong className="side-user-name">{currentUser}</strong>
+            </div>
+          )}
+          {onLogout && (
+            <button
+              type="button"
+              className="side-logout-btn"
+              onClick={onLogout}
+              title="Cerrar sesión"
+              aria-label="Cerrar sesión"
+            >
+              <SignOutIcon size={20} aria-hidden="true" />
+              <strong>Cerrar sesión</strong>
+            </button>
+          )}
+        </footer>
       </aside>
 
       <main id="main-content" className={`main-content side-content side-content-${activeView}`}>
-        {error && <p className="global-error" role="alert">{error}</p>}
+        {error && (
+          <p className="global-error" role="alert">
+            {error}
+          </p>
+        )}
         {children}
       </main>
     </div>

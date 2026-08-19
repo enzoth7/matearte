@@ -15,11 +15,17 @@ export interface Product {
 export interface ProductionItem {
   lineId: string;
   orderId: string | null;
+  createdAt?: string | null;
   customer: string;
   model: string;
   variant: string;
   quantity: number;
   status: ProductionStatus;
+  unitPriceArg?: number;
+  unitPriceUyu?: number;
+  exchangeRate?: number;
+  totalArg?: number;
+  totalUyu?: number;
 }
 
 export interface HistoryItem {
@@ -31,6 +37,11 @@ export interface HistoryItem {
   variant: string;
   quantity: number;
   completedAt: string | null;
+  unitPriceArg?: number;
+  unitPriceUyu?: number;
+  exchangeRate?: number;
+  totalArg?: number;
+  totalUyu?: number;
 }
 
 export interface CustomerProfile {

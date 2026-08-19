@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { formatArg, formatNumber, formatUyu, getLineValueArg } from "../lib/format";
+import { formatArg, formatNumber, formatUyu, getLineValueArg, getLineValueUyu } from "../lib/format";
 import type { DashboardData } from "../types";
 
 export function OverviewView({ data }: { data: DashboardData }) {
@@ -10,7 +10,8 @@ export function OverviewView({ data }: { data: DashboardData }) {
     .filter((item) => item.status === "En producción")
     .reduce((sum, item) => sum + item.quantity, 0);
   const activeUnits = pendingUnits + inProgressUnits;
-  const activeValue = data.production.reduce((sum, item) => sum + getLineValueArg(data.products, item), 0);
+  const activeValueArg = data.production.reduce((sum, item) => sum + getLineValueArg(data.products, item), 0);
+  const activeValueUyu = data.production.reduce((sum, item) => sum + getLineValueUyu(data.products, item, data.exchangeRate), 0);
   const activeCustomers = new Set(data.production.map((item) => item.customer)).size;
 
   const clientStats = Array.from(data.production.reduce((groups, item) => {
@@ -38,11 +39,11 @@ export function OverviewView({ data }: { data: DashboardData }) {
         <section className="summary-currency-kpis" aria-label="Valores comprometidos">
           <article className="summary-currency-kpi is-uyu">
             <h2>Valor uruguayo</h2>
-            <strong>{formatUyu(activeValue * data.exchangeRate)}</strong>
+            <strong>{formatUyu(activeValueUyu)}</strong>
           </article>
           <article className="summary-currency-kpi is-arg">
             <h2>Valor argentino</h2>
-            <strong>{formatArg(activeValue)}</strong>
+            <strong>{formatArg(activeValueArg)}</strong>
           </article>
         </section>
       </header>

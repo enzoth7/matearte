@@ -93,4 +93,43 @@ describe("CustomersView", () => {
     expect(within(dialog).getByRole("row", { name: "Criollo 2 6" })).toBeInTheDocument();
     expect(within(dialog).getByRole("row", { name: "Total 2 6" })).toBeInTheDocument();
   });
+
+  it("filtra clientes por el selector desplegable", () => {
+    render(<CustomersView data={data} onAdd={vi.fn()} onRename={vi.fn()} />);
+
+    const select = screen.getByLabelText("Filtrar por cliente");
+    expect(select).toBeInTheDocument();
+
+    const options = within(select).getAllByRole("option").map((opt) => opt.textContent);
+    expect(options).toEqual(["Todos los clientes", "GASPAR", "MANU PEREZ"]);
+
+    fireEvent.change(select, { target: { value: "GASPAR" } });
+    expect(screen.getByRole("button", { name: "Editar cliente GASPAR" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Editar cliente MANU PEREZ" })).not.toBeInTheDocument();
+
+    fireEvent.change(select, { target: { value: "" } });
+    expect(screen.getByRole("button", { name: "Editar cliente GASPAR" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Editar cliente MANU PEREZ" })).toBeInTheDocument();
+  });
+
+  it("filtra clientes por búsqueda evaluando nombre, teléfono y email", () => {
+    render(<CustomersView data={data} onAdd={vi.fn()} onRename={vi.fn()} />);
+
+    const searchInput = screen.getByPlaceholderText("Buscar cliente");
+
+    // Búsqueda por teléfono
+    fireEvent.change(searchInput, { target: { value: "099111222" } });
+    expect(screen.getByRole("button", { name: "Editar cliente GASPAR" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Editar cliente MANU PEREZ" })).not.toBeInTheDocument();
+
+    // Búsqueda por email
+    fireEvent.change(searchInput, { target: { value: "gaspar@example.com" } });
+    expect(screen.getByRole("button", { name: "Editar cliente GASPAR" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Editar cliente MANU PEREZ" })).not.toBeInTheDocument();
+
+    // Búsqueda por apellido
+    fireEvent.change(searchInput, { target: { value: "PEREZ" } });
+    expect(screen.getByRole("button", { name: "Editar cliente MANU PEREZ" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Editar cliente GASPAR" })).not.toBeInTheDocument();
+  });
 });

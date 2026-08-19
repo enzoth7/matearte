@@ -59,7 +59,10 @@ export const findProduct = (products: Product[], item: Pick<ProductionItem, "mod
   );
 
 export const getLineValueArg = (products: Product[], item: ProductionItem) =>
-  (findProduct(products, item)?.priceArg ?? 0) * item.quantity;
+  item.totalArg ?? (item.unitPriceArg ? item.unitPriceArg * item.quantity : (findProduct(products, item)?.priceArg ?? 0) * item.quantity);
+
+export const getLineValueUyu = (products: Product[], item: ProductionItem, fallbackExchangeRate: number) =>
+  item.totalUyu ?? (item.unitPriceUyu ? item.unitPriceUyu * item.quantity : getLineValueArg(products, item) * (item.exchangeRate ?? fallbackExchangeRate));
 
 export const downloadCsv = (filename: string, rows: Array<Array<string | number>>) => {
   const escapeCell = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
@@ -87,9 +90,10 @@ export const buildProductionExportRows = (
 ): ProductionExportRow[] =>
   items.map((item) => {
     const product = findProduct(products, item);
-    const priceArg = product?.priceArg ?? 0;
-    const totalArg = item.quantity * priceArg;
-    const totalUyu = Math.round(totalArg * exchangeRate * 100) / 100;
+    const priceArg = item.unitPriceArg ?? product?.priceArg ?? 0;
+    const totalArg = item.totalArg ?? (item.quantity * priceArg);
+    const rate = item.exchangeRate ?? exchangeRate;
+    const totalUyu = item.totalUyu ?? Math.round(totalArg * rate * 100) / 100;
 
     return {
       Pedido: item.orderId?.trim() || "-",

@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { CaretDownIcon, CaretUpDownIcon, CaretUpIcon, CheckCircleIcon, DownloadSimpleIcon, MagnifyingGlassIcon, PencilSimpleIcon, XIcon } from "@phosphor-icons/react";
+import { CaretDownIcon, CaretUpDownIcon, CaretUpIcon, CheckCircleIcon, DownloadSimpleIcon, MagnifyingGlassIcon, PencilSimpleIcon, PrinterIcon, XIcon } from "@phosphor-icons/react";
 import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
-import { exportProductionToExcel, findProduct, formatArg, formatNumber, getLineValueArg, normalizeText } from "../lib/format";
+import { exportProductionToExcel, findProduct, formatArg, formatDate, formatNumber, getLineValueArg, normalizeText } from "../lib/format";
+import { exportProductionToPdf } from "../lib/pdfExport";
 import type { DashboardData, ProductionItem, ProductionStatus } from "../types";
 
 type StatusFilter = "Todos" | ProductionStatus;
 type ProductionSection = "pedidos" | "modelos" | "variantes" | "virolas" | "cueros";
-type SortKey = "quantity" | "total";
+type SortKey = "quantity" | "total" | "date";
 type SortDirection = "asc" | "desc";
 
 interface ProductionViewProps {
@@ -205,6 +206,8 @@ export function ProductionView({ data, onUpdate, onComplete }: ProductionViewPro
   const [savingLine, setSavingLine] = useState("");
   const normalizedQuery = normalizeText(query);
   const summary = useMemo(() => buildProductionSummary(data), [data]);
+  const availableModels = useMemo(() => Array.from(new Set(data.products.map((p) => p.model))), [data.products]);
+  const availableVariants = useMemo(() => data.products.filter((p) => p.model === editingItem?.model), [data.products, editingItem?.model]);
   const customerOptions = useMemo(() => Array.from(new Set(
     data.production
       .filter((item) => !modelFilter || item.model === modelFilter)
@@ -243,6 +246,11 @@ export function ProductionView({ data, onUpdate, onComplete }: ProductionViewPro
 
   const filteredValueArg = filtered.reduce((sum, item) => sum + getLineValueArg(data.products, item), 0);
   const sortedFiltered = [...filtered].sort((a, b) => {
+    if (sortKey === "date") {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return sortDirection === "asc" ? aTime - bTime : bTime - aTime;
+    }
     const valueFor = (item: ProductionItem) => sortKey === "quantity" ? item.quantity : getLineValueArg(data.products, item);
     const aValue = valueFor(a);
     const bValue = valueFor(b);
@@ -266,6 +274,13 @@ export function ProductionView({ data, onUpdate, onComplete }: ProductionViewPro
     setModelFilter(nextModel);
   };
 
+  const openEditor = (item: ProductionItem) => {
+    const matchingProducts = data.products.filter((p) => p.model === item.model);
+    const variantExists = matchingProducts.some((p) => p.variant === item.variant);
+    const safeVariant = variantExists ? item.variant : (matchingProducts[0]?.variant || item.variant);
+    setEditingItem({ ...item, variant: safeVariant });
+  };
+
   const closeEditor = () => { if (!savingLine) setEditingItem(null); };
   const updateDraft = <K extends keyof ProductionItem>(field: K, value: ProductionItem[K]) => setEditingItem((current) => current ? { ...current, [field]: value } : current);
 
@@ -287,6 +302,7 @@ export function ProductionView({ data, onUpdate, onComplete }: ProductionViewPro
         </div>
         {data.production.length ? <div className="responsive-table-wrap"><table className="data-table production-table"><thead><tr>
           <th>Pedido</th>
+          <SortableHeader label="Fecha" sortKey="date" activeKey={sortKey} direction={sortDirection} onSort={requestSort} />
           <SelectFilterHeader label="Cliente" allLabel="Ver todos los clientes" value={customerFilter} options={customerOptions} onChange={setCustomerFilter} />
           <SelectFilterHeader label="Modelo" allLabel="Ver todos los modelos" value={modelFilter} options={modelOptions} onChange={setModelFilter} />
           <th>Variante</th>
@@ -296,10 +312,10 @@ export function ProductionView({ data, onUpdate, onComplete }: ProductionViewPro
           <th>Acción</th>
         </tr></thead><tbody>{sortedFiltered.map((item) => (
           <tr key={item.lineId} className={savingLine === item.lineId ? "is-saving" : ""}>
-            <td data-label="Pedido">{item.orderId || "-"}</td><td data-label="Cliente">{item.customer || "-"}</td><td data-label="Modelo">{item.model || "-"}</td><td data-label="Variante">{item.variant || "-"}</td><td data-label="Cantidad" className="number-cell">{item.quantity}</td><td data-label="Estado"><strong className={`status-pill ${item.status === "Pendiente" ? "is-pending" : "is-progress"}`}>{item.status}</strong></td><td data-label="Total ARG" className="money-cell">{formatArg(getLineValueArg(data.products, item))}</td>
-            <td className="action-cell"><div className="production-row-actions"><button type="button" className="complete-button" onClick={() => onComplete(item.lineId)} aria-label={`Completar ${item.model} de ${item.customer}`}><CheckCircleIcon size={19} weight="bold" aria-hidden="true" /> <span className="complete-label">Completar</span></button><button type="button" className="edit-line-button" onClick={() => setEditingItem({ ...item })} aria-label={`Editar ${item.model} de ${item.customer}`} title="Editar línea"><PencilSimpleIcon size={20} weight="bold" aria-hidden="true" /></button></div></td>
+            <td data-label="Pedido">{item.orderId || "-"}</td><td data-label="Fecha" className="date-cell">{formatDate(item.createdAt ?? null)}</td><td data-label="Cliente">{item.customer || "-"}</td><td data-label="Modelo">{item.model || "-"}</td><td data-label="Variante">{item.variant || "-"}</td><td data-label="Cantidad" className="number-cell">{item.quantity}</td><td data-label="Estado"><strong className={`status-pill ${item.status === "Pendiente" ? "is-pending" : "is-progress"}`}>{item.status}</strong></td><td data-label="Total ARG" className="money-cell">{formatArg(getLineValueArg(data.products, item))}</td>
+            <td className="action-cell"><div className="production-row-actions"><button type="button" className="complete-button" onClick={() => onComplete(item.lineId)} aria-label={`Completar ${item.model} de ${item.customer}`}><CheckCircleIcon size={19} weight="bold" aria-hidden="true" /> <span className="complete-label">Completar</span></button><button type="button" className="edit-line-button" onClick={() => openEditor(item)} aria-label={`Editar ${item.model} de ${item.customer}`} title="Editar línea"><PencilSimpleIcon size={20} weight="bold" aria-hidden="true" /></button></div></td>
           </tr>
-        ))}{!sortedFiltered.length && <tr className="production-empty-row"><td colSpan={8}>No encontramos resultados con estos filtros.</td></tr>}</tbody></table></div> : <EmptyState title="No hay pedidos activos" description="Los pedidos nuevos aparecerán en esta vista." />}
+        ))}{!sortedFiltered.length && <tr className="production-empty-row"><td colSpan={9}>No encontramos resultados con estos filtros.</td></tr>}</tbody></table></div> : <EmptyState title="No hay pedidos activos" description="Los pedidos nuevos aparecerán en esta vista." />}
       </section>
     );
   } else content = <ProductionSectionPanel section={section} summary={summary} selectedModel={modelFilter} onSelectModel={selectModelFromKpi} />;
@@ -308,6 +324,9 @@ export function ProductionView({ data, onUpdate, onComplete }: ProductionViewPro
     <div className="page-stack production-page">
       <PageHeader title="Producción" description="Seguimiento y análisis de todas las unidades activas." actions={
         <>
+          <button type="button" className="button-secondary" onClick={() => exportProductionToPdf(sortedFiltered)}>
+            <PrinterIcon size={18} aria-hidden="true" /> Imprimir PDF
+          </button>
           <button type="button" className="button-secondary" onClick={() => exportProductionToExcel(sortedFiltered, data.products, data.exchangeRate)}>
             <DownloadSimpleIcon size={18} aria-hidden="true" /> Exportar Excel
           </button>
@@ -324,7 +343,58 @@ export function ProductionView({ data, onUpdate, onComplete }: ProductionViewPro
 
       {editingItem && <div className="customer-dialog-layer" onMouseDown={(event) => event.target === event.currentTarget && closeEditor()}><dialog className="customer-dialog production-edit-dialog" open aria-modal="true" aria-labelledby="production-dialog-title" onCancel={closeEditor}><form onSubmit={saveItem}>
         <header><div><h2 id="production-dialog-title">Editar línea</h2><p>Actualizá solamente los datos necesarios.</p></div><button type="button" className="icon-button" aria-label="Cerrar" onClick={closeEditor}><XIcon size={20} aria-hidden="true" /></button></header>
-        <div className="customer-dialog-fields"><label htmlFor="production-order">Pedido<input id="production-order" value={editingItem.orderId ?? ""} onChange={(event) => updateDraft("orderId", event.target.value)} autoFocus /></label><label htmlFor="production-customer">Cliente<input id="production-customer" value={editingItem.customer} onChange={(event) => updateDraft("customer", event.target.value)} required /></label><label htmlFor="production-model">Modelo<input id="production-model" value={editingItem.model} onChange={(event) => updateDraft("model", event.target.value)} required /></label><label htmlFor="production-variant">Variante<input id="production-variant" value={editingItem.variant} onChange={(event) => updateDraft("variant", event.target.value)} required /></label><label htmlFor="production-quantity">Cantidad<input id="production-quantity" type="number" min="1" value={editingItem.quantity} onChange={(event) => updateDraft("quantity", Number(event.target.value))} required /></label><label htmlFor="production-status">Estado<select id="production-status" value={editingItem.status} onChange={(event) => updateDraft("status", event.target.value as ProductionStatus)}><option value="Pendiente">Pendiente</option><option value="En producción">En producción</option></select></label></div>
+        <div className="customer-dialog-fields">
+          <label htmlFor="production-order">
+            Pedido
+            <input id="production-order" value={editingItem.orderId ?? ""} onChange={(event) => updateDraft("orderId", event.target.value)} autoFocus />
+          </label>
+          <label htmlFor="production-customer">
+            Cliente
+            <input id="production-customer" value={editingItem.customer} onChange={(event) => updateDraft("customer", event.target.value)} required />
+          </label>
+          <label htmlFor="production-model">
+            Modelo
+            <select
+              id="production-model"
+              value={editingItem.model}
+              onChange={(event) => {
+                const newModel = event.target.value;
+                const matchingProducts = data.products.filter((p) => p.model === newModel);
+                const firstVariant = matchingProducts[0]?.variant || "";
+                setEditingItem((curr) => curr ? { ...curr, model: newModel, variant: firstVariant } : curr);
+              }}
+              required
+            >
+              {availableModels.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </label>
+          <label htmlFor="production-variant">
+            Variante
+            <select
+              id="production-variant"
+              value={editingItem.variant}
+              onChange={(event) => updateDraft("variant", event.target.value)}
+              required
+            >
+              {availableVariants.map((v) => (
+                <option key={v.id} value={v.variant}>{v.variant}</option>
+              ))}
+            </select>
+          </label>
+          <label htmlFor="production-quantity">
+            Cantidad
+            <input id="production-quantity" type="number" min="1" value={editingItem.quantity} onChange={(event) => updateDraft("quantity", Number(event.target.value))} required />
+          </label>
+          <label htmlFor="production-status">
+            Estado
+            <select id="production-status" value={editingItem.status} onChange={(event) => updateDraft("status", event.target.value as ProductionStatus)}>
+              <option value="Pendiente">Pendiente</option>
+              <option value="En producción">En producción</option>
+            </select>
+          </label>
+        </div>
         <footer><button type="button" className="button-quiet" onClick={closeEditor}>Cancelar</button><button type="submit" className="button-primary" disabled={Boolean(savingLine)}>{savingLine ? "Guardando…" : "Guardar cambios"}</button></footer>
       </form></dialog></div>}
     </div>

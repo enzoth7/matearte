@@ -1,0 +1,113 @@
+export async function fetchDashboardData(): Promise<DashboardData> {
+  const client = getClient();
+  const [settingsReq, productsReq, customersReq, linesReq] = await Promise.all([
+    client.from("settings").select("*").eq("id", 1).maybeSingle(),
+    client.from("products").select("*"),
+    client.from("customers").select("*"),
+    client.from("order_lines").select("*"),
+  ]);
+
+  if (settingsReq.error) throw settingsReq.error;
+  if (productsReq.error) throw productsReq.error;
+  if (customersReq.error) throw customersReq.error;
+  if (linesReq.error) throw linesReq.error;
+
+  const rawCustomers = (customersReq.data ?? []) as Array<{
+    full_name: string;
+    first_name?: string;
+    last_name?: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+    notes?: string;
+  }>;
+
+  const rawProducts = (productsReq.data ?? []) as Array<{
+    id: string | number;
+    model: string;
+    variant: string;
+    rim_type?: string;
+    leather_type?: string;
+    price_arg?: number;
+    price_uyu?: number;
+  }>;
+
+  const rawLines = (linesReq.data ?? []) as Array<{
+    line_id: string;
+    order_id: string | null;
+    created_at?: string | null;
+    customer: string;
+    model: string;
+    variant: string;
+    quantity: number;
+    status: string;
+    completed_at?: string | null;
+    unit_price_arg?: number | null;
+    unit_price_uyu?: number | null;
+    exchange_rate?: number | null;
+    total_arg?: number | null;
+    total_uyu?: number | null;
+  }>;
+
+  const exchangeRate = Number(settingsReq.data?.exchange_rate || 1);
+
+  return {
+    source: settingsReq.data?.source || "",
+    generatedAt: settingsReq.data?.generated_at || "",
+    exchangeRate,
+    customers: rawCustomers.map((c) => c.full_name).sort((a, b) => a.localeCompare(b, "es")),
+    customerProfiles: rawCustomers.map((c) => ({
+      fullName: c.full_name,
+      firstName: c.first_name || c.full_name.split(/\s+/)[0],
+      lastName: c.last_name || c.full_name.split(/\s+/).slice(1).join(" "),
+      phone: c.phone || "",
+      email: c.email || "",
+      address: c.address || "",
+      notes: c.notes || "",
+    })),
+    products: rawProducts.map((p) => ({
+      id: String(p.id),
+      model: p.model,
+      variant: p.variant,
+      rimType: p.rim_type || "",
+      leatherType: p.leather_type || "",
+      priceArg: Number(p.price_arg) || 0,
+      priceUyu: Number(p.price_uyu) || (Number(p.price_arg) || 0) * exchangeRate,
+    })),
+    production: rawLines
+      .filter((l) => l.status === "Pendiente" || l.status === "En producción")
+      .map((l) => ({
+        lineId: l.line_id,
+        orderId: l.order_id,
+        createdAt: l.created_at || settingsReq.data?.generated_at || null,
+        customer: l.customer,
+        model: l.model,
+        variant: l.variant,
+        quantity: Number(l.quantity) || 1,
+        status: (l.status === "En producción" ? "En producción" : "Pendiente") as "Pendiente" | "En producción",
+        unitPriceArg: l.unit_price_arg != null ? Number(l.unit_price_arg) : undefined,
+        unitPriceUyu: l.unit_price_uyu != null ? Number(l.unit_price_uyu) : undefined,
+        exchangeRate: l.exchange_rate != null ? Number(l.exchange_rate) : undefined,
+        totalArg: l.total_arg != null ? Number(l.total_arg) : undefined,
+        totalUyu: l.total_uyu != null ? Number(l.total_uyu) : undefined,
+      })),
+    history: rawLines
+      .filter((l) => l.status === "Completado")
+      .map((l) => ({
+        lineId: l.line_id,
+        orderId: l.order_id,
+        createdAt: l.created_at || settingsReq.data?.generated_at || null,
+        customer: l.customer,
+        model: l.model,
+        variant: l.variant,
+        quantity: Number(l.quantity) || 1,
+        completedAt: l.completed_at || null,
+        unitPriceArg: l.unit_price_arg != null ? Number(l.unit_price_arg) : undefined,
+        unitPriceUyu: l.unit_price_uyu != null ? Number(l.unit_price_uyu) : undefined,
+        exchangeRate: l.exchange_rate != null ? Number(l.exchange_rate) : undefined,
+        totalArg: l.total_arg != null ? Number(l.total_arg) : undefined,
+        totalUyu: l.total_uyu != null ? Number(l.total_uyu) : undefined,
+      })),
+  };
+}
+

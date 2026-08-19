@@ -115,14 +115,63 @@ export async function demoRequest<T>(url: string, options?: RequestInit): Promis
   if (customerMatch && method === "PUT") {
     const previousCustomer = decodeURIComponent(customerMatch[1]);
     const profile = customerProfile(parseBody<Partial<CustomerProfile>>(options));
-    const matches = (value: string) => value.localeCompare(previousCustomer, "es", { sensitivity: "base" }) === 0;
-    if (!(data.customers ?? []).some(matches)) throw new Error("Cliente no encontrado.");
-    data.customers = (data.customers ?? []).map((value) => matches(value) ? profile.fullName : value);
-    data.production = data.production.map((item) => matches(item.customer) ? { ...item, customer: profile.fullName } : item);
-    data.history = data.history.map((item) => matches(item.customer) ? { ...item, customer: profile.fullName } : item);
-    const profileIndex = (data.customerProfiles ?? []).findIndex((item) => matches(item.fullName));
-    if (profileIndex >= 0) data.customerProfiles![profileIndex] = profile;
-    else data.customerProfiles = [...(data.customerProfiles ?? []), profile];
+    const isPrev = (value: string) => value.localeCompare(previousCustomer, "es", { sensitivity: "base" }) === 0;
+    const isTarget = (value: string) => value.localeCompare(profile.fullName, "es", { sensitivity: "base" }) === 0;
+
+    if (!(data.customers ?? []).some(isPrev)) throw new Error("Cliente no encontrado.");
+
+    const isSame = previousCustomer.localeCompare(profile.fullName, "es", { sensitivity: "base" }) === 0;
+
+    if (isSame) {
+      const profileIndex = (data.customerProfiles ?? []).findIndex((item) => isPrev(item.fullName));
+      if (profileIndex >= 0) data.customerProfiles![profileIndex] = profile;
+      else data.customerProfiles = [...(data.customerProfiles ?? []), profile];
+    } else {
+      const targetExists = (data.customers ?? []).some((c) => isTarget(c) && !isPrev(c));
+      if (targetExists) {
+        // Merge: reassign order lines
+        data.production = data.production.map((item) => isPrev(item.customer) ? { ...item, customer: profile.fullName } : item);
+        data.history = data.history.map((item) => isPrev(item.customer) ? { ...item, customer: profile.fullName } : item);
+
+        // Merge contact info and notes
+        const targetIndex = (data.customerProfiles ?? []).findIndex((item) => isTarget(item.fullName));
+        const prevIndex = (data.customerProfiles ?? []).findIndex((item) => isPrev(item.fullName));
+        const existingTarget = targetIndex >= 0 ? data.customerProfiles![targetIndex] : undefined;
+        const prevProfile = prevIndex >= 0 ? data.customerProfiles![prevIndex] : undefined;
+
+        const combinedNotes = [existingTarget?.notes, prevProfile?.notes, profile.notes]
+          .map(cleanText)
+          .filter(Boolean)
+          .filter((n, i, arr) => arr.indexOf(n) === i)
+          .join("\n");
+
+        const mergedProfile: CustomerProfile = {
+          fullName: existingTarget?.fullName || profile.fullName,
+          firstName: existingTarget?.firstName || profile.firstName,
+          lastName: existingTarget?.lastName || profile.lastName,
+          phone: profile.phone || existingTarget?.phone || prevProfile?.phone || "",
+          email: profile.email || existingTarget?.email || prevProfile?.email || "",
+          address: profile.address || existingTarget?.address || prevProfile?.address || "",
+          notes: combinedNotes,
+        };
+
+        if (targetIndex >= 0) {
+          data.customerProfiles![targetIndex] = mergedProfile;
+        }
+
+        // Remove previous customer
+        data.customerProfiles = (data.customerProfiles ?? []).filter((item) => !isPrev(item.fullName));
+        data.customers = (data.customers ?? []).filter((item) => !isPrev(item));
+      } else {
+        data.customers = (data.customers ?? []).map((value) => isPrev(value) ? profile.fullName : value);
+        data.production = data.production.map((item) => isPrev(item.customer) ? { ...item, customer: profile.fullName } : item);
+        data.history = data.history.map((item) => isPrev(item.customer) ? { ...item, customer: profile.fullName } : item);
+        const profileIndex = (data.customerProfiles ?? []).findIndex((item) => isPrev(item.fullName));
+        if (profileIndex >= 0) data.customerProfiles![profileIndex] = profile;
+        else data.customerProfiles = [...(data.customerProfiles ?? []), profile];
+      }
+    }
+
     return persistDemoData(data) as T;
   }
 
@@ -137,14 +186,26 @@ export async function demoRequest<T>(url: string, options?: RequestInit): Promis
     const newLines = items.map((item) => {
       const product = products.get(String(item.productId));
       if (!product) throw new Error(`Producto inexistente: ${item.productId}`);
+      const quantity = cleanQuantity(item.quantity);
+      const unitPriceArg = product.priceArg;
+      const unitPriceUyu = product.priceUyu;
+      const exchangeRate = data.exchangeRate;
+      const totalArg = unitPriceArg * quantity;
+      const totalUyu = unitPriceUyu * quantity;
       return {
         lineId: makeId("line"),
         orderId,
         customer,
         model: product.model,
         variant: product.variant,
-        quantity: cleanQuantity(item.quantity),
+        quantity,
         status: "Pendiente" as const,
+        createdAt,
+        unitPriceArg,
+        unitPriceUyu,
+        exchangeRate,
+        totalArg,
+        totalUyu,
       };
     });
     data.production.push(...newLines);

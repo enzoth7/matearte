@@ -69,23 +69,34 @@ async function getDashboardData() {
       .map(l => ({
         lineId: l.line_id,
         orderId: l.order_id,
+        createdAt: l.created_at || settingsReq.data?.generated_at || null,
         customer: l.customer,
         model: l.model,
         variant: l.variant,
         quantity: l.quantity,
         status: l.status,
+        unitPriceArg: l.unit_price_arg != null ? Number(l.unit_price_arg) : undefined,
+        unitPriceUyu: l.unit_price_uyu != null ? Number(l.unit_price_uyu) : undefined,
+        exchangeRate: l.exchange_rate != null ? Number(l.exchange_rate) : undefined,
+        totalArg: l.total_arg != null ? Number(l.total_arg) : undefined,
+        totalUyu: l.total_uyu != null ? Number(l.total_uyu) : undefined,
       })),
     history: linesReq.data
       .filter(l => l.status === "Completado")
       .map(l => ({
         lineId: l.line_id,
         orderId: l.order_id,
-        createdAt: l.created_at,
+        createdAt: l.created_at || settingsReq.data?.generated_at || null,
         customer: l.customer,
         model: l.model,
         variant: l.variant,
         quantity: l.quantity,
         completedAt: l.completed_at,
+        unitPriceArg: l.unit_price_arg != null ? Number(l.unit_price_arg) : undefined,
+        unitPriceUyu: l.unit_price_uyu != null ? Number(l.unit_price_uyu) : undefined,
+        exchangeRate: l.exchange_rate != null ? Number(l.exchange_rate) : undefined,
+        totalArg: l.total_arg != null ? Number(l.total_arg) : undefined,
+        totalUyu: l.total_uyu != null ? Number(l.total_uyu) : undefined,
       }))
   };
 }
@@ -136,21 +147,77 @@ app.put("/api/customers/:customer", async (request, response, next) => {
     const customer = cleanText(request.body.fullName || request.body.customer || `${firstName} ${lastName}`);
     if (!previousCustomer || !customer) return response.status(400).json({ error: "El nombre del cliente es obligatorio." });
 
-    // Update customer ID (full_name) - since it's PK, if it changed we might need to insert and delete or just update if we have CASCADE on lines.
-    // Fortunately, we have ON UPDATE CASCADE on order_lines.
-    // Wait, Supabase/PostgREST allows updating PK.
-    const profile = {
-      full_name: customer,
-      first_name: firstName || customer.split(/\s+/)[0],
-      last_name: lastName || customer.split(/\s+/).slice(1).join(" "),
-      phone: cleanText(request.body.phone),
-      email: cleanText(request.body.email),
-      address: cleanText(request.body.address),
-      notes: cleanText(request.body.notes),
-    };
+    const isSame = previousCustomer.localeCompare(customer, "es", { sensitivity: "base" }) === 0;
 
-    const { error } = await supabase.from("customers").update(profile).eq("full_name", previousCustomer);
-    if (error) throw error;
+    if (isSame) {
+      const profile = {
+        full_name: customer,
+        first_name: firstName || customer.split(/\s+/)[0],
+        last_name: lastName || customer.split(/\s+/).slice(1).join(" "),
+        phone: cleanText(request.body.phone),
+        email: cleanText(request.body.email),
+        address: cleanText(request.body.address),
+        notes: cleanText(request.body.notes),
+      };
+      const { error } = await supabase.from("customers").update(profile).eq("full_name", previousCustomer);
+      if (error) throw error;
+    } else {
+      // Check if target customer already exists
+      const { data: targetData, error: targetErr } = await supabase
+        .from("customers")
+        .select("*")
+        .ilike("full_name", customer)
+        .maybeSingle();
+
+      if (targetErr) throw targetErr;
+
+      if (targetData) {
+        // Reassign all order lines
+        const { error: linesErr } = await supabase
+          .from("order_lines")
+          .update({ customer: targetData.full_name })
+          .eq("customer", previousCustomer);
+        if (linesErr) throw linesErr;
+
+        // Combine notes and contact info
+        const combinedNotes = [targetData.notes, cleanText(request.body.notes)].filter(Boolean).join("\n");
+        const updatedTarget = {
+          phone: cleanText(request.body.phone) || targetData.phone || "",
+          email: cleanText(request.body.email) || targetData.email || "",
+          address: cleanText(request.body.address) || targetData.address || "",
+          notes: combinedNotes,
+        };
+
+        const { error: updateErr } = await supabase
+          .from("customers")
+          .update(updatedTarget)
+          .eq("full_name", targetData.full_name);
+        if (updateErr) throw updateErr;
+
+        // Delete previous customer
+        const { error: delErr } = await supabase.from("customers").delete().eq("full_name", previousCustomer);
+        if (delErr) throw delErr;
+      } else {
+        // Target doesn't exist, update customer
+        const profile = {
+          full_name: customer,
+          first_name: firstName || customer.split(/\s+/)[0],
+          last_name: lastName || customer.split(/\s+/).slice(1).join(" "),
+          phone: cleanText(request.body.phone),
+          email: cleanText(request.body.email),
+          address: cleanText(request.body.address),
+          notes: cleanText(request.body.notes),
+        };
+        const { error: cErr } = await supabase.from("customers").update(profile).eq("full_name", previousCustomer);
+        if (cErr) throw cErr;
+
+        const { error: linesErr } = await supabase
+          .from("order_lines")
+          .update({ customer: customer })
+          .eq("customer", previousCustomer);
+        if (linesErr) throw linesErr;
+      }
+    }
 
     response.json(await getDashboardData());
   } catch (error) {
@@ -167,6 +234,9 @@ app.post("/api/orders", async (request, response, next) => {
     const orderId = `PED-${Math.floor(100000 + Math.random() * 900000)}`;
     const createdAt = new Date().toISOString();
 
+    const { data: settings } = await supabase.from("settings").select("exchange_rate").eq("id", 1).single();
+    const rate = settings ? Number(settings.exchange_rate) : 1;
+
     const { data: productsData, error: pError } = await supabase.from("products").select("*").in("id", items.map(i => String(i.productId)));
     if (pError) throw pError;
     const productsMap = new Map(productsData.map(p => [String(p.id), p]));
@@ -174,15 +244,25 @@ app.post("/api/orders", async (request, response, next) => {
     const newLines = items.map((item) => {
       const product = productsMap.get(String(item.productId));
       if (!product) throw new Error(`Producto inexistente: ${item.productId}`);
+      const quantity = cleanQuantity(item.quantity);
+      const unitPriceArg = Number(product.price_arg) || 0;
+      const unitPriceUyu = Number(product.price_uyu) || (unitPriceArg * rate);
+      const totalArg = unitPriceArg * quantity;
+      const totalUyu = unitPriceUyu * quantity;
       return {
         line_id: makeId("line"),
         order_id: orderId,
         customer,
         model: product.model,
         variant: product.variant,
-        quantity: cleanQuantity(item.quantity),
+        quantity,
         status: "Pendiente",
-        created_at: createdAt
+        created_at: createdAt,
+        unit_price_arg: unitPriceArg,
+        unit_price_uyu: unitPriceUyu,
+        exchange_rate: rate,
+        total_arg: totalArg,
+        total_uyu: totalUyu,
       };
     });
 
