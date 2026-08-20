@@ -34,7 +34,7 @@ export function CheckoutStep({ subtotalUYU, mercadoPagoCommissionPercent, onBack
   };
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 md:py-12">
+    <main id="main-content" className="transaction-checkout mx-auto w-full max-w-5xl px-4 py-8 md:py-12">
       <div className="mb-5 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-950" role="note">
         Simulación visual: esta pantalla no procesa cobros, no usa credenciales y no envía el pedido a producción.
       </div>
@@ -102,4 +102,3 @@ export function CheckoutStep({ subtotalUYU, mercadoPagoCommissionPercent, onBack
     </main>
   );
 }
-

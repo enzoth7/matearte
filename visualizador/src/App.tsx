@@ -4,13 +4,12 @@ import { useLocation, useNavigate } from "react-router-dom";
 import type { UserData, WizardStep, SavedDesignItem } from "./types/user";
 import { fetchProductPricesFromSupabase, isSupabaseConfigured, saveUserProfileToSupabase, supabase, saveDesignToSupabase } from "./lib/supabase";
 import { WelcomeStep } from "./components/WelcomeStep";
-import { ProductSelectionStep } from "./components/ProductSelectionStep";
+import { CustomizerIntroStep } from "./components/CustomizerIntroStep";
+import { MateSelectionStep } from "./components/MateSelectionStep";
 import { StepIndicator } from "./components/StepIndicator";
 import { SummaryStep } from "./components/SummaryStep";
 import { SuccessStep } from "./components/SuccessStep";
 import { ProfileStep } from "./components/ProfileStep";
-import { MateModelSelector } from "./components/MateModelSelector";
-import { MateVariantSelector } from "./components/MateVariantSelector";
 import { ConfiguratorPreview } from "./components/ConfiguratorPreview";
 import { FlatFlejePreview } from "./components/FlatFlejePreview";
 import { FlejeFinishSelector } from "./components/FlejeFinishSelector";
@@ -19,22 +18,37 @@ import { RimFinishModeSelector } from "./components/RimFinishModeSelector";
 import { RimIconSelector } from "./components/RimIconSelector";
 import { RimImageModeSelector } from "./components/RimImageModeSelector";
 import { RimTextEditor } from "./components/RimTextEditor";
+import { RimTextFields } from "./components/RimTextFields";
 import { RimTextModeSelector } from "./components/RimTextModeSelector";
-import { MateOptionsSelector } from "./components/MateOptionsSelector";
-import { TorpedoVariantSelector } from "./components/TorpedoVariantSelector";
 import { CustomImageUpload } from "./components/CustomImageUpload";
 import { PlacementControls } from "./components/PlacementControls";
 import { CheckoutStep } from "./components/CheckoutStep";
 import { VirolaIconSelector } from "./components/VirolaIconSelector";
-import { getDefaultColor, getDefaultVariant, getModelDefinition, getVariantsByModel, mateVariants, type EngravingArea, type MateModel, type MateSize, type MateVariant } from "./catalog/mateCatalog";
+import { BrandFooter } from "./components/BrandFooter";
+import { StyleTransitionStep } from "./components/StyleTransitionStep";
+import { getDefaultColor, getDefaultVariant, getModelDefinition, getVariantDefinition, mateVariants, type EngravingArea, type MateSize, type MateVariant } from "./catalog/mateCatalog";
+import {
+  EMPTY_MATE_SELECTION,
+  getFirstIncompleteStage,
+  getSelectedTexture,
+  getSelectionFromLegacyVariant,
+  getSelectionLabels,
+  resolveMateSelection,
+  sanitizeMateSelection,
+  shouldAskForMetal,
+  type MateSelection,
+  type MateSelectionStage,
+  type ResolvedMateProduct,
+} from "./catalog/mateDecisionCatalog";
 import { createDefaultRimSelection, normalizeRimSelection } from "./catalog/rimCatalog";
 import { getRimFinish } from "./catalog/rimFinishCatalog";
 import { getFlejeFinish } from "./catalog/flejeFinishCatalog";
-import { calculateOrderPricing, getCustomizationPrice, getVariantDetails, mercadoPagoCommissionPercent } from "./catalog/pricingCatalog";
-import { createDefaultFlejeCustomization, normalizeFlejeCustomization, type EditableElement, type FlejeCustomization, type FlejeSide, type MateConfiguration } from "./types/customizer";
+import { calculateOrderPricing, getCustomizationPrice, mercadoPagoCommissionPercent } from "./catalog/pricingCatalog";
+import { createDefaultFlejeCustomization, normalizeFlejeCustomization, type CustomImageAsset, type EditableElement, type FlejeCustomization, type FlejeSide, type MateConfiguration } from "./types/customizer";
 
 type CustomizationPhase = "mate" | "virola" | "fleje";
 type PreviewView = "mate" | "virola" | "fleje";
+type PendingAuthAction = "save-customizer" | "save-summary" | "checkout" | "profile" | "edit-contact";
 
 interface BaseImageProps {
   src: string;
@@ -107,24 +121,93 @@ function FlejePreview({ mate, text }: { mate: MateVariant; text: string }) {
 }
 
 function PhaseAccordion({ number, title, isOpen, onToggle, children }: PhaseAccordionProps) {
+  const panelId = `customizer-phase-${title.toLowerCase()}`;
   return (
     <section className="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white">
-      <button type="button" onClick={onToggle} className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-zinc-50/50">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        aria-controls={panelId}
+        className="flex min-h-11 w-full items-center justify-between p-4 text-left transition-colors hover:bg-zinc-50/50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#7a4a31]"
+      >
         <div className="flex items-center gap-3">
           <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-mono font-bold ${isOpen ? "bg-[#7a4a31] text-white" : "bg-zinc-100 text-zinc-500"}`}>{number}</span>
           <span className="text-xs font-bold uppercase tracking-wider text-zinc-800">{title}</span>
         </div>
         <span className="text-[10px] text-zinc-400">{isOpen ? "−" : "＋"}</span>
       </button>
-      <div className={`grid transition-all duration-300 ${isOpen ? "grid-rows-[1fr] border-t border-zinc-100 opacity-100" : "grid-rows-[0fr] pointer-events-none opacity-0"}`}>
+      <div
+        id={panelId}
+        aria-hidden={!isOpen}
+        inert={!isOpen}
+        className={`grid transition-all duration-300 ${isOpen ? "grid-rows-[1fr] border-t border-zinc-100 opacity-100" : "grid-rows-[0fr] pointer-events-none opacity-0"}`}
+      >
         <div className="overflow-hidden p-4">{children}</div>
       </div>
     </section>
   );
 }
 
-function createMateConfiguration(variant: MateVariant): MateConfiguration {
+const SELECTION_SESSION_KEY = "matearte_selection_v2";
+
+function selectionStageFromPath(path: string): MateSelectionStage {
+  if (path.endsWith("/texture")) return "texture";
+  if (path.endsWith("/metal")) return "metal";
+  if (path.endsWith("/size")) return "size";
+  return "model";
+}
+
+function createConfigurationFromResolved(
+  product: ResolvedMateProduct,
+  current?: Partial<MateConfiguration> | null,
+): MateConfiguration {
+  const variant = getVariantDefinition(product.legacyVariantId) ?? getDefaultVariant(product.shapeId);
+  const rim = normalizeRimSelection(variant, current?.rim);
+  rim.rimId = product.rimId;
+  const selection: MateSelection = {
+    familyId: product.familyId,
+    textureId: product.textureId,
+    colorId: product.colorId,
+    metalId: product.metalId,
+    sizeId: product.sizeId,
+  };
+
   return {
+    schemaVersion: 2,
+    productId: product.productId,
+    skuId: product.skuId,
+    selection,
+    selectionLabels: getSelectionLabels(selection),
+    capabilities: product.capabilities,
+    isLegacy: false,
+    modelId: product.shapeId,
+    variantId: variant.id,
+    size: product.sizeId,
+    colorId: product.colorId,
+    rim,
+  };
+}
+
+function createMateConfiguration(variant: MateVariant): MateConfiguration {
+  const selection = getSelectionFromLegacyVariant(variant.id, variant.defaultSize);
+  const resolved = selection ? resolveMateSelection(selection) : null;
+  if (resolved) return createConfigurationFromResolved(resolved);
+  const model = getModelDefinition(variant.model);
+  return {
+    schemaVersion: 2,
+    productId: null,
+    skuId: variant.id,
+    selection: { ...EMPTY_MATE_SELECTION },
+    selectionLabels: {
+      family: model.name,
+      texture: variant.name,
+      color: getDefaultColor(variant).name,
+      metal: "Configuración anterior",
+      size: variant.defaultSize,
+    },
+    capabilities: { hasRim: true, hasFleje: model.hasFleje },
+    isLegacy: true,
     modelId: variant.model,
     variantId: variant.id,
     size: variant.defaultSize,
@@ -137,8 +220,29 @@ function normalizeMateConfiguration(value: Partial<MateConfiguration> | null | u
   const variant = mateVariants.find((item) => item.id === value?.variantId)
     ?? getDefaultVariant(value?.modelId ?? "imperial");
   const size: MateSize = variant.availableSizes.includes(value?.size as MateSize) ? value?.size as MateSize : variant.defaultSize;
+  const storedSelection = sanitizeMateSelection(value?.selection);
+  const migratedSelection = resolveMateSelection(storedSelection)
+    ? storedSelection
+    : getSelectionFromLegacyVariant(variant.id, size);
+  const resolved = migratedSelection ? resolveMateSelection(migratedSelection) : null;
+  if (resolved) return createConfigurationFromResolved(resolved, value);
+
+  const model = getModelDefinition(variant.model);
   const colorId = variant.colors.some((color) => color.id === value?.colorId) ? value?.colorId as string : getDefaultColor(variant).id;
   return {
+    schemaVersion: 2,
+    productId: null,
+    skuId: variant.id,
+    selection: { ...EMPTY_MATE_SELECTION },
+    selectionLabels: value?.selectionLabels ?? {
+      family: model.name,
+      texture: variant.name,
+      color: variant.colors.find((color) => color.id === colorId)?.name ?? colorId,
+      metal: "Configuración anterior",
+      size,
+    },
+    capabilities: value?.capabilities ?? { hasRim: true, hasFleje: model.hasFleje },
+    isLegacy: true,
     modelId: variant.model,
     variantId: variant.id,
     size,
@@ -163,10 +267,12 @@ export default function App() {
 
   // Helper to convert route to wizard step
   const getStepFromPath = (path: string): WizardStep => {
+    if (path.startsWith("/selection")) return "product_selection";
     switch (path) {
+      case "/access":
+        return "access";
       case "/profile":
         return "profile";
-      case "/selection":
       case "/product-selection":
         return "product_selection";
       case "/customizer":
@@ -183,6 +289,10 @@ export default function App() {
   };
 
   const [wizardStep, setWizardStepState] = useState<WizardStep>(() => getStepFromPath(location.pathname));
+  const [pendingAuthAction, setPendingAuthAction] = useState<PendingAuthAction | null>(() => {
+    const saved = sessionStorage.getItem("matearte_pending_auth_action");
+    return saved as PendingAuthAction | null;
+  });
 
   // Sync route changes with state
   useEffect(() => {
@@ -214,8 +324,11 @@ export default function App() {
       case "profile":
         navigate("/profile");
         break;
+      case "access":
+        navigate("/access");
+        break;
       case "product_selection":
-        navigate("/selection");
+        navigate("/selection/model");
         break;
       case "customizer":
         navigate("/customizer");
@@ -240,7 +353,7 @@ export default function App() {
 
     if (!isSupabaseConfigured) return;
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         const email = session.user.email || "";
         const name = session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split("@")[0] || "Usuario Google";
@@ -259,10 +372,8 @@ export default function App() {
           window.history.replaceState(null, '', window.location.pathname);
         }
 
-        // Si inició sesión (ej. OAuth Google) o está en la página de inicio estando logueado, redirigir a /selection
-        if (event === "SIGNED_IN" || window.location.pathname === "/" || window.location.pathname === "") {
-          changeStep("product_selection");
-        }
+        // La navegación posterior al acceso se resuelve con pendingAuthAction para
+        // poder retomar exactamente Guardar, Checkout o Perfil.
       }
     });
 
@@ -271,18 +382,134 @@ export default function App() {
     };
   }, [changeStep]);
 
-  const [activePhase, setActivePhase] = useState<CustomizationPhase | null>("mate");
-  const [previewView, setPreviewView] = useState<PreviewView>("mate");
+  const [activePhase, setActivePhase] = useState<CustomizationPhase | null>("virola");
+  const [previewView, setPreviewView] = useState<PreviewView>("virola");
   const initialVariant = getDefaultVariant("imperial");
   const [configuration, setConfiguration] = useState<MateConfiguration>(() => createMateConfiguration(initialVariant));
+  const [selection, setSelection] = useState<MateSelection>(() => {
+    try {
+      const saved = sessionStorage.getItem(SELECTION_SESSION_KEY);
+      return saved ? sanitizeMateSelection(JSON.parse(saved)) : { ...EMPTY_MATE_SELECTION };
+    } catch {
+      return { ...EMPTY_MATE_SELECTION };
+    }
+  });
+  const selectionStage = selectionStageFromPath(location.pathname);
+  const selectedDecisionTexture = getSelectedTexture(selection);
+  const selectionHasFleje = selectedDecisionTexture?.capabilities.hasFleje
+    ?? (selection.familyId === "camionero" || selection.familyId === "torpedo" ? false : configuration.capabilities.hasFleje);
+  const indicatorHasFleje = wizardStep === "product_selection"
+    ? selectionHasFleje
+    : configuration.capabilities.hasFleje;
   const selectedMate = mateVariants.find((variant) => variant.id === configuration.variantId) ?? initialVariant;
   const [flejeConfig, setFlejeConfig] = useState<FlejeCustomization>(() => createDefaultFlejeCustomization());
   const [activeFlejeSide, setActiveFlejeSide] = useState<FlejeSide>("front");
   const [selectedRimElement, setSelectedRimElement] = useState<string | null>("text");
+  const [placingRimIconId, setPlacingRimIconId] = useState<string | null>(null);
   const [selectedFlejeElement, setSelectedFlejeElement] = useState<EditableElement | null>("text");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [showStyleIntro, setShowStyleIntro] = useState(false);
   const [localDesigns] = useState<SavedDesignItem[]>([]);
   const previewContainerRef = useRef<HTMLDivElement>(null);
+  const uploadedRimIcon = configuration.rim.icons.find((icon) => icon.customImage) ?? null;
+
+  const updateUploadedRimIcon = (asset: CustomImageAsset | null) => {
+    const existingId = uploadedRimIcon?.id ?? null;
+
+    if (!asset) {
+      setConfiguration((current) => ({
+        ...current,
+        rim: {
+          ...current.rim,
+          icons: current.rim.icons.filter((icon) => icon.id !== existingId),
+        },
+      }));
+      if (selectedRimElement === existingId) setSelectedRimElement(null);
+      if (placingRimIconId === existingId) setPlacingRimIconId(null);
+      return;
+    }
+
+    const iconId = existingId ?? crypto.randomUUID();
+    setConfiguration((current) => {
+      const existing = current.rim.icons.find((icon) => icon.id === existingId);
+      const uploadedIcon = {
+        id: iconId,
+        selectedImageId: asset.id,
+        customImage: asset,
+        transform: existing?.transform ?? { x: 0.5, y: 0.5, scale: 1, rotation: 0, side: "rim" as const },
+      };
+
+      return {
+        ...current,
+        rim: {
+          ...current.rim,
+          icons: existing
+            ? current.rim.icons.map((icon) => icon.id === existing.id ? uploadedIcon : icon)
+            : [...current.rim.icons, uploadedIcon],
+        },
+      };
+    });
+    setSelectedRimElement(iconId);
+    setPreviewView("virola");
+  };
+
+  const locateUploadedRimIcon = () => {
+    if (!uploadedRimIcon) return;
+    setSelectedRimElement(uploadedRimIcon.id);
+    setPlacingRimIconId((current) => current === uploadedRimIcon.id ? null : uploadedRimIcon.id);
+    setPreviewView("virola");
+    window.requestAnimationFrame(() => previewContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  };
+
+  useEffect(() => {
+    if (!placingRimIconId) return;
+    const cancelPlacement = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPlacingRimIconId(null);
+    };
+    window.addEventListener("keydown", cancelPlacement);
+    return () => window.removeEventListener("keydown", cancelPlacement);
+  }, [placingRimIconId]);
+
+  useEffect(() => {
+    if (previewView !== "virola") setPlacingRimIconId(null);
+  }, [previewView]);
+
+  useEffect(() => {
+    sessionStorage.setItem(SELECTION_SESSION_KEY, JSON.stringify(selection));
+  }, [selection]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [location.pathname, showStyleIntro, activePhase]);
+
+  useEffect(() => {
+    const resolved = resolveMateSelection(selection);
+    if (!resolved) return;
+    if (configuration.productId !== resolved.productId && (wizardStep === "customizer" || wizardStep === "summary" || wizardStep === "checkout")) {
+      setConfiguration((current) => createConfigurationFromResolved(resolved, current));
+    }
+    if (wizardStep === "checkout" && !resolved.skuId) {
+      navigate("/summary", { replace: true });
+    }
+  }, [configuration.productId, navigate, selection, wizardStep]);
+
+  useEffect(() => {
+    const incomplete = getFirstIncompleteStage(selection);
+    if ((wizardStep === "customizer" || wizardStep === "summary" || wizardStep === "checkout") && incomplete && !configuration.isLegacy) {
+      navigate(`/selection/${incomplete}`, { replace: true });
+      return;
+    }
+    if (wizardStep !== "product_selection") return;
+    if (selectionStage === "metal" && !shouldAskForMetal(selection) && (incomplete === "size" || incomplete === null)) {
+      navigate("/selection/size", { replace: true });
+      return;
+    }
+    if (!incomplete) return;
+    const order: MateSelectionStage[] = ["model", "texture", "metal", "size"];
+    if (order.indexOf(selectionStage) > order.indexOf(incomplete)) {
+      navigate(`/selection/${incomplete}`, { replace: true });
+    }
+  }, [configuration.isLegacy, navigate, selection, selectionStage, wizardStep]);
 
   const handleWelcomeSubmit = async (data: UserData) => {
     const { profile } = data.isGuest
@@ -291,7 +518,7 @@ export default function App() {
     const mergedUser = profile ? { ...data, id: profile.id } : data;
     setUserData(mergedUser);
     localStorage.setItem("matearte_user", JSON.stringify(mergedUser));
-    changeStep("product_selection");
+    if (!pendingAuthAction) changeStep("product_selection");
   };
 
   const [lastSavedDesignId, setLastSavedDesignId] = useState<string | null>(null);
@@ -305,7 +532,7 @@ export default function App() {
       userId: userData?.id,
       configuration,
       flejeConfig,
-      title: `Mate ${selectedMate.name}`,
+      title: `Mate ${configuration.selectionLabels.texture}`,
       status: 'draft',
     });
 
@@ -328,7 +555,7 @@ export default function App() {
       userId: userData?.id,
       configuration,
       flejeConfig,
-      title: `Mate ${selectedMate.name}`,
+      title: `Mate ${configuration.selectionLabels.texture}`,
       status: 'draft',
     });
     if (data && data[0]?.id) {
@@ -338,14 +565,63 @@ export default function App() {
     changeStep("profile");
   };
 
+  const runAuthenticatedAction = (action: PendingAuthAction) => {
+    switch (action) {
+      case "save-customizer":
+        void handleSaveDesign();
+        break;
+      case "save-summary":
+        void handleSaveDraftFromSummary();
+        break;
+      case "checkout":
+        changeStep("checkout");
+        break;
+      case "profile":
+      case "edit-contact":
+        changeStep("profile");
+        break;
+    }
+  };
+
+  const requireAuthentication = (action: PendingAuthAction) => {
+    if (userData && (!userData.isGuest || !isSupabaseConfigured)) {
+      runAuthenticatedAction(action);
+      return;
+    }
+    sessionStorage.setItem("matearte_pending_auth_action", action);
+    setPendingAuthAction(action);
+    changeStep("access");
+  };
+
+  useEffect(() => {
+    if (!pendingAuthAction || !userData || (userData.isGuest && isSupabaseConfigured)) return;
+    sessionStorage.removeItem("matearte_pending_auth_action");
+    setPendingAuthAction(null);
+    runAuthenticatedAction(pendingAuthAction);
+    // runAuthenticatedAction intentionally uses the current design state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAuthAction, userData]);
+
+  useEffect(() => {
+    if (wizardStep !== "profile" || (userData && (!userData.isGuest || !isSupabaseConfigured))) return;
+    sessionStorage.setItem("matearte_pending_auth_action", "profile");
+    setPendingAuthAction("profile");
+    changeStep("access");
+  }, [changeStep, userData, wizardStep]);
+
   const handleLoadDesignFromProfile = (item: SavedDesignItem) => {
     if (item.configuration) {
-      setConfiguration(normalizeMateConfiguration(item.configuration));
+      const normalized = normalizeMateConfiguration(item.configuration);
+      setConfiguration(normalized);
+      setSelection(normalized.isLegacy ? { ...EMPTY_MATE_SELECTION } : normalized.selection);
     }
     if (item.fleje_config) {
       setFlejeConfig(normalizeFlejeCustomization(item.fleje_config));
     }
     setLastSavedDesignId(item.id);
+    setActivePhase("virola");
+    setPreviewView("virola");
+    setShowStyleIntro(false);
     changeStep("customizer");
   };
 
@@ -365,39 +641,93 @@ export default function App() {
     changeStep("welcome");
   };
 
-  const selectedModelDefinition = getModelDefinition(selectedMate.model);
-  const compatibleVariants = getVariantsByModel(configuration.modelId);
-
-  const selectModel = (model: MateModel) => {
-    const defaultVariant = getDefaultVariant(model);
-    setConfiguration((current) => ({
-      modelId: model,
-      variantId: defaultVariant.id,
-      size: defaultVariant.defaultSize,
-      colorId: getDefaultColor(defaultVariant).id,
-      rim: normalizeRimSelection(defaultVariant, current.rim),
-    }));
-    setPreviewView("mate");
-    setLastSavedDesignId(null);
+  const baseModelDefinition = getModelDefinition(configuration.modelId);
+  const selectedModelDefinition = {
+    ...baseModelDefinition,
+    hasFleje: configuration.capabilities.hasFleje,
   };
 
-  const selectVariant = (variantId: string) => {
-    const variant = mateVariants.find((item) => item.id === variantId);
-    if (!variant || variant.model !== configuration.modelId) return;
-    setConfiguration((current) => ({
-      ...current,
-      modelId: variant.model,
-      variantId: variant.id,
-      size: variant.availableSizes.includes(current.size) ? current.size : variant.defaultSize,
-      colorId: variant.colors.some((color) => color.id === current.colorId) ? current.colorId : getDefaultColor(variant).id,
-      rim: normalizeRimSelection(variant, current.rim),
-    }));
-    setPreviewView("mate");
+  const goToSelectionStage = (stage: MateSelectionStage) => navigate(`/selection/${stage}`);
+
+  const handleSelectionBack = () => {
+    const previous: Record<MateSelectionStage, MateSelectionStage | null> = {
+      model: null,
+      texture: "model",
+      metal: "texture",
+      size: shouldAskForMetal(selection) ? "metal" : "texture",
+    };
+    const target = previous[selectionStage];
+    if (target) goToSelectionStage(target);
+    else changeStep("welcome");
+  };
+
+  const hasConfiguredFleje = () => {
+    if (flejeConfig.finishMode === "finish") return true;
+    return Object.values(flejeConfig.sides).some((side) => (
+      Boolean(side.text.trim())
+      || Boolean(side.selectedImageId)
+    ));
+  };
+
+  const commitResolvedSelection = (product: ResolvedMateProduct) => {
+    if (configuration.capabilities.hasFleje && !product.capabilities.hasFleje && hasConfiguredFleje()) {
+      const confirmed = window.confirm(
+        "El mate elegido no admite fleje. Si continuás se eliminarán los textos, imágenes y terminaciones configurados en el fleje. La personalización compatible de la virola se conservará.",
+      );
+      if (!confirmed) return;
+    }
+
+    setConfiguration((current) => createConfigurationFromResolved(product, current));
+    if (!product.capabilities.hasFleje) setFlejeConfig(createDefaultFlejeCustomization());
+    setActivePhase("virola");
+    setPreviewView("virola");
+    setShowStyleIntro(true);
+    setLastSavedDesignId(null);
+    changeStep("customizer");
+  };
+
+  const handleSelectionContinue = () => {
+    const next: Record<MateSelectionStage, MateSelectionStage | null> = {
+      model: "texture",
+      texture: shouldAskForMetal(selection) ? "metal" : "size",
+      metal: "size",
+      size: null,
+    };
+    const target = next[selectionStage];
+    if (target) {
+      goToSelectionStage(target);
+      return;
+    }
+    const product = resolveMateSelection(selection);
+    if (product) commitResolvedSelection(product);
+  };
+
+  const editMateSelection = () => {
+    setSelection(configuration.isLegacy ? { ...EMPTY_MATE_SELECTION } : sanitizeMateSelection(configuration.selection));
+    changeStep("product_selection");
   };
 
   const activatePhase = (phase: CustomizationPhase) => {
     setActivePhase((currentPhase) => currentPhase === phase ? null : phase);
     setPreviewView(phase);
+  };
+
+  const handleCustomizerBack = () => {
+    if (activePhase === "fleje") {
+      setActivePhase("virola");
+      setPreviewView("virola");
+      return;
+    }
+    goToSelectionStage("size");
+  };
+
+  const handleCustomizerNext = () => {
+    if (activePhase !== "fleje" && selectedModelDefinition.hasFleje) {
+      setActivePhase("fleje");
+      setPreviewView("fleje");
+      return;
+    }
+    requireAuthentication("save-customizer");
   };
 
   const updateFlejeSide = (
@@ -430,211 +760,162 @@ export default function App() {
   };
 
   const handleDraftCheckoutFromProfile = async (design: SavedDesignItem) => {
-    setConfiguration(normalizeMateConfiguration(design.configuration));
+    const normalized = normalizeMateConfiguration(design.configuration);
+    setConfiguration(normalized);
+    setSelection(normalized.isLegacy ? { ...EMPTY_MATE_SELECTION } : normalized.selection);
     setFlejeConfig(normalizeFlejeCustomization(design.fleje_config));
     setLastSavedDesignId(design.id);
     changeStep("checkout");
   };
 
   return (
-    <div className="mate-theme min-h-screen overflow-x-hidden bg-gradient-to-b from-[#f9ecd0] via-[#fdf7e9] to-[#fbf3de] font-sans text-zinc-800 antialiased flex flex-col">
-      {/* Universal Sticky Header */}
-      <header className="sticky top-0 z-30 bg-[rgba(251,243,222,0.95)] backdrop-blur-xl border-b border-[#e7d7c1] shadow-xs">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-          {wizardStep !== "profile" ? (
-            <button
-              type="button"
-              className="flex min-h-11 items-center gap-3 rounded-xl text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#7a4a31]"
-              onClick={() => changeStep("welcome")}
-              aria-label="Volver al inicio de MateArte"
-            >
-              <img src="/logoma.jpg" alt="" className="h-10 w-10 rounded-xl object-cover shadow-xs" />
-              <span>
-                <span className="block text-base font-black tracking-tight text-[#2d1d14] leading-none font-serif">MateArte</span>
-                {userData ? (
-                  <span className="mt-1 block text-[11px] text-[#5f3826] font-semibold">Diseñador: {userData.name}</span>
-                ) : (
-                  <span className="mt-1 block text-[11px] text-[#5f3826]/80 font-medium">Creá tu propio mate</span>
-                )}
-              </span>
-            </button>
-          ) : (
-            <div className="w-10" />
-          )}
+    <div className="brand-app brand-desktop-note">
+      <a className="brand-skip-link" href="#main-content">Saltar al contenido</a>
+      {wizardStep === "profile" ? (
+        <div className="brand-profile-title">Perfil de cliente</div>
+      ) : wizardStep === "access" ? (
+        <div className="brand-access-title">Acceso Matearte</div>
+      ) : (
+        <StepIndicator
+          currentStep={showStyleIntro && wizardStep === "customizer" ? "product_selection" : wizardStep}
+          hasFleje={indicatorHasFleje}
+          customizationPhase={activePhase}
+          onStepClick={(step, phase) => {
+            if (phase) {
+              setActivePhase(phase);
+              setPreviewView(phase);
+              setShowStyleIntro(false);
+            }
+            changeStep(step);
+          }}
+        />
+      )}
 
-          {wizardStep === "profile" ? (
-            <div className="flex items-center gap-2.5">
-              <img src="/logoma.jpg" alt="Matearte" className="h-8 w-8 rounded-xl object-cover shadow-xs border border-[#7a4a31]/20" />
-              <h2 className="text-lg md:text-xl font-black text-[#2d1d14] font-serif tracking-tight uppercase">
-                Mi Perfil
-              </h2>
-            </div>
-          ) : (
-            <div className="hidden md:block flex-1 max-w-md mx-6">
-              <StepIndicator currentStep={wizardStep} onStepClick={(step) => changeStep(step)} />
-            </div>
-          )}
-
-          {wizardStep !== "profile" && userData ? (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => changeStep("profile")}
-                className="text-xs font-bold transition-colors py-1.5 px-3 rounded-lg border cursor-pointer border-[#e7d7c1] bg-[#fbf3de]/50 text-[#7a4a31] hover:bg-[#fbf3de]"
-              >
-                Mi perfil
-              </button>
-              <button
-                type="button"
-                onClick={() => changeStep("welcome")}
-                className="min-h-11 rounded-lg px-2.5 text-xs font-semibold text-zinc-600 transition-colors hover:bg-black/5 hover:text-zinc-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7a4a31]"
-                aria-label="Editar mis datos"
-              >
-                Editar datos
-              </button>
-            </div>
-          ) : (
-            <div className="w-10" />
-          )}
-        </div>
-
-        {/* Mobile Step Indicator */}
-        {wizardStep !== "profile" && (
-          <div className="md:hidden border-t border-[#e7d7c1] py-1 bg-white/40">
-            <StepIndicator currentStep={wizardStep} onStepClick={(step) => changeStep(step)} />
-          </div>
-        )}
-      </header>
-
-      {/* Main step content */}
-      <div className="flex-1">
+      <div className="brand-main">
         {wizardStep === "welcome" && (
+          <CustomizerIntroStep onStart={() => changeStep("product_selection")} />
+        )}
+
+        {wizardStep === "access" && (
           <WelcomeStep initialData={userData || undefined} onSubmit={handleWelcomeSubmit} />
         )}
 
         {wizardStep === "product_selection" && (
-          <ProductSelectionStep onSelectMate={() => changeStep("customizer")} />
+          <MateSelectionStep
+            stage={selectionStage}
+            selection={selection}
+            onChange={setSelection}
+            onBack={handleSelectionBack}
+            onContinue={handleSelectionContinue}
+          />
         )}
 
-        {wizardStep === "customizer" && (
-          <main className="mx-auto w-full max-w-[1700px] px-4 md:px-6 py-6">
-            <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+        {wizardStep === "customizer" && showStyleIntro && (
+          <StyleTransitionStep onContinue={() => setShowStyleIntro(false)} />
+        )}
+
+        {wizardStep === "customizer" && !showStyleIntro && (
+          <main id="main-content" className="brand-customizer" data-phase={activePhase ?? "virola"}>
+            <div className="brand-customizer__actions">
+              <button type="button" onClick={handleCustomizerBack} className="brand-button">Atrás</button>
+              <button type="button" onClick={handleCustomizerNext} disabled={saveStatus !== "idle"} className="brand-button">
+                {saveStatus === "saving" ? "Guardando…" : "Siguiente"}
+              </button>
+            </div>
+            <div className="customizer-layout grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
               
               {/* PANEL 1: IZQUIERDA (Acordeón de Personalización) */}
-              <aside className="order-2 flex flex-col gap-3 lg:order-1 lg:col-span-4">
+              <aside className="customizer-controls order-2 flex flex-col gap-3 lg:order-1 lg:col-span-4">
                 <PhaseAccordion number={1} title="Mate" isOpen={activePhase === "mate"} onToggle={() => activatePhase("mate")}>
-                  <div className="space-y-4">
-                    <MateModelSelector selectedModel={configuration.modelId} onSelect={selectModel} />
-                    {configuration.modelId === "torpedo" ? (
-                      <TorpedoVariantSelector variants={compatibleVariants} selectedVariantId={selectedMate.id} onSelect={selectVariant} />
-                    ) : (
-                      <MateVariantSelector variants={compatibleVariants} selectedVariantId={selectedMate.id} onSelect={selectVariant} />
-                    )}
-                    <MateOptionsSelector
-                      variant={selectedMate}
-                      selectedColorId={configuration.colorId}
-                      selectedSize={configuration.size}
-                      onColorChange={(colorId) => setConfiguration((current) => ({ ...current, colorId }))}
-                      onSizeChange={(size) => setConfiguration((current) => ({ ...current, size }))}
-                    />
+                  <div className="space-y-3 text-xs">
+                    <dl className="space-y-2 rounded-xl border border-[#e7d7c1] bg-[#fdf7e9] p-3">
+                      <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Familia</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.family}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Textura</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.texture}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Color</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.color}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Metal</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.metal}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Tamaño</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.size}</dd></div>
+                    </dl>
+                    <button type="button" onClick={editMateSelection} className="min-h-11 w-full rounded-xl border border-[#7a4a31] bg-white px-3 font-bold text-[#7a4a31] transition-colors hover:bg-[#fbf3de] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7a4a31]">
+                      Cambiar mate
+                    </button>
                   </div>
                 </PhaseAccordion>
 
                 <PhaseAccordion number={2} title="Virola" isOpen={activePhase === "virola"} onToggle={() => activatePhase("virola")}>
-                  <div className="space-y-4">
-                    <RimFinishModeSelector
-                      mode={configuration.rim.finishMode || "none"}
-                      onSelect={(finishMode) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, finishMode } }))}
-                    />
-
-                    {configuration.rim.finishMode === "finish" && (
-                      <RimFinishSelector
-                        selectedFinishId={configuration.rim.finishId}
-                        onSelect={(finishId) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, finishId } }))}
+                  <div className="customizer-card-grid">
+                    <section className="customizer-control-card">
+                      <h3>Texto</h3>
+                      <RimTextModeSelector
+                        mode={configuration.rim.textMode}
+                        onSelect={(textMode) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, textMode } }))}
                       />
-                    )}
-
-                    <RimTextModeSelector
-                      mode={configuration.rim.textMode}
-                      onSelect={(textMode) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, textMode } }))}
-                    />
-                    {configuration.rim.textMode === "text" && (
-                      <div className="space-y-3" onFocus={() => setSelectedRimElement("text")}>
-                        <RimTextEditor
-                          label="Texto de virola (máx. 40 caracteres)"
-                          value={configuration.rim.text}
-                          disabled={false}
-                          onChange={(text) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, text } }))}
+                      {configuration.rim.textMode === "text" && (
+                        <RimTextFields
+                          texts={configuration.rim.texts}
+                          selectedElement={selectedRimElement}
+                          onSelectElement={setSelectedRimElement}
+                          onChange={(texts) => setConfiguration((current) => ({
+                            ...current,
+                            rim: {
+                              ...current.rim,
+                              text: texts[0]?.text ?? "",
+                              textTransform: texts[0]?.transform ?? current.rim.textTransform,
+                              texts,
+                            },
+                          }))}
                         />
-                        <PlacementControls
-                          label="texto"
-                          value={configuration.rim.textTransform}
-                          onChange={(textTransform) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, textTransform } }))}
-                        />
-                      </div>
-                    )}
+                      )}
+                      <span className="customizer-control-price">$ {getCustomizationPrice("rim_text").toLocaleString("es-UY")}</span>
+                    </section>
 
-                    <RimImageModeSelector
-                      mode={configuration.rim.imageMode}
-                      onSelect={(imageMode) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, imageMode } }))}
-                    />
-                    {configuration.rim.imageMode === "image" && (
-                      <div className="space-y-3">
-                        <div className="rounded-xl border border-[#e7d7c1] bg-white p-3">
-                          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[#5f3826]">
-                            Íconos ({configuration.rim.icons.length}/3)
-                          </p>
-                          <VirolaIconSelector
-                            icons={configuration.rim.icons}
-                            onChange={(icons) => setConfiguration((current) => ({
-                              ...current,
-                              rim: { ...current.rim, icons },
-                            }))}
+                    <section className="customizer-control-card">
+                      <h3>Íconos</h3>
+                      <RimImageModeSelector
+                        mode={configuration.rim.imageMode}
+                        onSelect={(imageMode) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, imageMode } }))}
+                      />
+                      {configuration.rim.imageMode === "image" && (
+                        <div className="customizer-card-body customizer-card-body--icons">
+                          <p>Íconos ({configuration.rim.icons.length}/3)</p>
+                          <VirolaIconSelector icons={configuration.rim.icons} onChange={(icons) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, icons } }))} />
+                          {(configuration.rim.icons.length < 3 || uploadedRimIcon) && (
+                            <div className="customizer-upload">
+                              <CustomImageUpload
+                                value={uploadedRimIcon?.customImage ?? null}
+                                onChange={updateUploadedRimIcon}
+                                onPlace={locateUploadedRimIcon}
+                                isPlacing={placingRimIconId === uploadedRimIcon?.id}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <span className="customizer-control-price">$ {getCustomizationPrice("rim_image").toLocaleString("es-UY")}</span>
+                    </section>
+
+                    <section className="customizer-control-card">
+                      <h3>Terminación</h3>
+                      <RimFinishModeSelector mode={configuration.rim.finishMode || "none"} onSelect={(finishMode) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, finishMode } }))} />
+                      {configuration.rim.finishMode === "finish" && (
+                        <div className="customizer-card-body customizer-card-body--finish">
+                          <RimFinishSelector
+                            selectedFinishId={configuration.rim.finishId}
+                            onSelect={(finishId) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, finishId } }))}
                           />
                         </div>
-                        {configuration.rim.icons.length < 3 && (
-                          <CustomImageUpload
-                            value={null}
-                            onChange={(asset) => {
-                              if (asset) {
-                                setConfiguration((current) => ({
-                                  ...current,
-                                  rim: {
-                                    ...current.rim,
-                                    icons: [...current.rim.icons, {
-                                      id: crypto.randomUUID(),
-                                      selectedImageId: asset.id,
-                                      customImage: asset,
-                                      transform: { x: 0.5, y: 0.5, scale: 1, rotation: 0, side: "rim" }
-                                    }]
-                                  }
-                                }));
-                              }
-                            }}
-                          />
-                        )}
-                      </div>
-                    )}
+                      )}
+                      <span className="customizer-control-price">$ {getCustomizationPrice("rim_finish").toLocaleString("es-UY")}</span>
+                    </section>
                   </div>
                 </PhaseAccordion>
 
+                {selectedModelDefinition.hasFleje && (
                 <PhaseAccordion number={3} title="Fleje" isOpen={activePhase === "fleje"} onToggle={() => activatePhase("fleje")}>
                   {selectedModelDefinition.hasFleje ? (
-                    <div className="space-y-4">
-                      <RimFinishModeSelector
-                        mode={flejeConfig.finishMode || "none"}
-                        onSelect={(finishMode) => setFlejeConfig((c) => ({ ...c, finishMode }))}
-                      />
-
-                      {flejeConfig.finishMode === "finish" && (
-                        <FlejeFinishSelector
-                          selectedFinishId={flejeConfig.finishId}
-                          onSelect={(finishId) => setFlejeConfig((current) => ({ ...current, finishId }))}
-                        />
-                      )}
-                      
-                      <div>
-                        <span className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-[#5f3826]">Cara del fleje</span>
+                    <div className="customizer-card-grid">
+                      <section className="customizer-control-card">
+                        <h3>Texto</h3>
+                        <span>Cara del fleje</span>
                         <div className="grid grid-cols-2 gap-2">
                           {(["front", "back"] as FlejeSide[]).map((side) => (
                             <button
@@ -648,57 +929,49 @@ export default function App() {
                             </button>
                           ))}
                         </div>
-                      </div>
+                        <RimTextModeSelector mode={flejeConfig.sides[activeFlejeSide].textMode} onSelect={(textMode) => updateFlejeSide(activeFlejeSide, { textMode })} />
+                        {flejeConfig.sides[activeFlejeSide].textMode === "text" && (
+                          <div className="space-y-3" onFocus={() => setSelectedFlejeElement("text")}>
+                            <RimTextEditor label="Texto del fleje (máx. 7 caracteres)" value={flejeConfig.sides[activeFlejeSide].text} disabled={false} maxLength={7} onChange={(text) => updateFlejeSide(activeFlejeSide, { text })} />
+                            <PlacementControls label="texto" value={flejeConfig.sides[activeFlejeSide].textTransform} onChange={(textTransform) => updateFlejeSide(activeFlejeSide, { textTransform })} />
+                          </div>
+                        )}
+                        <span className="customizer-control-price">$ {getCustomizationPrice("fleje_text").toLocaleString("es-UY")}</span>
+                      </section>
 
-                      <RimTextModeSelector mode={flejeConfig.sides[activeFlejeSide].textMode} onSelect={(textMode) => updateFlejeSide(activeFlejeSide, { textMode })} />
-                      {flejeConfig.sides[activeFlejeSide].textMode === "text" && (
-                        <div className="space-y-3" onFocus={() => setSelectedFlejeElement("text")}>
-                        <RimTextEditor
-                          label="Texto del fleje (máx. 7 caracteres)"
-                          value={flejeConfig.sides[activeFlejeSide].text}
-                          disabled={false}
-                          maxLength={7}
-                          onChange={(text) => updateFlejeSide(activeFlejeSide, { text })}
-                        />
-                        <PlacementControls
-                          label="texto"
-                          value={flejeConfig.sides[activeFlejeSide].textTransform}
-                          onChange={(textTransform) => updateFlejeSide(activeFlejeSide, { textTransform })}
-                        />
-                        </div>
-                      )}
-                      
-                      <RimImageModeSelector mode={flejeConfig.sides[activeFlejeSide].imageMode} onSelect={(imageMode) => updateFlejeSide(activeFlejeSide, { imageMode })} />
-                      {flejeConfig.sides[activeFlejeSide].imageMode === "image" && (
-                        <div className="space-y-3" onFocus={() => setSelectedFlejeElement("image")}>
-                          <RimIconSelector selectedImageId={flejeConfig.sides[activeFlejeSide].selectedImageId} onSelect={(selectedImageId) => updateFlejeSide(activeFlejeSide, { selectedImageId })} />
-                          <CustomImageUpload
-                            value={flejeConfig.sides[activeFlejeSide].customImage}
-                            onChange={(asset) => {
+                      <section className="customizer-control-card">
+                        <h3>Íconos</h3>
+                        <RimImageModeSelector mode={flejeConfig.sides[activeFlejeSide].imageMode} onSelect={(imageMode) => updateFlejeSide(activeFlejeSide, { imageMode })} />
+                        {flejeConfig.sides[activeFlejeSide].imageMode === "image" && (
+                          <div className="space-y-3" onFocus={() => setSelectedFlejeElement("image")}>
+                            <RimIconSelector selectedImageId={flejeConfig.sides[activeFlejeSide].selectedImageId} onSelect={(selectedImageId) => updateFlejeSide(activeFlejeSide, { selectedImageId })} />
+                            <CustomImageUpload value={flejeConfig.sides[activeFlejeSide].customImage} onChange={(asset) => {
                               const sideConfig = flejeConfig.sides[activeFlejeSide];
-                              updateFlejeSide(activeFlejeSide, {
-                                customImage: asset,
-                                selectedImageId: asset?.id ?? (sideConfig.selectedImageId === sideConfig.customImage?.id ? null : sideConfig.selectedImageId),
-                              });
-                            }}
-                          />
-                          <PlacementControls
-                            label="imagen"
-                            value={flejeConfig.sides[activeFlejeSide].imageTransform}
-                            onChange={(imageTransform) => updateFlejeSide(activeFlejeSide, { imageTransform })}
-                          />
-                        </div>
-                      )}
+                              updateFlejeSide(activeFlejeSide, { customImage: asset, selectedImageId: asset?.id ?? (sideConfig.selectedImageId === sideConfig.customImage?.id ? null : sideConfig.selectedImageId) });
+                            }} />
+                            <PlacementControls label="imagen" value={flejeConfig.sides[activeFlejeSide].imageTransform} onChange={(imageTransform) => updateFlejeSide(activeFlejeSide, { imageTransform })} />
+                          </div>
+                        )}
+                        <span className="customizer-control-price">$ {getCustomizationPrice("fleje_image").toLocaleString("es-UY")}</span>
+                      </section>
+
+                      <section className="customizer-control-card">
+                        <h3>Terminación</h3>
+                        <RimFinishModeSelector mode={flejeConfig.finishMode || "none"} onSelect={(finishMode) => setFlejeConfig((current) => ({ ...current, finishMode }))} />
+                        {flejeConfig.finishMode === "finish" && <FlejeFinishSelector selectedFinishId={flejeConfig.finishId} onSelect={(finishId) => setFlejeConfig((current) => ({ ...current, finishId }))} />}
+                        <span className="customizer-control-price">$ {getCustomizationPrice("fleje_finish").toLocaleString("es-UY")}</span>
+                      </section>
                     </div>
                   ) : (
                     <p className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-[10px] leading-relaxed text-zinc-500">El mate Camionero no tiene fleje metálico para grabado.</p>
                   )}
                 </PhaseAccordion>
+                )}
 
                 <div className="mt-2 pt-4 border-t border-zinc-200/80">
                   <button
                     type="button"
-                    onClick={handleSaveDesign}
+                    onClick={() => requireAuthentication("save-customizer")}
                     disabled={saveStatus !== "idle"}
                     className={`flex w-full items-center justify-center gap-2 rounded-xl py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg transition-all active:scale-[0.98] cursor-pointer ${
                       saveStatus === "saved"
@@ -722,14 +995,8 @@ export default function App() {
               </aside>
 
               {/* PANEL 2: CENTRO (Visualizador 3D / Preview) */}
-              <section className="order-1 flex min-h-[540px] w-full flex-col lg:order-2 lg:col-span-5">
-                <div className="mb-4 flex self-center rounded-xl border border-[#e7d7c1] bg-white p-1 shadow-xs">
-                  <button type="button" onClick={() => setPreviewView("mate")} className={`rounded-lg px-5 py-2 text-[10px] font-bold uppercase tracking-widest transition-all ${previewView === "mate" ? "bg-[#7a4a31] text-white shadow-sm" : "text-zinc-500 hover:text-zinc-800"}`}>Mate</button>
-                  <button type="button" onClick={() => setPreviewView("virola")} className={`rounded-lg px-5 py-2 text-[10px] font-bold uppercase tracking-widest transition-all ${previewView === "virola" ? "bg-[#7a4a31] text-white shadow-sm" : "text-zinc-500 hover:text-zinc-800"}`}>Virola</button>
-                  <button type="button" onClick={() => setPreviewView("fleje")} className={`rounded-lg px-5 py-2 text-[10px] font-bold uppercase tracking-widest transition-all ${previewView === "fleje" ? "bg-[#7a4a31] text-white shadow-sm" : "text-zinc-500 hover:text-zinc-800"}`}>Fleje</button>
-                </div>
-
-                <div className="flex min-h-[500px] max-h-[540px] flex-1 items-center justify-center rounded-3xl border border-[#e7d7c1] bg-white/60 p-6 shadow-xs" aria-label="Vista previa del mate">
+              <section className="customizer-preview order-1 flex min-h-[540px] w-full flex-col lg:order-2 lg:col-span-5">
+                <div ref={previewContainerRef} className="flex min-h-[500px] max-h-[540px] flex-1 items-center justify-center rounded-3xl border border-[#e7d7c1] bg-white/60 p-6 shadow-xs" aria-label="Vista previa del mate">
                   {previewView === "mate" ? (
                     <FlejePreview mate={selectedMate} text="" />
                   ) : previewView === "virola" ? (
@@ -738,17 +1005,58 @@ export default function App() {
                       model={configuration.modelId}
                       editable
                       selectedElement={selectedRimElement}
+                      placingElementId={placingRimIconId}
+                      onPlacementComplete={() => setPlacingRimIconId(null)}
                       onSelectElement={setSelectedRimElement}
-                      onTransformChange={(element, transform) => setConfiguration((current) => ({
-                        ...current,
-                        rim: {
-                          ...current.rim,
-                          ...(element === "text"
-                            ? { textTransform: transform }
-                            : { icons: current.rim.icons.map((icon) => icon.id === element ? { ...icon, transform } : icon) }
-                          )
-                        },
-                      }))}
+                      onToggleInvert={(element) => setConfiguration((current) => {
+                        const updatedTexts = current.rim.texts.map((t, idx) => {
+                          if (t.id === element || (element === "text" && idx === 0)) {
+                            return { ...t, inverted: !t.inverted };
+                          }
+                          return t;
+                        });
+                        return {
+                          ...current,
+                          rim: {
+                            ...current.rim,
+                            texts: updatedTexts,
+                          },
+                        };
+                      })}
+                      onTransformChange={(element, transform) => setConfiguration((current) => {
+                        if (element === "text" || element === "text-1") {
+                          const updatedTexts = current.rim.texts.map((t, idx) =>
+                            idx === 0 || t.id === "text-1" ? { ...t, transform } : t
+                          );
+                          return {
+                            ...current,
+                            rim: {
+                              ...current.rim,
+                              textTransform: transform,
+                              texts: updatedTexts,
+                            },
+                          };
+                        }
+                        if (element === "text-2") {
+                          const updatedTexts = current.rim.texts.map((t, idx) =>
+                            idx === 1 || t.id === "text-2" ? { ...t, transform } : t
+                          );
+                          return {
+                            ...current,
+                            rim: {
+                              ...current.rim,
+                              texts: updatedTexts,
+                            },
+                          };
+                        }
+                        return {
+                          ...current,
+                          rim: {
+                            ...current.rim,
+                            icons: current.rim.icons.map((icon) => icon.id === element ? { ...icon, transform } : icon),
+                          },
+                        };
+                      })}
                     />
                   ) : selectedModelDefinition.hasFleje ? (
                     <FlatFlejePreview
@@ -759,7 +1067,7 @@ export default function App() {
                       onSelectSide={setActiveFlejeSide}
                       onSelectElement={setSelectedFlejeElement}
                       onTransformChange={(side, element, transform) => updateFlejeSide(side, {
-                        [element === "text" ? "textTransform" : "imageTransform"]: transform,
+                        [element === "text" ? "textTransform" : element === "image" ? "imageTransform" : "finishTransform"]: transform,
                       })}
                     />
                   ) : (
@@ -769,45 +1077,23 @@ export default function App() {
 
                 {/* Minimalist Product Specification Bar */}
                 {(() => {
-                  const details = getVariantDetails(selectedMate.id);
-                  const displayName = details?.name || selectedMate.name;
-                  const virola = details?.virola;
-                  const tipoCuero = details?.tipoCuero;
-
                   return (
                     <div className="mt-3 flex flex-col items-center justify-center gap-2 rounded-2xl border border-[#e7d7c1]/90 bg-white/95 px-6 py-3.5 text-center shadow-xs">
-                      {/* Renglón de arriba: Nombre de la variante sin itálica y con mayor tamaño */}
                       <span className="text-base md:text-lg font-black tracking-tight text-[#2d1d14] font-serif">
-                        {displayName}
+                        {configuration.selectionLabels.texture}
                       </span>
-
-                      {/* Renglón de abajo: Virola y Cuero con mayor tamaño */}
-                      {(virola || tipoCuero) && (
-                        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-xs md:text-sm">
-                          {virola && (
-                            <span>
-                              <strong className="font-black text-[#7a4a31] uppercase tracking-wider">Virola:</strong>{" "}
-                              <span className="font-semibold text-zinc-800">{virola}</span>
-                            </span>
-                          )}
-                          {virola && tipoCuero && (
-                            <span className="text-[#a48e78] font-bold">•</span>
-                          )}
-                          {tipoCuero && (
-                            <span>
-                              <strong className="font-black text-[#7a4a31] uppercase tracking-wider">Cuero:</strong>{" "}
-                              <span className="font-semibold text-zinc-800">{tipoCuero}</span>
-                            </span>
-                          )}
-                        </div>
-                      )}
+                      <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-xs md:text-sm">
+                        <span><strong className="font-black uppercase tracking-wider text-[#7a4a31]">Metal:</strong> <span className="font-semibold text-zinc-800">{configuration.selectionLabels.metal}</span></span>
+                        <span className="font-bold text-[#a48e78]">•</span>
+                        <span><strong className="font-black uppercase tracking-wider text-[#7a4a31]">Cuero:</strong> <span className="font-semibold text-zinc-800">{configuration.selectionLabels.color}</span></span>
+                      </div>
                     </div>
                   );
                 })()}
               </section>
 
               {/* PANEL 3: DERECHA (Resumen del Pedido & Totales) */}
-              <aside className="order-3 flex flex-col gap-4 lg:order-3 lg:col-span-3">
+              <aside className="customizer-order-summary order-3 flex flex-col gap-4 lg:order-3 lg:col-span-3">
                 {(() => {
                   const pricing = calculateOrderPricing(configuration, flejeConfig);
                   const rimFin = getRimFinish(configuration.rim.finishId);
@@ -832,11 +1118,11 @@ export default function App() {
                         {/* Mate Base */}
                         <div className="space-y-1 border-b border-[#e7d7c1]/50 pb-2.5">
                           <div className="flex justify-between items-baseline font-bold text-[#2d1d14]">
-                            <span>Mate ({selectedModelDefinition.name}):</span>
-                            <span className="text-[#7a4a31] text-sm">$ {pricing.basePriceUYU.toLocaleString('es-UY')} UYU</span>
+                            <span>Mate ({configuration.selectionLabels.family}):</span>
+                            <span className="text-[#7a4a31] text-sm">{pricing.isPriceReady ? `$ ${pricing.basePriceUYU.toLocaleString('es-UY')} UYU` : "Precio pendiente"}</span>
                           </div>
                           <p className="text-[11px] text-[#5f3826]/70 font-medium">
-                            {selectedMate.name}
+                            {configuration.selectionLabels.texture} · {configuration.selectionLabels.color}
                           </p>
                         </div>
 
@@ -854,7 +1140,11 @@ export default function App() {
                               • Terminación: {configuration.rim.finishMode === "finish" ? `${rimFin?.name || 'Cincelado'} (+$${getCustomizationPrice("rim_finish")} UYU)` : "Sin terminación"}
                             </p>
                             <p>
-                              • Grabado de texto: {configuration.rim.textMode === "text" ? `"${configuration.rim.text || 'Con texto'}" (+$${getCustomizationPrice("rim_text")} UYU)` : "Sin texto"}
+                              • Grabado de texto: {configuration.rim.textMode === "text" ? (() => {
+                                const activeTexts = configuration.rim.texts?.filter(t => t.text.trim()) ?? (configuration.rim.text ? [{ id: "text-1", text: configuration.rim.text }] : []);
+                                if (activeTexts.length === 0) return "Sin texto";
+                                return activeTexts.map((t, idx) => `T${idx + 1}: "${t.text}"`).join(" + ") + ` (+$${getCustomizationPrice("rim_text")} UYU)`;
+                              })() : "Sin texto"}
                             </p>
                             <p>
                               • Grabado de imagen: {configuration.rim.imageMode === "image" ? `Con imagen (+$${getCustomizationPrice("rim_image")} UYU)` : "Sin imagen"}
@@ -892,8 +1182,8 @@ export default function App() {
                           <span className="text-xs font-black uppercase tracking-wider text-[#7a4a31]">
                             Total Pedido
                           </span>
-                          <span className="text-2xl font-black text-[#2d1d14] font-serif leading-none">
-                            $ {totalUYU.toLocaleString('es-UY')} UYU
+                          <span className="text-right text-2xl font-black text-[#2d1d14] font-serif leading-none">
+                            {pricing.isPriceReady ? `$ ${totalUYU.toLocaleString('es-UY')} UYU` : "Pendiente"}
                           </span>
                         </div>
                       </div>
@@ -908,14 +1198,14 @@ export default function App() {
 
         {wizardStep === "summary" && (
           <SummaryStep
-            userData={effectiveUserData}
+            userData={userData}
             configuration={configuration}
             flejeConfig={flejeConfig}
             previewRef={previewContainerRef}
             onEditDesign={() => changeStep("customizer")}
-            onEditContact={() => changeStep("welcome")}
-            onProceedToCheckout={() => changeStep("checkout")}
-            onSaveDraft={handleSaveDraftFromSummary}
+            onEditContact={() => requireAuthentication("edit-contact")}
+            onProceedToCheckout={() => requireAuthentication("checkout")}
+            onSaveDraft={() => requireAuthentication("save-summary")}
           />
         )}
 
@@ -939,6 +1229,7 @@ export default function App() {
             onLoadDesign={handleLoadDesignFromProfile}
             onNewDesign={() => {
               setLastSavedDesignId(null);
+              setSelection({ ...EMPTY_MATE_SELECTION });
               changeStep("product_selection");
             }}
             onUpdateUserData={handleUpdateUserData}
@@ -947,6 +1238,8 @@ export default function App() {
           />
         )}
       </div>
+
+      <BrandFooter onProfile={() => requireAuthentication("profile")} />
 
       {/* Save Success Toast */}
       {saveStatus === "saved" && (

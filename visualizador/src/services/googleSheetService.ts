@@ -42,7 +42,6 @@ export async function sendOrderToGoogleSheet(payload: OrderPayload): Promise<boo
     const rimOriginalUrls = payload.configuration.rim.icons.map(icon => 
       icon.customImage?.originalUrl
     ).filter(Boolean).join(", ");
-    const color = variantDef?.colors.find((item) => item.id === payload.configuration.colorId);
     const flejeSides = payload.flejeConfig.sides;
     const getSideIconName = (side: "front" | "back") => {
       const sideConfig = flejeSides[side];
@@ -59,26 +58,38 @@ export async function sendOrderToGoogleSheet(payload: OrderPayload): Promise<boo
       minute: '2-digit',
     });
 
+    const rimTexts = payload.configuration.rim.texts
+      ? payload.configuration.rim.texts.filter((t) => t.text.trim()).map((t, idx) => `T${idx + 1}: ${t.text}`).join(" | ")
+      : payload.configuration.rim.text || '';
+
     const body = {
       fecha,
       nombre: payload.userData.name,
       email: payload.userData.email,
       whatsapp: payload.userData.phone || '',
       empresa: payload.userData.company || '',
-      modelo: modelDef.name,
-      variante: variantDef?.name || payload.configuration.variantId,
-      color: color?.name || payload.configuration.colorId,
-      tamano: mateSizeLabels[payload.configuration.size],
-      materialVirola: rimMaterial?.name || 'Original',
+      modelo: payload.configuration.selectionLabels.family || modelDef.name,
+      variante: payload.configuration.selectionLabels.texture || variantDef?.name || payload.configuration.variantId,
+      color: payload.configuration.selectionLabels.color || payload.configuration.colorId,
+      tamano: payload.configuration.selectionLabels.size || mateSizeLabels[payload.configuration.size],
+      materialVirola: payload.configuration.selectionLabels.metal || rimMaterial?.name || 'Original',
+      catalogVersion: payload.configuration.schemaVersion,
+      productId: payload.configuration.productId || '',
+      skuId: payload.configuration.skuId || '',
+      familyId: payload.configuration.selection.familyId || '',
+      textureId: payload.configuration.selection.textureId || '',
+      colorId: payload.configuration.selection.colorId || '',
+      metalId: payload.configuration.selection.metalId || '',
+      sizeId: payload.configuration.selection.sizeId || '',
       cinceladoVirola: rimFinish?.name || 'Liso',
-      textoVirola: payload.configuration.rim.text || '',
+      textoVirola: rimTexts,
       iconoVirola: rimIcons,
       archivoOriginalVirola: rimOriginalUrls,
-      acabadoFleje: modelDef.hasFleje ? (flejeFinish?.name || 'Liso') : 'N/A (sin fleje)',
-      textoFlejeFrente: modelDef.hasFleje ? flejeSides.front.text : '',
-      textoFlejeDorso: modelDef.hasFleje ? flejeSides.back.text : '',
-      iconoFlejeFrente: modelDef.hasFleje ? getSideIconName('front') : '',
-      iconoFlejeDorso: modelDef.hasFleje ? getSideIconName('back') : '',
+      acabadoFleje: payload.configuration.capabilities.hasFleje ? (flejeFinish?.name || 'Liso') : 'N/A (sin fleje)',
+      textoFlejeFrente: payload.configuration.capabilities.hasFleje ? flejeSides.front.text : '',
+      textoFlejeDorso: payload.configuration.capabilities.hasFleje ? flejeSides.back.text : '',
+      iconoFlejeFrente: payload.configuration.capabilities.hasFleje ? getSideIconName('front') : '',
+      iconoFlejeDorso: payload.configuration.capabilities.hasFleje ? getSideIconName('back') : '',
       archivoOriginalFlejeFrente: flejeSides.front.customImage?.originalUrl || '',
       archivoOriginalFlejeDorso: flejeSides.back.customImage?.originalUrl || '',
       urlImagen: payload.previewImageUrl || '',

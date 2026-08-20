@@ -1,18 +1,26 @@
 import { useId, useState } from "react";
 import type { RimFinish } from "../catalog/rimFinishCatalog";
 import { RIM_VIEWBOX_SIZE, rimTextGeometry, type RimTextGeometry } from "../catalog/rimGeometry";
-import type { ElementTransform } from "../types/customizer";
+import type { ElementTransform, RimTextElement } from "../types/customizer";
 import { RimTextFinishMask } from "./CircularRimText";
 
 interface RimFinishLayerProps {
   finish: RimFinish | undefined;
   hasTextKnockout: boolean;
-  text: string;
+  text?: string;
+  texts?: RimTextElement[];
   textGeometry?: RimTextGeometry;
   textTransform?: ElementTransform;
 }
 
-export function RimFinishLayer({ finish, hasTextKnockout, text, textGeometry = rimTextGeometry, textTransform }: RimFinishLayerProps) {
+export function RimFinishLayer({
+  finish,
+  hasTextKnockout,
+  text = "",
+  texts,
+  textGeometry = rimTextGeometry,
+  textTransform,
+}: RimFinishLayerProps) {
   const [failedFinishId, setFailedFinishId] = useState<string | null>(null);
   const finishMaskId = `rim-text-cutout-${useId().replace(/:/g, "")}`;
 
@@ -27,7 +35,13 @@ export function RimFinishLayer({ finish, hasTextKnockout, text, textGeometry = r
     <>
       {hasTextKnockout && (
         <defs>
-          <RimTextFinishMask id={finishMaskId} text={text} geometry={textGeometry} transform={textTransform} />
+          <RimTextFinishMask
+            id={finishMaskId}
+            text={text}
+            texts={texts}
+            geometry={textGeometry}
+            transform={textTransform}
+          />
         </defs>
       )}
       <g mask={hasTextKnockout ? `url(#${finishMaskId})` : undefined}>

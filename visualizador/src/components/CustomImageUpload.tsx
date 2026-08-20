@@ -5,9 +5,11 @@ import type { CustomImageAsset } from "../types/customizer";
 interface CustomImageUploadProps {
   value: CustomImageAsset | null;
   onChange: (asset: CustomImageAsset | null) => void;
+  onPlace?: () => void;
+  isPlacing?: boolean;
 }
 
-export function CustomImageUpload({ value, onChange }: CustomImageUploadProps) {
+export function CustomImageUpload({ value, onChange, onPlace, isPlacing = false }: CustomImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -20,7 +22,7 @@ export function CustomImageUpload({ value, onChange }: CustomImageUploadProps) {
       const asset = await createCustomizationAsset(file);
       onChange(asset);
       setStatus("idle");
-      setMessage(asset.originalUrl.startsWith("data:") ? "Vista lista. El original se conservará dentro del diseño." : "Vista lista y original guardado para producción.");
+      setMessage("");
     } catch (error) {
       setStatus("error");
       setMessage(error instanceof Error ? error.message : "No se pudo procesar el archivo.");
@@ -39,7 +41,7 @@ export function CustomImageUpload({ value, onChange }: CustomImageUploadProps) {
           event.target.value = "";
         }}
       />
-      <div className="flex items-center gap-3">
+      <div className="custom-image-upload__layout">
         {value ? (
           <img src={value.previewUrl} alt="Vista previa del archivo cargado" className="h-12 w-12 rounded-lg border border-[#e7d7c1] bg-white object-contain p-1" />
         ) : (
@@ -51,22 +53,35 @@ export function CustomImageUpload({ value, onChange }: CustomImageUploadProps) {
           <p className="truncate text-xs font-bold text-[#2d1d14]">{value?.name ?? "Cargá tu imagen"}</p>
           <p className="text-[10px] text-[#5f3826]/70">PNG, JPG o SVG · máximo 5 MB</p>
         </div>
-        <button
-          type="button"
-          disabled={status === "loading"}
-          onClick={() => inputRef.current?.click()}
-          className="min-h-11 rounded-lg border border-[#7a4a31] bg-white px-3 text-xs font-bold text-[#7a4a31] transition-colors hover:bg-[#fbf3de] disabled:cursor-wait disabled:opacity-60"
-        >
-          {status === "loading" ? "Procesando…" : value ? "Cambiar" : "Elegir"}
-        </button>
+        <div className="custom-image-upload__actions">
+          <button
+            type="button"
+            disabled={status === "loading"}
+            onClick={() => inputRef.current?.click()}
+            className="min-h-11 rounded-lg border border-[#7a4a31] bg-white px-3 text-xs font-bold text-[#7a4a31] transition-colors hover:bg-[#fbf3de] disabled:cursor-wait disabled:opacity-60"
+          >
+            {status === "loading" ? "Procesando…" : value ? "Cambiar" : "Elegir"}
+          </button>
+          {value && (
+            <>
+              <button type="button" onClick={() => { setMessage(""); onChange(null); }} className="custom-image-upload__remove">
+                Quitar archivo cargado
+              </button>
+              {onPlace && (
+                <button
+                  type="button"
+                  onClick={onPlace}
+                  aria-pressed={isPlacing}
+                  className="custom-image-upload__place"
+                >
+                  Ubicar en el visualizador
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
-      {value && (
-        <button type="button" onClick={() => onChange(null)} className="mt-2 min-h-11 text-xs font-bold text-red-700 underline-offset-2 hover:underline">
-          Quitar archivo cargado
-        </button>
-      )}
       {message && <p role={status === "error" ? "alert" : "status"} className={`mt-2 text-[10px] font-medium ${status === "error" ? "text-red-700" : "text-[#5f3826]/80"}`}>{message}</p>}
     </div>
   );
 }
-

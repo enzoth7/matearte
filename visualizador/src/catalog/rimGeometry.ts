@@ -5,6 +5,7 @@ export interface RimTextGeometry {
   startAngle: number;
   endAngle: number;
   fontSize: number;
+  inverted?: boolean;
 }
 
 export interface RimIconPlacement {
@@ -136,20 +137,38 @@ export function polarPoint(centerX: number, centerY: number, radius: number, ang
   return { x: centerX + Math.cos(radians) * radius, y: centerY + Math.sin(radians) * radius };
 }
 
-export function createArcPath(geometry: RimTextGeometry): string {
+export function createArcPath(geometry: RimTextGeometry, inverted = false): string {
+  const isInverted = geometry.inverted ?? inverted;
+  if (isInverted) {
+    const arcAngle = getArcAngle(geometry);
+    const startAngle = 90 + arcAngle / 2;
+    const endAngle = 90 - arcAngle / 2;
+    const start = polarPoint(geometry.centerX, geometry.centerY, geometry.radius, startAngle);
+    const end = polarPoint(geometry.centerX, geometry.centerY, geometry.radius, endAngle);
+    return `M ${start.x} ${start.y} A ${geometry.radius} ${geometry.radius} 0 0 0 ${end.x} ${end.y}`;
+  }
   const start = polarPoint(geometry.centerX, geometry.centerY, geometry.radius, geometry.startAngle);
   const end = polarPoint(geometry.centerX, geometry.centerY, geometry.radius, geometry.endAngle);
   const angleSpan = ((geometry.endAngle - geometry.startAngle) % 360 + 360) % 360;
   return `M ${start.x} ${start.y} A ${geometry.radius} ${geometry.radius} 0 ${angleSpan > 180 ? 1 : 0} 1 ${end.x} ${end.y}`;
 }
 
-export function createCenteredArcPath(geometry: RimTextGeometry, pathLength: number): string {
+export function createCenteredArcPath(geometry: RimTextGeometry, pathLength: number, inverted = false): string {
+  const isInverted = geometry.inverted ?? inverted;
   const arcAngle = getArcAngle(geometry);
   const arcLength = geometry.radius * arcAngle * Math.PI / 180;
   const clampedLength = Math.min(pathLength, arcLength);
   const halfAngle = (clampedLength / geometry.radius) * 180 / Math.PI / 2;
+  if (isInverted) {
+    const centerAngle = 90;
+    const start = polarPoint(geometry.centerX, geometry.centerY, geometry.radius, centerAngle + halfAngle);
+    const end = polarPoint(geometry.centerX, geometry.centerY, geometry.radius, centerAngle - halfAngle);
+    return `M ${start.x} ${start.y} A ${geometry.radius} ${geometry.radius} 0 0 0 ${end.x} ${end.y}`;
+  }
   const centerAngle = geometry.startAngle + arcAngle / 2;
-  return createArcPath({ ...geometry, startAngle: centerAngle - halfAngle, endAngle: centerAngle + halfAngle });
+  const start = polarPoint(geometry.centerX, geometry.centerY, geometry.radius, centerAngle - halfAngle);
+  const end = polarPoint(geometry.centerX, geometry.centerY, geometry.radius, centerAngle + halfAngle);
+  return `M ${start.x} ${start.y} A ${geometry.radius} ${geometry.radius} 0 0 1 ${end.x} ${end.y}`;
 }
 
 export function createRimBackgroundGeometry(geometry: RimTextGeometry): RimTextGeometry {
@@ -201,11 +220,13 @@ function getCharacterTargetFraction(textLength: number): number {
   return lower.fraction + (upper.fraction - lower.fraction) * progress;
 }
 
-export function calculateRimCharacterLayout(text: string, geometry: RimTextGeometry): RimCharacterLayout {
+export function calculateRimCharacterLayout(text: string, geometry: RimTextGeometry, inverted = false): RimCharacterLayout {
   const characters = [...text.trim()];
   if (characters.length === 0) return { characters: [], fontSize: geometry.fontSize, characterGap: 0, occupiedArcLength: 0 };
 
-  const arcLength = geometry.radius * getArcAngle(geometry) * Math.PI / 180;
+  const isInverted = geometry.inverted ?? inverted;
+  const arcAngle = getArcAngle(geometry);
+  const arcLength = geometry.radius * arcAngle * Math.PI / 180;
   const targetArcLength = arcLength * getCharacterTargetFraction(characters.length);
   const widthUnits = characters.map(getCharacterWidthUnits);
   const totalWidthUnits = widthUnits.reduce((total, width) => total + width, 0);
@@ -217,13 +238,26 @@ export function calculateRimCharacterLayout(text: string, geometry: RimTextGeome
   const characterGap = gapsCount > 0 ? Math.max(0, Math.min(preferredGap, maximumFittingGap)) : 0;
   const occupiedArcLength = naturalLength + characterGap * Math.max(0, characters.length - 1);
   const startDistance = (arcLength - occupiedArcLength) / 2;
-  const startAngle = geometry.startAngle;
   let cursor = startDistance;
 
+  if (isInverted) {
+    const startAngle = 90 + arcAngle / 2;
+    const placements = characters.map((character, index) => {
+      const width = widthUnits[index] * fontSize;
+      const distance = cursor + width / 2;
+      const angle = startAngle - (distance / geometry.radius) * 180 / Math.PI;
+      const point = polarPoint(geometry.centerX, geometry.centerY, geometry.radius, angle);
+      cursor += width + characterGap;
+      return { character, x: point.x, y: point.y, rotation: angle - 90 };
+    });
+    return { characters: placements, fontSize, characterGap, occupiedArcLength };
+  }
+
+  const startAngle = geometry.startAngle;
   const placements = characters.map((character, index) => {
     const width = widthUnits[index] * fontSize;
     const distance = cursor + width / 2;
-    const angle = startAngle + distance / geometry.radius * 180 / Math.PI;
+    const angle = startAngle + (distance / geometry.radius) * 180 / Math.PI;
     const point = polarPoint(geometry.centerX, geometry.centerY, geometry.radius, angle);
     cursor += width + characterGap;
     return { character, x: point.x, y: point.y, rotation: angle + 90 };

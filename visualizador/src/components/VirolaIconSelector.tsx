@@ -19,7 +19,12 @@ export function VirolaIconSelector({ icons, onChange }: VirolaIconSelectorProps)
     };
   };
 
-  const handleAdd = (imageId: string) => {
+  const handleToggle = (imageId: string) => {
+    const selectedIcon = icons.find((icon) => !icon.customImage && icon.selectedImageId === imageId);
+    if (selectedIcon) {
+      onChange(icons.filter((icon) => icon.id !== selectedIcon.id));
+      return;
+    }
     if (icons.length >= 3) return;
     const pos = getInitialPosition(icons.length);
     onChange([...icons, {
@@ -30,48 +35,27 @@ export function VirolaIconSelector({ icons, onChange }: VirolaIconSelectorProps)
     }]);
   };
 
-  const handleRemove = (id: string) => {
-    onChange(icons.filter(icon => icon.id !== id));
-  };
-
   return (
-    <div className="space-y-4">
-      {icons.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {icons.map((icon) => {
-            const catalogItem = icon.customImage ? null : rimIconCatalog.find(item => item.id === icon.selectedImageId);
-            const src = icon.customImage?.previewUrl ?? catalogItem?.src;
-            return (
-              <div key={icon.id} className="relative flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-[#7a4a31] bg-[#fbf3de] p-2">
-                {src ? <img src={src} alt="" className="h-full w-full object-contain" draggable={false} /> : <span className="text-xs">?</span>}
-                <button
-                  type="button"
-                  onClick={() => handleRemove(icon.id)}
-                  className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-xs font-bold text-red-700 shadow-sm hover:bg-red-200"
-                  aria-label="Eliminar ícono"
-                >
-                  ×
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <div className="grid max-h-48 grid-cols-4 gap-2 overflow-y-auto pr-1">
-        {rimIconCatalog.map((icon) => (
-          <button 
-            key={icon.id} 
-            type="button" 
-            onClick={() => handleAdd(icon.id)} 
-            disabled={icons.length >= 3}
-            title={icon.name} 
-            aria-label={icon.name} 
-            className="flex aspect-square min-h-11 min-w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white p-2 transition-all hover:border-[#7a4a31] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <img src={icon.src} alt="" className="h-full w-full object-contain" draggable={false} />
-          </button>
-        ))}
+    <div>
+      <div className="virola-icon-grid">
+        {rimIconCatalog.map((icon) => {
+          const isSelected = icons.some((selected) => !selected.customImage && selected.selectedImageId === icon.id);
+          return (
+            <button
+              key={icon.id}
+              type="button"
+              onClick={() => handleToggle(icon.id)}
+              disabled={!isSelected && icons.length >= 3}
+              title={isSelected ? `Quitar ${icon.name}` : icon.name}
+              aria-label={isSelected ? `${icon.name}, seleccionado. Pulsá para quitarlo` : icon.name}
+              aria-pressed={isSelected}
+              className="virola-icon-option"
+            >
+              <img src={icon.src} alt="" draggable={false} />
+              {isSelected && <span className="virola-icon-option__check" aria-hidden="true">✓</span>}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

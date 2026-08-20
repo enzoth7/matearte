@@ -3,7 +3,7 @@ import { getRimFinish } from "../catalog/rimFinishCatalog";
 import type { RimCustomization } from "../catalog/rimCatalog";
 import { getRimGeometryProfile, RIM_VIEWBOX_SIZE } from "../catalog/rimGeometry";
 import type { MateModel } from "../catalog/mateCatalog";
-import type { ElementTransform } from "../types/customizer";
+import type { ElementTransform, RimTextElement } from "../types/customizer";
 import { CircularRimText } from "./CircularRimText";
 import { RimFinishLayer } from "./RimFinishLayer";
 import { RimIconLayer } from "./RimIconLayer";
@@ -15,14 +15,20 @@ interface ConfiguratorPreviewProps {
   selectedElement?: string | null;
   onSelectElement?: (id: string | null) => void;
   onTransformChange?: (id: string, transform: ElementTransform) => void;
+  onToggleInvert?: (id: string) => void;
+  placingElementId?: string | null;
+  onPlacementComplete?: () => void;
 }
+
 interface DragState {
   elementId: string;
   pointerId: number;
   offsetX: number;
   offsetY: number;
-  mode: "move" | "resize";
+  startAngle: number;
+  initialRotation: number;
   initialScale: number;
+  mode: "move" | "resize";
 }
 
 export function ConfiguratorPreview({
@@ -32,12 +38,33 @@ export function ConfiguratorPreview({
   selectedElement,
   onSelectElement,
   onTransformChange,
+  onToggleInvert,
+  placingElementId,
+  onPlacementComplete,
 }: ConfiguratorPreviewProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const finish = rim.finishMode === "finish" ? getRimFinish(rim.finishId) : undefined;
-  const hasTextKnockout = rim.textMode === "text" && Boolean(rim.text.trim());
   const profile = getRimGeometryProfile(model);
+
+  const texts: RimTextElement[] = rim.texts && rim.texts.length > 0
+    ? rim.texts
+    : [
+        {
+          id: "text-1",
+          text: rim.text || "",
+          inverted: false,
+          transform: rim.textTransform,
+        },
+        {
+          id: "text-2",
+          text: "",
+          inverted: true,
+          transform: { ...rim.textTransform, rotation: 0 },
+        },
+      ];
+
+  const hasTextKnockout = rim.textMode === "text" && texts.some((t) => Boolean(t.text.trim()));
 
   const pointFromEvent = (event: ReactPointerEvent) => {
     const bounds = svgRef.current?.getBoundingClientRect();
@@ -48,11 +75,31 @@ export function ConfiguratorPreview({
     };
   };
 
+  const getTextElement = (id: string): RimTextElement | undefined => {
+    if (id === "text" || id === "text-1") return texts[0];
+    if (id === "text-2") return texts[1];
+    return texts.find((t) => t.id === id);
+  };
+
   const getElementTransform = (id: string): ElementTransform => {
-    if (id === "text") return rim.textTransform;
-    const icon = rim.icons.find(i => i.id === id);
+    if (id === "text" || id === "text-1") return texts[0]?.transform ?? rim.textTransform;
+    if (id === "text-2") return texts[1]?.transform ?? rim.textTransform;
+    const textItem = texts.find((t) => t.id === id);
+    if (textItem) return textItem.transform;
+    const icon = rim.icons.find((i) => i.id === id);
     if (icon) return icon.transform;
-    return rim.textTransform; // fallback
+    return rim.textTransform;
+  };
+
+  const constrainIconPoint = (x: number, y: number) => {
+    const dx = x - 0.5;
+    const dy = y - 0.5;
+    const distance = Math.hypot(dx, dy);
+    const targetRadius = Math.min(profile.radiusBounds.max, Math.max(profile.radiusBounds.min, distance));
+
+    if (distance === 0) return { x: 0.5, y: 0.5 + targetRadius };
+    const ratio = targetRadius / distance;
+    return { x: 0.5 + dx * ratio, y: 0.5 + dy * ratio };
   };
 
   const beginDrag = (id: string, event: ReactPointerEvent<SVGGElement>, mode: "move" | "resize" = "move") => {
@@ -61,13 +108,17 @@ export function ConfiguratorPreview({
     event.stopPropagation();
     const point = pointFromEvent(event);
     const transform = getElementTransform(id);
+    const pointerAngle = Math.atan2(point.y - 0.5, point.x - 0.5) * (180 / Math.PI);
+
     dragRef.current = {
       elementId: id,
       pointerId: event.pointerId,
       offsetX: transform.x - point.x,
       offsetY: transform.y - point.y,
+      startAngle: pointerAngle,
+      initialRotation: transform.rotation || 0,
+      initialScale: transform.scale || 1,
       mode,
-      initialScale: transform.scale,
     };
     svgRef.current?.setPointerCapture(event.pointerId);
     onSelectElement?.(id);
@@ -78,7 +129,46 @@ export function ConfiguratorPreview({
     if (!drag || !onTransformChange || drag.pointerId !== event.pointerId) return;
     const point = pointFromEvent(event);
     const current = getElementTransform(drag.elementId);
-    
+    const isTextElement = drag.elementId === "text" || drag.elementId.startsWith("text");
+
+    if (isTextElement) {
+      if (drag.mode === "resize") {
+        const textElem = getTextElement(drag.elementId);
+        const isInverted = textElem?.inverted ?? false;
+        const baseAngle = isInverted ? 90 : 270;
+        const currentRotation = current.rotation || 0;
+        const totalRad = (baseAngle + currentRotation) * (Math.PI / 180);
+        const radiusNorm = profile.textGeometry.radius / RIM_VIEWBOX_SIZE;
+        const textCenterX = 0.5 + Math.cos(totalRad) * radiusNorm;
+        const textCenterY = 0.5 + Math.sin(totalRad) * radiusNorm;
+        const dist = Math.hypot(point.x - textCenterX, point.y - textCenterY);
+        const newScale = Math.min(1.6, Math.max(0.5, dist / 0.18));
+        onTransformChange(drag.elementId, {
+          ...current,
+          scale: Math.round(newScale * 100) / 100,
+        });
+        return;
+      }
+
+      // Circular track rotation (train on circular tracks)
+      const currentAngle = Math.atan2(point.y - 0.5, point.x - 0.5) * (180 / Math.PI);
+      let deltaAngle = currentAngle - drag.startAngle;
+      while (deltaAngle > 180) deltaAngle -= 360;
+      while (deltaAngle < -180) deltaAngle += 360;
+
+      let newRotation = drag.initialRotation + deltaAngle;
+      while (newRotation > 180) newRotation -= 360;
+      while (newRotation < -180) newRotation += 360;
+
+      onTransformChange(drag.elementId, {
+        ...current,
+        rotation: Math.round(newRotation * 10) / 10,
+        x: 0.5,
+        y: 0.5,
+      });
+      return;
+    }
+
     if (drag.mode === "resize") {
       const dx = point.x - current.x;
       const dy = point.y - current.y;
@@ -91,49 +181,34 @@ export function ConfiguratorPreview({
       return;
     }
 
-    if (drag.elementId === "text") {
-      const targetX = point.x + drag.offsetX;
-      const targetY = point.y + drag.offsetY;
-      onTransformChange("text", {
-        ...current,
-        x: Math.min(0.95, Math.max(0.05, targetX)),
-        y: Math.min(0.95, Math.max(0.05, targetY)),
-      });
-      return;
-    }
-
     // Icon move mode with polar constraints on the virola ring
     const targetX = point.x + drag.offsetX;
     const targetY = point.y + drag.offsetY;
-    
-    // Distance from center of mate (0.5, 0.5)
-    const dx = targetX - 0.5;
-    const dy = targetY - 0.5;
-    const distance = Math.hypot(dx, dy);
-    
-    let constrainedX = targetX;
-    let constrainedY = targetY;
-
-    if (distance > 0 && profile.radiusBounds) {
-      if (distance < profile.radiusBounds.min) {
-        const ratio = profile.radiusBounds.min / distance;
-        constrainedX = 0.5 + dx * ratio;
-        constrainedY = 0.5 + dy * ratio;
-      } else if (distance > profile.radiusBounds.max) {
-        const ratio = profile.radiusBounds.max / distance;
-        constrainedX = 0.5 + dx * ratio;
-        constrainedY = 0.5 + dy * ratio;
-      }
-    } else {
-      constrainedX = Math.min(0.95, Math.max(0.05, targetX));
-      constrainedY = Math.min(0.95, Math.max(0.05, targetY));
-    }
+    const constrained = constrainIconPoint(targetX, targetY);
 
     onTransformChange(drag.elementId, {
       ...current,
-      x: constrainedX,
-      y: constrainedY,
+      x: constrained.x,
+      y: constrained.y,
     });
+  };
+
+  const placeElement = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (!placingElementId || !onTransformChange) {
+      onSelectElement?.(null);
+      return;
+    }
+
+    event.preventDefault();
+    const point = pointFromEvent(event);
+    const constrained = constrainIconPoint(point.x, point.y);
+    onTransformChange(placingElementId, {
+      ...getElementTransform(placingElementId),
+      x: constrained.x,
+      y: constrained.y,
+    });
+    onSelectElement?.(placingElementId);
+    onPlacementComplete?.();
   };
 
   const endDrag = (event: ReactPointerEvent<SVGSVGElement>) => {
@@ -147,32 +222,38 @@ export function ConfiguratorPreview({
       <svg
         ref={svgRef}
         viewBox={`0 0 ${RIM_VIEWBOX_SIZE} ${RIM_VIEWBOX_SIZE}`}
-        className={`absolute inset-0 h-full w-full ${editable ? "touch-none select-none" : "pointer-events-none"}`}
+        className={`absolute inset-0 h-full w-full ${editable ? "touch-none select-none" : "pointer-events-none"} ${placingElementId ? "rim-placement-cursor" : ""}`}
         role={editable ? "application" : undefined}
-        aria-label={editable ? "Arrastrá el texto o la imagen para moverlos dentro de la virola" : undefined}
+        aria-label={editable ? placingElementId ? "Elegí un punto de la virola para ubicar la imagen" : "Arrastrá el texto o la imagen para moverlos dentro de la virola" : undefined}
         onPointerMove={moveDrag}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
-        onPointerDown={() => onSelectElement?.(null)}
+        onPointerDown={placeElement}
       >
         <image href="/assets/svg/rim-base.svg" x="0" y="0" width={RIM_VIEWBOX_SIZE} height={RIM_VIEWBOX_SIZE} preserveAspectRatio="xMidYMid meet" />
         <RimFinishLayer
           finish={finish}
           hasTextKnockout={hasTextKnockout}
-          text={rim.text}
+          texts={texts}
           textGeometry={profile.textGeometry}
-          textTransform={rim.textTransform}
         />
-        {rim.textMode === "text" && (
-          <CircularRimText
-            text={rim.text}
-            geometry={profile.textGeometry}
-            transform={rim.textTransform}
-            selected={editable && selectedElement === "text"}
-            onPointerDown={editable ? (event) => beginDrag("text", event) : undefined}
-            onResizeDown={editable ? (event) => beginDrag("text", event, "resize") : undefined}
-          />
-        )}
+        {rim.textMode === "text" && texts.map((t, index) => {
+          const isSelected = editable && (selectedElement === t.id || (selectedElement === "text" && index === 0));
+          return (
+            <CircularRimText
+              key={t.id}
+              id={t.id}
+              text={t.text}
+              geometry={profile.textGeometry}
+              transform={t.transform}
+              inverted={t.inverted}
+              selected={isSelected}
+              onPointerDown={editable && !placingElementId ? (event) => beginDrag(t.id, event) : undefined}
+              onResizeDown={editable && !placingElementId ? (event) => beginDrag(t.id, event, "resize") : undefined}
+              onToggleInvert={editable && onToggleInvert ? () => onToggleInvert(t.id) : undefined}
+            />
+          );
+        })}
         {rim.imageMode === "image" && rim.icons.map(icon => (
           <RimIconLayer
             key={icon.id}
@@ -181,14 +262,13 @@ export function ConfiguratorPreview({
             profile={profile}
             transform={icon.transform}
             selected={editable && selectedElement === icon.id}
-            onPointerDown={editable ? (event) => beginDrag(icon.id, event) : undefined}
-            onResizeDown={editable ? (event) => beginDrag(icon.id, event, "resize") : undefined}
+            onPointerDown={editable && !placingElementId ? (event) => beginDrag(icon.id, event) : undefined}
+            onResizeDown={editable && !placingElementId ? (event) => beginDrag(icon.id, event, "resize") : undefined}
           />
         ))}
         <image href="/assets/svg/rim-outline.svg" x="0" y="0" width={RIM_VIEWBOX_SIZE} height={RIM_VIEWBOX_SIZE} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
         <image href="/assets/svg/rim-center.svg" x="0" y="0" width={RIM_VIEWBOX_SIZE} height={RIM_VIEWBOX_SIZE} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
       </svg>
-      {editable && <p className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-white/90 px-3 py-1 text-[10px] font-bold text-[#5f3826] shadow-sm">Arrastrá para mover</p>}
     </div>
   );
 }

@@ -119,8 +119,8 @@ export function WelcomeStep({ initialData, onSubmit }: WelcomeStepProps) {
 
   if (!isSupabaseConfigured) {
     return (
-      <div className="flex flex-col items-center justify-center px-4 py-8 md:py-12">
-        <div className="relative w-full max-w-xl overflow-hidden rounded-3xl border border-[#e7d7c1] bg-white/95 p-8 shadow-2xl shadow-[#7a4a31]/10 backdrop-blur-xl md:p-10">
+      <main id="main-content" className="access-page">
+        <div className="access-card relative w-full max-w-xl overflow-hidden rounded-3xl border border-[#e7d7c1] bg-white/95 p-8 shadow-2xl shadow-[#7a4a31]/10 backdrop-blur-xl md:p-10">
           <div className="pointer-events-none absolute -left-24 -top-24 h-60 w-60 rounded-full bg-[#7a4a31]/10 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-24 -right-24 h-60 w-60 rounded-full bg-[#f3e1b9]/40 blur-3xl" />
 
@@ -148,14 +148,14 @@ export function WelcomeStep({ initialData, onSubmit }: WelcomeStepProps) {
             </p>
           </div>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="py-8 md:py-12 px-4 flex flex-col justify-center items-center">
+    <main id="main-content" className="access-page">
       {/* Container Card */}
-      <div className="w-full max-w-xl bg-white/95 backdrop-blur-xl border border-[#e7d7c1] shadow-2xl shadow-[#7a4a31]/10 rounded-3xl p-8 md:p-10 relative overflow-hidden">
+      <div className="access-card w-full max-w-xl bg-white/95 backdrop-blur-xl border border-[#e7d7c1] shadow-2xl shadow-[#7a4a31]/10 rounded-3xl p-8 md:p-10 relative overflow-hidden">
         
         {/* Glow effect decorative in warm leather tones */}
         <div className="absolute -top-24 -left-24 w-60 h-60 bg-[#7a4a31]/10 rounded-full blur-3xl pointer-events-none" />
@@ -266,6 +266,6 @@ export function WelcomeStep({ initialData, onSubmit }: WelcomeStepProps) {
           Tus borradores se guardarán automáticamente asociados a tu cuenta.
         </p>
       </div>
-    </div>
+    </main>
   );
 }

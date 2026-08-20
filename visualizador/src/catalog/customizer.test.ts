@@ -5,10 +5,20 @@ import { createDefaultRimSelection, MAX_RIM_TEXT_LENGTH } from "./rimCatalog";
 import { calculateOrderPricing, getCustomizationPrice } from "./pricingCatalog";
 import { createDefaultFlejeCustomization, normalizeFlejeCustomization, type MateConfiguration } from "../types/customizer";
 import { validateCustomizationFile } from "../services/customizationAsset";
+import { getSelectionFromLegacyVariant, getSelectionLabels, resolveMateSelection } from "./mateDecisionCatalog";
 
 function createConfiguration(): MateConfiguration {
   const variant = getDefaultVariant("imperial");
+  const selection = getSelectionFromLegacyVariant(variant.id, variant.defaultSize)!;
+  const product = resolveMateSelection(selection)!;
   return {
+    schemaVersion: 2,
+    productId: product.productId,
+    skuId: product.skuId,
+    selection,
+    selectionLabels: getSelectionLabels(selection),
+    capabilities: product.capabilities,
+    isLegacy: false,
     modelId: variant.model,
     variantId: variant.id,
     size: variant.defaultSize,
@@ -62,6 +72,24 @@ describe("compatibilidad de personalizaciones", () => {
     expect(layout.occupiedArcLength).toBeLessThanOrEqual(arcLength + 0.001);
     expect(createArcPath(profile.textGeometry)).toContain("A");
   });
+
+  it("soporta hasta 2 textos independientes con curvatura invertida", () => {
+    const profile = getRimGeometryProfile("torpedo");
+    const topLayout = calculateRimCharacterLayout("ARRIBA", profile.textGeometry, false);
+    const bottomLayout = calculateRimCharacterLayout("ABAJO", profile.textGeometry, true);
+
+    expect(topLayout.characters).toHaveLength(6);
+    expect(bottomLayout.characters).toHaveLength(5);
+
+    // Top text middle character is near top (y < centerY)
+    const topMid = topLayout.characters[3];
+    expect(topMid.y).toBeLessThan(profile.textGeometry.centerY);
+
+    // Inverted text middle character is near bottom center (y > centerY) and upright
+    const bottomMid = bottomLayout.characters[2];
+    expect(bottomMid.y).toBeGreaterThan(profile.textGeometry.centerY);
+    expect(Math.abs(bottomMid.rotation)).toBeLessThan(15);
+  });
 });
 
 describe("precios centralizados", () => {
@@ -97,4 +125,3 @@ describe("validación de archivos", () => {
     expect(validateCustomizationFile(file("image/png", 5 * 1024 * 1024 + 1))).toMatch(/5 MB/);
   });
 });
-

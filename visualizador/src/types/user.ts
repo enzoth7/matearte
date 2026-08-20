@@ -1,6 +1,6 @@
 import type { FlejeCustomization, MateConfiguration } from './customizer';
 
-export type WizardStep = 'welcome' | 'product_selection' | 'customizer' | 'summary' | 'checkout' | 'success' | 'profile';
+export type WizardStep = 'welcome' | 'access' | 'product_selection' | 'customizer' | 'summary' | 'checkout' | 'success' | 'profile';
 
 export interface UserData {
   id?: string;

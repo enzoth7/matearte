@@ -7,8 +7,8 @@ interface SuccessStepProps {
 }
 export function SuccessStep({ userData, onReset, mockPayment = false }: SuccessStepProps) {
   return (
-    <div className="flex flex-col items-center justify-center px-4 py-8 md:py-12">
-      <div className="relative w-full max-w-lg space-y-6 overflow-hidden rounded-3xl border border-[#e7d7c1] bg-white/95 p-8 text-center shadow-2xl shadow-[#7a4a31]/10 md:p-10">
+    <main id="main-content" className="success-page">
+      <div className="success-card relative w-full max-w-lg space-y-6 overflow-hidden rounded-3xl border border-[#e7d7c1] bg-white/95 p-8 text-center shadow-2xl shadow-[#7a4a31]/10 md:p-10">
         <div className="pointer-events-none absolute -top-20 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full bg-[#7a4a31]/10 blur-3xl" />
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-[#7a4a31]/20 bg-[#7a4a31]/10 text-[#7a4a31] shadow-lg shadow-[#7a4a31]/10">
           <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
@@ -39,6 +39,6 @@ export function SuccessStep({ userData, onReset, mockPayment = false }: SuccessS
           </button>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

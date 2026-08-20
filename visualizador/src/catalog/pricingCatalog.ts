@@ -183,14 +183,18 @@ export interface OrderPricing {
   items: OrderPriceItem[];
   extrasUYU: number;
   totalUYU: number;
+  isPriceReady: boolean;
+  priceStatus: "ready" | "pending";
 }
 
 export function calculateOrderPricing(
   configuration: MateConfiguration,
   flejeConfig: FlejeCustomization,
 ): OrderPricing {
-  const basePriceUYU = getVariantPrice(configuration.variantId, configuration.size).priceUYU;
-  const model = getModelDefinition(configuration.modelId);
+  const priceKey = configuration.skuId ?? (configuration.isLegacy ? configuration.variantId : null);
+  const knownBasePrice = priceKey ? variantPriceMap[priceKey] : undefined;
+  const basePriceUYU = priceKey ? getVariantPrice(priceKey, configuration.size).priceUYU : 0;
+  const isPriceReady = Boolean(priceKey && knownBasePrice && basePriceUYU > 0);
   const items: OrderPriceItem[] = [];
 
   const addItem = (id: string, label: string, quantity = 1) => {
@@ -200,10 +204,14 @@ export function calculateOrderPricing(
   };
 
   if (configuration.rim.finishMode === "finish") addItem("rim_finish", "Terminación de virola");
-  if (configuration.rim.textMode === "text" && configuration.rim.text.trim()) addItem("rim_text", "Texto en virola");
+  const hasRimText = configuration.rim.textMode === "text" && (
+    Boolean(configuration.rim.text?.trim()) ||
+    Boolean(configuration.rim.texts?.some((t) => t.text.trim()))
+  );
+  if (hasRimText) addItem("rim_text", "Texto en virola");
   if (configuration.rim.imageMode === "image" && configuration.rim.icons.length > 0) addItem("rim_image", "Imagen o escudo en virola");
 
-  if (model.hasFleje) {
+  if (configuration.capabilities.hasFleje) {
     if (flejeConfig.finishMode === "finish") addItem("fleje_finish", "Terminación de fleje");
     const sides = Object.values(flejeConfig.sides);
     const textCount = sides.filter((side) => side.textMode === "text" && side.text.trim()).length;
@@ -213,7 +221,14 @@ export function calculateOrderPricing(
   }
 
   const extrasUYU = items.reduce((total, item) => total + item.totalUYU, 0);
-  return { basePriceUYU, items, extrasUYU, totalUYU: basePriceUYU + extrasUYU };
+  return {
+    basePriceUYU,
+    items,
+    extrasUYU,
+    totalUYU: basePriceUYU + extrasUYU,
+    isPriceReady,
+    priceStatus: isPriceReady ? "ready" : "pending",
+  };
 }
 
 export function getModelStartingPrice(modelId: string) {
@@ -224,5 +239,5 @@ export function getModelStartingPrice(modelId: string) {
     formattedARS: `$ ${price.priceARS.toLocaleString('es-AR')} ARS`,
   };
 }
-import { getModelDefinition, getVariantDefinition, normalizeProductName, type MateSize } from "./mateCatalog";
+import { getVariantDefinition, normalizeProductName, type MateSize } from "./mateCatalog";
 import type { FlejeCustomization, MateConfiguration } from "../types/customizer";

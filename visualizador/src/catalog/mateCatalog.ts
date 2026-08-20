@@ -1,3 +1,5 @@
+import { getMateAssetPath } from "./mateAssetCatalog";
+
 export type MateModel = "torpedo" | "criollo" | "imperial" | "camionero";
 export type MateSize = "chico" | "medio" | "grande";
 
@@ -227,6 +229,7 @@ export const mateVariants: MateVariant[] = baseMateVariants.map((variant) => {
   if (!compatibility) throw new Error(`Falta configurar la compatibilidad de virola para ${variant.id}`);
   return {
     ...variant,
+    image: getMateAssetPath(variant.id, variant.image),
     ...getVariantMetadata(variant),
     compatibleRimIds: compatibility.ids,
     defaultRimId: compatibility.defaultId,

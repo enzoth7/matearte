@@ -1,9 +1,10 @@
 import type { FlejeFinishId } from "../catalog/flejeFinishCatalog";
 import type { MateModel, MateSize } from "../catalog/mateCatalog";
+import type { MateCapabilities, MateSelection } from "../catalog/mateDecisionCatalog";
 import type { RimCustomization } from "../catalog/rimCatalog";
 
 export type CustomizationSide = "rim" | "front" | "back";
-export type EditableElement = "text" | "image";
+export type EditableElement = "text" | "image" | "finish";
 export type FlejeSide = "front" | "back";
 
 export interface ElementTransform {
@@ -31,6 +32,13 @@ export interface IconElement {
   transform: ElementTransform;
 }
 
+export interface RimTextElement {
+  id: string;
+  text: string;
+  inverted?: boolean;
+  transform: ElementTransform;
+}
+
 export interface FlejeSideCustomization {
   textMode: "none" | "text";
   text: string;
@@ -39,6 +47,7 @@ export interface FlejeSideCustomization {
   customImage: CustomImageAsset | null;
   textTransform: ElementTransform;
   imageTransform: ElementTransform;
+  finishTransform: ElementTransform;
 }
 
 export interface FlejeCustomization {
@@ -48,6 +57,19 @@ export interface FlejeCustomization {
 }
 
 export interface MateConfiguration {
+  schemaVersion: 2;
+  productId: string | null;
+  skuId: string | null;
+  selection: MateSelection;
+  selectionLabels: {
+    family: string;
+    texture: string;
+    color: string;
+    metal: string;
+    size: string;
+  };
+  capabilities: MateCapabilities;
+  isLegacy: boolean;
   modelId: MateModel;
   variantId: string;
   size: MateSize;
@@ -94,6 +116,7 @@ export function createDefaultFlejeSide(side: FlejeSide): FlejeSideCustomization 
     customImage: null,
     textTransform: createDefaultElementTransform(side),
     imageTransform: createDefaultElementTransform(side),
+    finishTransform: createDefaultElementTransform(side),
   };
 }
 
@@ -130,6 +153,7 @@ export function normalizeFlejeCustomization(value: unknown): FlejeCustomization 
       customImage,
       textTransform: normalizeElementTransform(sideInput.textTransform as Partial<ElementTransform>, side),
       imageTransform: normalizeElementTransform(sideInput.imageTransform as Partial<ElementTransform>, side),
+      finishTransform: normalizeElementTransform(sideInput.finishTransform as Partial<ElementTransform>, side),
     };
   };
 
@@ -142,4 +166,3 @@ export function normalizeFlejeCustomization(value: unknown): FlejeCustomization 
     },
   };
 }
-
