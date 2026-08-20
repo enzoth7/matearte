@@ -37,6 +37,46 @@ export function groupProductionByCustomer(items: ProductionItem[]): CustomerProd
     }));
 }
 
+export interface VariantSummary {
+  model: string;
+  variant: string;
+  pending: number;
+  inProduction: number;
+  total: number;
+}
+
+export function buildVariantSummary(items: ProductionItem[]): VariantSummary[] {
+  const map = new Map<string, VariantSummary>();
+
+  for (const item of items) {
+    const key = `${item.model || ""}||${item.variant || ""}`;
+    let summary = map.get(key);
+    if (!summary) {
+      summary = {
+        model: item.model || "-",
+        variant: item.variant || "-",
+        pending: 0,
+        inProduction: 0,
+        total: 0,
+      };
+      map.set(key, summary);
+    }
+    // Asumimos que status viene en el item, tal como pide la consigna.
+    if ((item as any).status === "Pendiente") {
+      summary.pending += item.quantity;
+    } else if ((item as any).status === "En producción") {
+      summary.inProduction += item.quantity;
+    }
+    summary.total += item.quantity;
+  }
+
+  return Array.from(map.values()).sort((a, b) => {
+    const modelCompare = a.model.localeCompare(b.model, "es");
+    if (modelCompare !== 0) return modelCompare;
+    return a.variant.localeCompare(b.variant, "es");
+  });
+}
+
 export function createProductionPdfDocument(items: ProductionItem[]): jsPDF {
   const doc = new jsPDF({
     orientation: "portrait",
@@ -58,10 +98,68 @@ export function createProductionPdfDocument(items: ProductionItem[]): jsPDF {
 
   const todayFormatted = formatDate(new Date().toISOString(), false);
 
-  customerGroups.forEach((group, index) => {
-    if (index > 0) {
-      doc.addPage();
-    }
+  // --- Nueva hoja resumen inicial ---
+  doc.setFontSize(10);
+  doc.setTextColor(130, 120, 110);
+  doc.setFont("helvetica", "bold");
+  doc.text("MATEARTE — RESUMEN DE PRODUCCIÓN", 14, 18);
+
+  doc.setFontSize(18);
+  doc.setTextColor(30, 25, 20);
+  doc.text("Unidades por modelo y variante", 14, 28);
+  
+  doc.setFontSize(9);
+  doc.setTextColor(110, 105, 100);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Fecha: ${todayFormatted}`, 14, 35);
+
+  doc.setDrawColor(220, 215, 210);
+  doc.setLineWidth(0.5);
+  doc.line(14, 39, 196, 39);
+
+  const summaryData = buildVariantSummary(items);
+  const summaryBody = summaryData.map(row => [
+    row.model,
+    row.variant,
+    String(row.pending),
+    String(row.inProduction),
+    String(row.total),
+  ]);
+
+  autoTable(doc, {
+    startY: 44,
+    head: [["Modelo", "Variante", "Pendiente", "En producción", "Total"]],
+    body: summaryBody,
+    theme: "striped",
+    headStyles: {
+      fillColor: [24, 66, 45],
+      textColor: [255, 255, 255],
+      fontSize: 10,
+      fontStyle: "bold",
+      halign: "left",
+    },
+    bodyStyles: {
+      fontSize: 9,
+      textColor: [40, 40, 40],
+    },
+    alternateRowStyles: {
+      fillColor: [250, 249, 247],
+    },
+    columnStyles: {
+      2: { halign: "center", cellWidth: 26 },
+      3: { halign: "center", cellWidth: 26 },
+      4: { halign: "center", cellWidth: 20, fontStyle: "bold" },
+    },
+    styles: {
+      cellPadding: 3.5,
+      lineColor: [230, 225, 220],
+      lineWidth: 0.1,
+    },
+    margin: { left: 14, right: 14 },
+  });
+
+  customerGroups.forEach((group) => {
+    doc.addPage();
 
     // Membrete
     doc.setFontSize(10);
