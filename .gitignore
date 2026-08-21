@@ -21,6 +21,7 @@ coverage/
 .vercel/
 **/.vercel/
 **/.git-backup-local/
+supabase/.temp/
 
 # Logs and local tooling artifacts
 logs/
@@ -34,6 +35,7 @@ pnpm-debug.log*
 **/.codex-workbook-preview/
 artifacts/
 **/artifacts/
+tmp/
 **/test-results/
 **/playwright-report/
 _archive/
@@ -60,4 +62,3 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
-

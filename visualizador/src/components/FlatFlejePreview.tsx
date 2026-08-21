@@ -2,6 +2,7 @@ import { useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { rimIconCatalog } from "../catalog/rimIconCatalog";
 import { getFlejeFinish } from "../catalog/flejeFinishCatalog";
 import type { EditableElement, ElementTransform, FlejeCustomization, FlejeSide, FlejeSideCustomization } from "../types/customizer";
+import type { EngravingTypeId } from "../catalog/mateDecisionCatalog";
 
 export type { FlejeCustomization } from "../types/customizer";
 
@@ -14,6 +15,7 @@ export interface FlatFlejePreviewProps {
   onSelectElement?: (element: EditableElement | null) => void;
   onTransformChange?: (side: FlejeSide, element: EditableElement, transform: ElementTransform) => void;
   showSideToggle?: boolean;
+  engravingTypeId?: EngravingTypeId | null;
 }
 interface FlejeSurfaceProps {
   side: FlejeSide;
@@ -379,29 +381,35 @@ export function FlatFlejePreview({
   const finish = flejeConfig.finishMode === "finish" ? getFlejeFinish(flejeConfig.finishId) : undefined;
 
   return (
-    <div className="flex w-full max-w-[520px] flex-col items-center justify-center gap-6 py-2" aria-label="Vista del fleje metálico">
-      <FlejeSurface
-        side="front"
-        config={flejeConfig.sides.front}
-        finishSrc={finish?.src}
-        isActive={activeSide === "front"}
-        editable={editable}
-        selectedElement={selectedElement}
-        onSelectSide={onSelectSide}
-        onSelectElement={onSelectElement}
-        onTransformChange={onTransformChange}
-      />
-      <FlejeSurface
-        side="back"
-        config={flejeConfig.sides.back}
-        finishSrc={finish?.src}
-        isActive={activeSide === "back"}
-        editable={editable}
-        selectedElement={selectedElement}
-        onSelectSide={onSelectSide}
-        onSelectElement={onSelectElement}
-        onTransformChange={onTransformChange}
-      />
+    <div className="fleje-preview-stack" aria-label="Vista del fleje metálico">
+      <div className="fleje-preview-side">
+        <span>Frente</span>
+        <FlejeSurface
+          side="front"
+          config={flejeConfig.sides.front}
+          finishSrc={finish?.src}
+          isActive={activeSide === "front"}
+          editable={editable}
+          selectedElement={selectedElement}
+          onSelectSide={onSelectSide}
+          onSelectElement={onSelectElement}
+          onTransformChange={onTransformChange}
+        />
+      </div>
+      <div className="fleje-preview-side">
+        <span>Dorso</span>
+        <FlejeSurface
+          side="back"
+          config={flejeConfig.sides.back}
+          finishSrc={finish?.src}
+          isActive={activeSide === "back"}
+          editable={editable}
+          selectedElement={selectedElement}
+          onSelectSide={onSelectSide}
+          onSelectElement={onSelectElement}
+          onTransformChange={onTransformChange}
+        />
+      </div>
     </div>
   );
 }

@@ -8,7 +8,7 @@ interface RimFinishModeSelectorProps {
 export function RimFinishModeSelector({ mode, onSelect }: RimFinishModeSelectorProps) {
   const active = mode === "finish";
   return (
-    <button type="button" className="brand-mode-toggle" aria-label={active ? "Desactivar terminación" : "Activar terminación"} aria-pressed={active} onClick={() => onSelect(active ? "none" : "finish")}>
+    <button type="button" className="brand-mode-toggle" aria-label={active ? "Desactivar terminación" : "Activar terminación"} aria-pressed={active} aria-expanded={active} onClick={() => onSelect(active ? "none" : "finish")}>
       <span className="brand-switch" aria-hidden="true"><span /></span>
     </button>
   );

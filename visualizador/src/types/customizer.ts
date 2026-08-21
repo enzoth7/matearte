@@ -1,6 +1,6 @@
 import type { FlejeFinishId } from "../catalog/flejeFinishCatalog";
 import type { MateModel, MateSize } from "../catalog/mateCatalog";
-import type { MateCapabilities, MateSelection } from "../catalog/mateDecisionCatalog";
+import type { EngravingTypeId, MateCapabilities, MateSelection } from "../catalog/mateDecisionCatalog";
 import type { RimCustomization } from "../catalog/rimCatalog";
 
 export type CustomizationSide = "rim" | "front" | "back";
@@ -67,7 +67,9 @@ export interface MateConfiguration {
     color: string;
     metal: string;
     size: string;
+    engraving: string;
   };
+  engravingTypeId: EngravingTypeId | null;
   capabilities: MateCapabilities;
   isLegacy: boolean;
   modelId: MateModel;
@@ -75,6 +77,26 @@ export interface MateConfiguration {
   size: MateSize;
   colorId: string;
   rim: RimCustomization;
+  pricingSnapshot?: {
+    catalogVersion: number;
+    catalogVersionId: string;
+    basePriceUYU: number;
+    breakdown: {
+      familyBaseUYU: number;
+      leatherDeltaUYU: number;
+      silverDeltaUYU: number;
+      textureDeltaUYU: number;
+      metalDeltaUYU: number;
+      sizeDeltaUYU: number;
+    };
+    extrasUYU: number;
+    subtotalUYU?: number;
+    totalUYU: number;
+    paymentMethod?: "mercado-pago" | "transferencia" | null;
+    mercadoPagoCommissionPercent: number | null;
+    mercadoPagoCommissionUYU?: number;
+    items: Array<{ id: string; label?: string; quantity: number; unitPriceUYU: number; totalUYU: number }>;
+  };
 }
 
 export const DEFAULT_ELEMENT_TRANSFORM: ElementTransform = {

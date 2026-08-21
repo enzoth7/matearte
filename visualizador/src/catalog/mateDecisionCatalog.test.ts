@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { mateAssetCatalog } from "./mateAssetCatalog";
+import { engravingTechniqueAssetManifest } from "./engravingTechniqueAssetManifest";
 import { mateVariants } from "./mateCatalog";
 import {
   EMPTY_MATE_SELECTION,
@@ -40,6 +41,7 @@ describe("árbol declarativo de mates", () => {
                 colorId: color.id,
                 metalId: metal.id,
                 sizeId,
+                engravingTypeId: "laser",
               };
               const product = resolveMateSelection(selection);
               expect(product).not.toBeNull();
@@ -66,6 +68,12 @@ describe("árbol declarativo de mates", () => {
     expect(onlyTexture.colorId).toBeNull();
     expect(onlyTexture.metalId).toBeNull();
     expect(getFirstIncompleteStage(onlyTexture)).toBe("texture");
+  });
+
+  it("considera pendiente el grabado después de completar el tamaño", () => {
+    const selection = getSelectionFromLegacyVariant("imperial-lacre", "medio")!;
+    expect(getFirstIncompleteStage(selection)).toBe("engraving");
+    expect(getFirstIncompleteStage({ ...selection, engravingTypeId: "bronze-applique" })).toBeNull();
   });
 
   it("muestra Virola/Metal solo en las ramas indicadas por los árboles Imperial y Criollo", () => {
@@ -126,6 +134,7 @@ describe("árbol declarativo de mates", () => {
       colorId: null,
       metalId: null,
       sizeId: null,
+      engravingTypeId: null,
     });
   });
 
@@ -191,6 +200,16 @@ describe("compatibilidad y assets del catálogo", () => {
       const entry = mateAssetCatalog[variant.id];
       expect(entry, `Falta manifiesto para ${variant.id}`).toBeDefined();
       expect(variant.image).toBe(entry.src);
+      const physicalPath = join(process.cwd(), "public", entry.src.replace(/^\//, ""));
+      expect(existsSync(physicalPath), `Falta archivo ${physicalPath}`).toBe(true);
+    }
+  });
+
+  it("guarda localmente y documenta las dos imágenes temporales de grabado", () => {
+    for (const entry of Object.values(engravingTechniqueAssetManifest)) {
+      expect(entry.sourceUrl).toMatch(/^https:\/\//);
+      expect(entry.merchant.length).toBeGreaterThan(0);
+      expect(entry.usage).toBe("temporary-reference");
       const physicalPath = join(process.cwd(), "public", entry.src.replace(/^\//, ""));
       expect(existsSync(physicalPath), `Falta archivo ${physicalPath}`).toBe(true);
     }

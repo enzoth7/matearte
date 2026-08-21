@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="es-UY">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Presupuesto Comercial — Matearte × Polarist</title>
+  <style>
+    /* ═══ TIPOGRAFÍAS LOCALES POLARIST ═══ */
+    /* Arno Pro (Serif) */
+    @font-face {
+      font-family: 'Arno Pro';
+      src: url('./fonts/arno-pro/arno-pro.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Arno Pro';
+      src: url('./fonts/arno-pro/arnopro-bold.woff2') format('woff2');
+      font-weight: 700;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Arno Pro';
+      src: url('./fonts/arno-pro/ArnoPro-LightDisplay.woff2') format('woff2');
+      font-weight: 300;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Arno Pro';
+      src: url('./fonts/arno-pro/ArnoPro-Smbd.woff2') format('woff2');
+      font-weight: 600;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Arno Pro';
+      src: url('./fonts/arno-pro/ArnoPro-SmbdItalic.woff2') format('woff2');
+      font-weight: 600;
+      font-style: italic;
+    }
+
+    /* Sequel Sans (Sans-Serif) */
+    @font-face {
+      font-family: 'Sequel Sans';
+      src: url('./fonts/sequel-sans/Sequel Sans Roman Body.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Sequel Sans';
+      src: url('./fonts/sequel-sans/Sequel Sans Medium Body.woff2') format('woff2');
+      font-weight: 500;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Sequel Sans';
+      src: url('./fonts/sequel-sans/Sequel Sans Semi Bold Body.woff2') format('woff2');
+      font-weight: 600;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Sequel Sans';
+      src: url('./fonts/sequel-sans/Sequel Sans Bold Body.woff2') format('woff2');
+      font-weight: 700;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Sequel Sans';
+      src: url('./fonts/sequel-sans/Sequel Sans Black Body.woff2') format('woff2');
+      font-weight: 900;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Sequel Sans';
+      src: url('./fonts/sequel-sans/Sequel Sans Light Body.woff2') format('woff2');
+      font-weight: 300;
+      font-style: normal;
+    }
+
+    /* ═══════════════════════════════════════════
+       POLARIST BRAND KIT — SINGLE SLIDE BUDGET
+       16:9 Landscape (1280px × 720px)
+       Fondo: #010101 | Acento: #CAFE5B | Violeta: #8B5BF5
+       Sin efectos interactivos. Sin emojis.
+       Minimalista. Más aire, menos cajas.
+    ═══════════════════════════════════════════ */
+
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --black: #010101;
+      --violet: #8B5BF5;
+      --volt: #CAFE5B;
+      --volt-dim: rgba(202, 254, 91, 0.12);
+      --white: #F6F6F6;
+      --gray: #F6F6F6;
+      --gray-muted: rgba(246, 246, 246, 0.75);
+      --serif: 'Arno Pro', Georgia, serif;
+      --sans: 'Sequel Sans', -apple-system, sans-serif;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background-color: var(--black);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      font-family: var(--sans);
+      color: var(--white);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .slide {
+      width: 1280px;
+      height: 720px;
+      padding: 60px 100px 90px 100px;
+      position: relative;
+      z-index: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      background-color: transparent;
+      flex-shrink: 0;
+    }
+
+    /* ─── SLIDE BACKGROUND ─── */
+    .slide::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      opacity: 0.8;
+      background-image: url('../../skills/Brand_Kit/assets/Bg_1.jpg');
+      background-size: cover;
+      background-position: center;
+    }
+
+    /* ─── PERSISTENT CORNER LOGO ─── */
+    .slide::after {
+      content: '';
+      position: absolute;
+      top: 35px;
+      right: 40px;
+      height: 80px;
+      width: 80px;
+      background-image: url('../../skills/Brand_Kit/assets/Polarist_logo_transparente.png');
+      background-size: contain;
+      background-position: right top;
+      background-repeat: no-repeat;
+      z-index: 10;
+    }
+
+    /* ─── TYPOGRAPHY ─── */
+    h2 {
+      font-family: var(--sans);
+      color: var(--white);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      font-size: 32px;
+    }
+
+    .overline {
+      font-family: var(--serif);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--volt);
+      display: block;
+    }
+
+    .accent {
+      color: var(--volt);
+    }
+
+    /* ─── GRID LAYOUT ─── */
+    .presupuesto-grid {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 32px;
+      flex-grow: 1;
+      margin-top: 10px;
+      align-items: stretch;
+      max-height: 440px;
+    }
+
+    /* ─── CARDS ESTILO POLARIST ─── */
+    .card-modulo {
+      border: 1px solid rgba(246, 246, 246, 0.12);
+      border-radius: 16px;
+      padding: 18px 24px;
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card-modulo-header {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 8px;
+    }
+
+    .fase-tag {
+      font-family: var(--sans);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: var(--volt);
+      background: rgba(202, 254, 91, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .card-modulo-header h3 {
+      font-family: var(--sans);
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--white);
+      margin: 0;
+      letter-spacing: -0.01em;
+    }
+
+    .fase-price {
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--volt);
+    }
+
+    .card-modulo-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card-modulo-list li {
+      position: relative;
+      padding-left: 15px;
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: var(--gray);
+    }
+
+    .card-modulo-list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 6px;
+      width: 4px;
+      height: 4px;
+      background-color: var(--violet);
+      border-radius: 50%;
+    }
+
+    .card-modulo-list strong {
+      color: var(--white);
+      font-weight: 600;
+    }
+
+    /* ─── COLUMNA DERECHA ─── */
+    .card-inversion {
+      border: 1px solid rgba(246, 246, 246, 0.12);
+      border-radius: 16px;
+      padding: 16px 20px;
+      background: transparent;
+    }
+
+    .section-title {
+      font-family: var(--sans);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--gray-muted);
+      margin: 0 0 10px 0;
+    }
+
+    .inversion-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .inversion-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11.5px;
+      color: var(--gray);
+    }
+
+    .inversion-row.total {
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      padding-top: 8px;
+      margin-top: 4px;
+      font-weight: 700;
+      color: var(--white);
+    }
+
+    .inversion-row.total .inv-value {
+      font-size: 14.5px;
+    }
+
+    .inv-value {
+      font-family: var(--sans);
+      font-weight: 600;
+    }
+
+    .condiciones-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      font-size: 10.5px;
+      line-height: 1.45;
+      color: var(--gray);
+    }
+
+    /* Estilos de firma eliminados para diseño más limpio */
+
+    /* ─── PERSISTENT FOOTER ─── */
+    .slide-footer {
+      position: absolute;
+      bottom: 40px;
+      left: 100px;
+      right: 100px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .slide-footer span {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--gray-muted);
+    }
+
+    .slide-footer a {
+      color: var(--white);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+    }
+
+    .slide-footer a svg {
+      width: 14px !important;
+      height: 14px !important;
+      flex-shrink: 0;
+    }
+
+    .slide-footer a img {
+      height: 14px !important;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="slide">
+    <!-- CABECERA -->
+    <div style="margin-bottom: 20px;">
+      <h2 style="font-size: 32px; margin-top: 4px; margin-bottom: 4px;">
+        Presupuesto de Digitalización &amp; <span class="accent">Automatización</span>
+      </h2>
+      <p style="font-family: var(--serif); font-size: 14.5px; font-style: italic; color: var(--gray); font-weight: 400; margin: 0; max-width: 800px;">
+        Desarrollo tecnológico integral para optimizar la tienda online y la operativa de taller
+      </p>
+    </div>
+
+    <!-- CONTENIDO DOS COLUMNAS -->
+    <div class="presupuesto-grid">
+      
+      <!-- COLUMNA IZQUIERDA: ALCANCE DE MÓDULOS -->
+      <div class="col-left" style="display: flex; flex-direction: column; gap: 16px;">
+        
+        <!-- CARD MÓDULO 1 -->
+        <div class="card-modulo">
+          <div class="card-modulo-header">
+            <span class="fase-tag">FASE 1</span>
+            <h3>Ecosistema Técnico &amp; Taller</h3>
+            <span class="fase-price">USD $990</span>
+          </div>
+          <ul class="card-modulo-list">
+            <li><strong>Configurador 2D (Shopify):</strong> Personalizador interactivo en tiempo real de textos y apliques en virolas y cueros con modos de fusión avanzados.</li>
+            <li><strong>Automatización (n8n):</strong> Captura automática de órdenes y centralización en Airtable, eliminando de forma definitiva el registro de pedidos en papel.</li>
+            <li><strong>Soporte IA (NotebookLM):</strong> Asistente de taller autónomo entrenado con manuales de calibración de grabadoras láser y ruteadora CNC.</li>
+          </ul>
+        </div>
+
+        <!-- CARD MÓDULO 2 -->
+        <div class="card-modulo">
+          <div class="card-modulo-header">
+            <span class="fase-tag">FASE 2</span>
+            <h3>Rediseño de Tienda &amp; Conversión</h3>
+            <span class="fase-price">USD $690</span>
+          </div>
+          <ul class="card-modulo-list">
+            <li><strong>Rediseño visual de la tienda Shopify:</strong> fondos oscuros, tipografías seleccionadas y sección "Elegido por los Campeones" de la AUF/AFA.</li>
+            <li><strong>Tratamiento de fotos de mates principales con IA</strong> para que parezcan de estudio fotográfico.</li>
+            <li><strong>Selector visual dinámico</strong> para ver el detalle de los flejes y cincelados de la virola en zoom.</li>
+            <li><strong>Checkout localizado en Pesos Uruguayos ($ UYU)</strong> con cálculo de envío automático por DAC/Mirtrans y pasarelas locales.</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- COLUMNA DERECHA: INVERSIÓN, TÉRMINOS Y FIRMAS -->
+      <div class="col-right" style="display: flex; flex-direction: column; gap: 16px; justify-content: flex-start;">
+        
+        <!-- CARD INVERSIÓN -->
+        <div class="card-inversion">
+          <h4 class="section-title">Estructura de Inversión</h4>
+          <div class="inversion-list">
+            <div class="inversion-row">
+              <span>Fase 1: Ecosistema Técnico y Taller</span>
+              <span class="inv-value">USD $990</span>
+            </div>
+            <div class="inversion-row">
+              <span>Fase 2: Rediseño de Tienda &amp; Conversión</span>
+              <span class="inv-value">USD $690</span>
+            </div>
+            <div class="inversion-row total">
+              <span>Inversión Total Unificada</span>
+              <span class="inv-value accent">USD $1.680</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD CONDICIONES -->
+        <div class="card-inversion">
+          <h4 class="section-title">Condiciones Comerciales</h4>
+          <div class="condiciones-grid">
+            <div>
+              <strong style="color: var(--white);">Esquema de Pago Directo:</strong> 
+              50% como adelanto para inicio de desarrollo y 50% restante contra entrega final y validación técnica (plazo de ejecución estimado: 4 semanas).
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel de firmas eliminado -->
+
+      </div>
+
+    </div>
+
+    <!-- Persistent Footer -->
+    <div class="slide-footer" style="flex-direction: column; align-items: stretch; gap: 16px;">
+      <div style="border-top: 1px solid rgba(255, 255, 255, 0.15); width: 100%;"></div>
+      <div style="display: flex; justify-content: flex-end; align-items: center; width: 100%;">
+        <div style="display: flex; gap: 24px; align-items: center;">
+          <!-- Mail -->
+          <a href="mailto:contacto@polarist.app" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M0 3v18h24v-18h-24zm21.518 2l-9.518 7.713-9.518-7.713h19.036zm-19.518 14v-11.817l10 8.104 10-8.104v11.817h-20z" />
+            </svg>
+            <span style="color: var(--white); text-transform: lowercase; letter-spacing: 0;">contacto@polarist.app</span>
+          </a>
+          <!-- Instagram -->
+          <a href="https://instagram.com/polarist.app/" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.07zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4s1.791-4 4-4 4 1.79 4 4-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+            </svg>
+            <span style="color: var(--white); text-transform: none; letter-spacing: 0;">@polarist.app</span>
+          </a>
+          <!-- LinkedIn -->
+          <a href="https://linkedin.com/company/polarist" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.779-1.75-1.75s.784-1.75 1.75-1.75 1.75.779 1.75 1.75-.784 1.75-1.75 1.75zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
+            </svg>
+            <span style="color: var(--white); text-transform: none; letter-spacing: 0;">/polarist</span>
+          </a>
+          <!-- Web -->
+          <a href="https://polarist.app" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <img src="../../skills/Brand_Kit/assets/Polarist_logo_clasico.webp" alt="Polarist" style="height: 14px !important; width: auto;" />
+            <span style="color: var(--white); text-transform: lowercase; letter-spacing: 0;">polarist.app</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+
+</html>

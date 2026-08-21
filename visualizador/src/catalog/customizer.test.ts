@@ -2,7 +2,17 @@ import { describe, expect, it } from "vitest";
 import { calculateRimCharacterLayout, createArcPath, getRimGeometryProfile } from "./rimGeometry";
 import { getDefaultColor, getDefaultVariant, getVariantsByModel } from "./mateCatalog";
 import { createDefaultRimSelection, MAX_RIM_TEXT_LENGTH } from "./rimCatalog";
-import { calculateOrderPricing, getCustomizationPrice } from "./pricingCatalog";
+import {
+  calculateOrderPricing,
+  classifyLeather,
+  countChargeableCharacters,
+  customizationRuleKey,
+  familyRuleKey,
+  getRequiredPricingRuleKeys,
+  getCustomizationPrice,
+  getMercadoPagoCommissionPercent,
+  type PublishedPricingCatalog,
+} from "./pricingCatalog";
 import { createDefaultFlejeCustomization, normalizeFlejeCustomization, type MateConfiguration } from "../types/customizer";
 import { validateCustomizationFile } from "../services/customizationAsset";
 import { getSelectionFromLegacyVariant, getSelectionLabels, resolveMateSelection } from "./mateDecisionCatalog";
@@ -17,6 +27,7 @@ function createConfiguration(): MateConfiguration {
     skuId: product.skuId,
     selection,
     selectionLabels: getSelectionLabels(selection),
+    engravingTypeId: "laser",
     capabilities: product.capabilities,
     isLegacy: false,
     modelId: variant.model,
@@ -93,8 +104,30 @@ describe("compatibilidad de personalizaciones", () => {
 });
 
 describe("precios centralizados", () => {
+  it("declara una regla única para cada rama y adicional activo", () => {
+    const keys = getRequiredPricingRuleKeys();
+    expect(keys).toHaveLength(3);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(keys.some((key) => key.includes(":color:"))).toBe(false);
+  });
+
   it("aplica los importes requeridos y cobra cada cara configurada", () => {
     const configuration = createConfiguration();
+    const selection = configuration.selection;
+    const catalog: PublishedPricingCatalog = {
+      versionId: "pricing-test",
+      version: 7,
+      publishedAt: "2026-08-20T00:00:00.000Z",
+      rules: {
+        [familyRuleKey(selection.familyId!)]: 928,
+        [customizationRuleKey("laser", "rim_finish")]: 100,
+        [customizationRuleKey("laser", "rim_text")]: 150,
+        [customizationRuleKey("laser", "rim_image")]: 400,
+        [customizationRuleKey("laser", "fleje_finish")]: 100,
+        [customizationRuleKey("laser", "fleje_text")]: 150,
+        [customizationRuleKey("laser", "fleje_image")]: 500,
+      },
+    };
     configuration.rim.textMode = "text";
     configuration.rim.text = "MATEARTE";
     configuration.rim.imageMode = "image";
@@ -107,11 +140,51 @@ describe("precios centralizados", () => {
     fleje.sides.front.imageMode = "image";
     fleje.sides.front.selectedImageId = "auf";
 
-    const pricing = calculateOrderPricing(configuration, fleje);
-    expect(getCustomizationPrice("rim_text")).toBe(150);
-    expect(getCustomizationPrice("rim_image")).toBe(400);
-    expect(getCustomizationPrice("fleje_image")).toBe(500);
-    expect(pricing.extrasUYU).toBe(150 + 400 + 150 * 2 + 500);
+    const pricing = calculateOrderPricing(configuration, fleje, catalog);
+    expect(getCustomizationPrice(catalog, "laser", "rim_text")).toBe(150);
+    expect(getCustomizationPrice(catalog, "laser", "rim_image")).toBe(400);
+    expect(getCustomizationPrice(catalog, "laser", "fleje_image")).toBe(500);
+    expect(pricing.extrasUYU).toBe(150 * 8 + 400 + 150 * 11 + 500);
+    expect(pricing.catalogVersion).toBe(7);
+    expect(pricing.isCheckoutReady).toBe(true);
+  });
+
+  it("cobra únicamente letras y números, incluidos caracteres acentuados", () => {
+    expect(countChargeableCharacters("Árbol 123, 🧉!" )).toBe(8);
+  });
+
+  it("deja en cero color, tamaño y alpaca y clasifica los cueros compartidos", () => {
+    expect(classifyLeather({ textureId: "cuero-estampado", colorId: "marron" })).toBe("stamped");
+    expect(classifyLeather({ textureId: "imperial-cuero-crudo", colorId: "cuero-crudo" })).toBe("raw");
+    expect(classifyLeather({ textureId: "print-pelos", colorId: "animal-print" })).toBe("print-pelos");
+    expect(classifyLeather({ textureId: "imperial-clasico", colorId: "negro" })).toBe("standard");
+  });
+
+  it("solo exige una tarifa de grabado cuando esa personalización está activa", () => {
+    const configuration = createConfiguration();
+    const familyKey = familyRuleKey(configuration.selection.familyId!);
+    const catalog: PublishedPricingCatalog = {
+      versionId: "optional-rules",
+      version: 8,
+      publishedAt: "2026-08-21T00:00:00.000Z",
+      rules: { [familyKey]: 1000, "commission:mercado_pago": 12 },
+    };
+    expect(calculateOrderPricing(configuration, createDefaultFlejeCustomization(), catalog).isPriceReady).toBe(true);
+    configuration.rim.textMode = "text";
+    configuration.rim.text = "A";
+    const pending = calculateOrderPricing(configuration, createDefaultFlejeCustomization(), catalog);
+    expect(pending.isPriceReady).toBe(false);
+    expect(pending.missingRuleKeys).toContain(customizationRuleKey("laser", "rim_text"));
+    expect(getMercadoPagoCommissionPercent(catalog)).toBe(12);
+  });
+
+  it("bloquea el checkout si Supabase no entregó un catálogo publicado", () => {
+    const configuration = createConfiguration();
+    const pricing = calculateOrderPricing(configuration, createDefaultFlejeCustomization(), null);
+
+    expect(pricing.priceStatus).toBe("unavailable");
+    expect(pricing.totalUYU).toBe(0);
+    expect(pricing.isCheckoutReady).toBe(false);
   });
 });
 

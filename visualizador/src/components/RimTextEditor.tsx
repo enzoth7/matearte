@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { MAX_RIM_TEXT_LENGTH, sanitizeRimText } from "../catalog/rimCatalog";
 
 interface RimTextEditorProps {
@@ -8,6 +8,7 @@ interface RimTextEditorProps {
   label?: string;
   maxWords?: number;
   maxLength?: number;
+  compact?: boolean;
 }
 
 export function RimTextEditor({
@@ -17,8 +18,10 @@ export function RimTextEditor({
   label = "Texto de virola",
   maxWords,
   maxLength,
+  compact = false,
 }: RimTextEditorProps) {
   const [limitReached, setLimitReached] = useState(false);
+  const statusId = useId();
   const effectiveMaxLength = maxLength ?? (maxWords ? 25 : MAX_RIM_TEXT_LENGTH);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -45,29 +48,35 @@ export function RimTextEditor({
   };
 
   return (
-    <label className="block">
-      <span className="mb-1.5 block text-[9px] font-bold uppercase tracking-widest text-zinc-500">
-        {label}
-      </span>
+    <label className={compact ? "block rim-text-editor--compact" : "block"}>
+      {!compact && (
+        <span className="mb-1.5 block text-[9px] font-bold uppercase tracking-widest text-zinc-500">
+          {label}
+        </span>
+      )}
       <input
         type="text"
         value={value}
         disabled={disabled}
         onChange={handleChange}
+        maxLength={effectiveMaxLength}
         placeholder={disabled ? "Seleccioná Con texto para escribir" : "Escribí tu texto"}
-        aria-describedby="rim-text-status"
+        aria-label={compact ? label : undefined}
+        aria-describedby={!compact ? statusId : undefined}
         className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-xs font-medium text-zinc-800 outline-none transition-colors placeholder:text-zinc-400 focus:border-[#7a4a31] disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
       />
-      <span id="rim-text-status" className={`mt-1 flex justify-between text-[9px] font-medium ${limitReached ? "text-red-600 font-bold" : "text-zinc-400"}`}>
-        <span>
-          {limitReached 
-            ? `¡Límite alcanzado! Máximo ${effectiveMaxLength} caracteres.`
-            : "Normalización automática de espacios"}
+      {!compact && (
+        <span id={statusId} className={`mt-1 flex justify-between text-[9px] font-medium ${limitReached ? "text-red-600 font-bold" : "text-zinc-400"}`}>
+          <span>
+            {limitReached
+              ? `¡Límite alcanzado! Máximo ${effectiveMaxLength} caracteres.`
+              : "Normalización automática de espacios"}
+          </span>
+          <span>
+            {value.length} / {effectiveMaxLength} caracteres
+          </span>
         </span>
-        <span>
-          {value.length} / {effectiveMaxLength} caracteres
-        </span>
-      </span>
+      )}
     </label>
   );
 }

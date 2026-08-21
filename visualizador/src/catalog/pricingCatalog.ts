@@ -1,138 +1,34 @@
-export interface ProductPrice {
-  nro: number;
-  modelo: string;
-  variante: string;
-  virola: string;
-  cuero?: string;
-  priceARS: number;
-  priceUYU: number;
+import {
+  getSelectionFromLegacyVariant,
+  mateDecisionCatalog,
+  resolveMateSelection,
+  type EngravingTypeId,
+  type MateFamilyId,
+  type MateSelection,
+} from "./mateDecisionCatalog";
+import { normalizeProductName, type MateSize } from "./mateCatalog";
+import type { FlejeCustomization, MateConfiguration } from "../types/customizer";
+
+export interface PublishedPricingCatalog {
+  versionId: string;
+  version: number;
+  publishedAt: string;
+  rules: Record<string, number>;
 }
 
-export const rawGoogleSheetPrices: ProductPrice[] = [
-  { nro: 1, modelo: "Camionero", variante: "Alpaca Cincelado", virola: "Alpaca Cincelada", priceARS: 29000, priceUYU: 786.76 },
-  { nro: 2, modelo: "Camionero", variante: "Criolla Posa con Mate Vaqueta", virola: "Acero Liso", priceARS: 17500, priceUYU: 474.77 },
-  { nro: 3, modelo: "Camionero", variante: "Acero Liso", virola: "Acero Liso", priceARS: 19100, priceUYU: 518.18 },
-  { nro: 4, modelo: "Criollo", variante: "Natural con Posa Mate Copa Virola de Acero", virola: "Acero Liso", priceARS: 18500, priceUYU: 501.90 },
-  { nro: 5, modelo: "Criollo", variante: "Virola de Acero con Posa Mate de Cuero Crudo", virola: "Acero Liso", priceARS: 22800, priceUYU: 618.56 },
-  { nro: 6, modelo: "Criollo", variante: "Alpaca Grande Lisa con Posa Mate Cuero Crudo", virola: "Alpaca", priceARS: 28500, priceUYU: 773.20 },
-  { nro: 7, modelo: "Criollo", variante: "Alpaca Grande Cincelada con Posa Mate Cuero Crudo", virola: "Alpaca", priceARS: 32200, priceUYU: 873.58 },
-  { nro: 8, modelo: "Criollo", variante: "Natural con Posa Mate Cinta", virola: "Acero Liso", priceARS: 17100, priceUYU: 463.92 },
-  { nro: 9, modelo: "Criollo", variante: "Oscuro Posa Mate Copa", virola: "Acero Liso", priceARS: 19800, priceUYU: 537.17 },
-  { nro: 10, modelo: "Criollo", variante: "Alpaca Grande Cincelada Posa Mate Vaqueta", virola: "Alpaca", priceARS: 26500, priceUYU: 718.94 },
-  { nro: 11, modelo: "Imperial", variante: "Cincelado Premium", virola: "Imperial", priceARS: 160000, priceUYU: 4340.75 },
-  { nro: 12, modelo: "Imperial", variante: "Premium", virola: "Imperial", priceARS: 39900, priceUYU: 1082.47 },
-  { nro: 13, modelo: "Imperial", variante: "Cuero Crudo", virola: "Imperial", cuero: "Crudo", priceARS: 47800, priceUYU: 1296.80 },
-  { nro: 14, modelo: "Imperial", variante: "Criollo con Posa Mate de Cuero Crudo", virola: "Imperial", priceARS: 34200, priceUYU: 927.84 },
-  { nro: 15, modelo: "Imperial", variante: "Virola Plata 900", virola: "Plata 900", priceARS: 500000, priceUYU: 13564.84 },
-  { nro: 16, modelo: "Imperial", variante: "Print", virola: "Imperial", priceARS: 45600, priceUYU: 1237.11 },
-  { nro: 17, modelo: "Torpedo", variante: "Alpaca Cincelado Premium", virola: "Alpaca Cincelado Premium", cuero: "Liso", priceARS: 90500, priceUYU: 2455.24 },
-  { nro: 18, modelo: "Torpedo", variante: "Cuero Crudo Virola Grande Cincelada", virola: "Alpaca Grande Cincelada", cuero: "Crudo", priceARS: 37600, priceUYU: 1020.08 },
-  { nro: 19, modelo: "Torpedo", variante: "Cuero Liso Alpaca Grande Lisa", virola: "Alpaca Grande Lisa", cuero: "Liso", priceARS: 27900, priceUYU: 756.92 },
-  { nro: 20, modelo: "Torpedo", variante: "Alpaca Grande Cincelada con Cuero Croco/Pelos", virola: "Alpaca Grande Cincelada", cuero: "Croco / Pelos", priceARS: 36200, priceUYU: 982.09 },
-  { nro: 21, modelo: "Torpedo", variante: "Alpaca Cuero Croco/Pelos", virola: "Alpaca Común", cuero: "Croco / Pelos", priceARS: 32800, priceUYU: 889.85 },
-  { nro: 22, modelo: "Torpedo", variante: "Cuero Liso Virola Alpaca Grande", virola: "Alpaca Grande Cincelada", cuero: "Liso", priceARS: 30500, priceUYU: 827.46 },
-  { nro: 23, modelo: "Torpedo", variante: "Alpaca y Bronce Cuero Estampado", virola: "Alpaca y Bronce", cuero: "Estampado", priceARS: 36400, priceUYU: 987.52 },
-  { nro: 24, modelo: "Torpedo", variante: "Alpaca y Bronce Croco/Pelos", virola: "Alpaca y Bronce", cuero: "Croco / Pelos", priceARS: 39300, priceUYU: 1066.20 },
-  { nro: 25, modelo: "Torpedo", variante: "Cuero Liso Virola Acero y Bronce Liso", virola: "Acero y Bronce Liso", cuero: "Liso", priceARS: 20700, priceUYU: 561.58 },
-  { nro: 26, modelo: "Torpedo", variante: "Cuero Liso Alpaca y Bronce", virola: "Alpaca y Bronce", cuero: "Liso", priceARS: 33600, priceUYU: 911.56 },
-  { nro: 27, modelo: "Torpedo", variante: "Cuero Liso Alpaca Cincelada", virola: "Alpaca Cincelada", cuero: "Liso", priceARS: 27100, priceUYU: 735.21 },
-  { nro: 28, modelo: "Torpedo", variante: "Cuero Crudo Virola Alpaca y Bronce", virola: "Alpaca y Bronce", cuero: "Crudo", priceARS: 38700, priceUYU: 1049.92 },
-  { nro: 29, modelo: "Torpedo", variante: "Cuero Crudo Virola Alpaca Cincelada", virola: "Alpaca Cincelada", cuero: "Crudo", priceARS: 34200, priceUYU: 927.84 },
-  { nro: 30, modelo: "Torpedo", variante: "Cuero Estampado Virola Alpaca Comun", virola: "Alpaca Cincelada", cuero: "Estampado", priceARS: 31900, priceUYU: 865.44 },
-  { nro: 31, modelo: "Torpedo", variante: "Cuero Estampado Virola Alpaca Grande", virola: "Alpaca Grande Cincelada", cuero: "Estampado", priceARS: 31600, priceUYU: 857.30 },
-  { nro: 32, modelo: "Torpedo", variante: "Cuero Estampado Alpaca Lisa", virola: "Alpaca Grande Lisa", cuero: "Estampado", priceARS: 26900, priceUYU: 729.79 },
-  { nro: 33, modelo: "Torpedo", variante: "Virola Acero Liso", virola: "Acero Liso", cuero: "Liso", priceARS: 17100, priceUYU: 463.92 },
-  { nro: 34, modelo: "Bombilla", variante: "Con Aplique", virola: "-", priceARS: 14900, priceUYU: 404.23 },
-  { nro: 35, modelo: "Bombillón", variante: "Alpaca", virola: "-", priceARS: 11500, priceUYU: 311.99 },
-  { nro: 36, modelo: "Bombillón", variante: "Pico de Loro", virola: "-", priceARS: 13700, priceUYU: 371.68 },
-  { nro: 37, modelo: "Bombillón", variante: "Con Aros", virola: "-", priceARS: 14800, priceUYU: 401.52 },
-  { nro: 38, modelo: "Bombillón", variante: "Campeón del Mundo", virola: "-", priceARS: 28000, priceUYU: 759.63 },
-  { nro: 39, modelo: "Bombilla", variante: "Cincelada", virola: "-", priceARS: 13700, priceUYU: 371.68 },
-];
-
-/**
- * Mapeo explícito por ID de Variante del configurador.
- */
-export const variantPriceMap: Record<string, { priceARS: number; priceUYU: number }> = {
-  // Camionero
-  "camionero-artesanal": { priceARS: 29000, priceUYU: 787 },
-  "camionero-criollo-posa-vaqueta": { priceARS: 17500, priceUYU: 475 },
-  "camionero-liso": { priceARS: 19100, priceUYU: 518 },
-
-  // Criollo
-  "criollo-clasico": { priceARS: 26500, priceUYU: 719 },
-  "criollo-natural-posa-cinta": { priceARS: 17100, priceUYU: 464 },
-  "criollo-natural-posa-copa": { priceARS: 18500, priceUYU: 502 },
-  "criollo-oscuro-posa-copa": { priceARS: 19800, priceUYU: 537 },
-  "criollo-grande-lisa-posa-cuero-crudo": { priceARS: 28500, priceUYU: 773 },
-  "criollo-grande-posa-cuero-crudo": { priceARS: 32200, priceUYU: 874 },
-  "criollo-posa-cuero-crudo": { priceARS: 22800, priceUYU: 619 },
-
-  // Imperial
-  "imperial-lacre": { priceARS: 160000, priceUYU: 4341 },
-  "imperial-criollo-posa-cuero-crudo": { priceARS: 34200, priceUYU: 928 },
-  "imperial-cuero-crudo": { priceARS: 47800, priceUYU: 1297 },
-  "imperial-premium": { priceARS: 39900, priceUYU: 1082 },
-  "imperial-print": { priceARS: 45600, priceUYU: 1237 },
-  "imperial-clasico": { priceARS: 500000, priceUYU: 13565 },
-
-  // Torpedo (17 variantes)
-  "torpedo-clasico": { priceARS: 90500, priceUYU: 2455 },
-  "torpedo-cuero-crudo-grande-cincelada": { priceARS: 37600, priceUYU: 1020 },
-  "torpedo-cuero-liso-grande-lisa": { priceARS: 27900, priceUYU: 757 },
-  "torpedo-croco-pelo-grande": { priceARS: 36200, priceUYU: 982 },
-  "torpedo-croco-pelo": { priceARS: 32800, priceUYU: 890 },
-  "torpedo-cuero-liso-alpaca-grande": { priceARS: 30500, priceUYU: 827 },
-  "torpedo-alpaca-bronce-estampado": { priceARS: 36400, priceUYU: 988 },
-  "torpedo-croco-pelo-reforzado": { priceARS: 39300, priceUYU: 1066 },
-  "torpedo-cuero-liso-acero-bronce": { priceARS: 20700, priceUYU: 562 },
-  "torpedo-cuero-liso-alpaca-bronce": { priceARS: 33600, priceUYU: 912 },
-  "torpedo-cuero-liso-alpaca-cincelada": { priceARS: 27100, priceUYU: 735 },
-  "torpedo-cuero-crudo-alpaca-bronce": { priceARS: 38700, priceUYU: 1050 },
-  "torpedo-cuero-crudo-alpaca-cincelada": { priceARS: 34200, priceUYU: 928 },
-  "torpedo-cuero-estampado-alpaca-comun": { priceARS: 31900, priceUYU: 865 },
-  "torpedo-cuero-estampado-alpaca-grande": { priceARS: 31600, priceUYU: 857 },
-  "torpedo-cuero-croco": { priceARS: 26900, priceUYU: 730 },
-  "torpedo-liso": { priceARS: 17100, priceUYU: 464 },
-};
-
-/**
- * Precios base de referencia por modelo (para mostrar un "Desde $X" en la selección)
- */
-export const modelStartingPriceMap: Record<string, { priceARS: number; priceUYU: number }> = {
-  camionero: { priceARS: 17500, priceUYU: 475 },
-  criollo: { priceARS: 17100, priceUYU: 464 },
-  imperial: { priceARS: 34200, priceUYU: 928 },
-  torpedo: { priceARS: 17100, priceUYU: 464 },
-};
-
-export const customizationPrices: Record<string, number> = {
-  rim_finish: 100,
-  rim_text: 150,
-  rim_image: 400,
-  fleje_finish: 100,
-  fleje_text: 150,
-  fleje_image: 500,
-};
-
-const requiredCustomizationPrices: Record<string, number> = {
-  rim_text: 150,
-  rim_image: 400,
-  fleje_text: 150,
-  fleje_image: 500,
-};
-
-export const mercadoPagoCommissionPercent = Math.max(
-  0,
-  Number(import.meta.env.VITE_MERCADO_PAGO_COMMISSION_PERCENT ?? 0) || 0,
-);
-
-export function updateCustomizationPrice(id: string, priceUYU: number) {
-  customizationPrices[id] = requiredCustomizationPrices[id] ?? priceUYU;
+export interface PricingBreakdown {
+  familyBaseUYU: number;
+  leatherDeltaUYU: number;
+  silverDeltaUYU: number;
+  textureDeltaUYU: number;
+  metalDeltaUYU: number;
+  sizeDeltaUYU: number;
 }
 
-export function getCustomizationPrice(id: string): number {
-  return customizationPrices[id] ?? 0;
+export interface SelectionPricing {
+  totalUYU: number;
+  breakdown: PricingBreakdown;
+  ruleKeys: string[];
 }
 
 export interface VariantDetails {
@@ -140,6 +36,45 @@ export interface VariantDetails {
   virola: string;
   tipoCuero: string;
 }
+
+export interface OrderPriceItem {
+  id: string;
+  label: string;
+  quantity: number;
+  unitPriceUYU: number;
+  totalUYU: number;
+}
+
+export interface OrderPricing {
+  basePriceUYU: number;
+  breakdown: PricingBreakdown | null;
+  items: OrderPriceItem[];
+  extrasUYU: number;
+  totalUYU: number;
+  catalogVersion: number | null;
+  catalogVersionId: string | null;
+  isPriceReady: boolean;
+  hasSku: boolean;
+  isCheckoutReady: boolean;
+  missingRuleKeys: string[];
+  priceStatus: "ready" | "pending" | "unavailable";
+}
+
+export const ENGRAVING_CUSTOMIZATION_IDS = [
+  "rim_finish",
+  "rim_text",
+  "rim_image",
+  "fleje_finish",
+  "fleje_text",
+  "fleje_image",
+] as const;
+export type EngravingCustomizationId = typeof ENGRAVING_CUSTOMIZATION_IDS[number];
+
+export const LEATHER_STAMPED_RULE_KEY = "leather:stamped";
+export const LEATHER_RAW_RULE_KEY = "leather:raw";
+export const LEATHER_PRINT_RULE_KEY = "leather:print-pelos";
+export const SILVER_900_RULE_KEY = "metal:plata-900";
+export const COMMISSION_RULE_KEY = "commission:mercado_pago";
 
 export const variantDetailsMap: Record<string, VariantDetails> = {};
 
@@ -155,89 +90,224 @@ export function getVariantDetails(id: string): VariantDetails | undefined {
   return variantDetailsMap[id];
 }
 
-export function updateVariantPrice(id: string, priceARS: number, priceUYU: number) {
-  variantPriceMap[id] = { priceARS, priceUYU };
+export function familyRuleKey(familyId: string) {
+  return `family:${familyId}`;
 }
 
-export function getVariantPrice(variantId: string, size: MateSize = "medio") {
-  const basePrice = variantPriceMap[variantId] || { priceARS: 0, priceUYU: 0 };
-  const adjustmentUYU = getVariantDefinition(variantId)?.sizePriceAdjustments[size] ?? 0;
-  const price = { ...basePrice, priceUYU: basePrice.priceUYU + adjustmentUYU };
+// Legacy key helpers are retained so historical snapshots remain readable.
+export function textureRuleKey(familyId: string, textureId: string) {
+  return `texture:${familyId}:${textureId}`;
+}
+export function metalRuleKey(familyId: string, textureId: string, colorId: string, metalId: string) {
+  return `metal:${familyId}:${textureId}:${colorId}:${metalId}`;
+}
+export function sizeRuleKey(familyId: string, textureId: string, colorId: string, metalId: string, sizeId: MateSize) {
+  return `size:${familyId}:${textureId}:${colorId}:${metalId}:${sizeId}`;
+}
+
+export function customizationRuleKey(technique: EngravingTypeId, id: EngravingCustomizationId | string) {
+  return `customization:${technique}:${id}`;
+}
+
+export function getActivePricingRuleKeys() {
+  return [
+    ...mateDecisionCatalog.map((family) => familyRuleKey(family.id)),
+    LEATHER_STAMPED_RULE_KEY,
+    LEATHER_RAW_RULE_KEY,
+    LEATHER_PRINT_RULE_KEY,
+    SILVER_900_RULE_KEY,
+    ...(["laser", "bronze-applique"] as const).flatMap((technique) =>
+      ENGRAVING_CUSTOMIZATION_IDS.map((id) => customizationRuleKey(technique, id)),
+    ),
+    COMMISSION_RULE_KEY,
+  ];
+}
+
+export function getRequiredPricingRuleKeys() {
+  return [LEATHER_STAMPED_RULE_KEY, LEATHER_RAW_RULE_KEY, COMMISSION_RULE_KEY];
+}
+
+function readRule(catalog: PublishedPricingCatalog | null, key: string) {
+  const value = catalog?.rules[key];
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+type LeatherCategory = "standard" | "stamped" | "raw" | "print-pelos";
+
+export function classifyLeather(selection: Partial<MateSelection>): LeatherCategory {
+  const textureId = selection.textureId ?? "";
+  const colorId = selection.colorId ?? "";
+  if (textureId === "cuero-crudo" || textureId === "imperial-cuero-crudo" || colorId === "cuero-crudo") return "raw";
+  if (textureId === "cuero-estampado") return "stamped";
+  if (
+    textureId.includes("print")
+    || textureId.includes("pelo")
+    || colorId.includes("print")
+    || colorId.includes("pelo")
+    || colorId === "animal-print"
+    || colorId === "marron-blanco"
+    || colorId === "negro-blanco"
+  ) return "print-pelos";
+  return "standard";
+}
+
+function leatherRuleKey(category: LeatherCategory) {
+  if (category === "stamped") return LEATHER_STAMPED_RULE_KEY;
+  if (category === "raw") return LEATHER_RAW_RULE_KEY;
+  if (category === "print-pelos") return LEATHER_PRINT_RULE_KEY;
+  return null;
+}
+
+export function getSelectionPricing(catalog: PublishedPricingCatalog | null, selection: MateSelection): SelectionPricing | null {
+  if (!catalog || !resolveMateSelection(selection) || !selection.familyId) return null;
+  const familyKey = familyRuleKey(selection.familyId);
+  const familyBaseUYU = readRule(catalog, familyKey);
+  if (familyBaseUYU === null) return null;
+
+  const category = classifyLeather(selection);
+  const leatherKey = leatherRuleKey(category);
+  const leatherDeltaUYU = leatherKey ? readRule(catalog, leatherKey) : 0;
+  const usesSilver = selection.metalId === "plata-900";
+  const silverDeltaUYU = usesSilver ? readRule(catalog, SILVER_900_RULE_KEY) : 0;
+  if (leatherDeltaUYU === null || silverDeltaUYU === null) return null;
+
+  const breakdown: PricingBreakdown = {
+    familyBaseUYU,
+    leatherDeltaUYU,
+    silverDeltaUYU,
+    textureDeltaUYU: leatherDeltaUYU,
+    metalDeltaUYU: silverDeltaUYU,
+    sizeDeltaUYU: 0,
+  };
   return {
-    ...price,
-    formattedUYU: `$ ${price.priceUYU.toLocaleString('es-UY')} UYU`,
-    formattedARS: `$ ${price.priceARS.toLocaleString('es-AR')} ARS`,
+    totalUYU: familyBaseUYU + leatherDeltaUYU + silverDeltaUYU,
+    breakdown,
+    ruleKeys: [familyKey, ...(leatherKey ? [leatherKey] : []), ...(usesSilver ? [SILVER_900_RULE_KEY] : [])],
   };
 }
 
-export interface OrderPriceItem {
-  id: string;
-  label: string;
-  quantity: number;
-  unitPriceUYU: number;
-  totalUYU: number;
+export function listCatalogSelections(filters?: { familyId?: MateFamilyId; textureId?: string }) {
+  return mateDecisionCatalog.flatMap((family) => {
+    if (filters?.familyId && family.id !== filters.familyId) return [];
+    return family.textures.flatMap((texture) => {
+      if (filters?.textureId && texture.id !== filters.textureId) return [];
+      return texture.colors.flatMap((color) => texture.metals.flatMap((metal) =>
+        texture.sizes.map((sizeId): MateSelection => ({
+          familyId: family.id,
+          textureId: texture.id,
+          colorId: color.id,
+          metalId: metal.id,
+          sizeId,
+          engravingTypeId: null,
+        })),
+      ));
+    });
+  });
 }
 
-export interface OrderPricing {
-  basePriceUYU: number;
-  items: OrderPriceItem[];
-  extrasUYU: number;
-  totalUYU: number;
-  isPriceReady: boolean;
-  priceStatus: "ready" | "pending";
+function getStartingPrice(catalog: PublishedPricingCatalog | null, filters?: { familyId?: MateFamilyId; textureId?: string; colorId?: string; metalId?: string }) {
+  const totals = listCatalogSelections(filters)
+    .filter((selection) => !filters?.colorId || selection.colorId === filters.colorId)
+    .filter((selection) => !filters?.metalId || selection.metalId === filters.metalId)
+    .map((selection) => getSelectionPricing(catalog, selection)?.totalUYU ?? null)
+    .filter((value): value is number => value !== null && value > 0);
+  return totals.length > 0 ? Math.min(...totals) : null;
 }
 
-export function calculateOrderPricing(
-  configuration: MateConfiguration,
-  flejeConfig: FlejeCustomization,
-): OrderPricing {
-  const priceKey = configuration.skuId ?? (configuration.isLegacy ? configuration.variantId : null);
-  const knownBasePrice = priceKey ? variantPriceMap[priceKey] : undefined;
-  const basePriceUYU = priceKey ? getVariantPrice(priceKey, configuration.size).priceUYU : 0;
-  const isPriceReady = Boolean(priceKey && knownBasePrice && basePriceUYU > 0);
+export function getFamilyStartingPrice(catalog: PublishedPricingCatalog | null, familyId: MateFamilyId) {
+  return getStartingPrice(catalog, { familyId });
+}
+export function getTextureStartingPrice(catalog: PublishedPricingCatalog | null, familyId: MateFamilyId, textureId: string) {
+  return getStartingPrice(catalog, { familyId, textureId });
+}
+export function getMetalStartingPrice(catalog: PublishedPricingCatalog | null, selection: MateSelection) {
+  if (!selection.familyId || !selection.textureId || !selection.colorId || !selection.metalId) return null;
+  return getStartingPrice(catalog, { familyId: selection.familyId, textureId: selection.textureId, colorId: selection.colorId, metalId: selection.metalId });
+}
+
+export function getCustomizationPrice(catalog: PublishedPricingCatalog | null, technique: EngravingTypeId | null, id: EngravingCustomizationId | string) {
+  return technique ? readRule(catalog, customizationRuleKey(technique, id)) : null;
+}
+export function getMercadoPagoCommissionPercent(catalog: PublishedPricingCatalog | null) {
+  return readRule(catalog, COMMISSION_RULE_KEY);
+}
+export function formatUYU(value: number) {
+  return `$ ${value.toLocaleString("es-UY", { maximumFractionDigits: 2 })} UYU`;
+}
+export function countChargeableCharacters(value: string) {
+  return value.match(/[\p{L}\p{N}]/gu)?.length ?? 0;
+}
+
+function configurationSelection(configuration: MateConfiguration): MateSelection | null {
+  if (resolveMateSelection(configuration.selection)) return configuration.selection;
+  return getSelectionFromLegacyVariant(configuration.variantId, configuration.size);
+}
+
+export function calculateOrderPricing(configuration: MateConfiguration, flejeConfig: FlejeCustomization, catalog: PublishedPricingCatalog | null): OrderPricing {
+  const selection = configurationSelection(configuration);
+  const selectionPricing = selection ? getSelectionPricing(catalog, selection) : null;
+  const technique = configuration.engravingTypeId ?? configuration.selection.engravingTypeId;
   const items: OrderPriceItem[] = [];
+  const missingRuleKeys: string[] = [];
 
-  const addItem = (id: string, label: string, quantity = 1) => {
+  if (selection && catalog) {
+    const selectionRuleKeys = [
+      ...(selection.familyId ? [familyRuleKey(selection.familyId)] : []),
+      ...(leatherRuleKey(classifyLeather(selection)) ? [leatherRuleKey(classifyLeather(selection))!] : []),
+      ...(selection.metalId === "plata-900" ? [SILVER_900_RULE_KEY] : []),
+    ];
+    selectionRuleKeys.forEach((key) => {
+      if (readRule(catalog, key) === null) missingRuleKeys.push(key);
+    });
+  }
+
+  const addItem = (id: EngravingCustomizationId, label: string, quantity = 1) => {
     if (quantity <= 0) return;
-    const unitPriceUYU = getCustomizationPrice(id);
-    items.push({ id, label, quantity, unitPriceUYU, totalUYU: unitPriceUYU * quantity });
+    if (!technique) {
+      missingRuleKeys.push("selection:engraving");
+      return;
+    }
+    const key = customizationRuleKey(technique, id);
+    const unitPriceUYU = readRule(catalog, key);
+    if (unitPriceUYU === null) {
+      missingRuleKeys.push(key);
+      return;
+    }
+    items.push({ id: key, label, quantity, unitPriceUYU, totalUYU: unitPriceUYU * quantity });
   };
 
   if (configuration.rim.finishMode === "finish") addItem("rim_finish", "Terminación de virola");
-  const hasRimText = configuration.rim.textMode === "text" && (
-    Boolean(configuration.rim.text?.trim()) ||
-    Boolean(configuration.rim.texts?.some((t) => t.text.trim()))
-  );
-  if (hasRimText) addItem("rim_text", "Texto en virola");
-  if (configuration.rim.imageMode === "image" && configuration.rim.icons.length > 0) addItem("rim_image", "Imagen o escudo en virola");
+  const structuredRimText = configuration.rim.texts?.map((item) => item.text).join("") ?? "";
+  const rimText = configuration.rim.textMode === "text"
+    ? (structuredRimText || configuration.rim.text)
+    : "";
+  addItem("rim_text", "Caracteres de texto en virola", countChargeableCharacters(rimText));
+  if (configuration.rim.imageMode === "image") {
+    addItem("rim_image", "Imágenes o escudos en virola", configuration.rim.icons.filter((icon) => icon.selectedImageId || icon.customImage).length);
+  }
 
   if (configuration.capabilities.hasFleje) {
     if (flejeConfig.finishMode === "finish") addItem("fleje_finish", "Terminación de fleje");
     const sides = Object.values(flejeConfig.sides);
-    const textCount = sides.filter((side) => side.textMode === "text" && side.text.trim()).length;
-    const imageCount = sides.filter((side) => side.imageMode === "image" && side.selectedImageId).length;
-    addItem("fleje_text", "Texto en fleje", textCount);
-    addItem("fleje_image", "Imagen o escudo en fleje", imageCount);
+    addItem("fleje_text", "Caracteres de texto en fleje", sides.reduce((total, side) => total + (side.textMode === "text" ? countChargeableCharacters(side.text) : 0), 0));
+    addItem("fleje_image", "Imágenes o escudos en fleje", sides.filter((side) => side.imageMode === "image" && (side.selectedImageId || side.customImage)).length);
   }
 
   const extrasUYU = items.reduce((total, item) => total + item.totalUYU, 0);
+  const isPriceReady = Boolean(catalog && selectionPricing && technique && missingRuleKeys.length === 0);
+  const hasSku = Boolean(configuration.skuId);
   return {
-    basePriceUYU,
+    basePriceUYU: selectionPricing?.totalUYU ?? 0,
+    breakdown: selectionPricing?.breakdown ?? null,
     items,
     extrasUYU,
-    totalUYU: basePriceUYU + extrasUYU,
+    totalUYU: (selectionPricing?.totalUYU ?? 0) + extrasUYU,
+    catalogVersion: catalog?.version ?? null,
+    catalogVersionId: catalog?.versionId ?? null,
     isPriceReady,
-    priceStatus: isPriceReady ? "ready" : "pending",
+    hasSku,
+    isCheckoutReady: isPriceReady && hasSku,
+    missingRuleKeys: [...new Set(missingRuleKeys)],
+    priceStatus: !catalog ? "unavailable" : isPriceReady ? "ready" : "pending",
   };
 }
-
-export function getModelStartingPrice(modelId: string) {
-  const price = modelStartingPriceMap[modelId] || { priceARS: 0, priceUYU: 0 };
-  return {
-    ...price,
-    formattedUYU: `$ ${price.priceUYU.toLocaleString('es-UY')} UYU`,
-    formattedARS: `$ ${price.priceARS.toLocaleString('es-AR')} ARS`,
-  };
-}
-import { getVariantDefinition, normalizeProductName, type MateSize } from "./mateCatalog";
-import type { FlejeCustomization, MateConfiguration } from "../types/customizer";

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { getActivePricingRuleKeys, getRequiredPricingRuleKeys, type PublishedPricingCatalog } from '../catalog/pricingCatalog';
 
 const configuredUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
 const configuredKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
@@ -9,8 +10,14 @@ const SUPABASE_URL = configuredUrl || 'https://placeholder.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = configuredKey || 'matearte-demo-mode';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-
-import { updateVariantPrice, updateCustomizationPrice, updateVariantDetails } from '../catalog/pricingCatalog';
+export const adminSupabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    storageKey: 'matearte-pricing-admin-auth',
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+  },
+});
 
 export async function signInWithGoogle() {
   if (!isSupabaseConfigured) throw new Error('Supabase no está configurado.');
@@ -178,80 +185,35 @@ export async function deleteDesign(designId: string) {
   }
 }
 
-export async function fetchProductPricesFromSupabase() {
-  if (!isSupabaseConfigured) return;
+export async function fetchPublishedPricingCatalog(): Promise<PublishedPricingCatalog> {
+  if (!isSupabaseConfigured) throw new Error('Supabase no está configurado.');
+  const { data, error } = await supabase.rpc('get_published_pricing_catalog');
+  if (error) throw error;
+  if (!data || typeof data !== 'object') throw new Error('No existe un catálogo de precios publicado.');
 
-  try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('nro, modelo, variante, name, virola, tipo_cuero, price_ars, price_uyu');
-
-    if (error) throw error;
-
-    if (data && Array.isArray(data)) {
-      const nroToVariantIdMap: Record<number, string> = {
-        1: 'camionero-artesanal',
-        2: 'camionero-criollo-posa-vaqueta',
-        3: 'camionero-liso',
-        4: 'criollo-natural-posa-copa',
-        5: 'criollo-posa-cuero-crudo',
-        6: 'criollo-grande-lisa-posa-cuero-crudo',
-        7: 'criollo-grande-posa-cuero-crudo',
-        8: 'criollo-natural-posa-cinta',
-        9: 'criollo-oscuro-posa-copa',
-        10: 'criollo-clasico',
-        11: 'imperial-lacre',
-        12: 'imperial-premium',
-        13: 'imperial-cuero-crudo',
-        14: 'imperial-criollo-posa-cuero-crudo',
-        15: 'imperial-clasico',
-        16: 'imperial-print',
-        17: 'torpedo-clasico',
-        18: 'torpedo-cuero-crudo-grande-cincelada',
-        19: 'torpedo-cuero-liso-grande-lisa',
-        20: 'torpedo-croco-pelo-grande',
-        21: 'torpedo-croco-pelo',
-        22: 'torpedo-cuero-liso-alpaca-grande',
-        23: 'torpedo-alpaca-bronce-estampado',
-        24: 'torpedo-croco-pelo-reforzado',
-        25: 'torpedo-cuero-liso-acero-bronce',
-        26: 'torpedo-cuero-liso-alpaca-bronce',
-        27: 'torpedo-cuero-liso-alpaca-cincelada',
-        28: 'torpedo-cuero-crudo-alpaca-bronce',
-        29: 'torpedo-cuero-crudo-alpaca-cincelada',
-        30: 'torpedo-cuero-estampado-alpaca-comun',
-        31: 'torpedo-cuero-estampado-alpaca-grande',
-        32: 'torpedo-cuero-croco',
-        33: 'torpedo-liso',
-      };
-
-      data.forEach((row) => {
-        const variantId = nroToVariantIdMap[row.nro];
-        if (variantId) {
-          updateVariantPrice(variantId, Number(row.price_ars) || 0, Number(row.price_uyu) || 0);
-          updateVariantDetails(variantId, {
-            name: row.name || row.variante,
-            virola: row.virola || "",
-            tipoCuero: row.tipo_cuero || "",
-          });
-        }
-      });
-      console.log('✅ Precios y detalles sincronizados desde tabla products de Supabase:', data.length, 'mates');
-    }
-
-    const { data: customData } = await supabase
-      .from('customization_prices')
-      .select('id, price_uyu');
-
-    if (customData && Array.isArray(customData)) {
-      customData.forEach((row) => {
-        if (row.id) {
-          updateCustomizationPrice(row.id, Number(row.price_uyu) || 0);
-        }
-      });
-      console.log('✅ Precios de adicionales sincronizados desde Supabase:', customData.length, 'opciones');
-    }
-  } catch (err) {
-    console.warn('⚠️ No se pudieron cargar precios dinámicos de Supabase, usando valores base:', err);
+  const input = data as Record<string, unknown>;
+  const rawRules = input.rules;
+  if (!input.versionId || !input.version || !input.publishedAt || !rawRules || typeof rawRules !== 'object') {
+    throw new Error('El catálogo publicado está incompleto.');
   }
+
+  const rules = Object.fromEntries(
+    Object.entries(rawRules as Record<string, unknown>)
+      .map(([key, value]) => [key, Number(value)] as const)
+      .filter((entry) => Number.isFinite(entry[1]) && entry[1] >= 0),
+  );
+
+  const requiredRuleKeys = getRequiredPricingRuleKeys();
+  const activeRuleKeys = new Set(getActivePricingRuleKeys());
+  const receivedRuleKeys = Object.keys(rules);
+  const hasRequiredRules = requiredRuleKeys.every((key) => receivedRuleKeys.includes(key));
+  const hasUnknownRules = receivedRuleKeys.some((key) => !activeRuleKeys.has(key));
+  if (!hasRequiredRules || hasUnknownRules) throw new Error('El catálogo publicado no coincide con las reglas activas del visualizador.');
+
+  return {
+    versionId: String(input.versionId),
+    version: Number(input.version),
+    publishedAt: String(input.publishedAt),
+    rules,
+  };
 }

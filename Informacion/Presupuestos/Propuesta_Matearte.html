@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="es-UY">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Propuesta Comercial — Matearte × Polarist</title>
+  <style>
+    /* ═══ TIPOGRAFÍAS LOCALES POLARIST ═══ */
+    /* Arno Pro (Serif) */
+    @font-face {
+      font-family: 'Arno Pro';
+      src: url('../../../skills/Brand_Kit/fonts/arno-pro/arno-pro.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Arno Pro';
+      src: url('../../../skills/Brand_Kit/fonts/arno-pro/arnopro-bold.woff2') format('woff2');
+      font-weight: 700;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Arno Pro';
+      src: url('../../../skills/Brand_Kit/fonts/arno-pro/ArnoPro-LightDisplay.woff2') format('woff2');
+      font-weight: 300;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Arno Pro';
+      src: url('../../../skills/Brand_Kit/fonts/arno-pro/ArnoPro-Smbd.woff2') format('woff2');
+      font-weight: 600;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Arno Pro';
+      src: url('../../../skills/Brand_Kit/fonts/arno-pro/ArnoPro-SmbdItalic.woff2') format('woff2');
+      font-weight: 600;
+      font-style: italic;
+    }
+
+    /* Sequel Sans (Sans-Serif) */
+    @font-face {
+      font-family: 'Sequel Sans';
+      src: url('../../../skills/Brand_Kit/fonts/sequel-sans/Sequel Sans Roman Body.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Sequel Sans';
+      src: url('../../../skills/Brand_Kit/fonts/sequel-sans/Sequel Sans Medium Body.woff2') format('woff2');
+      font-weight: 500;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Sequel Sans';
+      src: url('../../../skills/Brand_Kit/fonts/sequel-sans/Sequel Sans Semi Bold Body.woff2') format('woff2');
+      font-weight: 600;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Sequel Sans';
+      src: url('../../../skills/Brand_Kit/fonts/sequel-sans/Sequel Sans Bold Body.woff2') format('woff2');
+      font-weight: 700;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Sequel Sans';
+      src: url('../../../skills/Brand_Kit/fonts/sequel-sans/Sequel Sans Black Body.woff2') format('woff2');
+      font-weight: 900;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Sequel Sans';
+      src: url('../../../skills/Brand_Kit/fonts/sequel-sans/Sequel Sans Light Body.woff2') format('woff2');
+      font-weight: 300;
+      font-style: normal;
+    }
+
+    /* ═══════════════════════════════════════════
+       POLARIST BRAND KIT — PDF EXPORT VERSION
+        16:9 Landscape (1280px × 720px)
+       Fondo: #010101 | Acento: #CAFE5B | Violeta: #8B5BF5
+       Sin efectos interactivos. Sin emojis.
+       Minimalista. Más aire, menos cajas.
+    ═══════════════════════════════════════════ */
+
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --black: #010101;
+      --violet: #8B5BF5;
+      --volt: #CAFE5B;
+      --volt-dim: rgba(202, 254, 91, 0.12);
+      --white: #F6F6F6;
+      --gray: rgba(255, 255, 255, 0.75);
+      --gray-muted: rgba(255, 255, 255, 0.45);
+      --card-bg: hsl(0, 0%, 6.7%);
+      --card-border: hsl(0, 0%, 12%);
+      --radius: 24px;
+      --radius-pill: 999px;
+      --radius-sm: 14px;
+      --serif: 'Arno Pro', Georgia, serif;
+      --sans: 'Sequel Sans', -apple-system, sans-serif;
+    }
+
+    html {
+      background: #1a1a1a;
+    }
+
+    body {
+      background: #1a1a1a;
+      color: var(--white);
+      font-family: var(--sans);
+      font-weight: 400;
+      font-size: 13px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+      padding: 40px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+
+    /* ─── SEPARATOR BETWEEN SLIDES ─── */
+    .slide+.slide {
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .slide {
+      width: 1280px;
+      height: 720px;
+      padding: 70px 120px 110px;
+      position: relative;
+      z-index: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      background: var(--black);
+      flex-shrink: 0;
+    }
+
+    /* ─── SLIDE BACKGROUND GRADIENTS ─── */
+    .slide::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      opacity: 0.8;
+      background-size: cover;
+      background-position: center;
+    }
+
+    .slide:nth-of-type(1)::before {
+      background-image: url('../../.../../skills/Brand_Kit/assets/Bg_1.jpg') !important;
+    }
+
+    .slide:nth-of-type(2)::before {
+      background-image: url('../../.../../skills/Brand_Kit/assets/Bg_2.jpg');
+    }
+
+    .slide:nth-of-type(3)::before {
+      background-image: url('../../.../../skills/Brand_Kit/assets/Bg_3.jpg');
+    }
+
+    .slide:nth-of-type(4)::before {
+      background-image: url('../../.../../skills/Brand_Kit/assets/Bg_4.jpg');
+    }
+
+    .slide:nth-of-type(5)::before {
+      background-image: url('../../.../../skills/Brand_Kit/assets/Bg_2.jpg');
+    }
+
+    .slide:nth-of-type(6)::before {
+      background-image: url('../../.../../skills/Brand_Kit/assets/Bg_3.jpg');
+    }
+
+    .slide:nth-of-type(7)::before {
+      background-image: url('../../.../../skills/Brand_Kit/assets/Bg_4.jpg');
+    }
+
+    .slide:nth-of-type(8)::before {
+      background-image: url('../../.../../skills/Brand_Kit/assets/Bg_1.jpg');
+    }
+
+    /* ─── PERSISTENT CORNER LOGO ─── */
+    .slide::after {
+      content: '';
+      position: absolute;
+      top: 35px;
+      right: 40px;
+      height: 80px;
+      width: 80px;
+      background-image: url("../../.../../skills/Brand_Kit/assets/Polarist_logo_transparente.png");
+      background-size: contain;
+      background-position: right top;
+      background-repeat: no-repeat;
+      z-index: 10;
+    }
+
+    /* ─── PERSISTENT FOOTER ─── */
+    .slide-footer {
+      position: absolute;
+      bottom: 40px;
+      left: 120px;
+      right: 120px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .slide-footer span {
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--gray-muted);
+    }
+
+    .slide-footer a svg {
+      width: 16px !important;
+      height: 16px !important;
+      flex-shrink: 0;
+      /* Esto evita que el navegador encoja el icono */
+    }
+
+    .slide-footer a img {
+      height: 16px !important;
+    }
+
+    /* ─── TYPOGRAPHY ─── */
+    h1 {
+      font-family: var(--sans);
+      color: var(--white);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      font-size: 36px;
+      margin-bottom: 20px;
+    }
+
+    h2 {
+      font-family: var(--sans);
+      color: var(--white);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      font-size: 38px;
+      margin-bottom: 20px;
+      max-width: 1000px;
+    }
+
+    h3 {
+      font-family: var(--sans);
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--white);
+      margin-bottom: 6px;
+    }
+
+    p {
+      color: var(--gray);
+      max-width: 520px;
+      margin-bottom: 0;
+    }
+
+    strong {
+      color: var(--white);
+      font-weight: 600;
+    }
+
+    .accent {
+      color: var(--volt);
+    }
+
+    .muted {
+      color: var(--gray-muted);
+    }
+
+    .overline {
+      font-family: var(--serif);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--violet);
+      margin-bottom: 20px;
+    }
+
+    /* ─── LAYOUT HELPERS ─── */
+    .content-wrapper {
+      max-width: 1040px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      align-items: start;
+      margin: 32px auto 0;
+    }
+
+    .three-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 24px;
+      align-items: stretch;
+      margin: 32px auto 0;
+    }
+
+    /* ─── MINIMAL CARD (transparent + white border) ─── */
+    .card {
+      background: transparent;
+      border: 1px solid rgba(246, 246, 246, 0.15);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      text-align: left;
+    }
+
+    .card .number {
+      font-family: var(--sans);
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--violet);
+      opacity: 0.8;
+      line-height: 1;
+      margin-bottom: 12px;
+    }
+
+    .card p {
+      font-size: 11.5px;
+      line-height: 1.6;
+    }
+
+    /* ─── FEATURE ROW (bullets violetas) ─── */
+    .feature-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .feature-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .feature-row .marker {
+      flex-shrink: 0;
+      width: 6px;
+      height: 6px;
+      margin-top: 7px;
+      background: var(--violet);
+      border-radius: 50%;
+    }
+
+    .feature-row h3 {
+      margin-bottom: 3px;
+    }
+
+    .feature-row p {
+      font-size: 11.5px;
+      max-width: 400px;
+    }
+
+    /* ─── FLOW (Architecture) ─── */
+    .flow-row {
+      display: flex;
+      align-items: stretch;
+      /* Esto estira las tarjetas al mismo alto */
+      gap: 0;
+      margin-top: 32px;
+    }
+
+    .flow-step {
+      flex: 1;
+      text-align: center;
+      padding: 24px 16px;
+      background: transparent;
+      border: 1px solid rgba(246, 246, 246, 0.15);
+      border-radius: var(--radius);
+      min-height: 160px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .flow-step .step-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--violet);
+      margin-bottom: 8px;
+    }
+
+    .flow-step h3 {
+      margin-bottom: 4px;
+    }
+
+    .flow-step p {
+      font-size: 12px;
+      /* Cambiado de 10.5px */
+      margin: 0 auto;
+      max-width: 220px;
+      /* Aumentado para equilibrar el tamaño de la fuente */
+      line-height: 1.5;
+    }
+
+    .flow-arrow {
+      flex-shrink: 0;
+      width: 28px;
+      text-align: center;
+      color: var(--volt);
+      font-size: 16px;
+      font-weight: 700;
+      align-self: center;
+      /* Centra la flecha en el eje vertical */
+    }
+
+    /* ─── ROADMAP (timeline) ─── */
+    .roadmap {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-top: 24px;
+      position: relative;
+      padding-left: 40px;
+      margin-left: 102px;
+    }
+
+    .roadmap::before {
+      content: '';
+      position: absolute;
+      left: 11px;
+      top: 12px;
+      bottom: 12px;
+      width: 1.5px;
+      background: linear-gradient(to bottom, var(--violet), rgba(139, 91, 245, 0.08));
+    }
+
+    .roadmap-item {
+      padding: 10px 0;
+      position: relative;
+    }
+
+    .roadmap-item::before {
+      content: '';
+      position: absolute;
+      left: -33px;
+      top: 15px;
+      width: 8px;
+      height: 8px;
+      background: var(--violet);
+      border-radius: 50%;
+      border: 2px solid var(--black);
+    }
+
+    .roadmap-item .phase {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--violet);
+      margin-bottom: 6px;
+    }
+
+    .roadmap-item .duration {
+      position: absolute;
+      left: -180px;
+      top: 4px;
+      width: 130px;
+      text-align: right;
+      font-family: var(--sans);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--white);
+      font-style: normal;
+      text-transform: uppercase;
+      line-height: 1.1;
+      letter-spacing: 0.5px;
+    }
+
+    .roadmap-item h3 {
+      font-size: 16px;
+      margin-bottom: 6px;
+    }
+
+    .roadmap-item p {
+      font-size: 13px;
+      max-width: 520px;
+    }
+
+    /* ─── PRICING CARDS ─── */
+    .pricing-card {
+      background: transparent;
+      border: 1px solid rgba(246, 246, 246, 0.15);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      text-align: left;
+    }
+
+    .pricing-card.featured {
+      border: 2px solid var(--volt);
+      background: rgba(202, 254, 91, 0.03);
+    }
+
+    .pricing-card.featured .plan-name {
+      color: var(--volt);
+    }
+
+    .pricing-card .plan-name {
+      font-family: var(--sans);
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--white);
+      margin-bottom: 16px;
+    }
+
+    .pricing-card ul {
+      list-style: none;
+      margin-bottom: 24px;
+      flex-grow: 1;
+    }
+
+    .pricing-card ul li {
+      font-size: 13px;
+      color: var(--gray);
+      padding: 3px 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      line-height: 1.4;
+    }
+
+    .pricing-card ul li::before {
+      content: '';
+      width: 5px;
+      height: 5px;
+      background: var(--violet);
+      /* Cambiado a violeta para cumplir el formato */
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 6px;
+    }
+
+    .pricing-card .price {
+      font-family: var(--sans);
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--white);
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      margin-top: auto;
+    }
+
+    .pricing-card.featured .price {
+      color: var(--volt);
+      border-top-color: rgba(202, 254, 91, 0.2);
+    }
+
+    .pricing-card .price-note {
+      font-size: 9px;
+      color: var(--gray-muted);
+      margin-top: 4px;
+    }
+
+    /* ─── PRINT / PDF ─── */
+    @page {
+      size: 1280px 720px;
+      margin: 0;
+    }
+
+    @media print {
+
+      html,
+      body {
+        background: var(--black);
+        padding: 0;
+        gap: 0;
+      }
+
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .slide {
+        page-break-after: always;
+        page-break-inside: avoid;
+      }
+
+      .slide:last-child {
+        page-break-after: avoid;
+      }
+
+      .slide+.slide {
+        border-top: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ════════════════════════════════════════════
+       SLIDE 1 — PORTADA
+  ════════════════════════════════════════════ -->
+  <div class="slide" style="justify-content: center; align-items: center; text-align: center;">
+
+    <!-- Título Principal -->
+    <h1
+      style="font-size: 72px; max-width: 950px; margin-left: auto; margin-right: auto; margin-bottom: 16px; font-family: var(--sans); font-weight: 700; color: var(--white); letter-spacing: -0.02em; line-height: 1.1;">
+      Bienvenidos</h1>
+
+    <!-- Subtítulo -->
+    <h2
+      style="font-family: var(--serif); font-size: 32px; font-weight: 500; color: var(--white); margin-bottom: 40px; letter-spacing: 0; margin-left: auto; margin-right: auto; max-width: 800px;">
+      Propuesta de Digitalización y Desarrollo Web</h2>
+
+    <!-- Rectángulo blanco / pill con ciudad en negro -->
+    <div
+      style="background: var(--white); border-radius: var(--radius-pill); padding: 10px 32px; display: inline-flex; align-items: center;">
+      <span
+        style="font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--black); letter-spacing: 1.5px; text-transform: uppercase;">Matearte</span>
+    </div>
+
+    <!-- Persistent Footer -->
+    <div class="slide-footer" style="flex-direction: column; align-items: stretch; gap: 16px;">
+      <div style="border-top: 1px solid rgba(255, 255, 255, 0.15); width: 100%;"></div>
+      <div style="display: flex; justify-content: flex-end; align-items: center; width: 100%;">
+        <div style="display: flex; gap: 24px; align-items: center;">
+          <a href="mailto:contacto@polarist.app" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M0 3v18h24v-18h-24zm21.518 2l-9.518 7.713-9.518-7.713h19.036zm-19.518 14v-11.817l10 8.104 10-8.104v11.817h-20z" />
+            </svg>
+            <span
+              style="color: var(--white); text-transform: lowercase; letter-spacing: 1px;">contacto@polarist.app</span>
+          </a>
+          <a href="https://instagram.com/polarist.app/" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.07zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4s1.791-4 4-4 4 1.79 4 4-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+            </svg>
+            <span style="color: var(--white); text-transform: none; letter-spacing: 0;">@polarist.app</span>
+          </a>
+          <a href="https://www.linkedin.com/company/polarist/" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0;">
+              <path
+                d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+            </svg>
+            <span style="color: var(--white); text-transform: none; letter-spacing: 0;">/polarist</span>
+          </a>
+          <a href="https://polarist.app" target="_blank"
+            style="color: var(--volt); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <img src="../../.../../skills/Brand_Kit/assets/Polarist_logo_clasico.webp" alt="Polarist"
+              style="height: 14px; width: auto; margin-right: 2px;">
+            <span style="color: var(--volt); text-transform: none; letter-spacing: 0;">polarist.app</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       SLIDE 2 — DIAGNÓSTICO
+  ════════════════════════════════════════════ -->
+  <div class="slide">
+    <div class="content-wrapper">
+      <div class="overline">Diagnóstico</div>
+      <h2>Oportunidad <span class="accent">Operativa</span></h2>
+      <p style="margin-bottom: 28px; max-width: 700px;">
+        Identificamos los desafíos y oportunidades en el flujo actual de Matearte para potenciar la eficiencia.
+      </p>
+
+      <div class="three-col">
+        <div class="card">
+          <div class="number">01</div>
+          <h3>Volumen y Personalización</h3>
+          <p>El volumen de consultas y la personalización manual demandan dedicación constante, limitando el crecimiento
+            estratégico.</p>
+        </div>
+        <div class="card">
+          <div class="number">02</div>
+          <h3>Proceso de Diseño</h3>
+          <p>El diseño a mano alzada y el registro físico muestran una operación en crecimiento. Digitalizar permitirá
+            precisión y liberar horas.</p>
+        </div>
+        <div class="card">
+          <div class="number">03</div>
+          <h3>Conocimiento Técnico</h3>
+          <p>La centralización del conocimiento técnico en planta dificulta la delegación. Un soporte interactivo
+            facilitará la autonomía.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Persistent Footer -->
+    <div class="slide-footer" style="flex-direction: column; align-items: stretch; gap: 16px;">
+      <div style="border-top: 1px solid rgba(255, 255, 255, 0.15); width: 100%;"></div>
+      <div style="display: flex; justify-content: flex-end; align-items: center; width: 100%;">
+        <div style="display: flex; gap: 24px; align-items: center;">
+          <a href="mailto:contacto@polarist.app" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M0 3v18h24v-18h-24zm21.518 2l-9.518 7.713-9.518-7.713h19.036zm-19.518 14v-11.817l10 8.104 10-8.104v11.817h-20z" />
+            </svg>
+            <span
+              style="color: var(--white); text-transform: lowercase; letter-spacing: 1px;">contacto@polarist.app</span>
+          </a>
+          <a href="https://instagram.com/polarist.app/" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.07zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4s1.791-4 4-4 4 1.79 4 4-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+            </svg>
+            <span style="color: var(--white); text-transform: none; letter-spacing: 0;">@polarist.app</span>
+          </a>
+          <a href="https://www.linkedin.com/company/polarist/" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0;">
+              <path
+                d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+            </svg>
+            <span style="color: var(--white); text-transform: none; letter-spacing: 0;">/polarist</span>
+          </a>
+          <a href="https://polarist.app" target="_blank"
+            style="color: var(--volt); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <img src="../../.../../skills/Brand_Kit/assets/Polarist_logo_clasico.webp" alt="Polarist"
+              style="height: 14px; width: auto; margin-right: 2px;">
+            <span style="color: var(--volt); text-transform: none; letter-spacing: 0;">polarist.app</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       SLIDE 3 — LA SOLUCIÓN
+  ════════════════════════════════════════════ -->
+  <div class="slide">
+    <div class="content-wrapper">
+      <div class="overline">Evolución Digital</div>
+      <h2>Evolución <span class="accent">Digital</span></h2>
+      <p style="margin-bottom: 28px; max-width: 700px;">
+        Un ecosistema integrado diseñado para automatizar la personalización y dar soporte en el taller.
+      </p>
+
+      <div class="three-col">
+        <div class="card">
+          <div class="number">01</div>
+          <h3>Customizador Web Interactivo</h3>
+          <p>Los clientes configuran su mate (modelo, tipografía, iniciales) en la web. El primer mensaje en WhatsApp/IG
+            ofrece un 20% de descuento a quienes lo usen.</p>
+        </div>
+        <div class="card">
+          <div class="number">02</div>
+          <h3>Base de Datos Flexible</h3>
+          <p>Los pedidos se guardan de forma estructurada en Excel, Google Sheets o Airtable, según la herramienta más
+            familiar para el equipo.</p>
+        </div>
+        <div class="card">
+          <div class="number">03</div>
+          <h3>Mejora en el proceso de producción</h3>
+          <p>Un asistente interactivo en NotebookLM resolverá dudas del router CNC, garantizando la continuidad de
+            producción. Además de optimizar el paso a paso de este proceso.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Persistent Footer -->
+    <div class="slide-footer" style="flex-direction: column; align-items: stretch; gap: 16px;">
+      <div style="border-top: 1px solid rgba(255, 255, 255, 0.15); width: 100%;"></div>
+      <div style="display: flex; justify-content: flex-end; align-items: center; width: 100%;">
+        <div style="display: flex; gap: 24px; align-items: center;">
+          <a href="mailto:contacto@polarist.app" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M0 3v18h24v-18h-24zm21.518 2l-9.518 7.713-9.518-7.713h19.036zm-19.518 14v-11.817l10 8.104 10-8.104v11.817h-20z" />
+            </svg>
+            <span
+              style="color: var(--white); text-transform: lowercase; letter-spacing: 1px;">contacto@polarist.app</span>
+          </a>
+          <a href="https://instagram.com/polarist.app/" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.07zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4s1.791-4 4-4 4 1.79 4 4-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+            </svg>
+            <span style="color: var(--white); text-transform: none; letter-spacing: 0;">@polarist.app</span>
+          </a>
+          <a href="https://www.linkedin.com/company/polarist/" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0;">
+              <path
+                d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+            </svg>
+            <span style="color: var(--white); text-transform: none; letter-spacing: 0;">/polarist</span>
+          </a>
+          <a href="https://polarist.app" target="_blank"
+            style="color: var(--volt); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <img src="../../.../../skills/Brand_Kit/assets/Polarist_logo_clasico.webp" alt="Polarist"
+              style="height: 14px; width: auto; margin-right: 2px;">
+            <span style="color: var(--volt); text-transform: none; letter-spacing: 0;">polarist.app</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       SLIDE 4 — ARQUITECTURA / FLUJO
+  ════════════════════════════════════════════ -->
+  <div class="slide">
+    <div class="content-wrapper">
+      <div class="overline">Estructura Operativa</div>
+      <h2>Arquitectura del <span class="accent">Flujo</span></h2>
+      <p style="margin-bottom: 28px; max-width: 700px;">
+        Un camino automatizado y ágil desde el primer contacto hasta el grabado en el taller.
+      </p>
+
+      <div class="flow-row">
+        <div class="flow-step">
+          <div class="step-label">Entrada</div>
+          <h3>Invitación Web</h3>
+          <p>El cliente escribe a WhatsApp/IG y recibe la invitación automática con el 20% de descuento.</p>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="step-label">Diseño</div>
+          <h3>Configurador</h3>
+          <p>El cliente diseña su mate en la web, previsualizando el resultado final de forma interactiva.</p>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="step-label">Producción</div>
+          <h3>Registro y Taller</h3>
+          <p>El pedido ingresa a la planilla digital (Excel/Airtable) guardando los datos del cliente, y se procede al
+            grabado CNC.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Persistent Footer -->
+    <div class="slide-footer" style="flex-direction: column; align-items: stretch; gap: 16px;">
+      <div style="border-top: 1px solid rgba(255, 255, 255, 0.15); width: 100%;"></div>
+      <div style="display: flex; justify-content: flex-end; align-items: center; width: 100%;">
+        <div style="display: flex; gap: 24px; align-items: center;">
+          <a href="mailto:contacto@polarist.app" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M0 3v18h24v-18h-24zm21.518 2l-9.518 7.713-9.518-7.713h19.036zm-19.518 14v-11.817l10 8.104 10-8.104v11.817h-20z" />
+            </svg>
+            <span
+              style="color: var(--white); text-transform: lowercase; letter-spacing: 1px;">contacto@polarist.app</span>
+          </a>
+          <a href="https://instagram.com/polarist.app/" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.07zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4s1.791-4 4-4 4 1.79 4 4-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+            </svg>
+            <span style="color: var(--white); text-transform: none; letter-spacing: 0;">@polarist.app</span>
+          </a>
+          <a href="https://www.linkedin.com/company/polarist/" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0;">
+              <path
+                d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+            </svg>
+            <span style="color: var(--white); text-transform: none; letter-spacing: 0;">/polarist</span>
+          </a>
+          <a href="https://polarist.app" target="_blank"
+            style="color: var(--volt); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <img src="../../.../../skills/Brand_Kit/assets/Polarist_logo_clasico.webp" alt="Polarist"
+              style="height: 14px; width: auto; margin-right: 2px;">
+            <span style="color: var(--volt); text-transform: none; letter-spacing: 0;">polarist.app</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       SLIDE 5 — ROADMAP / FASES
+  ════════════════════════════════════════════ -->
+  <div class="slide">
+    <div class="content-wrapper">
+      <div class="overline">Plan de Trabajo</div>
+      <h2>Fases de <span class="accent">Implementación</span></h2>
+      <p style="margin-bottom: 28px; max-width: 700px;">
+        Estructura modular dividida en 4 semanas para asegurar el correcto despliegue y validación de cada herramienta.
+      </p>
+
+      <div class="roadmap" style="margin-top: 16px;">
+        <div class="roadmap-item">
+          <div class="duration">SEM<br>1</div>
+          <div class="phase">Fase 1</div>
+          <h3>Digitalización de Datos</h3>
+          <p>Estructuración de base de datos de clientes e historial en Excel o Airtable para futuras campañas.</p>
+        </div>
+        <div class="roadmap-item">
+          <div class="duration">SEM<br>2</div>
+          <div class="phase">Fase 2</div>
+          <h3>Autonomía de Taller</h3>
+          <p>Entrenamiento y carga del Asistente Técnico en NotebookLM para soporte del router CNC. Además del estudio
+            para la optimización de este proceso evitando cuellos de botella.</p>
+        </div>
+        <div class="roadmap-item">
+          <div class="duration">SEM<br>3 A 4</div>
+          <div class="phase">Fase 3</div>
+          <h3>Configurador Web</h3>
+          <p>Desarrollo e integración del customizador interactivo en la página web existente de Matearte y mejora de
+            procesos de producción.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Persistent Footer -->
+    <div class="slide-footer" style="flex-direction: column; align-items: stretch; gap: 16px;">
+      <div style="border-top: 1px solid rgba(255, 255, 255, 0.15); width: 100%;"></div>
+      <div style="display: flex; justify-content: flex-end; align-items: center; width: 100%;">
+        <div style="display: flex; gap: 24px; align-items: center;">
+          <a href="mailto:contacto@polarist.app" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M0 3v18h24v-18h-24zm21.518 2l-9.518 7.713-9.518-7.713h19.036zm-19.518 14v-11.817l10 8.104 10-8.104v11.817h-20z" />
+            </svg>
+            <span
+              style="color: var(--white); text-transform: lowercase; letter-spacing: 1px;">contacto@polarist.app</span>
+          </a>
+          <a href="https://instagram.com/polarist.app/" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.07zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4s1.791-4 4-4 4 1.79 4 4-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+            </svg>
+            <span style="color: var(--white); text-transform: none; letter-spacing: 0;">@polarist.app</span>
+          </a>
+          <a href="https://www.linkedin.com/company/polarist/" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0;">
+              <path
+                d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+            </svg>
+            <span style="color: var(--white); text-transform: none; letter-spacing: 0;">/polarist</span>
+          </a>
+          <a href="https://polarist.app" target="_blank"
+            style="color: var(--volt); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <img src="../../.../../skills/Brand_Kit/assets/Polarist_logo_clasico.webp" alt="Polarist"
+              style="height: 14px; width: auto; margin-right: 2px;">
+            <span style="color: var(--volt); text-transform: none; letter-spacing: 0;">polarist.app</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       SLIDE 6 — INVERSIÓN
+  ════════════════════════════════════════════ -->
+  <div class="slide" style="justify-content: flex-start; padding-top: 70px;">
+    <div class="content-wrapper">
+      <div class="overline" style="margin-bottom: 10px;">Inversión</div>
+      <h2 style="margin-bottom: 40px;">Propuesta <span class="accent">Comercial</span></h2>
+
+      <div class="three-col" style="margin-top: 20px; align-items: stretch;">
+        <!-- Opción 1: Canalizador de Diseño -->
+        <div class="pricing-card" style="padding: 20px 24px; border-radius: 20px; height: auto;">
+          <div class="plan-name" style="font-size: 19px; font-weight: 600; margin-bottom: 4px;">
+            Canalizador de Diseño
+          </div>
+          <div
+            style="font-size: 11.5px; color: var(--gray-muted); margin-bottom: 16px; font-style: italic; line-height: 1.3;">
+            Foco en liberar tiempo de preventa en redes.
+          </div>
+          <ul style="margin-bottom: 16px; padding-left: 0; font-size: 12.5px; flex-grow: 1;">
+            <li style="margin-bottom: 6px; line-height: 1.4;">Configurador interactivo para que el cliente diseñe su
+              mate online.</li>
+            <li style="margin-bottom: 6px; line-height: 1.4;">Descuento del 20% automático en WhatsApp e Instagram al
+              usar la web.</li>
+            <li style="margin-bottom: 0; line-height: 1.4;">Derivación del tráfico para automatizar la etapa de consulta
+              previa.</li>
+          </ul>
+          <div class="price" style="font-size: 26px; padding-top: 12px; margin-top: auto;">
+            USD $690
+            <div class="price-note"
+              style="font-size: 10px; color: var(--gray-muted); margin-top: 2px; font-weight: 400; text-transform: none; letter-spacing: 0;">
+              Pago único de setup.
+            </div>
+          </div>
+        </div>
+
+        <!-- Opción 2: Operación y Datos -->
+        <div class="pricing-card" style="padding: 20px 24px; border-radius: 20px; height: auto;">
+          <div class="plan-name" style="font-size: 19px; font-weight: 600; margin-bottom: 4px;">
+            Operación y Datos
+          </div>
+          <div
+            style="font-size: 11.5px; color: var(--gray-muted); margin-bottom: 16px; font-style: italic; line-height: 1.3;">
+            Foco en ordenar la administración y blindar la producción.
+          </div>
+          <ul style="margin-bottom: 16px; padding-left: 0; font-size: 12.5px; flex-grow: 1;">
+            <li style="margin-bottom: 6px; line-height: 1.4;">Registro automático en tu planilla de Excel o base de
+              Airtable.</li>
+            <li style="margin-bottom: 6px; line-height: 1.4;">Historial de clientes unificado para futuras campañas
+              comerciales.</li>
+            <li style="margin-bottom: 0; line-height: 1.4;">Asistente en taller para resolver dudas de la cortadora CNC
+              sin pausar.</li>
+          </ul>
+          <div class="price" style="font-size: 26px; padding-top: 12px; margin-top: auto;">
+            USD $590
+            <div class="price-note"
+              style="font-size: 10px; color: var(--gray-muted); margin-top: 2px; font-weight: 400; text-transform: none; letter-spacing: 0;">
+              Pago único de setup.
+            </div>
+          </div>
+        </div>
+
+        <!-- Opción 3: Ecosistema Matearte (Destacado) -->
+        <div class="pricing-card featured" style="padding: 20px 24px; border-radius: 20px; height: auto;">
+          <div class="plan-name" style="font-size: 19px; font-weight: 600; margin-bottom: 4px;">
+            Ecosistema Matearte
+          </div>
+          <div
+            style="font-size: 11.5px; color: var(--gray-muted); margin-bottom: 16px; font-style: italic; line-height: 1.3;">
+            La solución completa para escalar ventas y automatizar el taller.
+          </div>
+          <ul style="margin-bottom: 16px; padding-left: 0; font-size: 12.5px; flex-grow: 1;">
+            <li style="margin-bottom: 6px; line-height: 1.4;">Configurador de mates conectado directamente a tu base de
+              datos.</li>
+            <li style="margin-bottom: 6px; line-height: 1.4;">Registro automático del pedido y el diseño listo para
+              fabricar.</li>
+            <li style="margin-bottom: 6px; line-height: 1.4;">Asistente inteligente en taller para dar autonomía
+              operativa al equipo.</li>
+            <li style="margin-bottom: 0; line-height: 1.4;">Configuración de servidores, pruebas de flujo y soporte de
+              lanzamiento.</li>
+          </ul>
+          <div class="price" style="font-size: 28px; padding-top: 12px; margin-top: auto;">
+            USD $990
+            <div class="price-note"
+              style="font-size: 10px; color: var(--gray-muted); margin-top: 2px; font-weight: 400; text-transform: none; letter-spacing: 0;">
+              Inversión única. Sin costos de hosting.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Persistent Footer -->
+    <div class="slide-footer" style="flex-direction: column; align-items: stretch; gap: 16px;">
+      <div style="border-top: 1px solid rgba(255, 255, 255, 0.15); width: 100%;"></div>
+      <div style="display: flex; justify-content: flex-end; align-items: center; width: 100%;">
+        <div style="display: flex; gap: 24px; align-items: center;">
+          <a href="mailto:contacto@polarist.app" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M0 3v18h24v-18h-24zm21.518 2l-9.518 7.713-9.518-7.713h19.036zm-19.518 14v-11.817l10 8.104 10-8.104v11.817h-20z" />
+            </svg>
+            <span
+              style="color: var(--white); text-transform: lowercase; letter-spacing: 1px;">contacto@polarist.app</span>
+          </a>
+          <a href="https://instagram.com/polarist.app/" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.07zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4s1.791-4 4-4 4 1.79 4 4-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+            </svg>
+            <span style="color: var(--white); text-transform: none; letter-spacing: 0;">@polarist.app</span>
+          </a>
+          <a href="https://www.linkedin.com/company/polarist/" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0;">
+              <path
+                d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+            </svg>
+            <span style="color: var(--white); text-transform: none; letter-spacing: 0;">/polarist</span>
+          </a>
+          <a href="https://polarist.app" target="_blank"
+            style="color: var(--volt); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <img src="../../.../../skills/Brand_Kit/assets/Polarist_logo_clasico.webp" alt="Polarist"
+              style="height: 14px; width: auto; margin-right: 2px;">
+            <span style="color: var(--volt); text-transform: none; letter-spacing: 0;">polarist.app</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       SLIDE 7 — PRÓXIMOS PASOS
+  ════════════════════════════════════════════ -->
+  <div class="slide">
+    <div class="content-wrapper">
+      <div class="overline">Para comenzar</div>
+      <h2>¿Cómo <span class="accent">iniciamos</span>?</h2>
+      <p style="margin-bottom: 28px; max-width: 700px;">
+        Contamos con slots de desarrollo limitados para asegurar una atención personalizada en cada entrega.
+      </p>
+
+      <div class="three-col">
+        <div class="card">
+          <div class="number">01</div>
+          <h3>Aprobación y Seña</h3>
+          <p>Firma de la propuesta y pago del 50% para agendar el slot de desarrollo.</p>
+        </div>
+        <div class="card">
+          <div class="number">02</div>
+          <h3>Envío del Catálogo</h3>
+          <p>Definición de modelos de mates, tipografías y apliques para el configurador.</p>
+        </div>
+        <div class="card">
+          <div class="number">03</div>
+          <h3>Materiales CNC</h3>
+          <p>Envío de manuales y grabaciones del router CNC para el asistente de soporte técnico.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Persistent Footer -->
+    <div class="slide-footer" style="flex-direction: column; align-items: stretch; gap: 16px;">
+      <div style="border-top: 1px solid rgba(255, 255, 255, 0.15); width: 100%;"></div>
+      <div style="display: flex; justify-content: flex-end; align-items: center; width: 100%;">
+        <div style="display: flex; gap: 24px; align-items: center;">
+          <a href="mailto:contacto@polarist.app" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M0 3v18h24v-18h-24zm21.518 2l-9.518 7.713-9.518-7.713h19.036zm-19.518 14v-11.817l10 8.104 10-8.104v11.817h-20z" />
+            </svg>
+            <span
+              style="color: var(--white); text-transform: lowercase; letter-spacing: 1px;">contacto@polarist.app</span>
+          </a>
+          <a href="https://instagram.com/polarist.app/" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.07zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4s1.791-4 4-4 4 1.79 4 4-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+            </svg>
+            <span style="color: var(--white); text-transform: none; letter-spacing: 0;">@polarist.app</span>
+          </a>
+          <a href="https://www.linkedin.com/company/polarist/" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0;">
+              <path
+                d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+            </svg>
+            <span style="color: var(--white); text-transform: none; letter-spacing: 0;">/polarist</span>
+          </a>
+          <a href="https://polarist.app" target="_blank"
+            style="color: var(--volt); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <img src="../../.../../skills/Brand_Kit/assets/Polarist_logo_clasico.webp" alt="Polarist"
+              style="height: 14px; width: auto; margin-right: 2px;">
+            <span style="color: var(--volt); text-transform: none; letter-spacing: 0;">polarist.app</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       SLIDE 8 — GRACIAS
+  ════════════════════════════════════════════ -->
+  <div class="slide" style="justify-content: center; align-items: center; text-align: center;">
+
+    <h1
+      style="font-family: var(--sans); font-size: 64px; font-weight: 700; color: var(--volt); margin-bottom: 8px; text-align: center;">
+      <span class="accent">Gracias</span>
+    </h1>
+
+    <h2
+      style="font-family: var(--serif); font-size: 24px; font-weight: 500; color: var(--white); text-align: center; max-width: 800px; margin: 0 auto 40px; line-height: 1.4; letter-spacing: 0;">
+      Asesoramos e implementamos Agentes de IA<br>para transformar, acelerar y mejorar tu negocio.
+    </h2>
+
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+      <img src="../../.../../skills/Brand_Kit/assets/Polarist_logo_clasico.webp" alt="Polarist"
+        style="height: 28px; width: auto; margin-bottom: 8px;">
+      <span
+        style="font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--white); letter-spacing: 1px;">El
+        equipo de Polarist</span>
+      <span
+        style="font-family: var(--serif); font-size: 10px; font-weight: 500; color: var(--white); letter-spacing: 1.5px; text-transform: uppercase;">Tu
+        camino más fácil hacia la IA</span>
+    </div>
+
+    <!-- Persistent Footer -->
+    <div class="slide-footer" style="flex-direction: column; align-items: stretch; gap: 16px;">
+      <div style="border-top: 1px solid rgba(255, 255, 255, 0.15); width: 100%;"></div>
+      <div style="display: flex; justify-content: flex-end; align-items: center; width: 100%;">
+        <div style="display: flex; gap: 24px; align-items: center;">
+          <a href="mailto:contacto@polarist.app" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M0 3v18h24v-18h-24zm21.518 2l-9.518 7.713-9.518-7.713h19.036zm-19.518 14v-11.817l10 8.104 10-8.104v11.817h-20z" />
+            </svg>
+            <span
+              style="color: var(--white); text-transform: lowercase; letter-spacing: 1px;">contacto@polarist.app</span>
+          </a>
+          <a href="https://instagram.com/polarist.app/" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.07zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4s1.791-4 4-4 4 1.79 4 4-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+            </svg>
+            <span style="color: var(--white); text-transform: none; letter-spacing: 0;">@polarist.app</span>
+          </a>
+          <a href="https://www.linkedin.com/company/polarist/" target="_blank"
+            style="color: var(--white); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0;">
+              <path
+                d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+            </svg>
+            <span style="color: var(--white); text-transform: none; letter-spacing: 0;">/polarist</span>
+          </a>
+          <a href="https://polarist.app" target="_blank"
+            style="color: var(--volt); text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <img src="../../.../../skills/Brand_Kit/assets/Polarist_logo_clasico.webp" alt="Polarist"
+              style="height: 14px; width: auto; margin-right: 2px;">
+            <span style="color: var(--volt); text-transform: none; letter-spacing: 0;">polarist.app</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+
+</html>

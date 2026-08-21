@@ -1,8 +1,8 @@
-import { useCallback, useState, useEffect, useRef } from "react";
+import { lazy, Suspense, useCallback, useState, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { UserData, WizardStep, SavedDesignItem } from "./types/user";
-import { fetchProductPricesFromSupabase, isSupabaseConfigured, saveUserProfileToSupabase, supabase, saveDesignToSupabase } from "./lib/supabase";
+import { isSupabaseConfigured, saveUserProfileToSupabase, supabase, saveDesignToSupabase } from "./lib/supabase";
 import { WelcomeStep } from "./components/WelcomeStep";
 import { CustomizerIntroStep } from "./components/CustomizerIntroStep";
 import { MateSelectionStep } from "./components/MateSelectionStep";
@@ -21,11 +21,11 @@ import { RimTextEditor } from "./components/RimTextEditor";
 import { RimTextFields } from "./components/RimTextFields";
 import { RimTextModeSelector } from "./components/RimTextModeSelector";
 import { CustomImageUpload } from "./components/CustomImageUpload";
-import { PlacementControls } from "./components/PlacementControls";
-import { CheckoutStep } from "./components/CheckoutStep";
+import { CheckoutStep, type PaymentPricingSnapshot } from "./components/CheckoutStep";
 import { VirolaIconSelector } from "./components/VirolaIconSelector";
 import { BrandFooter } from "./components/BrandFooter";
 import { StyleTransitionStep } from "./components/StyleTransitionStep";
+import { usePricing } from "./context/PricingContext";
 import { getDefaultColor, getDefaultVariant, getModelDefinition, getVariantDefinition, mateVariants, type EngravingArea, type MateSize, type MateVariant } from "./catalog/mateCatalog";
 import {
   EMPTY_MATE_SELECTION,
@@ -43,12 +43,14 @@ import {
 import { createDefaultRimSelection, normalizeRimSelection } from "./catalog/rimCatalog";
 import { getRimFinish } from "./catalog/rimFinishCatalog";
 import { getFlejeFinish } from "./catalog/flejeFinishCatalog";
-import { calculateOrderPricing, getCustomizationPrice, mercadoPagoCommissionPercent } from "./catalog/pricingCatalog";
+import { calculateOrderPricing, formatUYU, getCustomizationPrice, getMercadoPagoCommissionPercent } from "./catalog/pricingCatalog";
 import { createDefaultFlejeCustomization, normalizeFlejeCustomization, type CustomImageAsset, type EditableElement, type FlejeCustomization, type FlejeSide, type MateConfiguration } from "./types/customizer";
 
 type CustomizationPhase = "mate" | "virola" | "fleje";
 type PreviewView = "mate" | "virola" | "fleje";
 type PendingAuthAction = "save-customizer" | "save-summary" | "checkout" | "profile" | "edit-contact";
+
+const PricingDashboard = lazy(() => import("./components/PricingDashboard").then((module) => ({ default: module.PricingDashboard })));
 
 interface BaseImageProps {
   src: string;
@@ -155,6 +157,7 @@ function selectionStageFromPath(path: string): MateSelectionStage {
   if (path.endsWith("/texture")) return "texture";
   if (path.endsWith("/metal")) return "metal";
   if (path.endsWith("/size")) return "size";
+  if (path.endsWith("/engraving")) return "engraving";
   return "model";
 }
 
@@ -171,6 +174,7 @@ function createConfigurationFromResolved(
     colorId: product.colorId,
     metalId: product.metalId,
     sizeId: product.sizeId,
+    engravingTypeId: product.engravingTypeId,
   };
 
   return {
@@ -179,6 +183,7 @@ function createConfigurationFromResolved(
     skuId: product.skuId,
     selection,
     selectionLabels: getSelectionLabels(selection),
+    engravingTypeId: product.engravingTypeId,
     capabilities: product.capabilities,
     isLegacy: false,
     modelId: product.shapeId,
@@ -205,7 +210,9 @@ function createMateConfiguration(variant: MateVariant): MateConfiguration {
       color: getDefaultColor(variant).name,
       metal: "Configuración anterior",
       size: variant.defaultSize,
+      engraving: "Sin definir",
     },
+    engravingTypeId: null,
     capabilities: { hasRim: true, hasFleje: model.hasFleje },
     isLegacy: true,
     modelId: variant.model,
@@ -240,7 +247,9 @@ function normalizeMateConfiguration(value: Partial<MateConfiguration> | null | u
       color: variant.colors.find((color) => color.id === colorId)?.name ?? colorId,
       metal: "Configuración anterior",
       size,
+      engraving: value?.selectionLabels?.engraving ?? "Sin definir",
     },
+    engravingTypeId: value?.engravingTypeId ?? storedSelection.engravingTypeId ?? null,
     capabilities: value?.capabilities ?? { hasRim: true, hasFleje: model.hasFleje },
     isLegacy: true,
     modelId: variant.model,
@@ -251,9 +260,16 @@ function normalizeMateConfiguration(value: Partial<MateConfiguration> | null | u
   };
 }
 
-export default function App() {
+function VisualizerApp() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { catalog: pricingCatalog, refresh: refreshPricing } = usePricing();
+  const customizationPriceLabel = (id: string) => {
+    const value = getCustomizationPrice(pricingCatalog, configuration.engravingTypeId, id);
+    if (value === null) return "Precio no disponible";
+    const unit = id.endsWith("_text") ? " por carácter" : id.endsWith("_image") ? " por imagen" : "";
+    return `${formatUYU(value)}${unit}`;
+  };
 
   // Load user data from localStorage if available
   const [userData, setUserData] = useState<UserData | null>(() => {
@@ -349,8 +365,6 @@ export default function App() {
   }, [navigate]);
 
   useEffect(() => {
-    fetchProductPricesFromSupabase();
-
     if (!isSupabaseConfigured) return;
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -382,6 +396,10 @@ export default function App() {
     };
   }, [changeStep]);
 
+  useEffect(() => {
+    if (wizardStep === "summary" || wizardStep === "checkout") void refreshPricing(true);
+  }, [refreshPricing, wizardStep]);
+
   const [activePhase, setActivePhase] = useState<CustomizationPhase | null>("virola");
   const [previewView, setPreviewView] = useState<PreviewView>("virola");
   const initialVariant = getDefaultVariant("imperial");
@@ -409,6 +427,7 @@ export default function App() {
   const [selectedFlejeElement, setSelectedFlejeElement] = useState<EditableElement | null>("text");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [showStyleIntro, setShowStyleIntro] = useState(false);
+  const [allowIncompletePhaseNavigation, setAllowIncompletePhaseNavigation] = useState(false);
   const [localDesigns] = useState<SavedDesignItem[]>([]);
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const uploadedRimIcon = configuration.rim.icons.find((icon) => icon.customImage) ?? null;
@@ -495,21 +514,21 @@ export default function App() {
 
   useEffect(() => {
     const incomplete = getFirstIncompleteStage(selection);
-    if ((wizardStep === "customizer" || wizardStep === "summary" || wizardStep === "checkout") && incomplete && !configuration.isLegacy) {
+    if ((wizardStep === "customizer" || wizardStep === "summary" || wizardStep === "checkout") && incomplete && !configuration.isLegacy && !allowIncompletePhaseNavigation) {
       navigate(`/selection/${incomplete}`, { replace: true });
       return;
     }
     if (wizardStep !== "product_selection") return;
-    if (selectionStage === "metal" && !shouldAskForMetal(selection) && (incomplete === "size" || incomplete === null)) {
+    if (selectionStage === "metal" && !shouldAskForMetal(selection) && (incomplete === "size" || incomplete === "engraving" || incomplete === null)) {
       navigate("/selection/size", { replace: true });
       return;
     }
     if (!incomplete) return;
-    const order: MateSelectionStage[] = ["model", "texture", "metal", "size"];
+    const order: MateSelectionStage[] = ["model", "texture", "metal", "size", "engraving"];
     if (order.indexOf(selectionStage) > order.indexOf(incomplete)) {
       navigate(`/selection/${incomplete}`, { replace: true });
     }
-  }, [configuration.isLegacy, navigate, selection, selectionStage, wizardStep]);
+  }, [allowIncompletePhaseNavigation, configuration.isLegacy, navigate, selection, selectionStage, wizardStep]);
 
   const handleWelcomeSubmit = async (data: UserData) => {
     const { profile } = data.isGuest
@@ -523,6 +542,27 @@ export default function App() {
 
   const [lastSavedDesignId, setLastSavedDesignId] = useState<string | null>(null);
 
+  const configurationWithPricingSnapshot = (payment?: PaymentPricingSnapshot) => {
+    const pricing = calculateOrderPricing(configuration, flejeConfig, pricingCatalog);
+    if (!pricing.isPriceReady || pricing.catalogVersion === null || !pricing.catalogVersionId) return configuration;
+    return {
+      ...configuration,
+      pricingSnapshot: {
+        catalogVersion: pricing.catalogVersion,
+        catalogVersionId: pricing.catalogVersionId,
+        basePriceUYU: pricing.basePriceUYU,
+        breakdown: pricing.breakdown!,
+        extrasUYU: pricing.extrasUYU,
+        totalUYU: payment?.totalUYU ?? pricing.totalUYU,
+        subtotalUYU: payment?.subtotalUYU ?? pricing.totalUYU,
+        paymentMethod: payment?.method ?? null,
+        mercadoPagoCommissionPercent: payment?.commissionPercent ?? getMercadoPagoCommissionPercent(pricingCatalog),
+        mercadoPagoCommissionUYU: payment?.commissionUYU ?? 0,
+        items: pricing.items.map(({ id, label, quantity, unitPriceUYU, totalUYU }) => ({ id, label, quantity, unitPriceUYU, totalUYU })),
+      },
+    };
+  };
+
   const handleSaveDesign = async () => {
     if (saveStatus !== "idle") return;
     setSaveStatus("saving");
@@ -530,7 +570,7 @@ export default function App() {
     const { data } = await saveDesignToSupabase({
       designId: lastSavedDesignId,
       userId: userData?.id,
-      configuration,
+      configuration: configurationWithPricingSnapshot(),
       flejeConfig,
       title: `Mate ${configuration.selectionLabels.texture}`,
       status: 'draft',
@@ -553,7 +593,7 @@ export default function App() {
     const { data } = await saveDesignToSupabase({
       designId: lastSavedDesignId,
       userId: userData?.id,
-      configuration,
+      configuration: configurationWithPricingSnapshot(),
       flejeConfig,
       title: `Mate ${configuration.selectionLabels.texture}`,
       status: 'draft',
@@ -563,6 +603,19 @@ export default function App() {
     }
 
     changeStep("profile");
+  };
+
+  const handleCheckoutComplete = async (payment: PaymentPricingSnapshot) => {
+    const { data } = await saveDesignToSupabase({
+      designId: lastSavedDesignId,
+      userId: userData?.id,
+      configuration: configurationWithPricingSnapshot(payment),
+      flejeConfig,
+      title: `Mate ${configuration.selectionLabels.texture}`,
+      status: "submitted",
+    });
+    if (data && data[0]?.id) setLastSavedDesignId(data[0].id);
+    changeStep("success");
   };
 
   const runAuthenticatedAction = (action: PendingAuthAction) => {
@@ -655,6 +708,7 @@ export default function App() {
       texture: "model",
       metal: "texture",
       size: shouldAskForMetal(selection) ? "metal" : "texture",
+      engraving: "size",
     };
     const target = previous[selectionStage];
     if (target) goToSelectionStage(target);
@@ -691,7 +745,8 @@ export default function App() {
       model: "texture",
       texture: shouldAskForMetal(selection) ? "metal" : "size",
       metal: "size",
-      size: null,
+      size: "engraving",
+      engraving: null,
     };
     const target = next[selectionStage];
     if (target) {
@@ -718,7 +773,7 @@ export default function App() {
       setPreviewView("virola");
       return;
     }
-    goToSelectionStage("size");
+    goToSelectionStage("engraving");
   };
 
   const handleCustomizerNext = () => {
@@ -781,6 +836,7 @@ export default function App() {
           hasFleje={indicatorHasFleje}
           customizationPhase={activePhase}
           onStepClick={(step, phase) => {
+            setAllowIncompletePhaseNavigation(step !== "product_selection");
             if (phase) {
               setActivePhase(phase);
               setPreviewView(phase);
@@ -834,6 +890,7 @@ export default function App() {
                       <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Color</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.color}</dd></div>
                       <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Metal</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.metal}</dd></div>
                       <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Tamaño</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.size}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Grabado</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.engraving}</dd></div>
                     </dl>
                     <button type="button" onClick={editMateSelection} className="min-h-11 w-full rounded-xl border border-[#7a4a31] bg-white px-3 font-bold text-[#7a4a31] transition-colors hover:bg-[#fbf3de] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7a4a31]">
                       Cambiar mate
@@ -865,7 +922,9 @@ export default function App() {
                           }))}
                         />
                       )}
-                      <span className="customizer-control-price">$ {getCustomizationPrice("rim_text").toLocaleString("es-UY")}</span>
+                      {configuration.rim.textMode === "text" && (
+                        <span className="customizer-control-price">{customizationPriceLabel("rim_text")}</span>
+                      )}
                     </section>
 
                     <section className="customizer-control-card">
@@ -890,7 +949,9 @@ export default function App() {
                           )}
                         </div>
                       )}
-                      <span className="customizer-control-price">$ {getCustomizationPrice("rim_image").toLocaleString("es-UY")}</span>
+                      {configuration.rim.imageMode === "image" && (
+                        <span className="customizer-control-price">{customizationPriceLabel("rim_image")}</span>
+                      )}
                     </section>
 
                     <section className="customizer-control-card">
@@ -904,7 +965,9 @@ export default function App() {
                           />
                         </div>
                       )}
-                      <span className="customizer-control-price">$ {getCustomizationPrice("rim_finish").toLocaleString("es-UY")}</span>
+                      {configuration.rim.finishMode === "finish" && (
+                        <span className="customizer-control-price">{customizationPriceLabel("rim_finish")}</span>
+                      )}
                     </section>
                   </div>
                 </PhaseAccordion>
@@ -915,51 +978,95 @@ export default function App() {
                     <div className="customizer-card-grid">
                       <section className="customizer-control-card">
                         <h3>Texto</h3>
-                        <span>Cara del fleje</span>
-                        <div className="grid grid-cols-2 gap-2">
-                          {(["front", "back"] as FlejeSide[]).map((side) => (
-                            <button
-                              key={side}
-                              type="button"
-                              onClick={() => setActiveFlejeSide(side)}
-                              aria-pressed={activeFlejeSide === side}
-                              className={`min-h-11 rounded-xl border text-xs font-bold ${activeFlejeSide === side ? "border-[#7a4a31] bg-[#7a4a31] text-white" : "border-[#e7d7c1] bg-white text-[#5f3826]"}`}
-                            >
-                              {side === "front" ? "Frente" : "Dorso"}
-                            </button>
-                          ))}
-                        </div>
-                        <RimTextModeSelector mode={flejeConfig.sides[activeFlejeSide].textMode} onSelect={(textMode) => updateFlejeSide(activeFlejeSide, { textMode })} />
-                        {flejeConfig.sides[activeFlejeSide].textMode === "text" && (
-                          <div className="space-y-3" onFocus={() => setSelectedFlejeElement("text")}>
-                            <RimTextEditor label="Texto del fleje (máx. 7 caracteres)" value={flejeConfig.sides[activeFlejeSide].text} disabled={false} maxLength={7} onChange={(text) => updateFlejeSide(activeFlejeSide, { text })} />
-                            <PlacementControls label="texto" value={flejeConfig.sides[activeFlejeSide].textTransform} onChange={(textTransform) => updateFlejeSide(activeFlejeSide, { textTransform })} />
+                        <RimTextModeSelector
+                          mode={flejeConfig.sides.front.textMode === "text" || flejeConfig.sides.back.textMode === "text" ? "text" : "none"}
+                          onSelect={(textMode) => setFlejeConfig((current) => ({
+                            ...current,
+                            sides: {
+                              front: { ...current.sides.front, textMode },
+                              back: { ...current.sides.back, textMode },
+                            },
+                          }))}
+                        />
+                        {(flejeConfig.sides.front.textMode === "text" || flejeConfig.sides.back.textMode === "text") && (
+                          <div className="fleje-side-stack">
+                            {(["front", "back"] as FlejeSide[]).map((side) => (
+                              <section
+                                className="fleje-side-panel fleje-text-side"
+                                key={side}
+                                onFocusCapture={() => {
+                                  setActiveFlejeSide(side);
+                                  setSelectedFlejeElement("text");
+                                }}
+                                onPointerDownCapture={() => setActiveFlejeSide(side)}
+                              >
+                                <h4>{side === "front" ? "Frente" : "Dorso"}</h4>
+                                <RimTextEditor
+                                  label={`Texto del ${side === "front" ? "frente" : "dorso"}`}
+                                  value={flejeConfig.sides[side].text}
+                                  disabled={false}
+                                  maxLength={7}
+                                  compact
+                                  onChange={(text) => updateFlejeSide(side, { text, textMode: "text" })}
+                                />
+                              </section>
+                            ))}
                           </div>
                         )}
-                        <span className="customizer-control-price">$ {getCustomizationPrice("fleje_text").toLocaleString("es-UY")}</span>
+                        {(flejeConfig.sides.front.textMode === "text" || flejeConfig.sides.back.textMode === "text") && (
+                          <span className="customizer-control-price">{customizationPriceLabel("fleje_text")}</span>
+                        )}
                       </section>
 
                       <section className="customizer-control-card">
                         <h3>Íconos</h3>
-                        <RimImageModeSelector mode={flejeConfig.sides[activeFlejeSide].imageMode} onSelect={(imageMode) => updateFlejeSide(activeFlejeSide, { imageMode })} />
-                        {flejeConfig.sides[activeFlejeSide].imageMode === "image" && (
-                          <div className="space-y-3" onFocus={() => setSelectedFlejeElement("image")}>
-                            <RimIconSelector selectedImageId={flejeConfig.sides[activeFlejeSide].selectedImageId} onSelect={(selectedImageId) => updateFlejeSide(activeFlejeSide, { selectedImageId })} />
-                            <CustomImageUpload value={flejeConfig.sides[activeFlejeSide].customImage} onChange={(asset) => {
-                              const sideConfig = flejeConfig.sides[activeFlejeSide];
-                              updateFlejeSide(activeFlejeSide, { customImage: asset, selectedImageId: asset?.id ?? (sideConfig.selectedImageId === sideConfig.customImage?.id ? null : sideConfig.selectedImageId) });
-                            }} />
-                            <PlacementControls label="imagen" value={flejeConfig.sides[activeFlejeSide].imageTransform} onChange={(imageTransform) => updateFlejeSide(activeFlejeSide, { imageTransform })} />
+                        <RimImageModeSelector
+                          mode={flejeConfig.sides.front.imageMode === "image" || flejeConfig.sides.back.imageMode === "image" ? "image" : "none"}
+                          onSelect={(imageMode) => setFlejeConfig((current) => ({
+                            ...current,
+                            sides: {
+                              front: { ...current.sides.front, imageMode },
+                              back: { ...current.sides.back, imageMode },
+                            },
+                          }))}
+                        />
+                        {(flejeConfig.sides.front.imageMode === "image" || flejeConfig.sides.back.imageMode === "image") && (
+                          <div className="fleje-side-stack">
+                            {(["front", "back"] as FlejeSide[]).map((side) => (
+                              <section
+                                className="fleje-side-panel"
+                                key={side}
+                                onFocusCapture={() => {
+                                  setActiveFlejeSide(side);
+                                  setSelectedFlejeElement("image");
+                                }}
+                                onPointerDownCapture={() => setActiveFlejeSide(side)}
+                              >
+                                <h4>{side === "front" ? "Frente" : "Dorso"}</h4>
+                                <RimIconSelector
+                                  selectedImageId={flejeConfig.sides[side].selectedImageId}
+                                  onSelect={(selectedImageId) => updateFlejeSide(side, { selectedImageId, imageMode: "image" })}
+                                />
+                                <CustomImageUpload value={flejeConfig.sides[side].customImage} onChange={(asset) => {
+                                  const sideConfig = flejeConfig.sides[side];
+                                  updateFlejeSide(side, { customImage: asset, selectedImageId: asset?.id ?? (sideConfig.selectedImageId === sideConfig.customImage?.id ? null : sideConfig.selectedImageId), imageMode: "image" });
+                                }} />
+                              </section>
+                            ))}
                           </div>
                         )}
-                        <span className="customizer-control-price">$ {getCustomizationPrice("fleje_image").toLocaleString("es-UY")}</span>
+                        {(flejeConfig.sides.front.imageMode === "image" || flejeConfig.sides.back.imageMode === "image") && (
+                          <span className="customizer-control-price">{customizationPriceLabel("fleje_image")}</span>
+                        )}
                       </section>
 
                       <section className="customizer-control-card">
                         <h3>Terminación</h3>
                         <RimFinishModeSelector mode={flejeConfig.finishMode || "none"} onSelect={(finishMode) => setFlejeConfig((current) => ({ ...current, finishMode }))} />
                         {flejeConfig.finishMode === "finish" && <FlejeFinishSelector selectedFinishId={flejeConfig.finishId} onSelect={(finishId) => setFlejeConfig((current) => ({ ...current, finishId }))} />}
-                        <span className="customizer-control-price">$ {getCustomizationPrice("fleje_finish").toLocaleString("es-UY")}</span>
+                        {flejeConfig.finishMode === "finish" && (
+                          <span className="customizer-control-price">{customizationPriceLabel("fleje_finish")}</span>
+                        )}
                       </section>
                     </div>
                   ) : (
@@ -1003,6 +1110,7 @@ export default function App() {
                     <ConfiguratorPreview
                       rim={configuration.rim}
                       model={configuration.modelId}
+                      engravingTypeId={configuration.engravingTypeId}
                       editable
                       selectedElement={selectedRimElement}
                       placingElementId={placingRimIconId}
@@ -1061,6 +1169,7 @@ export default function App() {
                   ) : selectedModelDefinition.hasFleje ? (
                     <FlatFlejePreview
                       flejeConfig={flejeConfig}
+                      engravingTypeId={configuration.engravingTypeId}
                       activeSide={activeFlejeSide}
                       editable
                       selectedElement={selectedFlejeElement}
@@ -1095,7 +1204,7 @@ export default function App() {
               {/* PANEL 3: DERECHA (Resumen del Pedido & Totales) */}
               <aside className="customizer-order-summary order-3 flex flex-col gap-4 lg:order-3 lg:col-span-3">
                 {(() => {
-                  const pricing = calculateOrderPricing(configuration, flejeConfig);
+                  const pricing = calculateOrderPricing(configuration, flejeConfig, pricingCatalog);
                   const rimFin = getRimFinish(configuration.rim.finishId);
                   const flejeFin = getFlejeFinish(flejeConfig.finishId);
 
@@ -1137,17 +1246,17 @@ export default function App() {
                           
                           <div className="space-y-0.5 text-[11px] text-zinc-600 font-medium">
                             <p>
-                              • Terminación: {configuration.rim.finishMode === "finish" ? `${rimFin?.name || 'Cincelado'} (+$${getCustomizationPrice("rim_finish")} UYU)` : "Sin terminación"}
+                              • Terminación: {configuration.rim.finishMode === "finish" ? `${rimFin?.name || 'Cincelado'} (+${customizationPriceLabel("rim_finish")})` : "Sin terminación"}
                             </p>
                             <p>
                               • Grabado de texto: {configuration.rim.textMode === "text" ? (() => {
                                 const activeTexts = configuration.rim.texts?.filter(t => t.text.trim()) ?? (configuration.rim.text ? [{ id: "text-1", text: configuration.rim.text }] : []);
                                 if (activeTexts.length === 0) return "Sin texto";
-                                return activeTexts.map((t, idx) => `T${idx + 1}: "${t.text}"`).join(" + ") + ` (+$${getCustomizationPrice("rim_text")} UYU)`;
+                                return activeTexts.map((t, idx) => `T${idx + 1}: "${t.text}"`).join(" + ") + ` (+${customizationPriceLabel("rim_text")})`;
                               })() : "Sin texto"}
                             </p>
                             <p>
-                              • Grabado de imagen: {configuration.rim.imageMode === "image" ? `Con imagen (+$${getCustomizationPrice("rim_image")} UYU)` : "Sin imagen"}
+                              • Grabado de imagen: {configuration.rim.imageMode === "image" ? `Con imagen (+${customizationPriceLabel("rim_image")})` : "Sin imagen"}
                             </p>
                           </div>
                         </div>
@@ -1163,7 +1272,7 @@ export default function App() {
                             </div>
                             <div className="space-y-0.5 text-[11px] text-zinc-600 font-medium">
                               <p>
-                                • Terminación: {flejeConfig.finishMode === "finish" ? `${flejeFin?.name || 'Cincelado'} (+$${getCustomizationPrice("fleje_finish")} UYU)` : "Sin terminación (Liso)"}
+                                • Terminación: {flejeConfig.finishMode === "finish" ? `${flejeFin?.name || 'Cincelado'} (+${customizationPriceLabel("fleje_finish")})` : "Sin terminación (Liso)"}
                               </p>
                               <p>
                                 • Textos configurados: {(["front", "back"] as FlejeSide[]).filter((side) => flejeConfig.sides[side].textMode === "text" && flejeConfig.sides[side].text.trim()).length}
@@ -1211,10 +1320,11 @@ export default function App() {
 
         {wizardStep === "checkout" && (
           <CheckoutStep
-            subtotalUYU={calculateOrderPricing(configuration, flejeConfig).totalUYU}
-            mercadoPagoCommissionPercent={mercadoPagoCommissionPercent}
+            subtotalUYU={calculateOrderPricing(configuration, flejeConfig, pricingCatalog).totalUYU}
+            pricingReady={calculateOrderPricing(configuration, flejeConfig, pricingCatalog).isCheckoutReady}
+            mercadoPagoCommissionPercent={getMercadoPagoCommissionPercent(pricingCatalog)}
             onBack={() => changeStep("summary")}
-            onContinue={() => changeStep("success")}
+            onContinue={(payment) => void handleCheckoutComplete(payment)}
           />
         )}
 
@@ -1255,4 +1365,13 @@ export default function App() {
       )}
     </div>
   );
+}
+
+export default function App() {
+  const location = useLocation();
+  return location.pathname.startsWith("/dashboard") ? (
+    <Suspense fallback={<main className="pricing-loading" id="main-content">Cargando administración…</main>}>
+      <PricingDashboard />
+    </Suspense>
+  ) : <VisualizerApp />;
 }

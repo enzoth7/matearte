@@ -3,6 +3,7 @@ import { getRimFinish } from "../catalog/rimFinishCatalog";
 import type { RimCustomization } from "../catalog/rimCatalog";
 import { getRimGeometryProfile, RIM_VIEWBOX_SIZE } from "../catalog/rimGeometry";
 import type { MateModel } from "../catalog/mateCatalog";
+import type { EngravingTypeId } from "../catalog/mateDecisionCatalog";
 import type { ElementTransform, RimTextElement } from "../types/customizer";
 import { CircularRimText } from "./CircularRimText";
 import { RimFinishLayer } from "./RimFinishLayer";
@@ -18,6 +19,7 @@ interface ConfiguratorPreviewProps {
   onToggleInvert?: (id: string) => void;
   placingElementId?: string | null;
   onPlacementComplete?: () => void;
+  engravingTypeId?: EngravingTypeId | null;
 }
 
 interface DragState {

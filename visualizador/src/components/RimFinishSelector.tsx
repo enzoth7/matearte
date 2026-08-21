@@ -11,7 +11,6 @@ export function RimFinishSelector({ selectedFinishId, onSelect }: RimFinishSelec
 
   return (
     <div>
-      <span className="mb-2 block text-[9px] font-bold uppercase tracking-widest text-zinc-400">Terminación</span>
       <div className="rim-finish-grid">
         {rimFinishCatalog.map((finish) => {
           const isSelected = finish.id === selectedFinishId;

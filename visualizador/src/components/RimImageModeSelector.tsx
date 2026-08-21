@@ -8,7 +8,7 @@ interface RimImageModeSelectorProps {
 export function RimImageModeSelector({ mode, onSelect }: RimImageModeSelectorProps) {
   const active = mode === "image";
   return (
-    <button type="button" className="brand-mode-toggle" aria-label={active ? "Desactivar íconos" : "Activar íconos"} aria-pressed={active} onClick={() => onSelect(active ? "none" : "image")}>
+    <button type="button" className="brand-mode-toggle" aria-label={active ? "Desactivar íconos" : "Activar íconos"} aria-pressed={active} aria-expanded={active} onClick={() => onSelect(active ? "none" : "image")}>
       <span className="brand-switch" aria-hidden="true"><span /></span>
     </button>
   );

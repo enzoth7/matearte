@@ -11,8 +11,7 @@ export function FlejeFinishSelector({ selectedFinishId, onSelect }: FlejeFinishS
 
   return (
     <div>
-      <span className="mb-2 block text-[9px] font-bold uppercase tracking-widest text-zinc-400">Terminación</span>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="fleje-finish-grid grid gap-2">
         {flejeFinishCatalog.map((finish) => {
           const isSelected = finish.id === selectedFinishId;
           return (

@@ -36,7 +36,7 @@ export function StepIndicator({ currentStep, hasFleje = false, customizationPhas
         {steps.map((step, index) => {
           const completed = index < currentIndex;
           const current = index === currentIndex;
-          const clickable = completed && Boolean(onStepClick);
+          const clickable = Boolean(onStepClick);
           return (
             <li key={step.key}>
               <button

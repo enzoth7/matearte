@@ -21,7 +21,16 @@ npm run build
 
 Copiá `.env.example` como `.env.local` si necesitás modificar opciones locales.
 
-- `VITE_MERCADO_PAGO_COMMISSION_PERCENT`: porcentaje usado únicamente para calcular la comisión visible en el mock de Mercado Pago. Su valor predeterminado es `0`.
+- `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY`: conexión pública de Supabase. Sin un catálogo publicado válido el visualizador muestra “Precio no disponible” y bloquea el checkout.
+- `VITE_PRICING_ADMIN_USERNAME` y `VITE_PRICING_ADMIN_EMAIL`: alias visible e identidad interna del administrador de `/dashboard`. La contraseña vive únicamente en Supabase Auth.
+
+Para provisionar o rotar la cuenta administrativa sin escribir la contraseña en el código:
+
+```bash
+SUPABASE_URL=... SUPABASE_SECRET_KEY=... MATEARTE_ADMIN_PASSWORD=... npm run pricing:provision-admin
+```
+
+`SUPABASE_SECRET_KEY` y `MATEARTE_ADMIN_PASSWORD` son variables exclusivas del entorno local/CI y nunca deben usar el prefijo `VITE_`.
 
 ## Alcance del checkout
 

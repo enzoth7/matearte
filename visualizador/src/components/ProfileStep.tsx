@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import type { UserData, SavedDesignItem } from "../types/user";
 import { deleteDesign, getUserDesigns } from "../lib/supabase";
 import { mateVariants } from "../catalog/mateCatalog";
-import { getVariantPrice } from "../catalog/pricingCatalog";
+import { formatUYU, getSelectionPricing } from "../catalog/pricingCatalog";
+import { getSelectionFromLegacyVariant, resolveMateSelection } from "../catalog/mateDecisionCatalog";
+import { usePricing } from "../context/PricingContext";
 
 interface ProfileStepProps {
   userData: UserData;
@@ -23,17 +25,24 @@ interface DesignTileProps {
 }
 
 function DesignTile({ design, draft = false, onLoad, onCheckout, onDelete }: DesignTileProps) {
+  const { catalog: pricingCatalog } = usePricing();
   const config = design.configuration || {};
   const variant = mateVariants.find((item) => item.id === config.variantId) || mateVariants[0];
-  const priceKey = config.skuId || config.variantId;
-  const price = priceKey ? getVariantPrice(priceKey, config.size) : null;
+  const selection = resolveMateSelection(config.selection)
+    ? config.selection
+    : getSelectionFromLegacyVariant(config.variantId, config.size);
+  const price = selection ? getSelectionPricing(pricingCatalog, selection) : null;
+  const historicalTotal = design.status === "submitted" && typeof config.pricingSnapshot?.totalUYU === "number"
+    ? config.pricingSnapshot.totalUYU
+    : null;
 
   return (
     <article className="profile-design-tile">
       <button type="button" onClick={onLoad} className="profile-design-tile__preview" aria-label={`Abrir ${design.title || "diseño"}`}>
         {config.skuId === null ? <span>Imagen pendiente</span> : <img src={variant.image} alt="" />}
       </button>
-      <strong>{price && price.priceUYU > 0 ? price.formattedUYU : "Precio pendiente"}</strong>
+      <strong>{historicalTotal !== null ? formatUYU(historicalTotal) : price && price.totalUYU > 0 ? formatUYU(price.totalUYU) : "Precio no disponible"}</strong>
+      <span>{config.selectionLabels?.engraving ?? "Tipo de grabado pendiente"}</span>
       <time dateTime={design.created_at}>{new Date(design.created_at).toLocaleDateString("es-UY")}</time>
       {draft && (
         <div className="profile-design-tile__actions">
