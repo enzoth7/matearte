@@ -23,7 +23,7 @@ export function RimIconLayer({
   onResizeDown,
 }: RimIconLayerProps) {
   const catalogIcon = rimIconCatalog.find((item) => item.id === selectedImageId);
-  const src = customImage?.id === selectedImageId ? customImage.previewUrl : catalogIcon?.src;
+  const src = customImage?.previewUrl || catalogIcon?.src;
   if (!src) return null;
 
   const x = (transform?.x ?? 0.5) * RIM_VIEWBOX_SIZE;

@@ -4,9 +4,12 @@ import type { IconElement } from "../types/customizer";
 interface VirolaIconSelectorProps {
   icons: IconElement[];
   onChange: (icons: IconElement[]) => void;
+  selectedElementId?: string | null;
+  onSelectElement?: (id: string | null) => void;
+  limit?: number;
 }
 
-export function VirolaIconSelector({ icons, onChange }: VirolaIconSelectorProps) {
+export function VirolaIconSelector({ icons, onChange, selectedElementId, onSelectElement, limit = 3 }: VirolaIconSelectorProps) {
   if (rimIconCatalog.length === 0) return <p className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-[10px] text-zinc-500">No hay imágenes disponibles en la biblioteca.</p>;
 
   const getInitialPosition = (count: number) => {
@@ -23,20 +26,23 @@ export function VirolaIconSelector({ icons, onChange }: VirolaIconSelectorProps)
     const selectedIcon = icons.find((icon) => !icon.customImage && icon.selectedImageId === imageId);
     if (selectedIcon) {
       onChange(icons.filter((icon) => icon.id !== selectedIcon.id));
+      if (selectedElementId === selectedIcon.id) onSelectElement?.(null);
       return;
     }
-    if (icons.length >= 3) return;
+    if (icons.length >= limit) return;
     const pos = getInitialPosition(icons.length);
+    const newId = crypto.randomUUID();
     onChange([...icons, {
-      id: crypto.randomUUID(),
+      id: newId,
       selectedImageId: imageId,
       customImage: null,
       transform: { x: pos.x, y: pos.y, scale: 1, rotation: 0, side: "rim" }
     }]);
+    onSelectElement?.(newId);
   };
 
   return (
-    <div>
+    <div className="space-y-3">
       <div className="virola-icon-grid">
         {rimIconCatalog.map((icon) => {
           const isSelected = icons.some((selected) => !selected.customImage && selected.selectedImageId === icon.id);
@@ -45,7 +51,7 @@ export function VirolaIconSelector({ icons, onChange }: VirolaIconSelectorProps)
               key={icon.id}
               type="button"
               onClick={() => handleToggle(icon.id)}
-              disabled={!isSelected && icons.length >= 3}
+              disabled={!isSelected && icons.length >= limit}
               title={isSelected ? `Quitar ${icon.name}` : icon.name}
               aria-label={isSelected ? `${icon.name}, seleccionado. Pulsá para quitarlo` : icon.name}
               aria-pressed={isSelected}

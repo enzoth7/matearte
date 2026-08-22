@@ -5,6 +5,7 @@ import {
   type EngravingTypeId,
   type MateFamilyId,
   type MateSelection,
+  getMateFamily,
 } from "./mateDecisionCatalog";
 import { normalizeProductName, type MateSize } from "./mateCatalog";
 import type { FlejeCustomization, MateConfiguration } from "../types/customizer";
@@ -73,6 +74,7 @@ export type EngravingCustomizationId = typeof ENGRAVING_CUSTOMIZATION_IDS[number
 export const LEATHER_STAMPED_RULE_KEY = "leather:stamped";
 export const LEATHER_RAW_RULE_KEY = "leather:raw";
 export const LEATHER_PRINT_RULE_KEY = "leather:print-pelos";
+export const LEATHER_VAQUETA_RULE_KEY = "leather:vaqueta";
 export const SILVER_900_RULE_KEY = "metal:plata-900";
 export const COMMISSION_RULE_KEY = "commission:mercado_pago";
 
@@ -110,13 +112,23 @@ export function customizationRuleKey(technique: EngravingTypeId, id: EngravingCu
 }
 
 export function getActivePricingRuleKeys() {
+  const keys = new Set<string>();
+  mateDecisionCatalog.forEach(family => {
+    keys.add(familyRuleKey(family.id));
+    family.textures.forEach(texture => {
+      if (texture.priceDeltaUYU) keys.add(`texture:${family.id}:${texture.id}`);
+      texture.colors.forEach(color => {
+        if (color.priceDeltaUYU) keys.add(`color:${color.id}`);
+      });
+      texture.metals.forEach(metal => {
+        if (metal.priceDeltaUYU) keys.add(`metal:${metal.id}`);
+      });
+    });
+  });
+  
   return [
-    ...mateDecisionCatalog.map((family) => familyRuleKey(family.id)),
-    LEATHER_STAMPED_RULE_KEY,
-    LEATHER_RAW_RULE_KEY,
-    LEATHER_PRINT_RULE_KEY,
-    SILVER_900_RULE_KEY,
-    ...(["laser", "bronze-applique"] as const).flatMap((technique) =>
+    ...Array.from(keys),
+    ...(["laser", "bronze-applique", "alpaca-applique"] as const).flatMap((technique) =>
       ENGRAVING_CUSTOMIZATION_IDS.map((id) => customizationRuleKey(technique, id)),
     ),
     COMMISSION_RULE_KEY,
@@ -124,7 +136,7 @@ export function getActivePricingRuleKeys() {
 }
 
 export function getRequiredPricingRuleKeys() {
-  return [LEATHER_STAMPED_RULE_KEY, LEATHER_RAW_RULE_KEY, COMMISSION_RULE_KEY];
+  return [COMMISSION_RULE_KEY];
 }
 
 function readRule(catalog: PublishedPricingCatalog | null, key: string) {
@@ -132,57 +144,35 @@ function readRule(catalog: PublishedPricingCatalog | null, key: string) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
-type LeatherCategory = "standard" | "stamped" | "raw" | "print-pelos";
-
-export function classifyLeather(selection: Partial<MateSelection>): LeatherCategory {
-  const textureId = selection.textureId ?? "";
-  const colorId = selection.colorId ?? "";
-  if (textureId === "cuero-crudo" || textureId === "imperial-cuero-crudo" || colorId === "cuero-crudo") return "raw";
-  if (textureId === "cuero-estampado") return "stamped";
-  if (
-    textureId.includes("print")
-    || textureId.includes("pelo")
-    || colorId.includes("print")
-    || colorId.includes("pelo")
-    || colorId === "animal-print"
-    || colorId === "marron-blanco"
-    || colorId === "negro-blanco"
-  ) return "print-pelos";
-  return "standard";
-}
-
-function leatherRuleKey(category: LeatherCategory) {
-  if (category === "stamped") return LEATHER_STAMPED_RULE_KEY;
-  if (category === "raw") return LEATHER_RAW_RULE_KEY;
-  if (category === "print-pelos") return LEATHER_PRINT_RULE_KEY;
-  return null;
-}
-
 export function getSelectionPricing(catalog: PublishedPricingCatalog | null, selection: MateSelection): SelectionPricing | null {
-  if (!catalog || !resolveMateSelection(selection) || !selection.familyId) return null;
+  const resolved = resolveMateSelection(selection);
+  if (!resolved || !selection.familyId) return null;
   const familyKey = familyRuleKey(selection.familyId);
-  const familyBaseUYU = readRule(catalog, familyKey);
-  if (familyBaseUYU === null) return null;
+  
+  // Use DB rule or fallback to catalog defined delta
+  const familyBaseUYU = readRule(catalog, familyKey) ?? resolved.price.baseUYU ?? 0;
 
-  const category = classifyLeather(selection);
-  const leatherKey = leatherRuleKey(category);
-  const leatherDeltaUYU = leatherKey ? readRule(catalog, leatherKey) : 0;
-  const usesSilver = selection.metalId === "plata-900";
-  const silverDeltaUYU = usesSilver ? readRule(catalog, SILVER_900_RULE_KEY) : 0;
-  if (leatherDeltaUYU === null || silverDeltaUYU === null) return null;
+  const textureKey = `texture:${selection.familyId}:${selection.textureId}`;
+  const textureDeltaUYU = readRule(catalog, textureKey) ?? resolved.price.textureDeltaUYU ?? 0;
+
+  const colorKey = `color:${selection.colorId}`;
+  const colorDeltaUYU = readRule(catalog, colorKey) ?? resolved.price.colorDeltaUYU ?? 0;
+
+  const metalKey = `metal:${selection.metalId}`;
+  const metalDeltaUYU = readRule(catalog, metalKey) ?? resolved.price.metalDeltaUYU ?? 0;
 
   const breakdown: PricingBreakdown = {
     familyBaseUYU,
-    leatherDeltaUYU,
-    silverDeltaUYU,
-    textureDeltaUYU: leatherDeltaUYU,
-    metalDeltaUYU: silverDeltaUYU,
+    leatherDeltaUYU: colorDeltaUYU,
+    silverDeltaUYU: metalDeltaUYU,
+    textureDeltaUYU,
+    metalDeltaUYU,
     sizeDeltaUYU: 0,
   };
   return {
-    totalUYU: familyBaseUYU + leatherDeltaUYU + silverDeltaUYU,
+    totalUYU: familyBaseUYU + textureDeltaUYU + colorDeltaUYU + metalDeltaUYU,
     breakdown,
-    ruleKeys: [familyKey, ...(leatherKey ? [leatherKey] : []), ...(usesSilver ? [SILVER_900_RULE_KEY] : [])],
+    ruleKeys: [familyKey, textureKey, colorKey, metalKey],
   };
 }
 
@@ -199,6 +189,7 @@ export function listCatalogSelections(filters?: { familyId?: MateFamilyId; textu
           metalId: metal.id,
           sizeId,
           engravingTypeId: null,
+          flejeEngravingTypeId: null,
         })),
       ));
     });
@@ -217,8 +208,18 @@ function getStartingPrice(catalog: PublishedPricingCatalog | null, filters?: { f
 export function getFamilyStartingPrice(catalog: PublishedPricingCatalog | null, familyId: MateFamilyId) {
   return getStartingPrice(catalog, { familyId });
 }
+
+export function getFamilyBasePrice(catalog: PublishedPricingCatalog | null, familyId: MateFamilyId) {
+  const family = getMateFamily(familyId);
+  if (!family) return null;
+  return readRule(catalog, familyRuleKey(familyId)) ?? family.basePriceUYU;
+}
 export function getTextureStartingPrice(catalog: PublishedPricingCatalog | null, familyId: MateFamilyId, textureId: string) {
   return getStartingPrice(catalog, { familyId, textureId });
+}
+export function getColorStartingPrice(catalog: PublishedPricingCatalog | null, selection: Partial<MateSelection> & { colorId: string }) {
+  if (!selection.familyId || !selection.textureId) return null;
+  return getStartingPrice(catalog, { familyId: selection.familyId, textureId: selection.textureId, colorId: selection.colorId });
 }
 export function getMetalStartingPrice(catalog: PublishedPricingCatalog | null, selection: MateSelection) {
   if (!selection.familyId || !selection.textureId || !selection.colorId || !selection.metalId) return null;
@@ -251,23 +252,20 @@ export function calculateOrderPricing(configuration: MateConfiguration, flejeCon
   const missingRuleKeys: string[] = [];
 
   if (selection && catalog) {
-    const selectionRuleKeys = [
-      ...(selection.familyId ? [familyRuleKey(selection.familyId)] : []),
-      ...(leatherRuleKey(classifyLeather(selection)) ? [leatherRuleKey(classifyLeather(selection))!] : []),
-      ...(selection.metalId === "plata-900" ? [SILVER_900_RULE_KEY] : []),
-    ];
+    const selectionRuleKeys = selectionPricing?.ruleKeys ?? [];
     selectionRuleKeys.forEach((key) => {
       if (readRule(catalog, key) === null) missingRuleKeys.push(key);
     });
   }
 
-  const addItem = (id: EngravingCustomizationId, label: string, quantity = 1) => {
+  const addItem = (id: EngravingCustomizationId, label: string, quantity = 1, overrideTechnique?: EngravingTypeId | null) => {
     if (quantity <= 0) return;
-    if (!technique) {
+    const activeTechnique = overrideTechnique ?? technique;
+    if (!activeTechnique) {
       missingRuleKeys.push("selection:engraving");
       return;
     }
-    const key = customizationRuleKey(technique, id);
+    const key = customizationRuleKey(activeTechnique, id);
     const unitPriceUYU = readRule(catalog, key);
     if (unitPriceUYU === null) {
       missingRuleKeys.push(key);
@@ -276,7 +274,6 @@ export function calculateOrderPricing(configuration: MateConfiguration, flejeCon
     items.push({ id: key, label, quantity, unitPriceUYU, totalUYU: unitPriceUYU * quantity });
   };
 
-  if (configuration.rim.finishMode === "finish") addItem("rim_finish", "Terminación de virola");
   const structuredRimText = configuration.rim.texts?.map((item) => item.text).join("") ?? "";
   const rimText = configuration.rim.textMode === "text"
     ? (structuredRimText || configuration.rim.text)
@@ -287,10 +284,10 @@ export function calculateOrderPricing(configuration: MateConfiguration, flejeCon
   }
 
   if (configuration.capabilities.hasFleje) {
-    if (flejeConfig.finishMode === "finish") addItem("fleje_finish", "Terminación de fleje");
+    const flejeTechnique = configuration.flejeEngravingTypeId ?? technique;
     const sides = Object.values(flejeConfig.sides);
-    addItem("fleje_text", "Caracteres de texto en fleje", sides.reduce((total, side) => total + (side.textMode === "text" ? countChargeableCharacters(side.text) : 0), 0));
-    addItem("fleje_image", "Imágenes o escudos en fleje", sides.filter((side) => side.imageMode === "image" && (side.selectedImageId || side.customImage)).length);
+    addItem("fleje_text", "Caracteres de texto en fleje", sides.reduce((total, side) => total + (side.textMode === "text" ? countChargeableCharacters(side.text) : 0), 0), flejeTechnique);
+    addItem("fleje_image", "Imágenes o escudos en fleje", sides.reduce((total, side) => total + (side.imageMode === "image" ? side.icons.filter((icon) => icon.selectedImageId || icon.customImage).length : 0), 0), flejeTechnique);
   }
 
   const extrasUYU = items.reduce((total, item) => total + item.totalUYU, 0);

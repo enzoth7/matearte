@@ -15,7 +15,6 @@ import { FlatFlejePreview } from "./components/FlatFlejePreview";
 import { FlejeFinishSelector } from "./components/FlejeFinishSelector";
 import { RimFinishSelector } from "./components/RimFinishSelector";
 import { RimFinishModeSelector } from "./components/RimFinishModeSelector";
-import { RimIconSelector } from "./components/RimIconSelector";
 import { RimImageModeSelector } from "./components/RimImageModeSelector";
 import { RimTextEditor } from "./components/RimTextEditor";
 import { RimTextFields } from "./components/RimTextFields";
@@ -36,6 +35,8 @@ import {
   resolveMateSelection,
   sanitizeMateSelection,
   shouldAskForMetal,
+  engravingTypeOptions,
+  getEngravingCapabilities,
   type MateSelection,
   type MateSelectionStage,
   type ResolvedMateProduct,
@@ -43,7 +44,7 @@ import {
 import { createDefaultRimSelection, normalizeRimSelection } from "./catalog/rimCatalog";
 import { getRimFinish } from "./catalog/rimFinishCatalog";
 import { getFlejeFinish } from "./catalog/flejeFinishCatalog";
-import { calculateOrderPricing, formatUYU, getCustomizationPrice, getMercadoPagoCommissionPercent } from "./catalog/pricingCatalog";
+import { calculateOrderPricing, countChargeableCharacters, formatUYU, getCustomizationPrice, getMercadoPagoCommissionPercent } from "./catalog/pricingCatalog";
 import { createDefaultFlejeCustomization, normalizeFlejeCustomization, type CustomImageAsset, type EditableElement, type FlejeCustomization, type FlejeSide, type MateConfiguration } from "./types/customizer";
 
 type CustomizationPhase = "mate" | "virola" | "fleje";
@@ -157,6 +158,7 @@ function selectionStageFromPath(path: string): MateSelectionStage {
   if (path.endsWith("/texture")) return "texture";
   if (path.endsWith("/metal")) return "metal";
   if (path.endsWith("/size")) return "size";
+  if (path.endsWith("/fleje-engraving")) return "fleje-engraving";
   if (path.endsWith("/engraving")) return "engraving";
   return "model";
 }
@@ -175,6 +177,7 @@ function createConfigurationFromResolved(
     metalId: product.metalId,
     sizeId: product.sizeId,
     engravingTypeId: product.engravingTypeId,
+    flejeEngravingTypeId: product.flejeEngravingTypeId,
   };
 
   return {
@@ -184,6 +187,7 @@ function createConfigurationFromResolved(
     selection,
     selectionLabels: getSelectionLabels(selection),
     engravingTypeId: product.engravingTypeId,
+    flejeEngravingTypeId: product.flejeEngravingTypeId,
     capabilities: product.capabilities,
     isLegacy: false,
     modelId: product.shapeId,
@@ -213,6 +217,7 @@ function createMateConfiguration(variant: MateVariant): MateConfiguration {
       engraving: "Sin definir",
     },
     engravingTypeId: null,
+    flejeEngravingTypeId: null,
     capabilities: { hasRim: true, hasFleje: model.hasFleje },
     isLegacy: true,
     modelId: variant.model,
@@ -250,6 +255,7 @@ function normalizeMateConfiguration(value: Partial<MateConfiguration> | null | u
       engraving: value?.selectionLabels?.engraving ?? "Sin definir",
     },
     engravingTypeId: value?.engravingTypeId ?? storedSelection.engravingTypeId ?? null,
+    flejeEngravingTypeId: value?.flejeEngravingTypeId ?? storedSelection.flejeEngravingTypeId ?? null,
     capabilities: value?.capabilities ?? { hasRim: true, hasFleje: model.hasFleje },
     isLegacy: true,
     modelId: variant.model,
@@ -449,13 +455,22 @@ function VisualizerApp() {
     }
 
     const iconId = existingId ?? crypto.randomUUID();
+    const count = configuration.rim.icons.length;
+    const angles = [90, 45, 135];
+    const angle = angles[count] ?? 90;
+    const rad = angle * (Math.PI / 180);
+    const initialPos = {
+      x: Math.round((0.5 + Math.cos(rad) * 0.378) * 1000) / 1000,
+      y: Math.round((0.5 + Math.sin(rad) * 0.378) * 1000) / 1000,
+    };
+
     setConfiguration((current) => {
       const existing = current.rim.icons.find((icon) => icon.id === existingId);
       const uploadedIcon = {
         id: iconId,
         selectedImageId: asset.id,
         customImage: asset,
-        transform: existing?.transform ?? { x: 0.5, y: 0.5, scale: 1, rotation: 0, side: "rim" as const },
+        transform: existing?.transform ?? { x: initialPos.x, y: initialPos.y, scale: 1, rotation: 0, side: "rim" as const },
       };
 
       return {
@@ -709,6 +724,7 @@ function VisualizerApp() {
       metal: "texture",
       size: shouldAskForMetal(selection) ? "metal" : "texture",
       engraving: "size",
+      "fleje-engraving": "engraving",
     };
     const target = previous[selectionStage];
     if (target) goToSelectionStage(target);
@@ -746,7 +762,8 @@ function VisualizerApp() {
       texture: shouldAskForMetal(selection) ? "metal" : "size",
       metal: "size",
       size: "engraving",
-      engraving: null,
+      engraving: getSelectedTexture(selection)?.capabilities.hasFleje ? "fleje-engraving" : null,
+      "fleje-engraving": null,
     };
     const target = next[selectionStage];
     if (target) {
@@ -782,7 +799,7 @@ function VisualizerApp() {
       setPreviewView("fleje");
       return;
     }
-    requireAuthentication("save-customizer");
+    changeStep("summary");
   };
 
   const updateFlejeSide = (
@@ -922,9 +939,27 @@ function VisualizerApp() {
                           }))}
                         />
                       )}
-                      {configuration.rim.textMode === "text" && (
-                        <span className="customizer-control-price">{customizationPriceLabel("rim_text")}</span>
-                      )}
+                      {configuration.rim.textMode === "text" && (() => {
+                        const engravingType = configuration.engravingTypeId;
+                        if (!engravingType) return null;
+                        if (engravingType === "laser") {
+                          return <p className="customizer-inline-price">Letras incluidas en el precio fijo del Láser</p>;
+                        }
+                        const allText = (configuration.rim.texts ?? []).map((t) => t.text).join("");
+                        const charCount = countChargeableCharacters(allText);
+                        const pricePerChar = getCustomizationPrice(pricingCatalog, engravingType, "rim_text") ?? 150;
+                        const total = charCount * pricePerChar;
+                        return (
+                          <div className="customizer-price-bar">
+                            <p className="customizer-price-bar__label">
+                              El precio por cada letra en apliques es de <strong>$ {pricePerChar.toLocaleString("es-UY")}</strong>
+                            </p>
+                            {charCount > 0 && (
+                              <span className="customizer-price-bar__total">$ {total.toLocaleString("es-UY")}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </section>
 
                     <section className="customizer-control-card">
@@ -935,8 +970,15 @@ function VisualizerApp() {
                       />
                       {configuration.rim.imageMode === "image" && (
                         <div className="customizer-card-body customizer-card-body--icons">
-                          <p>Íconos ({configuration.rim.icons.length}/3)</p>
-                          <VirolaIconSelector icons={configuration.rim.icons} onChange={(icons) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, icons } }))} />
+                          <VirolaIconSelector
+                            icons={configuration.rim.icons}
+                            onChange={(icons) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, icons } }))}
+                            selectedElementId={selectedRimElement}
+                            onSelectElement={(id) => {
+                              setSelectedRimElement(id);
+                              setPreviewView("virola");
+                            }}
+                          />
                           {(configuration.rim.icons.length < 3 || uploadedRimIcon) && (
                             <div className="customizer-upload">
                               <CustomImageUpload
@@ -949,9 +991,23 @@ function VisualizerApp() {
                           )}
                         </div>
                       )}
-                      {configuration.rim.imageMode === "image" && (
-                        <span className="customizer-control-price">{customizationPriceLabel("rim_image")}</span>
-                      )}
+                      {configuration.rim.imageMode === "image" && (() => {
+                        const engravingType = configuration.engravingTypeId;
+                        if (!engravingType) return null;
+                        const iconCount = configuration.rim.icons.filter((icon) => icon.selectedImageId || icon.customImage).length;
+                        const pricePerIcon = getCustomizationPrice(pricingCatalog, engravingType, "rim_image") ?? 400;
+                        const total = iconCount * pricePerIcon;
+                        return (
+                          <div className="customizer-price-bar">
+                            <p className="customizer-price-bar__label">
+                              El precio por cada ícono o escudo en apliques es de <strong>$ {pricePerIcon.toLocaleString("es-UY")}</strong>
+                            </p>
+                            {iconCount > 0 && (
+                              <span className="customizer-price-bar__total">$ {total.toLocaleString("es-UY")}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </section>
 
                     <section className="customizer-control-card">
@@ -965,9 +1021,6 @@ function VisualizerApp() {
                           />
                         </div>
                       )}
-                      {configuration.rim.finishMode === "finish" && (
-                        <span className="customizer-control-price">{customizationPriceLabel("rim_finish")}</span>
-                      )}
                     </section>
                   </div>
                 </PhaseAccordion>
@@ -976,6 +1029,25 @@ function VisualizerApp() {
                 <PhaseAccordion number={3} title="Fleje" isOpen={activePhase === "fleje"} onToggle={() => activatePhase("fleje")}>
                   {selectedModelDefinition.hasFleje ? (
                     <div className="customizer-card-grid">
+                      <section className="customizer-control-card">
+                        <h3>Tipo de aplique</h3>
+                        <div className="flex flex-col gap-2">
+                          {engravingTypeOptions
+                            .filter((option) => getEngravingCapabilities(configuration.selection.familyId, configuration.selection.textureId).flejeEngravingTypes.includes(option.id))
+                            .map((option) => (
+                              <button
+                                key={option.id}
+                                type="button"
+                                onClick={() => setConfiguration((current) => ({ ...current, flejeEngravingTypeId: option.id }))}
+                                aria-pressed={configuration.flejeEngravingTypeId === option.id}
+                                className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${configuration.flejeEngravingTypeId === option.id ? "border-[#5f3826] bg-[#5f3826] text-white" : "border-zinc-200 bg-white hover:border-zinc-300"}`}
+                              >
+                                <span className="font-medium">{option.label}</span>
+                              </button>
+                            ))}
+                        </div>
+                      </section>
+
                       <section className="customizer-control-card">
                         <h3>Texto</h3>
                         <RimTextModeSelector
@@ -1043,14 +1115,31 @@ function VisualizerApp() {
                                 onPointerDownCapture={() => setActiveFlejeSide(side)}
                               >
                                 <h4>{side === "front" ? "Frente" : "Dorso"}</h4>
-                                <RimIconSelector
-                                  selectedImageId={flejeConfig.sides[side].selectedImageId}
-                                  onSelect={(selectedImageId) => updateFlejeSide(side, { selectedImageId, imageMode: "image" })}
+                                <VirolaIconSelector
+                                  limit={14}
+                                  icons={flejeConfig.sides[side].icons || []}
+                                  onChange={(icons) => updateFlejeSide(side, { icons, imageMode: "image" })}
+                                  selectedElementId={selectedFlejeElement === "image" ? flejeConfig.sides[side].icons[0]?.id : null}
+                                  onSelectElement={() => {
+                                    setActiveFlejeSide(side);
+                                    setSelectedFlejeElement("image");
+                                  }}
                                 />
-                                <CustomImageUpload value={flejeConfig.sides[side].customImage} onChange={(asset) => {
-                                  const sideConfig = flejeConfig.sides[side];
-                                  updateFlejeSide(side, { customImage: asset, selectedImageId: asset?.id ?? (sideConfig.selectedImageId === sideConfig.customImage?.id ? null : sideConfig.selectedImageId), imageMode: "image" });
-                                }} />
+                                {(flejeConfig.sides[side].icons?.length < 14) && (
+                                  <div className="customizer-upload mt-4">
+                                    <CustomImageUpload
+                                      value={null}
+                                      onChange={(asset) => {
+                                        if (asset) {
+                                          updateFlejeSide(side, {
+                                            icons: [...(flejeConfig.sides[side].icons || []), { id: crypto.randomUUID(), selectedImageId: null, customImage: asset, transform: { x: 0.5, y: 0.5, scale: 1, rotation: 0, side } }],
+                                            imageMode: "image"
+                                          });
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                )}
                               </section>
                             ))}
                           </div>
@@ -1064,9 +1153,6 @@ function VisualizerApp() {
                         <h3>Terminación</h3>
                         <RimFinishModeSelector mode={flejeConfig.finishMode || "none"} onSelect={(finishMode) => setFlejeConfig((current) => ({ ...current, finishMode }))} />
                         {flejeConfig.finishMode === "finish" && <FlejeFinishSelector selectedFinishId={flejeConfig.finishId} onSelect={(finishId) => setFlejeConfig((current) => ({ ...current, finishId }))} />}
-                        {flejeConfig.finishMode === "finish" && (
-                          <span className="customizer-control-price">{customizationPriceLabel("fleje_finish")}</span>
-                        )}
                       </section>
                     </div>
                   ) : (
@@ -1078,7 +1164,7 @@ function VisualizerApp() {
                 <div className="mt-2 pt-4 border-t border-zinc-200/80">
                   <button
                     type="button"
-                    onClick={() => requireAuthentication("save-customizer")}
+                    onClick={() => changeStep("summary")}
                     disabled={saveStatus !== "idle"}
                     className={`flex w-full items-center justify-center gap-2 rounded-xl py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg transition-all active:scale-[0.98] cursor-pointer ${
                       saveStatus === "saved"
@@ -1176,7 +1262,10 @@ function VisualizerApp() {
                       onSelectSide={setActiveFlejeSide}
                       onSelectElement={setSelectedFlejeElement}
                       onTransformChange={(side, element, transform) => updateFlejeSide(side, {
-                        [element === "text" ? "textTransform" : element === "image" ? "imageTransform" : "finishTransform"]: transform,
+                        ...(element === "text" && { textTransform: transform }),
+                        ...(element === "image" && { imageTransform: transform }),
+                        ...(element === "finish" && { finishTransform: transform }),
+                        icons: flejeConfig.sides[side].icons?.map(icon => icon.id === element ? { ...icon, transform } : icon) ?? [],
                       })}
                     />
                   ) : (
@@ -1246,7 +1335,7 @@ function VisualizerApp() {
                           
                           <div className="space-y-0.5 text-[11px] text-zinc-600 font-medium">
                             <p>
-                              • Terminación: {configuration.rim.finishMode === "finish" ? `${rimFin?.name || 'Cincelado'} (+${customizationPriceLabel("rim_finish")})` : "Sin terminación"}
+                                Terminación: {configuration.rim.finishMode === "finish" ? (rimFin?.name || 'Cincelado') : "Sin terminación"}
                             </p>
                             <p>
                               • Grabado de texto: {configuration.rim.textMode === "text" ? (() => {
@@ -1272,7 +1361,7 @@ function VisualizerApp() {
                             </div>
                             <div className="space-y-0.5 text-[11px] text-zinc-600 font-medium">
                               <p>
-                                • Terminación: {flejeConfig.finishMode === "finish" ? `${flejeFin?.name || 'Cincelado'} (+${customizationPriceLabel("fleje_finish")})` : "Sin terminación (Liso)"}
+                                • Terminación: {flejeConfig.finishMode === "finish" ? (flejeFin?.name || 'Cincelado') : "Sin terminación (Liso)"}
                               </p>
                               <p>
                                 • Textos configurados: {(["front", "back"] as FlejeSide[]).filter((side) => flejeConfig.sides[side].textMode === "text" && flejeConfig.sides[side].text.trim()).length}

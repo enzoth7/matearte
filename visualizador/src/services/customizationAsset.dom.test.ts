@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
-import { sanitizeSvgMarkup } from "./customizationAsset";
+import { sanitizeSvgMarkup, validateCustomizationFile } from "./customizationAsset";
 
 describe("sanitización de SVG", () => {
   it("elimina scripts, eventos y recursos externos", () => {
@@ -23,6 +23,23 @@ describe("sanitización de SVG", () => {
 
   it("rechaza contenido que no sea un SVG válido", () => {
     expect(() => sanitizeSvgMarkup("<html><body>No es un SVG</body></html>")).toThrow(/SVG/);
+  });
+});
+
+describe("validación de archivos de personalización", () => {
+  it("acepta archivos PNG válidos", () => {
+    const file = new File(["dummy content"], "logo.png", { type: "image/png" });
+    expect(validateCustomizationFile(file)).toBeNull();
+  });
+
+  it("acepta archivos PNG con tipo MIME no estándar o vacío por extensión", () => {
+    const file = new File(["dummy content"], "escudo.PNG", { type: "" });
+    expect(validateCustomizationFile(file)).toBeNull();
+  });
+
+  it("rechaza extensiones y tipos no admitidos", () => {
+    const file = new File(["dummy content"], "documento.pdf", { type: "application/pdf" });
+    expect(validateCustomizationFile(file)).toBe("El archivo debe ser PNG, JPG o SVG.");
   });
 });
 

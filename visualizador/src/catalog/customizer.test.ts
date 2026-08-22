@@ -4,7 +4,6 @@ import { getDefaultColor, getDefaultVariant, getVariantsByModel } from "./mateCa
 import { createDefaultRimSelection, MAX_RIM_TEXT_LENGTH } from "./rimCatalog";
 import {
   calculateOrderPricing,
-  classifyLeather,
   countChargeableCharacters,
   customizationRuleKey,
   familyRuleKey,
@@ -28,6 +27,7 @@ function createConfiguration(): MateConfiguration {
     selection,
     selectionLabels: getSelectionLabels(selection),
     engravingTypeId: "laser",
+    flejeEngravingTypeId: null,
     capabilities: product.capabilities,
     isLegacy: false,
     modelId: variant.model,
@@ -151,13 +151,6 @@ describe("precios centralizados", () => {
 
   it("cobra únicamente letras y números, incluidos caracteres acentuados", () => {
     expect(countChargeableCharacters("Árbol 123, 🧉!" )).toBe(8);
-  });
-
-  it("deja en cero color, tamaño y alpaca y clasifica los cueros compartidos", () => {
-    expect(classifyLeather({ textureId: "cuero-estampado", colorId: "marron" })).toBe("stamped");
-    expect(classifyLeather({ textureId: "imperial-cuero-crudo", colorId: "cuero-crudo" })).toBe("raw");
-    expect(classifyLeather({ textureId: "print-pelos", colorId: "animal-print" })).toBe("print-pelos");
-    expect(classifyLeather({ textureId: "imperial-clasico", colorId: "negro" })).toBe("standard");
   });
 
   it("solo exige una tarifa de grabado cuando esa personalización está activa", () => {

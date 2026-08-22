@@ -56,6 +56,7 @@ export const rimCatalog: RimOption[] = [
   { id: "acero", name: "Virola de acero", shortName: "Acero", material: "acero" },
   { id: "alpaca", name: "Virola de alpaca", shortName: "Alpaca", material: "alpaca" },
   { id: "alpaca-grande", name: "Virola de alpaca grande", shortName: "Alpaca grande", material: "alpaca-grande" },
+  { id: "alpaca-grande-lacre", name: "Alpaca grande al lacre", shortName: "Alpaca grande al lacre", material: "alpaca-grande" },
   { id: "alpaca-bronce", name: "Virola de alpaca y bronce", shortName: "Alpaca y bronce", material: "alpaca-bronce" },
   { id: "acero-bronce", name: "Virola de acero y bronce", shortName: "Acero y bronce", material: "acero-bronce" },
   { id: "plata-900", name: "Virola de plata 900", shortName: "Plata 900", material: "plata-900" },

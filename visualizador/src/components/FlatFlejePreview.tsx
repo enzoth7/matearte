@@ -59,9 +59,6 @@ function FlejeSurface({
   const svgRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<DragState | null>(null);
 
-  const catalogIcon = rimIconCatalog.find((item) => item.id === config.selectedImageId);
-  const imageSource = config.customImage?.id === config.selectedImageId ? config.customImage.previewUrl : catalogIcon?.src;
-
   const pointFromEvent = (event: ReactPointerEvent) => {
     const bounds = svgRef.current?.getBoundingClientRect();
     if (!bounds) return { x: 0.5, y: 0.5 };
@@ -74,6 +71,9 @@ function FlejeSurface({
   const getTransform = (element: EditableElement): ElementTransform => {
     if (element === "text") return config.textTransform;
     if (element === "image") return config.imageTransform;
+    if (element === "finish") return config.finishTransform ?? { x: 0.5, y: 0.5, scale: 1, rotation: 0, side };
+    const icon = config.icons?.find((i) => i.id === element);
+    if (icon) return icon.transform;
     return config.finishTransform ?? { x: 0.5, y: 0.5, scale: 1, rotation: 0, side };
   };
 
@@ -160,11 +160,6 @@ function FlejeSurface({
   const textX = FLEJE_X + config.textTransform.x * FLEJE_WIDTH;
   const textY = FLEJE_Y + config.textTransform.y * FLEJE_HEIGHT;
   const textScale = config.textTransform.scale ?? 1;
-
-  const iconX = FLEJE_X + config.imageTransform.x * FLEJE_WIDTH;
-  const iconY = FLEJE_Y + config.imageTransform.y * FLEJE_HEIGHT;
-  const iconScale = config.imageTransform.scale ?? 1;
-  const iconSize = 90 * iconScale;
 
   return (
     <div
@@ -299,71 +294,40 @@ function FlejeSurface({
           );
         })()}
 
-        {/* Engraved Icon with Matching Circular Backdrop */}
-        {config.imageMode === "image" && imageSource && (
-          <g
-            transform={`translate(${iconX}, ${iconY}) rotate(${config.imageTransform.rotation})`}
-            onPointerDown={(e) => beginDrag("image", e)}
-            className={editable ? "cursor-grab active:cursor-grabbing" : undefined}
-          >
-            {/* Circle covering the finish lines */}
-            <circle
-              cx="0"
-              cy="0"
-              r={iconSize * 0.62}
-              fill="#FFFFFF"
-            />
-            <image
-              href={imageSource}
-              x={-iconSize / 2}
-              y={-iconSize / 2}
-              width={iconSize}
-              height={iconSize}
-              preserveAspectRatio="xMidYMid meet"
-            />
-            {editable && isActive && selectedElement === "image" && (
-              <g>
-                <circle
-                  cx="0"
-                  cy="0"
-                  r={iconSize * 0.68}
-                  fill="none"
-                  stroke="#7a4a31"
-                  strokeWidth="3"
-                  strokeDasharray="10 8"
-                  pointerEvents="none"
-                />
-                {/* Resize Button Handle for Icon */}
-                <g
-                  transform={`translate(${iconSize * 0.52}, ${iconSize * 0.52})`}
-                  pointerEvents="all"
-                  className="cursor-nwse-resize"
-                  onPointerDown={(e) => beginResize("image", e)}
-                >
-                  <circle
-                    r="16"
-                    fill="#ffffff"
-                    stroke="#7a4a31"
-                    strokeWidth="3.5"
-                    className="filter drop-shadow-md"
-                  />
-                  <text
-                    x="0"
-                    y="1"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fill="#7a4a31"
-                    fontSize="13"
-                    fontWeight="bold"
-                    pointerEvents="none"
-                  >
-                    ⤢
-                  </text>
+        {/* Engraved Icons with Matching Circular Backdrop */}
+        {config.imageMode === "image" && (config.icons?.length > 0 ? config.icons : [{ id: "image", selectedImageId: config.selectedImageId, customImage: config.customImage, transform: config.imageTransform }]).map((icon) => {
+          const catalogItem = rimIconCatalog.find((item) => item.id === icon.selectedImageId);
+          const iconSrc = icon.customImage?.id === icon.selectedImageId ? icon.customImage.previewUrl : (icon.customImage ? icon.customImage.previewUrl : catalogItem?.src);
+          if (!iconSrc) return null;
+          
+          const iX = FLEJE_X + icon.transform.x * FLEJE_WIDTH;
+          const iY = FLEJE_Y + icon.transform.y * FLEJE_HEIGHT;
+          const iScale = icon.transform.scale ?? 1;
+          const iSize = 90 * iScale;
+
+          return (
+            <g
+              key={icon.id}
+              transform={`translate(${iX}, ${iY}) rotate(${icon.transform.rotation})`}
+              onPointerDown={(e) => beginDrag(icon.id, e)}
+              className={editable ? "cursor-grab active:cursor-grabbing" : undefined}
+            >
+              {/* Circle covering the finish lines */}
+              <circle cx="0" cy="0" r={iSize * 0.62} fill="#FFFFFF" />
+              <image href={iconSrc} x={-iSize / 2} y={-iSize / 2} width={iSize} height={iSize} preserveAspectRatio="xMidYMid meet" />
+              {editable && isActive && selectedElement === icon.id && (
+                <g>
+                  <circle cx="0" cy="0" r={iSize * 0.68} fill="none" stroke="#7a4a31" strokeWidth="3" strokeDasharray="10 8" pointerEvents="none" />
+                  {/* Resize Button Handle for Icon */}
+                  <g transform={`translate(${iSize * 0.52}, ${iSize * 0.52})`} pointerEvents="all" className="cursor-nwse-resize" onPointerDown={(e) => beginResize(icon.id, e)}>
+                    <circle r="16" fill="#ffffff" stroke="#7a4a31" strokeWidth="3.5" className="filter drop-shadow-md" />
+                    <text x="0" y="1" textAnchor="middle" dominantBaseline="middle" fill="#7a4a31" fontSize="13" fontWeight="bold" pointerEvents="none">⤢</text>
+                  </g>
                 </g>
-              </g>
-            )}
-          </g>
-        )}
+              )}
+            </g>
+          );
+        })}
       </svg>
     </div>
   );

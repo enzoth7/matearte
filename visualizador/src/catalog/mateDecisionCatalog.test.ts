@@ -42,6 +42,7 @@ describe("árbol declarativo de mates", () => {
                 metalId: metal.id,
                 sizeId,
                 engravingTypeId: "laser",
+                flejeEngravingTypeId: null,
               };
               const product = resolveMateSelection(selection);
               expect(product).not.toBeNull();

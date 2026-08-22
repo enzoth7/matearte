@@ -6,13 +6,14 @@ import {
   mateDecisionCatalog,
   mateSizeDecisionLabels,
   shouldAskForMetal,
+  getEngravingCapabilities,
   type MateFamilyId,
   type MateSelection,
   type MateSelectionStage,
   type DecisionTextureOption,
 } from "../catalog/mateDecisionCatalog";
 import { getVariantDefinition } from "../catalog/mateCatalog";
-import { formatUYU, getFamilyStartingPrice, getMetalStartingPrice, getSelectionPricing, getTextureStartingPrice } from "../catalog/pricingCatalog";
+import { formatUYU, getFamilyStartingPrice, getFamilyBasePrice } from "../catalog/pricingCatalog";
 import { usePricing } from "../context/PricingContext";
 
 interface MateSelectionStepProps {
@@ -28,15 +29,17 @@ const stageCopy: Record<MateSelectionStage, { title: string; help: string }> = {
   texture: { title: "ELEGÍ SUS TEXTURAS", help: "Cueros, colores y terminaciones artesanales" },
   metal: { title: "SELECCIONÁ EL TIPO DE ALPACA", help: "Elegí el metal compatible con tu mate" },
   size: { title: "PENSÁ EL TAMAÑO DEL MATE", help: "Capacidad de yerba para tu día a día" },
-  engraving: { title: "ELEGÍ EL TIPO DE GRABADO", help: "La técnica se aplicará a toda la personalización" },
+  engraving: { title: "ELEGÍ EL GRABADO DE LA VIROLA", help: "La técnica se aplicará a la virola" },
+  "fleje-engraving": { title: "ELEGÍ EL GRABADO DEL FLEJE", help: "La técnica se aplicará al fleje" },
 };
 
 function PendingLabel({ copy = "Precio pendiente" }: { copy?: string }) {
   return <span className="selection-pending">{copy}</span>;
 }
 
-function SelectionPrice({ value, pendingCopy = "Precio no disponible", from = false }: { value: number | null; pendingCopy?: string; from?: boolean }) {
-  return <PendingLabel copy={value === null ? pendingCopy : `${from ? "Desde " : ""}${formatUYU(value)}`} />;
+function SelectionPrice({ value, pendingCopy = "Precio no disponible", from = false, isDelta = false }: { value: number | null; pendingCopy?: string; from?: boolean; isDelta?: boolean }) {
+  const formattedValue = isDelta ? `+ ${formatUYU(value!)}` : `${from ? "Desde " : ""}${formatUYU(value!)}`;
+  return <PendingLabel copy={value === null ? pendingCopy : formattedValue} />;
 }
 
 function ProductImage({ variantId, alt, pending = false, image }: { variantId: string; alt: string; pending?: boolean; image?: string }) {
@@ -80,9 +83,13 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
   const actionsRef = useRef<HTMLDivElement>(null);
   const { catalog: pricingCatalog, status: pricingStatus } = usePricing();
   const pendingPriceCopy = pricingStatus === "loading" ? "Cargando precio…" : "Precio no disponible";
-  const stages: MateSelectionStage[] = shouldAskForMetal(selection)
+  const selectedTexture = getSelectedTexture(selection);
+  const baseStages: MateSelectionStage[] = shouldAskForMetal(selection)
     ? ["model", "texture", "metal", "size", "engraving"]
     : ["model", "texture", "size", "engraving"];
+  const stages: MateSelectionStage[] = selectedTexture?.capabilities.hasFleje
+    ? [...baseStages, "fleje-engraving"]
+    : baseStages;
 
   useEffect(() => {
     const actions = actionsRef.current;
@@ -117,7 +124,7 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
   }, []);
   const stageIndex = stages.indexOf(stage);
   const family = getMateFamily(selection.familyId);
-  const selectedTexture = getSelectedTexture(selection);
+
   const copy = stageCopy[stage];
   const canContinue = stage === "model"
     ? Boolean(selection.familyId)
@@ -127,10 +134,12 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
         ? Boolean(selection.metalId)
         : stage === "size"
           ? Boolean(selection.sizeId)
-          : Boolean(selection.engravingTypeId);
+          : stage === "fleje-engraving"
+            ? Boolean(selection.flejeEngravingTypeId)
+            : Boolean(selection.engravingTypeId);
 
   const chooseFamily = (familyId: MateFamilyId) => {
-    onChange({ familyId, textureId: null, colorId: null, metalId: null, sizeId: null, engravingTypeId: null });
+    onChange({ familyId, textureId: null, colorId: null, metalId: null, sizeId: null, engravingTypeId: null, flejeEngravingTypeId: null });
   };
 
   return (
@@ -152,7 +161,13 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
               <span className="selection-product-card__title">{item.label}</span>
               <ProductImage variantId={item.representativeVariantId} alt={`Mate ${item.label}`} />
               <span className="selection-product-card__description">{item.description}</span>
-              <SelectionPrice value={getFamilyStartingPrice(pricingCatalog, item.id)} pendingCopy={pendingPriceCopy} from />
+              {(() => {
+                const basePrice = getFamilyBasePrice(pricingCatalog, item.id);
+                if (basePrice !== null && basePrice > 0) {
+                  return <SelectionPrice value={getFamilyStartingPrice(pricingCatalog, item.id)} pendingCopy={pendingPriceCopy} from />;
+                }
+                return null;
+              })()}
             </button>
           ))}
         </fieldset>
@@ -160,14 +175,16 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
 
       {stage === "texture" && family && (
         <div className="selection-texture-layout">
-          <fieldset className={`selection-texture-grid ${family.textures.length === 1 ? "selection-texture-grid--single" : ""} ${family.textures.length > 4 ? "selection-texture-grid--dense" : ""}`}>
+          <fieldset className={`selection-texture-grid ${family.textures.length === 1 ? "selection-texture-grid--single" : ""} ${family.textures.length === 3 ? "selection-texture-grid--triple" : ""} ${family.textures.length > 4 ? "selection-texture-grid--dense" : ""}`}>
             <legend className="sr-only">Textura o construcción</legend>
             {family.textures.map((item) => (
-              <button key={item.id} type="button" onClick={() => onChange({ ...selection, textureId: item.id, colorId: null, metalId: null, sizeId: null, engravingTypeId: null })} aria-pressed={item.id === selection.textureId} className="selection-product-card selection-product-card--texture">
+              <button key={item.id} type="button" onClick={() => onChange({ ...selection, textureId: item.id, colorId: null, metalId: null, sizeId: null, engravingTypeId: null, flejeEngravingTypeId: null })} aria-pressed={item.id === selection.textureId} className="selection-product-card selection-product-card--texture">
                 <span className="selection-product-card__title">{item.label}</span>
                 <ProductImage variantId={item.representativeVariantId} alt={item.label} pending={item.status === "pending"} image={item.previewImage} />
                 <span className="selection-product-card__description">{item.description}</span>
-                {item.status === "pending" ? <PendingLabel copy="Datos pendientes" /> : <SelectionPrice value={getTextureStartingPrice(pricingCatalog, family.id, item.id)} pendingCopy={pendingPriceCopy} from />}
+                {item.status === "pending" ? <PendingLabel copy="Datos pendientes" /> : (
+                  Boolean(item.priceDeltaUYU) && <SelectionPrice value={item.priceDeltaUYU ?? null} isDelta />
+                )}
               </button>
             ))}
           </fieldset>
@@ -186,6 +203,7 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
                       metalId: selectedTexture.skipMetalSelection ? selectedTexture.metals[0]?.id ?? null : null,
                       sizeId: null,
                       engravingTypeId: null,
+                      flejeEngravingTypeId: null,
                     })}
                     aria-pressed={item.id === selection.colorId}
                     className="selection-color-card"
@@ -195,6 +213,9 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
                       {item.label}
                     </span>
                     <ColorPreview texture={selectedTexture} colorId={item.id} label={item.label} />
+                    {Boolean(item.priceDeltaUYU) && (
+                      <SelectionPrice value={item.priceDeltaUYU ?? null} isDelta />
+                    )}
                   </button>
                 ))}
               </div>
@@ -207,11 +228,13 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
         <fieldset className={`selection-metal-grid ${selectedTexture.metals.length === 1 ? "selection-metal-grid--single" : ""}`}>
           <legend className="sr-only">Tipo de alpaca o metal</legend>
           {selectedTexture.metals.map((item) => (
-            <button key={item.id} type="button" onClick={() => onChange({ ...selection, metalId: item.id, sizeId: null, engravingTypeId: null })} aria-pressed={item.id === selection.metalId} className="selection-product-card">
+            <button key={item.id} type="button" onClick={() => onChange({ ...selection, metalId: item.id, sizeId: null, engravingTypeId: null, flejeEngravingTypeId: null })} aria-pressed={item.id === selection.metalId} className="selection-product-card">
               <span className="selection-product-card__title">{item.label}</span>
               <MetalPreview image={item.previewImage} label={item.label} />
               <span className="selection-product-card__description">Muestra del material de {item.label.toLowerCase()}</span>
-              <SelectionPrice value={getMetalStartingPrice(pricingCatalog, { ...selection, metalId: item.id, sizeId: null })} pendingCopy={pendingPriceCopy} from />
+              {Boolean(item.priceDeltaUYU) && (
+                <SelectionPrice value={item.priceDeltaUYU ?? null} isDelta />
+              )}
             </button>
           ))}
         </fieldset>
@@ -221,19 +244,21 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
         <fieldset className="selection-size-list">
           <legend className="sr-only">Tamaño del mate</legend>
           {selectedTexture.sizes.map((size) => (
-            <button key={size} type="button" onClick={() => onChange({ ...selection, sizeId: size, engravingTypeId: null })} aria-pressed={size === selection.sizeId}>
+            <button key={size} type="button" onClick={() => onChange({ ...selection, sizeId: size, engravingTypeId: null, flejeEngravingTypeId: null })} aria-pressed={size === selection.sizeId}>
               <strong>{mateSizeDecisionLabels[size]}</strong>
               <span>Capacidad {mateSizeDecisionLabels[size].toLowerCase()}</span>
-              <SelectionPrice value={getSelectionPricing(pricingCatalog, { ...selection, sizeId: size })?.totalUYU ?? null} pendingCopy={pendingPriceCopy} />
             </button>
           ))}
         </fieldset>
       )}
 
-      {stage === "engraving" && (
-        <fieldset className="selection-engraving-grid">
-          <legend className="sr-only">Tipo de grabado</legend>
-          {engravingTypeOptions.map((option) => (
+      {stage === "engraving" && (() => {
+        const capabilities = getEngravingCapabilities(selection.familyId, selection.textureId);
+        const filteredOptions = engravingTypeOptions.filter((option) => capabilities.virolaEngravingTypes.includes(option.id));
+        return (
+          <fieldset className={`selection-engraving-grid ${filteredOptions.length === 3 ? "selection-engraving-grid--triple" : ""}`}>
+            <legend className="sr-only">Tipo de grabado para virola</legend>
+            {filteredOptions.map((option) => (
             <button
               key={option.id}
               type="button"
@@ -244,11 +269,34 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
               <span className="selection-product-card__title">{option.label}</span>
               <img className="selection-image" src={option.image} alt={`Referencia de ${option.label}`} loading="lazy" draggable={false} />
               <span className="selection-product-card__description">{option.description}</span>
-              <span className="selection-reference-label">Imagen de referencia</span>
             </button>
           ))}
         </fieldset>
-      )}
+        );
+      })()}
+
+      {stage === "fleje-engraving" && (() => {
+        const capabilities = getEngravingCapabilities(selection.familyId, selection.textureId);
+        const filteredOptions = engravingTypeOptions.filter((option) => capabilities.flejeEngravingTypes.includes(option.id));
+        return (
+          <fieldset className={`selection-engraving-grid ${filteredOptions.length === 3 ? "selection-engraving-grid--triple" : ""}`}>
+            <legend className="sr-only">Tipo de grabado para fleje</legend>
+            {filteredOptions.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => onChange({ ...selection, flejeEngravingTypeId: option.id })}
+              aria-pressed={selection.flejeEngravingTypeId === option.id}
+              className="selection-product-card selection-product-card--engraving"
+            >
+              <span className="selection-product-card__title">{option.label}</span>
+              <img className="selection-image" src={option.image} alt={`Referencia de ${option.label}`} loading="lazy" draggable={false} />
+              <span className="selection-product-card__description">{option.description}</span>
+            </button>
+          ))}
+        </fieldset>
+        );
+      })()}
 
       <div ref={actionsRef} className="selection-actions">
         <button type="button" onClick={onBack} className="brand-button">Atrás</button>

@@ -4,7 +4,7 @@ import type { EngravingTypeId, MateCapabilities, MateSelection } from "../catalo
 import type { RimCustomization } from "../catalog/rimCatalog";
 
 export type CustomizationSide = "rim" | "front" | "back";
-export type EditableElement = "text" | "image" | "finish";
+export type EditableElement = "text" | "image" | "finish" | string;
 export type FlejeSide = "front" | "back";
 
 export interface ElementTransform {
@@ -45,6 +45,7 @@ export interface FlejeSideCustomization {
   imageMode: "none" | "image";
   selectedImageId: string | null;
   customImage: CustomImageAsset | null;
+  icons: IconElement[];
   textTransform: ElementTransform;
   imageTransform: ElementTransform;
   finishTransform: ElementTransform;
@@ -70,6 +71,8 @@ export interface MateConfiguration {
     engraving: string;
   };
   engravingTypeId: EngravingTypeId | null;
+  /** Engraving technique chosen specifically for the fleje. Falls back to engravingTypeId when null. */
+  flejeEngravingTypeId: EngravingTypeId | null;
   capabilities: MateCapabilities;
   isLegacy: boolean;
   modelId: MateModel;
@@ -136,6 +139,7 @@ export function createDefaultFlejeSide(side: FlejeSide): FlejeSideCustomization 
     imageMode: "none",
     selectedImageId: null,
     customImage: null,
+    icons: [],
     textTransform: createDefaultElementTransform(side),
     imageTransform: createDefaultElementTransform(side),
     finishTransform: createDefaultElementTransform(side),
@@ -166,6 +170,14 @@ export function normalizeFlejeCustomization(value: unknown): FlejeCustomization 
     const customImage = sideInput.customImage && typeof sideInput.customImage === "object"
       ? sideInput.customImage as CustomImageAsset
       : null;
+    const icons = Array.isArray(sideInput.icons)
+      ? sideInput.icons.map((icon: any) => ({
+        id: String(icon.id),
+        selectedImageId: typeof icon.selectedImageId === "string" ? icon.selectedImageId : null,
+        customImage: icon.customImage && typeof icon.customImage === "object" ? icon.customImage : null,
+        transform: normalizeElementTransform(icon.transform as Partial<ElementTransform>, side),
+      }))
+      : [];
 
     return {
       textMode: sideInput.textMode === "text" ? "text" : "none",
@@ -173,6 +185,7 @@ export function normalizeFlejeCustomization(value: unknown): FlejeCustomization 
       imageMode: sideInput.imageMode === "image" ? "image" : "none",
       selectedImageId: typeof sideInput.selectedImageId === "string" ? sideInput.selectedImageId : null,
       customImage,
+      icons,
       textTransform: normalizeElementTransform(sideInput.textTransform as Partial<ElementTransform>, side),
       imageTransform: normalizeElementTransform(sideInput.imageTransform as Partial<ElementTransform>, side),
       finishTransform: normalizeElementTransform(sideInput.finishTransform as Partial<ElementTransform>, side),

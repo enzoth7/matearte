@@ -5,7 +5,9 @@ export const MAX_CUSTOM_IMAGE_SIZE = 5 * 1024 * 1024;
 export const ACCEPTED_CUSTOM_IMAGE_TYPES = ["image/png", "image/jpeg", "image/svg+xml"] as const;
 
 export function validateCustomizationFile(file: File): string | null {
-  if (!ACCEPTED_CUSTOM_IMAGE_TYPES.includes(file.type as (typeof ACCEPTED_CUSTOM_IMAGE_TYPES)[number])) {
+  const hasValidType = ACCEPTED_CUSTOM_IMAGE_TYPES.includes(file.type as (typeof ACCEPTED_CUSTOM_IMAGE_TYPES)[number]);
+  const hasValidExtension = /\.(png|jpe?g|svg)$/i.test(file.name);
+  if (!hasValidType && !hasValidExtension) {
     return "El archivo debe ser PNG, JPG o SVG.";
   }
   if (file.size > MAX_CUSTOM_IMAGE_SIZE) return "El archivo supera el máximo de 5 MB.";
@@ -84,10 +86,11 @@ export async function createCustomizationAsset(file: File): Promise<CustomImageA
   }
 
   const uploadedUrl = await uploadCustomizationAsset(file, id);
+  const resolvedMimeType = (file.type || (/\.png$/i.test(file.name) ? "image/png" : /\.svg$/i.test(file.name) ? "image/svg+xml" : "image/jpeg")) as CustomImageAsset["mimeType"];
   return {
     id,
     name: file.name,
-    mimeType: file.type as CustomImageAsset["mimeType"],
+    mimeType: resolvedMimeType,
     size: file.size,
     previewUrl,
     originalUrl: uploadedUrl ?? originalDataUrl,
