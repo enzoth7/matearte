@@ -34,7 +34,7 @@ describe("dashboard de precios", () => {
     expect(getDashboardSectionForDefinition(customization)).toBe("extras");
   });
 
-  it("detecta importes faltantes, porcentajes inválidos y combinaciones sin precio", () => {
+  it("detecta importes faltantes y porcentajes inválidos, pero permite guardar un borrador incompleto", () => {
     const definitions = [
       definition("texture:camionero:clasico", "texture", { family_id: "camionero", texture_id: "clasico" }),
       definition("metal:camionero:clasico:natural:alpaca", "metal", { family_id: "camionero", texture_id: "clasico", color_id: "natural", metal_id: "alpaca" }),
@@ -49,9 +49,8 @@ describe("dashboard de precios", () => {
     });
 
     expect(issues.some((issue) => issue.message.includes("100%"))).toBe(true);
-    expect(issues.some((issue) => issue.message.includes("total mayor que cero"))).toBe(true);
-
     const missing = validatePricingValues(definitions, {});
     expect(missing).toHaveLength(definitions.length);
+    expect(validatePricingValues(definitions, {}, false)).toHaveLength(0);
   });
 });

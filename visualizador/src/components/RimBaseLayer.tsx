@@ -1,7 +1,7 @@
 import { RIM_VIEWBOX_SIZE } from "../catalog/rimGeometry";
 
-const rimBaseAsset = "/assets/svg/rim-base.svg";
-const rimCenterAsset = "/assets/svg/rim-center.svg";
+const rimBaseAsset = "/assets/plantillas/virola/base.svg";
+const rimCenterAsset = "/assets/plantillas/virola/centro.svg";
 
 export function RimBaseLayer() {
   return (

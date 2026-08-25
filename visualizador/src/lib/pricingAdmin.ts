@@ -74,6 +74,9 @@ function friendlyAdminError(error: unknown) {
       ? String((error as { message?: unknown }).message ?? "")
       : String(error ?? "");
   if (/invalid login credentials/i.test(message)) return "Usuario o contraseña incorrectos.";
+  if (/permission denied for function (save_pricing_draft|publish_pricing_draft)/i.test(message)) {
+    return "La base de datos todavía no habilitó esta acción de precios. Aplicá la última migración y recargá.";
+  }
   if (/not authorized|42501/i.test(message)) return "Esta cuenta no tiene permiso para administrar precios.";
   if (/another session|40001/i.test(message)) return "El borrador cambió en otra sesión. Recargá antes de continuar.";
   if (/pricing catalog has \d+ missing required values/i.test(message)) return "Faltan valores obligatorios antes de publicar.";

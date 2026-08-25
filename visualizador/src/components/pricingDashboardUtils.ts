@@ -17,30 +17,18 @@ export function getNumericPricingValues(values: EditablePricingValues) {
   }));
 }
 
-export function validatePricingValues(definitions: PricingRuleDefinition[], values: EditablePricingValues) {
+export function validatePricingValues(definitions: PricingRuleDefinition[], values: EditablePricingValues, requireComplete = true) {
   const parsed = getNumericPricingValues(values);
   const issues: Array<{ key: string; message: string }> = [];
 
   definitions.forEach((definition) => {
     const value = parsed[definition.rule_key];
-    if (definition.required && value === null) {
+    if (requireComplete && definition.required && value == null) {
       issues.push({ key: definition.rule_key, message: `Falta ${definition.label}` });
-    } else if (value !== null && (!Number.isFinite(value) || value < 0)) {
+    } else if (value != null && (!Number.isFinite(value) || value < 0)) {
       issues.push({ key: definition.rule_key, message: `${definition.label} tiene un valor inválido` });
-    } else if (value !== null && definition.value_kind === "percent" && value > 100) {
+    } else if (value != null && definition.value_kind === "percent" && value > 100) {
       issues.push({ key: definition.rule_key, message: `${definition.label} no puede superar 100%` });
-    }
-  });
-
-  definitions.filter((definition) => definition.rule_type === "size").forEach((size) => {
-    const texture = parsed[`texture:${size.family_id}:${size.texture_id}`];
-    const metal = parsed[`metal:${size.family_id}:${size.texture_id}:${size.color_id}:${size.metal_id}`] ?? 0;
-    const sizeValue = parsed[size.rule_key];
-    if (
-      [texture, metal, sizeValue].every((value) => typeof value === "number" && Number.isFinite(value)) &&
-      Number(texture) + Number(metal) + Number(sizeValue) <= 0
-    ) {
-      issues.push({ key: size.rule_key, message: `La combinación ${size.label} debe tener un total mayor que cero` });
     }
   });
 

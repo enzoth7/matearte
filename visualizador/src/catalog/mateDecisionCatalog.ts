@@ -52,7 +52,7 @@ export interface DecisionColorOption {
   label: string;
   swatch: string;
   status?: CatalogOptionStatus;
-  priceDeltaUYU: number | null;
+  pricingRuleKeys?: string[];
 }
 
 export interface DecisionMetalOption {
@@ -62,7 +62,7 @@ export interface DecisionMetalOption {
   /** Asset del material/virola aislado. Nunca debe apuntar a la foto del mate. */
   previewImage?: string;
   status?: CatalogOptionStatus;
-  priceDeltaUYU: number | null;
+  pricingRuleKeys?: string[];
 }
 
 export interface DecisionTextureOption {
@@ -86,7 +86,7 @@ export interface DecisionTextureOption {
   legacyVariantByMetal?: Record<string, string>;
   legacyVariantByCombination?: Record<string, string>;
   status?: CatalogOptionStatus;
-  priceDeltaUYU: number | null;
+  pricingRuleKeys?: string[];
 }
 
 export interface MateFamilyDefinition {
@@ -95,7 +95,7 @@ export interface MateFamilyDefinition {
   description: string;
   representativeVariantId: string;
   textures: DecisionTextureOption[];
-  basePriceUYU: number | null;
+  pricingRuleKeys: string[];
 }
 
 export interface ResolvedMateProduct {
@@ -117,136 +117,123 @@ export interface ResolvedMateProduct {
   engravingTypeId: EngravingTypeId | null;
   flejeEngravingTypeId: EngravingTypeId | null;
   capabilities: MateCapabilities;
-  price: {
-    baseUYU: number | null;
-    textureDeltaUYU: number | null;
-    colorDeltaUYU: number | null;
-    metalDeltaUYU: number | null;
-    sizeDeltaUYU: number | null;
-  };
+  pricingRuleKeys: string[];
   status: CatalogOptionStatus;
 }
 
-const PENDING_PRICE = null;
 const SIZES: MateSize[] = ["chico", "medio", "grande"];
 
 const colors = {
-  natural: { id: "natural", label: "Natural", swatch: "#d8b67c", priceDeltaUYU: 0 },
-  cueroCrudo: { id: "cuero-crudo", label: "Cuero crudo", swatch: "#ead6ac", priceDeltaUYU: 600 },
-  cueroCrudoCriollo: { id: "cuero-crudo-criollo", label: "Cuero crudo", swatch: "#ead6ac", priceDeltaUYU: 650 },
-  marron: { id: "marron", label: "Marrón", swatch: "#70452f", priceDeltaUYU: 0 },
-  negro: { id: "negro", label: "Negro", swatch: "#27211e", priceDeltaUYU: 0 },
-  vacuno: { id: "vacuno", label: "Vacuno", swatch: "#9a6848", priceDeltaUYU: 0 },
-  printPelos: { id: "print-pelos", label: "Print / pelos", swatch: "linear-gradient(135deg,#5f3826 0 45%,#f3e1b9 45% 55%,#2d1d14 55%)", priceDeltaUYU: 600 },
-  print: { id: "print", label: "Print", swatch: "linear-gradient(135deg,#5f3826 0 45%,#f3e1b9 45% 55%,#2d1d14 55%)", priceDeltaUYU: 600 },
-  criollo: { id: "criollo", label: "Criollo", swatch: "#b88a5a", priceDeltaUYU: 0 },
-  vaqueta: { id: "vaqueta", label: "Vaqueta", swatch: "#c69c6d", priceDeltaUYU: 400 },
-  marronBlanco: { id: "marron-blanco", label: "Marrón y blanco", swatch: "linear-gradient(135deg,#70452f 0 50%,#f4efe5 50%)", priceDeltaUYU: 0 },
-  negroBlanco: { id: "negro-blanco", label: "Negro y blanco", swatch: "linear-gradient(135deg,#27211e 0 50%,#f4efe5 50%)", priceDeltaUYU: 0 },
-  animalPrint: { id: "animal-print", label: "Animal print", swatch: "repeating-linear-gradient(135deg,#c69c6d 0 6px,#2d1d14 6px 10px)", priceDeltaUYU: 0 },
-  animalPrintPremium: { id: "animal-print-premium", label: "Pelos Animal print", swatch: "repeating-linear-gradient(135deg,#c69c6d 0 6px,#2d1d14 6px 10px)", priceDeltaUYU: 600 },
-  marronBlancoPremium: { id: "marron-blanco-premium", label: "Print / pelos Marrón y blanco", swatch: "linear-gradient(135deg,#70452f 0 50%,#f4efe5 50%)", priceDeltaUYU: 600 },
-  negroBlancoPremium: { id: "negro-blanco-premium", label: "Print / pelos Blanco y negro", swatch: "linear-gradient(135deg,#27211e 0 50%,#f4efe5 50%)", priceDeltaUYU: 600 },
-  cuerosPendientes: { id: "cueros-pendientes", label: "Cueros por confirmar", swatch: "#d9cbb7", status: "pending" as const, priceDeltaUYU: 0 },
-  variantePendiente: { id: "variante-pendiente", label: "Color de la variante por confirmar", swatch: "#d9cbb7", status: "pending" as const, priceDeltaUYU: 0 },
+  natural: { id: "natural", label: "Natural", swatch: "#d8b67c" },
+  cueroCrudo: { id: "cuero-crudo", label: "Cuero crudo", swatch: "#ead6ac", pricingRuleKeys: ["leather:raw"] },
+  cueroCrudoCriollo: { id: "cuero-crudo-criollo", label: "Cuero crudo", swatch: "#ead6ac", pricingRuleKeys: ["leather:raw-posa-mate"] },
+  marron: { id: "marron", label: "Marrón", swatch: "#70452f" },
+  negro: { id: "negro", label: "Negro", swatch: "#27211e" },
+  printPelos: { id: "print-pelos", label: "Print / pelos", swatch: "linear-gradient(135deg,#5f3826 0 45%,#f3e1b9 45% 55%,#2d1d14 55%)", pricingRuleKeys: ["leather:print-pelos"] },
+  print: { id: "print", label: "Print", swatch: "linear-gradient(135deg,#5f3826 0 45%,#f3e1b9 45% 55%,#2d1d14 55%)", pricingRuleKeys: ["leather:print-pelos"] },
+  criollo: { id: "criollo", label: "Criollo", swatch: "#b88a5a" },
+  vaqueta: { id: "vaqueta", label: "Vaqueta", swatch: "#c69c6d", pricingRuleKeys: ["leather:vaqueta"] },
+  marronBlanco: { id: "marron-blanco", label: "Marrón y blanco", swatch: "linear-gradient(135deg,#70452f 0 50%,#f4efe5 50%)", pricingRuleKeys: ["leather:print-pelos"] },
+  negroBlanco: { id: "negro-blanco", label: "Negro y blanco", swatch: "linear-gradient(135deg,#27211e 0 50%,#f4efe5 50%)", pricingRuleKeys: ["leather:print-pelos"] },
+  animalPrint: { id: "animal-print", label: "Animal print", swatch: "repeating-linear-gradient(135deg,#c69c6d 0 6px,#2d1d14 6px 10px)", pricingRuleKeys: ["leather:print-pelos"] },
+  animalPrintPremium: { id: "animal-print-premium", label: "Pelos Animal print", swatch: "repeating-linear-gradient(135deg,#c69c6d 0 6px,#2d1d14 6px 10px)", pricingRuleKeys: ["leather:print-pelos"] },
+  marronBlancoPremium: { id: "marron-blanco-premium", label: "Print / pelos Marrón y blanco", swatch: "linear-gradient(135deg,#70452f 0 50%,#f4efe5 50%)", pricingRuleKeys: ["leather:print-pelos"] },
+  negroBlancoPremium: { id: "negro-blanco-premium", label: "Print / pelos Blanco y negro", swatch: "linear-gradient(135deg,#27211e 0 50%,#f4efe5 50%)", pricingRuleKeys: ["leather:print-pelos"] },
+  cuerosPendientes: { id: "cueros-pendientes", label: "Cueros por confirmar", swatch: "#d9cbb7", status: "pending" as const },
+  variantePendiente: { id: "variante-pendiente", label: "Color de la variante por confirmar", swatch: "#d9cbb7", status: "pending" as const },
 };
 
+const ALPACA_ASSETS = "/assets/personalizacion/alpaca";
+
 const metals = {
-  alpacaCincelada: { id: "alpaca-cincelada", label: "Alpaca cincelada", rimId: "alpaca", previewImage: "/assets/mates/metals/alpaca-cincelada.png", priceDeltaUYU: 0 },
-  alpacaGrandeCincelada: { id: "alpaca-grande-cincelada", label: "Alpaca grande cincelada", rimId: "alpaca-grande", previewImage: "/assets/mates/metals/alpaca-grande-cincelada.png", priceDeltaUYU: 0 },
-  alpacaBronce: { id: "alpaca-bronce", label: "Alpaca y bronce", rimId: "alpaca-bronce", previewImage: "/assets/mates/metals/alpaca-bronce.png", priceDeltaUYU: 300 },
-  alpacaComun: { id: "alpaca-comun", label: "Alpaca común", rimId: "alpaca", previewImage: "/assets/mates/metals/alpaca-comun.png", priceDeltaUYU: 0 },
-  alpacaGrande: { id: "alpaca-grande", label: "Alpaca grande", rimId: "alpaca-grande", previewImage: "/assets/mates/metals/alpaca-grande.png", priceDeltaUYU: 300 },
-  alpacaGrandeCriollo: { id: "alpaca-grande-criollo", label: "Alpaca grande", rimId: "alpaca-grande", previewImage: "/assets/mates/metals/alpaca-grande.png", priceDeltaUYU: 0 },
-  alpacaGrandeLacre: { id: "alpaca-grande-lacre", label: "Alpaca grande al lacre", rimId: "alpaca-grande", previewImage: "/assets/mates/metals/alpaca-grande-lacre.png", priceDeltaUYU: 0 },
-  alpacaGrandeLacreTorpedo: { id: "alpaca-grande-lacre-torpedo", label: "Alpaca grande al lacre", rimId: "alpaca-grande", previewImage: "/assets/mates/metals/alpaca-grande-lacre.png", priceDeltaUYU: 2500 },
-  alpacaGrandeLacreImperial: { id: "alpaca-grande-lacre-imperial", label: "Alpaca grande al lacre", rimId: "alpaca-grande", previewImage: "/assets/mates/metals/alpaca-grande-lacre.png", priceDeltaUYU: 3000 },
-  originalImperial: { id: "original-imperial", label: "Virola original del Imperial", rimId: "original", priceDeltaUYU: 0 },
-  originalCamionero: { id: "original-camionero", label: "Virola original del Camionero", rimId: "original", priceDeltaUYU: 0 },
-  plata900: { id: "plata-900", label: "Plata 900", rimId: "plata-900", previewImage: "/assets/mates/metals/plata-900.png", priceDeltaUYU: 0 },
+  alpacaComunCamionero: { id: "alpaca-comun", label: "Alpaca común", rimId: "alpaca", previewImage: `${ALPACA_ASSETS}/alpaca-comun-camionero.png` },
+  alpacaGrandeCincelada: { id: "alpaca-grande-cincelada", label: "Alpaca grande", rimId: "alpaca-grande", previewImage: `${ALPACA_ASSETS}/alpaca-grande-torpedo.png` },
+  alpacaBronce: { id: "alpaca-bronce", label: "Alpaca y bronce", rimId: "alpaca-bronce", previewImage: `${ALPACA_ASSETS}/alpaca-bronce-torpedo.png`, pricingRuleKeys: ["metal:alpaca-bronce"] },
+  alpacaComunTorpedo: { id: "alpaca-comun", label: "Alpaca común", rimId: "alpaca", previewImage: `${ALPACA_ASSETS}/alpaca-comun-torpedo.png` },
+  alpacaGrande: { id: "alpaca-grande", label: "Alpaca grande", rimId: "alpaca-grande", previewImage: `${ALPACA_ASSETS}/alpaca-grande-torpedo.png`, pricingRuleKeys: ["metal:alpaca-grande"] },
+  alpacaGrandeCriollo: { id: "alpaca-grande-criollo", label: "Alpaca grande", rimId: "alpaca-grande", previewImage: `${ALPACA_ASSETS}/alpaca-grande-torpedo.png` },
+  alpacaGrandeLacre: { id: "alpaca-grande-lacre", label: "Alpaca grande al lacre", rimId: "alpaca-grande", previewImage: `${ALPACA_ASSETS}/alpaca-grande-torpedo.png` },
+  alpacaGrandeLacreTorpedo: { id: "alpaca-grande-lacre-torpedo", label: "Alpaca grande al lacre", rimId: "alpaca-grande", previewImage: `${ALPACA_ASSETS}/alpaca-grande-torpedo.png`, pricingRuleKeys: ["metal:criollo:torpedo-criollo-posa-mate:alpaca-grande-lacre"] },
+  alpacaGrandeLacreImperial: { id: "alpaca-grande-lacre-imperial", label: "Alpaca grande al lacre", rimId: "alpaca-grande", previewImage: `${ALPACA_ASSETS}/alpaca-grande-torpedo.png`, pricingRuleKeys: ["metal:criollo:imperial-criollo-posa-mate:alpaca-grande-lacre"] },
+  originalImperial: { id: "original-imperial", label: "Virola original del Imperial", rimId: "original" },
+  originalCamionero: { id: "original-camionero", label: "Virola original del Camionero", rimId: "original" },
+  plata900: { id: "plata-900", label: "Plata 900", rimId: "plata-900", previewImage: `${ALPACA_ASSETS}/plata-900-imperial.png`, pricingRuleKeys: ["metal:plata-900"] },
 };
+
+const mateColor = (family: string, variant: string, file: string) =>
+  `/assets/mates/${family}/${variant}/${file}`;
 
 const colorPreviewImages = {
   camioneroAlpacaCinceladoPatas: {
-    natural: "/assets/mates/camionero/color-previews/alpaca-cincelado-patas/natural.png",
-    "cuero-crudo": "/assets/mates/camionero/color-previews/alpaca-cincelado-patas/cuero-crudo.png",
-    marron: "/assets/mates/camionero/color-previews/alpaca-cincelado-patas/marron.png",
-    negro: "/assets/mates/camionero/color-previews/alpaca-cincelado-patas/negro.png",
+    natural: mateColor("camionero", "alpaca-comun-patas", "natural.png"),
+    "cuero-crudo": mateColor("camionero", "alpaca-comun-patas", "cuero-crudo.png"),
+    marron: mateColor("camionero", "alpaca-comun-patas", "marron.png"),
+    negro: mateColor("camionero", "alpaca-comun-patas", "negro.png"),
   },
   imperialCinceladoPremium: {
-    vacuno: "/assets/mates/imperial/color-previews/cincelado-premium/vacuno.png",
-    negro: "/assets/mates/imperial/color-previews/cincelado-premium/negro.png",
-    marron: "/assets/mates/imperial/color-previews/cincelado-premium/marron.png",
-    natural: "/assets/mates/imperial/color-previews/cincelado-premium/natural.png",
-    "animal-print-premium": "/assets/mates/imperial/color-previews/cincelado-premium/print-pelos.png",
-    "marron-blanco-premium": "/assets/mates/imperial/color-previews/cincelado-premium/print-pelos.png",
-    "negro-blanco-premium": "/assets/mates/imperial/color-previews/cincelado-premium/print-pelos.png",
-    "cuero-crudo": "/assets/mates/imperial/color-previews/cincelado-premium/cuero-crudo.png",
+    natural: mateColor("imperial", "cincelado-premium", "natural.png"),
+    negro: mateColor("imperial", "cincelado-premium", "negro.png"),
+    marron: mateColor("imperial", "cincelado-premium", "marron.png"),
+    "animal-print-premium": mateColor("imperial", "cincelado-premium", "animal-print.png"),
+    "marron-blanco-premium": mateColor("imperial", "cincelado-premium", "print-pelos.png"),
+    "negro-blanco-premium": mateColor("imperial", "cincelado-premium", "negro-blanco.png"),
+    "cuero-crudo": mateColor("imperial", "cincelado-premium", "cuero-crudo.png"),
   },
   imperialClasico: {
-    natural: "/assets/mates/imperial/color-previews/imperial-clasico/natural.png",
-    negro: "/assets/mates/imperial/color-previews/imperial-clasico/negro.png",
-    marron: "/assets/mates/imperial/color-previews/imperial-clasico/marron.png",
-    "animal-print-premium": "/assets/mates/imperial/color-previews/cincelado-premium/print-pelos.png", // fallback
-    "marron-blanco-premium": "/assets/mates/imperial/color-previews/cincelado-premium/print-pelos.png", // fallback
-    "negro-blanco-premium": "/assets/mates/imperial/color-previews/cincelado-premium/print-pelos.png", // fallback
-    "cuero-crudo": "/assets/mates/imperial/color-previews/cincelado-premium/cuero-crudo.png", // fallback
-  },
-  imperialPrintPelos: {
-    "cueros-pendientes": "/assets/mates/imperial/texture-previews/imperial-print-pelos.png",
-  },
-  imperialCueroCrudo: {
-    "cuero-crudo": "/assets/mates/imperial/color-previews/imperial-cuero-crudo/cuero-crudo.png",
-  },
-  imperialCriollo: {
-    "variante-pendiente": "/assets/mates/imperial/texture-previews/imperial-criollo.png",
+    natural: mateColor("imperial", "imperial-clasico", "natural.png"),
+    negro: mateColor("imperial", "imperial-clasico", "negro.png"),
+    marron: mateColor("imperial", "imperial-clasico", "marron.png"),
+    "animal-print-premium": mateColor("imperial", "imperial-clasico", "animal-print.png"),
+    "marron-blanco-premium": mateColor("imperial", "cincelado-premium", "print-pelos.png"), // fallback
+    "negro-blanco-premium": mateColor("imperial", "imperial-clasico", "negro-blanco.png"),
+    "cuero-crudo": mateColor("imperial", "cincelado-premium", "cuero-crudo.png"), // fallback
   },
   imperialVirolaPlata900: {
-    negro: "/assets/mates/imperial/color-previews/virola-plata-900/negro.png",
-    marron: "/assets/mates/imperial/color-previews/virola-plata-900/marron.png",
-    natural: "/assets/mates/imperial/color-previews/virola-plata-900/natural.png",
-    print: "/assets/mates/imperial/color-previews/virola-plata-900/print.png",
-    "cuero-crudo": "/assets/mates/imperial/color-previews/virola-plata-900/cuero-crudo.png",
-    criollo: "/assets/mates/imperial/color-previews/virola-plata-900/criollo.png",
+    negro: mateColor("imperial", "virola-plata-900", "negro.png"),
+    marron: mateColor("imperial", "virola-plata-900", "marron.png"),
+    natural: mateColor("imperial", "virola-plata-900", "natural.png"),
+    print: mateColor("imperial", "virola-plata-900", "print.png"),
+    "cuero-crudo": mateColor("imperial", "virola-plata-900", "cuero-crudo.png"),
+    criollo: mateColor("imperial", "virola-plata-900", "criollo.png"),
   },
   torpedoCueroLiso: {
-    natural: "/assets/mates/torpedo/color-previews/cuero-liso/natural.png",
-    negro: "/assets/mates/torpedo/color-previews/cuero-liso/negro.png",
-    marron: "/assets/mates/torpedo/color-previews/cuero-liso/marron.png",
+    natural: mateColor("torpedo", "cuero-liso", "natural.png"),
+    negro: mateColor("torpedo", "cuero-liso", "negro.png"),
+    marron: mateColor("torpedo", "cuero-liso", "marron.png"),
   },
   torpedoCueroEstampado: {
-    marron: "/assets/mates/torpedo/color-previews/cuero-estampado/marron.png",
-    negro: "/assets/mates/torpedo/color-previews/cuero-estampado/negro.png",
+    natural: mateColor("torpedo", "cuero-estampado", "natural.png"),
+    negro: mateColor("torpedo", "cuero-estampado", "negro.png"),
+    marron: mateColor("torpedo", "cuero-estampado", "marron.png"),
   },
   torpedoCueroCrudo: {
-    "cuero-crudo": "/assets/mates/torpedo/color-previews/cuero-crudo/cuero-crudo.png",
+    "cuero-crudo": mateColor("torpedo", "cuero-crudo", "cuero-crudo.png"),
   },
   torpedoPrintPelos: {
-    "marron-blanco": "/assets/mates/torpedo/color-previews/print-pelos/marron-blanco.png",
-    "negro-blanco": "/assets/mates/torpedo/color-previews/print-pelos/negro-blanco.png",
-    "animal-print": "/assets/mates/torpedo/color-previews/print-pelos/animal-print.png",
+    "marron-blanco": mateColor("torpedo", "print-pelos", "marron-blanco.png"),
+    "negro-blanco": mateColor("torpedo", "print-pelos", "negro-blanco.png"),
+    "animal-print": mateColor("torpedo", "print-pelos", "animal-print.png"),
   },
   criolloTorpedoPosaMate: {
-    vaqueta: "/assets/mates/criollo/color-previews/torpedo-criollo-posa-mate/vaqueta.png",
-    "cuero-crudo": "/assets/mates/criollo/color-previews/torpedo-criollo-posa-mate/cuero-crudo.png",
+    vaqueta: mateColor("criollo", "torpedo-criollo-posa-mate", "vaqueta.png"),
+    "cuero-crudo-criollo": mateColor("criollo", "torpedo-criollo-posa-mate", "cuero-crudo.png"),
   },
   criolloImperialPosaMate: {
-    vaqueta: "/assets/mates/criollo/color-previews/imperial-criollo-posa-mate/vaqueta.png",
-    "cuero-crudo": "/assets/mates/criollo/color-previews/imperial-criollo-posa-mate/cuero-crudo.png",
+    vaqueta: mateColor("criollo", "imperial-criollo-posa-mate", "vaqueta.png"),
+    "cuero-crudo-criollo": mateColor("criollo", "imperial-criollo-posa-mate", "cuero-crudo.png"),
   },
   criolloCamioneroPosaMate: {
-    vaqueta: "/assets/mates/criollo/color-previews/camionero-criollo-posa-mate/vaqueta.png",
-    "cuero-crudo": "/assets/mates/criollo/color-previews/camionero-criollo-posa-mate/cuero-crudo.png",
+    vaqueta: mateColor("criollo", "camionero-criollo-posa-mate", "vaqueta.png"),
+    "cuero-crudo-criollo": mateColor("criollo", "camionero-criollo-posa-mate", "cuero-crudo.png"),
   },
 } satisfies Record<string, Record<string, string>>;
 
 function texture(
-  value: Omit<DecisionTextureOption, "sizes" | "priceDeltaUYU"> & Partial<Pick<DecisionTextureOption, "sizes" | "priceDeltaUYU">>,
+  value: Omit<DecisionTextureOption, "sizes"> & Partial<Pick<DecisionTextureOption, "sizes">>,
 ): DecisionTextureOption {
   return {
     ...value,
     sizes: value.sizes ?? [...SIZES],
-    priceDeltaUYU: value.priceDeltaUYU ?? PENDING_PRICE,
   };
 }
 
@@ -256,16 +243,16 @@ export const mateDecisionCatalog: MateFamilyDefinition[] = [
     label: "Camionero",
     description: "Boca amplia y cuerpo con patas.",
     representativeVariantId: "camionero-artesanal",
-    basePriceUYU: 1800,
+    pricingRuleKeys: ["family:camionero"],
     textures: [
       texture({
         id: "alpaca-cincelado-patas",
-        label: "Camionero alpaca cincelado con patas",
-        description: "La única construcción indicada en el árbol Camionero.",
+        label: "Camionero alpaca común con patas",
+        description: "Camionero con boquilla de alpaca común lisa, fina y sin fleje.",
         shapeId: "camionero",
         capabilities: { hasRim: true, hasFleje: false },
         colors: [colors.natural, colors.cueroCrudo, colors.marron, colors.negro],
-        metals: [metals.alpacaCincelada],
+        metals: [metals.alpacaComunCamionero],
         colorPreviewImages: colorPreviewImages.camioneroAlpacaCinceladoPatas,
         representativeVariantId: "camionero-artesanal",
         legacyVariantId: "camionero-artesanal",
@@ -277,7 +264,7 @@ export const mateDecisionCatalog: MateFamilyDefinition[] = [
     label: "Imperial",
     description: "Silueta clásica con virola y fleje personalizable.",
     representativeVariantId: "imperial-lacre",
-    basePriceUYU: 2600,
+    pricingRuleKeys: ["family:imperial"],
     textures: [
       texture({
         id: "cincelado-premium",
@@ -285,13 +272,13 @@ export const mateDecisionCatalog: MateFamilyDefinition[] = [
         description: "Terminación premium del árbol Imperial.",
         shapeId: "imperial",
         capabilities: { hasRim: true, hasFleje: true },
-        colors: [colors.animalPrintPremium, colors.negro, colors.marron, colors.natural, colors.marronBlancoPremium, colors.negroBlancoPremium, colors.cueroCrudo],
+        colors: [colors.natural, colors.negro, colors.marron, colors.animalPrintPremium, colors.marronBlancoPremium, colors.negroBlancoPremium, colors.cueroCrudo],
         metals: [metals.originalImperial],
         skipMetalSelection: true,
         colorPreviewImages: colorPreviewImages.imperialCinceladoPremium,
         representativeVariantId: "imperial-lacre",
         legacyVariantId: "imperial-lacre",
-        priceDeltaUYU: 3000,
+        pricingRuleKeys: ["tree:imperial:cincelado-premium"],
       }),
       texture({
         id: "imperial-clasico",
@@ -305,7 +292,6 @@ export const mateDecisionCatalog: MateFamilyDefinition[] = [
         colorPreviewImages: colorPreviewImages.imperialClasico,
         representativeVariantId: "imperial-premium",
         legacyVariantId: "imperial-premium",
-        priceDeltaUYU: 0,
       }),
       texture({
         id: "virola-plata-900",
@@ -318,7 +304,6 @@ export const mateDecisionCatalog: MateFamilyDefinition[] = [
         colorPreviewImages: colorPreviewImages.imperialVirolaPlata900,
         representativeVariantId: "imperial-clasico",
         legacyVariantId: "imperial-clasico",
-        priceDeltaUYU: 17500,
       }),
     ],
   },
@@ -327,7 +312,7 @@ export const mateDecisionCatalog: MateFamilyDefinition[] = [
     label: "Torpedo",
     description: "Cuerpo estilizado sin fleje.",
     representativeVariantId: "torpedo-cuero-liso-alpaca-cincelada",
-    basePriceUYU: 1800,
+    pricingRuleKeys: ["family:torpedo"],
     textures: [
       texture({
         id: "cuero-liso",
@@ -336,7 +321,7 @@ export const mateDecisionCatalog: MateFamilyDefinition[] = [
         shapeId: "torpedo",
         capabilities: { hasRim: true, hasFleje: false },
         colors: [colors.natural, colors.negro, colors.marron],
-        metals: [metals.alpacaBronce, metals.alpacaComun, metals.alpacaGrande],
+        metals: [metals.alpacaBronce, metals.alpacaComunTorpedo, metals.alpacaGrande],
         colorPreviewImages: colorPreviewImages.torpedoCueroLiso,
         representativeVariantId: "torpedo-cuero-liso-alpaca-cincelada",
         legacyVariantByMetal: {
@@ -344,16 +329,15 @@ export const mateDecisionCatalog: MateFamilyDefinition[] = [
           "alpaca-comun": "torpedo-cuero-liso-alpaca-cincelada",
           "alpaca-grande": "torpedo-cuero-liso-alpaca-grande",
         },
-        priceDeltaUYU: 0,
       }),
       texture({
         id: "cuero-estampado",
         label: "Cuero estampado",
-        description: "Cuero estampado marrón o negro.",
+        description: "Cuero estampado natural, marrón o negro.",
         shapeId: "torpedo",
         capabilities: { hasRim: true, hasFleje: false },
-        colors: [colors.marron, colors.negro, colors.natural],
-        metals: [metals.alpacaBronce, metals.alpacaComun, metals.alpacaGrande],
+        colors: [colors.natural, colors.negro, colors.marron],
+        metals: [metals.alpacaBronce, metals.alpacaComunTorpedo, metals.alpacaGrande],
         colorPreviewImages: colorPreviewImages.torpedoCueroEstampado,
         representativeVariantId: "torpedo-alpaca-bronce-estampado",
         legacyVariantByMetal: {
@@ -361,7 +345,7 @@ export const mateDecisionCatalog: MateFamilyDefinition[] = [
           "alpaca-comun": "torpedo-cuero-estampado-alpaca-comun",
           "alpaca-grande": "torpedo-cuero-estampado-alpaca-grande",
         },
-        priceDeltaUYU: 200,
+        pricingRuleKeys: ["leather:stamped"],
       }),
       texture({
         id: "cuero-crudo",
@@ -370,7 +354,7 @@ export const mateDecisionCatalog: MateFamilyDefinition[] = [
         shapeId: "torpedo",
         capabilities: { hasRim: true, hasFleje: false },
         colors: [colors.cueroCrudo],
-        metals: [metals.alpacaBronce, metals.alpacaComun, metals.alpacaGrande],
+        metals: [metals.alpacaBronce, metals.alpacaComunTorpedo, metals.alpacaGrande],
         colorPreviewImages: colorPreviewImages.torpedoCueroCrudo,
         representativeVariantId: "torpedo-cuero-crudo-alpaca-cincelada",
         legacyVariantByMetal: {
@@ -378,7 +362,7 @@ export const mateDecisionCatalog: MateFamilyDefinition[] = [
           "alpaca-comun": "torpedo-cuero-crudo-alpaca-cincelada",
           "alpaca-grande": "torpedo-cuero-crudo-grande-cincelada",
         },
-        priceDeltaUYU: 600,
+        pricingRuleKeys: ["leather:raw"],
       }),
       texture({
         id: "print-pelos",
@@ -387,7 +371,7 @@ export const mateDecisionCatalog: MateFamilyDefinition[] = [
         shapeId: "torpedo",
         capabilities: { hasRim: true, hasFleje: false },
         colors: [colors.marronBlanco, colors.negroBlanco, colors.animalPrint],
-        metals: [metals.alpacaBronce, metals.alpacaComun, metals.alpacaGrande],
+        metals: [metals.alpacaBronce, metals.alpacaComunTorpedo, metals.alpacaGrande],
         colorPreviewImages: colorPreviewImages.torpedoPrintPelos,
         representativeVariantId: "torpedo-croco-pelo",
         legacyVariantByMetal: {
@@ -395,7 +379,7 @@ export const mateDecisionCatalog: MateFamilyDefinition[] = [
           "alpaca-comun": "torpedo-croco-pelo",
           "alpaca-grande": "torpedo-croco-pelo-grande",
         },
-        priceDeltaUYU: 600,
+        pricingRuleKeys: ["leather:print-pelos"],
       }),
     ],
   },
@@ -404,7 +388,7 @@ export const mateDecisionCatalog: MateFamilyDefinition[] = [
     label: "Criollo",
     description: "Familia criolla con silueta Torpedo, Imperial o Camionero.",
     representativeVariantId: "criollo-clasico",
-    basePriceUYU: 0,
+    pricingRuleKeys: ["family:criollo"],
     textures: [
       texture({
         id: "torpedo-criollo-posa-mate",
@@ -420,7 +404,7 @@ export const mateDecisionCatalog: MateFamilyDefinition[] = [
           vaqueta: "criollo-clasico",
           "cuero-crudo-criollo": "criollo-grande-posa-cuero-crudo",
         },
-        priceDeltaUYU: 1300,
+        pricingRuleKeys: ["tree:criollo:torpedo-criollo-posa-mate"],
       }),
       texture({
         id: "imperial-criollo-posa-mate",
@@ -435,7 +419,7 @@ export const mateDecisionCatalog: MateFamilyDefinition[] = [
         legacyVariantByColor: {
           "cuero-crudo-criollo": "imperial-criollo-posa-cuero-crudo",
         },
-        priceDeltaUYU: 1900,
+        pricingRuleKeys: ["tree:criollo:imperial-criollo-posa-mate"],
       }),
       texture({
         id: "camionero-criollo-posa-mate",
@@ -451,7 +435,7 @@ export const mateDecisionCatalog: MateFamilyDefinition[] = [
         legacyVariantByColor: {
           vaqueta: "camionero-criollo-posa-vaqueta",
         },
-        priceDeltaUYU: 1300,
+        pricingRuleKeys: ["tree:criollo:camionero-criollo-posa-mate"],
       }),
     ],
   },
@@ -476,7 +460,7 @@ export const engravingTypeOptions: Array<{
   {
     id: "laser",
     label: "Láser",
-    description: "Grabado plano sobre el metal. Precio fijo.",
+    description: "Grabado plano sobre el metal, cotizado por carácter o imagen.",
     image: engravingTechniqueAssetManifest.laser.src,
   },
   {
@@ -489,7 +473,7 @@ export const engravingTypeOptions: Array<{
     id: "alpaca-applique",
     label: "Aplique de alpaca",
     description: "Letras y figuras elevadas soldadas en alpaca",
-    image: engravingTechniqueAssetManifest["bronze-applique"].src,
+    image: engravingTechniqueAssetManifest["alpaca-applique"].src,
   },
 ];
 
@@ -548,8 +532,9 @@ export function getFirstIncompleteStage(selection: Partial<MateSelection>): Mate
   if (!selectedTexture || !selectedTexture.colors.some((item) => item.id === selection.colorId)) return "texture";
   if (!getEffectiveMetalId(selectedTexture, selection.metalId)) return "metal";
   if (!selectedTexture.sizes.includes(selection.sizeId as MateSize)) return "size";
-  if (selection.engravingTypeId !== "laser" && selection.engravingTypeId !== "bronze-applique" && selection.engravingTypeId !== "alpaca-applique") return "engraving";
-  if (selectedTexture.capabilities.hasFleje && selection.flejeEngravingTypeId !== "laser" && selection.flejeEngravingTypeId !== "bronze-applique" && selection.flejeEngravingTypeId !== "alpaca-applique") return "fleje-engraving";
+  const engravingCapabilities = getEngravingCapabilities(family.id, selectedTexture.id);
+  if (!engravingCapabilities.virolaEngravingTypes.includes(selection.engravingTypeId as EngravingTypeId)) return "engraving";
+  if (selectedTexture.capabilities.hasFleje && !engravingCapabilities.flejeEngravingTypes.includes(selection.flejeEngravingTypeId as EngravingTypeId)) return "fleje-engraving";
   return null;
 }
 
@@ -602,13 +587,12 @@ export function resolveMateSelection(selection: Partial<MateSelection>): Resolve
       ? effectiveSelection.flejeEngravingTypeId
       : null,
     capabilities: textureOption.capabilities,
-    price: {
-      baseUYU: family.basePriceUYU,
-      textureDeltaUYU: textureOption.priceDeltaUYU,
-      colorDeltaUYU: color.priceDeltaUYU,
-      metalDeltaUYU: metal.priceDeltaUYU,
-      sizeDeltaUYU: null,
-    },
+    pricingRuleKeys: [...new Set([
+      ...family.pricingRuleKeys,
+      ...(textureOption.pricingRuleKeys ?? []),
+      ...(color.pricingRuleKeys ?? []),
+      ...(metal.pricingRuleKeys ?? []),
+    ])],
     status,
   };
 }
@@ -624,21 +608,22 @@ export function sanitizeMateSelection(value: unknown): MateSelection {
   const metalId = getEffectiveMetalId(textureOption, input.metalId);
   if (!metalId) return { familyId: family.id, textureId: textureOption.id, colorId, metalId: null, sizeId: null, engravingTypeId: null, flejeEngravingTypeId: null };
   const sizeId = textureOption.sizes.includes(input.sizeId as MateSize) ? input.sizeId as MateSize : null;
-  const engravingTypeId = input.engravingTypeId === "laser" || input.engravingTypeId === "bronze-applique" || input.engravingTypeId === "alpaca-applique"
-    ? input.engravingTypeId
+  const engravingCapabilities = getEngravingCapabilities(family.id, textureOption.id);
+  const engravingTypeId = engravingCapabilities.virolaEngravingTypes.includes(input.engravingTypeId as EngravingTypeId)
+    ? input.engravingTypeId as EngravingTypeId
     : null;
-  const flejeEngravingTypeId = input.flejeEngravingTypeId === "laser" || input.flejeEngravingTypeId === "bronze-applique" || input.flejeEngravingTypeId === "alpaca-applique"
-    ? input.flejeEngravingTypeId
+  const flejeEngravingTypeId = engravingCapabilities.flejeEngravingTypes.includes(input.flejeEngravingTypeId as EngravingTypeId)
+    ? input.flejeEngravingTypeId as EngravingTypeId
     : null;
   return { familyId: family.id, textureId: textureOption.id, colorId, metalId, sizeId, engravingTypeId, flejeEngravingTypeId };
 }
 
 const legacySelectionMap: Record<string, Omit<MateSelection, "engravingTypeId" | "flejeEngravingTypeId">> = {
-  "camionero-artesanal": { familyId: "camionero", textureId: "alpaca-cincelado-patas", colorId: "natural", metalId: "alpaca-cincelada", sizeId: "medio" },
+  "camionero-artesanal": { familyId: "camionero", textureId: "alpaca-cincelado-patas", colorId: "natural", metalId: "alpaca-comun", sizeId: "medio" },
   "camionero-criollo-posa-vaqueta": { familyId: "criollo", textureId: "camionero-criollo-posa-mate", colorId: "vaqueta", metalId: "original-camionero", sizeId: "medio" },
   "criollo-clasico": { familyId: "criollo", textureId: "torpedo-criollo-posa-mate", colorId: "vaqueta", metalId: "alpaca-grande-cincelada", sizeId: "medio" },
   "criollo-grande-posa-cuero-crudo": { familyId: "criollo", textureId: "torpedo-criollo-posa-mate", colorId: "cuero-crudo", metalId: "alpaca-grande-cincelada", sizeId: "medio" },
-  "imperial-lacre": { familyId: "imperial", textureId: "cincelado-premium", colorId: "vacuno", metalId: "original-imperial", sizeId: "medio" },
+  "imperial-lacre": { familyId: "imperial", textureId: "cincelado-premium", colorId: "natural", metalId: "original-imperial", sizeId: "medio" },
   "imperial-premium": { familyId: "imperial", textureId: "imperial-clasico", colorId: "natural", metalId: "original-imperial", sizeId: "medio" },
   "imperial-cuero-crudo": { familyId: "imperial", textureId: "imperial-cuero-crudo", colorId: "cuero-crudo", metalId: "original-imperial", sizeId: "medio" },
   "imperial-criollo-posa-cuero-crudo": { familyId: "criollo", textureId: "imperial-criollo-posa-mate", colorId: "cuero-crudo", metalId: "original-imperial", sizeId: "medio" },

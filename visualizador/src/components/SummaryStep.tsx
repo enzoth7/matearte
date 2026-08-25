@@ -103,10 +103,13 @@ export function SummaryStep({
           {pricing.breakdown ? (
             <>
               <dl>
-                <div><dt>Mate base</dt><dd>$ {pricing.breakdown.familyBaseUYU.toLocaleString("es-UY")}</dd></div>
-                {pricing.breakdown.leatherDeltaUYU > 0 && <div><dt>Cuero</dt><dd>$ {pricing.breakdown.leatherDeltaUYU.toLocaleString("es-UY")}</dd></div>}
-                {pricing.breakdown.silverDeltaUYU > 0 && <div><dt>Plata 900</dt><dd>$ {pricing.breakdown.silverDeltaUYU.toLocaleString("es-UY")}</dd></div>}
-                {pricing.items.map((item) => <div key={item.id}><dt>{item.label} ({item.quantity} × $ {item.unitPriceUYU.toLocaleString("es-UY")})</dt><dd>$ {item.totalUYU.toLocaleString("es-UY")}</dd></div>)}
+                {pricing.components.map((component) => (
+                  <div key={component.ruleKey}>
+                    <dt>{component.kind === "family" ? `Mate ${component.label}` : component.label}</dt>
+                    <dd>$ {component.valueUYU.toLocaleString("es-UY")}</dd>
+                  </div>
+                ))}
+                {pricing.items.map((item) => <div key={item.ruleKey}><dt>{item.label} ({item.quantity} × $ {item.unitPriceUYU.toLocaleString("es-UY")})</dt><dd>$ {item.totalUYU.toLocaleString("es-UY")}</dd></div>)}
               </dl>
               <div className="summary-checkout__total"><span>Total</span><strong>$ {pricing.totalUYU.toLocaleString("es-UY")}</strong></div>
               {!pricing.isPriceReady && <div className="summary-checkout__pending" role="alert"><strong>Faltan precios</strong><p>{pricing.missingRuleKeys.map((key) => key === "selection:engraving" ? "Tipo de grabado" : key.split(":").at(-1)?.replaceAll("_", " ")).join(", ")}.</p></div>}

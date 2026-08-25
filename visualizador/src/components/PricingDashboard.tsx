@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { mateDecisionCatalog, type MateFamilyDefinition } from "../catalog/mateDecisionCatalog";
+import { getTexturePricingRuleKeys } from "../catalog/pricingCatalog";
 import { usePricing } from "../context/PricingContext";
 import {
   getPricingAdminSession,
   loadPricingAdminState,
-  saveAndPublishPricing,
+  publishPricingDraft,
+  savePricingDraft,
   signInPricingAdmin,
   signOutPricingAdmin,
   type PricingAdminState,
@@ -12,7 +15,6 @@ import {
 import {
   getDashboardSectionForDefinition,
   getNumericPricingValues,
-  PRICING_FAMILY_LABELS,
   validatePricingValues,
   type EditablePricingValues,
   type PricingDashboardSection,
@@ -22,17 +24,15 @@ type EditableValues = EditablePricingValues;
 type DashboardSection = PricingDashboardSection;
 
 const SECTIONS: Array<{ id: DashboardSection; label: string }> = [
-  { id: "camionero", label: "Camionero" },
-  { id: "imperial", label: "Imperial" },
-  { id: "torpedo", label: "Torpedo" },
-  { id: "criollo", label: "Criollo" },
+  ...mateDecisionCatalog.map((family) => ({ id: family.id, label: family.label })),
   { id: "extras", label: "Adicionales" },
 ];
 
-function shortRuleLabel(definition: PricingRuleDefinition) {
-  const label = definition.label.split(" · ").at(-1) ?? definition.label;
-  return label.charAt(0).toUpperCase() + label.slice(1);
-}
+const TECHNIQUE_META = [
+  { id: "laser", title: "Láser" },
+  { id: "bronze-applique", title: "Aplique de bronce" },
+  { id: "alpaca-applique", title: "Aplique de alpaca" },
+] as const;
 
 function toEditableValues(state: PricingAdminState): EditableValues {
   return Object.fromEntries(state.definitions.map((definition) => [
@@ -76,7 +76,7 @@ interface PriceInputProps {
 function PriceInput({ definition, value, onChange, compact = false, label }: PriceInputProps) {
   const inputId = `price-${definition.rule_key.replace(/[^a-z0-9]+/gi, "-")}`;
   const normalized = Number(value.replace(",", "."));
-  const invalid = value.trim() !== "" && (!Number.isFinite(normalized) || normalized < 0);
+  const invalid = value.trim() !== "" && (!Number.isFinite(normalized) || normalized < 0 || (definition.value_kind === "percent" && normalized > 100));
   return (
     <label className={`pricing-field ${compact ? "pricing-field--compact" : ""}`} htmlFor={inputId}>
       <span>{label ?? definition.label}</span>
@@ -121,7 +121,7 @@ function PricingLogin({ onAuthenticated }: { onAuthenticated: (state: PricingAdm
   return (
     <main className="pricing-login-page" id="main-content">
       <form className="pricing-login" onSubmit={submit}>
-        <img src="/logoma.jpg" alt="MateArte Arte y Tradición" />
+        <img src="/assets/marca/logo.jpg" alt="MateArte Arte y Tradición" />
         <span className="pricing-eyebrow">Control interno</span>
         <h1>Administración de precios</h1>
         <p>Ingresá para editar el catálogo que utiliza el visualizador.</p>
@@ -137,62 +137,93 @@ function PricingLogin({ onAuthenticated }: { onAuthenticated: (state: PricingAdm
   );
 }
 
-interface FamilyEditorProps {
-  familyId: string;
+function FamilyEditor({ family, definitions, values, onChange }: {
+  family: MateFamilyDefinition;
   definitions: PricingRuleDefinition[];
   values: EditableValues;
   onChange: (key: string, value: string) => void;
-}
-
-function FamilyEditor({ familyId, definitions, values, onChange }: FamilyEditorProps) {
-  const base = definitions.find((item) => item.rule_type === "family" && item.family_id === familyId);
+}) {
+  const definitionsByKey = new Map(definitions.map((definition) => [definition.rule_key, definition]));
+  const base = definitionsByKey.get(family.pricingRuleKeys[0]);
+  const editableTrees = family.textures.map((texture) => ({
+    texture,
+    definitions: getTexturePricingRuleKeys(texture)
+      .map((key) => definitionsByKey.get(key))
+      .filter((definition): definition is PricingRuleDefinition => Boolean(definition?.family_id === family.id)),
+  })).filter((tree) => tree.definitions.length > 0);
 
   return (
-    <section className="pricing-family-editor" aria-labelledby={`pricing-${familyId}`}>
+    <section className="pricing-family-editor" aria-labelledby={`pricing-${family.id}`}>
       <header className="pricing-section-heading">
-        <h2 id={`pricing-${familyId}`}>{PRICING_FAMILY_LABELS[familyId]}</h2>
-        <p>Definí el precio base de esta familia. Los cueros y grabados se administran en Adicionales.</p>
+        <h2 id={`pricing-${family.id}`}>{family.label}</h2>
       </header>
-      {base ? (
-        <div className="pricing-family-base">
-          <PriceInput definition={base} label="Precio base" value={values[base.rule_key] ?? ""} onChange={(value) => onChange(base.rule_key, value)} />
-          {!values[base.rule_key]?.trim() && <small>Precio pendiente</small>}
-        </div>
-      ) : <p className="pricing-form-error">No se encontró el campo de precio base.</p>}
+
+      <div className="pricing-family-base">
+        {base
+          ? <PriceInput definition={base} label="Precio base de la familia" value={values[base.rule_key] ?? ""} onChange={(value) => onChange(base.rule_key, value)} />
+          : <p className="pricing-form-error">No se encontró el precio base de {family.label}.</p>}
+      </div>
+
+      {editableTrees.length > 0 && <div className="pricing-texture-list">
+        {editableTrees.map(({ texture, definitions: treeDefinitions }, index) => (
+          <details className="pricing-texture" key={texture.id} open={index === 0}>
+            <summary><span>{texture.label}</span></summary>
+            <div className="pricing-texture__body">
+              <div className="pricing-rule-grid">{treeDefinitions.map((definition) => <PriceInput key={definition.rule_key} definition={definition} value={values[definition.rule_key] ?? ""} onChange={(value) => onChange(definition.rule_key, value)} />)}</div>
+            </div>
+          </details>
+        ))}
+      </div>}
     </section>
   );
 }
 
-function ExtrasTable({ title, definitions, values, onChange }: { title: string; definitions: PricingRuleDefinition[]; values: EditableValues; onChange: (key: string, value: string) => void }) {
+function ExtrasTable({ title, definitions, values, onChange }: {
+  title: string;
+  definitions: PricingRuleDefinition[];
+  values: EditableValues;
+  onChange: (key: string, value: string) => void;
+}) {
   return (
-    <section className="pricing-extras-section pricing-extras-section--boxed" aria-labelledby={`extras-${title.toLowerCase().replace(" ", "-")}`}>
-      <h3 id={`extras-${title.toLowerCase().replace(" ", "-")}`}>{title}</h3>
+    <section className="pricing-extras-section pricing-extras-section--boxed">
+      <header><h3>{title}</h3></header>
       <div className="pricing-table-wrap">
         <table className="pricing-extras-table">
           <thead><tr><th scope="col">Concepto</th><th scope="col">Importe</th></tr></thead>
-          <tbody>{definitions.map((definition) => <tr key={definition.rule_key}><th scope="row">{shortRuleLabel(definition)}</th><td><PriceInput compact definition={definition} label={definition.value_kind === "percent" ? "Porcentaje" : "Precio"} value={values[definition.rule_key] ?? ""} onChange={(value) => onChange(definition.rule_key, value)} /></td></tr>)}</tbody>
+          <tbody>
+            {definitions.map((definition) => <tr key={definition.rule_key}><th scope="row">{definition.label}</th><td><PriceInput compact definition={definition} label={definition.value_kind === "percent" ? "Porcentaje" : "Precio"} value={values[definition.rule_key] ?? ""} onChange={(value) => onChange(definition.rule_key, value)} /></td></tr>)}
+          </tbody>
         </table>
       </div>
     </section>
   );
 }
 
-function ExtrasEditor({ definitions, values, onChange }: Omit<FamilyEditorProps, "familyId">) {
-  const customization = definitions.filter((item) => item.rule_type === "customization");
-  const commission = definitions.filter((item) => item.rule_type === "commission");
-  const leathers = definitions.filter((item) => item.rule_key.startsWith("leather:"));
-  const silver = definitions.filter((item) => item.rule_key === "metal:plata-900");
-  const laser = customization.filter((item) => item.customization_id?.startsWith("laser:"));
-  const bronze = customization.filter((item) => item.customization_id?.startsWith("bronze-applique:"));
+function ExtrasEditor({ definitions, values, onChange }: {
+  definitions: PricingRuleDefinition[];
+  values: EditableValues;
+  onChange: (key: string, value: string) => void;
+}) {
+  const leathers = definitions.filter((definition) => definition.rule_key.startsWith("leather:"));
+  const metals = definitions.filter((definition) => definition.rule_key.startsWith("metal:") && !definition.family_id);
+  const commission = definitions.filter((definition) => definition.rule_type === "commission");
+
   return (
     <section className="pricing-family-editor" aria-labelledby="pricing-extras">
-      <header className="pricing-section-heading"><h2 id="pricing-extras">Adicionales</h2><p>Cueros, metales, técnicas de grabado y medios de pago.</p></header>
+      <header className="pricing-section-heading"><h2 id="pricing-extras">Adicionales</h2></header>
       <div className="pricing-extras-list">
-        <ExtrasTable title="Cueros" definitions={leathers} values={values} onChange={onChange} />
-        <ExtrasTable title="Plata 900" definitions={silver} values={values} onChange={onChange} />
-        <ExtrasTable title="Láser" definitions={laser} values={values} onChange={onChange} />
-        <ExtrasTable title="Aplique de bronce" definitions={bronze} values={values} onChange={onChange} />
-        <ExtrasTable title="Mercado Pago" definitions={commission} values={values} onChange={onChange} />
+        <ExtrasTable title="Cueros compartidos" definitions={leathers} values={values} onChange={onChange} />
+        <ExtrasTable title="Metales compartidos" definitions={metals} values={values} onChange={onChange} />
+        {TECHNIQUE_META.map((technique) => (
+          <ExtrasTable
+            key={technique.id}
+            title={technique.title}
+            definitions={definitions.filter((definition) => definition.customization_id?.startsWith(`${technique.id}:`))}
+            values={values}
+            onChange={onChange}
+          />
+        ))}
+        <ExtrasTable title="Medio de pago" definitions={commission} values={values} onChange={onChange} />
       </div>
     </section>
   );
@@ -207,7 +238,7 @@ export function PricingDashboard() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [confirmApply, setConfirmApply] = useState(false);
+  const [confirmPublish, setConfirmPublish] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -225,20 +256,26 @@ export function PricingDashboard() {
 
   useEffect(() => { if (adminState) setValues(toEditableValues(adminState)); }, [adminState]);
 
-  const issues = useMemo(() => adminState ? validatePricingValues(adminState.definitions, values) : [], [adminState, values]);
+  const publishIssues = useMemo(() => adminState ? validatePricingValues(adminState.definitions, values) : [], [adminState, values]);
+  const draftIssues = useMemo(() => adminState ? validatePricingValues(adminState.definitions, values, false) : [], [adminState, values]);
   const savedValues = useMemo(() => adminState ? toEditableValues(adminState) : {}, [adminState]);
   const dirty = useMemo(() => JSON.stringify(values) !== JSON.stringify(savedValues), [savedValues, values]);
+  const publishedChangeCount = useMemo(() => {
+    if (!adminState) return 0;
+    const numericValues = getNumericPricingValues(values);
+    return adminState.definitions.filter((definition) => numericValues[definition.rule_key] !== (adminState.published.values[definition.rule_key] ?? null)).length;
+  }, [adminState, values]);
   const errorCounts = useMemo(() => {
     if (!adminState) return new Map<DashboardSection, number>();
     const definitionsByKey = new Map(adminState.definitions.map((definition) => [definition.rule_key, definition]));
     const counts = new Map<DashboardSection, number>();
-    issues.forEach((issue) => {
+    publishIssues.forEach((issue) => {
       const definition = definitionsByKey.get(issue.key);
       const target = definition ? getDashboardSectionForDefinition(definition) : "extras";
       counts.set(target, (counts.get(target) ?? 0) + 1);
     });
     return counts;
-  }, [adminState, issues]);
+  }, [adminState, publishIssues]);
 
   const changeValue = (key: string, value: string) => {
     setValues((current) => ({ ...current, [key]: value }));
@@ -246,76 +283,98 @@ export function PricingDashboard() {
     setError(null);
   };
 
-  const applyPrices = async () => {
-    if (!adminState) return;
+  const saveDraft = async () => {
+    if (!adminState || draftIssues.length > 0) return;
     setBusy(true);
     setError(null);
     try {
-      const nextState = await saveAndPublishPricing(adminState, getNumericPricingValues(values));
+      const nextState = await savePricingDraft(adminState, getNumericPricingValues(values));
       setAdminState(nextState);
-      setConfirmApply(false);
-      setMessage("Precios actualizados");
-      await refreshPublicPricing(true);
+      setMessage("Borrador guardado");
     } catch (reason) {
-      const messageText = reason instanceof Error ? reason.message : "No se pudieron actualizar los precios.";
-      setConfirmApply(false);
-      if (/otra sesión/i.test(messageText)) {
-        try {
-          const latest = await loadPricingAdminState();
-          setAdminState(latest);
-          setError("Otra sesión modificó los precios. Recargamos los valores actuales para evitar que se sobrescriban.");
-        } catch {
-          setError(messageText);
-        }
-      } else {
-        setError(messageText);
-      }
+      setError(reason instanceof Error ? reason.message : "No se pudo guardar el borrador.");
     } finally {
       setBusy(false);
     }
   };
 
-  if (loading) return <main className="pricing-loading" id="main-content">Verificando acceso…</main>;
-  if (!adminState) return <PricingLogin onAuthenticated={(state) => { setAdminState(state); setLoading(false); }} />;
+  const publish = async () => {
+    if (!adminState || dirty || publishIssues.length > 0) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const nextState = await publishPricingDraft(adminState);
+      setAdminState(nextState);
+      setConfirmPublish(false);
+      setMessage("Precios publicados");
+      await refreshPublicPricing(true);
+    } catch (reason) {
+      setConfirmPublish(false);
+      setError(reason instanceof Error ? reason.message : "No se pudieron publicar los precios.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reload = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setAdminState(await loadPricingAdminState());
+      setMessage("Datos recargados");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "No se pudieron recargar los precios.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (loading) return <main className="pricing-loading" id="main-content">Cargando panel…</main>;
+  if (!adminState) return <PricingLogin onAuthenticated={(state) => { setAdminState(state); setError(null); }} />;
+
+  const selectedFamily = section === "extras" ? null : mateDecisionCatalog.find((family) => family.id === section) ?? null;
 
   return (
     <div className="pricing-dashboard">
       <a className="brand-skip-link" href="#main-content">Saltar al contenido</a>
       <aside className="pricing-sidebar">
-        <header className="pricing-sidebar__brand"><img src="/logoma.jpg" alt="MateArte Arte y Tradición" /><strong>MateArte</strong><small>Control de precios</small></header>
+        <header className="pricing-sidebar__brand"><img src="/assets/marca/logo.jpg" alt="MateArte Arte y Tradición" /><strong>MateArte</strong><small>Control de precios</small></header>
         <nav className="pricing-sidebar__nav" aria-label="Secciones de precios">
           {SECTIONS.map((item) => {
             const sectionErrors = errorCounts.get(item.id) ?? 0;
-            return <button key={item.id} type="button" className={section === item.id ? "is-active" : ""} aria-current={section === item.id ? "page" : undefined} onClick={() => setSection(item.id)}>{item.id === "extras" ? <ExtrasIcon /> : <PriceTagIcon />}<span>{item.label}</span>{sectionErrors > 0 && <b aria-label={`${sectionErrors} errores`}>{sectionErrors}</b>}</button>;
+            return <button key={item.id} type="button" className={section === item.id ? "is-active" : ""} aria-current={section === item.id ? "page" : undefined} onClick={() => setSection(item.id)}>{item.id === "extras" ? <ExtrasIcon /> : <PriceTagIcon />}<span>{item.label}</span>{sectionErrors > 0 && <b aria-label={`${sectionErrors} precios pendientes`}>{sectionErrors}</b>}</button>;
           })}
-          <a href="/"><ExternalIcon /><span>Ver visualizador</span></a>
+          <a href="/" target="_blank" rel="noreferrer"><ExternalIcon /><span>Abrir visualizador</span></a>
         </nav>
-        <footer className="pricing-sidebar__footer">
-          <div><UserIcon /><strong>user</strong></div>
-          <button type="button" onClick={() => void signOutPricingAdmin().then(() => setAdminState(null))}><SignOutIcon /><span>Cerrar sesión</span></button>
-        </footer>
+        <footer className="pricing-sidebar__footer"><div><UserIcon /><span>Administrador</span></div><button type="button" onClick={() => void signOutPricingAdmin().then(() => setAdminState(null))}><SignOutIcon /><span>Cerrar sesión</span></button></footer>
       </aside>
 
-      <div className="pricing-workspace">
+      <main className="pricing-workspace" id="main-content">
         <header className="pricing-page-header">
-          <div><h1>Precios del visualizador</h1><p>Editá los importes del catálogo y aplicalos cuando estén listos.</p></div>
-          <div className="pricing-page-actions">{dirty && <span>Cambios sin aplicar</span>}<button type="button" disabled={!dirty || issues.length > 0 || busy} onClick={() => setConfirmApply(true)}>{busy ? "Aplicando…" : "Guardar y aplicar"}</button></div>
+          <div><h1>Precios</h1></div>
+          <div className="pricing-page-actions">
+            <span>{dirty ? "Cambios sin guardar" : publishIssues.length > 0 ? `${publishIssues.length} valores pendientes` : "Borrador guardado"}</span>
+            <button type="button" className="pricing-action-secondary" disabled={busy || !dirty || draftIssues.length > 0} onClick={() => void saveDraft()}>{busy && dirty ? "Guardando…" : "Guardar borrador"}</button>
+            <button type="button" disabled={busy || dirty || publishIssues.length > 0 || publishedChangeCount === 0} onClick={() => setConfirmPublish(true)}>Publicar</button>
+          </div>
         </header>
 
         <div className="pricing-feedback" aria-live="polite">
+          {error && <p className="pricing-form-error" role="alert">{error} <button type="button" onClick={() => void reload()}>Recargar</button></p>}
           {message && <p className="pricing-success">{message}</p>}
-          {error && <p className="pricing-form-error" role="alert">{error}</p>}
-          {!error && issues.length > 0 && <p className="pricing-form-error" role="alert"><strong>{issues.length} {issues.length === 1 ? "precio necesita" : "precios necesitan"} revisión.</strong> {issues[0].message}.</p>}
+          {draftIssues.length > 0 && <p className="pricing-form-error" role="alert">{draftIssues[0].message}</p>}
         </div>
 
-        <main id="main-content" className="pricing-dashboard__content">
-          {section === "extras" ? <ExtrasEditor definitions={adminState.definitions} values={values} onChange={changeValue} /> : <FamilyEditor familyId={section} definitions={adminState.definitions} values={values} onChange={changeValue} />}
-        </main>
-      </div>
+        <div className="pricing-dashboard__content">
+          {selectedFamily
+            ? <FamilyEditor family={selectedFamily} definitions={adminState.definitions} values={values} onChange={changeValue} />
+            : <ExtrasEditor definitions={adminState.definitions} values={values} onChange={changeValue} />}
+        </div>
+      </main>
 
-      {confirmApply && (
-        <div className="brand-modal pricing-confirmation" role="dialog" aria-modal="true" aria-labelledby="apply-pricing-title">
-          <div><h2 id="apply-pricing-title">¿Guardar y aplicar estos precios?</h2><p>Los nuevos importes quedarán disponibles para todos los usuarios del visualizador.</p><div className="brand-modal__actions"><button type="button" className="brand-button brand-button--secondary" onClick={() => setConfirmApply(false)}>Cancelar</button><button type="button" className="brand-button" disabled={busy} onClick={() => void applyPrices()}>{busy ? "Aplicando…" : "Confirmar"}</button></div></div>
+      {confirmPublish && (
+        <div className="brand-modal pricing-confirmation" role="dialog" aria-modal="true" aria-labelledby="publish-prices-title">
+          <div><h2 id="publish-prices-title">Publicar precios</h2><p>Se publicarán {publishedChangeCount} cambios. El visualizador y el checkout empezarán a usar estos valores.</p><div className="brand-modal__actions"><button type="button" className="brand-button brand-button--secondary" disabled={busy} onClick={() => setConfirmPublish(false)}>Cancelar</button><button type="button" className="brand-button" disabled={busy} onClick={() => void publish()}>{busy ? "Publicando…" : "Confirmar publicación"}</button></div></div>
         </div>
       )}
     </div>

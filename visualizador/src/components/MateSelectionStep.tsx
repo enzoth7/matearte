@@ -13,7 +13,13 @@ import {
   type DecisionTextureOption,
 } from "../catalog/mateDecisionCatalog";
 import { getVariantDefinition } from "../catalog/mateCatalog";
-import { formatUYU, getFamilyStartingPrice, getFamilyBasePrice } from "../catalog/pricingCatalog";
+import {
+  formatUYU,
+  getColorStartingPrice,
+  getFamilyStartingPrice,
+  getMetalStartingPrice,
+  getTextureStartingPrice,
+} from "../catalog/pricingCatalog";
 import { usePricing } from "../context/PricingContext";
 
 interface MateSelectionStepProps {
@@ -159,15 +165,11 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
           {mateDecisionCatalog.map((item) => (
             <button key={item.id} type="button" onClick={() => chooseFamily(item.id)} aria-pressed={item.id === selection.familyId} className="selection-product-card">
               <span className="selection-product-card__title">{item.label}</span>
-              <ProductImage variantId={item.representativeVariantId} alt={`Mate ${item.label}`} />
+              <span className={`selection-model-card__image selection-model-card__image--${item.id}`}>
+                <ProductImage variantId={item.representativeVariantId} alt={`Mate ${item.label}`} />
+              </span>
               <span className="selection-product-card__description">{item.description}</span>
-              {(() => {
-                const basePrice = getFamilyBasePrice(pricingCatalog, item.id);
-                if (basePrice !== null && basePrice > 0) {
-                  return <SelectionPrice value={getFamilyStartingPrice(pricingCatalog, item.id)} pendingCopy={pendingPriceCopy} from />;
-                }
-                return null;
-              })()}
+              <SelectionPrice value={getFamilyStartingPrice(pricingCatalog, item.id)} pendingCopy={pendingPriceCopy} from />
             </button>
           ))}
         </fieldset>
@@ -178,13 +180,15 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
           <fieldset className={`selection-texture-grid ${family.textures.length === 1 ? "selection-texture-grid--single" : ""} ${family.textures.length === 3 ? "selection-texture-grid--triple" : ""} ${family.textures.length > 4 ? "selection-texture-grid--dense" : ""}`}>
             <legend className="sr-only">Textura o construcción</legend>
             {family.textures.map((item) => (
-              <button key={item.id} type="button" onClick={() => onChange({ ...selection, textureId: item.id, colorId: null, metalId: null, sizeId: null, engravingTypeId: null, flejeEngravingTypeId: null })} aria-pressed={item.id === selection.textureId} className="selection-product-card selection-product-card--texture">
+              <button key={item.id} type="button" onClick={() => onChange({ ...selection, textureId: item.id, colorId: null, metalId: null, sizeId: null, engravingTypeId: null, flejeEngravingTypeId: null })} aria-pressed={item.id === selection.textureId} className={`selection-product-card selection-product-card--texture selection-product-card--${item.id}`}>
                 <span className="selection-product-card__title">{item.label}</span>
-                <ProductImage variantId={item.representativeVariantId} alt={item.label} pending={item.status === "pending"} image={item.previewImage} />
+                <span className={`selection-texture-card__image selection-texture-card__image--${item.id}`}>
+                  <ProductImage variantId={item.representativeVariantId} alt={item.label} pending={item.status === "pending"} image={item.previewImage} />
+                </span>
                 <span className="selection-product-card__description">{item.description}</span>
-                {item.status === "pending" ? <PendingLabel copy="Datos pendientes" /> : (
-                  Boolean(item.priceDeltaUYU) && <SelectionPrice value={item.priceDeltaUYU ?? null} isDelta />
-                )}
+                {item.status === "pending"
+                  ? <PendingLabel copy="Datos pendientes" />
+                  : <SelectionPrice value={getTextureStartingPrice(pricingCatalog, family.id, item.id)} pendingCopy={pendingPriceCopy} from />}
               </button>
             ))}
           </fieldset>
@@ -213,9 +217,11 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
                       {item.label}
                     </span>
                     <ColorPreview texture={selectedTexture} colorId={item.id} label={item.label} />
-                    {Boolean(item.priceDeltaUYU) && (
-                      <SelectionPrice value={item.priceDeltaUYU ?? null} isDelta />
-                    )}
+                    <SelectionPrice
+                      value={getColorStartingPrice(pricingCatalog, { ...selection, colorId: item.id })}
+                      pendingCopy={pendingPriceCopy}
+                      from
+                    />
                   </button>
                 ))}
               </div>
@@ -225,16 +231,18 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
       )}
 
       {stage === "metal" && selectedTexture && (
-        <fieldset className={`selection-metal-grid ${selectedTexture.metals.length === 1 ? "selection-metal-grid--single" : ""}`}>
+        <fieldset className={`selection-metal-grid ${selectedTexture.metals.length === 1 ? "selection-metal-grid--single" : ""} ${selectedTexture.metals.length === 2 ? "selection-metal-grid--double" : ""}`}>
           <legend className="sr-only">Tipo de alpaca o metal</legend>
           {selectedTexture.metals.map((item) => (
             <button key={item.id} type="button" onClick={() => onChange({ ...selection, metalId: item.id, sizeId: null, engravingTypeId: null, flejeEngravingTypeId: null })} aria-pressed={item.id === selection.metalId} className="selection-product-card">
               <span className="selection-product-card__title">{item.label}</span>
               <MetalPreview image={item.previewImage} label={item.label} />
               <span className="selection-product-card__description">Muestra del material de {item.label.toLowerCase()}</span>
-              {Boolean(item.priceDeltaUYU) && (
-                <SelectionPrice value={item.priceDeltaUYU ?? null} isDelta />
-              )}
+              <SelectionPrice
+                value={getMetalStartingPrice(pricingCatalog, { ...selection, metalId: item.id })}
+                pendingCopy={pendingPriceCopy}
+                from
+              />
             </button>
           ))}
         </fieldset>

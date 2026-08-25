@@ -74,7 +74,8 @@ describe("árbol declarativo de mates", () => {
   it("considera pendiente el grabado después de completar el tamaño", () => {
     const selection = getSelectionFromLegacyVariant("imperial-lacre", "medio")!;
     expect(getFirstIncompleteStage(selection)).toBe("engraving");
-    expect(getFirstIncompleteStage({ ...selection, engravingTypeId: "bronze-applique" })).toBeNull();
+    expect(getFirstIncompleteStage({ ...selection, engravingTypeId: "bronze-applique" })).toBe("fleje-engraving");
+    expect(getFirstIncompleteStage({ ...selection, engravingTypeId: "bronze-applique", flejeEngravingTypeId: "bronze-applique" })).toBeNull();
   });
 
   it("muestra Virola/Metal solo en las ramas indicadas por los árboles Imperial y Criollo", () => {
@@ -86,6 +87,7 @@ describe("árbol declarativo de mates", () => {
     ]);
     expect(criollo.textures.filter((item) => !item.skipMetalSelection).map((item) => item.id)).toEqual([
       "torpedo-criollo-posa-mate",
+      "imperial-criollo-posa-mate",
     ]);
 
     const imperialClasico = {
@@ -124,18 +126,19 @@ describe("árbol declarativo de mates", () => {
   it("invalida respuestas posteriores que no pertenecen a la nueva rama", () => {
     const sanitized = sanitizeMateSelection({
       familyId: "imperial",
-      textureId: "imperial-cuero-crudo",
+      textureId: "imperial-clasico",
       colorId: "animal-print",
       metalId: "alpaca-bronce",
       sizeId: "grande",
     });
     expect(sanitized).toEqual({
       familyId: "imperial",
-      textureId: "imperial-cuero-crudo",
+      textureId: "imperial-clasico",
       colorId: null,
       metalId: null,
       sizeId: null,
       engravingTypeId: null,
+      flejeEngravingTypeId: null,
     });
   });
 
@@ -143,8 +146,8 @@ describe("árbol declarativo de mates", () => {
     const imperialCriollo = resolveMateSelection({
       familyId: "criollo",
       textureId: "imperial-criollo-posa-mate",
-      colorId: "cuero-crudo",
-      metalId: "original-imperial",
+      colorId: "cuero-crudo-criollo",
+      metalId: "alpaca-grande-criollo",
       sizeId: "medio",
     });
     const camioneroCriollo = resolveMateSelection({
@@ -166,7 +169,7 @@ describe("árbol declarativo de mates", () => {
       familyId: "criollo",
       textureId: "imperial-criollo-posa-mate",
       colorId: "vaqueta",
-      metalId: "original-imperial",
+      metalId: "alpaca-grande-criollo",
       sizeId: "chico",
     });
     expect(pending?.skuId).toBeNull();
@@ -175,10 +178,10 @@ describe("árbol declarativo de mates", () => {
 
   it("no convierte un fallback visual pendiente en un SKU transaccional", () => {
     const pending = resolveMateSelection({
-      familyId: "imperial",
-      textureId: "imperial-criollo",
-      colorId: "variante-pendiente",
-      metalId: "original-imperial",
+      familyId: "criollo",
+      textureId: "imperial-criollo-posa-mate",
+      colorId: "vaqueta",
+      metalId: "alpaca-grande-criollo",
       sizeId: "medio",
     });
 

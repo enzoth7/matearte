@@ -92,13 +92,19 @@ export interface MateConfiguration {
       metalDeltaUYU: number;
       sizeDeltaUYU: number;
     };
+    components?: Array<{
+      ruleKey: string;
+      label: string;
+      valueUYU: number;
+      kind: "family" | "tree" | "leather" | "metal";
+    }>;
     extrasUYU: number;
     subtotalUYU?: number;
     totalUYU: number;
     paymentMethod?: "mercado-pago" | "transferencia" | null;
     mercadoPagoCommissionPercent: number | null;
     mercadoPagoCommissionUYU?: number;
-    items: Array<{ id: string; label?: string; quantity: number; unitPriceUYU: number; totalUYU: number }>;
+    items: Array<{ id: string; ruleKey?: string; label?: string; quantity: number; unitPriceUYU: number; totalUYU: number }>;
   };
 }
 

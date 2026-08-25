@@ -10,6 +10,7 @@ import {
   getRequiredPricingRuleKeys,
   getCustomizationPrice,
   getMercadoPagoCommissionPercent,
+  getActivePricingRuleKeys,
   type PublishedPricingCatalog,
 } from "./pricingCatalog";
 import { createDefaultFlejeCustomization, normalizeFlejeCustomization, type MateConfiguration } from "../types/customizer";
@@ -106,28 +107,42 @@ describe("compatibilidad de personalizaciones", () => {
 describe("precios centralizados", () => {
   it("declara una regla única para cada rama y adicional activo", () => {
     const keys = getRequiredPricingRuleKeys();
-    expect(keys).toHaveLength(3);
+    expect(keys).toEqual(expect.arrayContaining([
+      "family:camionero",
+      "family:imperial",
+      "family:torpedo",
+      "family:criollo",
+      "leather:raw",
+      "leather:print-pelos",
+      "metal:alpaca-bronce",
+      "metal:alpaca-grande",
+      "customization:alpaca-applique:fleje_image",
+      "commission:mercado_pago",
+    ]));
     expect(new Set(keys).size).toBe(keys.length);
     expect(keys.some((key) => key.includes(":color:"))).toBe(false);
+    expect(keys.some((key) => key.includes("finish"))).toBe(false);
+    expect(keys).toEqual(getActivePricingRuleKeys());
   });
 
   it("aplica los importes requeridos y cobra cada cara configurada", () => {
     const configuration = createConfiguration();
     const selection = configuration.selection;
+    const productRuleKeys = resolveMateSelection(selection)!.pricingRuleKeys;
     const catalog: PublishedPricingCatalog = {
       versionId: "pricing-test",
       version: 7,
       publishedAt: "2026-08-20T00:00:00.000Z",
       rules: {
-        [familyRuleKey(selection.familyId!)]: 928,
-        [customizationRuleKey("laser", "rim_finish")]: 100,
-        [customizationRuleKey("laser", "rim_text")]: 150,
-        [customizationRuleKey("laser", "rim_image")]: 400,
-        [customizationRuleKey("laser", "fleje_finish")]: 100,
-        [customizationRuleKey("laser", "fleje_text")]: 150,
-        [customizationRuleKey("laser", "fleje_image")]: 500,
+        ...Object.fromEntries(productRuleKeys.map((key) => [key, key === familyRuleKey(selection.familyId!) ? 928 : 0])),
+        [customizationRuleKey("bronze-applique", "rim_text")]: 150,
+        [customizationRuleKey("bronze-applique", "rim_image")]: 400,
+        [customizationRuleKey("bronze-applique", "fleje_text")]: 150,
+        [customizationRuleKey("bronze-applique", "fleje_image")]: 500,
       },
     };
+    configuration.engravingTypeId = "bronze-applique";
+    configuration.flejeEngravingTypeId = "bronze-applique";
     configuration.rim.textMode = "text";
     configuration.rim.text = "MATEARTE";
     configuration.rim.imageMode = "image";
@@ -141,9 +156,9 @@ describe("precios centralizados", () => {
     fleje.sides.front.selectedImageId = "auf";
 
     const pricing = calculateOrderPricing(configuration, fleje, catalog);
-    expect(getCustomizationPrice(catalog, "laser", "rim_text")).toBe(150);
-    expect(getCustomizationPrice(catalog, "laser", "rim_image")).toBe(400);
-    expect(getCustomizationPrice(catalog, "laser", "fleje_image")).toBe(500);
+    expect(getCustomizationPrice(catalog, "bronze-applique", "rim_text")).toBe(150);
+    expect(getCustomizationPrice(catalog, "bronze-applique", "rim_image")).toBe(400);
+    expect(getCustomizationPrice(catalog, "bronze-applique", "fleje_image")).toBe(500);
     expect(pricing.extrasUYU).toBe(150 * 8 + 400 + 150 * 11 + 500);
     expect(pricing.catalogVersion).toBe(7);
     expect(pricing.isCheckoutReady).toBe(true);
@@ -155,19 +170,21 @@ describe("precios centralizados", () => {
 
   it("solo exige una tarifa de grabado cuando esa personalización está activa", () => {
     const configuration = createConfiguration();
-    const familyKey = familyRuleKey(configuration.selection.familyId!);
+    configuration.engravingTypeId = "bronze-applique";
+    configuration.flejeEngravingTypeId = "bronze-applique";
+    const productRuleKeys = resolveMateSelection(configuration.selection)!.pricingRuleKeys;
     const catalog: PublishedPricingCatalog = {
       versionId: "optional-rules",
       version: 8,
       publishedAt: "2026-08-21T00:00:00.000Z",
-      rules: { [familyKey]: 1000, "commission:mercado_pago": 12 },
+      rules: { ...Object.fromEntries(productRuleKeys.map((key) => [key, key.startsWith("family:") ? 1000 : 0])), "commission:mercado_pago": 12 },
     };
     expect(calculateOrderPricing(configuration, createDefaultFlejeCustomization(), catalog).isPriceReady).toBe(true);
     configuration.rim.textMode = "text";
     configuration.rim.text = "A";
     const pending = calculateOrderPricing(configuration, createDefaultFlejeCustomization(), catalog);
     expect(pending.isPriceReady).toBe(false);
-    expect(pending.missingRuleKeys).toContain(customizationRuleKey("laser", "rim_text"));
+    expect(pending.missingRuleKeys).toContain(customizationRuleKey("bronze-applique", "rim_text"));
     expect(getMercadoPagoCommissionPercent(catalog)).toBe(12);
   });
 

@@ -567,13 +567,14 @@ function VisualizerApp() {
         catalogVersionId: pricing.catalogVersionId,
         basePriceUYU: pricing.basePriceUYU,
         breakdown: pricing.breakdown!,
+        components: pricing.components,
         extrasUYU: pricing.extrasUYU,
         totalUYU: payment?.totalUYU ?? pricing.totalUYU,
         subtotalUYU: payment?.subtotalUYU ?? pricing.totalUYU,
         paymentMethod: payment?.method ?? null,
         mercadoPagoCommissionPercent: payment?.commissionPercent ?? getMercadoPagoCommissionPercent(pricingCatalog),
         mercadoPagoCommissionUYU: payment?.commissionUYU ?? 0,
-        items: pricing.items.map(({ id, label, quantity, unitPriceUYU, totalUYU }) => ({ id, label, quantity, unitPriceUYU, totalUYU })),
+        items: pricing.items.map(({ id, ruleKey, label, quantity, unitPriceUYU, totalUYU }) => ({ id, ruleKey, label, quantity, unitPriceUYU, totalUYU })),
       },
     };
   };
@@ -942,12 +943,10 @@ function VisualizerApp() {
                       {configuration.rim.textMode === "text" && (() => {
                         const engravingType = configuration.engravingTypeId;
                         if (!engravingType) return null;
-                        if (engravingType === "laser") {
-                          return <p className="customizer-inline-price">Letras incluidas en el precio fijo del Láser</p>;
-                        }
                         const allText = (configuration.rim.texts ?? []).map((t) => t.text).join("");
                         const charCount = countChargeableCharacters(allText);
-                        const pricePerChar = getCustomizationPrice(pricingCatalog, engravingType, "rim_text") ?? 150;
+                        const pricePerChar = getCustomizationPrice(pricingCatalog, engravingType, "rim_text");
+                        if (pricePerChar === null) return <p className="customizer-inline-price">Precio no disponible</p>;
                         const total = charCount * pricePerChar;
                         return (
                           <div className="customizer-price-bar">
@@ -995,7 +994,8 @@ function VisualizerApp() {
                         const engravingType = configuration.engravingTypeId;
                         if (!engravingType) return null;
                         const iconCount = configuration.rim.icons.filter((icon) => icon.selectedImageId || icon.customImage).length;
-                        const pricePerIcon = getCustomizationPrice(pricingCatalog, engravingType, "rim_image") ?? 400;
+                        const pricePerIcon = getCustomizationPrice(pricingCatalog, engravingType, "rim_image");
+                        if (pricePerIcon === null) return <p className="customizer-inline-price">Precio no disponible</p>;
                         const total = iconCount * pricePerIcon;
                         return (
                           <div className="customizer-price-bar">
@@ -1085,9 +1085,27 @@ function VisualizerApp() {
                             ))}
                           </div>
                         )}
-                        {(flejeConfig.sides.front.textMode === "text" || flejeConfig.sides.back.textMode === "text") && (
-                          <span className="customizer-control-price">{customizationPriceLabel("fleje_text")}</span>
-                        )}
+                        {(flejeConfig.sides.front.textMode === "text" || flejeConfig.sides.back.textMode === "text") && (() => {
+                          const engravingType = configuration.flejeEngravingTypeId;
+                          if (!engravingType) return null;
+                          const allText = (["front", "back"] as FlejeSide[])
+                            .map((s) => flejeConfig.sides[s].text)
+                            .join("");
+                          const charCount = countChargeableCharacters(allText);
+                          const pricePerChar = getCustomizationPrice(pricingCatalog, engravingType, "fleje_text");
+                          if (pricePerChar === null) return <p className="customizer-inline-price">Precio no disponible</p>;
+                          const total = charCount * pricePerChar;
+                          return (
+                            <div className="customizer-price-bar">
+                              <p className="customizer-price-bar__label">
+                                El precio por cada letra en apliques es de <strong>$ {pricePerChar.toLocaleString("es-UY")}</strong>
+                              </p>
+                              {charCount > 0 && (
+                                <span className="customizer-price-bar__total">$ {total.toLocaleString("es-UY")}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </section>
 
                       <section className="customizer-control-card">
@@ -1104,49 +1122,74 @@ function VisualizerApp() {
                         />
                         {(flejeConfig.sides.front.imageMode === "image" || flejeConfig.sides.back.imageMode === "image") && (
                           <div className="fleje-side-stack">
-                            {(["front", "back"] as FlejeSide[]).map((side) => (
-                              <section
-                                className="fleje-side-panel"
-                                key={side}
-                                onFocusCapture={() => {
-                                  setActiveFlejeSide(side);
-                                  setSelectedFlejeElement("image");
-                                }}
-                                onPointerDownCapture={() => setActiveFlejeSide(side)}
-                              >
-                                <h4>{side === "front" ? "Frente" : "Dorso"}</h4>
-                                <VirolaIconSelector
-                                  limit={14}
-                                  icons={flejeConfig.sides[side].icons || []}
-                                  onChange={(icons) => updateFlejeSide(side, { icons, imageMode: "image" })}
-                                  selectedElementId={selectedFlejeElement === "image" ? flejeConfig.sides[side].icons[0]?.id : null}
-                                  onSelectElement={() => {
+                            {(["front", "back"] as FlejeSide[]).map((side) => {
+                              const otherSide = side === "front" ? "back" : "front";
+                              const otherCount = flejeConfig.sides[otherSide].icons?.filter((icon) => icon.selectedImageId || icon.customImage).length ?? 0;
+                              const remainingLimit = Math.max(0, 14 - otherCount);
+                              return (
+                                <section
+                                  className="fleje-side-panel"
+                                  key={side}
+                                  onFocusCapture={() => {
                                     setActiveFlejeSide(side);
                                     setSelectedFlejeElement("image");
                                   }}
-                                />
-                                {(flejeConfig.sides[side].icons?.length < 14) && (
-                                  <div className="customizer-upload mt-4">
-                                    <CustomImageUpload
-                                      value={null}
-                                      onChange={(asset) => {
-                                        if (asset) {
-                                          updateFlejeSide(side, {
-                                            icons: [...(flejeConfig.sides[side].icons || []), { id: crypto.randomUUID(), selectedImageId: null, customImage: asset, transform: { x: 0.5, y: 0.5, scale: 1, rotation: 0, side } }],
-                                            imageMode: "image"
-                                          });
-                                        }
-                                      }}
-                                    />
-                                  </div>
-                                )}
-                              </section>
-                            ))}
+                                  onPointerDownCapture={() => setActiveFlejeSide(side)}
+                                >
+                                  <h4>{side === "front" ? "Frente" : "Dorso"}</h4>
+                                  <VirolaIconSelector
+                                    limit={remainingLimit}
+                                    icons={flejeConfig.sides[side].icons || []}
+                                    onChange={(icons) => updateFlejeSide(side, { icons, imageMode: "image" })}
+                                    selectedElementId={selectedFlejeElement === "image" ? flejeConfig.sides[side].icons[0]?.id : null}
+                                    onSelectElement={() => {
+                                      setActiveFlejeSide(side);
+                                      setSelectedFlejeElement("image");
+                                    }}
+                                  />
+                                  {(flejeConfig.sides[side].icons?.length < 14) && (
+                                    <div className="customizer-upload mt-4">
+                                      <CustomImageUpload
+                                        value={null}
+                                        onChange={(asset) => {
+                                          if (asset) {
+                                            updateFlejeSide(side, {
+                                              icons: [...(flejeConfig.sides[side].icons || []), { id: crypto.randomUUID(), selectedImageId: null, customImage: asset, transform: { x: 0.5, y: 0.5, scale: 1, rotation: 0, side } }],
+                                              imageMode: "image"
+                                            });
+                                          }
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                </section>
+                              );
+                            })}
                           </div>
                         )}
-                        {(flejeConfig.sides.front.imageMode === "image" || flejeConfig.sides.back.imageMode === "image") && (
-                          <span className="customizer-control-price">{customizationPriceLabel("fleje_image")}</span>
-                        )}
+                        {(flejeConfig.sides.front.imageMode === "image" || flejeConfig.sides.back.imageMode === "image") && (() => {
+                          const engravingType = configuration.flejeEngravingTypeId;
+                          if (!engravingType) return null;
+                          const iconCount = (["front", "back"] as FlejeSide[])
+                            .reduce((total, s) => {
+                              const side = flejeConfig.sides[s];
+                              const icons = side.icons?.filter((icon) => icon.selectedImageId || icon.customImage).length ?? 0;
+                              return total + (icons > 0 ? icons : side.selectedImageId || side.customImage ? 1 : 0);
+                            }, 0);
+                          const pricePerIcon = getCustomizationPrice(pricingCatalog, engravingType, "fleje_image");
+                          if (pricePerIcon === null) return <p className="customizer-inline-price">Precio no disponible</p>;
+                          const total = iconCount * pricePerIcon;
+                          return (
+                            <div className="customizer-price-bar">
+                              <p className="customizer-price-bar__label">
+                                El precio por cada ícono o escudo en apliques es de <strong>$ {pricePerIcon.toLocaleString("es-UY")}</strong>
+                              </p>
+                              {iconCount > 0 && (
+                                <span className="customizer-price-bar__total">$ {total.toLocaleString("es-UY")}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </section>
 
                       <section className="customizer-control-card">

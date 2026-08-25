@@ -3,7 +3,9 @@ param(
   [string]$InputPath,
 
   [Parameter(Mandatory = $true)]
-  [string]$OutputPath
+  [string]$OutputPath,
+
+  [switch]$ClearCenterHole
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,7 +33,7 @@ using System.Runtime.InteropServices;
 
 namespace MateArte {
   public static class CheckerboardAlpha {
-    public static void Convert(string inputPath, string outputPath) {
+    public static void Convert(string inputPath, string outputPath, bool clearCenterHole) {
       using var source = new Bitmap(inputPath);
       using var bitmap = source.Clone(
         new Rectangle(0, 0, source.Width, source.Height),
@@ -93,10 +95,31 @@ namespace MateArte {
         if (y + 1 < height) Enqueue(x, y + 1);
       }
 
+      if (clearCenterHole) {
+        Enqueue(width / 2, height / 2);
+        while (head < tail) {
+          int index = queue[head++];
+          int x = index % width;
+          int y = index / width;
+          if (x > 0) Enqueue(x - 1, y);
+          if (x + 1 < width) Enqueue(x + 1, y);
+          if (y > 0) Enqueue(x, y - 1);
+          if (y + 1 < height) Enqueue(x, y + 1);
+        }
+      }
+
       for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
           int pixel = y * stride + x * 4;
-          pixels[pixel + 3] = outside[y * width + x] ? (byte)0 : (byte)255;
+          if (outside[y * width + x]) {
+            pixels[pixel] = 0;
+            pixels[pixel + 1] = 0;
+            pixels[pixel + 2] = 0;
+            pixels[pixel + 3] = 0;
+          }
+          else {
+            pixels[pixel + 3] = 255;
+          }
         }
       }
 
@@ -127,7 +150,7 @@ if ($outputDirectory) {
 }
 $resolvedOutput = [System.IO.Path]::GetFullPath($OutputPath)
 try {
-  [MateArte.CheckerboardAlpha]::Convert($resolvedInput, $resolvedOutput)
+  [MateArte.CheckerboardAlpha]::Convert($resolvedInput, $resolvedOutput, $ClearCenterHole.IsPresent)
 }
 finally {
   if ($temporaryInput -and (Test-Path -LiteralPath $temporaryInput)) {

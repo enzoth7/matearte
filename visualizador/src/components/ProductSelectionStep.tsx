@@ -31,7 +31,7 @@ export function ProductSelectionStep({ onSelectMate }: ProductSelectionStepProps
 
             <div className="h-48 w-full flex items-center justify-center p-2 group-hover:scale-105 transition-transform duration-300">
               <img
-                src="/assets/catalogo/Imperial Cincelado a Lacre/Imperial Cincelado a Lacre_Transp.webp"
+                src="/assets/mates/imperial/cincelado-premium/natural.png"
                 alt="Mate Imperial Cincelado"
                 className="h-full object-contain drop-shadow-md"
               />
@@ -60,7 +60,7 @@ export function ProductSelectionStep({ onSelectMate }: ProductSelectionStepProps
 
             <div className="h-48 w-full flex items-center justify-center p-2 group-hover:scale-105 transition-transform duration-300">
               <img
-                src="/assets/catalogo/0. Materas/Marrón_1_Transp.webp"
+                src="/assets/materas/marron.webp"
                 alt="Matera de Cuero Artesanal"
                 className="h-full object-contain drop-shadow-md"
               />

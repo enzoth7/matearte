@@ -125,7 +125,7 @@ export function ProfileStep({
   return (
     <main id="main-content" className="profile-page">
       <section className="profile-client brand-surface">
-        <img src="/logoma.jpg" alt="Marca Matearte" />
+        <img src="/assets/marca/logo.jpg" alt="Marca Matearte" />
         <div className="profile-client__data">
           <h1>{userData.name}</h1>
           <p>{userData.email}</p>

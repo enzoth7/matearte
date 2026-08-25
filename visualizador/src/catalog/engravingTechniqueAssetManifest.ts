@@ -1,4 +1,4 @@
-type EngravingTechniqueId = "laser" | "bronze-applique";
+type EngravingTechniqueId = "laser" | "bronze-applique" | "alpaca-applique";
 
 export interface EngravingTechniqueAsset {
   id: EngravingTechniqueId;
@@ -13,8 +13,8 @@ export interface EngravingTechniqueAsset {
 export const engravingTechniqueAssetManifest: Record<EngravingTechniqueId, EngravingTechniqueAsset> = {
   laser: {
     id: "laser",
-    src: "/assets/mates/engraving-techniques/laser-reference.webp",
-    alt: "Referencia temporal de grabado láser sobre virola",
+    src: "/assets/personalizacion/grabado/laser1.webp",
+    alt: "Mate con grabado láser sobre virola",
     sourceUrl: "https://cushemates.com/products/grabado-laser-para-virola-lisa",
     merchant: "Cushe Mates",
     retrievedAt: "2026-08-21",
@@ -22,11 +22,20 @@ export const engravingTechniqueAssetManifest: Record<EngravingTechniqueId, Engra
   },
   "bronze-applique": {
     id: "bronze-applique",
-    src: "/assets/mates/engraving-techniques/bronze-applique-reference.webp",
-    alt: "Referencia temporal de aplique de bronce",
+    src: "/assets/personalizacion/grabado/aplique-bronce.jpg",
+    alt: "Mate con aplique elevado de bronce",
     sourceUrl: "https://www.martinfierromates.com.ar/personalizados/apliques-en-bronce",
     merchant: "Martín Fierro Mates",
     retrievedAt: "2026-08-21",
+    usage: "temporary-reference",
+  },
+  "alpaca-applique": {
+    id: "alpaca-applique",
+    src: "/assets/personalizacion/grabado/aplique-alpaca.webp",
+    alt: "Mate con aplique elevado de alpaca plateada",
+    sourceUrl: "https://www.martinfierromates.com.ar/personalizados/apliques-en-bronce",
+    merchant: "MateArte, variante visual derivada",
+    retrievedAt: "2026-08-24",
     usage: "temporary-reference",
   },
 };

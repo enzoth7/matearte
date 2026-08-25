@@ -39,6 +39,7 @@ export interface MateVariant {
 
 type BaseMateVariant = Omit<
   MateVariant,
+  | "image"
   | "compatibleRimIds"
   | "defaultRimId"
   | "leatherType"
@@ -57,8 +58,6 @@ export interface MateModelDefinition {
   engravingArea: EngravingArea | null;
 }
 
-const CATALOG_PATH = "/assets/catalogo/0. PNG";
-
 export const mateModels: MateModelDefinition[] = [
   { id: "torpedo", name: "Torpedo", hasFleje: true, engravingArea: { x: 33, y: 21, width: 34, height: 12 } },
   { id: "criollo", name: "Criollo", hasFleje: true, engravingArea: { x: 27, y: 26, width: 46, height: 12 } },
@@ -67,54 +66,52 @@ export const mateModels: MateModelDefinition[] = [
 ];
 
 const baseMateVariants: BaseMateVariant[] = [
-  { id: "torpedo-clasico", model: "torpedo", name: "Alpaca Cincelado Premium", image: `${CATALOG_PATH}/Torpedo Alpaca Cincelado al Lacre.webp`, sourceProducts: ["Torpedo Alpaca Cincelado al Lacre"], isDefault: true },
-  { id: "torpedo-cuero-crudo-grande-cincelada", model: "torpedo", name: "Cuero Crudo Virola Grande Cincelada", image: `${CATALOG_PATH}/Torpedo Cuero Crudo Virola Grande Cincelada.webp`, sourceProducts: ["Torpedo Cuero Crudo Virola Grande Cincelada"] },
-  { id: "torpedo-cuero-liso-grande-lisa", model: "torpedo", name: "Cuero Liso Alpaca Grande Lisa", image: `${CATALOG_PATH}/Torpedo Cuero Liso Alpaca Grande Lisa.webp`, sourceProducts: ["Torpedo Cuero Liso Alpaca Grande Lisa"] },
-  { id: "torpedo-croco-pelo-grande", model: "torpedo", name: "Alpaca Grande Cincelada con Cuero Croco/Pelos", image: `${CATALOG_PATH}/Torpedo Alpaca Grande Cincelada con Cuero Croco Pelos.webp`, sourceProducts: ["Torpedo Alpaca Grande Cincelada con Cuero Croco Pelos"] },
-  { id: "torpedo-croco-pelo", model: "torpedo", name: "Alpaca Cuero Croco/Pelos", image: `${CATALOG_PATH}/Torpedo Alpaca Cuero Croco Pelos.webp`, sourceProducts: ["Torpedo Alpaca Cuero Croco Pelos"] },
-  { id: "torpedo-cuero-liso-alpaca-grande", model: "torpedo", name: "Cuero Liso Virola Alpaca Grande", image: `${CATALOG_PATH}/Torpedo Cuero Liso Virola Alpaca Grande.webp`, sourceProducts: ["Torpedo Cuero Liso Virola Alpaca Grande"] },
-  { id: "torpedo-alpaca-bronce-estampado", model: "torpedo", name: "Alpaca y Bronce Cuero Estampado", image: `${CATALOG_PATH}/Torpedo Alpaca y Bronce Cuero Estampado.webp`, sourceProducts: ["Torpedo Alpaca y Bronce Cuero Estampado"] },
-  { id: "torpedo-croco-pelo-reforzado", model: "torpedo", name: "Alpaca y Bronce Croco/Pelos", image: `${CATALOG_PATH}/Torpedo Alpaca y Bronce Croco Pelos.webp`, sourceProducts: ["Torpedo Alpaca y Bronce Croco Pelos"] },
-  { id: "torpedo-cuero-liso-acero-bronce", model: "torpedo", name: "Cuero Liso Virola Acero y Bronce Liso", image: `${CATALOG_PATH}/Torpedo Cuero Liso Virola Acero y Bronce Liso.webp`, sourceProducts: ["Torpedo Cuero Liso Virola Acero y Bronce Liso"] },
-  { id: "torpedo-cuero-liso-alpaca-bronce", model: "torpedo", name: "Cuero Liso Alpaca y Bronce", image: `${CATALOG_PATH}/Torpedo Cuero Liso Alpaca y Bronce.webp`, sourceProducts: ["Torpedo Cuero Liso Alpaca y Bronce"] },
-  { id: "torpedo-cuero-liso-alpaca-cincelada", model: "torpedo", name: "Cuero Liso Alpaca Cincelada", image: `${CATALOG_PATH}/Torpedo Cuero Liso Alpaca Cincelada.webp`, sourceProducts: ["Torpedo Cuero Liso Alpaca Cincelada"] },
-  { id: "torpedo-cuero-crudo-alpaca-bronce", model: "torpedo", name: "Cuero Crudo Virola Alpaca y Bronce", image: `${CATALOG_PATH}/Torpedo Cuero Crudo Virola Alpaca y Bronce.webp`, sourceProducts: ["Torpedo Cuero Crudo Virola Alpaca y Bronce"] },
-  { id: "torpedo-cuero-crudo-alpaca-cincelada", model: "torpedo", name: "Cuero Crudo Virola Alpaca Cincelada", image: `${CATALOG_PATH}/Torpedo Cuero Crudo Virola Alpaca Cincelada.webp`, sourceProducts: ["Torpedo Cuero Crudo Virola Alpaca Cincelada"] },
-  { id: "torpedo-cuero-estampado-alpaca-comun", model: "torpedo", name: "Cuero Estampado Virola Alpaca Comun", image: `${CATALOG_PATH}/Torpedo Cuero Estampado Virola Alpaca Comun.webp`, sourceProducts: ["Torpedo Cuero Estampado Virola Alpaca Comun"] },
-  { id: "torpedo-cuero-estampado-alpaca-grande", model: "torpedo", name: "Cuero Estampado Virola Alpaca Grande", image: `${CATALOG_PATH}/Torpedo Cuero Estampado Virola Alpaca Grande.webp`, sourceProducts: ["Torpedo Cuero Estampado Virola Alpaca Grande"] },
-  { id: "torpedo-cuero-croco", model: "torpedo", name: "Cuero Estampado Alpaca Lisa", image: `${CATALOG_PATH}/Torpedo Cuero Estampado Alpaca Lisa.webp`, sourceProducts: ["Torpedo Cuero Estampado Alpaca Lisa"] },
-  { id: "torpedo-liso", model: "torpedo", name: "Virola Acero Liso", image: `${CATALOG_PATH}/Torpedo Virola Acero Liso.webp`, sourceProducts: ["Torpedo Virola Acero Liso"] },
+  { id: "torpedo-clasico", model: "torpedo", name: "Alpaca Cincelado Premium", sourceProducts: ["Torpedo Alpaca Cincelado al Lacre"], isDefault: true },
+  { id: "torpedo-cuero-crudo-grande-cincelada", model: "torpedo", name: "Cuero Crudo Virola Grande Cincelada", sourceProducts: ["Torpedo Cuero Crudo Virola Grande Cincelada"] },
+  { id: "torpedo-cuero-liso-grande-lisa", model: "torpedo", name: "Cuero Liso Alpaca Grande Lisa", sourceProducts: ["Torpedo Cuero Liso Alpaca Grande Lisa"] },
+  { id: "torpedo-croco-pelo-grande", model: "torpedo", name: "Alpaca Grande Cincelada con Cuero Croco/Pelos", sourceProducts: ["Torpedo Alpaca Grande Cincelada con Cuero Croco Pelos"] },
+  { id: "torpedo-croco-pelo", model: "torpedo", name: "Alpaca Cuero Croco/Pelos", sourceProducts: ["Torpedo Alpaca Cuero Croco Pelos"] },
+  { id: "torpedo-cuero-liso-alpaca-grande", model: "torpedo", name: "Cuero Liso Virola Alpaca Grande", sourceProducts: ["Torpedo Cuero Liso Virola Alpaca Grande"] },
+  { id: "torpedo-alpaca-bronce-estampado", model: "torpedo", name: "Alpaca y Bronce Cuero Estampado", sourceProducts: ["Torpedo Alpaca y Bronce Cuero Estampado"] },
+  { id: "torpedo-croco-pelo-reforzado", model: "torpedo", name: "Alpaca y Bronce Croco/Pelos", sourceProducts: ["Torpedo Alpaca y Bronce Croco Pelos"] },
+  { id: "torpedo-cuero-liso-acero-bronce", model: "torpedo", name: "Cuero Liso Virola Acero y Bronce Liso", sourceProducts: ["Torpedo Cuero Liso Virola Acero y Bronce Liso"] },
+  { id: "torpedo-cuero-liso-alpaca-bronce", model: "torpedo", name: "Cuero Liso Alpaca y Bronce", sourceProducts: ["Torpedo Cuero Liso Alpaca y Bronce"] },
+  { id: "torpedo-cuero-liso-alpaca-cincelada", model: "torpedo", name: "Cuero Liso Alpaca Cincelada", sourceProducts: ["Torpedo Cuero Liso Alpaca Cincelada"] },
+  { id: "torpedo-cuero-crudo-alpaca-bronce", model: "torpedo", name: "Cuero Crudo Virola Alpaca y Bronce", sourceProducts: ["Torpedo Cuero Crudo Virola Alpaca y Bronce"] },
+  { id: "torpedo-cuero-crudo-alpaca-cincelada", model: "torpedo", name: "Cuero Crudo Virola Alpaca Cincelada", sourceProducts: ["Torpedo Cuero Crudo Virola Alpaca Cincelada"] },
+  { id: "torpedo-cuero-estampado-alpaca-comun", model: "torpedo", name: "Cuero Estampado Virola Alpaca Comun", sourceProducts: ["Torpedo Cuero Estampado Virola Alpaca Comun"] },
+  { id: "torpedo-cuero-estampado-alpaca-grande", model: "torpedo", name: "Cuero Estampado Virola Alpaca Grande", sourceProducts: ["Torpedo Cuero Estampado Virola Alpaca Grande"] },
+  { id: "torpedo-cuero-croco", model: "torpedo", name: "Cuero Estampado Alpaca Lisa", sourceProducts: ["Torpedo Cuero Estampado Alpaca Lisa"] },
+  { id: "torpedo-liso", model: "torpedo", name: "Virola Acero Liso", sourceProducts: ["Torpedo Virola Acero Liso"] },
 
-  { id: "criollo-clasico", model: "criollo", name: "Grande cincelado con posa mate de vaqueta", image: `${CATALOG_PATH}/Criollo Alpaca Grande Cincelada Posa Mate Vaqueta.webp`, sourceProducts: ["Criollo Alpaca Grande Cincelada Posa Mate Vaqueta"], isDefault: true },
-  { id: "criollo-natural-posa-cinta", model: "criollo", name: "Natural con posa mate de cinta", image: `${CATALOG_PATH}/Criollo Natural con Posa Mate Cinta.webp`, sourceProducts: ["Criollo Natural con Posa Mate Cinta"] },
-  { id: "criollo-natural-posa-copa", model: "criollo", name: "Natural con posa mate copa", image: `${CATALOG_PATH}/Criollo Natural con Posa Mate Copa Virola de Acero.webp`, sourceProducts: ["Criollo Natural con Posa Mate Copa Virola de Acero"] },
-  { id: "criollo-oscuro-posa-copa", model: "criollo", name: "Oscuro con posa mate copa", image: `${CATALOG_PATH}/Criollo Oscuro Posa Mate Copa.webp`, sourceProducts: ["Criollo Oscuro Posa Mate Copa"] },
+  { id: "criollo-clasico", model: "criollo", name: "Grande cincelado con posa mate de vaqueta", sourceProducts: ["Criollo Alpaca Grande Cincelada Posa Mate Vaqueta"], isDefault: true },
+  { id: "criollo-natural-posa-cinta", model: "criollo", name: "Natural con posa mate de cinta", sourceProducts: ["Criollo Natural con Posa Mate Cinta"] },
+  { id: "criollo-natural-posa-copa", model: "criollo", name: "Natural con posa mate copa", sourceProducts: ["Criollo Natural con Posa Mate Copa Virola de Acero"] },
+  { id: "criollo-oscuro-posa-copa", model: "criollo", name: "Oscuro con posa mate copa", sourceProducts: ["Criollo Oscuro Posa Mate Copa"] },
   {
     id: "criollo-grande-lisa-posa-cuero-crudo",
     model: "criollo",
     name: "Alpaca Grande Lisa con posa mate de cuero crudo",
-    image: `${CATALOG_PATH}/Criollo Alpaca Grande Lisa con Posa Mate Cuero Crudo.webp`,
     sourceProducts: ["Criollo Alpaca Grande Lisa con Posa Mate Cuero Crudo"],
   },
   {
     id: "criollo-grande-posa-cuero-crudo",
     model: "criollo",
     name: "Grande con posa mate de cuero crudo",
-    image: `${CATALOG_PATH}/Criollo Alpaca Grande Cincelada con Posa Mate Cuero Crudo.webp`,
     sourceProducts: ["Criollo Alpaca Grande Cincelada con Posa Mate Cuero Crudo"],
   },
-  { id: "criollo-posa-cuero-crudo", model: "criollo", name: "Con posa mate de cuero crudo", image: `${CATALOG_PATH}/Criollo Virola de Acero con Posa Mate de Cuero Crudo.webp`, sourceProducts: ["Criollo Virola de Acero con Posa Mate de Cuero Crudo"] },
+  { id: "criollo-posa-cuero-crudo", model: "criollo", name: "Con posa mate de cuero crudo", sourceProducts: ["Criollo Virola de Acero con Posa Mate de Cuero Crudo"] },
 
-  { id: "imperial-lacre", model: "imperial", name: "Cincelado Premium", image: `${CATALOG_PATH}/Imperial Cincelado a Lacre.webp`, sourceProducts: ["Imperial Cincelado a Lacre"], isDefault: true },
-  { id: "imperial-criollo-posa-cuero-crudo", model: "imperial", name: "Imperial Criollo con Posa Mate", image: `${CATALOG_PATH}/Imperial Criollo con Posa Mate de Cuero Crudo.webp`, sourceProducts: ["Imperial Criollo con Posa Mate de Cuero Crudo"] },
-  { id: "imperial-cuero-crudo", model: "imperial", name: "Cuero crudo", image: `${CATALOG_PATH}/Imperial Cuero Crudo.webp`, sourceProducts: ["Imperial Cuero Crudo"] },
-  { id: "imperial-premium", model: "imperial", name: "Premium", image: `${CATALOG_PATH}/Imperial Premium.webp`, sourceProducts: ["Imperial Premium"] },
-  { id: "imperial-print", model: "imperial", name: "Print", image: `${CATALOG_PATH}/Imperial Print.webp`, sourceProducts: ["Imperial Print"] },
-  { id: "imperial-clasico", model: "imperial", name: "Virola Plata 900", image: `${CATALOG_PATH}/Imperial Virola Plata 900.webp`, sourceProducts: ["Imperial Virola Plata 900"] },
+  { id: "imperial-lacre", model: "imperial", name: "Cincelado Premium", sourceProducts: ["Imperial Cincelado a Lacre"], isDefault: true },
+  { id: "imperial-criollo-posa-cuero-crudo", model: "imperial", name: "Imperial Criollo con Posa Mate", sourceProducts: ["Imperial Criollo con Posa Mate de Cuero Crudo"] },
+  { id: "imperial-cuero-crudo", model: "imperial", name: "Cuero crudo", sourceProducts: ["Imperial Cuero Crudo"] },
+  { id: "imperial-premium", model: "imperial", name: "Premium", sourceProducts: ["Imperial Premium"] },
+  { id: "imperial-print", model: "imperial", name: "Print", sourceProducts: ["Imperial Print"] },
+  { id: "imperial-clasico", model: "imperial", name: "Virola Plata 900", sourceProducts: ["Imperial Virola Plata 900"] },
 
-  { id: "camionero-liso", model: "camionero", name: "Cuerpo liso", image: `${CATALOG_PATH}/Camionero Acero Liso.webp`, sourceProducts: ["Camionero Acero Liso"], isDefault: true },
-  { id: "camionero-artesanal", model: "camionero", name: "Cuerpo artesanal", image: `${CATALOG_PATH}/Camionero Alpaca Cincelado.webp`, sourceProducts: ["Camionero Alpaca Cincelado"] },
-  { id: "camionero-criollo-posa-vaqueta", model: "camionero", name: "Criollo con posa mate de vaqueta", image: `${CATALOG_PATH}/Camionero Criolla Posa con Mate Vaqueta.webp`, sourceProducts: ["Camionero Criolla Posa con Mate Vaqueta"] },
+  { id: "camionero-liso", model: "camionero", name: "Cuerpo liso", sourceProducts: ["Camionero Acero Liso"], isDefault: true },
+  { id: "camionero-artesanal", model: "camionero", name: "Cuerpo artesanal", sourceProducts: ["Camionero Alpaca Cincelado"] },
+  { id: "camionero-criollo-posa-vaqueta", model: "camionero", name: "Criollo con posa mate de vaqueta", sourceProducts: ["Camionero Criolla Posa con Mate Vaqueta"] },
 ];
 
 const rimCompatibility: Record<string, { ids: string[]; defaultId: string }> = {
@@ -229,7 +226,7 @@ export const mateVariants: MateVariant[] = baseMateVariants.map((variant) => {
   if (!compatibility) throw new Error(`Falta configurar la compatibilidad de virola para ${variant.id}`);
   return {
     ...variant,
-    image: getMateAssetPath(variant.id, variant.image),
+    image: getMateAssetPath(variant.id, ""),
     ...getVariantMetadata(variant),
     compatibleRimIds: compatibility.ids,
     defaultRimId: compatibility.defaultId,

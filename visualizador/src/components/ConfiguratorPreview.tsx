@@ -232,7 +232,7 @@ export function ConfiguratorPreview({
         onPointerCancel={endDrag}
         onPointerDown={placeElement}
       >
-        <image href="/assets/svg/rim-base.svg" x="0" y="0" width={RIM_VIEWBOX_SIZE} height={RIM_VIEWBOX_SIZE} preserveAspectRatio="xMidYMid meet" />
+        <image href="/assets/plantillas/virola/base.svg" x="0" y="0" width={RIM_VIEWBOX_SIZE} height={RIM_VIEWBOX_SIZE} preserveAspectRatio="xMidYMid meet" />
         <RimFinishLayer
           finish={finish}
           hasTextKnockout={hasTextKnockout}
@@ -268,8 +268,8 @@ export function ConfiguratorPreview({
             onResizeDown={editable && !placingElementId ? (event) => beginDrag(icon.id, event, "resize") : undefined}
           />
         ))}
-        <image href="/assets/svg/rim-outline.svg" x="0" y="0" width={RIM_VIEWBOX_SIZE} height={RIM_VIEWBOX_SIZE} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
-        <image href="/assets/svg/rim-center.svg" x="0" y="0" width={RIM_VIEWBOX_SIZE} height={RIM_VIEWBOX_SIZE} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
+        <image href="/assets/plantillas/virola/contorno.svg" x="0" y="0" width={RIM_VIEWBOX_SIZE} height={RIM_VIEWBOX_SIZE} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
+        <image href="/assets/plantillas/virola/centro.svg" x="0" y="0" width={RIM_VIEWBOX_SIZE} height={RIM_VIEWBOX_SIZE} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
       </svg>
     </div>
   );
