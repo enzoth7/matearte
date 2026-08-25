@@ -14,13 +14,13 @@ import {
 } from "../catalog/mateDecisionCatalog";
 import { getVariantDefinition } from "../catalog/mateCatalog";
 import {
-  formatUYU,
   getColorStartingPrice,
   getFamilyStartingPrice,
   getMetalStartingPrice,
   getTextureStartingPrice,
 } from "../catalog/pricingCatalog";
 import { usePricing } from "../context/PricingContext";
+import { formatSelectionPrice } from "./selectionPriceUtils";
 
 interface MateSelectionStepProps {
   stage: MateSelectionStage;
@@ -44,8 +44,7 @@ function PendingLabel({ copy = "Precio pendiente" }: { copy?: string }) {
 }
 
 function SelectionPrice({ value, pendingCopy = "Precio no disponible", from = false, isDelta = false }: { value: number | null; pendingCopy?: string; from?: boolean; isDelta?: boolean }) {
-  const formattedValue = isDelta ? `+ ${formatUYU(value!)}` : `${from ? "Desde " : ""}${formatUYU(value!)}`;
-  return <PendingLabel copy={value === null ? pendingCopy : formattedValue} />;
+  return <PendingLabel copy={formatSelectionPrice(value, pendingCopy, from, isDelta)} />;
 }
 
 function ProductImage({ variantId, alt, pending = false, image }: { variantId: string; alt: string; pending?: boolean; image?: string }) {
