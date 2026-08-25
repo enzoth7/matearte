@@ -774,11 +774,28 @@
 
 .pricing-login-page,
 .pricing-loading {
+  min-height: 100dvh;
   background: var(--pricing-cream);
 }
 
+.pricing-login-page {
+  display: grid;
+  place-items: center;
+  padding: clamp(20px, 4vh, 40px) clamp(20px, 6vw, 72px);
+}
+
+.pricing-loading {
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  color: var(--pricing-forest);
+  font-weight: 700;
+}
+
 .pricing-login {
+  display: grid;
   width: min(440px, 100%);
+  margin: 0;
   justify-items: stretch;
   gap: 11px;
   border: 1px solid var(--pricing-border);
@@ -788,29 +805,97 @@
   box-shadow: 0 20px 48px rgb(23 58 43 / 12%);
 }
 
+.pricing-login,
+.pricing-login * {
+  box-sizing: border-box;
+}
+
 .pricing-login > img {
   justify-self: center;
   margin-bottom: 10px;
 }
 
+.pricing-login .pricing-eyebrow {
+  color: var(--pricing-leather);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 .pricing-login h1 {
+  margin: 0;
   color: var(--pricing-forest);
   font: 700 34px/1 "IBM Plex Sans", Arial, sans-serif;
   letter-spacing: -.04em;
+  text-align: center;
+}
+
+.pricing-login p {
+  margin: 0 0 12px;
+  color: var(--pricing-muted);
+  line-height: 1.5;
+  text-align: center;
+}
+
+.pricing-login label {
+  margin-top: 4px;
+  color: var(--pricing-forest);
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .pricing-login input {
+  width: 100%;
   min-height: 48px;
   border: 1px solid #bdc7bd;
   border-radius: 7px;
+  padding: 10px 13px;
+  background: #fff;
+  color: var(--pricing-ink);
   font-family: "IBM Plex Sans", Arial, sans-serif;
 }
 
+.pricing-login input:focus-visible,
+.pricing-login button:focus-visible,
+.pricing-login a:focus-visible {
+  outline: 3px solid rgb(155 77 32 / 28%);
+  outline-offset: 2px;
+}
+
 .pricing-login button {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 8px;
+  border: 0;
   border-radius: 8px;
+  padding: 11px 18px;
   background: var(--pricing-leather);
+  color: #fff;
   font-family: "IBM Plex Sans", Arial, sans-serif;
+  font-size: 15px;
+  font-weight: 700;
   text-transform: none;
+  cursor: pointer;
+}
+
+.pricing-login button:hover:not(:disabled) {
+  background: #71462f;
+}
+
+.pricing-login button:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.pricing-login a {
+  justify-self: center;
+  margin-top: 6px;
+  color: var(--pricing-leather);
+  font-size: 14px;
+  font-weight: 700;
+  text-underline-offset: 3px;
 }
 
 @media (max-width: 1050px) {
