@@ -1,6 +1,6 @@
 "use client";
 
-import { Globe, List, MagnifyingGlass, ShoppingCart, X } from "@phosphor-icons/react";
+import { Globe, List, MagnifyingGlass, ShoppingCart, UserCircle, X } from "@phosphor-icons/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -9,12 +9,28 @@ import { es } from "@/content/es";
 
 export function Header() {
   const [open, setOpen] = useState(false);
+  const [session, setSession] = useState<{ authenticated: boolean; user: { name: string } | null; cartCount: number }>({ authenticated: false, user: null, cartCount: 0 });
   const pathname = usePathname();
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [open]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/session", { signal: controller.signal, credentials: "same-origin" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((value) => value && setSession(value))
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [pathname]);
+
+  const globalLogout = async () => {
+    const response = await fetch('/api/auth/logout', { method: 'POST' });
+    const value = await response.json();
+    window.location.assign(value.continueAt || '/');
+  };
 
   return (
     <>
@@ -25,7 +41,7 @@ export function Header() {
         <div className="container-shell flex h-20 items-center justify-between gap-6">
           <Link className="flex min-h-11 items-center gap-3" href="/" aria-label="MateArte Uruguay, inicio">
             <Image
-              src="/assets/matearte/MatearteLogo.jpg"
+              src="/assets/matearte/01-marca/LogoOriginal.jpg"
               alt={"MateArte Arte & Tradici\u00f3n"}
               width={240}
               height={240}
@@ -66,15 +82,22 @@ export function Header() {
             <Link href="/catalogo" className="flex size-11 items-center justify-center" aria-label="Buscar en el catálogo">
               <MagnifyingGlass size={21} aria-hidden="true" />
             </Link>
-            <button
-              type="button"
-              className="flex size-11 cursor-default items-center justify-center text-black/60"
-              aria-label="Carrito próximamente"
-              title="Carrito próximamente"
-              disabled
+            {session.authenticated ? (
+              <Link href="/perfil" className="hidden min-h-11 items-center gap-2 px-2 text-sm font-medium text-[var(--walnut)] sm:flex" aria-label="Abrir mi cuenta y mis pedidos">
+                <UserCircle size={21} aria-hidden="true" /><span className="max-w-24 truncate">{session.user?.name}</span>
+              </Link>
+            ) : (
+              <Link href="/perfil" className="hidden min-h-11 items-center px-2 text-sm font-medium text-[var(--walnut)] sm:flex">Ingresar</Link>
+            )}
+            {session.authenticated && <button type="button" onClick={() => void globalLogout()} className="hidden min-h-11 px-2 text-xs text-black/60 xl:block">Salir</button>}
+            <Link
+              href="/carrito"
+              className="relative flex size-11 items-center justify-center"
+              aria-label={`Carrito${session.cartCount ? `, ${session.cartCount} artículos` : ""}`}
             >
               <ShoppingCart size={21} aria-hidden="true" />
-            </button>
+              {session.cartCount > 0 && <span className="absolute right-0.5 top-0.5 grid size-5 place-items-center rounded-full bg-[var(--leather)] text-[0.65rem] font-bold text-white">{Math.min(99, session.cartCount)}</span>}
+            </Link>
             <button
               type="button"
               className="flex size-11 items-center justify-center lg:hidden"
@@ -96,6 +119,16 @@ export function Header() {
                 {item.label}<span className="font-sans text-xs tracking-widest">0{index + 1}</span>
               </Link>
             ))}
+            {session.authenticated && (
+              <Link href="/perfil" onClick={() => setOpen(false)} className="display-font flex min-h-20 items-center justify-between border-b border-black/15 text-3xl">
+                Mi cuenta <UserCircle size={26} aria-hidden="true" />
+              </Link>
+            )}
+            {!session.authenticated && (
+              <Link href="/perfil" onClick={() => setOpen(false)} className="display-font flex min-h-20 items-center justify-between border-b border-black/15 text-3xl">
+                Ingresar <UserCircle size={26} aria-hidden="true" />
+              </Link>
+            )}
           </nav>
         </div>
       )}

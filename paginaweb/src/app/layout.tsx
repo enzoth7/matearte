@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Newsreader, Outfit } from "next/font/google";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { CartMerger } from "@/components/CartMerger";
 import { JsonLd } from "@/components/JsonLd";
 import SmoothScroll from "@/components/ui/smooth-scroll";
 import { es } from "@/content/es";
@@ -73,6 +74,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="es" className={`${newsreader.variable} ${outfit.variable}`}>
       <body>
+        <CartMerger />
         <a className="skip-link" href="#contenido">Saltar al contenido</a>
         <JsonLd data={organizationSchema} />
         <SmoothScroll>

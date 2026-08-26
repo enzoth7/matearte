@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { JsonLd } from "@/components/JsonLd";
 import { ProductGallery } from "@/components/ProductGallery";
 import { VariantPanel } from "@/components/VariantPanel";
+import { CommercePurchasePanel } from "@/components/CommercePurchasePanel";
 import { getProduct, products } from "@/data/catalog";
 import { absoluteUrl } from "@/lib/metadata";
 
@@ -53,10 +54,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             <p className="mt-5 text-sm leading-7 text-black/58">{product.description}</p>
             <div className="my-7 flex flex-wrap gap-2">{product.materials.map((material) => <span key={material} className="border border-black/20 px-3 py-1.5 text-xs font-medium">{material}</span>)}</div>
             <VariantPanel variants={product.variants} />
-            <div className="mt-7 border border-black/20 bg-[var(--paper)] p-5">
-              <p className="text-sm font-semibold">Precio y compra todavía no disponibles</p>
-              <p className="mt-2 text-sm leading-6 text-black/58">El botón de compra aparecerá únicamente cuando precio, stock y Mercado Pago estén conectados.</p>
-            </div>
+            <CommercePurchasePanel slug={product.slug} />
             <Link className="button-secondary mt-6 w-full" href="/personalizados">Conocer personalización</Link>
             <p className="legal-note mt-6">Imagen de referencia del catálogo público. Terminaciones y disponibilidad deben validarse antes de comprar.</p>
           </div>
