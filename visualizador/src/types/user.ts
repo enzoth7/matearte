@@ -9,14 +9,25 @@ export interface UserData {
   email: string;
   phone: string;
   company?: string;
+  birthDate?: string;
+  department?: string;
+  city?: string;
+  addressLine1?: string;
+  postalCode?: string;
+  avatarPath?: string;
+  avatarUrl?: string;
+  profileComplete?: boolean;
 }
 
 export interface SavedDesignItem {
   id: string;
   user_id?: string;
+  client_draft_id: string;
+  design_code: string;
   title: string;
   configuration: MateConfiguration;
   fleje_config: FlejeCustomization;
-  status: 'draft' | 'submitted';
+  status: 'draft' | 'saved' | 'archived';
   created_at: string;
+  updated_at: string;
 }

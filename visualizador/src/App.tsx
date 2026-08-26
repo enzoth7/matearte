@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useState, useEffect, useRef } from "react"
 import type { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { UserData, WizardStep, SavedDesignItem } from "./types/user";
-import { isSupabaseConfigured, saveUserProfileToSupabase, supabase, saveDesignToSupabase } from "./lib/supabase";
+import { createMainSiteHandoff, createProfileAvatarSignedUrl, isSupabaseConfigured, saveUserProfileToSupabase, supabase, saveDesignToSupabase } from "./lib/supabase";
 import { WelcomeStep } from "./components/WelcomeStep";
 import { CustomizerIntroStep } from "./components/CustomizerIntroStep";
 import { MateSelectionStep } from "./components/MateSelectionStep";
@@ -20,7 +20,7 @@ import { RimTextEditor } from "./components/RimTextEditor";
 import { RimTextFields } from "./components/RimTextFields";
 import { RimTextModeSelector } from "./components/RimTextModeSelector";
 import { CustomImageUpload } from "./components/CustomImageUpload";
-import { CheckoutStep, type PaymentPricingSnapshot } from "./components/CheckoutStep";
+import { CheckoutStep } from "./components/CheckoutStep";
 import { VirolaIconSelector } from "./components/VirolaIconSelector";
 import { BrandFooter } from "./components/BrandFooter";
 import { StyleTransitionStep } from "./components/StyleTransitionStep";
@@ -44,12 +44,13 @@ import {
 import { createDefaultRimSelection, normalizeRimSelection } from "./catalog/rimCatalog";
 import { getRimFinish } from "./catalog/rimFinishCatalog";
 import { getFlejeFinish } from "./catalog/flejeFinishCatalog";
-import { calculateOrderPricing, countChargeableCharacters, formatUYU, getCustomizationPrice, getMercadoPagoCommissionPercent } from "./catalog/pricingCatalog";
+import { calculateOrderPricing, countChargeableCharacters, formatUYU, getCustomizationPrice } from "./catalog/pricingCatalog";
 import { createDefaultFlejeCustomization, normalizeFlejeCustomization, type CustomImageAsset, type EditableElement, type FlejeCustomization, type FlejeSide, type MateConfiguration } from "./types/customizer";
+import { loadGuestDraft, loadGuestDraftIdentity, saveGuestDraft, saveGuestDraftIdentity, syncDesignAssets } from "./services/guestDraftStorage";
 
 type CustomizationPhase = "mate" | "virola" | "fleje";
 type PreviewView = "mate" | "virola" | "fleje";
-type PendingAuthAction = "save-customizer" | "save-summary" | "checkout" | "profile" | "edit-contact";
+type PendingAuthAction = "save-customizer" | "save-summary" | "checkout" | "profile" | "edit-contact" | "main-profile";
 
 const PricingDashboard = lazy(() => import("./components/PricingDashboard").then((module) => ({ default: module.PricingDashboard })));
 
@@ -153,6 +154,11 @@ function PhaseAccordion({ number, title, isOpen, onToggle, children }: PhaseAcco
 }
 
 const SELECTION_SESSION_KEY = "matearte_selection_v2";
+const ACTIVE_DRAFT_SESSION_KEY = "matearte_active_draft_id";
+
+function createDraftIdentity() {
+  return crypto.randomUUID();
+}
 
 function selectionStageFromPath(path: string): MateSelectionStage {
   if (path.endsWith("/texture")) return "texture";
@@ -278,14 +284,7 @@ function VisualizerApp() {
   };
 
   // Load user data from localStorage if available
-  const [userData, setUserData] = useState<UserData | null>(() => {
-    try {
-      const saved = localStorage.getItem("matearte_user");
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [userData, setUserData] = useState<UserData | null>(null);
 
   // Helper to convert route to wizard step
   const getStepFromPath = (path: string): WizardStep => {
@@ -321,25 +320,6 @@ function VisualizerApp() {
     setWizardStepState(getStepFromPath(location.pathname));
   }, [location.pathname]);
 
-  // Ensure profile ID is synced with Supabase when app loads
-  useEffect(() => {
-    let active = true;
-
-    if (isSupabaseConfigured && userData && userData.email && !userData.id && !userData.isGuest) {
-      saveUserProfileToSupabase(userData).then(({ profile }) => {
-        if (profile && active) {
-          const updated = { ...userData, id: profile.id };
-          setUserData(updated);
-          localStorage.setItem("matearte_user", JSON.stringify(updated));
-        }
-      });
-    }
-
-    return () => {
-      active = false;
-    };
-  }, [userData]);
-
   const changeStep = useCallback((step: WizardStep) => {
     setWizardStepState(step);
     switch (step) {
@@ -371,31 +351,61 @@ function VisualizerApp() {
   }, [navigate]);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth") !== "login" || params.get("next") !== "profile") return;
+    sessionStorage.setItem("matearte_pending_auth_action", "main-profile");
+    setPendingAuthAction("main-profile");
+    changeStep("access");
+  }, [changeStep]);
+
+  useEffect(() => {
     if (!isSupabaseConfigured) return;
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+    if (new URLSearchParams(window.location.search).get('logout') === '1') {
+      void supabase.auth.signOut({ scope: 'local' }).finally(() => {
+        localStorage.removeItem('matearte_user');
+        window.history.replaceState(null, '', '/');
+        setUserData(null);
+      });
+    }
+
+    const syncSession = async (session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']) => {
       if (session?.user) {
         const email = session.user.email || "";
-        const name = session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split("@")[0] || "Usuario Google";
+        const { data: profile } = await supabase.from('customer_profiles')
+          .select('full_name,phone,company,birth_date,department,city,address_line1,postal_code,avatar_path,profile_completed_at')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        const name = profile?.full_name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split("@")[0] || "Cliente MateArte";
+        const signedAvatar = profile?.avatar_path ? await createProfileAvatarSignedUrl(profile.avatar_path) : null;
         const userObj: UserData = {
           id: session.user.id,
           name,
           email,
-          phone: session.user.user_metadata?.phone || "",
-          company: session.user.user_metadata?.company || "",
+          phone: profile?.phone || "",
+          company: profile?.company || "",
+          birthDate: profile?.birth_date || "",
+          department: profile?.department || "",
+          city: profile?.city || "",
+          addressLine1: profile?.address_line1 || "",
+          postalCode: profile?.postal_code || "",
+          avatarPath: profile?.avatar_path || "",
+          avatarUrl: signedAvatar?.data?.signedUrl || "",
+          profileComplete: Boolean(profile?.profile_completed_at),
         };
         setUserData(userObj);
         localStorage.setItem("matearte_user", JSON.stringify(userObj));
-        saveUserProfileToSupabase(userObj);
-
+        if (!userObj.profileComplete) changeStep("profile");
         if (window.location.search.includes('error') || window.location.hash.includes('access_token') || window.location.search.includes('code')) {
           window.history.replaceState(null, '', window.location.pathname);
         }
-
-        // La navegación posterior al acceso se resuelve con pendingAuthAction para
-        // poder retomar exactamente Guardar, Checkout o Perfil.
+      } else {
+        setUserData(null);
+        localStorage.removeItem('matearte_user');
       }
-    });
+    };
+    void supabase.auth.getSession().then(({ data }) => syncSession(data.session));
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => { setTimeout(() => void syncSession(session), 0); });
 
     return () => {
       authListener?.subscription.unsubscribe();
@@ -427,6 +437,28 @@ function VisualizerApp() {
     : configuration.capabilities.hasFleje;
   const selectedMate = mateVariants.find((variant) => variant.id === configuration.variantId) ?? initialVariant;
   const [flejeConfig, setFlejeConfig] = useState<FlejeCustomization>(() => createDefaultFlejeCustomization());
+  const [guestDraftHydrated, setGuestDraftHydrated] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void loadGuestDraft().then((draft) => {
+      if (!active) return;
+      if (draft?.configuration) {
+        const normalized = normalizeMateConfiguration(draft.configuration);
+        setConfiguration(normalized);
+        if (!normalized.isLegacy) setSelection(normalized.selection);
+      }
+      if (draft?.flejeConfiguration) setFlejeConfig(normalizeFlejeCustomization(draft.flejeConfiguration));
+      setGuestDraftHydrated(true);
+    }).catch(() => setGuestDraftHydrated(true));
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!guestDraftHydrated) return;
+    const timer = window.setTimeout(() => { void saveGuestDraft(configuration, flejeConfig); }, 500);
+    return () => window.clearTimeout(timer);
+  }, [configuration, flejeConfig, guestDraftHydrated]);
   const [activeFlejeSide, setActiveFlejeSide] = useState<FlejeSide>("front");
   const [selectedRimElement, setSelectedRimElement] = useState<string | null>("text");
   const [placingRimIconId, setPlacingRimIconId] = useState<string | null>(null);
@@ -545,19 +577,37 @@ function VisualizerApp() {
     }
   }, [allowIncompletePhaseNavigation, configuration.isLegacy, navigate, selection, selectionStage, wizardStep]);
 
-  const handleWelcomeSubmit = async (data: UserData) => {
-    const { profile } = data.isGuest
-      ? { profile: null }
-      : await saveUserProfileToSupabase(data);
-    const mergedUser = profile ? { ...data, id: profile.id } : data;
-    setUserData(mergedUser);
-    localStorage.setItem("matearte_user", JSON.stringify(mergedUser));
-    if (!pendingAuthAction) changeStep("product_selection");
-  };
-
   const [lastSavedDesignId, setLastSavedDesignId] = useState<string | null>(null);
+  const [currentDraftKey, setCurrentDraftKey] = useState<string>(() => {
+    const existing = sessionStorage.getItem(ACTIVE_DRAFT_SESSION_KEY);
+    const value = existing || createDraftIdentity();
+    sessionStorage.setItem(ACTIVE_DRAFT_SESSION_KEY, value);
+    return value;
+  });
 
-  const configurationWithPricingSnapshot = (payment?: PaymentPricingSnapshot) => {
+  const setDraftIdentity = useCallback((value: string) => {
+    setCurrentDraftKey(value);
+    sessionStorage.setItem(ACTIVE_DRAFT_SESSION_KEY, value);
+  }, []);
+
+  const startNewDraft = useCallback(() => {
+    setLastSavedDesignId(null);
+    setDraftIdentity(createDraftIdentity());
+  }, [setDraftIdentity]);
+
+  useEffect(() => {
+    let active = true;
+    void loadGuestDraftIdentity().then((storedIdentity) => {
+      if (active && storedIdentity) setDraftIdentity(storedIdentity);
+    });
+    return () => { active = false; };
+  }, [setDraftIdentity]);
+
+  useEffect(() => {
+    void saveGuestDraftIdentity(currentDraftKey);
+  }, [currentDraftKey]);
+
+  const configurationWithPricingSnapshot = () => {
     const pricing = calculateOrderPricing(configuration, flejeConfig, pricingCatalog);
     if (!pricing.isPriceReady || pricing.catalogVersion === null || !pricing.catalogVersionId) return configuration;
     return {
@@ -569,11 +619,11 @@ function VisualizerApp() {
         breakdown: pricing.breakdown!,
         components: pricing.components,
         extrasUYU: pricing.extrasUYU,
-        totalUYU: payment?.totalUYU ?? pricing.totalUYU,
-        subtotalUYU: payment?.subtotalUYU ?? pricing.totalUYU,
-        paymentMethod: payment?.method ?? null,
-        mercadoPagoCommissionPercent: payment?.commissionPercent ?? getMercadoPagoCommissionPercent(pricingCatalog),
-        mercadoPagoCommissionUYU: payment?.commissionUYU ?? 0,
+        totalUYU: pricing.totalUYU,
+        subtotalUYU: pricing.totalUYU,
+        paymentMethod: null,
+        mercadoPagoCommissionPercent: null,
+        mercadoPagoCommissionUYU: 0,
         items: pricing.items.map(({ id, ruleKey, label, quantity, unitPriceUYU, totalUYU }) => ({ id, ruleKey, label, quantity, unitPriceUYU, totalUYU })),
       },
     };
@@ -583,17 +633,34 @@ function VisualizerApp() {
     if (saveStatus !== "idle") return;
     setSaveStatus("saving");
 
-    const { data } = await saveDesignToSupabase({
+    const configurationForSave = configurationWithPricingSnapshot();
+    const { data, error } = await saveDesignToSupabase({
       designId: lastSavedDesignId,
+      clientDraftId: currentDraftKey,
       userId: userData?.id,
-      configuration: configurationWithPricingSnapshot(),
+      configuration: configurationForSave,
       flejeConfig,
       title: `Mate ${configuration.selectionLabels.texture}`,
       status: 'draft',
     });
 
+    if (error || !data?.[0]?.id) {
+      setSaveStatus("idle");
+      window.alert(error?.message || 'No se pudo guardar el diseño.');
+      return;
+    }
     if (data && data[0]?.id) {
       setLastSavedDesignId(data[0].id);
+      setDraftIdentity(data[0].client_draft_id);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const synced = await syncDesignAssets(configurationForSave, flejeConfig, data[0].id, session.access_token);
+        if (synced.changed) {
+          setConfiguration(normalizeMateConfiguration(synced.configuration));
+          setFlejeConfig(normalizeFlejeCustomization(synced.flejeConfiguration));
+          await saveDesignToSupabase({ designId: data[0].id, clientDraftId: data[0].client_draft_id, userId: userData?.id, configuration: synced.configuration, flejeConfig: synced.flejeConfiguration, title: `Mate ${configuration.selectionLabels.texture}`, status: 'draft' });
+        }
+      }
     }
 
     setTimeout(() => {
@@ -606,33 +673,82 @@ function VisualizerApp() {
   };
 
   const handleSaveDraftFromSummary = async () => {
-    const { data } = await saveDesignToSupabase({
+    const configurationForSave = configurationWithPricingSnapshot();
+    const { data, error } = await saveDesignToSupabase({
       designId: lastSavedDesignId,
+      clientDraftId: currentDraftKey,
       userId: userData?.id,
-      configuration: configurationWithPricingSnapshot(),
+      configuration: configurationForSave,
       flejeConfig,
       title: `Mate ${configuration.selectionLabels.texture}`,
       status: 'draft',
     });
+    if (error || !data?.[0]?.id) {
+      window.alert(error?.message || 'No se pudo guardar el diseño.');
+      return;
+    }
     if (data && data[0]?.id) {
       setLastSavedDesignId(data[0].id);
+      setDraftIdentity(data[0].client_draft_id);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const synced = await syncDesignAssets(configurationForSave, flejeConfig, data[0].id, session.access_token);
+        if (synced.changed) await saveDesignToSupabase({ designId: data[0].id, clientDraftId: data[0].client_draft_id, userId: userData?.id, configuration: synced.configuration, flejeConfig: synced.flejeConfiguration, title: `Mate ${configuration.selectionLabels.texture}`, status: 'draft' });
+      }
     }
 
     changeStep("profile");
   };
 
-  const handleCheckoutComplete = async (payment: PaymentPricingSnapshot) => {
-    const { data } = await saveDesignToSupabase({
+  const handleCheckoutComplete = async () => {
+    const configurationForSave = configurationWithPricingSnapshot();
+    const { data, error } = await saveDesignToSupabase({
       designId: lastSavedDesignId,
+      clientDraftId: currentDraftKey,
       userId: userData?.id,
-      configuration: configurationWithPricingSnapshot(payment),
+      configuration: configurationForSave,
       flejeConfig,
       title: `Mate ${configuration.selectionLabels.texture}`,
-      status: "submitted",
+      status: "draft",
     });
-    if (data && data[0]?.id) setLastSavedDesignId(data[0].id);
-    changeStep("success");
+    const designId = data?.[0]?.id;
+    if (error || !designId) throw error || new Error('No se pudo guardar el diseño.');
+    setLastSavedDesignId(designId);
+    setDraftIdentity(data[0].client_draft_id);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('La sesión venció. Volvé a ingresar.');
+    const synced = await syncDesignAssets(configurationForSave, flejeConfig, designId, session.access_token);
+    if (synced.changed) await saveDesignToSupabase({ designId, clientDraftId: data[0].client_draft_id, userId: userData?.id, configuration: synced.configuration, flejeConfig: synced.flejeConfiguration, title: `Mate ${configuration.selectionLabels.texture}`, status: 'draft' });
+    const redirectUrl = await createMainSiteHandoff('add_design', '/carrito', { designId });
+    const finalized = await saveDesignToSupabase({
+      designId,
+      clientDraftId: data[0].client_draft_id,
+      userId: userData?.id,
+      configuration: synced.configuration,
+      flejeConfig: synced.flejeConfiguration,
+      title: `Mate ${configuration.selectionLabels.texture}`,
+      status: 'saved',
+    });
+    if (finalized.error) throw finalized.error;
+    window.location.assign(redirectUrl);
   };
+
+  useEffect(() => {
+    if (!lastSavedDesignId || !userData?.id || saveStatus === 'saving') return;
+    const timer = window.setTimeout(async () => {
+      setSaveStatus('saving');
+      const { error } = await saveDesignToSupabase({
+        designId: lastSavedDesignId, clientDraftId: currentDraftKey, userId: userData.id,
+        configuration: configurationWithPricingSnapshot(), flejeConfig,
+        title: `Mate ${configuration.selectionLabels.texture}`, status: 'draft',
+      });
+      setSaveStatus(error ? 'idle' : 'saved');
+      if (!error) window.setTimeout(() => setSaveStatus('idle'), 1200);
+    }, 900);
+    return () => window.clearTimeout(timer);
+    // The first explicit save enables autosave for this design.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configuration, flejeConfig, lastSavedDesignId, currentDraftKey, userData?.id]);
 
   const runAuthenticatedAction = (action: PendingAuthAction) => {
     switch (action) {
@@ -649,11 +765,26 @@ function VisualizerApp() {
       case "edit-contact":
         changeStep("profile");
         break;
+      case "main-profile":
+        void createMainSiteHandoff("continue", "/perfil").then((redirectUrl) => {
+          window.location.assign(redirectUrl);
+        }).catch(() => {
+          sessionStorage.setItem("matearte_pending_auth_action", "main-profile");
+          setPendingAuthAction("main-profile");
+          changeStep("profile");
+        });
+        break;
     }
   };
 
   const requireAuthentication = (action: PendingAuthAction) => {
-    if (userData && (!userData.isGuest || !isSupabaseConfigured)) {
+    if (isSupabaseConfigured && userData?.id && !userData.isGuest) {
+      if (!userData.profileComplete && action !== "profile") {
+        sessionStorage.setItem("matearte_pending_auth_action", action);
+        setPendingAuthAction(action);
+        changeStep("profile");
+        return;
+      }
       runAuthenticatedAction(action);
       return;
     }
@@ -663,7 +794,7 @@ function VisualizerApp() {
   };
 
   useEffect(() => {
-    if (!pendingAuthAction || !userData || (userData.isGuest && isSupabaseConfigured)) return;
+    if (!pendingAuthAction || !userData?.id || userData.isGuest || !userData.profileComplete) return;
     sessionStorage.removeItem("matearte_pending_auth_action");
     setPendingAuthAction(null);
     runAuthenticatedAction(pendingAuthAction);
@@ -672,7 +803,7 @@ function VisualizerApp() {
   }, [pendingAuthAction, userData]);
 
   useEffect(() => {
-    if (wizardStep !== "profile" || (userData && (!userData.isGuest || !isSupabaseConfigured))) return;
+    if (wizardStep !== "profile" || (isSupabaseConfigured && userData?.id && !userData.isGuest)) return;
     sessionStorage.setItem("matearte_pending_auth_action", "profile");
     setPendingAuthAction("profile");
     changeStep("access");
@@ -687,7 +818,12 @@ function VisualizerApp() {
     if (item.fleje_config) {
       setFlejeConfig(normalizeFlejeCustomization(item.fleje_config));
     }
-    setLastSavedDesignId(item.id);
+    if (item.status === 'draft') {
+      setLastSavedDesignId(item.id);
+      setDraftIdentity(item.client_draft_id);
+    } else {
+      startNewDraft();
+    }
     setActivePhase("virola");
     setPreviewView("virola");
     setShowStyleIntro(false);
@@ -695,11 +831,12 @@ function VisualizerApp() {
   };
 
   const handleReset = () => {
-    setLastSavedDesignId(null);
+    startNewDraft();
     changeStep("profile");
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut({ scope: 'global' });
     try {
       localStorage.removeItem("matearte_user");
     } catch (e) {
@@ -707,6 +844,7 @@ function VisualizerApp() {
     }
     setUserData(null);
     setLastSavedDesignId(null);
+    setDraftIdentity(createDraftIdentity());
     changeStep("welcome");
   };
 
@@ -753,7 +891,6 @@ function VisualizerApp() {
     setActivePhase("virola");
     setPreviewView("virola");
     setShowStyleIntro(true);
-    setLastSavedDesignId(null);
     changeStep("customizer");
   };
 
@@ -820,7 +957,8 @@ function VisualizerApp() {
     const { profile } = newUserData.isGuest
       ? { profile: null }
       : await saveUserProfileToSupabase(newUserData);
-    const mergedUser = profile ? { ...newUserData, id: profile.id } : newUserData;
+    if (!newUserData.isGuest && !profile) throw new Error('No se pudieron guardar tus datos.');
+    const mergedUser = profile ? { ...newUserData, ...profile, email: newUserData.email, avatarUrl: newUserData.avatarUrl } : newUserData;
     setUserData(mergedUser);
     localStorage.setItem("matearte_user", JSON.stringify(mergedUser));
   };
@@ -830,6 +968,14 @@ function VisualizerApp() {
     email: "invitado@matearte.com",
     phone: "",
     company: "",
+    birthDate: "",
+    department: "",
+    city: "",
+    addressLine1: "",
+    postalCode: "",
+    avatarPath: "",
+    avatarUrl: "",
+    profileComplete: false,
   };
 
   const handleDraftCheckoutFromProfile = async (design: SavedDesignItem) => {
@@ -838,6 +984,7 @@ function VisualizerApp() {
     setSelection(normalized.isLegacy ? { ...EMPTY_MATE_SELECTION } : normalized.selection);
     setFlejeConfig(normalizeFlejeCustomization(design.fleje_config));
     setLastSavedDesignId(design.id);
+    setDraftIdentity(design.client_draft_id);
     changeStep("checkout");
   };
 
@@ -867,11 +1014,15 @@ function VisualizerApp() {
 
       <div className="brand-main">
         {wizardStep === "welcome" && (
-          <CustomizerIntroStep onStart={() => changeStep("product_selection")} />
+          <CustomizerIntroStep onStart={() => {
+            startNewDraft();
+            setSelection({ ...EMPTY_MATE_SELECTION });
+            changeStep("product_selection");
+          }} />
         )}
 
         {wizardStep === "access" && (
-          <WelcomeStep initialData={userData || undefined} onSubmit={handleWelcomeSubmit} />
+          <WelcomeStep />
         )}
 
         {wizardStep === "product_selection" && (
@@ -1454,9 +1605,8 @@ function VisualizerApp() {
           <CheckoutStep
             subtotalUYU={calculateOrderPricing(configuration, flejeConfig, pricingCatalog).totalUYU}
             pricingReady={calculateOrderPricing(configuration, flejeConfig, pricingCatalog).isCheckoutReady}
-            mercadoPagoCommissionPercent={getMercadoPagoCommissionPercent(pricingCatalog)}
             onBack={() => changeStep("summary")}
-            onContinue={(payment) => void handleCheckoutComplete(payment)}
+            onContinue={() => handleCheckoutComplete()}
           />
         )}
 
@@ -1470,7 +1620,7 @@ function VisualizerApp() {
             localDesigns={localDesigns}
             onLoadDesign={handleLoadDesignFromProfile}
             onNewDesign={() => {
-              setLastSavedDesignId(null);
+              startNewDraft();
               setSelection({ ...EMPTY_MATE_SELECTION });
               changeStep("product_selection");
             }}

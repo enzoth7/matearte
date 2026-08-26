@@ -1,5 +1,5 @@
 import type { CustomImageAsset } from "../types/customizer";
-import { uploadCustomizationAsset } from "./storageService";
+import { storeGuestAsset } from "./guestDraftStorage";
 
 export const MAX_CUSTOM_IMAGE_SIZE = 5 * 1024 * 1024;
 export const ACCEPTED_CUSTOM_IMAGE_TYPES = ["image/png", "image/jpeg", "image/svg+xml"] as const;
@@ -85,7 +85,7 @@ export async function createCustomizationAsset(file: File): Promise<CustomImageA
     previewUrl = await rasterizeSvg(safeMarkup);
   }
 
-  const uploadedUrl = await uploadCustomizationAsset(file, id);
+  await storeGuestAsset(id, file);
   const resolvedMimeType = (file.type || (/\.png$/i.test(file.name) ? "image/png" : /\.svg$/i.test(file.name) ? "image/svg+xml" : "image/jpeg")) as CustomImageAsset["mimeType"];
   return {
     id,
@@ -93,8 +93,7 @@ export async function createCustomizationAsset(file: File): Promise<CustomImageA
     mimeType: resolvedMimeType,
     size: file.size,
     previewUrl,
-    originalUrl: uploadedUrl ?? originalDataUrl,
+    originalUrl: `indexeddb:${id}`,
     source: "upload",
   };
 }
-

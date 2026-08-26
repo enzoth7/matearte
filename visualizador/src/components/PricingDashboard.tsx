@@ -121,7 +121,7 @@ function PricingLogin({ onAuthenticated }: { onAuthenticated: (state: PricingAdm
   return (
     <main className="pricing-login-page" id="main-content">
       <form className="pricing-login" onSubmit={submit}>
-        <img src="/assets/marca/logo.jpg" alt="MateArte Arte y Tradición" />
+        <img src="/assets/marca/LogoOriginal.jpg" alt="MateArte Arte y Tradición" />
         <span className="pricing-eyebrow">Control interno</span>
         <h1>Administración de precios</h1>
         <p>Ingresá para editar el catálogo que utiliza el visualizador.</p>
@@ -338,7 +338,7 @@ export function PricingDashboard() {
     <div className="pricing-dashboard">
       <a className="brand-skip-link" href="#main-content">Saltar al contenido</a>
       <aside className="pricing-sidebar">
-        <header className="pricing-sidebar__brand"><img src="/assets/marca/logo.jpg" alt="MateArte Arte y Tradición" /><strong>MateArte</strong><small>Control de precios</small></header>
+        <header className="pricing-sidebar__brand"><img src="/assets/marca/LogoOriginal.jpg" alt="MateArte Arte y Tradición" /><strong>MateArte</strong><small>Control de precios</small></header>
         <nav className="pricing-sidebar__nav" aria-label="Secciones de precios">
           {SECTIONS.map((item) => {
             const sectionErrors = errorCounts.get(item.id) ?? 0;

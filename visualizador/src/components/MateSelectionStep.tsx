@@ -12,7 +12,7 @@ import {
   type MateSelectionStage,
   type DecisionTextureOption,
 } from "../catalog/mateDecisionCatalog";
-import { getVariantDefinition } from "../catalog/mateCatalog";
+import { getVariantDefinition, type MateSize } from "../catalog/mateCatalog";
 import {
   getColorStartingPrice,
   getFamilyStartingPrice,
@@ -37,6 +37,21 @@ const stageCopy: Record<MateSelectionStage, { title: string; help: string }> = {
   size: { title: "PENSÁ EL TAMAÑO DEL MATE", help: "Capacidad de yerba para tu día a día" },
   engraving: { title: "ELEGÍ EL GRABADO DE LA VIROLA", help: "La técnica se aplicará a la virola" },
   "fleje-engraving": { title: "ELEGÍ EL GRABADO DEL FLEJE", help: "La técnica se aplicará al fleje" },
+};
+
+const mateSizePreviewImages: Record<MateSize, { src: string; alt: string }> = {
+  chico: {
+    src: "/assets2/personalizacion/tamanos/boca-chico.png",
+    alt: "Vista cenital de un mate camionero con boca chica",
+  },
+  medio: {
+    src: "/assets2/personalizacion/tamanos/boca-medio.png",
+    alt: "Vista cenital de un mate camionero con boca mediana",
+  },
+  grande: {
+    src: "/assets2/personalizacion/tamanos/boca-grande.png",
+    alt: "Vista cenital de un mate camionero con boca grande",
+  },
 };
 
 function PendingLabel({ copy = "Precio pendiente" }: { copy?: string }) {
@@ -253,7 +268,15 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
           {selectedTexture.sizes.map((size) => (
             <button key={size} type="button" onClick={() => onChange({ ...selection, sizeId: size, engravingTypeId: null, flejeEngravingTypeId: null })} aria-pressed={size === selection.sizeId}>
               <strong>{mateSizeDecisionLabels[size]}</strong>
-              <span>Capacidad {mateSizeDecisionLabels[size].toLowerCase()}</span>
+              <img
+                className="selection-size-list__image"
+                src={mateSizePreviewImages[size].src}
+                alt={mateSizePreviewImages[size].alt}
+                width="240"
+                height="240"
+                loading="lazy"
+                draggable={false}
+              />
             </button>
           ))}
         </fieldset>
