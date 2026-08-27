@@ -4,7 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.112.4";
 const allowedOrigins = new Set(["https://matearte-visualizador.vercel.app", "http://localhost:5173"]);
 const allowedTargets = new Set(["/", "/carrito", "/checkout", "/pedidos", "/perfil"]);
 const allowedActions = new Set(["continue", "open_cart", "add_design", "checkout"]);
-const headers = (origin = "") => ({ "Content-Type": "application/json", ...(allowedOrigins.has(origin) ? { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Headers": "authorization, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS", Vary: "Origin" } : {}) });
+const headers = (origin = "") => ({ "Content-Type": "application/json", ...(allowedOrigins.has(origin) ? { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS", Vary: "Origin" } : {}) });
 const json = (body: unknown, status = 200, origin = "") => new Response(JSON.stringify(body), { status, headers: headers(origin) });
 const hex = (bytes: ArrayBuffer) => [...new Uint8Array(bytes)].map((value) => value.toString(16).padStart(2, "0")).join("");
 const hash = async (value: string) => hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
@@ -40,15 +40,15 @@ Deno.serve(async (request) => {
 
   if (body.mode === "consume") {
     const code = typeof body.code === "string" ? body.code : "";
-    if (!/^[A-Za-z0-9_-]{43}$/.test(code)) return json({ error: "Código inválido." }, 400);
+    if (!/^[A-Za-z0-9_-]{43}$/.test(code)) return json({ error: "Código inválido." }, 400, origin);
     const now = new Date().toISOString();
     const { data: handoff } = await service.from("auth_handoffs").update({ consumed_at: now }).eq("token_hash", await hash(code)).is("consumed_at", null).gt("expires_at", now).select("user_id,target_path,action,payload").maybeSingle();
-    if (!handoff) return json({ error: "Código usado o vencido." }, 410);
+    if (!handoff) return json({ error: "Código usado o vencido." }, 410, origin);
     const { data: userData } = await service.auth.admin.getUserById(handoff.user_id);
-    if (!userData.user?.email) return json({ error: "Usuario inválido." }, 400);
+    if (!userData.user?.email) return json({ error: "Usuario inválido." }, 400, origin);
     const { data: linkData, error } = await service.auth.admin.generateLink({ type: "magiclink", email: userData.user.email });
-    if (error || !linkData.properties?.hashed_token) return json({ error: "No se pudo crear la sesión." }, 500);
-    return json({ tokenHash: linkData.properties.hashed_token, targetPath: handoff.target_path, action: handoff.action, payload: handoff.payload });
+    if (error || !linkData.properties?.hashed_token) return json({ error: "No se pudo crear la sesión." }, 500, origin);
+    return json({ tokenHash: linkData.properties.hashed_token, targetPath: handoff.target_path, action: handoff.action, payload: handoff.payload }, 200, origin);
   }
   return json({ error: "Operación inválida." }, 400, origin);
 });
