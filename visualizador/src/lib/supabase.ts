@@ -17,7 +17,13 @@ export const adminSupabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
 
 export async function signInWithGoogle() {
   if (!isSupabaseConfigured) throw new Error('Supabase no está configurado.');
-  return supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/access` } });
+  return supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}/access`,
+      queryParams: { prompt: 'select_account' },
+    },
+  });
 }
 
 const isProfileComplete = (profile: Pick<UserData, 'birthDate' | 'countryCode' | 'department' | 'city' | 'addressLine1'>) =>

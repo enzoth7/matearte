@@ -17,7 +17,10 @@ export function GoogleAuthButton() {
       const redirectTo = `${window.location.origin}/auth/handoff`;
       const { error: authError } = await client.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo },
+        options: {
+          redirectTo,
+          queryParams: { prompt: "select_account" },
+        },
       });
       if (authError) throw authError;
     } catch (reason) {

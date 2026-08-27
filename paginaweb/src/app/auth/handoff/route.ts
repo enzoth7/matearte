@@ -3,6 +3,14 @@ import { NextResponse } from "next/server";
 import { siteUrl, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 import { createServerSupabase } from "@/lib/supabase/server";
 
+function privateRedirect(destination: string) {
+  const response = NextResponse.redirect(destination, 303);
+  response.headers.set("Cache-Control", "private, no-store, max-age=0");
+  response.headers.set("Pragma", "no-cache");
+  response.headers.set("Expires", "0");
+  return response;
+}
+
 async function applyPendingAction(client: SupabaseClient, userId: string, action: string, payload: Record<string, unknown>) {
   if (action !== "add_design" || typeof payload.designId !== "string") return;
   const { data: design } = await client.from("designs").select("id").eq("id", payload.designId).eq("user_id", userId).maybeSingle();
@@ -28,14 +36,14 @@ export async function GET(request: Request) {
 
   if (isStoreOAuthCallback) {
     if (!code || url.searchParams.has("error")) {
-      return NextResponse.redirect(`${siteUrl()}/perfil?auth=cancelled`, 303);
+      return privateRedirect(`${siteUrl()}/perfil?auth=cancelled`);
     }
     const server = await createServerSupabase();
     const { error } = await server.auth.exchangeCodeForSession(code);
-    if (error) return NextResponse.redirect(`${siteUrl()}/perfil?auth=failed`, 303);
-    return NextResponse.redirect(`${siteUrl()}/perfil`, 303);
+    if (error) return privateRedirect(`${siteUrl()}/perfil?auth=failed`);
+    return privateRedirect(`${siteUrl()}/perfil`);
   }
-  const failure = (reason: string) => NextResponse.redirect(`${siteUrl()}/carrito?handoff=${reason}`, 303);
+  const failure = (reason: string) => privateRedirect(`${siteUrl()}/carrito?handoff=${reason}`);
   if (!isOpaqueHandoffCode) return failure("invalid");
 
   const edgeResponse = await fetch(`${supabaseUrl()}/functions/v1/auth-handoff`, {
@@ -50,7 +58,7 @@ export async function GET(request: Request) {
   if (!verified.user) return failure("invalid");
   await applyPendingAction(server, verified.user.id, handoff.action, handoff.payload as Record<string, unknown>);
   const targetPath = ["/", "/carrito", "/checkout", "/pedidos", "/perfil"].includes(handoff.targetPath) ? handoff.targetPath : "/";
-  return NextResponse.redirect(`${siteUrl()}${targetPath}`, 303);
+  return privateRedirect(`${siteUrl()}${targetPath}`);
 }
 
 export const dynamic = "force-dynamic";
