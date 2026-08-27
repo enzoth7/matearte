@@ -40,10 +40,16 @@ Deno.serve(async (request) => {
   const orderId = typeof body.orderId === "string" && /^[0-9a-f-]{36}$/i.test(body.orderId) ? body.orderId : null;
   const limit = typeof body.limit === "number" ? Math.min(Math.max(Math.floor(body.limit), 1), 50) : 20;
   const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
-  const { data: claimed, error: claimError } = await admin.rpc("claim_commerce_email_jobs", { p_order_id: orderId, p_limit: limit });
-  if (claimError) return json({ error: claimError.message }, 500);
+  const firstClaim = await admin.rpc("claim_commerce_email_jobs", { p_order_id: orderId, p_limit: limit });
+  if (firstClaim.error) return json({ error: firstClaim.error.message }, 500);
+  const claimed = [...(firstClaim.data || [])];
+  if (orderId && claimed.length < limit) {
+    const retryClaim = await admin.rpc("claim_commerce_email_jobs", { p_order_id: null, p_limit: limit - claimed.length });
+    if (retryClaim.error) return json({ error: retryClaim.error.message }, 500);
+    claimed.push(...(retryClaim.data || []));
+  }
 
-  const jobs = (claimed || []) as Array<EmailJob & { id: string; order_id: string; recipient_kind: "customer" | "admin"; recipient_email: string | null; attempt_count: number }>;
+  const jobs = claimed as Array<EmailJob & { id: string; order_id: string; recipient_kind: "customer" | "admin"; recipient_email: string | null; attempt_count: number }>;
   const results: Array<{ id: string; status: string; error?: string }> = [];
 
   for (const job of jobs) {
