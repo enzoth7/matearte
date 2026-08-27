@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getMisroutedStoreAuthCallbackUrl } from "./authRedirect";
+import { getMisroutedStoreAuthCallbackUrl, shouldCompleteProfileInVisualizer } from "./authRedirect";
 
 describe("getMisroutedStoreAuthCallbackUrl", () => {
   it("reenvía a la tienda un código OAuth que cayó en la raíz del visualizador", () => {
@@ -21,5 +21,21 @@ describe("getMisroutedStoreAuthCallbackUrl", () => {
       { origin: "https://matearte-visualizador.vercel.app", pathname: "/", search: "?error=access_denied&error_description=cancelled&access_token=secret" },
       "https://matearte.vercel.app",
     )).toBe("https://matearte.vercel.app/auth/handoff?flow=store&error=access_denied&error_description=cancelled");
+  });
+});
+
+describe("shouldCompleteProfileInVisualizer", () => {
+  it("deja que una cuenta nueva vuelva a la tienda para completar sus datos allí", () => {
+    expect(shouldCompleteProfileInVisualizer(false, "main-profile")).toBe(false);
+  });
+
+  it("mantiene el formulario del visualizador para sus propios flujos", () => {
+    expect(shouldCompleteProfileInVisualizer(false, "profile")).toBe(true);
+    expect(shouldCompleteProfileInVisualizer(false, "save-summary")).toBe(true);
+  });
+
+  it("no pide completar un perfil que ya está completo", () => {
+    expect(shouldCompleteProfileInVisualizer(true, "main-profile")).toBe(false);
+    expect(shouldCompleteProfileInVisualizer(true, "profile")).toBe(false);
   });
 });

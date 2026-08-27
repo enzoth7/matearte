@@ -22,3 +22,10 @@ export function getMisroutedStoreAuthCallbackUrl(
   }
   return callback.toString();
 }
+
+export function shouldCompleteProfileInVisualizer(
+  profileComplete: boolean | undefined,
+  pendingAuthAction: string | null,
+) {
+  return !profileComplete && pendingAuthAction !== "main-profile";
+}

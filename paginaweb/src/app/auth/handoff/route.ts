@@ -39,9 +39,14 @@ export async function GET(request: Request) {
       return privateRedirect(`${siteUrl()}/perfil?auth=cancelled`);
     }
     const server = await createServerSupabase();
-    const { error } = await server.auth.exchangeCodeForSession(code);
+    const { data: authData, error } = await server.auth.exchangeCodeForSession(code);
     if (error) return privateRedirect(`${siteUrl()}/perfil?auth=failed`);
-    return privateRedirect(`${siteUrl()}/perfil`);
+    const { data: profile } = await server
+      .from("customer_profiles")
+      .select("profile_completed_at")
+      .eq("user_id", authData.user.id)
+      .maybeSingle();
+    return privateRedirect(`${siteUrl()}${profile?.profile_completed_at ? "/perfil" : "/perfil/editar"}`);
   }
   const failure = (reason: string) => privateRedirect(`${siteUrl()}/carrito?handoff=${reason}`);
   if (!isOpaqueHandoffCode) return failure("invalid");

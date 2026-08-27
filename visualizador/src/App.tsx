@@ -47,6 +47,7 @@ import { getFlejeFinish } from "./catalog/flejeFinishCatalog";
 import { calculateOrderPricing, countChargeableCharacters, formatUYU, getCustomizationPrice } from "./catalog/pricingCatalog";
 import { createDefaultFlejeCustomization, normalizeFlejeCustomization, type CustomImageAsset, type EditableElement, type FlejeCustomization, type FlejeSide, type MateConfiguration } from "./types/customizer";
 import { loadGuestDraft, loadGuestDraftIdentity, saveGuestDraft, saveGuestDraftIdentity, syncDesignAssets } from "./services/guestDraftStorage";
+import { shouldCompleteProfileInVisualizer } from "./lib/authRedirect";
 
 type CustomizationPhase = "mate" | "virola" | "fleje";
 type PreviewView = "mate" | "virola" | "fleje";
@@ -396,7 +397,8 @@ function VisualizerApp() {
         };
         setUserData(userObj);
         localStorage.setItem("matearte_user", JSON.stringify(userObj));
-        if (!userObj.profileComplete) changeStep("profile");
+        const pendingAction = sessionStorage.getItem("matearte_pending_auth_action");
+        if (shouldCompleteProfileInVisualizer(userObj.profileComplete, pendingAction)) changeStep("profile");
         if (window.location.search.includes('error') || window.location.hash.includes('access_token') || window.location.search.includes('code')) {
           window.history.replaceState(null, '', window.location.pathname);
         }
@@ -795,7 +797,8 @@ function VisualizerApp() {
   };
 
   useEffect(() => {
-    if (!pendingAuthAction || !userData?.id || userData.isGuest || !userData.profileComplete) return;
+    if (!pendingAuthAction || !userData?.id || userData.isGuest) return;
+    if (shouldCompleteProfileInVisualizer(userData.profileComplete, pendingAuthAction)) return;
     sessionStorage.removeItem("matearte_pending_auth_action");
     setPendingAuthAction(null);
     runAuthenticatedAction(pendingAuthAction);
