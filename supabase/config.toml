@@ -1,0 +1,9 @@
+[functions.auth-handoff]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/auth-handoff/index.ts"
+
+[functions.commerce-email]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/commerce-email/index.ts"

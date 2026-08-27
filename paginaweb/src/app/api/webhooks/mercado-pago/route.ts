@@ -1,5 +1,6 @@
 import { MercadoPagoConfig, Payment, WebhookSignatureValidator } from "mercadopago";
 import { apiError, apiOk } from "@/lib/api";
+import { dispatchCommerceEmails } from "@/lib/commerce-email";
 import { createAdminSupabase } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
@@ -33,6 +34,8 @@ export async function POST(request: Request) {
       p_payment: payment,
     });
     if (error) throw error;
+    const orderId = result && typeof result === "object" && "orderId" in result && typeof result.orderId === "string" ? result.orderId : null;
+    if (orderId) await dispatchCommerceEmails(orderId);
     return apiOk({ received: true, result });
   } catch (error) {
     // A non-2xx response makes Mercado Pago retry the valid event.

@@ -3,6 +3,7 @@ import { MercadoPagoConfig, Preference } from "mercadopago";
 import { apiError, apiOk, readJson } from "@/lib/api";
 import { readCart } from "@/lib/cart";
 import { calculateDesignPriceMinor } from "@/lib/design-pricing";
+import { dispatchCommerceEmails } from "@/lib/commerce-email";
 import { siteUrl } from "@/lib/supabase/config";
 import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
 
@@ -65,7 +66,10 @@ export async function POST(request: Request) {
     if (order.mercado_pago_preference_id) {
       const existing = await preferenceClient.get({ preferenceId: order.mercado_pago_preference_id });
       const checkoutUrl = process.env.MERCADO_PAGO_ENV === "sandbox" ? existing.sandbox_init_point : existing.init_point;
-      if (checkoutUrl) return apiOk({ orderId, orderNumber: order.order_number, checkoutUrl, existing: true });
+      if (checkoutUrl) {
+        await dispatchCommerceEmails(orderId);
+        return apiOk({ orderId, orderNumber: order.order_number, checkoutUrl, existing: true });
+      }
     }
     const mpItems = [
       { id: `order-${orderId}`, title: `Pedido MateArte #${order.order_number}`, quantity: 1, unit_price: order.items_subtotal_minor / 100, currency_id: "UYU" },
@@ -92,6 +96,7 @@ export async function POST(request: Request) {
     await admin.from("orders").update({ mercado_pago_preference_id: preference.id }).eq("id", orderId);
     const checkoutUrl = process.env.MERCADO_PAGO_ENV === "sandbox" ? preference.sandbox_init_point : preference.init_point;
     if (!checkoutUrl) throw new Error("Mercado Pago no devolvió la URL de pago.");
+    await dispatchCommerceEmails(orderId);
     return apiOk({ orderId, orderNumber: order.order_number, checkoutUrl, existing: false }, 201);
   } catch (error) {
     return apiError(error instanceof Error ? error.message : "No se pudo iniciar el pago.", 400);

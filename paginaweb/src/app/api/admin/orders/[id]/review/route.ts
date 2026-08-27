@@ -1,6 +1,7 @@
 import { MercadoPagoConfig, PaymentRefund } from "mercadopago";
 import { NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
+import { dispatchCommerceEmails } from "@/lib/commerce-email";
 import { isAllowedCommerceAdminOrigin } from "@/lib/supabase/config";
 import { createAdminSupabase, createTokenSupabase } from "@/lib/supabase/server";
 
@@ -35,6 +36,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       await admin.from("order_items").update({ review_status: "rejected", review_reason: reason }).eq("order_id", id).eq("requires_review", true);
       await admin.from("orders").update({ status: refund.status === "approved" ? "refunded" : "manual_review" }).eq("id", id);
     } else return apiError("Decisión inválida.");
+    await dispatchCommerceEmails(id);
     const response = NextResponse.json({ ok: true }); Object.entries(cors(origin)).forEach(([key, value]) => response.headers.set(key, value)); return response;
   } catch (error) { return apiError(error instanceof Error ? error.message : "No se pudo revisar el pedido.", 400); }
 }

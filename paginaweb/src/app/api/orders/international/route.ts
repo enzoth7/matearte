@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { apiError, apiOk, readJson } from "@/lib/api";
 import { readCart } from "@/lib/cart";
 import { calculateDesignPriceMinor } from "@/lib/design-pricing";
+import { dispatchCommerceEmails } from "@/lib/commerce-email";
 import { whatsappOrderItemLine, type CommerceItemType } from "@/lib/order-item-labels";
 import { whatsappNumber } from "@/lib/supabase/config";
 import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
@@ -102,6 +103,7 @@ export async function POST(request: Request) {
     ].join("\n");
     const whatsappUrl = `https://wa.me/${whatsappNumber()}?text=${encodeURIComponent(message)}`;
 
+    await dispatchCommerceEmails(orderId);
     return apiOk({ orderId, orderNumber: order.order_number, whatsappUrl }, 201);
   } catch (error) {
     return apiError(error instanceof Error ? error.message : "No se pudo crear la solicitud internacional.", 400);
