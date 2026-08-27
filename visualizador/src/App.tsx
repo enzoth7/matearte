@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useState, useEffect, useRef } from "react"
 import type { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { UserData, WizardStep, SavedDesignItem } from "./types/user";
-import { createMainSiteHandoff, createProfileAvatarSignedUrl, isSupabaseConfigured, saveUserProfileToSupabase, supabase, saveDesignToSupabase } from "./lib/supabase";
+import { consumeMainSiteHandoff, createMainSiteHandoff, createProfileAvatarSignedUrl, isSupabaseConfigured, saveUserProfileToSupabase, supabase, saveDesignToSupabase } from "./lib/supabase";
 import { WelcomeStep } from "./components/WelcomeStep";
 import { CustomizerIntroStep } from "./components/CustomizerIntroStep";
 import { MateSelectionStep } from "./components/MateSelectionStep";
@@ -311,6 +311,10 @@ function VisualizerApp() {
   };
 
   const [wizardStep, setWizardStepState] = useState<WizardStep>(() => getStepFromPath(location.pathname));
+  const [incomingHandoffCode] = useState(() => new URLSearchParams(window.location.search).get("handoff") || "");
+  const [handoffPending, setHandoffPending] = useState(Boolean(incomingHandoffCode));
+  const [handoffUserId, setHandoffUserId] = useState("");
+  const [handoffError, setHandoffError] = useState("");
   const [pendingAuthAction, setPendingAuthAction] = useState<PendingAuthAction | null>(() => {
     const saved = sessionStorage.getItem("matearte_pending_auth_action");
     return saved as PendingAuthAction | null;
@@ -358,6 +362,23 @@ function VisualizerApp() {
     setPendingAuthAction("main-profile");
     changeStep("access");
   }, [changeStep]);
+
+  useEffect(() => {
+    if (!incomingHandoffCode) return;
+    let active = true;
+    void consumeMainSiteHandoff(incomingHandoffCode)
+      .then((userId) => {
+        if (active) setHandoffUserId(userId);
+      })
+      .catch((reason) => {
+        if (!active) return;
+        window.history.replaceState(null, '', '/access');
+        setHandoffError(reason instanceof Error ? reason.message : 'No pudimos conectar tu cuenta.');
+        setHandoffPending(false);
+        changeStep('access');
+      });
+    return () => { active = false; };
+  }, [changeStep, incomingHandoffCode]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -807,11 +828,18 @@ function VisualizerApp() {
   }, [pendingAuthAction, userData]);
 
   useEffect(() => {
-    if (wizardStep !== "profile" || (isSupabaseConfigured && userData?.id && !userData.isGuest)) return;
+    if (!handoffPending || !handoffUserId || userData?.id !== handoffUserId) return;
+    window.history.replaceState(null, '', '/profile');
+    setHandoffPending(false);
+    changeStep('profile');
+  }, [changeStep, handoffPending, handoffUserId, userData?.id]);
+
+  useEffect(() => {
+    if (handoffPending || wizardStep !== "profile" || (isSupabaseConfigured && userData?.id && !userData.isGuest)) return;
     sessionStorage.setItem("matearte_pending_auth_action", "profile");
     setPendingAuthAction("profile");
     changeStep("access");
-  }, [changeStep, userData, wizardStep]);
+  }, [changeStep, handoffPending, userData, wizardStep]);
 
   const handleLoadDesignFromProfile = (item: SavedDesignItem) => {
     if (item.configuration) {
@@ -993,6 +1021,12 @@ function VisualizerApp() {
     changeStep("checkout");
   };
 
+  if (handoffPending) return (
+    <div className="brand-app brand-desktop-note">
+      <main id="main-content" className="pricing-loading" role="status" aria-live="polite">Conectando tu cuenta y cargando tus diseños…</main>
+    </div>
+  );
+
   return (
     <div className="brand-app brand-desktop-note">
       <a className="brand-skip-link" href="#main-content">Saltar al contenido</a>
@@ -1027,7 +1061,10 @@ function VisualizerApp() {
         )}
 
         {wizardStep === "access" && (
-          <WelcomeStep />
+          <>
+            {handoffError && <p role="alert" className="mx-auto mt-6 max-w-xl border border-red-300 bg-red-50 px-5 py-4 text-sm font-semibold text-red-800">{handoffError} Volvé a ingresar desde MateArte.</p>}
+            <WelcomeStep />
+          </>
         )}
 
         {wizardStep === "product_selection" && (

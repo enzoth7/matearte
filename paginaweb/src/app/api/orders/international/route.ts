@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { apiError, apiOk, readJson } from "@/lib/api";
 import { readCart } from "@/lib/cart";
 import { calculateDesignPriceMinor } from "@/lib/design-pricing";
+import { whatsappOrderItemLine, type CommerceItemType } from "@/lib/order-item-labels";
 import { whatsappNumber } from "@/lib/supabase/config";
 import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
 
@@ -78,13 +79,13 @@ export async function POST(request: Request) {
     const orderId = String(result.id);
     const { data: order, error: fetchError } = await admin
       .from("orders")
-      .select("order_number,items_subtotal_minor,order_items(title,quantity)")
+      .select("order_number,items_subtotal_minor,order_items(item_type,title,quantity)")
       .eq("id", orderId)
       .single();
     if (fetchError || !order) throw new Error("No se pudo recuperar la solicitud.");
 
-    const orderItems = (order.order_items || []) as Array<{ title: string; quantity: number }>;
-    const itemLines = orderItems.map((item) => `- ${item.quantity} x ${item.title}`).join("\n");
+    const orderItems = (order.order_items || []) as Array<{ item_type: CommerceItemType; title: string; quantity: number }>;
+    const itemLines = orderItems.map(whatsappOrderItemLine).join("\n");
     const destinationLabel = [city, country].filter(Boolean).join(", ");
     const message = [
       "Hola MateArte, quiero coordinar una compra desde el exterior.",

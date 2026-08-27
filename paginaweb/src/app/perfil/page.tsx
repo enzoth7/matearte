@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { GoogleAuthButton } from "@/components/GoogleAuthButton";
+import { VisualizerProfileButton } from "@/components/VisualizerProfileButton";
 import { countryName } from "@/lib/countries";
 import { isActiveOrder, isConfirmedOrder, orderStatusLabels, orderStatusTone } from "@/lib/order-status";
 import { requireUser } from "@/lib/supabase/server";
@@ -110,7 +111,6 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const location = [profile?.city, profile?.department, countryName(profile?.country_code)].filter(Boolean).join(", ");
   const activeCount = orders.filter((order) => isActiveOrder(order.status)).length;
   const confirmedCount = orders.filter((order) => isConfirmedOrder(order.status)).length;
-  const customizer = process.env.NEXT_PUBLIC_CUSTOMIZER_URL || "http://localhost:5173";
   const avatarResult = profile?.avatar_path
     ? await client.storage.from("profile-avatars").createSignedUrl(profile.avatar_path, 60 * 60)
     : null;
@@ -162,7 +162,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                   <PencilSimple size={18} aria-hidden="true" />
                   Editar mis datos
                 </Link>
-                <a className="button-secondary" href={`${customizer}/?view=profile`}>Ver mis diseños</a>
+                <VisualizerProfileButton />
               </div>
             </div>
             <div className="bg-[var(--walnut)] p-6 text-[var(--paper)] sm:p-8 lg:p-9">

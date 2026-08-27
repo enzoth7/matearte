@@ -3,6 +3,7 @@
 import { ArrowRight, Package, ShoppingBagOpen, Trash } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { commerceItemKind } from "@/lib/order-item-labels";
 
 type RemoteItem = {
   id: string; item_type: "catalog" | "design"; quantity: number;
@@ -89,7 +90,7 @@ export function CartPanel() {
                   <Package size={22} aria-hidden="true" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[0.68rem] font-semibold tracking-[0.13em] text-[var(--leather)] uppercase">{item.item_type === "design" ? "Personalizado" : item.variant?.name}</p>
+                  <p className="text-[0.68rem] font-semibold tracking-[0.13em] text-[var(--leather)] uppercase">{item.item_type === "design" ? commerceItemKind(item.item_type) : item.variant?.name}</p>
                   <h2 className="display-font mt-2 text-2xl leading-tight">{item.design?.title || item.variant?.product.name}</h2>
                   <p className="mt-2 text-sm text-black/55">{money(item.unit_price_minor)} c/u</p>
                 </div>

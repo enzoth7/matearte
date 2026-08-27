@@ -192,6 +192,28 @@ export async function createMainSiteHandoff(action: 'continue' | 'open_cart' | '
   return createHandoffThroughSupabase(session.access_token, mainSite, action, targetPath, payload);
 }
 
+export async function consumeMainSiteHandoff(code: string) {
+  if (!/^[A-Za-z0-9_-]{43}$/.test(code)) throw new Error('El enlace para abrir tus diseños no es válido.');
+  if (!isSupabaseConfigured) throw new Error('Supabase no está configurado.');
+
+  await supabase.auth.signOut({ scope: 'local' });
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/auth-handoff`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+    },
+    body: JSON.stringify({ mode: 'consume', code }),
+  });
+  const value = await response.json().catch(() => ({})) as { tokenHash?: unknown; error?: unknown };
+  if (!response.ok || typeof value.tokenHash !== 'string') {
+    throw new Error(typeof value.error === 'string' ? value.error : 'El enlace para abrir tus diseños venció.');
+  }
+  const { data, error } = await supabase.auth.verifyOtp({ type: 'magiclink', token_hash: value.tokenHash });
+  if (error || !data.user) throw new Error('No pudimos conectar tu cuenta con el visualizador.');
+  return data.user.id;
+}
+
 export async function fetchPublishedPricingCatalog(): Promise<PublishedPricingCatalog> {
   if (!isSupabaseConfigured) throw new Error('Supabase no está configurado.');
   const { data, error } = await supabase.rpc('get_published_pricing_catalog');
