@@ -21,8 +21,22 @@ async function applyPendingAction(client: SupabaseClient, userId: string, action
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code") || "";
+  const isOpaqueHandoffCode = /^[A-Za-z0-9_-]{43}$/.test(code);
+  const isStoreOAuthCallback = url.searchParams.get("flow") === "store"
+    || url.searchParams.has("error")
+    || Boolean(code && !isOpaqueHandoffCode);
+
+  if (isStoreOAuthCallback) {
+    if (!code || url.searchParams.has("error")) {
+      return NextResponse.redirect(`${siteUrl()}/perfil?auth=cancelled`, 303);
+    }
+    const server = await createServerSupabase();
+    const { error } = await server.auth.exchangeCodeForSession(code);
+    if (error) return NextResponse.redirect(`${siteUrl()}/perfil?auth=failed`, 303);
+    return NextResponse.redirect(`${siteUrl()}/perfil`, 303);
+  }
   const failure = (reason: string) => NextResponse.redirect(`${siteUrl()}/carrito?handoff=${reason}`, 303);
-  if (!/^[A-Za-z0-9_-]{43}$/.test(code)) return failure("invalid");
+  if (!isOpaqueHandoffCode) return failure("invalid");
 
   const edgeResponse = await fetch(`${supabaseUrl()}/functions/v1/auth-handoff`, {
     method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabasePublishableKey()}`, apikey: supabasePublishableKey() }, body: JSON.stringify({ mode: "consume", code }), cache: "no-store",

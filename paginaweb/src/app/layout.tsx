@@ -8,6 +8,7 @@ import SmoothScroll from "@/components/ui/smooth-scroll";
 import { es } from "@/content/es";
 import { absoluteUrl, siteUrl } from "@/lib/metadata";
 import "lenis/dist/lenis.css";
+import "country-flag-icons/3x2/flags.css";
 import "./globals.css";
 
 const newsreader = Newsreader({

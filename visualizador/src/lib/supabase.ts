@@ -20,8 +20,14 @@ export async function signInWithGoogle() {
   return supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/access` } });
 }
 
-const isProfileComplete = (profile: Pick<UserData, 'birthDate' | 'department' | 'city' | 'addressLine1'>) =>
-  Boolean(profile.birthDate && profile.department?.trim() && profile.city?.trim() && profile.addressLine1?.trim());
+const isProfileComplete = (profile: Pick<UserData, 'birthDate' | 'countryCode' | 'department' | 'city' | 'addressLine1'>) =>
+  Boolean(
+    profile.birthDate
+    && profile.countryCode?.trim()
+    && profile.city?.trim()
+    && profile.addressLine1?.trim()
+    && (profile.countryCode !== 'UY' || profile.department?.trim()),
+  );
 
 export async function createProfileAvatarSignedUrl(objectPath?: string | null) {
   if (!objectPath) return { data: null, error: null };
@@ -58,6 +64,7 @@ export async function saveUserProfileToSupabase(userData: UserData) {
     phone: userData.phone?.trim().slice(0, 40) || null,
     company: userData.company?.trim().slice(0, 120) || null,
     birth_date: userData.birthDate || null,
+    country_code: userData.countryCode?.trim().toUpperCase().slice(0, 2) || 'UY',
     department: userData.department?.trim().slice(0, 80) || null,
     city: userData.city?.trim().slice(0, 120) || null,
     address_line1: userData.addressLine1?.trim().slice(0, 180) || null,
@@ -72,6 +79,7 @@ export async function saveUserProfileToSupabase(userData: UserData) {
       phone: data.phone || '',
       company: data.company || '',
       birthDate: data.birth_date || '',
+      countryCode: data.country_code || 'UY',
       department: data.department || '',
       city: data.city || '',
       addressLine1: data.address_line1 || '',

@@ -3,6 +3,7 @@ node_modules/
 **/node_modules/
 dist/
 **/dist/
+**/dist-debug/
 .next/
 **/.next/
 out/
@@ -36,6 +37,7 @@ pnpm-debug.log*
 artifacts/
 **/artifacts/
 tmp/
+.tmp/
 **/test-results/
 **/playwright-report/
 _archive/
@@ -62,3 +64,6 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+.vercel
+.env*.local

@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowRight, Package, ShoppingBagOpen, Trash } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -44,33 +45,79 @@ export function CartPanel() {
   };
 
   if (needsLogin) return (
-    <div className="border-y border-black/20 py-16 text-center">
-      <p className="display-font text-4xl">Tu carrito te espera.</p>
+    <div className="px-6 py-14 text-center sm:px-8 sm:py-16">
+      <ShoppingBagOpen size={34} className="mx-auto text-[var(--leather)]" aria-hidden="true" />
+      <p className="display-font mt-5 text-4xl">Tu carrito te espera.</p>
       <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-black/60">Podés explorar como visitante. Para guardar diseños, unir el carrito y comprar, ingresá desde el visualizador.</p>
-      <a className="mt-8 inline-flex min-h-12 items-center bg-[var(--walnut)] px-7 text-sm font-semibold text-white" href={`${process.env.NEXT_PUBLIC_CUSTOMIZER_URL || "http://localhost:5173"}/?auth=login&next=cart`}>Ingresar o crear cuenta</a>
+      <a className="button-primary mt-8 gap-2" href={`${process.env.NEXT_PUBLIC_CUSTOMIZER_URL || "http://localhost:5173"}/?auth=login&next=cart`}>Ingresar o crear cuenta <ArrowRight size={17} aria-hidden="true" /></a>
     </div>
   );
-  if (!cart) return <p role="status" className="py-16 text-center">Cargando carrito…</p>;
+  if (!cart) return (
+    <div role="status" aria-live="polite" className="grid gap-8 p-6 motion-safe:animate-pulse sm:p-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:p-10">
+      <div>
+        <div className="h-4 w-32 rounded bg-black/10" />
+        <div className="mt-8 h-28 rounded bg-black/5" />
+      </div>
+      <div className="h-56 rounded bg-black/10" />
+      <span className="sr-only">Cargando carrito…</span>
+    </div>
+  );
   if (cart.items.length === 0) return (
-    <div className="border-y border-black/20 py-16 text-center"><p className="display-font text-4xl">Tu carrito está vacío.</p><p className="mt-4 text-sm text-black/60">Elegí una pieza del catálogo o agregá uno de tus diseños.</p><Link className="mt-8 inline-flex min-h-12 items-center bg-[var(--walnut)] px-7 text-sm font-semibold text-white" href="/catalogo">Ver catálogo</Link></div>
+    <div className="px-6 py-14 text-center sm:px-8 sm:py-16">
+      <ShoppingBagOpen size={34} className="mx-auto text-[var(--leather)]" aria-hidden="true" />
+      <p className="display-font mt-5 text-4xl">Tu carrito está vacío.</p>
+      <p className="mt-4 text-sm text-black/60">Elegí una pieza del catálogo o agregá uno de tus diseños.</p>
+      <Link className="button-primary mt-8 gap-2" href="/catalogo">Ver catálogo <ArrowRight size={17} aria-hidden="true" /></Link>
+    </div>
   );
   const subtotal = cart.items.reduce((sum, item) => sum + item.unit_price_minor * item.quantity, 0);
   return (
-    <div className="grid gap-10 lg:grid-cols-[1fr_22rem]">
-      <div className="divide-y divide-black/15 border-y border-black/15">
-        {cart.items.map((item) => <article key={item.id} className="flex flex-wrap items-center justify-between gap-5 py-6">
-          <div><p className="eyebrow text-[var(--leather)]">{item.item_type === "design" ? "Personalizado" : item.variant?.name}</p><h2 className="display-font mt-2 text-2xl">{item.design?.title || item.variant?.product.name}</h2><p className="mt-2 text-sm text-black/60">{money(item.unit_price_minor)} c/u</p></div>
-          <div className="flex items-center gap-3">
-            {item.item_type === "catalog" && <input aria-label="Cantidad" className="h-11 w-16 border border-black/20 bg-transparent px-2 text-center" type="number" min={1} max={99} value={item.quantity} disabled={busy === item.id} onChange={(event) => mutate("PATCH", item.id, Number(event.target.value))} />}
-            <button className="min-h-11 px-3 text-sm underline" disabled={busy === item.id} onClick={() => mutate("DELETE", item.id)}>Quitar</button>
-          </div>
-        </article>)}
-        {error && <p role="alert" className="py-4 text-sm text-red-700">{error}</p>}
+    <div className="grid lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="p-6 sm:p-8 lg:p-10">
+        <div className="flex items-center justify-between gap-4 border-b border-black/10 pb-5">
+          <p className="flex items-center gap-2 text-xs font-bold tracking-[0.14em] text-[var(--walnut)] uppercase">
+            <ShoppingBagOpen size={19} className="text-[var(--leather)]" aria-hidden="true" />
+            Tu selección
+          </p>
+          <p className="text-xs text-black/50">{cart.items.length} {cart.items.length === 1 ? "artículo" : "artículos"}</p>
+        </div>
+        <div className="divide-y divide-black/10">
+          {cart.items.map((item) => (
+            <article key={item.id} className="flex flex-col gap-5 py-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-start gap-4">
+                <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--cream-deep)] text-[var(--leather)]">
+                  <Package size={22} aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[0.68rem] font-semibold tracking-[0.13em] text-[var(--leather)] uppercase">{item.item_type === "design" ? "Personalizado" : item.variant?.name}</p>
+                  <h2 className="display-font mt-2 text-2xl leading-tight">{item.design?.title || item.variant?.product.name}</h2>
+                  <p className="mt-2 text-sm text-black/55">{money(item.unit_price_minor)} c/u</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-3 sm:shrink-0">
+                {item.item_type === "catalog" && (
+                  <label className="flex items-center gap-2 text-xs font-semibold text-black/55">
+                    Cantidad
+                    <input aria-label={`Cantidad de ${item.variant?.product.name || "producto"}`} className="h-11 w-16 rounded border border-black/20 bg-white px-2 text-center disabled:cursor-wait disabled:opacity-50" type="number" min={1} max={99} value={item.quantity} disabled={busy === item.id} onChange={(event) => mutate("PATCH", item.id, Number(event.target.value))} />
+                  </label>
+                )}
+                <button className="inline-flex min-h-11 cursor-pointer items-center gap-2 px-3 text-sm font-semibold text-[var(--danger)] transition-colors hover:bg-[var(--danger)]/5 disabled:cursor-wait disabled:opacity-50" disabled={busy === item.id} onClick={() => mutate("DELETE", item.id)}>
+                  <Trash size={18} aria-hidden="true" /> Quitar
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+        {error && <p role="alert" className="border-t border-[var(--danger)]/20 pt-4 text-sm text-[var(--danger)]">{error}</p>}
       </div>
-      <aside className="h-fit bg-[var(--paper)] p-6">
-        <p className="eyebrow">Resumen</p><div className="mt-5 flex justify-between"><span>Subtotal</span><strong>{money(subtotal)}</strong></div>
-        <p className="mt-4 text-xs leading-5 text-black/55">El envío y cualquier comisión habilitada se calculan al continuar.</p>
-        <Link href="/checkout" className="mt-6 flex min-h-12 items-center justify-center bg-[var(--walnut)] px-6 text-sm font-semibold text-white">Continuar</Link>
+      <aside className="border-t border-black/10 bg-[var(--cream-deep)]/45 p-6 sm:p-8 lg:border-l lg:border-t-0 lg:p-9" aria-label="Resumen del carrito">
+        <p className="eyebrow text-[var(--leather)]">Resumen</p>
+        <div className="mt-6 flex items-end justify-between gap-5 border-b border-black/10 pb-6">
+          <span className="text-sm text-black/65">Subtotal</span>
+          <strong className="display-font text-3xl tabular-nums">{money(subtotal)}</strong>
+        </div>
+        <p className="mt-6 text-xs leading-6 text-black/55">El envío y cualquier comisión habilitada se calculan al continuar.</p>
+        <Link href="/checkout" className="button-primary mt-7 w-full gap-2">Continuar <ArrowRight size={17} aria-hidden="true" /></Link>
       </aside>
     </div>
   );

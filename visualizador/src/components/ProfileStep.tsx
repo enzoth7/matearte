@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import UY from "country-flag-icons/react/3x2/UY";
 import type { UserData, SavedDesignItem } from "../types/user";
 import { deleteDesign, duplicateDesign, getUserDesigns, uploadProfileAvatar } from "../lib/supabase";
+import { countryName, countryOptions } from "../lib/countries";
 import { mateVariants } from "../catalog/mateCatalog";
 import { formatUYU, getSelectionPricing } from "../catalog/pricingCatalog";
 import { getSelectionFromLegacyVariant, resolveMateSelection } from "../catalog/mateDecisionCatalog";
@@ -122,6 +122,7 @@ export function ProfileStep({
   const [editPhone, setEditPhone] = useState(userData.phone || "");
   const [editCompany, setEditCompany] = useState(userData.company || "");
   const [editBirthDate, setEditBirthDate] = useState(userData.birthDate || "");
+  const [editCountryCode, setEditCountryCode] = useState(userData.countryCode || "UY");
   const [editDepartment, setEditDepartment] = useState(userData.department || "");
   const [editCity, setEditCity] = useState(userData.city || "");
   const [editAddress, setEditAddress] = useState(userData.addressLine1 || "");
@@ -137,6 +138,7 @@ export function ProfileStep({
     setEditPhone(userData.phone || "");
     setEditCompany(userData.company || "");
     setEditBirthDate(userData.birthDate || "");
+    setEditCountryCode(userData.countryCode || "UY");
     setEditDepartment(userData.department || "");
     setEditCity(userData.city || "");
     setEditAddress(userData.addressLine1 || "");
@@ -168,8 +170,8 @@ export function ProfileStep({
   const handleSaveProfile = async (event: React.FormEvent) => {
     event.preventDefault();
     setFormError("");
-    if (!editName.trim() || !editBirthDate || !editDepartment || !editCity.trim() || !editAddress.trim()) {
-      setFormError("Completá nombre, cumpleaños, departamento, ciudad y dirección.");
+    if (!editName.trim() || !editBirthDate || !editCountryCode || !editCity.trim() || !editAddress.trim() || (editCountryCode === "UY" && !editDepartment.trim())) {
+      setFormError("Completá nombre, cumpleaños, país, ciudad y dirección. Para Uruguay también necesitamos el departamento.");
       return;
     }
     setIsSavingProfile(true);
@@ -188,6 +190,7 @@ export function ProfileStep({
         phone: editPhone.trim(),
         company: editCompany.trim(),
         birthDate: editBirthDate,
+        countryCode: editCountryCode,
         department: editDepartment,
         city: editCity.trim(),
         addressLine1: editAddress.trim(),
@@ -219,11 +222,9 @@ export function ProfileStep({
 
   const savedDesigns = designs.filter((design) => design.status === "saved");
   const drafts = designs.filter((design) => design.status === "draft");
-  const locationLabel = userData.city
-    ? `${userData.city}, Uruguay`
-    : userData.department
-      ? `${userData.department}, Uruguay`
-      : "Uruguay";
+  const profileCountryCode = userData.countryCode || "UY";
+  const profileCountryName = countryName(profileCountryCode);
+  const locationLabel = [userData.city, userData.department, profileCountryName].filter(Boolean).join(", ");
   const birthdayLabel = userData.birthDate ? userData.birthDate.split("-").reverse().join("/") : "";
 
   return (
@@ -236,7 +237,7 @@ export function ProfileStep({
         <div className="profile-client__data">
           <div className="profile-client__name">
             <h1>{userData.name}</h1>
-            <UY title="Uruguay" className="profile-country-flag" />
+            <span className={`flag:${profileCountryCode} profile-country-flag`} role="img" aria-label={`Bandera de ${profileCountryName}`} />
           </div>
           <div className="profile-client__meta">
             <p><ProfileIcon name="email" /><span>{userData.email}</span></p>
@@ -311,7 +312,12 @@ export function ProfileStep({
               <label className="profile-form__wide">Nombre completo<input autoFocus required value={editName} onChange={(event) => setEditName(event.target.value)} /></label>
               <label>Fecha de cumpleaños<input type="date" required max={new Date().toISOString().slice(0, 10)} value={editBirthDate} onChange={(event) => setEditBirthDate(event.target.value)} /></label>
               <label>Teléfono / WhatsApp<input type="tel" autoComplete="tel" value={editPhone} onChange={(event) => setEditPhone(event.target.value)} /></label>
-              <label>Departamento<select required value={editDepartment} onChange={(event) => setEditDepartment(event.target.value)}><option value="">Elegí un departamento</option>{URUGUAY_DEPARTMENTS.map((department) => <option key={department}>{department}</option>)}</select></label>
+              <label>País<select required autoComplete="country" value={editCountryCode} onChange={(event) => setEditCountryCode(event.target.value)}>{countryOptions.map((country) => <option key={country.code} value={country.code}>{country.name}</option>)}</select></label>
+              {editCountryCode === "UY" ? (
+                <label>Departamento<select required autoComplete="address-level1" value={editDepartment} onChange={(event) => setEditDepartment(event.target.value)}><option value="">Elegí un departamento</option>{URUGUAY_DEPARTMENTS.map((department) => <option key={department}>{department}</option>)}</select></label>
+              ) : (
+                <label>Estado / provincia <small>(opcional)</small><input autoComplete="address-level1" maxLength={80} value={editDepartment} onChange={(event) => setEditDepartment(event.target.value)} /></label>
+              )}
               <label>Ciudad / localidad<input required autoComplete="address-level2" value={editCity} onChange={(event) => setEditCity(event.target.value)} /></label>
               <label className="profile-form__wide">Dirección<input required autoComplete="street-address" value={editAddress} onChange={(event) => setEditAddress(event.target.value)} /></label>
               <label>Código postal<input inputMode="numeric" autoComplete="postal-code" value={editPostalCode} onChange={(event) => setEditPostalCode(event.target.value)} /></label>

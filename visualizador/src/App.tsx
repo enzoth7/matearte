@@ -373,7 +373,7 @@ function VisualizerApp() {
       if (session?.user) {
         const email = session.user.email || "";
         const { data: profile } = await supabase.from('customer_profiles')
-          .select('full_name,phone,company,birth_date,department,city,address_line1,postal_code,avatar_path,profile_completed_at')
+          .select('full_name,phone,company,birth_date,country_code,department,city,address_line1,postal_code,avatar_path,profile_completed_at')
           .eq('user_id', session.user.id)
           .maybeSingle();
         const name = profile?.full_name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split("@")[0] || "Cliente MateArte";
@@ -385,6 +385,7 @@ function VisualizerApp() {
           phone: profile?.phone || "",
           company: profile?.company || "",
           birthDate: profile?.birth_date || "",
+          countryCode: profile?.country_code || "UY",
           department: profile?.department || "",
           city: profile?.city || "",
           addressLine1: profile?.address_line1 || "",
@@ -969,6 +970,7 @@ function VisualizerApp() {
     phone: "",
     company: "",
     birthDate: "",
+    countryCode: "UY",
     department: "",
     city: "",
     addressLine1: "",

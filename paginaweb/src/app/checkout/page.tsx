@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CheckoutForm } from "@/components/CheckoutForm";
+import { countryName } from "@/lib/countries";
 import { requireUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Finalizar compra", robots: { index: false, follow: false } };
@@ -7,7 +8,7 @@ export const metadata: Metadata = { title: "Finalizar compra", robots: { index: 
 export default async function CheckoutPage() {
   const { user, client } = await requireUser();
   const { data: profile } = user
-    ? await client.from("customer_profiles").select("full_name,phone,department,city,address_line1,postal_code").eq("user_id", user.id).maybeSingle()
+    ? await client.from("customer_profiles").select("full_name,phone,country_code,department,city,address_line1,postal_code").eq("user_id", user.id).maybeSingle()
     : { data: null };
   const address = [profile?.address_line1, profile?.city, profile?.postal_code].filter(Boolean).join(", ");
   const initialCustomer = {
@@ -16,5 +17,6 @@ export default async function CheckoutPage() {
     department: profile?.department || "",
     address,
   };
-  return <main id="contenido" className="section-space"><div className="container-shell"><p className="eyebrow text-[var(--leather)]">Compra</p><h1 className="display-xl mt-7">Finalizar compra</h1><p className="mt-5 max-w-2xl text-sm leading-7 text-black/60">Tu pedido se considera pagado únicamente cuando Mercado Pago lo confirma por webhook.</p><div className="mt-12"><CheckoutForm initialCustomer={initialCustomer} /></div></div></main>;
+  const countryCode = profile?.country_code || "UY";
+  return <main id="contenido" className="section-space"><div className="container-shell"><p className="eyebrow text-[var(--leather)]">Compra</p><h1 className="display-xl mt-7">Finalizar compra</h1><p className="mt-5 max-w-2xl text-sm leading-7 text-black/60">Tu pedido se considera pagado únicamente cuando Mercado Pago lo confirma por webhook.</p><div className="mt-12"><CheckoutForm initialCustomer={initialCustomer} initialDestination={{ international: countryCode !== "UY", country: countryCode === "UY" ? "" : countryName(countryCode), city: profile?.city || "" }} /></div></div></main>;
 }

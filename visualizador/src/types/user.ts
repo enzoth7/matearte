@@ -10,6 +10,7 @@ export interface UserData {
   phone: string;
   company?: string;
   birthDate?: string;
+  countryCode?: string;
   department?: string;
   city?: string;
   addressLine1?: string;

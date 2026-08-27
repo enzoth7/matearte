@@ -36,6 +36,7 @@ El repositorio no contiene credenciales ni una integración real de Mercado Pago
 - `/nosotros` — historia familiar y origen en Paysandú.
 - `/contacto` — canales públicos y ubicación.
 - `/carrito` — existe en código, pero devuelve 404 mientras comercio no esté realmente configurado.
+- `/checkout` — para Uruguay usa Mercado Pago; para el exterior registra el pedido y abre WhatsApp con número, destino, artículos y subtotal para coordinar envío y pago.
 
 ## Verificaciones
 

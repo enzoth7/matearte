@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, CheckCircle, Clock, Package, Receipt, ShieldCheck, WarningCircle } from "@phosphor-icons/react";
+import { ArrowRight, CheckCircle, Clock, Package, Receipt, ShieldCheck, WarningCircle, WhatsappLogo } from "@phosphor-icons/react";
 import { orderStatusDescriptions, orderStatusLabels, orderStatusTone } from "@/lib/order-status";
 
 type OrderItem = { id: string; title: string; quantity: number; total_minor: number };
 type OrderValue = {
   order_number: number;
   status: string;
+  shipping_method: string;
   total_minor: number;
   currency: string;
   created_at: string;
@@ -83,9 +84,13 @@ export function OrderStatus({ orderId }: { orderId: string }) {
   }
 
   const status = order.status;
+  const isInternational = order.shipping_method === "international_coordination";
   const isPending = status === "pending_payment";
   const isProblem = ["payment_failed", "cancelled", "refunded"].includes(status);
-  const StatusIcon = isPending ? Clock : isProblem ? WarningCircle : CheckCircle;
+  const StatusIcon = isInternational ? WhatsappLogo : isPending ? Clock : isProblem ? WarningCircle : CheckCircle;
+  const statusDescription = isInternational && status === "manual_review"
+    ? "Tu compra internacional quedó registrada. Estamos coordinando el envío y el pago por WhatsApp."
+    : orderStatusDescriptions[status] || "Estamos procesando la información de tu pedido.";
 
   return (
     <section className="overflow-hidden border border-black/15 bg-[var(--paper)] shadow-[var(--shadow-soft)]" aria-labelledby="order-status-title">
@@ -111,7 +116,7 @@ export function OrderStatus({ orderId }: { orderId: string }) {
             <div>
               <p className="text-[0.68rem] font-semibold tracking-[0.14em] text-black/45 uppercase">Estado actual</p>
               <h2 id="order-status-title" className="display-font mt-2 max-w-3xl text-3xl leading-tight sm:text-4xl">
-                {orderStatusDescriptions[status] || "Estamos procesando la información de tu pedido."}
+                {statusDescription}
               </h2>
               {isPending && (
                 <p className="mt-4 flex items-center gap-2 text-xs text-black/50">
@@ -150,15 +155,15 @@ export function OrderStatus({ orderId }: { orderId: string }) {
 
         <aside className="flex flex-col justify-between bg-[var(--walnut)] p-6 text-[var(--paper)] sm:p-8 lg:p-9" aria-label="Total y navegación del pedido">
           <div>
-            <p className="text-[0.68rem] font-semibold tracking-[0.16em] text-[var(--rawhide)] uppercase">Total del pedido</p>
+            <p className="text-[0.68rem] font-semibold tracking-[0.16em] text-[var(--rawhide)] uppercase">{isInternational ? "Subtotal sin envío" : "Total del pedido"}</p>
             <p className="display-font mt-3 text-4xl font-semibold tabular-nums">{money(order.total_minor, order.currency)}</p>
             <div className="mt-8 border-t border-white/15 pt-6">
               <p className="flex items-center gap-2 text-sm font-semibold">
-                <ShieldCheck size={21} className="text-[var(--rawhide)]" aria-hidden="true" />
-                Estado verificado
+                {isInternational ? <WhatsappLogo size={21} weight="fill" className="text-[var(--rawhide)]" aria-hidden="true" /> : <ShieldCheck size={21} className="text-[var(--rawhide)]" aria-hidden="true" />}
+                {isInternational ? "Coordinación personal" : "Estado verificado"}
               </p>
               <p className="mt-3 text-xs leading-6 text-white/65">
-                El pedido cambia de estado únicamente cuando el backend verifica la notificación de Mercado Pago.
+                {isInternational ? "El costo de envío y la forma de pago se confirman por WhatsApp antes de producir o despachar." : "El pedido cambia de estado únicamente cuando el backend verifica la notificación de Mercado Pago."}
               </p>
             </div>
           </div>
