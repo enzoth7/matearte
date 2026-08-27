@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle, Clock, EnvelopeSimple, MapPin, Package, PencilSimple, Receipt, ShoppingBagOpen } from "@phosphor-icons/react/dist/ssr";
+import { ArrowRight, Cake, CheckCircle, Clock, EnvelopeSimple, MapPin, Package, PencilSimple, Receipt, ShoppingBagOpen } from "@phosphor-icons/react/dist/ssr";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -50,6 +50,14 @@ const date = (value: string) =>
     year: "numeric",
   }).format(new Date(value));
 
+const birthdayDate = (value: string) =>
+  new Intl.DateTimeFormat("es-UY", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${value}T00:00:00Z`));
+
 function AccountAccessRequired({ authError }: { authError?: string }) {
   return (
     <main id="contenido" className="section-space">
@@ -84,7 +92,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const [{ data: profile }, { data, error }] = await Promise.all([
     client
       .from("customer_profiles")
-      .select("full_name,country_code,department,city,avatar_path,profile_completed_at")
+      .select("full_name,birth_date,country_code,department,city,avatar_path,profile_completed_at")
       .eq("user_id", user.id)
       .maybeSingle(),
     client
@@ -131,10 +139,21 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="eyebrow text-[var(--leather)]">Mi cuenta</p>
-                  <h1 id="account-title" className="display-font mt-4 text-4xl font-medium tracking-[-0.025em] sm:text-5xl">Hola, {firstName}</h1>
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <h1 id="account-title" className="display-font text-4xl font-medium tracking-[-0.025em] sm:text-5xl">Hola, {firstName}</h1>
+                    {profile?.country_code && (
+                      <span
+                        className={`flag:${profile.country_code} inline-block rounded-[2px] shadow-sm [--CountryFlagIcon-height:1.65rem] sm:[--CountryFlagIcon-height:1.9rem]`}
+                        role="img"
+                        aria-label={`Bandera de ${countryName(profile.country_code)}`}
+                        title={countryName(profile.country_code)}
+                      />
+                    )}
+                  </div>
                   <div className="mt-4 space-y-2 text-sm text-black/65">
                     <p className="flex items-center gap-2"><EnvelopeSimple size={18} className="shrink-0 text-[var(--leather)]" aria-hidden="true" /><span className="truncate">{user.email}</span></p>
                     {location && <p className="flex items-center gap-2"><MapPin size={18} className="shrink-0 text-[var(--leather)]" aria-hidden="true" /><span>{location}</span></p>}
+                    {profile?.birth_date && <p className="flex items-center gap-2"><Cake size={18} className="shrink-0 text-[var(--leather)]" aria-hidden="true" /><span>{birthdayDate(profile.birth_date)}</span></p>}
                   </div>
                 </div>
               </div>

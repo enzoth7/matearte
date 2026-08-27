@@ -3,9 +3,7 @@
 import { CheckCircle, UploadSimple } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { countryOptions } from "@/lib/countries";
-
-const departments = ["Artigas", "Canelones", "Cerro Largo", "Colonia", "Durazno", "Flores", "Florida", "Lavalleja", "Maldonado", "Montevideo", "Paysandú", "Río Negro", "Rivera", "Rocha", "Salto", "San José", "Soriano", "Tacuarembó", "Treinta y Tres"];
+import { countryCallingCode, countryOptions, countryRegions, internationalPhoneNumber, localPhoneNumber } from "@/lib/countries";
 
 export type ProfileFormData = {
   fullName: string;
@@ -23,6 +21,7 @@ export function ProfileEditor({ initial, email, welcome }: { initial: ProfileFor
   const router = useRouter();
   const firstInvalid = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState(initial);
+  const [phoneNumber, setPhoneNumber] = useState(() => localPhoneNumber(initial.phone, initial.countryCode));
   const [avatar, setAvatar] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -33,12 +32,31 @@ export function ProfileEditor({ initial, email, welcome }: { initial: ProfileFor
     setForm((current) => ({ ...current, [key]: value }));
   };
 
+  const regions = countryRegions(form.countryCode);
+  const callingCode = countryCallingCode(form.countryCode);
+
+  const updateCountry = (countryCode: string) => {
+    setSaved(false);
+    setForm((current) => ({
+      ...current,
+      countryCode,
+      department: "",
+      phone: internationalPhoneNumber(countryCode, phoneNumber),
+    }));
+  };
+
+  const updatePhone = (value: string) => {
+    const localNumber = localPhoneNumber(value, form.countryCode);
+    setPhoneNumber(localNumber);
+    update("phone", internationalPhoneNumber(form.countryCode, localNumber));
+  };
+
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
     setSaved(false);
-    if (!form.fullName.trim() || !form.birthDate || !form.countryCode || !form.city.trim() || !form.addressLine1.trim() || (form.countryCode === "UY" && !form.department.trim())) {
-      setError("Completá los campos obligatorios. Para Uruguay también necesitamos el departamento.");
+    if (!form.fullName.trim() || !form.birthDate || !form.countryCode || !form.city.trim() || !form.addressLine1.trim() || (regions.length > 0 && !form.department.trim())) {
+      setError("Completá los campos obligatorios. También necesitamos el estado, provincia o departamento del país elegido.");
       firstInvalid.current?.focus();
       return;
     }
@@ -75,10 +93,19 @@ export function ProfileEditor({ initial, email, welcome }: { initial: ProfileFor
           <label className="text-sm font-semibold sm:col-span-2">Correo electrónico<input value={email} readOnly aria-readonly="true" className="mt-2 h-12 w-full border border-black/15 bg-black/[0.035] px-4 text-black/55" /></label>
           <label className="text-sm font-semibold sm:col-span-2">Nombre completo *<input ref={firstInvalid} name="name" autoComplete="name" required maxLength={120} value={form.fullName} onChange={(event) => update("fullName", event.target.value)} className="mt-2 h-12 w-full border border-black/20 bg-transparent px-4" /></label>
           <label className="text-sm font-semibold">Fecha de cumpleaños *<input type="date" required min="1900-01-01" max={new Date().toISOString().slice(0, 10)} value={form.birthDate} onChange={(event) => update("birthDate", event.target.value)} className="mt-2 h-12 w-full border border-black/20 bg-transparent px-4" /></label>
-          <label className="text-sm font-semibold">Teléfono / WhatsApp<input type="tel" autoComplete="tel" maxLength={40} value={form.phone} onChange={(event) => update("phone", event.target.value)} className="mt-2 h-12 w-full border border-black/20 bg-transparent px-4" /></label>
-          <label className="text-sm font-semibold">País *<select autoComplete="country" required value={form.countryCode} onChange={(event) => update("countryCode", event.target.value)} className="mt-2 h-12 w-full border border-black/20 bg-transparent px-4"><option value="">Elegí tu país</option>{countryOptions.map((country) => <option key={country.code} value={country.code}>{country.name}</option>)}</select></label>
-          {form.countryCode === "UY" ? (
-            <label className="text-sm font-semibold">Departamento *<select autoComplete="address-level1" required value={form.department} onChange={(event) => update("department", event.target.value)} className="mt-2 h-12 w-full border border-black/20 bg-transparent px-4"><option value="">Elegí un departamento</option>{departments.map((department) => <option key={department}>{department}</option>)}</select></label>
+          <label className="text-sm font-semibold">
+            Teléfono / WhatsApp
+            <span className="mt-2 flex h-12 overflow-hidden border border-black/20 bg-transparent focus-within:border-[var(--leather)] focus-within:ring-2 focus-within:ring-[var(--leather)]/20">
+              <span className="grid min-w-20 place-items-center border-r border-black/15 bg-[var(--cream-deep)]/55 px-3 text-sm font-semibold tabular-nums text-black/65" aria-label={callingCode ? `Prefijo internacional ${callingCode}` : "Elegí un país para obtener el prefijo"}>
+                {callingCode || "—"}
+              </span>
+              <input type="tel" inputMode="tel" autoComplete="tel-national" maxLength={32} value={phoneNumber} onChange={(event) => updatePhone(event.target.value)} placeholder="Número de teléfono" aria-label="Número de teléfono sin prefijo internacional" className="min-w-0 flex-1 bg-transparent px-4 outline-none" />
+            </span>
+            <span className="mt-1.5 block text-xs font-normal leading-5 text-black/50">El prefijo cambia automáticamente según el país.</span>
+          </label>
+          <label className="text-sm font-semibold">País *<select autoComplete="country" required value={form.countryCode} onChange={(event) => updateCountry(event.target.value)} className="mt-2 h-12 w-full border border-black/20 bg-transparent px-4"><option value="">Elegí tu país</option>{countryOptions.map((country) => <option key={country.code} value={country.code}>{country.name}</option>)}</select></label>
+          {regions.length > 0 ? (
+            <label className="text-sm font-semibold">{form.countryCode === "UY" ? "Departamento" : "Estado / provincia"} *<select autoComplete="address-level1" required value={form.department} onChange={(event) => update("department", event.target.value)} className="mt-2 h-12 w-full border border-black/20 bg-transparent px-4"><option value="">Elegí una opción</option>{regions.map((region) => <option key={region.code} value={region.name}>{region.name}</option>)}</select></label>
           ) : (
             <label className="text-sm font-semibold">Estado / provincia <span className="font-normal text-black/45">(opcional)</span><input autoComplete="address-level1" maxLength={80} value={form.department} onChange={(event) => update("department", event.target.value)} className="mt-2 h-12 w-full border border-black/20 bg-transparent px-4" /></label>
           )}
