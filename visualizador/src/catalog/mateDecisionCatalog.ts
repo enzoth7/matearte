@@ -245,7 +245,7 @@ const colorPreviewImages = {
     "cuero-crudo-criollo": mateColor("criollo", "imperial-criollo-posa-mate", "cuero-crudo.jpg"),
   },
   criolloCamioneroPosaMate: {
-    vaqueta: mateColor("criollo", "camionero-criollo-posa-mate", "vaqueta.jpg"),
+    vaqueta: mateColor("criollo", "camionero-criollo-posa-mate", "vaqueta.png"),
     "cuero-crudo-criollo": mateColor("criollo", "camionero-criollo-posa-mate", "cuero-crudo.png"),
   },
 } satisfies Record<string, Record<string, string>>;
@@ -523,6 +523,11 @@ export function getMateFamily(familyId: MateFamilyId | null | undefined) {
 
 export function getSelectedTexture(selection: Partial<MateSelection>) {
   return getMateFamily(selection.familyId)?.textures.find((item) => item.id === selection.textureId);
+}
+
+export function usesTorpedoVirolaEngravingAssets(selection: Partial<MateSelection>) {
+  if (selection.familyId === "torpedo") return true;
+  return selection.familyId === "criollo" && getSelectedTexture(selection)?.shapeId === "torpedo";
 }
 
 export function shouldAskForMetal(selection: Partial<MateSelection>) {

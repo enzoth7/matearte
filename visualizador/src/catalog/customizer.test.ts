@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { calculateRimCharacterLayout, createArcPath, getRimGeometryProfile } from "./rimGeometry";
 import { getDefaultColor, getDefaultVariant, getVariantsByModel } from "./mateCatalog";
-import { createDefaultRimSelection, MAX_RIM_TEXT_LENGTH } from "./rimCatalog";
+import { createDefaultRimSelection, MAX_RIM_TEXT_LENGTH, normalizeRimSelection, sanitizeRimText } from "./rimCatalog";
 import {
   calculateOrderPricing,
   countChargeableCharacters,
@@ -60,6 +60,29 @@ describe("catálogo enriquecido", () => {
 });
 
 describe("compatibilidad de personalizaciones", () => {
+  it("normaliza en mayúsculas todos los textos de virola y fleje", () => {
+    const variant = getDefaultVariant("imperial");
+    const rim = normalizeRimSelection(variant, {
+      text: "Richard",
+      texts: [
+        { id: "text-1", text: "Richard", transform: { x: 0.5, y: 0.5, scale: 1, rotation: 0, side: "rim" } },
+        { id: "text-2", text: "María José", transform: { x: 0.5, y: 0.5, scale: 1, rotation: 0, side: "rim" } },
+      ],
+    });
+    const fleje = normalizeFlejeCustomization({
+      sides: {
+        front: { textMode: "text", text: "Richard" },
+        back: { textMode: "text", text: "María" },
+      },
+    });
+
+    expect(sanitizeRimText("Richard pérez")).toBe("RICHARD PÉREZ");
+    expect(rim.text).toBe("RICHARD");
+    expect(rim.texts.map((item) => item.text)).toEqual(["RICHARD", "MARÍA JOSÉ"]);
+    expect(fleje.sides.front.text).toBe("RICHARD");
+    expect(fleje.sides.back.text).toBe("MARÍA");
+  });
+
   it("migra el formato antiguo de fleje a la cara frontal", () => {
     const migrated = normalizeFlejeCustomization({
       finishMode: "finish",

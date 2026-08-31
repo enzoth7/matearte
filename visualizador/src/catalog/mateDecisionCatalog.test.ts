@@ -19,6 +19,7 @@ import {
   sanitizeMateSelection,
   shouldReturnToIncompleteStage,
   shouldAskForMetal,
+  usesTorpedoVirolaEngravingAssets,
   type MateSelection,
 } from "./mateDecisionCatalog";
 
@@ -302,5 +303,17 @@ describe("compatibilidad y assets del catálogo", () => {
       const physicalPath = join(process.cwd(), "public", entry.src.replace(/^\//, ""));
       expect(existsSync(physicalPath), `Falta archivo ${physicalPath}`).toBe(true);
     }
+  });
+
+  it("usa las fotos de virola Torpedo también para el Torpedo criollo", () => {
+    expect(usesTorpedoVirolaEngravingAssets({ familyId: "torpedo" })).toBe(true);
+    expect(usesTorpedoVirolaEngravingAssets({
+      familyId: "criollo",
+      textureId: "torpedo-criollo-posa-mate",
+    })).toBe(true);
+    expect(usesTorpedoVirolaEngravingAssets({
+      familyId: "criollo",
+      textureId: "imperial-criollo-posa-mate",
+    })).toBe(false);
   });
 });

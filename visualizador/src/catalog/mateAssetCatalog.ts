@@ -43,7 +43,7 @@ export const mateAssetCatalog: Record<string, MateAssetEntry> = {
   "imperial-clasico": asset("imperial/virola-plata-900/natural.png", "Imperial con virola de plata 900"),
   "camionero-liso": asset("camionero/alpaca-comun-patas/natural.png", "Camionero con alpaca común"),
   "camionero-artesanal": asset("camionero/alpaca-comun-patas/natural.png", "Camionero con alpaca común"),
-  "camionero-criollo-posa-vaqueta": asset("criollo/camionero-criollo-posa-mate/vaqueta.jpg", "Camionero criollo con posa mate de vaqueta"),
+  "camionero-criollo-posa-vaqueta": asset("criollo/camionero-criollo-posa-mate/vaqueta.png", "Camionero criollo con posa mate de vaqueta"),
 };
 
 export function getMateAssetPath(variantId: string, fallback: string) {

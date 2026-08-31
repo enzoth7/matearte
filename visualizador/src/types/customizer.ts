@@ -2,6 +2,7 @@ import type { FlejeFinishId } from "../catalog/flejeFinishCatalog";
 import type { MateModel, MateSize } from "../catalog/mateCatalog";
 import type { EngravingTypeId, MateCapabilities, MateSelection } from "../catalog/mateDecisionCatalog";
 import type { RimCustomization } from "../catalog/rimCatalog";
+import { normalizeEngravingText } from "../utils/engravingText";
 
 export type CustomizationSide = "rim" | "front" | "back";
 export type EditableElement = "text" | "image" | "finish" | string;
@@ -187,7 +188,7 @@ export function normalizeFlejeCustomization(value: unknown): FlejeCustomization 
 
     return {
       textMode: sideInput.textMode === "text" ? "text" : "none",
-      text: typeof sideInput.text === "string" ? sideInput.text : "",
+      text: typeof sideInput.text === "string" ? normalizeEngravingText(sideInput.text) : "",
       imageMode: sideInput.imageMode === "image" ? "image" : "none",
       selectedImageId: typeof sideInput.selectedImageId === "string" ? sideInput.selectedImageId : null,
       customImage,

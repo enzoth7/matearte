@@ -7,6 +7,7 @@ import {
   mateSizeDecisionLabels,
   shouldAskForMetal,
   getEngravingCapabilities,
+  usesTorpedoVirolaEngravingAssets,
   type MateFamilyId,
   type MateSelection,
   type MateSelectionStage,
@@ -285,6 +286,7 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
       {stage === "engraving" && (() => {
         const capabilities = getEngravingCapabilities(selection.familyId, selection.textureId);
         const filteredOptions = engravingTypeOptions.filter((option) => capabilities.virolaEngravingTypes.includes(option.id));
+        const useTorpedoImages = usesTorpedoVirolaEngravingAssets(selection);
         return (
           <fieldset className={`selection-engraving-grid ${filteredOptions.length === 3 ? "selection-engraving-grid--triple" : ""}`}>
             <legend className="sr-only">Tipo de grabado para virola</legend>
@@ -299,7 +301,7 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
               <span className="selection-product-card__title">{option.label}</span>
               <img
                 className="selection-image"
-                src={selection.familyId === "torpedo" ? option.torpedoImage ?? option.image : option.image}
+                src={useTorpedoImages ? option.torpedoImage ?? option.image : option.image}
                 alt={`Referencia de ${option.label}`}
                 loading="lazy"
                 draggable={false}
