@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { mateAssetCatalog } from '../catalog/mateAssetCatalog';
+
+const mateProductImage = mateAssetCatalog['imperial-lacre'].src;
 
 interface ProductSelectionStepProps {
   onSelectMate: () => void;
@@ -31,9 +34,9 @@ export function ProductSelectionStep({ onSelectMate }: ProductSelectionStepProps
 
             <div className="h-48 w-full flex items-center justify-center p-2 group-hover:scale-105 transition-transform duration-300">
               <img
-                src="/assets/mates/imperial/cincelado-premium/natural.png"
+                src={mateProductImage}
                 alt="Mate Imperial Cincelado"
-                className="h-full object-contain drop-shadow-md"
+                className="mate-product-photo aspect-square h-full drop-shadow-md"
               />
             </div>
 

@@ -91,7 +91,7 @@ function DesignTile({ design, draft = false, onLoad, onCheckout, onDelete, onDup
         className="profile-design-tile__preview"
         aria-label={draft ? `Continuar ${design.title || "borrador"}` : `Usar ${design.title || "diseño"} como base`}
       >
-        {config.skuId === null ? <span>Imagen pendiente</span> : <img src={variant.image} alt="" />}
+        {config.skuId === null ? <span>Imagen pendiente</span> : <img className="mate-product-photo" src={variant.image} alt="" />}
       </button>
       <strong>{price && price.totalUYU > 0 ? formatUYU(price.totalUYU) : "Precio no disponible"}</strong>
       <span className="profile-design-tile__type">{design.title}</span>

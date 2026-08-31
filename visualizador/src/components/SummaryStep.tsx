@@ -63,7 +63,7 @@ export function SummaryStep({
           <h1 className="brand-panel-title">Mate elegido</h1>
           <div className="summary-mate brand-surface">
             {configuration.skuId ? (
-              <img src={variant.image} alt={configuration.selectionLabels.texture} draggable={false} />
+              <img className="mate-product-photo" src={variant.image} alt={configuration.selectionLabels.texture} draggable={false} />
             ) : (
               <div className="summary-placeholder" role="img" aria-label="Imagen del producto pendiente">Imagen pendiente</div>
             )}

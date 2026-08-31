@@ -67,7 +67,7 @@ function ProductImage({ variantId, alt, pending = false, image }: { variantId: s
   if (!image && (!variant || pending)) {
     return <div className="selection-image selection-image--pending" role="img" aria-label={`${alt}. Imagen pendiente`}>Imagen pendiente</div>;
   }
-  return <img src={image ?? variant?.image} alt={alt} className="selection-image" loading="lazy" draggable={false} />;
+  return <img src={image ?? variant?.image} alt={alt} className="selection-image mate-product-photo" loading="lazy" draggable={false} />;
 }
 
 function ColorPreview({ texture, colorId, label }: { texture: DecisionTextureOption; colorId: string; label: string }) {
@@ -84,7 +84,7 @@ function ColorPreview({ texture, colorId, label }: { texture: DecisionTextureOpt
     );
   }
 
-  return <img src={directImage ?? variant?.image} alt={`${texture.label} en color ${label}`} className="selection-color-card__image" loading="lazy" draggable={false} />;
+  return <img src={directImage ?? variant?.image} alt={`${texture.label} en color ${label}`} className="selection-color-card__image mate-product-photo" loading="lazy" draggable={false} />;
 }
 
 function MetalPreview({ image, label }: { image?: string; label: string }) {
@@ -320,7 +320,7 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
               className="selection-product-card selection-product-card--engraving"
             >
               <span className="selection-product-card__title">{option.label}</span>
-              <img className="selection-image" src={option.image} alt={`Referencia de ${option.label}`} loading="lazy" draggable={false} />
+              <img className="selection-image" src={option.flejeImage ?? option.image} alt={`Referencia de ${option.label} en el fleje`} loading="lazy" draggable={false} />
               <span className="selection-product-card__description">{option.description}</span>
             </button>
           ))}

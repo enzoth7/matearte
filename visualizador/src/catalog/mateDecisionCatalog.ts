@@ -1,10 +1,31 @@
 import type { MateModel, MateSize } from "./mateCatalog";
-import { engravingTechniqueAssetManifest } from "./engravingTechniqueAssetManifest";
+import {
+  engravingTechniqueAssetManifest,
+  flejeEngravingTechniqueAssetManifest,
+} from "./engravingTechniqueAssetManifest";
 
 export type MateFamilyId = "camionero" | "imperial" | "torpedo" | "criollo";
 export type EngravingTypeId = "laser" | "bronze-applique" | "alpaca-applique";
 export type MateSelectionStage = "model" | "texture" | "metal" | "size" | "engraving" | "fleje-engraving";
 export type CatalogOptionStatus = "ready" | "pending";
+
+const mateSelectionStageOrder: readonly MateSelectionStage[] = [
+  "model",
+  "texture",
+  "metal",
+  "size",
+  "engraving",
+  "fleje-engraving",
+];
+
+export function shouldReturnToIncompleteStage(
+  currentStage: MateSelectionStage,
+  incompleteStage: MateSelectionStage,
+) {
+  const currentIndex = mateSelectionStageOrder.indexOf(currentStage);
+  const incompleteIndex = mateSelectionStageOrder.indexOf(incompleteStage);
+  return currentIndex >= 0 && incompleteIndex >= 0 && currentIndex > incompleteIndex;
+}
 
 export interface MateSelection {
   familyId: MateFamilyId | null;
@@ -143,7 +164,7 @@ const colors = {
   variantePendiente: { id: "variante-pendiente", label: "Color de la variante por confirmar", swatch: "#d9cbb7", status: "pending" as const },
 };
 
-const ALPACA_ASSETS = "/assets/personalizacion/alpaca";
+const ALPACA_ASSETS = "/assets2/personalizacion/alpaca";
 
 const metals = {
   alpacaComunCamionero: { id: "alpaca-comun", label: "Alpaca común", rimId: "alpaca", previewImage: `${ALPACA_ASSETS}/alpaca-comun-camionero.png` },
@@ -161,49 +182,49 @@ const metals = {
 };
 
 const mateColor = (family: string, variant: string, file: string) =>
-  `/assets/mates/${family}/${variant}/${file}`;
+  `/assets2/mates/${family}/${variant}/${file}`;
 
 const colorPreviewImages = {
   camioneroAlpacaCinceladoPatas: {
     natural: mateColor("camionero", "alpaca-comun-patas", "natural.png"),
     "cuero-crudo": mateColor("camionero", "alpaca-comun-patas", "cuero-crudo.png"),
     marron: mateColor("camionero", "alpaca-comun-patas", "marron.png"),
-    negro: mateColor("camionero", "alpaca-comun-patas", "negro.png"),
+    negro: mateColor("camionero", "alpaca-comun-patas", "negro.jpg"),
   },
   imperialCinceladoPremium: {
     natural: mateColor("imperial", "cincelado-premium", "natural.png"),
-    negro: mateColor("imperial", "cincelado-premium", "negro.png"),
-    marron: mateColor("imperial", "cincelado-premium", "marron.png"),
-    "animal-print-premium": mateColor("imperial", "cincelado-premium", "animal-print.png"),
-    "marron-blanco-premium": mateColor("imperial", "cincelado-premium", "print-pelos.png"),
-    "negro-blanco-premium": mateColor("imperial", "cincelado-premium", "negro-blanco.png"),
+    negro: mateColor("imperial", "cincelado-premium", "negro.jpg"),
+    marron: mateColor("imperial", "cincelado-premium", "marron.jpg"),
+    "animal-print-premium": mateColor("imperial", "cincelado-premium", "animal-print.jpg"),
+    "marron-blanco-premium": mateColor("imperial", "cincelado-premium", "print-pelos.jpg"),
+    "negro-blanco-premium": mateColor("imperial", "cincelado-premium", "negro-blanco.jpg"),
     "cuero-crudo": mateColor("imperial", "cincelado-premium", "cuero-crudo.png"),
   },
   imperialClasico: {
     natural: mateColor("imperial", "imperial-clasico", "natural.png"),
-    negro: mateColor("imperial", "imperial-clasico", "negro.png"),
-    marron: mateColor("imperial", "imperial-clasico", "marron.png"),
-    "animal-print-premium": mateColor("imperial", "imperial-clasico", "animal-print.png"),
-    "marron-blanco-premium": mateColor("imperial", "cincelado-premium", "print-pelos.png"), // fallback
-    "negro-blanco-premium": mateColor("imperial", "imperial-clasico", "negro-blanco.png"),
-    "cuero-crudo": mateColor("imperial", "cincelado-premium", "cuero-crudo.png"), // fallback
+    negro: mateColor("imperial", "imperial-clasico", "negro.jpg"),
+    marron: mateColor("imperial", "imperial-clasico", "marron.jpg"),
+    "animal-print-premium": mateColor("imperial", "imperial-clasico", "animal-print.jpg"),
+    "marron-blanco-premium": mateColor("imperial", "imperial-clasico", "print-pelos.jpg"),
+    "negro-blanco-premium": mateColor("imperial", "imperial-clasico", "negro-blanco.jpg"),
+    "cuero-crudo": mateColor("imperial", "imperial-clasico", "cuero-crudo.png"),
   },
   imperialVirolaPlata900: {
-    negro: mateColor("imperial", "virola-plata-900", "negro.png"),
-    marron: mateColor("imperial", "virola-plata-900", "marron.png"),
+    negro: mateColor("imperial", "virola-plata-900", "negro.jpg"),
+    marron: mateColor("imperial", "virola-plata-900", "marron.jpg"),
     natural: mateColor("imperial", "virola-plata-900", "natural.png"),
-    print: mateColor("imperial", "virola-plata-900", "print.png"),
+    print: mateColor("imperial", "virola-plata-900", "print-pelos.jpg"),
     "cuero-crudo": mateColor("imperial", "virola-plata-900", "cuero-crudo.png"),
     criollo: mateColor("imperial", "virola-plata-900", "criollo.png"),
   },
   torpedoCueroLiso: {
     natural: mateColor("torpedo", "cuero-liso", "natural.png"),
-    negro: mateColor("torpedo", "cuero-liso", "negro.png"),
+    negro: mateColor("torpedo", "cuero-liso", "negro.jpg"),
     marron: mateColor("torpedo", "cuero-liso", "marron.png"),
   },
   torpedoCueroEstampado: {
     natural: mateColor("torpedo", "cuero-estampado", "natural.png"),
-    negro: mateColor("torpedo", "cuero-estampado", "negro.png"),
+    negro: mateColor("torpedo", "cuero-estampado", "negro.jpg"),
     marron: mateColor("torpedo", "cuero-estampado", "marron.png"),
   },
   torpedoCueroCrudo: {
@@ -211,19 +232,19 @@ const colorPreviewImages = {
   },
   torpedoPrintPelos: {
     "marron-blanco": mateColor("torpedo", "print-pelos", "marron-blanco.png"),
-    "negro-blanco": mateColor("torpedo", "print-pelos", "negro-blanco.png"),
+    "negro-blanco": mateColor("torpedo", "print-pelos", "negro-blanco.jpg"),
     "animal-print": mateColor("torpedo", "print-pelos", "animal-print.png"),
   },
   criolloTorpedoPosaMate: {
-    vaqueta: mateColor("criollo", "torpedo-criollo-posa-mate", "vaqueta.png"),
-    "cuero-crudo-criollo": mateColor("criollo", "torpedo-criollo-posa-mate", "cuero-crudo.png"),
+    vaqueta: mateColor("criollo", "torpedo-criollo-posa-mate", "vaqueta.jpg"),
+    "cuero-crudo-criollo": mateColor("criollo", "torpedo-criollo-posa-mate", "cuero-crudo.jpg"),
   },
   criolloImperialPosaMate: {
-    vaqueta: mateColor("criollo", "imperial-criollo-posa-mate", "vaqueta.png"),
-    "cuero-crudo-criollo": mateColor("criollo", "imperial-criollo-posa-mate", "cuero-crudo.png"),
+    vaqueta: mateColor("criollo", "imperial-criollo-posa-mate", "vaqueta.jpg"),
+    "cuero-crudo-criollo": mateColor("criollo", "imperial-criollo-posa-mate", "cuero-crudo.jpg"),
   },
   criolloCamioneroPosaMate: {
-    vaqueta: mateColor("criollo", "camionero-criollo-posa-mate", "vaqueta.png"),
+    vaqueta: mateColor("criollo", "camionero-criollo-posa-mate", "vaqueta.jpg"),
     "cuero-crudo-criollo": mateColor("criollo", "camionero-criollo-posa-mate", "cuero-crudo.png"),
   },
 } satisfies Record<string, Record<string, string>>;
@@ -456,6 +477,7 @@ export const engravingTypeOptions: Array<{
   label: string;
   description: string;
   image: string;
+  flejeImage?: string;
 }> = [
   {
     id: "laser",
@@ -468,12 +490,14 @@ export const engravingTypeOptions: Array<{
     label: "Aplique de bronce",
     description: "Letras y figuras elevadas soldadas en bronce",
     image: engravingTechniqueAssetManifest["bronze-applique"].src,
+    flejeImage: flejeEngravingTechniqueAssetManifest["bronze-applique"].src,
   },
   {
     id: "alpaca-applique",
     label: "Aplique de alpaca",
     description: "Letras y figuras elevadas soldadas en alpaca",
     image: engravingTechniqueAssetManifest["alpaca-applique"].src,
+    flejeImage: flejeEngravingTechniqueAssetManifest["alpaca-applique"].src,
   },
 ];
 

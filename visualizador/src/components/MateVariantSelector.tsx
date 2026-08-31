@@ -28,7 +28,7 @@ export function MateVariantSelector({ variants, selectedVariantId, onSelect }: M
                   : "border-zinc-200 bg-white hover:border-[#7a4a31]"
               }`}
             >
-              <img src={variant.image} alt={displayName} className="mx-auto aspect-square w-full rounded-lg object-contain" loading="lazy" draggable={false} />
+              <img src={variant.image} alt={displayName} className="mate-product-photo mx-auto aspect-square w-full rounded-lg" loading="lazy" draggable={false} />
               <span className={`mt-1 block text-[10px] font-bold leading-tight ${isSelected ? "text-[#7a4a31]" : "text-zinc-700"}`}>
                 {displayName}
               </span>

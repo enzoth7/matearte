@@ -3733,3 +3733,51 @@ button,
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Las fotos reales comparten un lienzo vertical; este recorte mantiene el mate
+   protagonista dentro de tarjetas y previews cuadrados sin afectar otros assets. */
+.mate-product-photo {
+  display: block;
+  object-fit: cover;
+  object-position: center 56%;
+  background: #f4f4f2;
+}
+
+.selection-model-card__image .mate-product-photo,
+.selection-texture-card__image .mate-product-photo,
+.selection-color-card__image.mate-product-photo {
+  object-position: center 56%;
+}
+
+.selection-model-grid .selection-product-card {
+  grid-template-rows: 54px auto minmax(54px, auto);
+}
+
+.selection-texture-grid .selection-product-card--texture,
+.selection-texture-grid--dense .selection-product-card--texture {
+  grid-template-rows: 64px auto minmax(46px, auto);
+}
+
+.selection-model-card__image,
+.selection-texture-card__image,
+.selection-texture-grid--dense .selection-texture-card__image {
+  position: relative;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.selection-model-card__image .mate-product-photo,
+.selection-texture-card__image .mate-product-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+}
+
+.summary-mate img.mate-product-photo,
+.profile-design-tile__preview img.mate-product-photo {
+  object-fit: cover;
+  object-position: center 56%;
+}

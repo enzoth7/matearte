@@ -1,17 +1,22 @@
-import { existsSync } from "node:fs";
+import { existsSync, globSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { mateAssetCatalog } from "./mateAssetCatalog";
-import { engravingTechniqueAssetManifest } from "./engravingTechniqueAssetManifest";
+import {
+  engravingTechniqueAssetManifest,
+  flejeEngravingTechniqueAssetManifest,
+} from "./engravingTechniqueAssetManifest";
 import { mateVariants } from "./mateCatalog";
 import {
   EMPTY_MATE_SELECTION,
+  engravingTypeOptions,
   getFirstIncompleteStage,
   getMateFamily,
   getSelectionFromLegacyVariant,
   mateDecisionCatalog,
   resolveMateSelection,
   sanitizeMateSelection,
+  shouldReturnToIncompleteStage,
   shouldAskForMetal,
   type MateSelection,
 } from "./mateDecisionCatalog";
@@ -76,6 +81,11 @@ describe("árbol declarativo de mates", () => {
     expect(getFirstIncompleteStage(selection)).toBe("engraving");
     expect(getFirstIncompleteStage({ ...selection, engravingTypeId: "bronze-applique" })).toBe("fleje-engraving");
     expect(getFirstIncompleteStage({ ...selection, engravingTypeId: "bronze-applique", flejeEngravingTypeId: "bronze-applique" })).toBeNull();
+  });
+
+  it("no avanza automáticamente del grabado de virola al grabado del fleje", () => {
+    expect(shouldReturnToIncompleteStage("engraving", "fleje-engraving")).toBe(false);
+    expect(shouldReturnToIncompleteStage("fleje-engraving", "engraving")).toBe(true);
   });
 
   it("muestra Virola/Metal solo en las ramas indicadas por los árboles Imperial y Criollo", () => {
@@ -204,9 +214,51 @@ describe("compatibilidad y assets del catálogo", () => {
       const entry = mateAssetCatalog[variant.id];
       expect(entry, `Falta manifiesto para ${variant.id}`).toBeDefined();
       expect(variant.image).toBe(entry.src);
+      expect(entry.src).toMatch(/^\/assets2\/mates\//);
       const physicalPath = join(process.cwd(), "public", entry.src.replace(/^\//, ""));
       expect(existsSync(physicalPath), `Falta archivo ${physicalPath}`).toBe(true);
     }
+  });
+
+  it("usa fotografías reales existentes para cada preview de color", () => {
+    const previewImages = mateDecisionCatalog.flatMap((family) =>
+      family.textures.flatMap((texture) => Object.values(texture.colorPreviewImages ?? {})),
+    );
+
+    expect(previewImages.length).toBeGreaterThan(0);
+    for (const src of previewImages) {
+      expect(src).toMatch(/^\/assets2\/mates\//);
+      const physicalPath = join(process.cwd(), "public", src.replace(/^\//, ""));
+      expect(existsSync(physicalPath), `Falta archivo ${physicalPath}`).toBe(true);
+    }
+  });
+
+  it("usa las piezas reales de assets2 para cada preview de alpaca", () => {
+    const metalPreviewImages = [...new Set(
+      mateDecisionCatalog.flatMap((family) =>
+        family.textures.flatMap((texture) =>
+          texture.metals.flatMap((metal) => metal.previewImage ? [metal.previewImage] : []),
+        ),
+      ),
+    )];
+
+    expect(metalPreviewImages).toHaveLength(5);
+    for (const src of metalPreviewImages) {
+      expect(src).toMatch(/^\/assets2\/personalizacion\/alpaca\//);
+      const physicalPath = join(process.cwd(), "public", src.replace(/^\//, ""));
+      expect(existsSync(physicalPath), `Falta archivo ${physicalPath}`).toBe(true);
+    }
+  });
+
+  it("no conserva referencias activas al catálogo ilustrado de mates", () => {
+    const legacyRoot = ["/assets", "mates/"].join("/");
+    const sourceFiles = globSync("src/**/*.{ts,tsx}", { cwd: process.cwd() })
+      .filter((file) => !file.includes(".test."));
+    const legacyReferences = sourceFiles.filter((file) =>
+      readFileSync(join(process.cwd(), file), "utf8").includes(legacyRoot),
+    );
+
+    expect(legacyReferences).toEqual([]);
   });
 
   it("guarda localmente y documenta las dos imágenes temporales de grabado", () => {
@@ -214,6 +266,22 @@ describe("compatibilidad y assets del catálogo", () => {
       expect(entry.sourceUrl).toMatch(/^https:\/\//);
       expect(entry.merchant.length).toBeGreaterThan(0);
       expect(entry.usage).toBe("temporary-reference");
+      const physicalPath = join(process.cwd(), "public", entry.src.replace(/^\//, ""));
+      expect(existsSync(physicalPath), `Falta archivo ${physicalPath}`).toBe(true);
+    }
+  });
+
+  it("usa las dos fotos propias para elegir el aplique del fleje", () => {
+    expect(Object.keys(flejeEngravingTechniqueAssetManifest)).toEqual([
+      "bronze-applique",
+      "alpaca-applique",
+    ]);
+
+    for (const entry of Object.values(flejeEngravingTechniqueAssetManifest)) {
+      expect(entry.src).toMatch(/^\/assets2\/personalizacion\/grabadofleje\//);
+      expect(entry.usage).toBe("owned-product-reference");
+      const option = engravingTypeOptions.find((item) => item.id === entry.id);
+      expect(option?.flejeImage).toBe(entry.src);
       const physicalPath = join(process.cwd(), "public", entry.src.replace(/^\//, ""));
       expect(existsSync(physicalPath), `Falta archivo ${physicalPath}`).toBe(true);
     }

@@ -34,6 +34,7 @@ import {
   getSelectionLabels,
   resolveMateSelection,
   sanitizeMateSelection,
+  shouldReturnToIncompleteStage,
   shouldAskForMetal,
   engravingTypeOptions,
   getEngravingCapabilities,
@@ -69,7 +70,7 @@ interface PhaseAccordionProps {
 }
 
 function BaseImage({ src, alt }: BaseImageProps) {
-  return <img src={src} alt={alt} className="absolute inset-0 h-full w-full object-contain" draggable={false} />;
+  return <img src={src} alt={alt} className="mate-product-photo absolute inset-0 h-full w-full" draggable={false} />;
 }
 
 function FlejeTextLayer({ text, engravingArea }: { text: string; engravingArea: EngravingArea | null }) {
@@ -595,8 +596,7 @@ function VisualizerApp() {
       return;
     }
     if (!incomplete) return;
-    const order: MateSelectionStage[] = ["model", "texture", "metal", "size", "engraving"];
-    if (order.indexOf(selectionStage) > order.indexOf(incomplete)) {
+    if (shouldReturnToIncompleteStage(selectionStage, incomplete)) {
       navigate(`/selection/${incomplete}`, { replace: true });
     }
   }, [allowIncompletePhaseNavigation, configuration.isLegacy, navigate, selection, selectionStage, wizardStep]);
@@ -1235,6 +1235,13 @@ function VisualizerApp() {
                                 aria-pressed={configuration.flejeEngravingTypeId === option.id}
                                 className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${configuration.flejeEngravingTypeId === option.id ? "border-[#5f3826] bg-[#5f3826] text-white" : "border-zinc-200 bg-white hover:border-zinc-300"}`}
                               >
+                                <img
+                                  src={option.flejeImage ?? option.image}
+                                  alt={`Referencia de ${option.label} en el fleje`}
+                                  className="h-16 w-16 shrink-0 rounded-md object-cover"
+                                  loading="lazy"
+                                  draggable={false}
+                                />
                                 <span className="font-medium">{option.label}</span>
                               </button>
                             ))}
