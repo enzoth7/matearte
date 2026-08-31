@@ -60,6 +60,14 @@ describe("catálogo enriquecido", () => {
 });
 
 describe("compatibilidad de personalizaciones", () => {
+  it("usa la misma geometría de virola en todos los modelos", () => {
+    const imperialProfile = getRimGeometryProfile("imperial");
+
+    for (const model of ["torpedo", "criollo", "camionero"] as const) {
+      expect(getRimGeometryProfile(model)).toEqual(imperialProfile);
+    }
+  });
+
   it("normaliza en mayúsculas todos los textos de virola y fleje", () => {
     const variant = getDefaultVariant("imperial");
     const rim = normalizeRimSelection(variant, {

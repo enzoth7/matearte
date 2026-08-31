@@ -72,15 +72,15 @@ export const RIM_ICON_KNOCKOUT_COLOR = "#eee9df";
 export const rimTextGeometry: RimTextGeometry = { centerX: 627, centerY: 627, radius: 474, startAngle: 185, endAngle: 355, fontSize: 78 };
 export const defaultRimIconPlacement: RimIconPlacement = { angle: 90, radius: 474, size: 120, rotationMode: "upright" };
 
-const rimGeometryProfiles: Record<MateModel, RimGeometryProfile> = {
-  imperial: { textGeometry: rimTextGeometry, iconPlacement: defaultRimIconPlacement, bounds: { minX: 0.05, maxX: 0.95, minY: 0.05, maxY: 0.95 }, radiusBounds: { min: 0.33, max: 0.42 } },
-  camionero: { textGeometry: { ...rimTextGeometry, radius: 455 }, iconPlacement: { ...defaultRimIconPlacement, radius: 455 }, bounds: { minX: 0.05, maxX: 0.95, minY: 0.05, maxY: 0.95 }, radiusBounds: { min: 0.32, max: 0.41 } },
-  torpedo: { textGeometry: { ...rimTextGeometry, radius: 435, fontSize: 74 }, iconPlacement: { ...defaultRimIconPlacement, radius: 435, size: 112 }, bounds: { minX: 0.05, maxX: 0.95, minY: 0.05, maxY: 0.95 }, radiusBounds: { min: 0.31, max: 0.39 } },
-  criollo: { textGeometry: { ...rimTextGeometry, radius: 448, fontSize: 76 }, iconPlacement: { ...defaultRimIconPlacement, radius: 448, size: 116 }, bounds: { minX: 0.05, maxX: 0.95, minY: 0.05, maxY: 0.95 }, radiusBounds: { min: 0.32, max: 0.40 } },
+const canonicalRimGeometryProfile: RimGeometryProfile = {
+  textGeometry: rimTextGeometry,
+  iconPlacement: defaultRimIconPlacement,
+  bounds: { minX: 0.05, maxX: 0.95, minY: 0.05, maxY: 0.95 },
+  radiusBounds: { min: 0.33, max: 0.42 },
 };
 
-export function getRimGeometryProfile(model: MateModel): RimGeometryProfile {
-  return rimGeometryProfiles[model];
+export function getRimGeometryProfile(_model: MateModel): RimGeometryProfile {
+  return canonicalRimGeometryProfile;
 }
 
 function getArcAngle(geometry: RimTextGeometry): number {
