@@ -5,6 +5,7 @@ import { mateAssetCatalog } from "./mateAssetCatalog";
 import {
   engravingTechniqueAssetManifest,
   flejeEngravingTechniqueAssetManifest,
+  torpedoVirolaEngravingTechniqueAssetManifest,
 } from "./engravingTechniqueAssetManifest";
 import { mateVariants } from "./mateCatalog";
 import {
@@ -282,6 +283,22 @@ describe("compatibilidad y assets del catálogo", () => {
       expect(entry.usage).toBe("owned-product-reference");
       const option = engravingTypeOptions.find((item) => item.id === entry.id);
       expect(option?.flejeImage).toBe(entry.src);
+      const physicalPath = join(process.cwd(), "public", entry.src.replace(/^\//, ""));
+      expect(existsSync(physicalPath), `Falta archivo ${physicalPath}`).toBe(true);
+    }
+  });
+
+  it("usa las dos fotos frontales propias para elegir el aplique de la virola Torpedo", () => {
+    expect(Object.keys(torpedoVirolaEngravingTechniqueAssetManifest)).toEqual([
+      "bronze-applique",
+      "alpaca-applique",
+    ]);
+
+    for (const entry of Object.values(torpedoVirolaEngravingTechniqueAssetManifest)) {
+      expect(entry.src).toMatch(/^\/assets2\/personalizacion\/grabadovirola-torpedo\//);
+      expect(entry.usage).toBe("owned-product-reference");
+      const option = engravingTypeOptions.find((item) => item.id === entry.id);
+      expect(option?.torpedoImage).toBe(entry.src);
       const physicalPath = join(process.cwd(), "public", entry.src.replace(/^\//, ""));
       expect(existsSync(physicalPath), `Falta archivo ${physicalPath}`).toBe(true);
     }

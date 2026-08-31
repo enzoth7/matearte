@@ -48,6 +48,13 @@ export interface FlejeEngravingTechniqueAsset {
   usage: "owned-product-reference";
 }
 
+export interface TorpedoVirolaEngravingTechniqueAsset {
+  id: FlejeEngravingTechniqueId;
+  src: string;
+  alt: string;
+  usage: "owned-product-reference";
+}
+
 export const flejeEngravingTechniqueAssetManifest: Record<FlejeEngravingTechniqueId, FlejeEngravingTechniqueAsset> = {
   "bronze-applique": {
     id: "bronze-applique",
@@ -59,6 +66,21 @@ export const flejeEngravingTechniqueAssetManifest: Record<FlejeEngravingTechniqu
     id: "alpaca-applique",
     src: "/assets2/personalizacion/grabadofleje/aplique-alpaca-fleje.png",
     alt: "Mate Imperial con aplique de alpaca en el fleje",
+    usage: "owned-product-reference",
+  },
+};
+
+export const torpedoVirolaEngravingTechniqueAssetManifest: Record<FlejeEngravingTechniqueId, TorpedoVirolaEngravingTechniqueAsset> = {
+  "bronze-applique": {
+    id: "bronze-applique",
+    src: "/assets2/personalizacion/grabadovirola-torpedo/aplique-bronce-torpedo.png",
+    alt: "Mate Torpedo con escudo elevado de bronce en la virola",
+    usage: "owned-product-reference",
+  },
+  "alpaca-applique": {
+    id: "alpaca-applique",
+    src: "/assets2/personalizacion/grabadovirola-torpedo/aplique-alpaca-torpedo.png",
+    alt: "Mate Torpedo con escudo elevado de alpaca plateada en la virola",
     usage: "owned-product-reference",
   },
 };

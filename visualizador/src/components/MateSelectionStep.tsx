@@ -297,7 +297,13 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
               className="selection-product-card selection-product-card--engraving"
             >
               <span className="selection-product-card__title">{option.label}</span>
-              <img className="selection-image" src={option.image} alt={`Referencia de ${option.label}`} loading="lazy" draggable={false} />
+              <img
+                className="selection-image"
+                src={selection.familyId === "torpedo" ? option.torpedoImage ?? option.image : option.image}
+                alt={`Referencia de ${option.label}`}
+                loading="lazy"
+                draggable={false}
+              />
               <span className="selection-product-card__description">{option.description}</span>
             </button>
           ))}

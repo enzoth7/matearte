@@ -2,6 +2,7 @@ import type { MateModel, MateSize } from "./mateCatalog";
 import {
   engravingTechniqueAssetManifest,
   flejeEngravingTechniqueAssetManifest,
+  torpedoVirolaEngravingTechniqueAssetManifest,
 } from "./engravingTechniqueAssetManifest";
 
 export type MateFamilyId = "camionero" | "imperial" | "torpedo" | "criollo";
@@ -478,6 +479,7 @@ export const engravingTypeOptions: Array<{
   description: string;
   image: string;
   flejeImage?: string;
+  torpedoImage?: string;
 }> = [
   {
     id: "laser",
@@ -491,6 +493,7 @@ export const engravingTypeOptions: Array<{
     description: "Letras y figuras elevadas soldadas en bronce",
     image: engravingTechniqueAssetManifest["bronze-applique"].src,
     flejeImage: flejeEngravingTechniqueAssetManifest["bronze-applique"].src,
+    torpedoImage: torpedoVirolaEngravingTechniqueAssetManifest["bronze-applique"].src,
   },
   {
     id: "alpaca-applique",
@@ -498,6 +501,7 @@ export const engravingTypeOptions: Array<{
     description: "Letras y figuras elevadas soldadas en alpaca",
     image: engravingTechniqueAssetManifest["alpaca-applique"].src,
     flejeImage: flejeEngravingTechniqueAssetManifest["alpaca-applique"].src,
+    torpedoImage: torpedoVirolaEngravingTechniqueAssetManifest["alpaca-applique"].src,
   },
 ];
 
