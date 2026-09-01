@@ -21,7 +21,7 @@ const CURRENT_VALUES: Record<string, number> = {
   "leather:raw-posa-mate": 650,
   "metal:alpaca-bronce": 300,
   "metal:alpaca-grande": 300,
-  "customization:laser:rim_text": 150,
+  "customization:laser:rim_text": 300,
   "customization:laser:rim_image": 400,
   "customization:bronze-applique:rim_text": 150,
   "customization:bronze-applique:rim_image": 400,

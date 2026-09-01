@@ -281,7 +281,9 @@ function VisualizerApp() {
   const customizationPriceLabel = (id: string) => {
     const value = getCustomizationPrice(pricingCatalog, configuration.engravingTypeId, id);
     if (value === null) return "Precio no disponible";
-    const unit = id.endsWith("_text") ? " por carácter" : id.endsWith("_image") ? " por imagen" : "";
+    const unit = id.endsWith("_text")
+      ? configuration.engravingTypeId === "laser" ? " en total" : " por letra"
+      : id.endsWith("_image") ? " por imagen" : "";
     return `${formatUYU(value)}${unit}`;
   };
 
@@ -1136,15 +1138,17 @@ function VisualizerApp() {
                       {configuration.rim.textMode === "text" && (() => {
                         const engravingType = configuration.engravingTypeId;
                         if (!engravingType) return null;
-                        const allText = (configuration.rim.texts ?? []).map((t) => t.text).join("");
+                        const allText = (configuration.rim.texts ?? []).map((t) => t.text).join("") || configuration.rim.text;
                         const charCount = countChargeableCharacters(allText);
-                        const pricePerChar = getCustomizationPrice(pricingCatalog, engravingType, "rim_text");
-                        if (pricePerChar === null) return <p className="customizer-inline-price">Precio no disponible</p>;
-                        const total = charCount * pricePerChar;
+                        const textPrice = getCustomizationPrice(pricingCatalog, engravingType, "rim_text");
+                        if (textPrice === null) return <p className="customizer-inline-price">Precio no disponible</p>;
+                        const isLaser = engravingType === "laser";
+                        const total = charCount > 0 ? (isLaser ? textPrice : charCount * textPrice) : 0;
                         return (
                           <div className="customizer-price-bar">
                             <p className="customizer-price-bar__label">
-                              El precio por cada letra en apliques es de <strong>$ {pricePerChar.toLocaleString("es-UY")}</strong>
+                              {isLaser ? "El grabado láser de texto tiene un precio total de " : "El precio por cada letra en apliques es de "}
+                              <strong>$ {textPrice.toLocaleString("es-UY")}</strong>
                             </p>
                             {charCount > 0 && (
                               <span className="customizer-price-bar__total">$ {total.toLocaleString("es-UY")}</span>

@@ -488,13 +488,13 @@ export const engravingTypeOptions: Array<{
   {
     id: "laser",
     label: "Láser",
-    description: "Grabado plano sobre el metal, cotizado por carácter o imagen.",
+    description: "Grabado plano sobre el metal.",
     image: engravingTechniqueAssetManifest.laser.src,
   },
   {
     id: "bronze-applique",
     label: "Aplique de bronce",
-    description: "Letras y figuras elevadas soldadas en bronce",
+    description: "Letras y figuras elevadas soldadas en bronce.",
     image: engravingTechniqueAssetManifest["bronze-applique"].src,
     flejeImage: flejeEngravingTechniqueAssetManifest["bronze-applique"].src,
     torpedoImage: torpedoVirolaEngravingTechniqueAssetManifest["bronze-applique"].src,
@@ -502,7 +502,7 @@ export const engravingTypeOptions: Array<{
   {
     id: "alpaca-applique",
     label: "Aplique de alpaca",
-    description: "Letras y figuras elevadas soldadas en alpaca",
+    description: "Letras y figuras elevadas soldadas en alpaca.",
     image: engravingTechniqueAssetManifest["alpaca-applique"].src,
     flejeImage: flejeEngravingTechniqueAssetManifest["alpaca-applique"].src,
     torpedoImage: torpedoVirolaEngravingTechniqueAssetManifest["alpaca-applique"].src,

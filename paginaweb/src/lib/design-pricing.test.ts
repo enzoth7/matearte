@@ -6,7 +6,7 @@ const catalog = {
   rules: {
     "family:torpedo": 1800,
     "metal:alpaca-bronce": 300,
-    "customization:laser:rim_text": 150,
+    "customization:laser:rim_text": 300,
     "customization:laser:rim_image": 400,
   },
 };
@@ -16,7 +16,7 @@ const configuration = {
   selection: { familyId: "torpedo", textureId: "cuero-liso", colorId: "natural", metalId: "alpaca-bronce", sizeId: "medio", engravingTypeId: "laser" },
   engravingTypeId: "laser",
   capabilities: { hasFleje: false },
-  rim: { textMode: "text", texts: [{ text: "A-1" }], imageMode: "none", icons: [] },
+  rim: { textMode: "text", texts: [{ text: "MATEARTE" }], imageMode: "none", icons: [] },
 };
 
 describe("server design pricing", () => {

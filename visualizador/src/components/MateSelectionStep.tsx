@@ -16,6 +16,7 @@ import {
 import { getVariantDefinition, type MateSize } from "../catalog/mateCatalog";
 import {
   getColorStartingPrice,
+  getCustomizationPrice,
   getFamilyStartingPrice,
   getMetalStartingPrice,
   getTextureStartingPrice,
@@ -67,6 +68,13 @@ function PendingLabel({ copy = "Precio pendiente" }: { copy?: string }) {
 
 function SelectionPrice({ value, pendingCopy = "Precio no disponible", from = false, isDelta = false }: { value: number | null; pendingCopy?: string; from?: boolean; isDelta?: boolean }) {
   return <PendingLabel copy={formatSelectionPrice(value, pendingCopy, from, isDelta)} />;
+}
+
+function EngravingPrice({ value, isFlatFee, pendingCopy }: { value: number | null; isFlatFee: boolean; pendingCopy: string }) {
+  const copy = value === null
+    ? pendingCopy
+    : `$ ${value.toLocaleString("es-UY")} ${isFlatFee ? "total" : "por letra"}`;
+  return <PendingLabel copy={copy} />;
 }
 
 function ProductImage({ variantId, alt, pending = false, image }: { variantId: string; alt: string; pending?: boolean; image?: string }) {
@@ -320,6 +328,11 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
                 draggable={false}
               />
               <span className="selection-product-card__description">{option.description}</span>
+              <EngravingPrice
+                value={getCustomizationPrice(pricingCatalog, option.id, "rim_text")}
+                isFlatFee={option.id === "laser"}
+                pendingCopy={pendingPriceCopy}
+              />
             </button>
           ))}
         </fieldset>
@@ -343,6 +356,11 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
               <span className="selection-product-card__title">{option.label}</span>
               <img className="selection-image" src={option.flejeImage ?? option.image} alt={`Referencia de ${option.label} en el fleje`} loading="lazy" draggable={false} />
               <span className="selection-product-card__description">{option.description}</span>
+              <EngravingPrice
+                value={getCustomizationPrice(pricingCatalog, option.id, "fleje_text")}
+                isFlatFee={false}
+                pendingCopy={pendingPriceCopy}
+              />
             </button>
           ))}
         </fieldset>

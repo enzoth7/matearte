@@ -302,6 +302,11 @@ export function countChargeableCharacters(value: string) {
   return value.match(/[\p{L}\p{N}]/gu)?.length ?? 0;
 }
 
+export function getRimTextChargeQuantity(technique: EngravingTypeId | null, value: string) {
+  const characterCount = countChargeableCharacters(value);
+  return technique === "laser" && characterCount > 0 ? 1 : characterCount;
+}
+
 function configurationSelection(configuration: MateConfiguration): MateSelection | null {
   if (resolveMateSelection(configuration.selection)) return configuration.selection;
   return getSelectionFromLegacyVariant(configuration.variantId, configuration.size);
@@ -332,7 +337,11 @@ export function calculateOrderPricing(configuration: MateConfiguration, flejeCon
 
   const structuredRimText = configuration.rim.texts?.map((item) => item.text).join("") ?? "";
   const rimText = configuration.rim.textMode === "text" ? (structuredRimText || configuration.rim.text) : "";
-  addItem("rim_text", "Caracteres de texto en virola", countChargeableCharacters(rimText));
+  addItem(
+    "rim_text",
+    technique === "laser" ? "Grabado láser de texto en virola" : "Letras de texto en virola",
+    getRimTextChargeQuantity(technique, rimText),
+  );
   if (configuration.rim.imageMode === "image") {
     addItem("rim_image", "Imágenes o escudos en virola", configuration.rim.icons.filter((icon) => icon.selectedImageId || icon.customImage).length);
   }

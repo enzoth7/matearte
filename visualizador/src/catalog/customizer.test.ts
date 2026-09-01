@@ -195,6 +195,30 @@ describe("precios centralizados", () => {
     expect(pricing.isCheckoutReady).toBe(true);
   });
 
+  it("cobra el texto láser una sola vez aunque tenga varias letras", () => {
+    const configuration = createConfiguration();
+    const productRuleKeys = resolveMateSelection(configuration.selection)!.pricingRuleKeys;
+    const catalog: PublishedPricingCatalog = {
+      versionId: "laser-flat-fee",
+      version: 8,
+      publishedAt: "2026-09-01T00:00:00.000Z",
+      rules: {
+        ...Object.fromEntries(productRuleKeys.map((key) => [key, key.startsWith("family:") ? 1000 : 0])),
+        [customizationRuleKey("laser", "rim_text")]: 300,
+      },
+    };
+    configuration.capabilities = { ...configuration.capabilities, hasFleje: false };
+    configuration.rim.textMode = "text";
+    configuration.rim.text = "MATEARTE";
+
+    const pricing = calculateOrderPricing(configuration, createDefaultFlejeCustomization(), catalog);
+
+    expect(pricing.extrasUYU).toBe(300);
+    expect(pricing.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "rim_text", quantity: 1, unitPriceUYU: 300, totalUYU: 300 }),
+    ]));
+  });
+
   it("cobra únicamente letras y números, incluidos caracteres acentuados", () => {
     expect(countChargeableCharacters("Árbol 123, 🧉!" )).toBe(8);
   });
