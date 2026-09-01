@@ -56,7 +56,8 @@ describe("reglas canónicas de precios", () => {
     ["Imperial Plata 900 print", selection("imperial", "virola-plata-900", "print", "plata-900"), 20700],
     ["Torpedo estampado alpaca y bronce", selection("torpedo", "cuero-estampado", "natural", "alpaca-bronce"), 2300],
     ["Torpedo cuero crudo alpaca grande", selection("torpedo", "cuero-crudo", "cuero-crudo", "alpaca-grande"), 2700],
-    ["Criollo Torpedo vaqueta al lacre", selection("criollo", "torpedo-criollo-posa-mate", "vaqueta", "alpaca-grande-lacre-torpedo"), 4200],
+    ["Criollo Torpedo natural al lacre", selection("criollo", "torpedo-criollo-posa-mate", "vaqueta", "alpaca-grande-lacre-torpedo"), 4200],
+    ["Criollo Torpedo negro al lacre", selection("criollo", "torpedo-criollo-posa-mate", "negro", "alpaca-grande-lacre-torpedo"), 4200],
     ["Criollo Imperial cuero crudo", selection("criollo", "imperial-criollo-posa-mate", "cuero-crudo-criollo", "alpaca-grande-criollo"), 2550],
   ])("calcula %s desde componentes aditivos", (_label, selected, expected) => {
     const pricing = getSelectionPricing(catalog, selected);

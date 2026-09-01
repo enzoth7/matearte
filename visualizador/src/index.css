@@ -1720,7 +1720,7 @@ button,
 .selection-color-card {
   position: relative;
   width: 172px;
-  min-height: 216px;
+  min-height: 280px;
   border: 0;
   background: transparent;
   display: flex;
@@ -1757,15 +1757,36 @@ button,
   border-radius: 999px;
 }
 
-.selection-color-card__image {
+.selection-color-card__media {
   width: 172px;
   height: 172px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  flex: 0 0 172px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
   background: #fff;
-  object-fit: contain;
-  object-position: center bottom;
+}
+
+.selection-color-card__image {
+  width: 100%;
+  height: 172px;
+  display: block;
+  object-fit: cover;
+  object-position: center var(--color-image-position-y, 56%);
+  transform: scale(var(--color-image-scale, 1));
+  transform-origin: center bottom;
+}
+
+.selection-color-card .selection-pending {
+  position: static;
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  margin-top: 8px;
+  display: grid;
+  place-items: center;
+  padding: 8px 10px;
+  line-height: 1.2;
 }
 
 .selection-size-list {
@@ -1781,7 +1802,7 @@ button,
 .selection-size-list button {
   position: relative;
   display: grid;
-  grid-template-rows: 74px auto;
+  grid-template-rows: 74px auto auto;
   min-width: 0;
   border: 1px solid transparent;
   background: #fff;
@@ -1830,6 +1851,19 @@ button,
   background: #fff;
   object-fit: cover;
   object-position: center;
+}
+
+.selection-size-list__diameter {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 6px 12px;
+  background: var(--paper);
+  color: var(--cacao);
+  font-size: clamp(12px, 1.7vw, 15px);
+  font-weight: 600;
+  line-height: 1.25;
 }
 
 .selection-size-list .selection-pending {
@@ -3470,7 +3504,7 @@ button,
   }
 
   .selection-size-list button {
-    grid-template-rows: 68px auto;
+    grid-template-rows: 68px auto auto;
   }
 
   .selection-actions {
@@ -3622,12 +3656,18 @@ button,
   }
 
   .selection-size-list button {
-    grid-template-rows: 52px auto;
+    grid-template-rows: 52px auto auto;
   }
 
   .selection-size-list strong {
     padding: 6px 4px;
     font-size: clamp(18px, 5.4vw, 23px);
+  }
+
+  .selection-size-list__diameter {
+    min-height: 44px;
+    padding: 8px 4px;
+    font-size: 12px;
   }
 
   .selection-actions {
@@ -3744,9 +3784,25 @@ button,
 }
 
 .selection-model-card__image .mate-product-photo,
-.selection-texture-card__image .mate-product-photo,
-.selection-color-card__image.mate-product-photo {
+.selection-texture-card__image .mate-product-photo {
   object-position: center 56%;
+}
+
+.selection-color-card__image.mate-product-photo {
+  object-position: center var(--color-image-position-y, 56%);
+}
+
+.selection-colors--family-imperial .selection-color-card--animal-print-premium {
+  --color-image-position-y: 75%;
+}
+
+.selection-colors--texture-imperial-criollo-posa-mate .selection-color-card--cuero-crudo-criollo {
+  --color-image-position-y: 44%;
+  --color-image-scale: 1.04;
+}
+
+.selection-colors--texture-imperial-criollo-posa-mate .selection-color-card--negro {
+  --color-image-scale: 1.055;
 }
 
 .selection-model-grid .selection-product-card {

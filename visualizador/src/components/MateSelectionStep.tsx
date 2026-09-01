@@ -55,6 +55,12 @@ const mateSizePreviewImages: Record<MateSize, { src: string; alt: string }> = {
   },
 };
 
+const mateSizeDiameters: Record<MateSize, string> = {
+  chico: "9,5 cm",
+  medio: "10 cm",
+  grande: "10,5 cm",
+};
+
 function PendingLabel({ copy = "Precio pendiente" }: { copy?: string }) {
   return <span className="selection-pending">{copy}</span>;
 }
@@ -79,13 +85,17 @@ function ColorPreview({ texture, colorId, label }: { texture: DecisionTextureOpt
 
   if (!directImage && !variant) {
     return (
-      <span className="selection-color-card__image selection-image--pending" role="img" aria-label={`${label}. Imagen pendiente`}>
+      <span className="selection-color-card__media selection-image--pending" role="img" aria-label={`${label}. Imagen pendiente`}>
         Imagen pendiente
       </span>
     );
   }
 
-  return <img src={directImage ?? variant?.image} alt={`${texture.label} en color ${label}`} className="selection-color-card__image mate-product-photo" loading="lazy" draggable={false} />;
+  return (
+    <span className="selection-color-card__media">
+      <img src={directImage ?? variant?.image} alt={`${texture.label} en color ${label}`} className="selection-color-card__image mate-product-photo" loading="lazy" draggable={false} />
+    </span>
+  );
 }
 
 function MetalPreview({ image, label }: { image?: string; label: string }) {
@@ -209,7 +219,7 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
           </fieldset>
 
           {selectedTexture && (
-            <fieldset className="selection-colors">
+            <fieldset className={`selection-colors selection-colors--family-${family.id} selection-colors--texture-${selectedTexture.id}`}>
               <legend>Elegí el color</legend>
               <div>
                 {selectedTexture.colors.map((item) => (
@@ -225,7 +235,7 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
                       flejeEngravingTypeId: null,
                     })}
                     aria-pressed={item.id === selection.colorId}
-                    className="selection-color-card"
+                    className={`selection-color-card selection-color-card--${item.id}`}
                   >
                     <span className="selection-color-card__title">
                       <span className="selection-color-swatch" style={{ background: item.swatch }} aria-hidden="true" />
@@ -278,6 +288,9 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
                 loading="lazy"
                 draggable={false}
               />
+              <span className="selection-size-list__diameter">
+                Diámetro: {mateSizeDiameters[size]}
+              </span>
             </button>
           ))}
         </fieldset>

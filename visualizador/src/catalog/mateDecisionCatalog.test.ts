@@ -176,6 +176,24 @@ describe("árbol declarativo de mates", () => {
     expect(camioneroCriollo?.capabilities.hasFleje).toBe(false);
   });
 
+  it("ofrece Natural, Cuero crudo y Negro en las tres formas Criollo", () => {
+    const criollo = getMateFamily("criollo")!;
+
+    for (const texture of criollo.textures) {
+      expect(texture.colors.map(({ id, label }) => ({ id, label }))).toEqual([
+        { id: "vaqueta", label: "Natural" },
+        { id: "cuero-crudo-criollo", label: "Cuero crudo" },
+        { id: "negro", label: "Negro" },
+      ]);
+      expect(Object.keys(texture.colorPreviewImages ?? {})).toEqual([
+        "vaqueta",
+        "cuero-crudo-criollo",
+        "negro",
+      ]);
+      expect(texture.colors.find((color) => color.id === "negro")?.pricingRuleKeys).toEqual(["leather:vaqueta"]);
+    }
+  });
+
   it("deja visibles como pendientes las ramas sin SKU confirmado", () => {
     const pending = resolveMateSelection({
       familyId: "criollo",
@@ -207,6 +225,9 @@ describe("compatibilidad y assets del catálogo", () => {
   it("migra únicamente variantes antiguas con equivalencia explícita", () => {
     expect(getSelectionFromLegacyVariant("imperial-lacre")?.familyId).toBe("imperial");
     expect(getSelectionFromLegacyVariant("torpedo-cuero-liso-alpaca-bronce")?.metalId).toBe("alpaca-bronce");
+    expect(resolveMateSelection(getSelectionFromLegacyVariant("criollo-clasico")!)).not.toBeNull();
+    expect(resolveMateSelection(getSelectionFromLegacyVariant("criollo-grande-posa-cuero-crudo")!)).not.toBeNull();
+    expect(resolveMateSelection(getSelectionFromLegacyVariant("imperial-criollo-posa-cuero-crudo")!)).not.toBeNull();
     expect(getSelectionFromLegacyVariant("camionero-liso")).toBeNull();
   });
 
@@ -232,6 +253,20 @@ describe("compatibilidad y assets del catálogo", () => {
       expect(src).toMatch(/^\/assets2\/mates\//);
       const physicalPath = join(process.cwd(), "public", src.replace(/^\//, ""));
       expect(existsSync(physicalPath), `Falta archivo ${physicalPath}`).toBe(true);
+    }
+  });
+
+  it("usa nueve PNG Criollo verticales de 1024 por 1536", () => {
+    const criollo = getMateFamily("criollo")!;
+    const previewImages = criollo.textures.flatMap((texture) => Object.values(texture.colorPreviewImages ?? {}));
+
+    expect(new Set(previewImages).size).toBe(9);
+    for (const src of previewImages) {
+      expect(src).toMatch(/^\/assets2\/mates\/criollo\/.+\.png$/);
+      const physicalPath = join(process.cwd(), "public", src.replace(/^\//, ""));
+      const png = readFileSync(physicalPath);
+      expect(png.readUInt32BE(16), src).toBe(1024);
+      expect(png.readUInt32BE(20), src).toBe(1536);
     }
   });
 
