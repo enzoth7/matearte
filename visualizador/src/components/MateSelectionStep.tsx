@@ -22,6 +22,7 @@ import {
   getTextureStartingPrice,
 } from "../catalog/pricingCatalog";
 import { usePricing } from "../context/PricingContext";
+import { getMateSizePreviewImage } from "./mateSizePreviewImages";
 import { formatSelectionPrice } from "./selectionPriceUtils";
 
 interface MateSelectionStepProps {
@@ -39,21 +40,6 @@ const stageCopy: Record<MateSelectionStage, { title: string; help: string }> = {
   size: { title: "PENSÁ EL TAMAÑO DEL MATE", help: "Capacidad de yerba para tu día a día" },
   engraving: { title: "ELEGÍ EL GRABADO DE LA VIROLA", help: "La técnica se aplicará a la virola" },
   "fleje-engraving": { title: "ELEGÍ EL GRABADO DEL FLEJE", help: "La técnica se aplicará al fleje" },
-};
-
-const mateSizePreviewImages: Record<MateSize, { src: string; alt: string }> = {
-  chico: {
-    src: "/assets2/personalizacion/tamanos/boca-chico.png",
-    alt: "Vista cenital de un mate camionero con boca chica",
-  },
-  medio: {
-    src: "/assets2/personalizacion/tamanos/boca-medio.png",
-    alt: "Vista cenital de un mate camionero con boca mediana",
-  },
-  grande: {
-    src: "/assets2/personalizacion/tamanos/boca-grande.png",
-    alt: "Vista cenital de un mate camionero con boca grande",
-  },
 };
 
 const mateSizeDiameters: Record<MateSize, string> = {
@@ -106,7 +92,7 @@ function ColorPreview({ texture, colorId, label }: { texture: DecisionTextureOpt
   );
 }
 
-function MetalPreview({ image, label }: { image?: string; label: string }) {
+function MetalPreview({ image, label, metalId }: { image?: string; label: string; metalId: string }) {
   if (!image) {
     return (
       <span className="selection-image selection-image--pending" role="img" aria-label={`${label}. Imagen de alpaca pendiente`}>
@@ -115,7 +101,7 @@ function MetalPreview({ image, label }: { image?: string; label: string }) {
     );
   }
 
-  return <img src={image} alt={label} className="selection-image" loading="lazy" draggable={false} />;
+  return <img src={image} alt={label} className={`selection-image selection-image--metal-${metalId}`} loading="lazy" draggable={false} />;
 }
 
 export function MateSelectionStep({ stage, selection, onChange, onBack, onContinue }: MateSelectionStepProps) {
@@ -269,7 +255,7 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
           {selectedTexture.metals.map((item) => (
             <button key={item.id} type="button" onClick={() => onChange({ ...selection, metalId: item.id, sizeId: null, engravingTypeId: null, flejeEngravingTypeId: null })} aria-pressed={item.id === selection.metalId} className="selection-product-card">
               <span className="selection-product-card__title">{item.label}</span>
-              <MetalPreview image={item.previewImage} label={item.label} />
+              <MetalPreview image={item.previewImage} label={item.label} metalId={item.id} />
               <span className="selection-product-card__description">Muestra del material de {item.label.toLowerCase()}</span>
               <SelectionPrice
                 value={getMetalStartingPrice(pricingCatalog, { ...selection, metalId: item.id })}
@@ -284,23 +270,26 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
       {stage === "size" && selectedTexture && (
         <fieldset className="selection-size-list">
           <legend className="sr-only">Tamaño del mate</legend>
-          {selectedTexture.sizes.map((size) => (
-            <button key={size} type="button" onClick={() => onChange({ ...selection, sizeId: size, engravingTypeId: null, flejeEngravingTypeId: null })} aria-pressed={size === selection.sizeId}>
-              <strong>{mateSizeDecisionLabels[size]}</strong>
-              <img
-                className="selection-size-list__image"
-                src={mateSizePreviewImages[size].src}
-                alt={mateSizePreviewImages[size].alt}
-                width="240"
-                height="240"
-                loading="lazy"
-                draggable={false}
-              />
-              <span className="selection-size-list__diameter">
-                Diámetro: {mateSizeDiameters[size]}
-              </span>
-            </button>
-          ))}
+          {selectedTexture.sizes.map((size) => {
+            const preview = getMateSizePreviewImage(selection, size);
+            return (
+              <button key={size} type="button" onClick={() => onChange({ ...selection, sizeId: size, engravingTypeId: null, flejeEngravingTypeId: null })} aria-pressed={size === selection.sizeId}>
+                <strong>{mateSizeDecisionLabels[size]}</strong>
+                <img
+                  className={`selection-size-list__image ${usesTorpedoVirolaEngravingAssets(selection) ? `selection-size-list__image--torpedo-${size}` : ""}`}
+                  src={preview.src}
+                  alt={preview.alt}
+                  width="240"
+                  height="240"
+                  loading="lazy"
+                  draggable={false}
+                />
+                <span className="selection-size-list__diameter">
+                  Diámetro: {mateSizeDiameters[size]}
+                </span>
+              </button>
+            );
+          })}
         </fieldset>
       )}
 

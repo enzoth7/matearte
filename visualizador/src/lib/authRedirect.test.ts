@@ -29,9 +29,16 @@ describe("shouldCompleteProfileInVisualizer", () => {
     expect(shouldCompleteProfileInVisualizer(false, "main-profile")).toBe(false);
   });
 
-  it("mantiene el formulario del visualizador para sus propios flujos", () => {
-    expect(shouldCompleteProfileInVisualizer(false, "profile")).toBe(true);
+  it("no fuerza el perfil al iniciar sesión sin una acción pendiente", () => {
+    expect(shouldCompleteProfileInVisualizer(false, null)).toBe(false);
+    expect(shouldCompleteProfileInVisualizer(false, "profile")).toBe(false);
+    expect(shouldCompleteProfileInVisualizer(false, "edit-contact")).toBe(false);
+  });
+
+  it("pide los datos solamente para acciones que los necesitan", () => {
+    expect(shouldCompleteProfileInVisualizer(false, "save-customizer")).toBe(true);
     expect(shouldCompleteProfileInVisualizer(false, "save-summary")).toBe(true);
+    expect(shouldCompleteProfileInVisualizer(false, "checkout")).toBe(true);
   });
 
   it("no pide completar un perfil que ya está completo", () => {

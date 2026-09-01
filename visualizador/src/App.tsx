@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useState, useEffect, useRef } from "react"
 import type { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { UserData, WizardStep, SavedDesignItem } from "./types/user";
-import { consumeMainSiteHandoff, createMainSiteHandoff, createProfileAvatarSignedUrl, isSupabaseConfigured, saveUserProfileToSupabase, supabase, saveDesignToSupabase } from "./lib/supabase";
+import { consumeMainSiteHandoff, createMainSiteHandoff, createProfileAvatarSignedUrl, getUserProfileFromSupabase, isSupabaseConfigured, saveUserProfileToSupabase, supabase, saveDesignToSupabase } from "./lib/supabase";
 import { WelcomeStep } from "./components/WelcomeStep";
 import { CustomizerIntroStep } from "./components/CustomizerIntroStep";
 import { MateSelectionStep } from "./components/MateSelectionStep";
@@ -386,6 +386,10 @@ function VisualizerApp() {
   useEffect(() => {
     if (!isSupabaseConfigured) return;
 
+    let active = true;
+    let lastSessionToken = "";
+    let syncVersion = 0;
+
     if (new URLSearchParams(window.location.search).get('logout') === '1') {
       void supabase.auth.signOut({ scope: 'local' }).finally(() => {
         localStorage.removeItem('matearte_user');
@@ -395,29 +399,40 @@ function VisualizerApp() {
     }
 
     const syncSession = async (session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']) => {
+      const sessionToken = session?.access_token || "";
+      if (sessionToken && sessionToken === lastSessionToken) return;
+      lastSessionToken = sessionToken;
+      const currentSyncVersion = ++syncVersion;
+
       if (session?.user) {
         const email = session.user.email || "";
-        const { data: profile } = await supabase.from('customer_profiles')
-          .select('full_name,phone,company,birth_date,country_code,department,city,address_line1,postal_code,avatar_path,profile_completed_at')
-          .eq('user_id', session.user.id)
-          .maybeSingle();
-        const name = profile?.full_name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split("@")[0] || "Cliente MateArte";
+        const { data: profile } = await getUserProfileFromSupabase(session.user.id, session.access_token);
+        if (!active || currentSyncVersion !== syncVersion) return;
+        let cachedProfile: Partial<UserData> = {};
+        try {
+          const cached = JSON.parse(localStorage.getItem("matearte_user") || "null") as Partial<UserData> | null;
+          if (cached?.id === session.user.id) cachedProfile = cached;
+        } catch {
+          localStorage.removeItem("matearte_user");
+        }
+        const name = profile?.full_name || cachedProfile.name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split("@")[0] || "Cliente MateArte";
         const signedAvatar = profile?.avatar_path ? await createProfileAvatarSignedUrl(profile.avatar_path) : null;
+        if (!active || currentSyncVersion !== syncVersion) return;
         const userObj: UserData = {
           id: session.user.id,
           name,
           email,
-          phone: profile?.phone || "",
-          company: profile?.company || "",
-          birthDate: profile?.birth_date || "",
-          countryCode: profile?.country_code || "UY",
-          department: profile?.department || "",
-          city: profile?.city || "",
-          addressLine1: profile?.address_line1 || "",
-          postalCode: profile?.postal_code || "",
-          avatarPath: profile?.avatar_path || "",
-          avatarUrl: signedAvatar?.data?.signedUrl || "",
-          profileComplete: Boolean(profile?.profile_completed_at),
+          phone: profile?.phone ?? cachedProfile.phone ?? "",
+          company: profile?.company ?? cachedProfile.company ?? "",
+          birthDate: profile?.birth_date ?? cachedProfile.birthDate ?? "",
+          countryCode: profile?.country_code ?? cachedProfile.countryCode ?? "UY",
+          department: profile?.department ?? cachedProfile.department ?? "",
+          city: profile?.city ?? cachedProfile.city ?? "",
+          addressLine1: profile?.address_line1 ?? cachedProfile.addressLine1 ?? "",
+          postalCode: profile?.postal_code ?? cachedProfile.postalCode ?? "",
+          avatarPath: profile?.avatar_path ?? cachedProfile.avatarPath ?? "",
+          avatarUrl: signedAvatar?.data?.signedUrl || cachedProfile.avatarUrl || "",
+          profileComplete: profile ? Boolean(profile.profile_completed_at) : Boolean(cachedProfile.profileComplete),
         };
         setUserData(userObj);
         localStorage.setItem("matearte_user", JSON.stringify(userObj));
@@ -427,6 +442,7 @@ function VisualizerApp() {
           window.history.replaceState(null, '', window.location.pathname);
         }
       } else {
+        if (!active || currentSyncVersion !== syncVersion) return;
         setUserData(null);
         localStorage.removeItem('matearte_user');
       }
@@ -435,6 +451,7 @@ function VisualizerApp() {
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => { setTimeout(() => void syncSession(session), 0); });
 
     return () => {
+      active = false;
       authListener?.subscription.unsubscribe();
     };
   }, [changeStep]);
@@ -805,7 +822,7 @@ function VisualizerApp() {
 
   const requireAuthentication = (action: PendingAuthAction) => {
     if (isSupabaseConfigured && userData?.id && !userData.isGuest) {
-      if (!userData.profileComplete && action !== "profile") {
+      if (shouldCompleteProfileInVisualizer(userData.profileComplete, action)) {
         sessionStorage.setItem("matearte_pending_auth_action", action);
         setPendingAuthAction(action);
         changeStep("profile");
@@ -988,10 +1005,10 @@ function VisualizerApp() {
   };
 
   const handleUpdateUserData = async (newUserData: UserData) => {
-    const { profile } = newUserData.isGuest
-      ? { profile: null }
+    const { profile, error } = newUserData.isGuest
+      ? { profile: null, error: null }
       : await saveUserProfileToSupabase(newUserData);
-    if (!newUserData.isGuest && !profile) throw new Error('No se pudieron guardar tus datos.');
+    if (!newUserData.isGuest && !profile) throw error || new Error('No se pudieron guardar tus datos.');
     const mergedUser = profile ? { ...newUserData, ...profile, email: newUserData.email, avatarUrl: newUserData.avatarUrl } : newUserData;
     setUserData(mergedUser);
     localStorage.setItem("matearte_user", JSON.stringify(mergedUser));
@@ -1091,6 +1108,12 @@ function VisualizerApp() {
                 {saveStatus === "saving" ? "Guardando…" : "Siguiente"}
               </button>
             </div>
+            <aside className="customizer-disclaimer" aria-label="Cómo activar una personalización">
+              <span className="customizer-disclaimer__switch" aria-hidden="true"><span /></span>
+              <p>
+                <strong>Virola y fleje:</strong> activá las pastillas verdes para personalizar. Todo lo que dejes desactivado queda liso, sin personalización y sin costo adicional.
+              </p>
+            </aside>
             <div className="customizer-layout grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
               
               {/* PANEL 1: IZQUIERDA (Acordeón de Personalización) */}

@@ -1,4 +1,5 @@
 const STORE_AUTH_QUERY_KEYS = ["code", "error", "error_code", "error_description"] as const;
+const PROFILE_REQUIRED_ACTIONS = new Set(["save-customizer", "save-summary", "checkout"]);
 
 type BrowserLocation = Pick<Location, "origin" | "pathname" | "search">;
 
@@ -27,5 +28,7 @@ export function shouldCompleteProfileInVisualizer(
   profileComplete: boolean | undefined,
   pendingAuthAction: string | null,
 ) {
-  return !profileComplete && pendingAuthAction !== "main-profile";
+  return !profileComplete
+    && pendingAuthAction !== null
+    && PROFILE_REQUIRED_ACTIONS.has(pendingAuthAction);
 }

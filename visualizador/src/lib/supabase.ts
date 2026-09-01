@@ -15,6 +15,53 @@ export const adminSupabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
   auth: { storageKey: 'matearte-pricing-admin-auth', persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
 });
 
+type SupabaseRequestError = {
+  code?: string;
+  message?: string;
+  status?: number;
+};
+
+export const isSupabaseUnauthorizedError = (error: unknown) => {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as SupabaseRequestError;
+  return candidate.status === 401
+    || candidate.code === 'PGRST301'
+    || /(?:jwt|token).*(?:expired|invalid)|unauthorized|401/i.test(candidate.message || '');
+};
+
+const refreshCustomerSession = async () => {
+  const { data, error } = await supabase.auth.refreshSession();
+  if (error || !data.session) {
+    return { session: null, error: new Error('Tu sesión venció. Volvé a ingresar.') };
+  }
+  return { session: data.session, error: null };
+};
+
+const createAuthenticatedDataClient = (accessToken: string) => createClient(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY,
+  {
+    accessToken: async () => accessToken,
+  },
+);
+
+const customerProfileColumns = 'full_name,phone,company,birth_date,country_code,department,city,address_line1,postal_code,avatar_path,profile_completed_at';
+
+export async function getUserProfileFromSupabase(userId: string, accessToken: string) {
+  const request = (token: string) => createAuthenticatedDataClient(token).from('customer_profiles')
+    .select(customerProfileColumns)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  let result = await request(accessToken);
+  if (isSupabaseUnauthorizedError(result.error)) {
+    const refreshed = await refreshCustomerSession();
+    if (refreshed.error) return { data: null, error: refreshed.error };
+    result = await request(refreshed.session.access_token);
+  }
+  return result;
+}
+
 export async function signInWithGoogle() {
   if (!isSupabaseConfigured) throw new Error('Supabase no está configurado.');
   return supabase.auth.signInWithOAuth({
@@ -61,10 +108,12 @@ export async function uploadProfileAvatar(userId: string, file: File) {
 
 export async function saveUserProfileToSupabase(userData: UserData) {
   if (!isSupabaseConfigured) return { profile: null, error: new Error('Supabase no está configurado.') };
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !session) return { profile: null, error: new Error('Tu sesión venció. Volvé a ingresar.') };
+  const { data: { user }, error: userError } = await supabase.auth.getUser(session.access_token);
   if (userError || !user || (userData.id && userData.id !== user.id)) return { profile: null, error: userError || new Error('La sesión no es válida.') };
   const complete = isProfileComplete(userData);
-  const { data, error } = await supabase.from('customer_profiles').upsert({
+  const payload = {
     user_id: user.id,
     full_name: userData.name.trim().slice(0, 120),
     phone: userData.phone?.trim().slice(0, 40) || null,
@@ -77,7 +126,27 @@ export async function saveUserProfileToSupabase(userData: UserData) {
     postal_code: userData.postalCode?.trim().slice(0, 20) || null,
     avatar_path: userData.avatarPath || null,
     profile_completed_at: complete ? new Date().toISOString() : null,
-  }, { onConflict: 'user_id' }).select().single();
+  };
+  const request = (accessToken: string) => createAuthenticatedDataClient(accessToken).from('customer_profiles')
+    .upsert(payload, { onConflict: 'user_id' })
+    .select()
+    .single();
+
+  let { data, error } = await request(session.access_token);
+  if (isSupabaseUnauthorizedError(error)) {
+    const refreshed = await refreshCustomerSession();
+    if (refreshed.error) return { profile: null, error: refreshed.error };
+    ({ data, error } = await request(refreshed.session.access_token));
+  }
+
+  if (error) {
+    return {
+      profile: null,
+      error: new Error(isSupabaseUnauthorizedError(error)
+        ? 'No pudimos revalidar tu sesión. Volvé a ingresar e intentá nuevamente.'
+        : 'No se pudieron guardar tus datos. Revisá los campos e intentá nuevamente.'),
+    };
+  }
   return {
     profile: data ? {
       id: data.user_id,
@@ -93,7 +162,7 @@ export async function saveUserProfileToSupabase(userData: UserData) {
       avatarPath: data.avatar_path || '',
       profileComplete: Boolean(data.profile_completed_at),
     } : null,
-    error,
+    error: null,
   };
 }
 
