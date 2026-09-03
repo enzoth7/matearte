@@ -5,6 +5,7 @@ import {
   createCustomer,
   createOrder,
   createProduct,
+  deleteProductionLine,
   fetchDashboardData,
   mergeOrUpdateCustomer,
   updateExchangeRate,
@@ -103,5 +104,36 @@ describe("supabaseService", () => {
     expect(data.production[0].createdAt).toBe("2026-08-19T10:00:00.000Z");
     expect(data.history).toHaveLength(1);
     expect(data.history[0].lineId).toBe("line-2");
+  });
+
+  it("elimina una línea exacta en Supabase y devuelve los datos actualizados", async () => {
+    const deleteQuery = {
+      delete: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { line_id: "line-1" }, error: null }),
+    };
+    let orderLinesCalls = 0;
+    const mockClient = {
+      from: vi.fn((table: string) => {
+        if (table === "order_lines" && orderLinesCalls++ === 0) return deleteQuery;
+        if (table === "settings") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({ data: { exchange_rate: 0.026 }, error: null }),
+          };
+        }
+        return { select: vi.fn().mockResolvedValue({ data: [], error: null }) };
+      }),
+    };
+    vi.spyOn(supabaseClientModule, "supabase", "get").mockReturnValue(mockClient as any);
+
+    const result = await deleteProductionLine("line-1");
+
+    expect(deleteQuery.delete).toHaveBeenCalledOnce();
+    expect(deleteQuery.eq).toHaveBeenCalledWith("line_id", "line-1");
+    expect(deleteQuery.select).toHaveBeenCalledWith("line_id");
+    expect(result.production).toEqual([]);
   });
 });

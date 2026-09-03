@@ -14,7 +14,10 @@ const data: DashboardData = {
   history: [],
 };
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe("ProductionView", () => {
   it("calcula los resúmenes por unidades y no por cantidad de filas", () => {
@@ -35,7 +38,7 @@ describe("ProductionView", () => {
   it("muestra filas con fecha y edita desde el lápiz con selectores de modelo y variante", async () => {
     const update = vi.fn().mockResolvedValue(undefined);
     const complete = vi.fn().mockResolvedValue(undefined);
-    render(<ProductionView data={data} onUpdate={update} onComplete={complete} />);
+    render(<ProductionView data={data} onUpdate={update} onComplete={complete} onDelete={vi.fn()} />);
 
     expect(screen.queryByText(/líneas/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: "Cliente line-1" })).not.toBeInTheDocument();
@@ -89,7 +92,7 @@ describe("ProductionView", () => {
         { lineId: "line-3", orderId: "PED-3", customer: "BOB", model: "Camionero", variant: "Acero", quantity: 7, status: "Pendiente" },
       ],
     };
-    render(<ProductionView data={filteredData} onUpdate={vi.fn()} onComplete={vi.fn()} />);
+    render(<ProductionView data={filteredData} onUpdate={vi.fn()} onComplete={vi.fn()} onDelete={vi.fn()} />);
 
     const valueKpi = screen.getByText("Valor").closest("article") as HTMLElement;
     expect(within(valueKpi).getByText(/20\.400/)).toBeInTheDocument();
@@ -134,7 +137,7 @@ describe("ProductionView", () => {
         { lineId: "line-2", orderId: "PED-2", customer: "ANA", model: "Camionero", variant: "Acero", quantity: 7, status: "En producción" },
       ],
     };
-    render(<ProductionView data={modelData} onUpdate={vi.fn()} onComplete={vi.fn()} />);
+    render(<ProductionView data={modelData} onUpdate={vi.fn()} onComplete={vi.fn()} onDelete={vi.fn()} />);
 
     const valueKpi = screen.getByText("Valor").closest("article") as HTMLElement;
     expect(within(valueKpi).getByText(/21\.400/)).toBeInTheDocument();
@@ -154,7 +157,7 @@ describe("ProductionView", () => {
   it("exporta a Excel al presionar el botón de exportación", async () => {
     const formatModule = await import("../lib/format");
     const exportSpy = vi.spyOn(formatModule, "exportProductionToExcel").mockImplementation(() => undefined);
-    render(<ProductionView data={data} onUpdate={vi.fn()} onComplete={vi.fn()} />);
+    render(<ProductionView data={data} onUpdate={vi.fn()} onComplete={vi.fn()} onDelete={vi.fn()} />);
 
     const exportBtn = screen.getByRole("button", { name: /exportar excel/i });
     expect(exportBtn).toBeInTheDocument();
@@ -167,7 +170,7 @@ describe("ProductionView", () => {
   it("exporta a PDF al presionar el botón de imprimir PDF", async () => {
     const pdfModule = await import("../lib/pdfExport");
     const exportPdfSpy = vi.spyOn(pdfModule, "exportProductionToPdf").mockImplementation(() => undefined);
-    render(<ProductionView data={data} onUpdate={vi.fn()} onComplete={vi.fn()} />);
+    render(<ProductionView data={data} onUpdate={vi.fn()} onComplete={vi.fn()} onDelete={vi.fn()} />);
 
     const pdfBtn = screen.getByRole("button", { name: /imprimir pdf/i });
     expect(pdfBtn).toBeInTheDocument();
@@ -175,5 +178,20 @@ describe("ProductionView", () => {
 
     expect(exportPdfSpy).toHaveBeenCalledWith(data.production);
     exportPdfSpy.mockRestore();
+  });
+
+  it("elimina la línea desde el modal después de confirmar", async () => {
+    const remove = vi.fn().mockResolvedValue(undefined);
+    const confirm = vi.fn().mockReturnValue(true);
+    vi.stubGlobal("confirm", confirm);
+    render(<ProductionView data={data} onUpdate={vi.fn()} onComplete={vi.fn()} onDelete={remove} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar Torpedo de GASPAR" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Eliminar línea" }));
+
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("PED-1 · Torpedo · GASPAR"));
+    await waitFor(() => expect(remove).toHaveBeenCalledWith("line-1"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 });

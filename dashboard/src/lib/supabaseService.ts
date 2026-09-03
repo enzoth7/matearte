@@ -334,6 +334,20 @@ export async function completeProductionLine(lineId: string): Promise<DashboardD
   return fetchDashboardData();
 }
 
+export async function deleteProductionLine(lineId: string): Promise<DashboardData> {
+  const client = getClient();
+  const { data, error } = await client
+    .from("order_lines")
+    .delete()
+    .eq("line_id", lineId)
+    .select("line_id")
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw new Error("La línea no existe o no tenés permiso para eliminarla.");
+  return fetchDashboardData();
+}
+
 export async function createProduct(product: {
   model: string;
   variant: string;

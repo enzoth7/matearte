@@ -39,6 +39,18 @@ describe("demo dashboard", () => {
     expect(created?.priceUyu).toBe(50000 * res.exchangeRate);
   });
 
+  it("elimina una línea de producción y su historial", async () => {
+    const initial = await demoRequest<DashboardData>("/api/dashboard");
+    const line = initial.production[0];
+
+    const updated = await demoRequest<DashboardData>(`/api/production/${encodeURIComponent(line.lineId)}`, {
+      method: "DELETE",
+    });
+
+    expect(updated.production.some((item) => item.lineId === line.lineId)).toBe(false);
+    expect(updated.history.some((item) => item.lineId === line.lineId)).toBe(false);
+  });
+
   it("guarda snapshots de precios en los pedidos y mantiene su inmutabilidad", async () => {
     const initial = await demoRequest<DashboardData>("/api/dashboard");
     const product = initial.products[0];
@@ -136,4 +148,3 @@ describe("demo dashboard", () => {
     expect(localStorage.length).toBe(0);
   });
 });
-

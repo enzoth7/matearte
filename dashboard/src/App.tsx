@@ -90,6 +90,7 @@ export default function App() {
             data={dashboard.data}
             onUpdate={dashboard.updateProduction}
             onComplete={dashboard.completeLine}
+            onDelete={dashboard.deleteLine}
           />
         );
       case "historico":

@@ -186,6 +186,20 @@ export function useDashboard() {
     [run],
   );
 
+  const deleteLine = useCallback(
+    (lineId: string) =>
+      run(
+        () =>
+          useDirectSupabase
+            ? supabaseService.deleteProductionLine(lineId)
+            : request<DashboardData>(`/api/production/${encodeURIComponent(lineId)}`, {
+                method: "DELETE",
+              }),
+        (payload) => payload,
+      ),
+    [run],
+  );
+
   const updateProduct = useCallback(
     (product: Product) =>
       run(
@@ -239,6 +253,7 @@ export function useDashboard() {
     renameCustomer,
     updateProduction,
     completeLine,
+    deleteLine,
     updateProduct,
     updateExchangeRate,
     resetData,

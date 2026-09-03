@@ -296,6 +296,23 @@ app.patch("/api/production/:lineId", async (request, response, next) => {
   }
 });
 
+app.delete("/api/production/:lineId", async (request, response, next) => {
+  try {
+    const { data, error } = await supabase
+      .from("order_lines")
+      .delete()
+      .eq("line_id", request.params.lineId)
+      .select("line_id")
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return response.status(404).json({ error: "La línea no existe o no tenés permiso para eliminarla." });
+    response.json(await getDashboardData());
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post("/api/production/:lineId/complete", async (request, response, next) => {
   try {
     const { error } = await supabase.from("order_lines").update({ 

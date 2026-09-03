@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { CaretDownIcon, CaretUpDownIcon, CaretUpIcon, CheckCircleIcon, DownloadSimpleIcon, MagnifyingGlassIcon, PencilSimpleIcon, PrinterIcon, XIcon } from "@phosphor-icons/react";
+import { CaretDownIcon, CaretUpDownIcon, CaretUpIcon, CheckCircleIcon, DownloadSimpleIcon, MagnifyingGlassIcon, PencilSimpleIcon, PrinterIcon, TrashIcon, XIcon } from "@phosphor-icons/react";
 import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
 import { exportProductionToExcel, findProduct, formatArg, formatDate, formatNumber, getLineValueArg, normalizeText } from "../lib/format";
@@ -15,6 +15,7 @@ interface ProductionViewProps {
   data: DashboardData;
   onUpdate: (item: ProductionItem) => Promise<unknown>;
   onComplete: (lineId: string) => Promise<unknown>;
+  onDelete: (lineId: string) => Promise<unknown>;
 }
 
 interface StateTotals {
@@ -194,7 +195,7 @@ function ProductionSectionPanel({ section, summary, selectedModel, onSelectModel
   return <SummaryTable title="Unidades por tipo de cuero — Torpedo" firstColumn="Tipo de cuero" rows={summary.leatherRows} />;
 }
 
-export function ProductionView({ data, onUpdate, onComplete }: ProductionViewProps) {
+export function ProductionView({ data, onUpdate, onComplete, onDelete }: ProductionViewProps) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("Todos");
   const [customerFilter, setCustomerFilter] = useState("");
@@ -290,6 +291,16 @@ export function ProductionView({ data, onUpdate, onComplete }: ProductionViewPro
     const item = { ...editingItem, orderId: editingItem.orderId?.trim() || null, customer: editingItem.customer.trim(), model: editingItem.model.trim(), variant: editingItem.variant.trim(), quantity: Math.max(1, editingItem.quantity) };
     setSavingLine(item.lineId);
     try { await onUpdate(item); setEditingItem(null); } finally { setSavingLine(""); }
+  };
+
+  const deleteItem = async () => {
+    if (!editingItem) return;
+    const description = `${editingItem.orderId || "Pedido sin número"} · ${editingItem.model} · ${editingItem.customer}`;
+    if (!window.confirm(`¿Eliminar ${description}?\n\nEsta acción también eliminará la línea de Supabase y no se puede deshacer.`)) return;
+
+    const lineId = editingItem.lineId;
+    setSavingLine(lineId);
+    try { await onDelete(lineId); setEditingItem(null); } finally { setSavingLine(""); }
   };
 
   let content: ReactNode;
@@ -395,7 +406,13 @@ export function ProductionView({ data, onUpdate, onComplete }: ProductionViewPro
             </select>
           </label>
         </div>
-        <footer><button type="button" className="button-quiet" onClick={closeEditor}>Cancelar</button><button type="submit" className="button-primary" disabled={Boolean(savingLine)}>{savingLine ? "Guardando…" : "Guardar cambios"}</button></footer>
+        <footer className="production-edit-footer">
+          <button type="button" className="delete-line-button" onClick={deleteItem} disabled={Boolean(savingLine)} aria-label="Eliminar línea" title="Eliminar línea">
+            <TrashIcon size={21} weight="bold" aria-hidden="true" />
+          </button>
+          <button type="button" className="button-quiet" onClick={closeEditor}>Cancelar</button>
+          <button type="submit" className="button-primary" disabled={Boolean(savingLine)}>{savingLine ? "Procesando…" : "Guardar cambios"}</button>
+        </footer>
       </form></dialog></div>}
     </div>
   );

@@ -226,6 +226,16 @@ export async function demoRequest<T>(url: string, options?: RequestInit): Promis
   }
 
   const productionMatch = path.match(/^\/api\/production\/([^/]+)$/);
+  if (productionMatch && method === "DELETE") {
+    const lineId = decodeURIComponent(productionMatch[1]);
+    const productionIndex = data.production.findIndex((item) => item.lineId === lineId);
+    const historyIndex = data.history.findIndex((item) => item.lineId === lineId);
+    if (productionIndex < 0 && historyIndex < 0) throw new Error("Línea no encontrada.");
+    if (productionIndex >= 0) data.production.splice(productionIndex, 1);
+    if (historyIndex >= 0) data.history.splice(historyIndex, 1);
+    return persistDemoData(data) as T;
+  }
+
   if (productionMatch && method === "PATCH") {
     const lineId = decodeURIComponent(productionMatch[1]);
     const patch = parseBody<ProductionItem>(options);
