@@ -15,7 +15,7 @@ describe("CheckoutForm", () => {
       json: async () => ({ rates: [{ id: "11111111-1111-4111-8111-111111111111", name: "Retiro", rate_minor: 0, is_pickup: true, departments: [] }] }),
     }));
 
-    render(<CheckoutForm initialCustomer={{ fullName: "Enzo", phone: "099000000", department: "", address: "" }} />);
+    render(<CheckoutForm initialCustomer={{ fullName: "Enzo", phone: "099000000", department: "", city: "", address: "" }} />);
     fireEvent.click(screen.getByRole("radio", { name: /exterior/i }));
 
     expect(screen.getByRole("textbox", { name: /^país$/i })).toBeRequired();
@@ -30,7 +30,7 @@ describe("CheckoutForm", () => {
 
     render(
       <CheckoutForm
-        initialCustomer={{ fullName: "Ana", phone: "341000000", department: "Madrid", address: "Calle 1" }}
+        initialCustomer={{ fullName: "Ana", phone: "341000000", department: "Madrid", city: "Madrid", address: "Calle 1" }}
         initialDestination={{ international: true, country: "España", city: "Madrid" }}
       />,
     );

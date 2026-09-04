@@ -33,7 +33,7 @@ export default async function EditProfilePage() {
 
   return (
     <main id="contenido" className="section-space">
-      <div className="container-shell max-w-5xl">
+      <div className="container-shell max-w-[77rem]">
         <ProfileEditor
           email={user.email || ""}
           welcome={!profile?.profile_completed_at}

@@ -3833,10 +3833,11 @@ button,
 
 .profile-client__headline {
   min-width: 0;
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 11px;
+  gap: 12px;
+  text-align: center;
 }
 
 .profile-client .profile-client__avatar {
@@ -3849,9 +3850,11 @@ button,
 }
 
 .profile-client__name {
+  width: 100%;
   min-width: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
   flex-wrap: nowrap;
   gap: 8px;
   margin: 0;
@@ -3860,15 +3863,20 @@ button,
 .profile-client__data h1,
 .profile-client__name h1 {
   min-width: 0;
+  max-width: calc(100% - 40px);
   margin: 0;
-  overflow: hidden;
   color: var(--paper);
   font-family: "Newsreader", Georgia, serif;
-  font-size: 48px;
+  font-size: 40px;
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.08;
+  overflow: hidden;
+  overflow-wrap: anywhere;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
 }
 
 .profile-country-flag {
@@ -4002,7 +4010,7 @@ button,
 .profile-tab-panel {
   position: relative;
   min-height: 388px;
-  margin-top: 0;
+  margin-top: 20px;
   padding-top: 0;
 }
 
@@ -4316,8 +4324,7 @@ button,
   }
 
   .profile-client__headline {
-    grid-template-columns: 86px minmax(0, 1fr);
-    gap: 13px;
+    gap: 14px;
   }
 
   .profile-client .profile-client__avatar {
@@ -4327,7 +4334,8 @@ button,
 
   .profile-client__data h1,
   .profile-client__name h1 {
-    font-size: clamp(38px, 13.8vw, 54px);
+    max-width: calc(100% - 46px);
+    font-size: clamp(32px, 9vw, 40px);
   }
 
   .profile-country-flag {
@@ -4393,6 +4401,7 @@ button,
 
   .profile-tab-panel {
     min-height: 0;
+    margin-top: 16px;
   }
 
   .profile-grid {
@@ -4481,7 +4490,7 @@ button,
 @media (max-width: 390px) {
   .profile-client__data h1,
   .profile-client__name h1 {
-    font-size: clamp(36px, 13.2vw, 50px);
+    font-size: clamp(30px, 8.6vw, 36px);
   }
 }
 
@@ -5017,6 +5026,7 @@ button,
   }
 
   .brand-header__home {
+    align-self: center;
     gap: 8px;
   }
 

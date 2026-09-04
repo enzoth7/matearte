@@ -84,11 +84,6 @@ export function ProductDesktop({ product }: { product: Product }) {
       setMessage(t("purchaseUnavailable"));
       return;
     }
-    if (!commerce?.commerceEnabled) {
-      setMessage(t("saleDisabled"));
-      return;
-    }
-
     setBusy(true);
     try {
       const response = await fetch("/api/cart/items", {

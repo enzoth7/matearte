@@ -26,6 +26,7 @@ export async function POST(request: Request) {
     const fullName = typeof customer.fullName === "string" ? customer.fullName.trim().slice(0, 120) : "";
     const phone = typeof customer.phone === "string" ? customer.phone.trim().slice(0, 40) : "";
     const department = typeof customer.department === "string" ? customer.department.trim().slice(0, 80) : "";
+    const city = typeof customer.city === "string" ? customer.city.trim().slice(0, 100) : "";
     const address = typeof customer.address === "string" ? customer.address.trim().slice(0, 240) : "";
     if (!fullName || !phone) return apiError("Completá nombre y teléfono.");
 
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
       p_cart_id: cart.id,
       p_shipping_rate_id: body.shippingRateId,
       p_design_prices: designPrices,
-      p_customer_snapshot: { fullName, phone, department, address, email: user.email, pricingVersionId },
+      p_customer_snapshot: { fullName, phone, department, city, address, email: user.email, pricingVersionId },
       p_idempotency_key: idempotencyKey,
     });
     if (orderError || !result) throw new Error(orderError?.message || "No se pudo crear el pedido.");

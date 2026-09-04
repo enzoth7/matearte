@@ -75,7 +75,7 @@ const normalizedProductName = (value: string) =>
 
 function orderThumbnail(item?: OrderItem) {
   if (item?.item_type === "design") {
-    return "/assets/matearte/profile-orders-desktop/design-fallback.png";
+    return "/assets/matearte/01-marca/LogoOriginal.jpg";
   }
 
   const itemName = normalizedProductName(item?.title || "");
@@ -410,7 +410,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                       <div className="profile-order-thumbnail">
                         <Image
                           src={orderThumbnail(firstItem)}
-                          alt={firstItem ? itemTitle(firstItem) : t("orderNumber", { number: order.order_number })}
+                          alt={firstItem?.item_type === "design" ? "MateArte" : firstItem ? itemTitle(firstItem) : t("orderNumber", { number: order.order_number })}
                           fill
                           sizes="138px"
                         />
@@ -497,7 +497,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                       <div className="profile-orders-mobile-thumbnail">
                         <Image
                           src={orderThumbnail(firstItem)}
-                          alt={firstItem ? itemTitle(firstItem) : t("orderNumber", { number: order.order_number })}
+                          alt={firstItem?.item_type === "design" ? "MateArte" : firstItem ? itemTitle(firstItem) : t("orderNumber", { number: order.order_number })}
                           fill
                           sizes="96px"
                         />
