@@ -1,11 +1,34 @@
-export type Locale = "es";
+import type {
+  CatalogCategoryId as SharedCatalogCategoryId,
+  CatalogColorId as SharedCatalogColorId,
+  CatalogFinishId as SharedCatalogFinishId,
+  CatalogMaterialId as SharedCatalogMaterialId,
+  CatalogProductTypeId as SharedCatalogProductTypeId,
+} from "../../../shared/catalog-taxonomy";
 
-export type CategorySlug =
-  | "mates"
-  | "bombillas"
-  | "materas"
-  | "termos"
-  | "regalos";
+export type Locale = "es" | "en" | "pt";
+
+export type Currency = "UYU" | "USD" | "BRL";
+
+export type CategorySlug = SharedCatalogCategoryId;
+export type CatalogMaterialId = SharedCatalogMaterialId;
+export type CatalogProductTypeId = SharedCatalogProductTypeId;
+export type CatalogFinishId = SharedCatalogFinishId;
+export type CatalogColorId = SharedCatalogColorId;
+/** @deprecated Use CatalogProductTypeId for new data. */
+export type MateTypeId = Extract<CatalogProductTypeId, "imperial" | "camionero" | "criollo" | "torpedo">;
+
+export type CatalogFilterData = {
+  priceUYU?: number;
+  materials: CatalogMaterialId[];
+  /** Product models/styles. Values may be combined for a product. */
+  productTypes?: CatalogProductTypeId[];
+  /** Decorative or construction details, e.g. cincelado or con aros. */
+  finishes?: CatalogFinishId[];
+  /** Kept to preserve existing editorial mate records while they are migrated. */
+  mateType?: MateTypeId;
+  colors?: CatalogColorId[];
+};
 
 export type RightsStatus =
   | "brand-public"
@@ -19,7 +42,7 @@ export type MediaAsset = {
   alt: string;
   width: number;
   height: number;
-  source: "web" | "instagram" | "provided";
+  source: "web" | "instagram" | "provided" | "supabase";
   sourceUrl: string;
   rightsStatus: RightsStatus;
 };
@@ -39,7 +62,7 @@ export type VideoAsset = {
 
 export type Money = {
   amountMinor: number;
-  currency: "UYU" | "USD";
+  currency: Currency;
 };
 
 export type ProductVariant = {
@@ -55,11 +78,12 @@ export type Product = {
   id: string;
   slug: string;
   name: string;
-  category: CategorySlug;
+  category: string;
   eyebrow: string;
   summary: string;
   description: string;
   materials: string[];
+  filterData: CatalogFilterData;
   images: MediaAsset[];
   variants: ProductVariant[];
   featured?: boolean;

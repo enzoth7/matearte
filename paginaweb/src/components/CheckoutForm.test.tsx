@@ -1,5 +1,6 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { renderWithIntl as render } from "@/test-utils";
 import { CheckoutForm } from "./CheckoutForm";
 
 describe("CheckoutForm", () => {

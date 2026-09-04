@@ -2,20 +2,77 @@
 
 import { Globe, List, MagnifyingGlass, ShoppingCart, UserCircle, X } from "@phosphor-icons/react";
 import Image from "next/image";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { es } from "@/content/es";
+import { useLocale, useTranslations } from "next-intl";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { Link } from "@/i18n/navigation";
+import { canonicalPathname, localizeCurrentPathname } from "@/i18n/paths";
+import { persistLocalePreference } from "@/lib/locale-preference";
+import type { Locale } from "@/types/catalog";
+
+const navigation = [
+  { label: "catalog", href: "/catalogo" },
+  { label: "custom", href: "/personalizados" },
+  { label: "customers", href: "/clientes" },
+  { label: "about", href: "/nosotros" },
+  { label: "contact", href: "/contacto" },
+] as const;
+
+const localeOptions: Locale[] = ["es", "en", "pt"];
 
 export function Header() {
   const [open, setOpen] = useState(false);
+  const [languageOpen, setLanguageOpen] = useState(false);
+  const [fragment, setFragment] = useState("");
   const [session, setSession] = useState<{ authenticated: boolean; user: { name: string } | null; cartCount: number }>({ authenticated: false, user: null, cartCount: 0 });
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const locale = useLocale() as Locale;
+  const t = useTranslations("header");
+  const language = useTranslations("language");
+  const languageMenuRef = useRef<HTMLDivElement>(null);
+  const languageButtonRef = useRef<HTMLButtonElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const canonical = canonicalPathname(pathname, locale);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [open]);
+
+  useEffect(() => {
+    headerRef.current?.setAttribute("data-hydrated", "true");
+  }, []);
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (languageOpen) languageButtonRef.current?.focus();
+        setLanguageOpen(false);
+        setOpen(false);
+      }
+    };
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (languageMenuRef.current && !languageMenuRef.current.contains(event.target as Node)) setLanguageOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+    };
+  }, [languageOpen]);
+
+  useEffect(() => {
+    if (languageOpen) languageMenuRef.current?.querySelector<HTMLAnchorElement>("[role='menuitem']")?.focus();
+  }, [languageOpen]);
+
+  useEffect(() => {
+    const updateFragment = () => setFragment(window.location.hash);
+    updateFragment();
+    window.addEventListener("hashchange", updateFragment);
+    return () => window.removeEventListener("hashchange", updateFragment);
+  }, [pathname]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -26,109 +83,72 @@ export function Header() {
     return () => controller.abort();
   }, [pathname]);
 
-  const globalLogout = async () => {
-    const response = await fetch('/api/auth/logout', { method: 'POST' });
-    const value = await response.json();
-    window.location.assign(value.continueAt || '/');
+  const isActive = (href: string) => canonical === href || canonical.startsWith(`${href}/`);
+
+  const languageHref = (targetLocale: Locale) => {
+    const path = localizeCurrentPathname(pathname, locale, targetLocale);
+    const query = searchParams.toString();
+    return `${path}${query ? `?${query}` : ""}${fragment}`;
+  };
+
+  const chooseLanguage = (targetLocale: Locale, event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    persistLocalePreference(targetLocale);
+    setLanguageOpen(false);
+    setOpen(false);
+    // A locale change must refresh the root document so `html[lang]` and server messages update together.
+    window.location.assign(languageHref(targetLocale));
+  };
+
+  const handleLanguageKeys = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    const items = Array.from(event.currentTarget.querySelectorAll<HTMLAnchorElement>("[role='menuitem']"));
+    if (!items.length) return;
+    event.preventDefault();
+    const current = Math.max(0, items.indexOf(document.activeElement as HTMLAnchorElement));
+    const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : event.key === "ArrowDown" ? (current + 1) % items.length : (current - 1 + items.length) % items.length;
+    items[next].focus();
   };
 
   return (
     <>
-      <div className="bg-[var(--walnut)] px-4 py-2 text-center text-[0.72rem] font-medium tracking-[0.14em] text-[var(--paper)] uppercase">
-        Nacido en Paysandú · Envíos nacionales e internacionales
-      </div>
-      <header className="sticky top-0 z-50 border-b border-black/10 bg-[color:rgb(245_239_227_/_0.94)] backdrop-blur-md">
-        <div className="container-shell flex h-20 items-center justify-between gap-6">
-          <Link className="flex min-h-11 items-center gap-3" href="/" aria-label="MateArte Uruguay, inicio">
-            <Image
-              src="/assets/matearte/01-marca/LogoOriginal.jpg"
-              alt={"MateArte Arte & Tradici\u00f3n"}
-              width={240}
-              height={240}
-              className="h-12 w-12 object-contain"
-              priority
-            />
-            <span className="hidden flex-col sm:flex" aria-hidden="true">
-              <strong className="display-font text-xl leading-none text-[var(--walnut)]">MateArte</strong>
-              <span className="mt-1 text-[0.58rem] font-semibold tracking-[0.16em] text-black/55 uppercase">{"Arte & Tradici\u00f3n"}</span>
-            </span>
+      <header ref={headerRef} className="home-header">
+        <div className="home-header-inner">
+          <Link className="home-header-brand" href="/" aria-label={t("homeLabel")}>
+            <Image src="/assets/matearte/home-v2/logo.png" alt="" width={48} height={48} priority />
+            <span><strong>MateArte</strong><small>{t("tagline")}</small></span>
           </Link>
-          <nav className="hidden items-center gap-7 lg:flex" aria-label="Navegación principal">
-            {es.navigation.map((item) => {
-              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex min-h-11 items-center border-b text-sm font-medium transition-colors ${active ? "border-[var(--leather)] text-[var(--leather)]" : "border-transparent hover:text-[var(--leather)]"}`}
-                  aria-current={active ? "page" : undefined}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
+          <nav className="home-header-nav home-header-navigation" aria-label={t("primaryNav")}>
+            {navigation.map((item) => <Link key={item.href} href={item.href} className={isActive(item.href) ? "is-active" : undefined} aria-current={canonical !== "/" && isActive(item.href) ? "page" : undefined}>{t(item.label)}</Link>)}
           </nav>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              className="flex min-h-11 min-w-11 cursor-default items-center justify-center gap-1.5 px-1 text-black/60"
-              aria-label="Selector de idioma próximamente. Idioma actual: Español"
-              title="Idiomas próximamente"
-              disabled
-            >
-              <Globe size={20} aria-hidden="true" />
-              <span className="text-[0.68rem] font-semibold tracking-[0.08em]" aria-hidden="true">ES</span>
-            </button>
-            <Link href="/catalogo" className="flex size-11 items-center justify-center" aria-label="Buscar en el catálogo">
-              <MagnifyingGlass size={21} aria-hidden="true" />
-            </Link>
-            {session.authenticated ? (
-              <Link href="/perfil" className="hidden min-h-11 items-center gap-2 px-2 text-sm font-medium text-[var(--walnut)] sm:flex" aria-label="Abrir mi cuenta y mis pedidos">
-                <UserCircle size={21} aria-hidden="true" /><span className="max-w-24 truncate">{session.user?.name}</span>
-              </Link>
-            ) : (
-              <Link href="/perfil" className="hidden min-h-11 items-center px-2 text-sm font-medium text-[var(--walnut)] sm:flex">Ingresar</Link>
-            )}
-            {session.authenticated && <button type="button" onClick={() => void globalLogout()} className="hidden min-h-11 px-2 text-xs text-black/60 xl:block">Salir</button>}
-            <Link
-              href="/carrito"
-              className="relative flex size-11 items-center justify-center"
-              aria-label={`Carrito${session.cartCount ? `, ${session.cartCount} artículos` : ""}`}
-            >
-              <ShoppingCart size={21} aria-hidden="true" />
-              {session.cartCount > 0 && <span className="absolute right-0.5 top-0.5 grid size-5 place-items-center rounded-full bg-[var(--leather)] text-[0.65rem] font-bold text-white">{Math.min(99, session.cartCount)}</span>}
-            </Link>
-            <button
-              type="button"
-              className="flex size-11 items-center justify-center lg:hidden"
-              aria-label={open ? "Cerrar menú" : "Abrir menú"}
-              aria-expanded={open}
-              aria-controls="menu-movil"
-              onClick={() => setOpen((value) => !value)}
-            >
-              {open ? <X size={24} aria-hidden="true" /> : <List size={24} aria-hidden="true" />}
-            </button>
-          </div>
+          <nav className="home-header-nav home-header-actions" aria-label={t("actionsNav")}>
+            <Link href="/catalogo" className="home-header-icon" aria-label={t("search")}><MagnifyingGlass size={19} aria-hidden="true" /></Link>
+            <div className="home-header-language-wrap" ref={languageMenuRef}>
+              <button ref={languageButtonRef} type="button" className="home-header-language" aria-label={t("openLanguage", { language: language(locale) })} aria-haspopup="menu" aria-expanded={languageOpen} aria-controls="home-language-menu" onClick={() => setLanguageOpen((value) => !value)}><Globe size={18} aria-hidden="true" /><span>{locale.toUpperCase()}</span></button>
+              {languageOpen && (
+                <div id="home-language-menu" className="home-language-menu" role="menu" aria-label={t("language")} onKeyDown={handleLanguageKeys}>
+                  {localeOptions.map((option) => <a key={option} role="menuitem" href={languageHref(option)} hrefLang={option === "pt" ? "pt-BR" : option} aria-current={option === locale ? "true" : undefined} onClick={(event) => chooseLanguage(option, event)}>{language(option)}</a>)}
+                </div>
+              )}
+            </div>
+            <Link href="/perfil" className="home-header-icon" aria-label={session.authenticated ? t("openAccount") : t("signIn")}><UserCircle size={20} aria-hidden="true" /></Link>
+            <Link href="/carrito" className="home-header-icon home-header-cart" aria-label={session.cartCount ? t("cartCount", { count: session.cartCount }) : t("cart")}><ShoppingCart size={20} aria-hidden="true" />{session.cartCount > 0 && <span>{Math.min(99, session.cartCount)}</span>}</Link>
+          </nav>
+          <button type="button" className="home-header-menu" aria-label={open ? t("closeMenu") : t("openMenu")} aria-expanded={open} aria-controls="home-menu-mobile" onClick={() => setOpen((value) => !value)}>
+            {open ? <X size={25} aria-hidden="true" /> : <List size={25} aria-hidden="true" />}
+          </button>
         </div>
       </header>
       {open && (
-        <div id="menu-movil" className="fixed inset-x-0 bottom-0 top-[7rem] z-40 bg-[var(--cream)] p-5 lg:hidden">
-          <nav className="container-shell flex flex-col border-t border-black/15" aria-label="Navegación móvil">
-            {es.navigation.map((item, index) => (
-              <Link key={item.href} href={item.href} onClick={() => setOpen(false)} className="display-font flex min-h-20 items-center justify-between border-b border-black/15 text-3xl">
-                {item.label}<span className="font-sans text-xs tracking-widest">0{index + 1}</span>
-              </Link>
-            ))}
-            {session.authenticated && (
-              <Link href="/perfil" onClick={() => setOpen(false)} className="display-font flex min-h-20 items-center justify-between border-b border-black/15 text-3xl">
-                Mi cuenta <UserCircle size={26} aria-hidden="true" />
-              </Link>
-            )}
-            {!session.authenticated && (
-              <Link href="/perfil" onClick={() => setOpen(false)} className="display-font flex min-h-20 items-center justify-between border-b border-black/15 text-3xl">
-                Ingresar <UserCircle size={26} aria-hidden="true" />
-              </Link>
-            )}
+        <div id="home-menu-mobile" className="home-mobile-menu">
+          <nav aria-label={t("mobileNav")}>
+            {navigation.map((item) => <Link key={item.href} href={item.href} onClick={() => setOpen(false)} aria-current={isActive(item.href) ? "page" : undefined}><span>{t(item.label)}</span></Link>)}
+            <Link href="/perfil" onClick={() => setOpen(false)}><span>{session.authenticated ? t("account") : t("signIn")}</span><UserCircle size={24} aria-hidden="true" /></Link>
+            <Link href="/carrito" onClick={() => setOpen(false)}><span>{t("cart")}</span><ShoppingCart size={24} aria-hidden="true" /></Link>
+            <div className="home-mobile-languages" aria-label={t("language")}>
+              <span>{t("language")}</span>
+              <div>{localeOptions.map((option) => <a key={option} href={languageHref(option)} hrefLang={option === "pt" ? "pt-BR" : option} aria-current={option === locale ? "true" : undefined} onClick={(event) => chooseLanguage(option, event)}>{language(option)}</a>)}</div>
+            </div>
           </nav>
         </div>
       )}

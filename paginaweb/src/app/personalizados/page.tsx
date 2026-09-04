@@ -1,68 +1,151 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { editorialMedia } from "@/data/catalog";
+import { getLocale, getTranslations } from "next-intl/server";
+import { JsonLd } from "@/components/JsonLd";
+import { localizedPageMetadata } from "@/i18n/metadata";
+import { Link } from "@/i18n/navigation";
+import { buildPageStructuredData } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Personalizados",
-  description: "Conocé el proceso de personalización de mates MateArte.",
-  alternates: { canonical: "/personalizados" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  const t = await getTranslations("customPage");
+  return localizedPageMetadata(locale, "/personalizados", t("metadataTitle"), t("metadataDescription"));
+}
 
-const steps = [
-  { number: "01", title: "Elegí la pieza", body: "Seleccioná el formato y la base que mejor acompañen tu idea." },
-  { number: "02", title: "Contá tu historia", body: "Definí iniciales, palabras, símbolos o una referencia visual." },
-  { number: "03", title: "Revisá la composición", body: "El configurador permitirá observar la propuesta antes de avanzar." },
-  { number: "04", title: "Confirmá con MateArte", body: "Materiales, precio, plazo y producción se validan por el canal comercial real." },
-];
+const desktopAssets = "/assets/matearte/personalizados-desktop";
+const mobileAssets = "/assets/matearte/personalizados-mobile";
 
-export default function PersonalizadosPage() {
+const personalizedGallery = [
+  { src: `${desktopAssets}/personalizado-01.png`, alt: "gallery1" },
+  { src: `${desktopAssets}/personalizado-03.png`, alt: "gallery3" },
+  { src: `${desktopAssets}/personalizado-04.png`, alt: "gallery4" },
+  { src: `${desktopAssets}/personalizado-07.png`, alt: "gallery7" },
+  { src: `${desktopAssets}/personalizado-08.png`, alt: "gallery8" },
+  { src: `${desktopAssets}/personalizado-09.png`, alt: "gallery5" },
+  { src: `${desktopAssets}/personalizado-10.png`, alt: "gallery10" },
+] as const;
+
+const mobilePersonalizedGallery = [
+  { src: `${mobileAssets}/personalizado-01.png`, alt: "gallery1" },
+  { src: `${mobileAssets}/personalizado-02.png`, alt: "gallery2" },
+  { src: `${mobileAssets}/personalizado-03.png`, alt: "gallery3" },
+  { src: `${mobileAssets}/personalizado-04.png`, alt: "gallery4" },
+  { src: `${mobileAssets}/personalizado-05.png`, alt: "gallery5" },
+  { src: `${mobileAssets}/personalizado-06.png`, alt: "gallery6" },
+  { src: `${mobileAssets}/personalizado-07.png`, alt: "gallery7" },
+  { src: `${mobileAssets}/personalizado-08.png`, alt: "gallery8" },
+  { src: `${mobileAssets}/personalizado-09.png`, alt: "gallery9" },
+  { src: `${mobileAssets}/personalizado-10.png`, alt: "gallery10" },
+] as const;
+
+export default async function PersonalizadosPage() {
+  const locale = await getLocale();
+  const t = await getTranslations("customPage");
   const customizerUrl = process.env.NEXT_PUBLIC_CUSTOMIZER_URL;
   return (
-    <main id="contenido">
-      <section className="section-space">
-        <div className="container-shell grid gap-12 lg:grid-cols-12 lg:items-center">
-          <div className="lg:col-span-5">
-            <p className="eyebrow text-[var(--leather)]">Personalización</p>
-            <h1 className="display-xl mt-7">Una pieza, tu historia.</h1>
-            <p className="mt-7 text-lg leading-8 text-black/65">Letras, símbolos y terminaciones convierten un mate en un recuerdo propio. El proceso está pensado para revisar cada decisión antes de producir.</p>
+    <main id="contenido" className="personalizados-page">
+      <JsonLd data={buildPageStructuredData({ locale, href: "/personalizados", name: t("metadataTitle"), description: t("metadataDescription"), homeLabel: "MateArte" })} />
+      <div className="personalizados-mobile-view">
+        <section className="personalizados-mobile-hero">
+          <Image
+            src={`${mobileAssets}/hero.png`}
+            alt={t("heroAlt")}
+            fill
+            sizes="100vw"
+            className="personalizados-mobile-hero-image"
+            priority
+          />
+          <div className="personalizados-mobile-hero-tint" aria-hidden="true" />
+          <div className="personalizados-mobile-hero-gradient" aria-hidden="true" />
+          <div className="personalizados-mobile-hero-copy">
+            <h1>{t("title")}</h1>
+            <p>{t("body")}</p>
             {customizerUrl ? (
-              <a className="button-primary mt-9" href={customizerUrl} target="_blank" rel="noreferrer">Abrir configurador</a>
+              <a href={customizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
             ) : (
-              <div className="mt-9 border-l-2 border-[var(--rawhide)] pl-5">
-                <p className="font-semibold">Configurador próximamente</p>
-                <p className="mt-2 text-sm leading-6 text-black/58">La landing está lista. El acceso se habilitará al configurar su URL definitiva.</p>
-              </div>
+              <Link href="/contacto">{t("action")}</Link>
             )}
           </div>
-          <div className="lg:col-span-6 lg:col-start-7">
-            <div className="relative aspect-[4/5] overflow-hidden"><Image src={editorialMedia.personalization.src} alt={editorialMedia.personalization.alt} fill sizes="(max-width: 1024px) 100vw, 50vw" className="object-cover" priority /></div>
+        </section>
+
+        <section className="personalizados-mobile-gallery" aria-label={t("galleryLabel")}>
+          <div className="personalizados-mobile-gallery-viewport">
+            <div className="personalizados-mobile-gallery-track">
+              {[false, true].map((duplicate) => (
+                <div
+                  className="personalizados-mobile-gallery-group"
+                  aria-hidden={duplicate || undefined}
+                  key={duplicate ? "duplicate" : "original"}
+                >
+                  {mobilePersonalizedGallery.map((image) => (
+                    <figure className="personalizados-mobile-gallery-card" key={`${duplicate ? "duplicate" : "original"}-${image.src}`}>
+                      <Image src={image.src} alt={duplicate ? "" : t(image.alt)} fill sizes="300px" />
+                    </figure>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
-      <section className="section-space bg-[var(--paper)]">
-        <div className="container-shell">
-          <p className="eyebrow text-[var(--yerba)]">Cómo funciona</p>
-          <h2 className="display-lg mt-7">De la idea a la pieza.</h2>
-          <div className="mt-14 grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
-            {steps.map((step) => (
-              <article key={step.number} className="border-t border-black/25 pt-5">
-                <p className="text-xs font-semibold tracking-widest text-[var(--leather)]">{step.number}</p>
-                <h3 className="display-font mt-8 text-3xl">{step.title}</h3>
-                <p className="mt-4 text-sm leading-7 text-black/60">{step.body}</p>
-              </article>
-            ))}
+        </section>
+
+        <section className="personalizados-mobile-craft">
+          <h2>{t("craftTitle")}</h2>
+          <p>{t("craftBody")}</p>
+        </section>
+      </div>
+
+      <div className="personalizados-desktop-view">
+        <section className="personalizados-desktop-hero">
+          <Image
+            src={`${desktopAssets}/hero.png`}
+            alt={t("heroAlt")}
+            fill
+            sizes="100vw"
+            className="personalizados-desktop-hero-image"
+            priority
+          />
+          <div className="personalizados-desktop-hero-tint" aria-hidden="true" />
+          <div className="personalizados-desktop-hero-gradient" aria-hidden="true" />
+          <div className="personalizados-desktop-hero-copy">
+            <h1>{t("title")}</h1>
+            <p>{t("body")}</p>
+            {customizerUrl ? (
+              <a href={customizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
+            ) : (
+              <Link href="/contacto">{t("action")}</Link>
+            )}
           </div>
-        </div>
-      </section>
-      <section className="section-space bg-[var(--walnut)] text-[var(--paper)]">
-        <div className="container-shell grid gap-10 md:grid-cols-12">
-          <h2 className="display-lg md:col-span-6">El oficio sigue siendo humano.</h2>
-          <div className="md:col-span-5 md:col-start-8">
-            <p className="text-lg leading-8 text-white/70">El configurador será una herramienta de conversación, no una promesa automática de producción. Cada combinación deberá confirmarse con MateArte.</p>
-            <p className="mt-6 text-sm leading-7 text-white/48">No se procesará ningún pedido ni cobro desde esta página hasta integrar el sistema comercial definitivo.</p>
+        </section>
+
+        <section className="personalizados-desktop-gallery" aria-label={t("galleryLabel")}>
+          <div className="personalizados-desktop-gallery-viewport">
+            <div className="personalizados-desktop-gallery-track">
+              {[false, true].map((duplicate) => (
+                <div
+                  className="personalizados-desktop-gallery-group"
+                  aria-hidden={duplicate || undefined}
+                  key={duplicate ? "duplicate" : "original"}
+                >
+                  {personalizedGallery.map((image) => (
+                    <figure className="personalizados-desktop-gallery-card" key={`${duplicate ? "duplicate" : "original"}-${image.src}`}>
+                      <Image src={image.src} alt={duplicate ? "" : t(image.alt)} fill sizes="320px" />
+                    </figure>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <section className="personalizados-desktop-craft">
+          <div className="personalizados-desktop-craft-grid">
+          <h2>{t("craftTitle")}</h2>
+            <div>
+              <p>{t("craftBody")}</p>
+            </div>
+          </div>
+        </section>
+      </div>
     </main>
   );
 }

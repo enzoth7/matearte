@@ -2,7 +2,9 @@
 
 import world from "@svg-maps/world";
 import { useState } from "react";
-import type { DestinationCountry } from "@/data/international-clients";
+import { useTranslations } from "next-intl";
+
+type DestinationCountry = { code: string; mapId: string; name: string; region: string };
 
 type InternationalWorldMapProps = {
   destinations: readonly DestinationCountry[];
@@ -15,6 +17,7 @@ type WorldLocation = {
 };
 
 export function InternationalWorldMap({ destinations }: InternationalWorldMapProps) {
+  const t = useTranslations("customersPage");
   const [activeId, setActiveId] = useState(destinations[0].mapId);
   const destinationById = new Map<string, DestinationCountry>(destinations.map((destination) => [destination.mapId, destination]));
   const activeDestination = destinationById.get(activeId) ?? destinations[0];
@@ -29,8 +32,8 @@ export function InternationalWorldMap({ destinations }: InternationalWorldMapPro
           aria-labelledby="world-map-title world-map-description"
           preserveAspectRatio="xMidYMid meet"
         >
-          <title id="world-map-title">Destinos internacionales de MateArte Uruguay</title>
-          <desc id="world-map-description">Mapa del mundo con trece países destacados a los que MateArte ha enviado sus piezas.</desc>
+          <title id="world-map-title">{t("mapTitle")}</title>
+          <desc id="world-map-description">{t("mapDescription", { count: destinations.length })}</desc>
           {world.locations.map((location: WorldLocation) => {
             const destination = destinationById.get(location.id);
             const isActive = location.id === activeDestination.mapId;
@@ -57,7 +60,7 @@ export function InternationalWorldMap({ destinations }: InternationalWorldMapPro
         </div>
       </div>
 
-      <ol className="international-destination-list" aria-label="Lista de destinos internacionales">
+      <ol className="international-destination-list" aria-label={t("destinationList")}>
         {destinations.map((destination, index) => {
           const isActive = destination.mapId === activeDestination.mapId;
           return (

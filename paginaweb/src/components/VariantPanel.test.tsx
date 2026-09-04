@@ -1,5 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { renderWithIntl as render } from "@/test-utils";
 import { VariantPanel } from "./VariantPanel";
 
 describe("VariantPanel", () => {

@@ -1,6 +1,6 @@
 # MateArte Uruguay — sitio editorial y catálogo
 
-Sitio web independiente de MateArte Uruguay, construido con Next.js, TypeScript y Tailwind CSS. Presenta la historia, el oficio, las categorías y un catálogo local preparado para conectarse posteriormente con precios, stock y Mercado Pago.
+Sitio web independiente de MateArte Uruguay, construido con Next.js, TypeScript y Tailwind CSS. Presenta la historia, el oficio y un catálogo conectado con los productos publicados desde `commerce-admin` mediante Supabase.
 
 ## Ejecutar localmente
 
@@ -17,6 +17,8 @@ Abrí `http://localhost:3000`.
 ## Variables
 
 - `NEXT_PUBLIC_SITE_URL`: URL canónica del sitio.
+- `GOOGLE_SITE_VERIFICATION`: token de Google Search Console, sin incluir la etiqueta HTML completa.
+- `BING_SITE_VERIFICATION`: token `msvalidate.01` de Bing Webmaster Tools.
 - `NEXT_PUBLIC_CUSTOMIZER_URL`: URL pública del configurador. Si está vacía, `/personalizados` muestra “Configurador próximamente”.
 - `NEXT_PUBLIC_ENABLE_RESTRICTED_MEDIA`: habilita únicamente para revisión interna imágenes de jugadores y escudos pendientes de autorización.
 - `NEXT_PUBLIC_PRESENTATION_MODE`: muestra el material entregado para la presentación a Richard. Debe pasar a `false` antes de preparar una versión pública.
@@ -29,7 +31,7 @@ El repositorio no contiene credenciales ni una integración real de Mercado Pago
 
 - `/` — portada editorial.
 - `/catalogo` — buscador, filtro por categoría y orden.
-- `/catalogo/[categoria]` — mates, bombillas, materas, termos y regalos.
+- `/catalogo?categoria=...` — catálogo unificado con categoría y filtros conservados en la URL.
 - `/producto/[slug]` — galería, materiales y variantes de referencia.
 - `/personalizados` — proceso y acceso configurable al visualizador.
 - `/clientes` — mapa de alcance internacional y carrusel demostrativo de testimonios.
@@ -48,6 +50,15 @@ npx playwright install chromium
 npm run test:e2e
 npm run build
 ```
+
+## SEO e indexación
+
+- `/robots.txt` permite rastrear las páginas HTML para que los buscadores puedan leer sus directivas `noindex`; solo excluye `/api/` y `/auth/`.
+- `/sitemap.xml` publica las variantes en español, inglés y portugués, sus relaciones `hreflang` y las imágenes editoriales y de producto.
+- `/manifest.webmanifest` describe la marca y su icono para navegadores y dispositivos.
+- `/llms.txt` resume la entidad, los idiomas, las rutas públicas y los datos de contacto para motores de respuesta.
+- Carrito, checkout, perfil, pedidos y las páginas de Compras permanecen fuera del índice mediante metadatos de página hasta su aprobación.
+- Cada despliegue público debe definir `NEXT_PUBLIC_SITE_URL=https://matearte.uy` antes de generar metadatos, canonical, sitemap y schema.
 
 ## Recursos y derechos
 
@@ -77,4 +88,6 @@ La portada incorpora entrada escalonada y parallax leve. El bloque audiovisual a
 
 ## Comercio
 
-Los tipos `CommerceAdapter`, `CartItem`, `Money` y `CheckoutResult` dejan preparado el contrato de integración. No existe endpoint ficticio, no se procesan pagos y no se muestran precios antiguos como vigentes.
+`/catalogo` y `/producto/[slug]` consultan en cada visita los productos publicados en Supabase. Los productos nuevos cargados desde `commerce-admin` aparecen con nombre, descripción, categoría, imágenes, variantes activas, precio mínimo en UYU y disponibilidad de stock. Los productos editoriales siguen como respaldo hasta que sean reemplazados por un producto comercial con el mismo slug.
+
+Los visitantes solo reciben filas publicadas mediante políticas RLS específicas. La categoría interna `sandbox` no se muestra en la grilla. Los materiales, tipos y colores del panel se incorporarán cuando se defina el modelo final de filtros.

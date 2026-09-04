@@ -1,12 +1,9 @@
 import type { MetadataRoute } from "next";
-import { categories, products } from "@/data/catalog";
-import { absoluteUrl } from "@/lib/metadata";
+import { buildSitemapFile } from "@/lib/seo-files";
+import { getStorefrontProducts } from "@/lib/storefront-catalog";
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const staticRoutes = ["", "/catalogo", "/personalizados", "/clientes", "/nosotros", "/contacto"];
-  return [
-    ...staticRoutes.map((route, index) => ({ url: absoluteUrl(route || "/"), changeFrequency: index === 0 ? "weekly" as const : "monthly" as const, priority: index === 0 ? 1 : 0.8 })),
-    ...categories.map((category) => ({ url: absoluteUrl(`/catalogo/${category.slug}`), changeFrequency: "monthly" as const, priority: 0.75 })),
-    ...products.map((product) => ({ url: absoluteUrl(`/producto/${product.slug}`), changeFrequency: "monthly" as const, priority: 0.7 })),
-  ];
+export const dynamic = "force-dynamic";
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  return buildSitemapFile(await getStorefrontProducts("es"));
 }

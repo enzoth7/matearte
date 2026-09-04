@@ -6,6 +6,9 @@ import { calculateDesignPriceMinor } from "@/lib/design-pricing";
 import { dispatchCommerceEmails } from "@/lib/commerce-email";
 import { siteUrl } from "@/lib/supabase/config";
 import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
+import { isLocale } from "@/i18n/config";
+import { localizeCanonicalPath } from "@/i18n/paths";
+import type { Locale } from "@/types/catalog";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -16,6 +19,8 @@ export async function POST(request: Request) {
     const { data: publicSettings } = await client.from("commerce_settings").select("commerce_enabled,mercado_pago_enabled").eq("singleton", true).single();
     if (!publicSettings?.commerce_enabled || !publicSettings.mercado_pago_enabled) return apiError("El comercio todavía no está habilitado.", 503);
     const body = await readJson(request);
+    const localeValue = typeof body.locale === "string" ? body.locale : null;
+    const locale: Locale = isLocale(localeValue) ? localeValue : "es";
     if (typeof body.shippingRateId !== "string" || !uuid.test(body.shippingRateId)) return apiError("Elegí una modalidad de entrega.");
     const customer = body.customer && typeof body.customer === "object" && !Array.isArray(body.customer) ? body.customer as Record<string, unknown> : {};
     const fullName = typeof customer.fullName === "string" ? customer.fullName.trim().slice(0, 120) : "";
@@ -71,12 +76,17 @@ export async function POST(request: Request) {
         return apiOk({ orderId, orderNumber: order.order_number, checkoutUrl, existing: true });
       }
     }
+    const labels = {
+      es: { order: "Pedido MateArte", shipping: "Envío", fee: "Comisión de Mercado Pago" },
+      en: { order: "MateArte order", shipping: "Shipping", fee: "Mercado Pago fee" },
+      pt: { order: "Pedido MateArte", shipping: "Envio", fee: "Tarifa do Mercado Pago" },
+    }[locale];
     const mpItems = [
-      { id: `order-${orderId}`, title: `Pedido MateArte #${order.order_number}`, quantity: 1, unit_price: order.items_subtotal_minor / 100, currency_id: "UYU" },
-      ...(order.shipping_minor ? [{ id: `shipping-${orderId}`, title: "Envío", quantity: 1, unit_price: order.shipping_minor / 100, currency_id: "UYU" }] : []),
-      ...(order.payment_fee_minor ? [{ id: `fee-${orderId}`, title: "Comisión de Mercado Pago", quantity: 1, unit_price: order.payment_fee_minor / 100, currency_id: "UYU" }] : []),
+      { id: `order-${orderId}`, title: `${labels.order} #${order.order_number}`, quantity: 1, unit_price: order.items_subtotal_minor / 100, currency_id: "UYU" },
+      ...(order.shipping_minor ? [{ id: `shipping-${orderId}`, title: labels.shipping, quantity: 1, unit_price: order.shipping_minor / 100, currency_id: "UYU" }] : []),
+      ...(order.payment_fee_minor ? [{ id: `fee-${orderId}`, title: labels.fee, quantity: 1, unit_price: order.payment_fee_minor / 100, currency_id: "UYU" }] : []),
     ];
-    const statusUrl = `${siteUrl()}/pedidos/${orderId}`;
+    const statusUrl = `${siteUrl()}${localizeCanonicalPath(`/pedidos/${orderId}`, locale)}`;
     const preference = await preferenceClient.create({
       body: {
         items: mpItems,

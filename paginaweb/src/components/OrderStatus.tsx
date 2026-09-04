@@ -1,25 +1,113 @@
 "use client";
 
+import Image from "next/image";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowRight, CheckCircle, Clock, Package, Receipt, ShieldCheck, WarningCircle, WhatsappLogo } from "@phosphor-icons/react";
-import { orderStatusDescriptions, orderStatusLabels, orderStatusTone } from "@/lib/order-status";
+import { CheckCircle, Clock, WarningCircle, WhatsappLogo } from "@phosphor-icons/react";
+import { Link } from "@/i18n/navigation";
+import { getLocalizedProducts, localizeCatalogSnapshotTitle } from "@/content/catalog-localization";
+import { formatMoney } from "@/lib/money";
+import type { Locale } from "@/types/catalog";
 
-type OrderItem = { id: string; title: string; quantity: number; total_minor: number };
+type Snapshot = Record<string, unknown> | null;
+type OrderItem = {
+  id: string;
+  item_type: "catalog" | "design";
+  title: string;
+  quantity: number;
+  unit_price_minor: number;
+  total_minor: number;
+};
 type OrderValue = {
+  id: string;
   order_number: number;
   status: string;
   shipping_method: string;
+  shipping_snapshot: Snapshot;
+  customer_snapshot: Snapshot;
   total_minor: number;
   currency: string;
   created_at: string;
   order_items: OrderItem[];
 };
 
-const money = (minor: number, currency = "UYU") => new Intl.NumberFormat("es-UY", { style: "currency", currency, maximumFractionDigits: 0 }).format(minor / 100);
-const date = (value: string) => new Intl.DateTimeFormat("es-UY", { day: "2-digit", month: "long", year: "numeric" }).format(new Date(value));
+const date = (value: string, locale: Locale) => new Intl.DateTimeFormat({ es: "es-UY", en: "en", pt: "pt-BR" }[locale], { day: "numeric", month: "long", year: "numeric" }).format(new Date(value));
+const normalizeProductName = (value: string) => value
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLocaleLowerCase("es")
+  .replace(/[^a-z0-9]+/g, " ")
+  .trim();
+
+function snapshotText(snapshot: Snapshot, key: string) {
+  const value = snapshot?.[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function itemCopy(item: OrderItem, locale: Locale, labels: { custom: string; catalog: string; piece: string; units: (count: number) => string }) {
+  const title = item.item_type === "design" ? item.title : localizeCatalogSnapshotTitle(item.title, locale);
+  const [name, ...details] = title.split(" — ");
+  const baseSubtitle = details.join(" — ") || (item.item_type === "design" ? labels.custom : labels.catalog);
+  return {
+    name: name || labels.piece,
+    subtitle: item.quantity > 1 ? `${baseSubtitle} · ${labels.units(item.quantity)}` : baseSubtitle,
+  };
+}
+
+function itemImage(item: OrderItem, locale: Locale, labels: Parameters<typeof itemCopy>[2]) {
+  if (item.item_type === "design") return "/assets/matearte/profile-orders-desktop/design-fallback.png";
+
+  const remoteName = normalizeProductName(itemCopy(item, locale, labels).name);
+  if (remoteName) {
+    const product = getLocalizedProducts(locale).find((candidate) => {
+      const localName = normalizeProductName(candidate.name);
+      return localName.includes(remoteName) || remoteName.includes(localName);
+    });
+    if (product) return product.images[0].src;
+  }
+
+  return "/assets/matearte/profile-orders-desktop/catalog-fallback.png";
+}
+
+function shippingAddress(order: OrderValue, pickup: string, toConfirm: string) {
+  if (order.shipping_method === "pickup") return pickup;
+
+  if (order.shipping_method === "international_coordination") {
+    const values = [
+      snapshotText(order.shipping_snapshot, "address"),
+      snapshotText(order.shipping_snapshot, "city"),
+      snapshotText(order.shipping_snapshot, "country"),
+    ].filter(Boolean);
+    return values.join(", ") || toConfirm;
+  }
+
+  const address = snapshotText(order.customer_snapshot, "address");
+  const department = snapshotText(order.customer_snapshot, "department");
+  const repeatedDepartment = department && address.toLocaleLowerCase("es").includes(department.toLocaleLowerCase("es"));
+  return [address, repeatedDepartment ? "" : department, "UY"].filter(Boolean).join(", ") || toConfirm;
+}
+
+function orderCode(order: OrderValue) {
+  const compactId = order.id?.replaceAll("-", "").slice(0, 12).toUpperCase();
+  return compactId || `MA${String(order.order_number).padStart(8, "0")}`;
+}
 
 export function OrderStatus({ orderId }: { orderId: string }) {
+  const locale = useLocale() as Locale;
+  const t = useTranslations("order");
+  const statusLabels: Record<string, string> = {
+    pending_payment: t("statuses.pending_payment"), paid_pending_review: t("statuses.paid_pending_review"),
+    ready_for_fulfillment: t("statuses.ready_for_fulfillment"), ready_for_production: t("statuses.ready_for_production"),
+    payment_failed: t("statuses.payment_failed"), cancelled: t("statuses.cancelled"),
+    refunded: t("statuses.refunded"), manual_review: t("statuses.manual_review"),
+  };
+  const statusDescriptions: Record<string, string> = {
+    pending_payment: t("descriptions.pending_payment"), paid_pending_review: t("descriptions.paid_pending_review"),
+    ready_for_fulfillment: t("descriptions.ready_for_fulfillment"), ready_for_production: t("descriptions.ready_for_production"),
+    payment_failed: t("descriptions.payment_failed"), cancelled: t("descriptions.cancelled"),
+    refunded: t("descriptions.refunded"), manual_review: t("descriptions.manual_review"),
+  };
+  const itemLabels = { custom: t("customMate"), catalog: t("catalogProduct"), piece: t("piece"), units: (count: number) => t("units", { count }) };
   const [order, setOrder] = useState<OrderValue | null>(null);
   const [error, setError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
@@ -33,14 +121,14 @@ export function OrderStatus({ orderId }: { orderId: string }) {
         const response = await fetch(`/api/orders/${orderId}`, { cache: "no-store" });
         const value = await response.json();
         if (!response.ok) {
-          setError(value.error || "No pudimos consultar este pedido.");
+          setError(t("loadFailed"));
           return;
         }
         setError("");
         setOrder(value as OrderValue);
         if (!stopped && value.status === "pending_payment") timer = setTimeout(load, 5_000);
       } catch {
-        setError("No pudimos conectarnos para consultar el pedido.");
+        setError(t("connectionFailed"));
       }
     };
 
@@ -49,17 +137,17 @@ export function OrderStatus({ orderId }: { orderId: string }) {
       stopped = true;
       clearTimeout(timer);
     };
-  }, [orderId, retryKey]);
+  }, [orderId, retryKey, t]);
 
   if (error) {
     return (
-      <div role="alert" className="border border-[var(--danger)]/30 bg-[var(--paper)] p-6 shadow-[var(--shadow-soft)] sm:p-8">
+      <div role="alert" className="order-status-feedback border border-[var(--danger)]/30 bg-[var(--paper)] p-6 shadow-[var(--shadow-soft)] sm:p-8">
         <WarningCircle size={30} className="text-[var(--danger)]" aria-hidden="true" />
-        <h2 className="display-font mt-4 text-3xl">No pudimos cargar el pedido</h2>
+        <h2 className="display-font mt-4 text-3xl">{t("loadTitle")}</h2>
         <p className="mt-3 max-w-xl text-sm leading-7 text-black/60">{error}</p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <button type="button" className="button-primary cursor-pointer" onClick={() => setRetryKey((value) => value + 1)}>Intentar nuevamente</button>
-          <Link className="button-secondary" href="/perfil">Volver a mis pedidos</Link>
+          <button type="button" className="button-primary cursor-pointer" onClick={() => setRetryKey((value) => value + 1)}>{t("retry")}</button>
+          <Link className="button-secondary" href="/perfil">{t("back")}</Link>
         </div>
       </div>
     );
@@ -67,7 +155,7 @@ export function OrderStatus({ orderId }: { orderId: string }) {
 
   if (!order) {
     return (
-      <div role="status" aria-live="polite" className="overflow-hidden border border-black/15 bg-[var(--paper)] shadow-[var(--shadow-soft)]">
+      <div role="status" aria-live="polite" className="order-status-feedback overflow-hidden border border-black/15 bg-[var(--paper)] shadow-[var(--shadow-soft)]">
         <div className="h-1.5 bg-[var(--leather)]" />
         <div className="grid gap-8 p-6 motion-safe:animate-pulse sm:p-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:p-10">
           <div>
@@ -78,7 +166,7 @@ export function OrderStatus({ orderId }: { orderId: string }) {
           </div>
           <div className="h-56 rounded bg-black/10" />
         </div>
-        <span className="sr-only">Consultando el estado confirmado…</span>
+        <span className="sr-only">{t("loading")}</span>
       </div>
     );
   }
@@ -89,89 +177,135 @@ export function OrderStatus({ orderId }: { orderId: string }) {
   const isProblem = ["payment_failed", "cancelled", "refunded"].includes(status);
   const StatusIcon = isInternational ? WhatsappLogo : isPending ? Clock : isProblem ? WarningCircle : CheckCircle;
   const statusDescription = isInternational && status === "manual_review"
-    ? "Tu compra internacional quedó registrada. Estamos coordinando el envío y el pago por WhatsApp."
-    : orderStatusDescriptions[status] || "Estamos procesando la información de tu pedido.";
+    ? t("internationalStatus")
+    : statusDescriptions[status] || t("processingFallback");
+  const desktopStatusTitle = isPending ? t("processingPayment") : statusLabels[status] || status;
+  const desktopStatusDescription = isPending
+    ? t("updatesAutomatically")
+    : statusDescription;
+  const items = order.order_items || [];
 
   return (
-    <section className="overflow-hidden border border-black/15 bg-[var(--paper)] shadow-[var(--shadow-soft)]" aria-labelledby="order-status-title">
-      <div className="h-1.5 bg-[var(--leather)]" aria-hidden="true" />
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_21rem]">
-        <div className="p-6 sm:p-8 lg:p-10">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <p className="text-xs font-bold tracking-[0.14em] text-[var(--walnut)] uppercase">Pedido #{order.order_number}</p>
-              <span className="hidden h-4 w-px bg-black/15 sm:block" aria-hidden="true" />
-              <p className="text-xs text-black/50">{date(order.created_at)}</p>
-            </div>
-            <span className={`inline-flex min-h-8 items-center gap-2 rounded-full border px-3 text-xs font-semibold ${orderStatusTone(status)}`}>
-              <StatusIcon size={16} aria-hidden="true" />
-              {orderStatusLabels[status] || status}
-            </span>
-          </div>
+    <>
+      <section className="order-status-mobile" aria-labelledby="order-detail-mobile-title">
+        <header className="order-mobile-header">
+          <h1 id="order-detail-mobile-title">{t("title")}</h1>
+          <p>{t("intro")}</p>
+        </header>
 
-          <div className="mt-8 flex items-start gap-4">
-            <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--cream-deep)] text-[var(--leather)]">
-              <StatusIcon size={24} aria-hidden="true" />
+        <div className="order-mobile-product-section">
+          <div className="order-mobile-divider" aria-hidden="true" />
+          {items.length ? (
+            <div className="order-mobile-items">
+              {items.map((item, index) => {
+                const copy = itemCopy(item, locale, itemLabels);
+                return (
+                  <article className="order-mobile-item" key={item.id}>
+                    <div className="order-mobile-thumbnail">
+                      <Image src={itemImage(item, locale, itemLabels)} alt={copy.name} fill priority={index === 0} sizes="96px" />
+                    </div>
+                    <div className="order-mobile-item-copy">
+                      <h2>{copy.name}</h2>
+                      <p>{copy.subtitle}</p>
+                      <span>{formatMoney(item.total_minor)}</span>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
-            <div>
-              <p className="text-[0.68rem] font-semibold tracking-[0.14em] text-black/45 uppercase">Estado actual</p>
-              <h2 id="order-status-title" className="display-font mt-2 max-w-3xl text-3xl leading-tight sm:text-4xl">
-                {statusDescription}
-              </h2>
-              {isPending && (
-                <p className="mt-4 flex items-center gap-2 text-xs text-black/50">
-                  <span className="size-2 rounded-full bg-[var(--rawhide)]" aria-hidden="true" />
-                  Esta pantalla se actualiza automáticamente.
-                </p>
+          ) : (
+            <div className="order-mobile-empty-items">{t("itemsPending")}</div>
+          )}
+        </div>
+
+        <div className="order-mobile-status-section">
+          <div className="order-mobile-divider" aria-hidden="true" />
+          <div className="order-mobile-status">
+            <div className="order-mobile-status-icon">
+              {isPending ? (
+                <Image src="/assets/matearte/order-mobile/status-pending.svg" alt="" width={24} height={24} aria-hidden="true" />
+              ) : (
+                <StatusIcon size={24} aria-hidden="true" />
               )}
             </div>
-          </div>
-
-          <div className="mt-9 border-t border-black/10 pt-7">
-            <p className="flex items-center gap-2 text-[0.68rem] font-semibold tracking-[0.14em] text-black/45 uppercase">
-              <Receipt size={17} aria-hidden="true" />
-              Resumen del pedido
-            </p>
-            {(order.order_items || []).length ? (
-              <ul className="mt-4 divide-y divide-black/10" aria-label={`Artículos del pedido ${order.order_number}`}>
-                {(order.order_items || []).map((item) => (
-                  <li key={item.id} className="flex items-start justify-between gap-5 py-4 first:pt-0 last:pb-0">
-                    <div className="flex min-w-0 items-start gap-3">
-                      <Package size={20} className="mt-0.5 shrink-0 text-[var(--leather)]" aria-hidden="true" />
-                      <div>
-                        <p className="text-sm font-semibold text-[var(--ink)]">{item.title}</p>
-                        {item.quantity > 1 && <p className="mt-1 text-xs text-black/50">Cantidad: {item.quantity}</p>}
-                      </div>
-                    </div>
-                    <strong className="shrink-0 text-sm tabular-nums">{money(item.total_minor, order.currency)}</strong>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-4 text-sm text-black/55">El detalle de los artículos todavía se está procesando.</p>
-            )}
+            <div className="order-mobile-status-copy">
+              <h2>{desktopStatusTitle}</h2>
+              <p>{desktopStatusDescription}</p>
+            </div>
           </div>
         </div>
 
-        <aside className="flex flex-col justify-between bg-[var(--walnut)] p-6 text-[var(--paper)] sm:p-8 lg:p-9" aria-label="Total y navegación del pedido">
-          <div>
-            <p className="text-[0.68rem] font-semibold tracking-[0.16em] text-[var(--rawhide)] uppercase">{isInternational ? "Subtotal sin envío" : "Total del pedido"}</p>
-            <p className="display-font mt-3 text-4xl font-semibold tabular-nums">{money(order.total_minor, order.currency)}</p>
-            <div className="mt-8 border-t border-white/15 pt-6">
-              <p className="flex items-center gap-2 text-sm font-semibold">
-                {isInternational ? <WhatsappLogo size={21} weight="fill" className="text-[var(--rawhide)]" aria-hidden="true" /> : <ShieldCheck size={21} className="text-[var(--rawhide)]" aria-hidden="true" />}
-                {isInternational ? "Coordinación personal" : "Estado verificado"}
-              </p>
-              <p className="mt-3 text-xs leading-6 text-white/65">
-                {isInternational ? "El costo de envío y la forma de pago se confirman por WhatsApp antes de producir o despachar." : "El pedido cambia de estado únicamente cuando el backend verifica la notificación de Mercado Pago."}
-              </p>
+        <aside className="order-mobile-summary" aria-label={t("summary")}>
+          <div className="order-mobile-summary-heading">
+            <span aria-hidden="true" />
+            <p>{t("summary")}</p>
+          </div>
+          <dl className="order-mobile-summary-list">
+            <div><dt>{t("total")}</dt><dd>{formatMoney(order.total_minor)}</dd></div>
+            <div><dt>{t("purchaseDate")}</dt><dd>{date(order.created_at, locale)}</dd></div>
+            <div className="order-mobile-summary-tall"><dt>{t("shippingAddress")}</dt><dd>{shippingAddress(order, t("pickup"), t("toConfirm"))}</dd></div>
+            <div><dt>{t("purchaseCode")}</dt><dd>{orderCode(order)}</dd></div>
+          </dl>
+          <div className="order-mobile-summary-divider" aria-hidden="true" />
+          <Link className="order-mobile-back" href="/perfil">{t("back")}</Link>
+        </aside>
+      </section>
+
+      <section className="order-status-desktop" aria-labelledby="order-status-desktop-title">
+        <div className="order-desktop-selection">
+          <div className="order-desktop-selection-divider" aria-hidden="true" />
+          {items.length ? (
+            <div className="order-desktop-items">
+              {items.map((item, index) => {
+                const copy = itemCopy(item, locale, itemLabels);
+                return (
+                  <article className="order-desktop-item" key={item.id}>
+                    <div className="order-desktop-thumbnail">
+                      <Image src={itemImage(item, locale, itemLabels)} alt={copy.name} fill priority={index === 0} sizes="120px" />
+                    </div>
+                    <div className="order-desktop-item-copy">
+                      <h2>{copy.name}</h2>
+                      <p>{copy.subtitle}</p>
+                      <span>{formatMoney(item.total_minor)}</span>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="order-desktop-empty-items">{t("itemsPending")}</div>
+          )}
+          <div className="order-desktop-status-divider" aria-hidden="true" />
+          <div className="order-desktop-status">
+            <div className="order-desktop-status-icon">
+              {isPending ? (
+                <Image src="/assets/matearte/order-desktop/status-pending.svg" alt="" width={24} height={24} aria-hidden="true" />
+              ) : (
+                <StatusIcon size={24} aria-hidden="true" />
+              )}
+            </div>
+            <div>
+              <h2 id="order-status-desktop-title">{desktopStatusTitle}</h2>
+              <p>{desktopStatusDescription}</p>
             </div>
           </div>
-          <Link className="button-light mt-8 w-full gap-2" href="/perfil">
-            Volver a mis pedidos <ArrowRight size={17} aria-hidden="true" />
-          </Link>
+        </div>
+
+        <aside className="order-desktop-summary" aria-label={t("summary")}>
+          <div className="order-desktop-summary-heading">
+            <span aria-hidden="true" />
+            <p>{t("summary")}</p>
+          </div>
+          <dl className="order-desktop-summary-list">
+            <div><dt>{t("total")}</dt><dd>{formatMoney(order.total_minor)}</dd></div>
+            <div><dt>{t("purchaseDate")}</dt><dd>{date(order.created_at, locale)}</dd></div>
+            <div><dt>{t("shippingAddress")}</dt><dd title={shippingAddress(order, t("pickup"), t("toConfirm"))}>{shippingAddress(order, t("pickup"), t("toConfirm"))}</dd></div>
+            <div><dt>{t("purchaseCode")}</dt><dd>{orderCode(order)}</dd></div>
+          </dl>
+          <div className="order-desktop-summary-divider" aria-hidden="true" />
+          <Link className="order-desktop-back" href="/perfil">{t("back")}</Link>
         </aside>
-      </div>
-    </section>
+      </section>
+    </>
   );
 }

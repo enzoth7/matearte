@@ -1,9 +1,12 @@
 "use client";
 
-import { ArrowRight, Package, ShoppingBagOpen, Trash } from "@phosphor-icons/react";
-import Link from "next/link";
+import Image from "next/image";
+import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
-import { commerceItemKind } from "@/lib/order-item-labels";
+import { getLocalizedProducts } from "@/content/catalog-localization";
+import { products } from "@/data/catalog";
+import { Link } from "@/i18n/navigation";
+import type { Locale, Product } from "@/types/catalog";
 
 type RemoteItem = {
   id: string; item_type: "catalog" | "design"; quantity: number;
@@ -13,9 +16,84 @@ type RemoteItem = {
 };
 type Cart = { id: string; items: RemoteItem[] };
 
-const money = (minor: number) => new Intl.NumberFormat("es-UY", { style: "currency", currency: "UYU", maximumFractionDigits: 0 }).format(minor / 100);
+const money = (minor: number) => `$ ${new Intl.NumberFormat("es-UY").format(minor / 100)} UYU`;
+
+const normalizeProductName = (value: string) => value
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLocaleLowerCase("es")
+  .replace(/[^a-z0-9]+/g, " ")
+  .trim();
+
+function itemTitle(item: RemoteItem, localizedProducts: Product[], fallback: string) {
+  if (item.design?.title) return item.design.title;
+  const remoteName = normalizeProductName(item.variant?.product.name || "");
+  const sourceProduct = products.find((candidate) => {
+    const localName = normalizeProductName(candidate.name);
+    return remoteName && (localName.includes(remoteName) || remoteName.includes(localName));
+  });
+  return localizedProducts.find((product) => product.id === sourceProduct?.id)?.name || item.variant?.product.name || fallback;
+}
+
+function itemSubtitle(item: RemoteItem, customDesign: string, catalogPiece: string) {
+  return item.item_type === "design" ? customDesign : catalogPiece;
+}
+
+function itemImage(item: RemoteItem) {
+  if (item.item_type === "design") {
+    return "/assets/matearte/profile-orders-desktop/design-fallback.png";
+  }
+
+  const remoteName = normalizeProductName(item.variant?.product.name || "");
+  if (remoteName) {
+    const product = products.find((candidate) => {
+      const localName = normalizeProductName(candidate.name);
+      return localName.includes(remoteName) || remoteName.includes(localName);
+    });
+    if (product) return product.images[0].src;
+  }
+
+  return "/assets/matearte/profile-orders-desktop/catalog-fallback.png";
+}
+
+function MobileEmptyCart({ showLogin }: { showLogin: boolean }) {
+  const t = useTranslations("cart");
+  return (
+    <div className="cart-empty-mobile-state">
+      <div className="cart-empty-mobile-image">
+        <Image
+          src="/assets/matearte/cart-desktop/empty-cart.png"
+          alt={t("emptyAlt")}
+          fill
+          priority
+          sizes="308px"
+        />
+      </div>
+      <div className="cart-empty-mobile-message">
+        <div className="cart-empty-mobile-icon">
+          <Image src="/assets/matearte/cart-desktop/bag.svg" alt="" width={24} height={24} aria-hidden="true" />
+        </div>
+        <h2>{t("emptyTitle")}</h2>
+        <p>{t("emptyBody")}</p>
+      </div>
+      <div className="cart-empty-mobile-actions">
+        <Link className="cart-empty-mobile-primary" href="/catalogo">{t("explore")}</Link>
+        {showLogin && (
+          <Link className="cart-empty-mobile-login" href="/perfil">
+            {t("login")}
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function CartPanel() {
+  const locale = useLocale() as Locale;
+  const t = useTranslations("cart");
+  const localizedProducts = getLocalizedProducts(locale);
+  const titleFor = (item: RemoteItem) => itemTitle(item, localizedProducts, t("piece"));
+  const subtitleFor = (item: RemoteItem) => itemSubtitle(item, t("customDesign"), t("catalogPiece"));
   const [cart, setCart] = useState<Cart | null>(null);
   const [needsLogin, setNeedsLogin] = useState(false);
   const [error, setError] = useState("");
@@ -25,9 +103,9 @@ export function CartPanel() {
     const response = await fetch("/api/cart", { cache: "no-store" });
     if (response.status === 401) { setNeedsLogin(true); return; }
     const value = await response.json();
-    if (!response.ok) throw new Error(value.error || "No se pudo cargar el carrito.");
+    if (!response.ok) throw new Error(t("loadFailed"));
     setCart(value); setNeedsLogin(false);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load().catch((reason) => setError(reason.message)); }, 0);
@@ -41,85 +119,266 @@ export function CartPanel() {
       const value = await response.json();
       if (!response.ok) throw new Error(value.error);
       setCart(value);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "No se pudo actualizar."); }
+    } catch { setError(t("updateFailed")); }
     finally { setBusy(""); }
   };
 
   if (needsLogin) return (
-    <div className="px-6 py-14 text-center sm:px-8 sm:py-16">
-      <ShoppingBagOpen size={34} className="mx-auto text-[var(--leather)]" aria-hidden="true" />
-      <p className="display-font mt-5 text-4xl">Tu carrito te espera.</p>
-      <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-black/60">Podés explorar como visitante. Para guardar diseños, unir el carrito y comprar, ingresá desde el visualizador.</p>
-      <a className="button-primary mt-8 gap-2" href={`${process.env.NEXT_PUBLIC_CUSTOMIZER_URL || "http://localhost:5173"}/?auth=login&next=cart`}>Ingresar o crear cuenta <ArrowRight size={17} aria-hidden="true" /></a>
+    <>
+    <MobileEmptyCart showLogin />
+    <div className="cart-empty-desktop-state cart-empty cart-empty-login">
+      <div className="cart-empty-copy">
+        <div className="cart-empty-icon">
+          <Image src="/assets/matearte/cart-desktop/bag.svg" alt="" width={24} height={24} aria-hidden="true" />
+        </div>
+        <div className="cart-empty-message">
+          <p className="display-font mt-5 text-4xl">{t("emptyTitle")}</p>
+          <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-black/60">{t("emptyBody")}</p>
+        </div>
+        <div className="cart-empty-actions">
+          <Link className="button-primary gap-2" href="/catalogo">{t("explore")}</Link>
+          <Link className="cart-empty-login-button" href="/perfil">{t("login")}</Link>
+        </div>
+      </div>
+      <div className="cart-empty-image">
+        <Image
+          src="/assets/matearte/cart-desktop/empty-cart.png"
+          alt={t("emptyAlt")}
+          fill
+          priority
+          sizes="221px"
+        />
+      </div>
     </div>
+    </>
   );
   if (!cart) return (
-    <div role="status" aria-live="polite" className="grid gap-8 p-6 motion-safe:animate-pulse sm:p-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:p-10">
+    <div role="status" aria-live="polite" className="cart-loading grid gap-8 p-6 motion-safe:animate-pulse sm:p-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:p-10">
       <div>
         <div className="h-4 w-32 rounded bg-black/10" />
         <div className="mt-8 h-28 rounded bg-black/5" />
       </div>
       <div className="h-56 rounded bg-black/10" />
-      <span className="sr-only">Cargando carrito…</span>
+      <span className="sr-only">{t("loading")}</span>
     </div>
   );
   if (cart.items.length === 0) return (
-    <div className="px-6 py-14 text-center sm:px-8 sm:py-16">
-      <ShoppingBagOpen size={34} className="mx-auto text-[var(--leather)]" aria-hidden="true" />
-      <p className="display-font mt-5 text-4xl">Tu carrito está vacío.</p>
-      <p className="mt-4 text-sm text-black/60">Elegí una pieza del catálogo o agregá uno de tus diseños.</p>
-      <Link className="button-primary mt-8 gap-2" href="/catalogo">Ver catálogo <ArrowRight size={17} aria-hidden="true" /></Link>
+    <>
+    <MobileEmptyCart showLogin={false} />
+    <div className="cart-empty-desktop-state cart-empty cart-empty-authenticated">
+      <div className="cart-empty-copy">
+        <div className="cart-empty-icon">
+          <Image src="/assets/matearte/cart-desktop/bag.svg" alt="" width={24} height={24} aria-hidden="true" />
+        </div>
+        <div className="cart-empty-message">
+          <p className="display-font mt-5 text-4xl">{t("emptyTitle")}</p>
+          <p className="mt-4 text-sm text-black/60">{t("emptyBody")}</p>
+        </div>
+        <div className="cart-empty-actions">
+          <Link className="button-primary gap-2" href="/catalogo">{t("explore")}</Link>
+        </div>
+      </div>
+      <div className="cart-empty-image">
+        <Image
+          src="/assets/matearte/cart-desktop/empty-cart.png"
+          alt={t("emptyAlt")}
+          fill
+          priority
+          sizes="221px"
+        />
+      </div>
     </div>
+    </>
   );
   const subtotal = cart.items.reduce((sum, item) => sum + item.unit_price_minor * item.quantity, 0);
   return (
-    <div className="grid lg:grid-cols-[minmax(0,1fr)_22rem]">
-      <div className="p-6 sm:p-8 lg:p-10">
-        <div className="flex items-center justify-between gap-4 border-b border-black/10 pb-5">
-          <p className="flex items-center gap-2 text-xs font-bold tracking-[0.14em] text-[var(--walnut)] uppercase">
-            <ShoppingBagOpen size={19} className="text-[var(--leather)]" aria-hidden="true" />
-            Tu selección
-          </p>
-          <p className="text-xs text-black/50">{cart.items.length} {cart.items.length === 1 ? "artículo" : "artículos"}</p>
-        </div>
-        <div className="divide-y divide-black/10">
+    <>
+      <div className="cart-populated-mobile-state">
+        <section className="cart-mobile-selection" aria-labelledby="cart-mobile-selection-title">
+          <h2 id="cart-mobile-selection-title" className="sr-only">{t("selectedItems")}</h2>
+          <div className="cart-mobile-selection-divider" aria-hidden="true" />
+          <div className="cart-mobile-items">
+            {cart.items.map((item) => (
+              <article key={item.id} className="cart-mobile-item">
+                <div className="cart-mobile-item-row">
+                  <div className="cart-mobile-thumbnail">
+                    <Image
+                      src={itemImage(item)}
+                      alt={titleFor(item)}
+                      fill
+                      loading={cart.items[0]?.id === item.id ? "eager" : "lazy"}
+                      sizes="104px"
+                    />
+                  </div>
+                  <div className="cart-mobile-item-copy">
+                    <h3>{titleFor(item)}</h3>
+                    <p>{subtitleFor(item)}</p>
+                    <span>{t("unitPrice", { price: money(item.unit_price_minor) })}</span>
+                  </div>
+                </div>
+                <div className="cart-mobile-item-actions">
+                  <div className="cart-mobile-quantity">
+                    <span id={`cart-mobile-quantity-${item.id}`}>{t("quantity")}</span>
+                    {item.item_type === "catalog" ? (
+                      <div className="cart-mobile-quantity-control" role="group" aria-labelledby={`cart-mobile-quantity-${item.id}`}>
+                        <button
+                          type="button"
+                          aria-label={item.quantity <= 1 ? t("removeItem", { item: titleFor(item) }) : t("decreaseItem", { item: titleFor(item) })}
+                          disabled={busy === item.id}
+                          onClick={() => void mutate(item.quantity <= 1 ? "DELETE" : "PATCH", item.id, item.quantity - 1)}
+                        >
+                          <span aria-hidden="true">−</span>
+                        </button>
+                        <output aria-live="polite" aria-label={t("units", { count: item.quantity })}>{item.quantity}</output>
+                        <button
+                          type="button"
+                          aria-label={t("increaseItem", { item: titleFor(item) })}
+                          disabled={busy === item.id || item.quantity >= 99}
+                          onClick={() => void mutate("PATCH", item.id, item.quantity + 1)}
+                        >
+                          <span aria-hidden="true">+</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="cart-mobile-quantity-control cart-mobile-quantity-static" aria-labelledby={`cart-mobile-quantity-${item.id}`}>
+                        <output aria-label={t("units", { count: 1 })}>1</output>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="cart-mobile-remove"
+                    disabled={busy === item.id}
+                    onClick={() => void mutate("DELETE", item.id)}
+                  >
+                    <Image src="/assets/matearte/cart-desktop/remove.svg" alt="" width={16} height={16} aria-hidden="true" />
+                    {t("remove")}
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="cart-mobile-selection-divider cart-mobile-selection-divider-bottom" aria-hidden="true" />
+          {error && <p role="alert" className="cart-mobile-error">{error}</p>}
+          <Link className="cart-mobile-continue-shopping" href="/catalogo">
+            {t("continueShopping")} <span aria-hidden="true">→</span>
+          </Link>
+        </section>
+
+        <aside className="cart-mobile-summary" aria-label={t("summaryLabel")}>
+          <div className="cart-mobile-summary-heading">
+            <span aria-hidden="true" />
+            <p>{t("summary")}</p>
+          </div>
+          <dl className="cart-mobile-summary-list">
+            <div>
+              <dt>{t("subtotal")}</dt>
+              <dd>{money(subtotal)}</dd>
+            </div>
+            <div>
+              <dt>{t("shipping")}</dt>
+              <dd>{t("toCalculate")}</dd>
+            </div>
+          </dl>
+          <div className="cart-mobile-summary-divider" aria-hidden="true" />
+          <div className="cart-mobile-total">
+            <span>{t("total")}</span>
+            <strong>{money(subtotal)}</strong>
+          </div>
+          <Link href="/checkout" className="cart-mobile-checkout">{t("continue")}</Link>
+        </aside>
+      </div>
+
+      <div className="cart-populated-desktop-state">
+        <section className="cart-desktop-selection" aria-labelledby="cart-selection-title">
+          <h2 id="cart-selection-title" className="sr-only">{t("selectedItems")}</h2>
+          <div className="cart-desktop-selection-divider" aria-hidden="true" />
+          <div className="cart-desktop-items">
           {cart.items.map((item) => (
-            <article key={item.id} className="flex flex-col gap-5 py-6 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex min-w-0 items-start gap-4">
-                <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--cream-deep)] text-[var(--leather)]">
-                  <Package size={22} aria-hidden="true" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[0.68rem] font-semibold tracking-[0.13em] text-[var(--leather)] uppercase">{item.item_type === "design" ? commerceItemKind(item.item_type) : item.variant?.name}</p>
-                  <h2 className="display-font mt-2 text-2xl leading-tight">{item.design?.title || item.variant?.product.name}</h2>
-                  <p className="mt-2 text-sm text-black/55">{money(item.unit_price_minor)} c/u</p>
-                </div>
+            <article key={item.id} className="cart-desktop-item">
+              <div className="cart-desktop-thumbnail">
+                <Image
+                  src={itemImage(item)}
+                  alt={titleFor(item)}
+                  fill
+                  loading={cart.items[0]?.id === item.id ? "eager" : "lazy"}
+                  sizes="120px"
+                />
               </div>
-              <div className="flex items-center justify-end gap-3 sm:shrink-0">
-                {item.item_type === "catalog" && (
-                  <label className="flex items-center gap-2 text-xs font-semibold text-black/55">
-                    Cantidad
-                    <input aria-label={`Cantidad de ${item.variant?.product.name || "producto"}`} className="h-11 w-16 rounded border border-black/20 bg-white px-2 text-center disabled:cursor-wait disabled:opacity-50" type="number" min={1} max={99} value={item.quantity} disabled={busy === item.id} onChange={(event) => mutate("PATCH", item.id, Number(event.target.value))} />
-                  </label>
+              <div className="cart-desktop-item-copy">
+                <h3>{titleFor(item)}</h3>
+                <p>{subtitleFor(item)}</p>
+                <span>{t("unitPrice", { price: money(item.unit_price_minor) })}</span>
+              </div>
+              <div className="cart-desktop-quantity">
+                <span id={`cart-quantity-${item.id}`}>{t("quantity")}</span>
+                {item.item_type === "catalog" ? (
+                  <div className="cart-desktop-quantity-control" role="group" aria-labelledby={`cart-quantity-${item.id}`}>
+                    <button
+                      type="button"
+                      aria-label={item.quantity <= 1 ? t("removeItem", { item: titleFor(item) }) : t("decreaseItem", { item: titleFor(item) })}
+                      disabled={busy === item.id}
+                      onClick={() => void mutate(item.quantity <= 1 ? "DELETE" : "PATCH", item.id, item.quantity - 1)}
+                    >
+                      <span aria-hidden="true">−</span>
+                    </button>
+                    <output aria-live="polite" aria-label={t("units", { count: item.quantity })}>{item.quantity}</output>
+                    <button
+                      type="button"
+                      aria-label={t("increaseItem", { item: titleFor(item) })}
+                      disabled={busy === item.id || item.quantity >= 99}
+                      onClick={() => void mutate("PATCH", item.id, item.quantity + 1)}
+                    >
+                      <span aria-hidden="true">+</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="cart-desktop-quantity-control cart-desktop-quantity-static" aria-labelledby={`cart-quantity-${item.id}`}>
+                    <output aria-label={t("units", { count: 1 })}>1</output>
+                  </div>
                 )}
-                <button className="inline-flex min-h-11 cursor-pointer items-center gap-2 px-3 text-sm font-semibold text-[var(--danger)] transition-colors hover:bg-[var(--danger)]/5 disabled:cursor-wait disabled:opacity-50" disabled={busy === item.id} onClick={() => mutate("DELETE", item.id)}>
-                  <Trash size={18} aria-hidden="true" /> Quitar
-                </button>
               </div>
+              <button
+                type="button"
+                className="cart-desktop-remove"
+                disabled={busy === item.id}
+                onClick={() => void mutate("DELETE", item.id)}
+              >
+                <Image src="/assets/matearte/cart-desktop/remove.svg" alt="" width={16} height={16} aria-hidden="true" />
+                {t("remove")}
+              </button>
             </article>
           ))}
-        </div>
-        {error && <p role="alert" className="border-t border-[var(--danger)]/20 pt-4 text-sm text-[var(--danger)]">{error}</p>}
+          </div>
+          {error && <p role="alert" className="cart-desktop-error">{error}</p>}
+          <Link className="cart-desktop-continue-shopping" href="/catalogo">
+            {t("continueShopping")} <span aria-hidden="true">→</span>
+          </Link>
+        </section>
+
+        <aside className="cart-desktop-summary" aria-label={t("summaryLabel")}>
+          <div className="cart-desktop-summary-heading">
+            <span aria-hidden="true" />
+            <p>{t("summary")}</p>
+          </div>
+          <dl className="cart-desktop-summary-list">
+            <div>
+              <dt>{t("subtotal")}</dt>
+              <dd>{money(subtotal)}</dd>
+            </div>
+            <div>
+              <dt>{t("shipping")}</dt>
+              <dd>{t("toCalculate")}</dd>
+            </div>
+          </dl>
+          <div className="cart-desktop-summary-divider" aria-hidden="true" />
+          <div className="cart-desktop-total">
+            <span>{t("total")}</span>
+            <strong>{money(subtotal)}</strong>
+          </div>
+          <Link href="/checkout" className="cart-desktop-checkout">{t("continue")}</Link>
+        </aside>
       </div>
-      <aside className="border-t border-black/10 bg-[var(--cream-deep)]/45 p-6 sm:p-8 lg:border-l lg:border-t-0 lg:p-9" aria-label="Resumen del carrito">
-        <p className="eyebrow text-[var(--leather)]">Resumen</p>
-        <div className="mt-6 flex items-end justify-between gap-5 border-b border-black/10 pb-6">
-          <span className="text-sm text-black/65">Subtotal</span>
-          <strong className="display-font text-3xl tabular-nums">{money(subtotal)}</strong>
-        </div>
-        <p className="mt-6 text-xs leading-6 text-black/55">El envío y cualquier comisión habilitada se calculan al continuar.</p>
-        <Link href="/checkout" className="button-primary mt-7 w-full gap-2">Continuar <ArrowRight size={17} aria-hidden="true" /></Link>
-      </aside>
-    </div>
+    </>
   );
 }

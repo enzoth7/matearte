@@ -10,6 +10,8 @@ export async function GET(request: Request) {
     admin.from("commerce_products").select("id,editorial_slug,name,sale_mode,published,variants:commerce_variants(id,sku,name,price_minor,currency,weight_grams,inventory_tracked,stock_on_hand,stock_reserved,active)").eq("editorial_slug", slug).eq("published", true).maybeSingle(),
   ]);
   if (error || !product) return apiOk({ available: false, commerceEnabled: Boolean(settings?.commerce_enabled), product: null });
-  const variants = (product.variants || []).filter((variant) => variant.active && variant.price_minor > 0 && (!variant.inventory_tracked || variant.stock_on_hand - variant.stock_reserved > 0));
+  const variants = (product.variants || [])
+    .filter((variant) => variant.active && variant.price_minor > 0 && (!variant.inventory_tracked || variant.stock_on_hand - variant.stock_reserved > 0))
+    .sort((left, right) => left.price_minor - right.price_minor || left.name.localeCompare(right.name));
   return apiOk({ available: variants.length > 0, commerceEnabled: Boolean(settings?.commerce_enabled), product: { ...product, variants } });
 }

@@ -1,27 +1,27 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ArrowLeft } from "@phosphor-icons/react/dist/ssr";
+import { getLocale, getTranslations } from "next-intl/server";
 import { OrderStatus } from "@/components/OrderStatus";
+import { localizedAlternates } from "@/i18n/metadata";
+import type { Locale } from "@/types/catalog";
 
-export const metadata: Metadata = { title: "Estado del pedido", robots: { index: false, follow: false } };
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const [{ id }, locale, t] = await Promise.all([params, getLocale() as Promise<Locale>, getTranslations("order")]);
+  return { title: t("metadataTitle"), alternates: localizedAlternates(locale, { pathname: "/pedidos/[id]", params: { id } }), robots: { index: false, follow: false } };
+}
 
 export default async function OrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const t = await getTranslations("order");
   return (
-    <main id="contenido" className="pb-24 pt-8 sm:pb-32 sm:pt-12">
-      <div className="container-shell">
-        <Link href="/perfil" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--walnut)] transition-colors hover:text-[var(--leather)]">
-          <ArrowLeft size={18} aria-hidden="true" />
-          Volver a mis pedidos
-        </Link>
-        <div className="mt-8 max-w-3xl sm:mt-10">
-          <p className="eyebrow text-[var(--leather)]">Mi cuenta</p>
-          <h1 className="display-font mt-5 text-4xl font-medium tracking-[-0.025em] sm:text-5xl">Estado del pedido</h1>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-black/60 sm:text-base">
-            Consultá el detalle y seguí cada cambio confirmado de tu compra.
-          </p>
+    <main id="contenido" className="order-detail-page pb-24 pt-8 sm:pb-32 sm:pt-12">
+      <div className="order-detail-shell container-shell">
+        <div className="order-detail-card">
+          <header className="order-detail-desktop-header">
+            <h1 id="order-detail-title">{t("title")}</h1>
+            <p>{t("intro")}</p>
+          </header>
+          <div className="order-detail-content"><OrderStatus orderId={id} /></div>
         </div>
-        <div className="mt-8 sm:mt-10"><OrderStatus orderId={id} /></div>
       </div>
     </main>
   );

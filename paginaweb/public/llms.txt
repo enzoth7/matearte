@@ -1,0 +1,32 @@
+# MateArte Uruguay
+
+> MateArte is a family business from Paysandu, Uruguay, focused on handcrafted mates, bombillas, leather materas, thermoses and personalized gifts.
+
+MateArte presents its catalog in Spanish, English and Brazilian Portuguese. Product names such as mate, bombilla, imperial and camionero retain their cultural terminology. All prices currently displayed by the website use Uruguayan pesos (UYU).
+
+## Main pages
+
+- Spanish: https://matearte.uy/
+- English: https://matearte.uy/en
+- Portuguese: https://matearte.uy/pt
+- Catalog: https://matearte.uy/catalogo
+- Custom pieces: https://matearte.uy/personalizados
+- About MateArte: https://matearte.uy/nosotros
+- Contact: https://matearte.uy/contacto
+- International reach: https://matearte.uy/clientes
+
+## International versions
+
+- English catalog: https://matearte.uy/en/catalog
+- English about page: https://matearte.uy/en/about
+- Portuguese catalog: https://matearte.uy/pt/catalogo
+- Portuguese about page: https://matearte.uy/pt/sobre-nos
+
+## Business information
+
+- Address: 25 de Mayo 1734, Paysandu, Uruguay
+- Phone and WhatsApp: +598 91 674 231
+- Email: matearte.ventas@gmail.com
+- Instagram: https://www.instagram.com/matearteuruguay/
+
+International orders and shipping are coordinated directly with MateArte. Legal and purchase-information pages remain excluded from indexing while their content awaits final approval.

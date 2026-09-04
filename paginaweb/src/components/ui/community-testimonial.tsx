@@ -1,18 +1,19 @@
 "use client";
 
 import { Pause, Play } from "@phosphor-icons/react";
-import { AR, BR, CL, CR, ES, FR, GB, HN, IT, MX, RU, SG, US } from "country-flag-icons/react/3x2";
+import { AE, AR, AU, BR, CL, CR, DE, ES, FR, GB, HN, IT, MX, PY, RU, SG, US, UY } from "country-flag-icons/react/3x2";
 import { useReducedMotion } from "motion/react";
+import { useTranslations } from "next-intl";
 import { useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
-import type { DemoTestimonial, DestinationCode } from "@/data/international-clients";
+import type { CustomerTestimonial, TestimonialCountryCode } from "@/data/international-clients";
 
-type TestimonialCardProps = Pick<DemoTestimonial, "quote" | "authorName" | "authorTitle" | "countryCode">;
+type TestimonialCardProps = Pick<CustomerTestimonial, "quote" | "authorName" | "authorTitle" | "countryCode">;
 
 type ScrollerRow = {
   id: string;
   speed: string;
   direction: "left" | "right";
-  testimonials: readonly DemoTestimonial[];
+  testimonials: readonly CustomerTestimonial[];
 };
 
 type TestimonialsSectionProps = {
@@ -25,26 +26,26 @@ type TestimonialsSectionProps = {
 
 type ScrollerStyle = CSSProperties & { "--scroll-duration": string };
 
-const flagComponents = { AR, BR, CL, CR, ES, FR, GB, HN, IT, MX, RU, SG, US } satisfies Record<DestinationCode, typeof AR>;
+const flagComponents = { AE, AR, AU, BR, CL, CR, DE, ES, FR, GB, HN, IT, MX, PY, RU, SG, US, UY } satisfies Record<TestimonialCountryCode, typeof AR>;
 const subscribeToHydration = () => () => undefined;
 const getClientHydrationSnapshot = () => true;
 const getServerHydrationSnapshot = () => false;
 
-function CountryFlag({ code, label }: { code: DestinationCode; label: string }) {
+function CountryFlag({ code, label }: { code: TestimonialCountryCode; label: string }) {
+  const t = useTranslations("customersPage");
   const Flag = flagComponents[code];
-  return <Flag className="testimonial-flag" role="img" aria-label={`Bandera de ${label}`} />;
+  return <Flag className="testimonial-flag" role="img" aria-label={t("flagLabel", { country: label })} />;
 }
 
 export function TestimonialCard({ quote, authorName, authorTitle, countryCode }: TestimonialCardProps) {
-  const countryName = authorTitle.split(", ").at(-1) ?? authorTitle;
   return (
     <blockquote className="testimonial-card">
       <p>“{quote}”</p>
       <footer>
-        <CountryFlag code={countryCode} label={countryName} />
+        <CountryFlag code={countryCode} label={authorTitle} />
         <span>
           <strong>{authorName}</strong>
-          <small>{authorTitle} · muestra</small>
+          <small>{authorTitle}</small>
         </span>
       </footer>
     </blockquote>
@@ -52,8 +53,9 @@ export function TestimonialCard({ quote, authorName, authorTitle, countryCode }:
 }
 
 export function HorizontalScroller({ children, speed = "64s", direction = "left", paused = false }: { children: ReactNode; speed?: string; direction?: "left" | "right"; paused?: boolean }) {
+  const t = useTranslations("customersPage");
   return (
-    <div className="testimonial-scroller" data-paused={paused || undefined} role="region" aria-label={`Carrusel de testimonios, movimiento hacia la ${direction === "left" ? "izquierda" : "derecha"}`} tabIndex={0}>
+    <div className="testimonial-scroller" data-paused={paused || undefined} role="region" aria-label={t("carouselLabel", { direction: t(direction === "left" ? "left" : "right") })} tabIndex={0}>
       <div className={`testimonial-track testimonial-track--${direction}`} style={{ "--scroll-duration": speed } as ScrollerStyle}>
         <div className="testimonial-run">{children}</div>
         <div className="testimonial-run" aria-hidden="true">{children}</div>
@@ -63,6 +65,7 @@ export function HorizontalScroller({ children, speed = "64s", direction = "left"
 }
 
 export default function TestimonialsSection({ data }: TestimonialsSectionProps) {
+  const t = useTranslations("customersPage");
   const reduceMotion = useReducedMotion();
   const hydrated = useSyncExternalStore(
     subscribeToHydration,
@@ -78,7 +81,7 @@ export default function TestimonialsSection({ data }: TestimonialsSectionProps) 
       <div className="container-shell">
         <div className="testimonials-heading-grid">
           <div>
-            <p className="eyebrow text-[var(--rawhide)]">Voces alrededor del mundo</p>
+            <p className="eyebrow text-[var(--rawhide)]">{t("voices")}</p>
             <h2 id="testimonials-heading" className="display-lg mt-7 text-[var(--paper)]">{data.title}</h2>
           </div>
           <div className="testimonials-heading-copy">
@@ -91,7 +94,7 @@ export default function TestimonialsSection({ data }: TestimonialsSectionProps) 
               aria-pressed={motionStopped}
             >
               {motionStopped ? <Play size={18} aria-hidden="true" /> : <Pause size={18} aria-hidden="true" />}
-              {prefersReducedMotion ? "Movimiento reducido" : paused ? "Reanudar carrusel" : "Pausar carrusel"}
+              {prefersReducedMotion ? t("reducedMotion") : paused ? t("resumeCarousel") : t("pauseCarousel")}
             </button>
           </div>
         </div>
@@ -103,10 +106,6 @@ export default function TestimonialsSection({ data }: TestimonialsSectionProps) 
             {row.testimonials.map((testimonial) => <TestimonialCard key={testimonial.id} {...testimonial} />)}
           </HorizontalScroller>
         ))}
-      </div>
-
-      <div className="container-shell">
-        <p className="testimonial-demo-note"><strong>Contenido demostrativo.</strong> Estos 20 perfiles y textos son ficticios para esta presentación. Antes de publicar deben reemplazarse por testimonios reales, autorizados y verificables.</p>
       </div>
     </section>
   );

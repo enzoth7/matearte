@@ -1,23 +1,46 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { CatalogExplorer } from "@/components/CatalogExplorer";
-import { categories, products } from "@/data/catalog";
+import Image from "next/image";
+import { getLocale, getTranslations } from "next-intl/server";
+import { CatalogDesktop } from "@/components/CatalogDesktop";
+import { CatalogMobile } from "@/components/CatalogMobile";
+import { JsonLd } from "@/components/JsonLd";
+import { localizedPageMetadata } from "@/i18n/metadata";
+import { buildCatalogStructuredData } from "@/lib/seo";
+import { getStorefrontProducts } from "@/lib/storefront-catalog";
 
-export const metadata: Metadata = {
-  title: "Catálogo",
-  description: "Explorá mates, bombillas, materas, termos y regalos MateArte.",
-  alternates: { canonical: "/catalogo" },
-};
+export const dynamic = "force-dynamic";
 
-export default function CatalogPage() {
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  const t = await getTranslations("catalog");
+  return localizedPageMetadata(locale, "/catalogo", t("metadataTitle"), t("metadataDescription"));
+}
+
+export default async function CatalogPage() {
+  const locale = await getLocale();
+  const t = await getTranslations("catalog");
+  const products = await getStorefrontProducts(locale);
   return (
-    <main id="contenido" className="section-space">
-      <div className="container-shell">
-        <p className="eyebrow text-[var(--leather)]">Catálogo MateArte</p>
-        <h1 className="display-xl mt-7 max-w-[12ch]">Piezas para el ritual cotidiano.</h1>
-        <p className="mt-7 max-w-2xl text-lg leading-8 text-black/65">Explorá el catálogo visual. La web no presenta precios ni disponibilidad hasta recibir datos comerciales vigentes.</p>
-        <Suspense fallback={<div className="mt-12 min-h-96 border-y border-black/15 py-12">Cargando catálogo…</div>}>
-          <div className="mt-14"><CatalogExplorer products={products} categories={categories} /></div>
+    <main id="contenido" className="catalog-page">
+      <JsonLd data={buildCatalogStructuredData(locale, products, t("metadataTitle"), t("metadataDescription"), "MateArte")} />
+      <div className="catalog-desktop-view">
+        <section className="catalog-hero">
+          <Image src="/assets/matearte/catalog-desktop/hero.png" alt={t("heroAlt")} fill sizes="100vw" priority />
+          <div className="catalog-hero-overlay" />
+          <div className="catalog-hero-content">
+            <h1>{t("heroTitle")}</h1>
+            <p>{t("heroBody")}</p>
+          </div>
+        </section>
+        <Suspense fallback={<div className="catalog-desktop-loading">{t("loading")}</div>}>
+          <CatalogDesktop products={products} />
+        </Suspense>
+      </div>
+
+      <div className="catalog-mobile-view">
+        <Suspense fallback={<div className="catalog-mobile-loading">{t("loading")}</div>}>
+          <CatalogMobile products={products} />
         </Suspense>
       </div>
     </main>

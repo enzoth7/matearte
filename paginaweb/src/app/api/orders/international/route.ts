@@ -3,12 +3,15 @@ import { apiError, apiOk, readJson } from "@/lib/api";
 import { readCart } from "@/lib/cart";
 import { calculateDesignPriceMinor } from "@/lib/design-pricing";
 import { dispatchCommerceEmails } from "@/lib/commerce-email";
+import { localizeCatalogSnapshotTitle } from "@/content/catalog-localization";
 import { whatsappOrderItemLine, type CommerceItemType } from "@/lib/order-item-labels";
 import { whatsappNumber } from "@/lib/supabase/config";
 import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
+import { isLocale } from "@/i18n/config";
+import { formatMoney } from "@/lib/money";
+import type { Locale } from "@/types/catalog";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const money = (minor: number) => new Intl.NumberFormat("es-UY", { style: "currency", currency: "UYU", maximumFractionDigits: 0 }).format(minor / 100);
 const text = (value: unknown, maximum: number) => typeof value === "string" ? value.trim().slice(0, maximum) : "";
 
 export async function POST(request: Request) {
@@ -17,6 +20,8 @@ export async function POST(request: Request) {
 
   try {
     const body = await readJson(request);
+    const localeValue = typeof body.locale === "string" ? body.locale : null;
+    const locale: Locale = isLocale(localeValue) ? localeValue : "es";
     const customer = body.customer && typeof body.customer === "object" && !Array.isArray(body.customer)
       ? body.customer as Record<string, unknown>
       : {};
@@ -86,20 +91,28 @@ export async function POST(request: Request) {
     if (fetchError || !order) throw new Error("No se pudo recuperar la solicitud.");
 
     const orderItems = (order.order_items || []) as Array<{ item_type: CommerceItemType; title: string; quantity: number }>;
-    const itemLines = orderItems.map(whatsappOrderItemLine).join("\n");
+    const itemLines = orderItems.map((item) => whatsappOrderItemLine({
+      ...item,
+      title: item.item_type === "design" ? item.title : localizeCatalogSnapshotTitle(item.title, locale),
+    }, locale)).join("\n");
     const destinationLabel = [city, country].filter(Boolean).join(", ");
+    const copy = {
+      es: { intro: "Hola MateArte, quiero coordinar una compra desde el exterior.", order: "Pedido", name: "Nombre", destination: "Destino", items: "Artículos", subtotal: "Subtotal sin envío", closing: "Quiero coordinar el costo de envío internacional y la forma de pago." },
+      en: { intro: "Hello MateArte, I'd like to arrange an international purchase.", order: "Order", name: "Name", destination: "Destination", items: "Items", subtotal: "Subtotal before shipping", closing: "I'd like to coordinate the international shipping cost and payment method." },
+      pt: { intro: "Olá, MateArte. Quero combinar uma compra internacional.", order: "Pedido", name: "Nome", destination: "Destino", items: "Itens", subtotal: "Subtotal sem envio", closing: "Quero combinar o custo do envio internacional e a forma de pagamento." },
+    }[locale];
     const message = [
-      "Hola MateArte, quiero coordinar una compra desde el exterior.",
+      copy.intro,
       "",
-      `Pedido #${order.order_number}`,
-      `Nombre: ${fullName}`,
-      `Destino: ${destinationLabel}`,
+      `${copy.order} #${order.order_number}`,
+      `${copy.name}: ${fullName}`,
+      `${copy.destination}: ${destinationLabel}`,
       "",
-      "Artículos:",
+      `${copy.items}:`,
       itemLines,
       "",
-      `Subtotal sin envío: ${money(Number(order.items_subtotal_minor))}`,
-      "Quiero coordinar el costo de envío internacional y la forma de pago.",
+      `${copy.subtotal}: ${formatMoney(Number(order.items_subtotal_minor))}`,
+      copy.closing,
     ].join("\n");
     const whatsappUrl = `https://wa.me/${whatsappNumber()}?text=${encodeURIComponent(message)}`;
 

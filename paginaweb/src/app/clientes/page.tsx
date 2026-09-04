@@ -1,43 +1,44 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 import TestimonialsSection from "@/components/ui/community-testimonial";
 import { InternationalWorldMap } from "@/components/ui/international-world-map";
-import { destinationCountries, testimonialRows } from "@/data/international-clients";
+import { JsonLd } from "@/components/JsonLd";
+import { getLocalizedInternationalData } from "@/data/international-clients";
+import { localizedPageMetadata } from "@/i18n/metadata";
+import { Link } from "@/i18n/navigation";
+import { buildPageStructuredData } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Clientes alrededor del mundo",
-  description: "Desde Paysandú hacia trece destinos internacionales: conocé el alcance global de las piezas de MateArte Uruguay.",
-  alternates: { canonical: "/clientes" },
-  openGraph: {
-    title: "De Paysandú al mundo | MateArte Uruguay",
-    description: "Piezas MateArte que viajaron desde Uruguay hacia Europa, América y Asia.",
-    url: "/clientes",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  const t = await getTranslations("customersPage");
+  return localizedPageMetadata(locale, "/clientes", t("metadataTitle"), t("metadataDescription"), {
+    socialTitle: t("openGraphTitle"),
+    socialDescription: t("openGraphDescription"),
+  });
+}
 
-const testimonialsData = {
-  title: "Historias que cruzan fronteras.",
-  subtitle: "Una vista preliminar de cómo podrán convivir acá las experiencias de quienes eligen MateArte desde otros países.",
-  rows: testimonialRows,
-} as const;
-
-export default function ClientesPage() {
+export default async function ClientesPage() {
+  const locale = await getLocale();
+  const t = await getTranslations("customersPage");
+  const data = getLocalizedInternationalData(locale);
+  const testimonialsData = { title: t("testimonialsTitle"), subtitle: t("testimonialsSubtitle"), rows: data.testimonialRows };
   return (
-    <main id="contenido">
-
+    <main id="contenido" className="clientes-page">
+      <JsonLd data={buildPageStructuredData({ locale, href: "/clientes", name: t("metadataTitle"), description: t("metadataDescription"), homeLabel: "MateArte" })} />
       <section className="international-map-section" aria-labelledby="destinations-heading">
         <div className="container-shell">
           <div className="international-section-heading">
             <div>
-              <p className="eyebrow text-[var(--leather)]">La tradición viaja</p>
-                <h1 className="international-hero-title">Hecho acá.<br />Elegido allá.</h1>
+              <p className="eyebrow text-[var(--leather)]">{t("eyebrow")}</p>
+              <h1 id="destinations-heading" className="international-hero-title">{t("titleLine1")}<br />{t("titleLine2")}</h1>
             </div>
-            <p>El ritual del mate no conoce fronteras. Desde el taller de MateArte, piezas trabajadas en cuero y metal ya encontraron su lugar en trece destinos del mundo.</p>
+            <p>
+              <span className="clientes-copy-desktop">{t("introDesktop")}</span>
+              <span className="clientes-copy-mobile">{t("introMobile")}</span>
+            </p>
           </div>
-        
-          
-          <InternationalWorldMap destinations={destinationCountries} />
-          <p className="legal-note mt-10 max-w-3xl">Alcance geográfico informado para esta presentación interna. La versión pública deberá validar destinos, fechas y autorización de cualquier historia de cliente asociada.</p>
+          <InternationalWorldMap destinations={data.destinations} />
+          <p className="legal-note mt-10 max-w-3xl">{t("legalNote")}</p>
         </div>
       </section>
 
@@ -45,11 +46,17 @@ export default function ClientesPage() {
 
       <section className="international-cta">
         <div className="container-shell international-cta-grid">
-          <p className="eyebrow text-[var(--leather)]">Tu historia puede empezar acá</p>
-          <h2 className="display-lg">Una pieza de Uruguay, hecha para llegar hasta vos.</h2>
+          <p className="eyebrow text-[var(--leather)]">{t("ctaEyebrow")}</p>
+          <h2 className="display-lg">
+            <span className="clientes-copy-desktop">{t("ctaDesktop")}</span>
+            <span className="clientes-copy-mobile">{t("ctaMobile1")}<br />{t("ctaMobile2")}<br />{t("ctaMobile3")}</span>
+          </h2>
           <div>
-            <p>Consultanos por personalización y opciones de envío internacional. La disponibilidad y el costo se confirman de forma directa.</p>
-            <Link className="button-primary mt-8" href="/contacto">Hablar con MateArte</Link>
+            <p>
+              <span className="clientes-copy-desktop">{t("ctaBodyDesktop")}</span>
+              <span className="clientes-copy-mobile">{t("ctaBodyMobile")}</span>
+            </p>
+            <Link className="button-primary mt-8" href="/contacto">{t("ctaAction")}</Link>
           </div>
         </div>
       </section>

@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { localizeCanonicalPath } from "@/i18n/paths";
 import { siteUrl, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { isLocale } from "@/i18n/config";
 
 function privateRedirect(destination: string) {
   const response = NextResponse.redirect(destination, 303);
@@ -26,8 +28,11 @@ async function applyPendingAction(client: SupabaseClient, userId: string, action
   }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const url = new URL(request.url);
+  const localeValue = request.cookies.get("NEXT_LOCALE")?.value;
+  const locale = isLocale(localeValue) ? localeValue : "es";
+  const destination = (path: string) => `${siteUrl()}${localizeCanonicalPath(path, locale)}`;
   const code = url.searchParams.get("code") || "";
   const isOpaqueHandoffCode = /^[A-Za-z0-9_-]{43}$/.test(code);
   const isStoreOAuthCallback = url.searchParams.get("flow") === "store"
@@ -36,19 +41,19 @@ export async function GET(request: Request) {
 
   if (isStoreOAuthCallback) {
     if (!code || url.searchParams.has("error")) {
-      return privateRedirect(`${siteUrl()}/perfil?auth=cancelled`);
+      return privateRedirect(`${destination("/perfil")}?auth=cancelled`);
     }
     const server = await createServerSupabase();
     const { data: authData, error } = await server.auth.exchangeCodeForSession(code);
-    if (error) return privateRedirect(`${siteUrl()}/perfil?auth=failed`);
+    if (error) return privateRedirect(`${destination("/perfil")}?auth=failed`);
     const { data: profile } = await server
       .from("customer_profiles")
       .select("profile_completed_at")
       .eq("user_id", authData.user.id)
       .maybeSingle();
-    return privateRedirect(`${siteUrl()}${profile?.profile_completed_at ? "/perfil" : "/perfil/editar"}`);
+    return privateRedirect(destination(profile?.profile_completed_at ? "/perfil" : "/perfil/editar"));
   }
-  const failure = (reason: string) => privateRedirect(`${siteUrl()}/carrito?handoff=${reason}`);
+  const failure = (reason: string) => privateRedirect(`${destination("/carrito")}?handoff=${reason}`);
   if (!isOpaqueHandoffCode) return failure("invalid");
 
   const edgeResponse = await fetch(`${supabaseUrl()}/functions/v1/auth-handoff`, {
@@ -63,7 +68,7 @@ export async function GET(request: Request) {
   if (!verified.user) return failure("invalid");
   await applyPendingAction(server, verified.user.id, handoff.action, handoff.payload as Record<string, unknown>);
   const targetPath = ["/", "/carrito", "/checkout", "/pedidos", "/perfil"].includes(handoff.targetPath) ? handoff.targetPath : "/";
-  return privateRedirect(`${siteUrl()}${targetPath}`);
+  return privateRedirect(destination(targetPath));
 }
 
 export const dynamic = "force-dynamic";

@@ -8,7 +8,7 @@ describe("catálogo MateArte", () => {
   });
 
   it("asigna todos los productos a categorías existentes", () => {
-    const categorySlugs = new Set(categories.map((category) => category.slug));
+    const categorySlugs = new Set<string>(categories.map((category) => category.slug));
     expect(products.every((product) => categorySlugs.has(product.category))).toBe(true);
   });
 

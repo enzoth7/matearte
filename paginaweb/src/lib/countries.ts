@@ -1,9 +1,11 @@
 import { countries as countryMetadata, type TCountryCode } from "countries-list";
 import { countries } from "country-flag-icons";
 import { allCountries } from "country-region-data";
+import type { Locale } from "@/types/catalog";
 
-const displayNames = new Intl.DisplayNames(["es-UY", "es"], { type: "region" });
-const collator = new Intl.Collator("es-UY", { sensitivity: "base" });
+const languageTags: Record<Locale, string> = { es: "es-UY", en: "en", pt: "pt-BR" };
+const displayNames = (locale: Locale) => new Intl.DisplayNames([languageTags[locale]], { type: "region" });
+const collator = (locale: Locale) => new Intl.Collator(languageTags[locale], { sensitivity: "base" });
 
 export type CountryRegion = {
   code: string;
@@ -15,19 +17,25 @@ const regionsByCountry = new Map<string, CountryRegion[]>(
     countryCode,
     regions
       .map(([name, code]) => ({ code, name }))
-      .sort((left, right) => collator.compare(left.name, right.name)),
+      .sort((left, right) => collator("es").compare(left.name, right.name)),
   ]),
 );
 
-export const countryOptions = countries
-  .filter((code) => /^[A-Z]{2}$/.test(code))
-  .map((code) => ({ code, name: displayNames.of(code) || code }))
-  .filter(({ code, name }) => name !== code)
-  .sort((left, right) => collator.compare(left.name, right.name));
+export function countryOptionsForLocale(locale: Locale = "es") {
+  const names = displayNames(locale);
+  const sorter = collator(locale);
+  return countries
+    .filter((code) => /^[A-Z]{2}$/.test(code))
+    .map((code) => ({ code, name: names.of(code) || code }))
+    .filter(({ code, name }) => name !== code)
+    .sort((left, right) => sorter.compare(left.name, right.name));
+}
 
-export function countryName(code?: string | null) {
+export const countryOptions = countryOptionsForLocale("es");
+
+export function countryName(code?: string | null, locale: Locale = "es") {
   if (!code) return "";
-  return displayNames.of(code.toUpperCase()) || code.toUpperCase();
+  return displayNames(locale).of(code.toUpperCase()) || code.toUpperCase();
 }
 
 export function countryRegions(code?: string | null) {

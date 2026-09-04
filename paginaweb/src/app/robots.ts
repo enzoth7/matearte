@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
-import { siteUrl } from "@/lib/metadata";
+import { buildRobotsFile } from "@/lib/seo-files";
 
 export default function robots(): MetadataRoute.Robots {
-  return { rules: { userAgent: "*", allow: "/", disallow: ["/carrito"] }, sitemap: `${siteUrl}/sitemap.xml`, host: siteUrl };
+  return buildRobotsFile();
 }

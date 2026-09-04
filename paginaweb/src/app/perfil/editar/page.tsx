@@ -1,14 +1,23 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { getLocale, getTranslations } from "next-intl/server";
 import { ProfileEditor } from "@/components/ProfileEditor";
+import { localizedAlternates } from "@/i18n/metadata";
+import { localizeCanonicalPath } from "@/i18n/paths";
 import { requireUser } from "@/lib/supabase/server";
+import type { Locale } from "@/types/catalog";
 
-export const metadata: Metadata = { title: "Editar mi perfil", robots: { index: false, follow: false } };
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale() as Locale;
+  const t = await getTranslations("profileEditor");
+  return { title: t("metadataTitle"), alternates: localizedAlternates(locale, "/perfil/editar"), robots: { index: false, follow: false } };
+}
 export const dynamic = "force-dynamic";
 
 export default async function EditProfilePage() {
+  const locale = await getLocale() as Locale;
   const { user, client } = await requireUser();
-  if (!user) redirect("/perfil");
+  if (!user) redirect(localizeCanonicalPath("/perfil", locale));
 
   const { data: profile } = await client
     .from("customer_profiles")

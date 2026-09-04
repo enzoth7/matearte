@@ -1,65 +1,163 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
-import { Reveal } from "@/components/Reveal";
-import { editorialMedia } from "@/data/catalog";
+import { getLocale, getTranslations } from "next-intl/server";
+import { JsonLd } from "@/components/JsonLd";
+import { NosotrosHero } from "@/components/NosotrosHero";
+import { localizedPageMetadata } from "@/i18n/metadata";
+import { Link } from "@/i18n/navigation";
+import { buildPageStructuredData } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Nosotros",
-  description: "La historia familiar y artesanal de MateArte en Paysandú.",
-  alternates: { canonical: "/nosotros" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  const t = await getTranslations("aboutPage");
+  return localizedPageMetadata(locale, "/nosotros", t("metadataTitle"), t("metadataDescription"));
+}
 
-const timeline = [
-  { year: "+25 años", title: "La Unión Artesanías", body: "La familia Ortiz comienza en Paysandú vendiendo artículos regionales a comerciantes de distintos puntos del Uruguay." },
-  { year: "2015", title: "Dos orillas, un oficio", body: "La historia provista por la marca sitúa una nueva sucursal de producción en Colón, Entre Ríos, y la ampliación hacia termos, materas y venta directa." },
-  { year: "2019", title: "Nace MateArte", body: "El proyecto renueva su identidad y adopta el nombre que hoy lo representa: arte, tradición y piezas que cuentan historias propias." },
-  { year: "Hoy", title: "Paysandú hacia el mundo", body: "Con presencia en Uruguay y Argentina, la marca comunica ventas mayoristas, minoristas y envíos internacionales." },
-];
+const mobileChapters = [
+  {
+    title: "originTitle",
+    year: "originYear",
+    body: "originBody",
+    image: "/assets/matearte/nosotros-desktop/origen.png",
+    imageClass: "nosotros-mobile-chapter-image-origin",
+    alt: "originAlt",
+  },
+  {
+    title: "riverTitle",
+    year: "riverYear",
+    body: "riverBody",
+    image: "/assets/matearte/nosotros-desktop/dos-orillas.png",
+    imageClass: "nosotros-mobile-chapter-image-river",
+    alt: "riverAlt",
+  },
+  {
+    title: "brandTitle",
+    year: "brandYear",
+    body: "brandBody",
+    image: "/assets/matearte/01-marca/Logo1254.png",
+    imageClass: "nosotros-mobile-chapter-image-brand",
+    alt: "brandAlt",
+  },
+] as const;
 
-export default function NosotrosPage() {
+export default async function NosotrosPage() {
+  const locale = await getLocale();
+  const t = await getTranslations("aboutPage");
   return (
-    <main id="contenido">
-      <section className="section-space">
-        <div className="container-shell grid gap-12 lg:grid-cols-12 lg:items-end">
-          <div className="lg:col-span-7">
-            <p className="eyebrow text-[var(--leather)]">Nosotros</p>
-            <h1 className="display-xl mt-7">Una tradición familiar con nombre propio.</h1>
+    <main id="contenido" className="nosotros-page">
+      <JsonLd data={buildPageStructuredData({ locale, href: "/nosotros", name: t("metadataTitle"), description: t("metadataDescription"), type: "AboutPage", homeLabel: "MateArte", includeOrganization: true })} />
+      <div className="nosotros-desktop">
+        <NosotrosHero />
+
+        <section className="nosotros-desktop-story" aria-labelledby="nosotros-story-title">
+          <header className="nosotros-desktop-story-intro">
+            <h2 id="nosotros-story-title">
+              <span>{t("storyLine1")}</span>
+              <span>{t("storyLine2")}</span>
+            </h2>
+          </header>
+
+          <div className="nosotros-desktop-reveal">
+            <article className="nosotros-desktop-chapter">
+              <div className="nosotros-desktop-media nosotros-desktop-media-origin">
+                <Image src="/assets/matearte/nosotros-desktop/origen.png" alt={t("originAlt")} fill sizes="(min-width: 1024px) 45vw, 100vw" />
+              </div>
+              <div className="nosotros-desktop-chapter-copy">
+                <h3>{t("originTitle")}</h3>
+                <p className="nosotros-desktop-year">{t("originYear")}</p>
+                <p>{t("originBody")}</p>
+              </div>
+            </article>
           </div>
-          <p className="text-lg leading-8 text-black/65 lg:col-span-4 lg:col-start-9">MateArte nació en Paysandú, entre artículos regionales, herramientas, materiales y una familia que hizo del oficio su forma de crecer.</p>
-        </div>
-      </section>
-      <section className="container-shell pb-20 md:pb-32">
-        <div className="relative aspect-[16/9] min-h-[26rem] overflow-hidden"><Image src={editorialMedia.hero.src} alt={editorialMedia.hero.alt} fill sizes="100vw" className="object-cover object-center" priority /></div>
-      </section>
-      <section className="section-space bg-[var(--paper)]">
-        <div className="container-shell">
-          <p className="eyebrow text-[var(--yerba)]">Recorrido</p>
-          <div className="mt-12">
-            {timeline.map((item, index) => (
-              <Reveal key={item.year} delay={Math.min(index * 0.035, 0.1)}>
-                <article className="grid gap-4 border-t border-black/20 py-8 md:grid-cols-12 md:py-12">
-                  <p className="text-sm font-semibold tracking-[0.16em] text-[var(--leather)] uppercase md:col-span-2">{item.year}</p>
-                  <h2 className="display-font text-3xl md:col-span-4 md:text-4xl">{item.title}</h2>
-                  <p className="max-w-2xl text-base leading-8 text-black/62 md:col-span-5 md:col-start-8">{item.body}</p>
-                </article>
-              </Reveal>
-            ))}
+
+          <div className="nosotros-desktop-reveal">
+            <article className="nosotros-desktop-chapter nosotros-desktop-chapter-reverse">
+              <div className="nosotros-desktop-chapter-copy">
+                <h3>{t("riverTitle")}</h3>
+                <p className="nosotros-desktop-year">{t("riverYear")}</p>
+                <p>{t("riverBody")}</p>
+              </div>
+              <div className="nosotros-desktop-media nosotros-desktop-media-river">
+                <Image src="/assets/matearte/nosotros-desktop/dos-orillas.png" alt={t("riverAlt")} fill sizes="(min-width: 1024px) 45vw, 100vw" />
+              </div>
+            </article>
           </div>
-          <p className="legal-note mt-8">La cronología se basa en la narrativa pública recopilada. Fechas y hitos deben ser validados por MateArte antes de una publicación definitiva.</p>
-        </div>
-      </section>
-      <section className="section-space">
-        <div className="container-shell grid gap-12 md:grid-cols-12 md:items-center">
-          <div className="md:col-span-5"><div className="relative aspect-[4/5] overflow-hidden"><Image src={editorialMedia.craft.src} alt={editorialMedia.craft.alt} fill sizes="50vw" className="object-cover" /></div></div>
-          <div className="md:col-span-6 md:col-start-7">
-            <p className="eyebrow text-[var(--leather)]">Lo que permanece</p>
-            <h2 className="display-lg mt-7">Calidad que se ve de cerca.</h2>
-            <p className="mt-7 text-lg leading-8 text-black/65">El valor aparece en una costura firme, un borde bien resuelto y un grabado que conversa con la forma. No se trata de producir objetos idénticos, sino piezas cuidadas.</p>
-            <Link className="button-primary mt-8" href="/catalogo">Explorar catálogo</Link>
+
+          <div className="nosotros-desktop-reveal">
+            <article className="nosotros-desktop-chapter">
+              <div className="nosotros-desktop-media nosotros-desktop-media-brand">
+                <Image src="/assets/matearte/01-marca/Logo1254.png" alt={t("brandAlt")} fill sizes="(min-width: 1024px) 45vw, 100vw" unoptimized />
+              </div>
+              <div className="nosotros-desktop-chapter-copy">
+                <h3>{t("brandTitle")}</h3>
+                <p className="nosotros-desktop-year">{t("brandYear")}</p>
+                <p>{t("brandBody")}</p>
+              </div>
+            </article>
           </div>
-        </div>
-      </section>
+
+          <div className="nosotros-desktop-reveal">
+            <article className="nosotros-desktop-world">
+              <Image src="/assets/matearte/nosotros-desktop/paysandu-mundo.png" alt={t("worldAlt")} fill sizes="(min-width: 1024px) 87vw, 100vw" quality={95} />
+              <div className="nosotros-desktop-world-overlay" aria-hidden="true" />
+              <div className="nosotros-desktop-world-copy">
+                <h3><span>{t("worldLine1")}</span><span>{t("worldLine2")}</span></h3>
+                <p>{t("worldBody")}</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section className="nosotros-desktop-cta" aria-labelledby="nosotros-cta-title">
+          <h2 id="nosotros-cta-title">{t("ctaTitle")}</h2>
+          <Link href="/catalogo">{t("ctaAction")}</Link>
+        </section>
+      </div>
+
+      <div className="nosotros-mobile">
+        <NosotrosHero variant="mobile" />
+
+        <section className="nosotros-mobile-story" aria-labelledby="nosotros-mobile-story-title">
+          <h2 id="nosotros-mobile-story-title">
+            <span>{t("storyLine1")}</span>
+            <span>{t("storyMobileLine2")}</span>
+            <span>{t("storyMobileLine3")}</span>
+          </h2>
+
+          {mobileChapters.map((chapter) => (
+            <article className="nosotros-mobile-chapter" key={chapter.year}>
+              <div className={`nosotros-mobile-chapter-image ${chapter.imageClass}`}>
+                <Image
+                  src={chapter.image}
+                  alt={t(chapter.alt)}
+                  fill
+                  sizes="(max-width: 1023px) calc(100vw - 48px), 342px"
+                  unoptimized={chapter.image.endsWith("Logo1254.png")}
+                />
+              </div>
+              <div className="nosotros-mobile-chapter-copy">
+                <h3>{t(chapter.title)}</h3>
+                <p className="nosotros-mobile-year">{t(chapter.year)}</p>
+                <p>{t(chapter.body)}</p>
+              </div>
+            </article>
+          ))}
+
+          <article className="nosotros-mobile-world">
+            <Image src="/assets/matearte/nosotros-desktop/paysandu-mundo.png" alt={t("worldAlt")} fill sizes="(max-width: 1023px) calc(100vw - 48px), 342px" quality={95} />
+            <div className="nosotros-mobile-world-overlay" aria-hidden="true" />
+            <div className="nosotros-mobile-world-copy">
+              <h3>{t("worldTitle")}</h3>
+              <p>{t("worldBody")}</p>
+            </div>
+          </article>
+        </section>
+
+        <section className="nosotros-mobile-cta" aria-labelledby="nosotros-mobile-cta-title">
+          <h2 id="nosotros-mobile-cta-title">{t("ctaTitle")}</h2>
+          <Link href="/catalogo">{t("ctaAction")}</Link>
+        </section>
+      </div>
     </main>
   );
 }
