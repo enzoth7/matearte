@@ -30,6 +30,7 @@ export interface RimTextFinishMaskProps {
   geometry?: RimTextGeometry;
   transform?: ElementTransform;
   inverted?: boolean;
+  knockoutScale?: number;
 }
 
 const luminanceMaskAttribute = { "mask-type": "luminance" };
@@ -39,15 +40,17 @@ export function RimCharacters({
   geometry = rimTextGeometry,
   mask = false,
   inverted = false,
+  knockoutScale = 1,
 }: {
   text: string;
   geometry?: RimTextGeometry;
   mask?: boolean;
   inverted?: boolean;
+  knockoutScale?: number;
 }) {
   const isInverted = geometry.inverted ?? inverted;
   const layout = calculateRimCharacterLayout(text, geometry, isInverted);
-  const knockoutStrokeWidth = calculateRimCharacterKnockoutPadding(layout.fontSize) * 2;
+  const knockoutStrokeWidth = calculateRimCharacterKnockoutPadding(layout.fontSize) * 2 * knockoutScale;
   return (
     <>
       {layout.characters.map((character, index) => character.character !== " " && (
@@ -82,6 +85,7 @@ export function RimTextFinishMask({
   geometry = rimTextGeometry,
   transform,
   inverted = false,
+  knockoutScale = 1,
 }: RimTextFinishMaskProps) {
   const activeTexts = texts && texts.length > 0
     ? texts.filter((t) => t.text.trim().length > 0)
@@ -111,6 +115,7 @@ export function RimTextFinishMask({
             geometry={geometry}
             mask
             inverted={item.inverted}
+            knockoutScale={knockoutScale}
           />
         </g>
       ))}

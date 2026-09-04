@@ -13,6 +13,10 @@ const URUGUAY_DEPARTMENTS = [
   "Salto", "San José", "Soriano", "Tacuarembó", "Treinta y Tres",
 ];
 
+const mainSiteUrl = (import.meta.env.VITE_MAIN_SITE_URL || "http://localhost:3000")
+  .trim()
+  .replace(/\/$/, "");
+
 interface ProfileStepProps {
   userData: UserData;
   localDesigns: SavedDesignItem[];
@@ -71,7 +75,7 @@ function DesignTile({ design, draft = false, onLoad, onCheckout, onDelete, onDup
   const price = selection ? getSelectionPricing(pricingCatalog, selection) : null;
 
   return (
-    <article className="profile-design-tile">
+    <article className={`profile-design-tile ${draft ? "is-draft" : ""}`}>
       {draft && (
         <button
           type="button"
@@ -91,7 +95,7 @@ function DesignTile({ design, draft = false, onLoad, onCheckout, onDelete, onDup
         className="profile-design-tile__preview"
         aria-label={draft ? `Continuar ${design.title || "borrador"}` : `Usar ${design.title || "diseño"} como base`}
       >
-        {config.skuId === null ? <span>Imagen pendiente</span> : <img className="mate-product-photo" src={variant.image} alt="" />}
+        {config.skuId === null ? <span>Imagen pendiente</span> : <img className="mate-product-photo" src={variant.image} alt="" loading="lazy" />}
       </button>
       <strong>{price && price.totalUYU > 0 ? formatUYU(price.totalUYU) : "Precio no disponible"}</strong>
       <span className="profile-design-tile__type">{design.title}</span>
@@ -132,6 +136,7 @@ export function ProfileStep({
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [selectedDraft, setSelectedDraft] = useState<SavedDesignItem | null>(null);
   const [isSubmittingDraft, setIsSubmittingDraft] = useState(false);
+  const [activeTab, setActiveTab] = useState<"drafts" | "orders">("drafts");
 
   useEffect(() => {
     setEditName(userData.name);
@@ -226,69 +231,110 @@ export function ProfileStep({
   const profileCountryName = countryName(profileCountryCode);
   const locationLabel = [userData.city, userData.department, profileCountryName].filter(Boolean).join(", ");
   const birthdayLabel = userData.birthDate ? userData.birthDate.split("-").reverse().join("/") : "";
+  const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const nextTab = event.key === "ArrowLeft" || event.key === "Home" ? "drafts" : "orders";
+    setActiveTab(nextTab);
+    window.requestAnimationFrame(() => document.getElementById(`profile-tab-${nextTab}`)?.focus());
+  };
 
   return (
     <main id="main-content" className="profile-page">
-      <section className="profile-client brand-surface">
-        <button type="button" className="profile-client__avatar" onClick={() => setIsEditModalOpen(true)} aria-label="Cambiar foto de perfil">
-          <img src={userData.avatarUrl || "/assets/marca/LogoOriginal.jpg"} alt={`Foto de ${userData.name}`} />
-          <span>Cambiar foto</span>
-        </button>
-        <div className="profile-client__data">
-          <div className="profile-client__name">
-            <h1>{userData.name}</h1>
-            <span className={`flag:${profileCountryCode} profile-country-flag`} role="img" aria-label={`Bandera de ${profileCountryName}`} />
+      <div className="profile-layout">
+        <section className="profile-client" aria-labelledby="profile-name">
+          <div className="profile-client__headline">
+            <button type="button" className="profile-client__avatar" onClick={() => setIsEditModalOpen(true)} aria-label="Cambiar foto de perfil">
+              <img src={userData.avatarUrl || "/assets/marca/LogoOriginal.jpg"} alt={`Foto de ${userData.name}`} />
+              <span>Cambiar foto</span>
+            </button>
+            <div className="profile-client__name">
+              <h1 id="profile-name">{userData.name}</h1>
+              <span className={`flag:${profileCountryCode} profile-country-flag`} role="img" aria-label={`Bandera de ${profileCountryName}`} />
+            </div>
           </div>
+
           <div className="profile-client__meta">
             <p><ProfileIcon name="email" /><span>{userData.email}</span></p>
             <p><ProfileIcon name="location" /><span>{locationLabel}</span></p>
             {birthdayLabel && <p><ProfileIcon name="birthday" /><span>{birthdayLabel}</span></p>}
           </div>
-        </div>
-        <div className="profile-client__actions">
-          <button type="button" className="brand-button" onClick={() => setIsEditModalOpen(true)}>Editar mis datos</button>
-          {onLogout && <button type="button" className="profile-logout" onClick={onLogout}>Cerrar sesión</button>}
-        </div>
-      </section>
 
-      <section className="profile-list profile-list--saved">
-        <div className="profile-list__heading">
-          <div>
-            <h2>Mis pedidos</h2>
-            <p>Diseños que ya enviaste al carrito. Podés abrirlos para usarlos como base.</p>
+          <div className="profile-client__actions">
+            <button type="button" className="brand-button profile-client__edit" onClick={() => setIsEditModalOpen(true)}>Editar mis datos</button>
+            <a className="profile-store-link" href={mainSiteUrl}>Ir a la tienda</a>
+            {onLogout && <button type="button" className="profile-logout" onClick={onLogout}>Cerrar sesión</button>}
           </div>
-        </div>
-        {loading ? <p className="profile-empty">Cargando…</p> : savedDesigns.length === 0 ? <p className="profile-empty">Todavía no tenés pedidos.</p> : (
-          <div className="profile-grid">
-            {savedDesigns.map((design) => <DesignTile key={design.id} design={design} onLoad={() => onLoadDesign(design)} />)}
-          </div>
-        )}
-      </section>
+        </section>
 
-      <section className="profile-list profile-list--drafts">
-        <div className="profile-list__heading">
-          <div>
-            <h2>Mis borradores</h2>
-            <p>Trabajos en curso que se actualizan sin crear copias nuevas.</p>
+        <section className="profile-library" aria-labelledby="profile-library-title">
+          <h2 id="profile-library-title">Tus mates, siempre cerca</h2>
+          <div className="profile-tabs" role="tablist" aria-label="Tus mates">
+            <button
+              id="profile-tab-drafts"
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "drafts"}
+              aria-controls="profile-panel-drafts"
+              tabIndex={activeTab === "drafts" ? 0 : -1}
+              onClick={() => setActiveTab("drafts")}
+              onKeyDown={handleTabKeyDown}
+            >
+              Borradores
+            </button>
+            <button
+              id="profile-tab-orders"
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "orders"}
+              aria-controls="profile-panel-orders"
+              tabIndex={activeTab === "orders" ? 0 : -1}
+              onClick={() => setActiveTab("orders")}
+              onKeyDown={handleTabKeyDown}
+            >
+              Pedidos
+            </button>
           </div>
-          <button type="button" className="brand-button" onClick={onNewDesign}>+ Nuevo diseño</button>
-        </div>
-        {loading ? <p className="profile-empty">Cargando…</p> : drafts.length === 0 ? <p className="profile-empty">Todavía no hay borradores.</p> : (
-          <div className="profile-grid">
-            {drafts.map((design) => (
-              <DesignTile
-                key={design.id}
-                design={design}
-                draft
-                onLoad={() => onLoadDesign(design)}
-                onCheckout={() => setSelectedDraft(design)}
-                onDuplicate={() => void handleDuplicate(design)}
-                onDelete={() => void handleDelete(design)}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+
+          {activeTab === "drafts" ? (
+            <div id="profile-panel-drafts" className="profile-tab-panel" role="tabpanel" aria-labelledby="profile-tab-drafts">
+              {loading ? <p className="profile-empty" role="status">Cargando tus diseños…</p> : (
+                <div className="profile-grid">
+                  {drafts.map((design) => (
+                    <DesignTile
+                      key={design.id}
+                      design={design}
+                      draft
+                      onLoad={() => onLoadDesign(design)}
+                      onCheckout={() => setSelectedDraft(design)}
+                      onDuplicate={() => void handleDuplicate(design)}
+                      onDelete={() => void handleDelete(design)}
+                    />
+                  ))}
+                  <button type="button" className="profile-new-design" onClick={onNewDesign}>
+                    <span aria-hidden="true">+</span>
+                    <strong>Nuevo diseño</strong>
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div id="profile-panel-orders" className="profile-tab-panel" role="tabpanel" aria-labelledby="profile-tab-orders">
+              {loading ? <p className="profile-empty" role="status">Cargando tus pedidos…</p> : savedDesigns.length === 0 ? (
+                <p className="profile-empty">Todavía no tenés pedidos.</p>
+              ) : (
+                <div className="profile-grid">
+                  {savedDesigns.map((design) => <DesignTile key={design.id} design={design} onLoad={() => onLoadDesign(design)} />)}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
+
+      <div className="profile-mobile-edit">
+        <button type="button" className="brand-button" onClick={() => setIsEditModalOpen(true)}>Editar mis datos</button>
+      </div>
 
       {selectedDraft && (
         <div className="brand-modal" role="dialog" aria-modal="true" aria-labelledby="draft-title">

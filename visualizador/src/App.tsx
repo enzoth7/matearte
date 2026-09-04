@@ -6,7 +6,7 @@ import { consumeMainSiteHandoff, createMainSiteHandoff, createProfileAvatarSigne
 import { WelcomeStep } from "./components/WelcomeStep";
 import { CustomizerIntroStep } from "./components/CustomizerIntroStep";
 import { MateSelectionStep } from "./components/MateSelectionStep";
-import { StepIndicator } from "./components/StepIndicator";
+import { BrandHeader } from "./components/BrandHeader";
 import { SummaryStep } from "./components/SummaryStep";
 import { SuccessStep } from "./components/SuccessStep";
 import { ProfileStep } from "./components/ProfileStep";
@@ -43,7 +43,7 @@ import {
   type ResolvedMateProduct,
 } from "./catalog/mateDecisionCatalog";
 import { createDefaultRimSelection, normalizeRimSelection } from "./catalog/rimCatalog";
-import { getRimFinish } from "./catalog/rimFinishCatalog";
+import { getRimFinish, getRimFinishCatalogForEngravingType } from "./catalog/rimFinishCatalog";
 import { getFlejeFinish } from "./catalog/flejeFinishCatalog";
 import { calculateOrderPricing, countChargeableCharacters, formatUYU, getCustomizationPrice } from "./catalog/pricingCatalog";
 import { createDefaultFlejeCustomization, normalizeFlejeCustomization, type CustomImageAsset, type EditableElement, type FlejeCustomization, type FlejeSide, type MateConfiguration } from "./types/customizer";
@@ -178,6 +178,10 @@ function createConfigurationFromResolved(
   const variant = getVariantDefinition(product.legacyVariantId) ?? getDefaultVariant(product.shapeId);
   const rim = normalizeRimSelection(variant, current?.rim);
   rim.rimId = product.rimId;
+  const availableRimFinishes = getRimFinishCatalogForEngravingType(product.engravingTypeId);
+  if (!availableRimFinishes.some((finish) => finish.id === rim.finishId)) {
+    rim.finishId = availableRimFinishes[0]?.id ?? rim.finishId;
+  }
   const selection: MateSelection = {
     familyId: product.familyId,
     textureId: product.textureId,
@@ -1049,16 +1053,11 @@ function VisualizerApp() {
   return (
     <div className="brand-app brand-desktop-note">
       <a className="brand-skip-link" href="#main-content">Saltar al contenido</a>
-      {wizardStep === "profile" ? (
-        <div className="brand-profile-title">Perfil de cliente</div>
-      ) : wizardStep === "access" ? (
-        <div className="brand-access-title">Acceso Matearte</div>
-      ) : (
-        <StepIndicator
-          currentStep={showStyleIntro && wizardStep === "customizer" ? "product_selection" : wizardStep}
-          hasFleje={indicatorHasFleje}
-          customizationPhase={activePhase}
-          onStepClick={(step, phase) => {
+      <BrandHeader
+        currentStep={wizardStep}
+        hasFleje={indicatorHasFleje}
+        customizationPhase={activePhase}
+        onStepClick={wizardStep === "profile" || wizardStep === "access" ? undefined : (step, phase) => {
             setAllowIncompletePhaseNavigation(step !== "product_selection");
             if (phase) {
               setActivePhase(phase);
@@ -1067,8 +1066,7 @@ function VisualizerApp() {
             }
             changeStep(step);
           }}
-        />
-      )}
+      />
 
       <div className="brand-main">
         {wizardStep === "welcome" && (
@@ -1102,18 +1100,20 @@ function VisualizerApp() {
 
         {wizardStep === "customizer" && !showStyleIntro && (
           <main id="main-content" className="brand-customizer" data-phase={activePhase ?? "virola"}>
-            <div className="brand-customizer__actions">
-              <button type="button" onClick={handleCustomizerBack} className="brand-button">Atrás</button>
-              <button type="button" onClick={handleCustomizerNext} disabled={saveStatus !== "idle"} className="brand-button">
-                {saveStatus === "saving" ? "Guardando…" : "Siguiente"}
-              </button>
+            <div className="brand-customizer__topbar">
+              <aside className="customizer-disclaimer" aria-label="Cómo activar una personalización">
+                <span className="customizer-disclaimer__switch" aria-hidden="true"><span /></span>
+                <p>
+                  <strong>Virola y fleje:</strong> activá las pastillas verdes para personalizar. Todo lo que dejes desactivado queda liso, sin personalización y sin costo adicional.
+                </p>
+              </aside>
+              <div className="brand-customizer__actions">
+                <button type="button" onClick={handleCustomizerBack} className="brand-button">Atrás</button>
+                <button type="button" onClick={handleCustomizerNext} disabled={saveStatus !== "idle"} className="brand-button">
+                  {saveStatus === "saving" ? "Guardando…" : "Siguiente"}
+                </button>
+              </div>
             </div>
-            <aside className="customizer-disclaimer" aria-label="Cómo activar una personalización">
-              <span className="customizer-disclaimer__switch" aria-hidden="true"><span /></span>
-              <p>
-                <strong>Virola y fleje:</strong> activá las pastillas verdes para personalizar. Todo lo que dejes desactivado queda liso, sin personalización y sin costo adicional.
-              </p>
-            </aside>
             <div className="customizer-layout grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
               
               {/* PANEL 1: IZQUIERDA (Acordeón de Personalización) */}
@@ -1237,6 +1237,7 @@ function VisualizerApp() {
                         <div className="customizer-card-body customizer-card-body--finish">
                           <RimFinishSelector
                             selectedFinishId={configuration.rim.finishId}
+                            catalog={getRimFinishCatalogForEngravingType(configuration.engravingTypeId)}
                             onSelect={(finishId) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, finishId } }))}
                           />
                         </div>
@@ -1707,7 +1708,7 @@ function VisualizerApp() {
         )}
       </div>
 
-      <BrandFooter onProfile={() => requireAuthentication("profile")} />
+      <BrandFooter />
 
       {/* Save Success Toast */}
       {saveStatus === "saved" && (

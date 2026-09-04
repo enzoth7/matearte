@@ -1,18 +1,19 @@
 import { useState } from "react";
-import { rimFinishCatalog, type RimFinishId } from "../catalog/rimFinishCatalog";
+import { rimFinishCatalog, type RimFinish, type RimFinishId } from "../catalog/rimFinishCatalog";
 
 interface RimFinishSelectorProps {
   selectedFinishId: RimFinishId;
   onSelect: (finishId: RimFinishId) => void;
+  catalog?: RimFinish[];
 }
 
-export function RimFinishSelector({ selectedFinishId, onSelect }: RimFinishSelectorProps) {
+export function RimFinishSelector({ selectedFinishId, onSelect, catalog = rimFinishCatalog }: RimFinishSelectorProps) {
   const [failedImages, setFailedImages] = useState<RimFinishId[]>([]);
 
   return (
     <div>
       <div className="rim-finish-grid">
-        {rimFinishCatalog.map((finish) => {
+        {catalog.map((finish) => {
           const isSelected = finish.id === selectedFinishId;
           return (
             <button key={finish.id} type="button" onClick={() => onSelect(finish.id)} aria-pressed={isSelected} className={`overflow-hidden rounded-xl border p-2 text-center transition-all ${isSelected ? "border-[#2b3e13] bg-[#2b3e13]/5 text-[#2b3e13] ring-1 ring-[#2b3e13]/25" : "border-zinc-200 bg-white text-zinc-700 hover:border-[#7a4a31]"}`}>

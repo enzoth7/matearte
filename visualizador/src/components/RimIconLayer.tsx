@@ -73,4 +73,3 @@ export function RimIconLayer({
     </g>
   );
 }
-

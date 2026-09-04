@@ -41,6 +41,7 @@ export function RimFinishLayer({
             texts={texts}
             geometry={textGeometry}
             transform={textTransform}
+            knockoutScale={finish.textKnockoutScale}
           />
         </defs>
       )}

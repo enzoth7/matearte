@@ -19,20 +19,20 @@ interface IndicatorStep {
 export function StepIndicator({ currentStep, hasFleje = false, customizationPhase, onStepClick }: StepIndicatorProps) {
   const steps: IndicatorStep[] = [
     { key: "mate", id: "product_selection", label: "ELEGÍ TU MATE" },
-    { key: "virola", id: "customizer", label: "VIROLA", phase: "virola" },
-    ...(hasFleje ? [{ key: "fleje", id: "customizer" as WizardStep, label: "FLEJE", phase: "fleje" as IndicatorPhase }] : []),
-    { key: "summary", id: "summary", label: "RESUMEN" },
+    { key: "personalize", id: "customizer", label: "PERSONALIZÁ", phase: "virola" },
+    { key: "create", id: "customizer", label: "CREÁ TU DISEÑO", phase: hasFleje ? "fleje" : "virola" },
+    { key: "summary", id: "summary", label: "REVISÁ" },
   ];
 
   const currentIndex = currentStep === "customizer"
-    ? hasFleje && customizationPhase === "fleje" ? 2 : 1
+    ? customizationPhase === "fleje" ? 2 : 1
     : currentStep === "summary" || currentStep === "checkout" || currentStep === "success"
-      ? steps.length - 1
+      ? 3
       : 0;
 
   return (
     <nav className="brand-progress" aria-label="Progreso del personalizador">
-      <ol>
+      <ol className="brand-progress__labels">
         {steps.map((step, index) => {
           const completed = index < currentIndex;
           const current = index === currentIndex;
@@ -46,13 +46,21 @@ export function StepIndicator({ currentStep, hasFleje = false, customizationPhas
                 aria-current={current ? "step" : undefined}
                 className={current ? "is-current" : completed ? "is-complete" : ""}
               >
-                {index + 1}. {step.label}
+                <strong>{String(index + 1).padStart(2, "0")} · </strong>
+                <span>{step.label}</span>
               </button>
-              {index < steps.length - 1 && <span aria-hidden="true">⟶</span>}
             </li>
           );
         })}
       </ol>
+      <div className="brand-progress__segments" aria-hidden="true">
+        {steps.map((step, index) => (
+          <span
+            key={step.key}
+            className={index === currentIndex ? "is-current" : index < currentIndex ? "is-complete" : ""}
+          />
+        ))}
+      </div>
     </nav>
   );
 }
