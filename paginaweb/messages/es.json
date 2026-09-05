@@ -207,6 +207,11 @@
     "black": "Negro",
     "natural": "Natural",
     "rawLeather": "Cuero crudo",
+    "red": "Rojo",
+    "white": "Blanco",
+    "pink": "Rosado",
+    "gray": "Gris",
+    "gold": "Dorado",
     "comingSoon": "Próximamente"
   },
   "product": {

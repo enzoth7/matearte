@@ -207,6 +207,11 @@
     "black": "Black",
     "natural": "Natural",
     "rawLeather": "Raw leather",
+    "red": "Red",
+    "white": "White",
+    "pink": "Pink",
+    "gray": "Gray",
+    "gold": "Gold",
     "comingSoon": "Coming soon"
   },
   "product": {

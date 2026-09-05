@@ -44,11 +44,16 @@ export const productTypeOptions: ReadonlyArray<{ value: CatalogProductTypeId; la
   { value: "torpedo", labelKey: "torpedo" },
 ];
 
-export const colorOptions: ReadonlyArray<{ value: CatalogColorId; labelKey: "brown" | "black" | "natural" | "rawLeather"; color: string }> = [
+export const colorOptions: ReadonlyArray<{ value: CatalogColorId; labelKey: "brown" | "black" | "natural" | "rawLeather" | "red" | "white" | "pink" | "gray" | "gold"; color: string }> = [
   { value: "marron", labelKey: "brown", color: "#6c4530" },
   { value: "negro", labelKey: "black", color: "#241d1a" },
   { value: "natural", labelKey: "natural", color: "#cfaf79" },
   { value: "cuero-crudo", labelKey: "rawLeather", color: "#e8d9bb" },
+  { value: "rojo", labelKey: "red", color: "#a83232" },
+  { value: "blanco", labelKey: "white", color: "#f5f5f5" },
+  { value: "rosado", labelKey: "pink", color: "#e8a4a4" },
+  { value: "gris", labelKey: "gray", color: "#8c8c8c" },
+  { value: "dorado", labelKey: "gold", color: "#c9a859" },
 ];
 
 export type PriceRangeId = (typeof priceRangeOptions)[number]["value"];

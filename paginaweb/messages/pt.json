@@ -207,6 +207,11 @@
     "black": "Preto",
     "natural": "Natural",
     "rawLeather": "Couro cru",
+    "red": "Vermelho",
+    "white": "Branco",
+    "pink": "Rosa",
+    "gray": "Cinza",
+    "gold": "Dourado",
     "comingSoon": "Em breve"
   },
   "product": {
