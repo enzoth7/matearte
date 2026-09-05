@@ -31,7 +31,6 @@ export async function POST(request: Request) {
     if (!fullName || !phone) return apiError("Completá nombre y teléfono.");
 
     const admin = createAdminSupabase();
-    await admin.rpc("release_expired_commerce_reservations");
     const cart = await readCart(admin, user.id);
     if (!cart.items.length) return apiError("El carrito está vacío.");
     const designIds = cart.items.filter((item) => item.item_type === "design").map((item) => item.design_id).filter(Boolean) as string[];

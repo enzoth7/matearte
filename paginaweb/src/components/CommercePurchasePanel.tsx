@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { addLocalCartItem } from "@/lib/browser-cart";
 import { useRouter } from "@/i18n/navigation";
 
-type Variant = { id: string; sku: string; name: string; price_minor: number; inventory_tracked: boolean; stock_on_hand: number; stock_reserved: number };
+type Variant = { id: string; sku: string; name: string; price_minor: number };
 export function CommercePurchasePanel({ slug }: { slug: string }) {
   const locale = useLocale();
   const t = useTranslations("product");
@@ -25,4 +25,3 @@ export function CommercePurchasePanel({ slug }: { slug: string }) {
   };
   return <section className="mt-7 border border-black/20 bg-[var(--paper)] p-5"><label className="text-xs font-semibold uppercase tracking-widest">{t("variant")}<select className="mt-2 h-12 w-full border border-black/20 bg-transparent px-3 text-sm normal-case tracking-normal" value={selected} onChange={(e) => setSelected(e.target.value)}>{data.product.variants.map((item) => <option key={item.id} value={item.id}>{item.name} · $ {(item.price_minor / 100).toLocaleString("es-UY")} UYU</option>)}</select></label><p className="mt-4 display-font text-3xl">$ {(variant.price_minor / 100).toLocaleString("es-UY")} UYU</p>{!data.commerceEnabled && <p className="mt-3 text-xs text-amber-800">{t("catalogReady")}</p>}<button disabled={busy || !data.commerceEnabled} onClick={() => void add()} className="mt-5 min-h-12 w-full bg-[var(--walnut)] px-5 text-sm font-semibold text-white disabled:opacity-50">{busy ? t("adding") : t("addToCart")}</button>{message && <p role="status" className="mt-3 text-xs leading-5">{message}</p>}</section>;
 }
-

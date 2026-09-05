@@ -88,6 +88,6 @@ La portada incorpora entrada escalonada y parallax leve. El bloque audiovisual a
 
 ## Comercio
 
-`/catalogo` y `/producto/[slug]` consultan en cada visita los productos publicados en Supabase. Los productos nuevos cargados desde `commerce-admin` aparecen con nombre, descripción, categoría, imágenes, variantes activas, precio mínimo en UYU y disponibilidad de stock. Los productos editoriales siguen como respaldo hasta que sean reemplazados por un producto comercial con el mismo slug.
+`/catalogo` y `/producto/[slug]` consultan en cada visita los productos publicados en Supabase. Los productos nuevos cargados desde `commerce-admin` aparecen con nombre, descripción, categoría, imágenes, variantes activas y precio mínimo en UYU. Los productos editoriales siguen como respaldo hasta que sean reemplazados por un producto comercial con el mismo slug.
 
 Los visitantes solo reciben filas publicadas mediante políticas RLS específicas. La categoría interna `sandbox` no se muestra en la grilla. Los materiales, tipos y colores del panel se incorporarán cuando se defina el modelo final de filtros.

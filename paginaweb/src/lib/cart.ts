@@ -17,7 +17,7 @@ export async function readCart(client: SupabaseClient, userId: string) {
   const cart = await getOrCreateCart(client, userId);
   const { data: items, error } = await client.from("cart_items").select(`
     id,item_type,variant_id,design_id,quantity,updated_at,
-    variant:commerce_variants(id,sku,name,price_minor,currency,inventory_tracked,stock_on_hand,stock_reserved,active,product:commerce_products(id,editorial_slug,name,sale_mode,published,commerce_product_images(storage_path,sort_order))),
+    variant:commerce_variants(id,sku,name,price_minor,currency,active,product:commerce_products(id,editorial_slug,name,sale_mode,published,commerce_product_images(storage_path,sort_order))),
     design:designs(id,title,preview_path,updated_at)
   `).eq("cart_id", cart.id).order("created_at");
   if (error) throw error;
@@ -61,12 +61,10 @@ export async function readPricedCart(client: SupabaseClient, userId: string) {
 
 export async function addCatalogItem(client: SupabaseClient, userId: string, variantId: string, quantity: number) {
   const cart = await getOrCreateCart(client, userId);
-  const { data: variant, error } = await client.from("commerce_variants").select("id,active,inventory_tracked,stock_on_hand,stock_reserved,product:commerce_products!inner(published)").eq("id", variantId).single();
+  const { data: variant, error } = await client.from("commerce_variants").select("id,active,product:commerce_products!inner(published)").eq("id", variantId).single();
   if (error || !variant?.active || !(variant.product as unknown as { published: boolean }).published) throw new Error("La variante no está disponible.");
-  if (variant.inventory_tracked && variant.stock_on_hand - variant.stock_reserved < quantity) throw new Error("No hay stock suficiente.");
   const current = await client.from("cart_items").select("id,quantity").eq("cart_id", cart.id).eq("variant_id", variantId).maybeSingle();
   const next = Math.min(99, (current.data?.quantity || 0) + quantity);
-  if (variant.inventory_tracked && variant.stock_on_hand - variant.stock_reserved < next) throw new Error("No hay stock suficiente.");
   if (current.data) {
     const result = await client.from("cart_items").update({ quantity: next }).eq("id", current.data.id).select("id").single();
     if (result.error) throw result.error;

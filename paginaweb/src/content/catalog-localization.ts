@@ -44,7 +44,7 @@ const enProducts: Record<string, ProductCopy> = {
     name: "Alpaca parrot-beak bombilla",
     eyebrow: "Alpaca",
     summary: "The classic parrot-beak profile in an alpaca piece.",
-    description: "A reference from the public catalog. Selectable sizes will be added when inventory is connected.",
+    description: "A reference from the public catalog. Selectable sizes will be added when the commercial listing is complete.",
   },
   "limpia-bombillas": {
     name: "Bombilla cleaning brush",
@@ -56,13 +56,13 @@ const enProducts: Record<string, ProductCopy> = {
     name: "Leather hanging matera",
     eyebrow: "Leather on the go",
     summary: "A compact matera with a strap, made to move with you.",
-    description: "A piece from the public catalog. Colors and availability will be confirmed against commercial inventory.",
+    description: "A piece from the public catalog. Colors will be confirmed when the commercial listing is complete.",
   },
   "matera-cuadrada-cuero": {
     name: "Square leather matera",
     eyebrow: "Practical craft",
     summary: "A structured format for organizing a mate, thermos and accessories.",
-    description: "A visual reference from the public catalog. It does not represent current stock or pricing.",
+    description: "A visual reference from the public catalog. It does not represent current pricing.",
   },
   "matera-ovalada-cuero": {
     name: "Oval leather matera",
@@ -74,7 +74,7 @@ const enProducts: Record<string, ProductCopy> = {
     name: "Stanley 800 ml thermos",
     eyebrow: "Mate gear",
     summary: "A compact format for enjoying mate away from home.",
-    description: "A visual reference from the public catalog. The trade name, stock and variants must be validated when the supplier is connected.",
+    description: "A visual reference from the public catalog. The trade name and variants must be validated when the supplier is connected.",
   },
   "termo-stanley-12": {
     name: "Stanley 1.2 l thermos",
@@ -86,7 +86,7 @@ const enProducts: Record<string, ProductCopy> = {
     name: "Termolar 1 l thermos",
     eyebrow: "Everyday classic",
     summary: "A one-liter thermos designed for daily use.",
-    description: "A visual catalog reference. Stock, color and pricing will come from the real commercial source.",
+    description: "A visual catalog reference. Color and pricing will come from the real commercial source.",
   },
   "set-premium": {
     name: "Premium set",
@@ -143,7 +143,7 @@ const ptProducts: Record<string, ProductCopy> = {
     name: "Bombilla de alpaca bico de papagaio",
     eyebrow: "Alpaca",
     summary: "O perfil clássico de bico de papagaio em uma peça de alpaca.",
-    description: "Referência do catálogo público. As medidas selecionáveis serão incorporadas ao conectar o estoque.",
+    description: "Referência do catálogo público. As medidas selecionáveis serão incorporadas ao completar a ficha comercial.",
   },
   "limpia-bombillas": {
     name: "Escova para bombillas",
@@ -155,13 +155,13 @@ const ptProducts: Record<string, ProductCopy> = {
     name: "Matera de couro com alça",
     eyebrow: "Couro para levar",
     summary: "Uma matera compacta com alça para acompanhar seus movimentos.",
-    description: "Peça do catálogo público. As cores e a disponibilidade serão confirmadas com o estoque comercial.",
+    description: "Peça do catálogo público. As cores serão confirmadas ao completar a ficha comercial.",
   },
   "matera-cuadrada-cuero": {
     name: "Matera quadrada de couro",
     eyebrow: "Ofício prático",
     summary: "Formato estruturado para organizar mate, garrafa térmica e acessórios.",
-    description: "Referência visual do catálogo público. Não representa estoque ou preço vigente.",
+    description: "Referência visual do catálogo público. Não representa um preço vigente.",
   },
   "matera-ovalada-cuero": {
     name: "Matera oval de couro",
@@ -173,7 +173,7 @@ const ptProducts: Record<string, ProductCopy> = {
     name: "Garrafa térmica Stanley 800 ml",
     eyebrow: "Equipamento para mate",
     summary: "Formato compacto para acompanhar o mate fora de casa.",
-    description: "Referência visual do catálogo público. O nome comercial, o estoque e as variantes deverão ser validados ao conectar o fornecedor.",
+    description: "Referência visual do catálogo público. O nome comercial e as variantes deverão ser validados ao conectar o fornecedor.",
   },
   "termo-stanley-12": {
     name: "Garrafa térmica Stanley 1,2 l",
@@ -185,7 +185,7 @@ const ptProducts: Record<string, ProductCopy> = {
     name: "Garrafa térmica Termolar 1 l",
     eyebrow: "Clássico cotidiano",
     summary: "Uma garrafa térmica de um litro pensada para o uso diário.",
-    description: "Referência visual do catálogo. Estoque, cor e preço virão da fonte comercial real.",
+    description: "Referência visual do catálogo. A cor e o preço virão da fonte comercial real.",
   },
   "set-premium": {
     name: "Conjunto premium",

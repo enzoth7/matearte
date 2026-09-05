@@ -50,9 +50,6 @@ function commerceProduct(overrides: Partial<StorefrontProductRow> = {}): Storefr
         name: "Grande",
         price_minor: 550000,
         currency: "UYU",
-        inventory_tracked: true,
-        stock_on_hand: 2,
-        stock_reserved: 2,
         active: true,
       },
       {
@@ -61,9 +58,6 @@ function commerceProduct(overrides: Partial<StorefrontProductRow> = {}): Storefr
         name: "Estándar",
         price_minor: 450000,
         currency: "UYU",
-        inventory_tracked: true,
-        stock_on_hand: 3,
-        stock_reserved: 1,
         active: true,
       },
     ],
@@ -76,7 +70,7 @@ function commerceProduct(overrides: Partial<StorefrontProductRow> = {}): Storefr
 }
 
 describe("catálogo público conectado a Supabase", () => {
-  it("convierte imágenes, variantes, stock y precio mínimo cargados en el panel", () => {
+  it("convierte imágenes, variantes y precio mínimo cargados en el panel", () => {
     const product = storefrontProductFromRow(commerceProduct(), baseUrl, "es");
 
     expect(product.name).toBe("Producto nuevo");
@@ -89,7 +83,7 @@ describe("catálogo público conectado a Supabase", () => {
     });
     expect(product.variants.map((variant) => [variant.value, variant.available])).toEqual([
       ["NUEVO-1", true],
-      ["NUEVO-2", false],
+      ["NUEVO-2", true],
     ]);
   });
 

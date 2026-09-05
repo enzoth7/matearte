@@ -10,6 +10,6 @@ describe("VariantPanel", () => {
     expect(radios[0]).toBeChecked();
     fireEvent.click(radios[1]);
     expect(radios[1]).toBeChecked();
-    expect(screen.getByText(/no representan stock/i)).toBeInTheDocument();
+    expect(screen.getByText(/precio final se confirma/i)).toBeInTheDocument();
   });
 });

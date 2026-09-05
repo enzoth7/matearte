@@ -25,9 +25,6 @@ const storefrontSelection = `
     name,
     price_minor,
     currency,
-    inventory_tracked,
-    stock_on_hand,
-    stock_reserved,
     active
   ),
   images:commerce_product_images(

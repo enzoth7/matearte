@@ -46,7 +46,6 @@ export async function POST(request: Request) {
     if (!settings?.commerce_enabled) return apiError("El comercio todavía no está habilitado.", 503);
 
     const admin = createAdminSupabase();
-    await admin.rpc("release_expired_commerce_reservations");
     const cart = await readCart(admin, user.id);
     if (!cart.items.length) return apiError("El carrito está vacío.");
 

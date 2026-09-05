@@ -7,9 +7,6 @@ export type StorefrontVariantRow = {
   name: string;
   price_minor: number;
   currency: "UYU";
-  inventory_tracked: boolean;
-  stock_on_hand: number;
-  stock_reserved: number;
   active: boolean;
 };
 
@@ -84,7 +81,7 @@ function mapVariants(row: StorefrontProductRow): ProductVariant[] {
       value: variant.sku,
       commerceId: variant.id,
       price: { amountMinor: variant.price_minor, currency: variant.currency },
-      available: !variant.inventory_tracked || variant.stock_on_hand - variant.stock_reserved > 0,
+      available: true,
     }));
 }
 

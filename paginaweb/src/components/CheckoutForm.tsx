@@ -102,8 +102,8 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
         });
         const text = await response.text();
         const value = text ? JSON.parse(text) : {};
-        if (!response.ok) throw new Error(t("prepareMessageFailed"));
-        if (typeof value.whatsappUrl !== "string" || !value.whatsappUrl.startsWith("https://wa.me/")) throw new Error(t("unsafeWhatsapp"));
+        if (!response.ok) throw new Error(value.error || t("prepareMessageFailed"));
+        if (typeof value.whatsappUrl !== "string" || !value.whatsappUrl.startsWith("https://wa.me/")) throw new Error(value.error || t("unsafeWhatsapp"));
         sessionStorage.removeItem("matearte_international_order_idempotency");
         window.location.assign(value.whatsappUrl);
         return;
@@ -118,7 +118,7 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
       });
       const text = await response.text();
       const value = text ? JSON.parse(text) : {};
-      if (!response.ok) throw new Error(t("paymentStartFailed"));
+      if (!response.ok) throw new Error(value.error || t("paymentStartFailed"));
       window.location.assign(value.checkoutUrl);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t("continueFailed"));

@@ -27,10 +27,6 @@ export async function PATCH(request: Request) {
     const item = cart.items.find((entry) => entry.id === body.itemId);
     if (!item) return apiError("El artículo no existe.", 404);
     if (item.item_type === "design" && quantity !== 1) return apiError("Un diseño personalizado tiene cantidad 1.");
-    if (item.item_type === "catalog") {
-      const variant = item.variant as unknown as { inventory_tracked: boolean; stock_on_hand: number; stock_reserved: number };
-      if (variant.inventory_tracked && variant.stock_on_hand - variant.stock_reserved < quantity) return apiError("No hay stock suficiente.", 409);
-    }
     const result = await admin.from("cart_items").update({ quantity }).eq("id", item.id).eq("cart_id", cart.id);
     if (result.error) throw result.error;
     return apiOk(await readPricedCart(admin, user.id));
