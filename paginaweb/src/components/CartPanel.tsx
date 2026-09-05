@@ -105,6 +105,7 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
   const localizedProducts = getLocalizedProducts(locale);
   const titleFor = (item: RemoteItem) => itemTitle(item, localizedProducts, t("piece"));
   const subtitleFor = (item: RemoteItem) => itemSubtitle(item, t("customDesign"), t("catalogPiece"));
+  const imageAltFor = (item: RemoteItem) => item.item_type === "design" ? "MateArte" : titleFor(item);
   const [cart, setCart] = useState<Cart | null>(null);
   const [needsLogin, setNeedsLogin] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -486,7 +487,7 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
                   <div className="cart-mobile-thumbnail">
                     <Image
                       src={itemImage(item)}
-                      alt={titleFor(item)}
+                      alt={imageAltFor(item)}
                       fill
                       loading={cart.items[0]?.id === item.id ? "eager" : "lazy"}
                       sizes="104px"
@@ -581,7 +582,7 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
               <div className="cart-desktop-thumbnail">
                 <Image
                   src={itemImage(item)}
-                  alt={titleFor(item)}
+                  alt={imageAltFor(item)}
                   fill
                   loading={cart.items[0]?.id === item.id ? "eager" : "lazy"}
                   sizes="120px"
