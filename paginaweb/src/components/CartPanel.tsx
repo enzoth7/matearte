@@ -200,7 +200,7 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
           `)
           .in("id", missingUUIDs.map(m => m.variantId));
 
-        const supabaseUrlBase = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+        const supabaseUrlBase = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://agdkljuulwjwjasftcce.supabase.co").trim();
 
         for (const { variantId, quantity } of missingUUIDs) {
           const vData = dbVariants?.find((v: any) => v.id === variantId);
@@ -211,7 +211,12 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
 
             // Try matching a local catalog image first for 100% reliable loading
             const rawNameNorm = normalizeProductName(rawProduct?.name || "");
-            const localMatch = products.find(p => p.slug === rawProduct?.editorial_slug || p.id === rawProduct?.editorial_slug || (rawNameNorm && normalizeProductName(p.name).includes(rawNameNorm)));
+            const localMatch = products.find(p => {
+              const pNameNorm = normalizeProductName(p.name);
+              return p.slug === rawProduct?.editorial_slug
+                || p.id === rawProduct?.editorial_slug
+                || (rawNameNorm && (pNameNorm.includes(rawNameNorm) || rawNameNorm.includes(pNameNorm)));
+            });
             const localImage = localMatch?.images[0]?.src;
 
             const imageSrc = localImage || (imagePath
