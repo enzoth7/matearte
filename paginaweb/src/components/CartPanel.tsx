@@ -11,12 +11,13 @@ import type { Locale, Product } from "@/types/catalog";
 type RemoteItem = {
   id: string; item_type: "catalog" | "design"; quantity: number;
   unit_price_minor: number; currency: string;
-  variant: null | { name: string; price_minor: number; currency: string; product: { name: string } };
+  variant: null | { name: string; price_minor: number; currency: string; product: { name: string; commerce_product_images?: { storage_path: string; sort_order: number }[] } };
   design: null | { title: string };
 };
 type Cart = { id: string; items: RemoteItem[] };
 
 import { formatMoney as money } from "@/lib/money";
+import { createBrowserSupabase } from "@/lib/supabase/browser";
 
 const normalizeProductName = (value: string) => value
   .normalize("NFD")
@@ -44,13 +45,24 @@ function itemImage(item: RemoteItem) {
     return "/assets/matearte/profile-orders-desktop/design-fallback.png";
   }
 
+  const images = [...(item.variant?.product.commerce_product_images || [])].sort((a, b) => a.sort_order - b.sort_order);
+  const imagePath = images[0]?.storage_path;
+
   const remoteName = normalizeProductName(item.variant?.product.name || "");
+  let localImage;
   if (remoteName) {
     const product = products.find((candidate) => {
       const localName = normalizeProductName(candidate.name);
       return localName.includes(remoteName) || remoteName.includes(localName);
     });
-    if (product) return product.images[0].src;
+    if (product) localImage = product.images[0]?.src;
+  }
+
+  if (localImage) return localImage;
+  
+  if (imagePath) {
+    const supabase = createBrowserSupabase();
+    return supabase.storage.from("product-images").getPublicUrl(imagePath).data.publicUrl;
   }
 
   return "/assets/matearte/profile-orders-desktop/catalog-fallback.png";
@@ -220,7 +232,7 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
             const localImage = localMatch?.images[0]?.src;
 
             const imageSrc = localImage || (imagePath
-              ? `${supabaseUrlBase.replace(/\/$/, "")}/storage/v1/object/public/product-images/${imagePath.split("/").map(encodeURIComponent).join("/")}`
+              ? supabase.storage.from("product-images").getPublicUrl(imagePath).data.publicUrl
               : "/assets/matearte/profile-orders-desktop/catalog-fallback.png");
 
             resolved.push({
