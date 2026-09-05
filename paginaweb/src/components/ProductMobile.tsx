@@ -150,6 +150,11 @@ export function ProductMobile({ product, exchangeRates }: { product: Product; ex
                                  : v.label.toLowerCase().includes('marr') ? '#8B4513'
                                  : v.label.toLowerCase().includes('natural') ? '#D2B48C'
                                  : v.label.toLowerCase().includes('crudo') ? '#E6C280'
+                                 : v.label.toLowerCase().includes('rojo') ? '#a83232'
+                                 : v.label.toLowerCase().includes('blanco') ? '#f5f5f5'
+                                 : v.label.toLowerCase().includes('rosado') ? '#e8a4a4'
+                                 : v.label.toLowerCase().includes('gris') ? '#8c8c8c'
+                                 : v.label.toLowerCase().includes('dorado') ? '#c9a859'
                                  : '#ccc';
                   const isActive = activeVariantId === v.id;
                   return (
