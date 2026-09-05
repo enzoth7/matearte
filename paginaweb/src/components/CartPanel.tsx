@@ -133,25 +133,134 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
     finally { setBusy(""); }
   };
 
-  // Guest cart: read localStorage items and resolve to catalog products
-  const [localItems, setLocalItems] = useState<Array<{ product: Product; variantLabel: string; variantId: string; quantity: number; priceMinor: number }>>([]);
-  useEffect(() => {
-    if (!needsLogin) return;
+  // Guest cart: read localStorage items and resolve to catalog or DB products
+  type LocalResolvedItem = {
+    title: string;
+    variantLabel: string;
+    variantId: string;
+    quantity: number;
+    priceMinor: number;
+    imageSrc: string;
+  };
+
+  const [localItems, setLocalItems] = useState<LocalResolvedItem[]>([]);
+
+  const resolveLocalCart = useCallback(async () => {
     const { readLocalCart } = require("@/lib/browser-cart") as typeof import("@/lib/browser-cart");
     const entries = readLocalCart();
-    const resolved = entries.flatMap(({ variantId, quantity }) => {
-      const product = products.find(p => p.variants.some(v => v.id === variantId));
-      if (!product) return [];
-      const variant = product.variants.find(v => v.id === variantId);
-      const priceMinor = variant?.price?.amountMinor ?? (product.filterData.priceUYU ? product.filterData.priceUYU * 100 : 0);
-      return [{ product, variantLabel: variant?.label ?? "", variantId, quantity, priceMinor }];
-    });
+    if (entries.length === 0) {
+      setLocalItems([]);
+      return;
+    }
+
+    const resolved: LocalResolvedItem[] = [];
+    const missingUUIDs: Array<{ variantId: string; quantity: number }> = [];
+
+    for (const { variantId, quantity } of entries) {
+      const pByVariant = products.find(p => p.variants.some(v => v.id === variantId));
+      const pByIdOrSlug = products.find(p => p.id === variantId || p.slug === variantId);
+      const product = pByVariant || pByIdOrSlug;
+
+      if (product) {
+        const localizedName = localizedProducts.find(lp => lp.id === product.id)?.name || product.name;
+        const variant = product.variants.find(v => v.id === variantId);
+        const priceMinor = variant?.price?.amountMinor ?? (product.filterData.priceUYU ? product.filterData.priceUYU * 100 : 0);
+        resolved.push({
+          title: localizedName,
+          variantLabel: variant?.label ?? "",
+          variantId,
+          quantity,
+          priceMinor,
+          imageSrc: product.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.png",
+        });
+      } else {
+        missingUUIDs.push({ variantId, quantity });
+      }
+    }
+
+    if (missingUUIDs.length > 0) {
+      try {
+        const { createBrowserSupabase } = await import("@/lib/supabase/browser");
+        const supabase = createBrowserSupabase();
+        const { data: dbVariants } = await supabase
+          .from("commerce_variants")
+          .select(`
+            id,
+            name,
+            price_minor,
+            commerce_products (
+              id,
+              editorial_slug,
+              name,
+              commerce_product_images (
+                storage_path,
+                sort_order
+              )
+            )
+          `)
+          .in("id", missingUUIDs.map(m => m.variantId));
+
+        const supabaseUrlBase = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+
+        for (const { variantId, quantity } of missingUUIDs) {
+          const vData = dbVariants?.find((v: any) => v.id === variantId);
+          if (vData) {
+            const rawProduct = vData.commerce_products as any;
+            const images = (rawProduct?.commerce_product_images || []).sort((a: any, b: any) => a.sort_order - b.sort_order);
+            const imagePath = images[0]?.storage_path;
+            const imageSrc = imagePath
+              ? `${supabaseUrlBase.replace(/\/$/, "")}/storage/v1/object/public/product-images/${imagePath}`
+              : "/assets/matearte/profile-orders-desktop/catalog-fallback.png";
+
+            resolved.push({
+              title: rawProduct?.name || "Producto MateArte",
+              variantLabel: vData.name || "",
+              variantId,
+              quantity,
+              priceMinor: vData.price_minor || 0,
+              imageSrc,
+            });
+          } else {
+            const fallbackP = products[0];
+            resolved.push({
+              title: fallbackP?.name || "Producto",
+              variantLabel: "",
+              variantId,
+              quantity,
+              priceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
+              imageSrc: fallbackP?.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.png",
+            });
+          }
+        }
+      } catch {
+        for (const { variantId, quantity } of missingUUIDs) {
+          const fallbackP = products[0];
+          resolved.push({
+            title: fallbackP?.name || "Producto",
+            variantLabel: "",
+            variantId,
+            quantity,
+            priceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
+            imageSrc: fallbackP?.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.png",
+          });
+        }
+      }
+    }
+
     setLocalItems(resolved);
-  }, [needsLogin]);
+  }, [localizedProducts]);
+
+  useEffect(() => {
+    if (!needsLogin) return;
+    void resolveLocalCart();
+    const handleCartChange = () => { void resolveLocalCart(); };
+    window.addEventListener("matearte-cart-change", handleCartChange);
+    return () => { window.removeEventListener("matearte-cart-change", handleCartChange); };
+  }, [needsLogin, resolveLocalCart]);
 
   const removeLocalItem = (variantId: string) => {
-    const { readLocalCart, clearLocalCart } = require("@/lib/browser-cart") as typeof import("@/lib/browser-cart");
-    const updated = readLocalCart().filter(e => e.variantId !== variantId);
+    const { readLocalCart } = require("@/lib/browser-cart") as typeof import("@/lib/browser-cart");
+    const updated = readLocalCart().filter((e: any) => e.variantId !== variantId);
     localStorage.setItem("matearte_visitor_cart_v1", JSON.stringify(updated));
     window.dispatchEvent(new Event("matearte-cart-change"));
     setLocalItems(prev => prev.filter(i => i.variantId !== variantId));
@@ -195,10 +304,10 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
                 <article key={item.variantId} className="cart-mobile-item">
                   <div className="cart-mobile-item-row">
                     <div className="cart-mobile-thumbnail">
-                      <Image src={item.product.images[0].src} alt={item.product.name} fill sizes="104px" />
+                      <Image src={item.imageSrc} alt={item.title} fill sizes="104px" />
                     </div>
                     <div className="cart-mobile-item-copy">
-                      <h3>{localizedProducts.find(p => p.id === item.product.id)?.name ?? item.product.name}</h3>
+                      <h3>{item.title}</h3>
                       <p>{item.variantLabel || t("catalogPiece")}</p>
                       <span>{t("unitPrice", { price: guestFormat(item.priceMinor) })}</span>
                     </div>
@@ -241,10 +350,10 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
               {localItems.map((item) => (
                 <article key={item.variantId} className="cart-desktop-item">
                   <div className="cart-desktop-thumbnail">
-                    <Image src={item.product.images[0].src} alt={item.product.name} fill sizes="120px" />
+                    <Image src={item.imageSrc} alt={item.title} fill sizes="120px" />
                   </div>
                   <div className="cart-desktop-item-copy">
-                    <h3>{localizedProducts.find(p => p.id === item.product.id)?.name ?? item.product.name}</h3>
+                    <h3>{item.title}</h3>
                     <p>{item.variantLabel || t("catalogPiece")}</p>
                     <span>{t("unitPrice", { price: guestFormat(item.priceMinor) })}</span>
                   </div>
