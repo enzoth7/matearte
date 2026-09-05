@@ -133,35 +133,151 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
     finally { setBusy(""); }
   };
 
-  if (needsLogin) return (
-    <>
-    <MobileEmptyCart showLogin />
-    <div className="cart-empty-desktop-state cart-empty cart-empty-login">
-      <div className="cart-empty-copy">
-        <div className="cart-empty-icon">
-          <Image src="/assets/matearte/cart-desktop/bag.svg" alt="" width={24} height={24} aria-hidden="true" />
+  // Guest cart: read localStorage items and resolve to catalog products
+  const [localItems, setLocalItems] = useState<Array<{ product: Product; variantLabel: string; variantId: string; quantity: number; priceMinor: number }>>([]);
+  useEffect(() => {
+    if (!needsLogin) return;
+    const { readLocalCart } = require("@/lib/browser-cart") as typeof import("@/lib/browser-cart");
+    const entries = readLocalCart();
+    const resolved = entries.flatMap(({ variantId, quantity }) => {
+      const product = products.find(p => p.variants.some(v => v.id === variantId));
+      if (!product) return [];
+      const variant = product.variants.find(v => v.id === variantId);
+      const priceMinor = variant?.price?.amountMinor ?? (product.filterData.priceUYU ? product.filterData.priceUYU * 100 : 0);
+      return [{ product, variantLabel: variant?.label ?? "", variantId, quantity, priceMinor }];
+    });
+    setLocalItems(resolved);
+  }, [needsLogin]);
+
+  const removeLocalItem = (variantId: string) => {
+    const { readLocalCart, clearLocalCart } = require("@/lib/browser-cart") as typeof import("@/lib/browser-cart");
+    const updated = readLocalCart().filter(e => e.variantId !== variantId);
+    localStorage.setItem("matearte_visitor_cart_v1", JSON.stringify(updated));
+    window.dispatchEvent(new Event("matearte-cart-change"));
+    setLocalItems(prev => prev.filter(i => i.variantId !== variantId));
+  };
+
+  if (needsLogin) {
+    if (localItems.length === 0) return (
+      <>
+      <MobileEmptyCart showLogin />
+      <div className="cart-empty-desktop-state cart-empty cart-empty-login">
+        <div className="cart-empty-copy">
+          <div className="cart-empty-icon">
+            <Image src="/assets/matearte/cart-desktop/bag.svg" alt="" width={24} height={24} aria-hidden="true" />
+          </div>
+          <div className="cart-empty-message">
+            <p className="display-font mt-5 text-4xl">{t("emptyTitle")}</p>
+            <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-black/60">{t("emptyBody")}</p>
+          </div>
+          <div className="cart-empty-actions">
+            <Link className="button-primary gap-2" href="/catalogo">{t("explore")}</Link>
+            <Link className="cart-empty-login-button" href="/perfil">{t("login")}</Link>
+          </div>
         </div>
-        <div className="cart-empty-message">
-          <p className="display-font mt-5 text-4xl">{t("emptyTitle")}</p>
-          <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-black/60">{t("emptyBody")}</p>
-        </div>
-        <div className="cart-empty-actions">
-          <Link className="button-primary gap-2" href="/catalogo">{t("explore")}</Link>
-          <Link className="cart-empty-login-button" href="/perfil">{t("login")}</Link>
+        <div className="cart-empty-image">
+          <Image src="/assets/matearte/cart-desktop/empty-cart.png" alt={t("emptyAlt")} fill priority sizes="221px" />
         </div>
       </div>
-      <div className="cart-empty-image">
-        <Image
-          src="/assets/matearte/cart-desktop/empty-cart.png"
-          alt={t("emptyAlt")}
-          fill
-          priority
-          sizes="221px"
-        />
-      </div>
-    </div>
-    </>
-  );
+      </>
+    );
+
+    const guestSubtotal = localItems.reduce((sum, i) => sum + i.priceMinor * i.quantity, 0);
+    const guestFormat = (minor: number) => money(minor, "UYU", locale, exchangeRates);
+    return (
+      <>
+        <div className="cart-populated-mobile-state">
+          <section className="cart-mobile-selection" aria-labelledby="cart-mobile-selection-title">
+            <h2 id="cart-mobile-selection-title" className="sr-only">{t("selectedItems")}</h2>
+            <div className="cart-mobile-selection-divider" aria-hidden="true" />
+            <div className="cart-mobile-items">
+              {localItems.map((item) => (
+                <article key={item.variantId} className="cart-mobile-item">
+                  <div className="cart-mobile-item-row">
+                    <div className="cart-mobile-thumbnail">
+                      <Image src={item.product.images[0].src} alt={item.product.name} fill sizes="104px" />
+                    </div>
+                    <div className="cart-mobile-item-copy">
+                      <h3>{localizedProducts.find(p => p.id === item.product.id)?.name ?? item.product.name}</h3>
+                      <p>{item.variantLabel || t("catalogPiece")}</p>
+                      <span>{t("unitPrice", { price: guestFormat(item.priceMinor) })}</span>
+                    </div>
+                  </div>
+                  <div className="cart-mobile-item-actions">
+                    <div className="cart-mobile-quantity">
+                      <span>{t("quantity")}</span>
+                      <div className="cart-mobile-quantity-control cart-mobile-quantity-static">
+                        <output>{item.quantity}</output>
+                      </div>
+                    </div>
+                    <button type="button" className="cart-mobile-remove" onClick={() => removeLocalItem(item.variantId)}>
+                      <Image src="/assets/matearte/cart-desktop/remove.svg" alt="" width={16} height={16} aria-hidden="true" />
+                      {t("remove")}
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="cart-mobile-selection-divider cart-mobile-selection-divider-bottom" aria-hidden="true" />
+            <Link className="cart-mobile-continue-shopping" href="/catalogo">{t("continueShopping")} <span aria-hidden="true">→</span></Link>
+          </section>
+          <aside className="cart-mobile-summary" aria-label={t("summaryLabel")}>
+            <div className="cart-mobile-summary-heading"><span aria-hidden="true" /><p>{t("summary")}</p></div>
+            <dl className="cart-mobile-summary-list">
+              <div><dt>{t("subtotal")}</dt><dd>{guestFormat(guestSubtotal)}</dd></div>
+              <div><dt>{t("shipping")}</dt><dd>{t("toCalculate")}</dd></div>
+            </dl>
+            <div className="cart-mobile-summary-divider" aria-hidden="true" />
+            <div className="cart-mobile-total"><span>{t("total")}</span><strong>{guestFormat(guestSubtotal)}</strong></div>
+            <Link href={"/perfil?redirect=/checkout" as any} className="cart-mobile-checkout">{t("continue")}</Link>
+          </aside>
+        </div>
+
+        <div className="cart-populated-desktop-state">
+          <section className="cart-desktop-selection" aria-labelledby="cart-selection-title">
+            <h2 id="cart-selection-title" className="sr-only">{t("selectedItems")}</h2>
+            <div className="cart-desktop-selection-divider" aria-hidden="true" />
+            <div className="cart-desktop-items">
+              {localItems.map((item) => (
+                <article key={item.variantId} className="cart-desktop-item">
+                  <div className="cart-desktop-thumbnail">
+                    <Image src={item.product.images[0].src} alt={item.product.name} fill sizes="120px" />
+                  </div>
+                  <div className="cart-desktop-item-copy">
+                    <h3>{localizedProducts.find(p => p.id === item.product.id)?.name ?? item.product.name}</h3>
+                    <p>{item.variantLabel || t("catalogPiece")}</p>
+                    <span>{t("unitPrice", { price: guestFormat(item.priceMinor) })}</span>
+                  </div>
+                  <div className="cart-desktop-quantity">
+                    <span>{t("quantity")}</span>
+                    <div className="cart-desktop-quantity-control cart-desktop-quantity-static">
+                      <output>{item.quantity}</output>
+                    </div>
+                  </div>
+                  <button type="button" className="cart-desktop-remove" onClick={() => removeLocalItem(item.variantId)}>
+                    <Image src="/assets/matearte/cart-desktop/remove.svg" alt="" width={16} height={16} aria-hidden="true" />
+                    {t("remove")}
+                  </button>
+                </article>
+              ))}
+            </div>
+            <Link className="cart-desktop-continue-shopping" href="/catalogo">{t("continueShopping")} <span aria-hidden="true">→</span></Link>
+          </section>
+          <aside className="cart-desktop-summary" aria-label={t("summaryLabel")}>
+            <div className="cart-desktop-summary-heading"><span aria-hidden="true" /><p>{t("summary")}</p></div>
+            <dl className="cart-desktop-summary-list">
+              <div><dt>{t("subtotal")}</dt><dd>{guestFormat(guestSubtotal)}</dd></div>
+              <div><dt>{t("shipping")}</dt><dd>{t("toCalculate")}</dd></div>
+            </dl>
+            <div className="cart-desktop-summary-divider" aria-hidden="true" />
+            <div className="cart-desktop-total"><span>{t("total")}</span><strong>{guestFormat(guestSubtotal)}</strong></div>
+            <Link href={"/perfil?redirect=/checkout" as any} className="cart-desktop-checkout">{t("continue")}</Link>
+          </aside>
+        </div>
+      </>
+    );
+  }
+
   if (!cart) return (
     <div role="status" aria-live="polite" className="cart-loading grid gap-8 p-6 motion-safe:animate-pulse sm:p-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:p-10">
       <div>
