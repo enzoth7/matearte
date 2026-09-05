@@ -15,11 +15,11 @@ type CartItem = { quantity: number; unit_price_minor: number };
 
 const departments = ["Artigas", "Canelones", "Cerro Largo", "Colonia", "Durazno", "Flores", "Florida", "Lavalleja", "Maldonado", "Montevideo", "Paysandú", "Río Negro", "Rivera", "Rocha", "Salto", "San José", "Soriano", "Tacuarembó", "Treinta y Tres"];
 
-function MoneyValue({ amount }: { amount: number | null }) {
-  return <span>{amount === null ? "—" : formatMoney(amount)}</span>;
+function MoneyValue({ amount, locale, exchangeRates }: { amount: number | null, locale: string, exchangeRates?: Record<string, number> }) {
+  return <span>{amount === null ? "—" : formatMoney(amount, "UYU", locale, exchangeRates)}</span>;
 }
 
-export function CheckoutForm({ initialCustomer, initialDestination = { international: false, country: "", city: "" } }: { initialCustomer: CustomerForm; initialDestination?: InitialDestination }) {
+export function CheckoutForm({ initialCustomer, initialDestination = { international: false, country: "", city: "" }, exchangeRates }: { initialCustomer: CustomerForm; initialDestination?: InitialDestination, exchangeRates?: Record<string, number> }) {
   const locale = useLocale() as Locale;
   const t = useTranslations("checkout");
   const tCart = useTranslations("cart");
@@ -34,7 +34,9 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const rate = useMemo(() => rates.find((item) => item.id === rateId), [rates, rateId]);
-  const shippingMinor = purchaseRegion === "uruguay" && rate ? rate.rate_minor : null;
+  const isDelivery = Boolean(rate && !rate.is_pickup);
+  const isInternational = isDelivery && purchaseRegion === "international";
+  const shippingMinor = rate ? rate.rate_minor : null;
   const totalMinor = subtotalMinor === null || shippingMinor === null ? null : subtotalMinor + shippingMinor;
 
   const loadRates = useCallback(async () => {
@@ -48,7 +50,7 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
       const nextRates = Array.isArray(value.rates) ? value.rates as Rate[] : [];
       if (!nextRates.length) throw new Error(t("noRates"));
       setRates(nextRates);
-      setRateId((current) => nextRates.some((item) => item.id === current) ? current : nextRates[0].id);
+      setRateId((current) => nextRates.some((item) => item.id === current) ? current : "");
     } catch (reason) {
       setRates([]);
       setRateId("");
@@ -88,14 +90,14 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
     setBusy(true);
     setError("");
     try {
-      if (purchaseRegion === "international") {
+      if (isInternational) {
         const storedKey = sessionStorage.getItem("matearte_international_order_idempotency");
         const idempotencyKey = storedKey || crypto.randomUUID();
         sessionStorage.setItem("matearte_international_order_idempotency", idempotencyKey);
         const response = await fetch("/api/orders/international", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-          body: JSON.stringify({ customer: form, destination: international, locale }),
+          body: JSON.stringify({ customer: form, destination: { ...international, department: form.department, address: form.address }, locale }),
         });
         const text = await response.text();
         const value = text ? JSON.parse(text) : {};
@@ -123,7 +125,7 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
     }
   };
 
-  const internationalReady = Boolean(international.country.trim());
+  const internationalReady = Boolean(rateId) && Boolean(international.country.trim());
   const domesticReady = Boolean(rateId) && !ratesLoading;
 
   // Campo class — igual al Figma: borde sutil, sin border-radius exagerado
@@ -179,7 +181,7 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
             </label>
           </div>
 
-          {/* Opciones de envío (siempre visibles, en pills oliva) */}
+          {/* Modalidad de entrega */}
           <fieldset>
             <legend className="sr-only">{t("delivery")}</legend>
             {ratesLoading && <p role="status" className="text-sm text-black/55">{t("loadingRates")}</p>}
@@ -197,9 +199,10 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
                     className={`relative flex cursor-pointer items-center justify-between gap-3 rounded-xl border px-5 py-4 text-left transition focus-within:ring-2 focus-within:ring-[var(--rawhide)]/50 ${rateId === item.id ? "border-[#6b7a4a] bg-[#6b7a4a] text-[var(--paper)]" : "border-[#6b7a4a]/30 bg-[var(--cream)] text-[var(--walnut)]"}`}
                   >
                     <input type="radio" name="rate" required checked={rateId === item.id} onChange={() => setRateId(item.id)} className="sr-only" />
-                    <strong className="text-sm">{item.name || (item.is_pickup ? t("shippingPickup") : t("shippingDelivery"))}</strong>
+                    {rateId === item.id && <Check size={18} weight="bold" className="absolute top-3 right-3" aria-hidden="true" />}
+                    <strong className="text-sm">{item.is_pickup ? t("pickupAtStore") : t("homeDelivery")}</strong>
                     <span className={`text-sm font-medium ${rateId === item.id ? "text-white/90" : "text-black/55"}`}>
-                      {item.rate_minor ? formatMoney(item.rate_minor) : t("free")}
+                      {item.is_pickup ? t("free") : item.rate_minor ? formatMoney(item.rate_minor, "UYU", locale, exchangeRates) : tCart("toCalculate")}
                     </span>
                   </label>
                 ))}
@@ -207,8 +210,8 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
             )}
           </fieldset>
 
-          {/* Selector de destino: Uruguay / Exterior */}
-          <fieldset>
+          {/* El destino sólo aplica al envío a domicilio. */}
+          {isDelivery && <fieldset>
             <legend className="sr-only">{t("destinationLegend")}</legend>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className={`relative flex cursor-pointer items-center gap-3 rounded-xl border px-5 py-4 text-left transition focus-within:ring-2 focus-within:ring-[var(--rawhide)]/50 ${purchaseRegion === "uruguay" ? "border-[var(--walnut)] bg-[var(--walnut)] text-[var(--paper)]" : "border-[var(--walnut)]/25 bg-[var(--paper)] text-[var(--walnut)]"}`}>
@@ -230,17 +233,11 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
                 </span>
               </label>
             </div>
-          </fieldset>
+          </fieldset>}
 
-          {/* Campos de dirección — según destino seleccionado */}
-          {purchaseRegion === "uruguay" ? (
-            /* Dirección UY: aparece solo si la tarifa seleccionada no es retiro */
-            rate && !rate.is_pickup ? (
+          {/* Campos de dirección — según el destino del envío */}
+          {isDelivery && (purchaseRegion === "uruguay" ? (
               <div className="grid gap-5 sm:grid-cols-2">
-                <label className="text-sm font-semibold text-[var(--walnut)]">
-                  {t("country")}
-                  <input value="Uruguay" readOnly aria-readonly="true" className={`${fieldClass} opacity-50`} />
-                </label>
                 <label className="text-sm font-semibold text-[var(--walnut)]">
                   {t("department")}
                   <select name="address-level1" autoComplete="address-level1" required value={form.department} onChange={(event) => update("department", event.target.value)} className={fieldClass}>
@@ -257,41 +254,47 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
                   <input name="street-address" autoComplete="street-address" required maxLength={240} value={form.address} onChange={(event) => update("address", event.target.value)} className={fieldClass} />
                 </label>
               </div>
-            ) : null
           ) : (
-            /* Exterior: país + ciudad */
-            <div className="grid gap-5 rounded-xl border border-[var(--leather)]/20 bg-[var(--cream)] p-5 sm:grid-cols-2">
-              <p className="text-sm leading-6 text-black/60 sm:col-span-2">{t("internationalBody")}</p>
+            /* Exterior: país, departamento/estado, ciudad y dirección. */
+            <div className="grid gap-5 sm:grid-cols-2">
               <label className="text-sm font-semibold text-[var(--walnut)]">
                 {t("country")}
                 <input name="country-name" autoComplete="country-name" required maxLength={100} value={international.country} onChange={(event) => updateInternational("country", event.target.value)} className={fieldClass} />
               </label>
               <label className="text-sm font-semibold text-[var(--walnut)]">
-                {t("city")} <span className="font-normal text-black/40">({t("optional")})</span>
+                {t("state")}
+                <input name="address-level1" autoComplete="address-level1" maxLength={80} value={form.department} onChange={(event) => update("department", event.target.value)} className={fieldClass} />
+              </label>
+              <label className="text-sm font-semibold text-[var(--walnut)]">
+                {t("city")}
                 <input name="address-level2" autoComplete="address-level2" maxLength={100} value={international.city} onChange={(event) => updateInternational("city", event.target.value)} className={fieldClass} />
               </label>
+              <label className="text-sm font-semibold text-[var(--walnut)]">
+                {t("address")}
+                <input name="street-address" autoComplete="street-address" maxLength={240} value={form.address} onChange={(event) => update("address", event.target.value)} className={fieldClass} />
+              </label>
             </div>
-          )}
+          ))}
         </div>
 
         {/* ── Sidebar derecha — resumen o WhatsApp ── */}
         <aside className="flex flex-col bg-[#908c76] p-7 text-[var(--paper)] sm:p-8 lg:p-10">
-          {purchaseRegion === "uruguay" ? (
+          {!isInternational ? (
             <>
               <p className="eyebrow text-[0.65rem] text-[var(--paper)] opacity-80 before:w-5">{tCart("summary")}</p>
               <dl className="mt-6 grow space-y-3 text-sm">
                 <div className="flex items-baseline justify-between gap-4">
                   <dt className="text-white/75">{tCart("subtotal")}</dt>
-                  <dd className="font-semibold"><MoneyValue amount={subtotalMinor} /></dd>
+                  <dd className="font-semibold"><MoneyValue amount={subtotalMinor} locale={locale} exchangeRates={exchangeRates} /></dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
                   <dt className="text-white/75">{tCart("shipping")}</dt>
-                  <dd className="font-semibold"><MoneyValue amount={shippingMinor} /></dd>
+                  <dd className="font-semibold"><MoneyValue amount={shippingMinor} locale={locale} exchangeRates={exchangeRates} /></dd>
                 </div>
                 <div className="border-t border-white/25 pt-4">
                   <div className="flex items-baseline justify-between gap-4">
                     <dt className="font-semibold">{tCart("total")}</dt>
-                    <dd className="text-2xl font-bold"><MoneyValue amount={totalMinor} /></dd>
+                    <dd className="text-2xl font-bold"><MoneyValue amount={totalMinor} locale={locale} exchangeRates={exchangeRates} /></dd>
                   </div>
                 </div>
               </dl>
@@ -309,10 +312,10 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
           {error && <p role="alert" className="mt-5 text-sm font-semibold text-[var(--paper)]">{error}</p>}
 
           <button
-            disabled={busy || (purchaseRegion === "uruguay" ? !domesticReady : !internationalReady)}
+            disabled={busy || (isInternational ? !internationalReady : !domesticReady)}
             className="mt-8 flex min-h-13 w-full items-center justify-center gap-2.5 rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-[var(--paper)] transition hover:bg-[#4a2a1c] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {purchaseRegion === "uruguay" && !busy && (
+            {!isInternational && !busy && (
               <Image
                 src="/assets/matearte/01-marca/mercado-pago.png"
                 alt=""
@@ -322,10 +325,10 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
                 aria-hidden="true"
               />
             )}
-            {busy ? t("preparing") : purchaseRegion === "international" ? t("coordinateAction") : t("mercadoPagoAction")}
+            {busy ? t("preparing") : isInternational ? t("contactUs") : t("mercadoPagoAction")}
           </button>
 
-          {purchaseRegion === "international" && (
+          {isInternational && (
             <p className="mt-4 text-center text-[0.7rem] leading-5 text-white/60">{t("internationalNotice")}</p>
           )}
         </aside>

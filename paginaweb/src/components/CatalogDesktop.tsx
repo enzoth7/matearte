@@ -36,7 +36,7 @@ const productPresentation: Record<string, ProductPresentation> = {
   "box-matero": { image: "product-09.png", background: "background-14.png" },
 };
 
-export function CatalogDesktop({ products }: { products: Product[] }) {
+export function CatalogDesktop({ products, exchangeRates }: { products: Product[]; exchangeRates?: Record<string, number> }) {
   const locale = useLocale();
   const t = useTranslations("catalog");
   const common = useTranslations("common");
@@ -44,7 +44,27 @@ export function CatalogDesktop({ products }: { products: Product[] }) {
   const { filters } = catalogFilters;
 
   const cards = useMemo(() => {
-    const entries = products.map((product) => ({ product, presentation: productPresentation[product.id] }));
+    const entries = products.flatMap((product) => {
+      if (product.variants && product.variants.length > 1) {
+        return product.variants.map((variant) => {
+          const variantImage = product.images.find(img => img.variantId === variant.id) || product.images[0];
+          return {
+            product: {
+              ...product,
+              name: `${product.name} - ${variant.label}`,
+              filterData: {
+                ...product.filterData,
+                priceUYU: variant.price?.amountMinor ? variant.price.amountMinor / 100 : product.filterData.priceUYU
+              },
+              images: [variantImage],
+              variants: product.variants
+            },
+            presentation: productPresentation[product.id]
+          };
+        });
+      }
+      return [{ product, presentation: productPresentation[product.id] }];
+    });
     return filterAndSortCatalog(entries, filters, locale);
   }, [filters, locale, products]);
 
@@ -62,7 +82,6 @@ export function CatalogDesktop({ products }: { products: Product[] }) {
             onPriceToggle={catalogFilters.togglePrice}
             onMaterialToggle={catalogFilters.toggleMaterial}
             onProductTypeToggle={catalogFilters.toggleProductType}
-            onFinishToggle={catalogFilters.toggleFinish}
             onColorToggle={catalogFilters.toggleColor}
             onClear={catalogFilters.clearFilters}
           />
@@ -88,7 +107,7 @@ export function CatalogDesktop({ products }: { products: Product[] }) {
               const uploadedImage = product.images[0].source === "supabase" || !presentation;
               const imageSrc = uploadedImage ? product.images[0].src : `${assetRoot}/${presentation.image}`;
               return (
-                <article key={product.id} className="catalog-product-card">
+                <article key={`${product.id}-${product.name}`} className="catalog-product-card">
                   <Link href={{ pathname: "/producto/[slug]", params: { slug: product.slug } }}>
                     <div className="catalog-product-media">
                       {!uploadedImage && presentation.background ? <Image src={`${assetRoot}/${presentation.background}`} alt="" fill sizes="(max-width: 1200px) 28vw, 290px" className="catalog-product-background" aria-hidden="true" /> : null}
@@ -96,7 +115,32 @@ export function CatalogDesktop({ products }: { products: Product[] }) {
                     </div>
                     <div className="catalog-product-meta">
                       <h2>{product.name}</h2>
-                      <p>{formatCatalogPrice(product.filterData.priceUYU, common("consult"))}</p>
+                      <p>{formatCatalogPrice(product.filterData.priceUYU, common("consult"), locale, exchangeRates)}</p>
+                      {product.variants && product.variants.length > 1 && (
+                        <div style={{ display: 'flex', gap: '0.25rem', marginTop: '0.5rem' }}>
+                          {product.variants.map((v) => {
+                            const colorHex = v.label.toLowerCase().includes('negro') ? '#222222' 
+                                           : v.label.toLowerCase().includes('marr') ? '#8B4513'
+                                           : v.label.toLowerCase().includes('natural') ? '#D2B48C'
+                                           : v.label.toLowerCase().includes('crudo') ? '#E6C280'
+                                           : '#ccc';
+                            return (
+                              <span
+                                key={v.id}
+                                style={{
+                                  display: 'block',
+                                  height: '0.75rem',
+                                  width: '0.75rem',
+                                  borderRadius: '0',
+                                  border: '1px solid #ccc',
+                                  backgroundColor: colorHex
+                                }}
+                                title={v.label}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </Link>
                 </article>

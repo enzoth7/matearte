@@ -4,16 +4,11 @@ import { notFound } from "next/navigation";
 import { JsonLd } from "@/components/JsonLd";
 import { ProductDesktop } from "@/components/ProductDesktop";
 import { ProductMobile } from "@/components/ProductMobile";
-import { products } from "@/data/catalog";
 import { localizedPageMetadata } from "@/i18n/metadata";
 import { buildProductStructuredData, productSeoCopy } from "@/lib/seo";
-import { getStorefrontProduct } from "@/lib/storefront-catalog";
+import { getStorefrontProduct, getExchangeRates } from "@/lib/storefront-catalog";
 
 export const dynamic = "force-dynamic";
-
-export function generateStaticParams() {
-  return products.map((product) => ({ slug: product.slug }));
-}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -42,6 +37,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const { slug } = await params;
   const locale = await getLocale();
   const product = await getStorefrontProduct(slug, locale);
+  const exchangeRates = await getExchangeRates();
   if (!product) notFound();
   const catalog = await getTranslations("catalog");
   const schema = buildProductStructuredData(locale, product, catalog("metadataTitle"), "MateArte");
@@ -49,10 +45,10 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     <main id="contenido" className="product-page">
       <JsonLd data={schema} />
       <div className="product-desktop-view">
-        <ProductDesktop product={product} />
+        <ProductDesktop product={product} exchangeRates={exchangeRates} />
       </div>
       <div className="product-mobile-view">
-        <ProductMobile product={product} />
+        <ProductMobile product={product} exchangeRates={exchangeRates} />
       </div>
     </main>
   );

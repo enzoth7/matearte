@@ -35,7 +35,8 @@ const storefrontSelection = `
     storage_path,
     alt_text,
     sort_order,
-    mime_type
+    mime_type,
+    variant_id
   )
 `;
 
@@ -72,7 +73,7 @@ export async function getStorefrontProducts(locale: Locale) {
     );
   } catch (reason) {
     console.error("[storefront-catalog] No se pudo cargar el catálogo comercial.", reason);
-    return editorialProducts;
+    return [];
   }
 }
 
@@ -99,9 +100,23 @@ export async function getStorefrontProduct(slug: string, locale: Locale) {
     if (error) throw error;
     return data
       ? storefrontProductFromRow(data as unknown as StorefrontProductRow, supabaseUrl(), locale, editorialProduct)
-      : editorialProduct;
+      : null;
   } catch (reason) {
     console.error(`[storefront-catalog] No se pudo cargar el producto ${slug}.`, reason);
-    return editorialProduct;
+    return null;
+  }
+}
+
+export async function getExchangeRates(): Promise<Record<string, number>> {
+  try {
+    const client = createPublicSupabase();
+    const { data, error } = await client.from("commerce_exchange_rates").select("currency_code, rate_to_uyu");
+    if (error) throw error;
+    const rates: Record<string, number> = {};
+    for (const row of data || []) rates[row.currency_code] = row.rate_to_uyu;
+    return rates;
+  } catch (reason) {
+    console.error("[storefront-catalog] No se pudieron cargar las cotizaciones, usando fallbacks.", reason);
+    return { USD: 41, BRL: 7.5 };
   }
 }

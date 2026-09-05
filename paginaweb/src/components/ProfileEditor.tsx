@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, UploadSimple } from "@phosphor-icons/react";
+import { CheckCircle } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
@@ -19,7 +19,7 @@ export type ProfileFormData = {
   postalCode: string;
 };
 
-export function ProfileEditor({ initial, email, welcome }: { initial: ProfileFormData; email: string; welcome: boolean }) {
+export function ProfileEditor({ initial, welcome }: { initial: ProfileFormData; welcome: boolean }) {
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations("profileEditor");
@@ -42,12 +42,7 @@ export function ProfileEditor({ initial, email, welcome }: { initial: ProfileFor
 
   const updateCountry = (countryCode: string) => {
     setSaved(false);
-    setForm((current) => ({
-      ...current,
-      countryCode,
-      department: "",
-      phone: internationalPhoneNumber(countryCode, phoneNumber),
-    }));
+    setForm((current) => ({ ...current, countryCode, department: "", phone: internationalPhoneNumber(countryCode, phoneNumber) }));
   };
 
   const updatePhone = (value: string) => {
@@ -86,256 +81,90 @@ export function ProfileEditor({ initial, email, welcome }: { initial: ProfileFor
     }
   };
 
+  const fieldClass = "mt-2 min-h-12 w-full rounded-lg border border-[#311c12]/75 bg-[#fffdf8] px-4 text-sm text-[#311c12] outline-none transition focus:border-[#79452d] focus:ring-2 focus:ring-[#c7a071]/45";
+
   return (
-    <div className="flex flex-col gap-6">
-      {/* ── Cabecera oscura (Figma: Cuenta / Cabecera) ── */}
-      <header
-        className="rounded-2xl px-8 py-8 sm:px-10 sm:py-10"
-        style={{ background: "var(--walnut)" }}
-      >
-        <h1 className="display-font text-4xl font-medium leading-tight tracking-tight text-[var(--paper)] sm:text-5xl">
-          {welcome ? t("welcomeTitle") : t("editTitle")}
-        </h1>
-        <p className="mt-3 max-w-3xl text-base leading-relaxed text-[var(--paper)]/70">
-          {t("intro")}
-        </p>
+    <div className="flex flex-col gap-11 lg:gap-12">
+      <header className="flex min-h-40 flex-col items-center justify-center rounded-2xl bg-[#311c12] px-6 py-8 text-center text-[#fffdf8] sm:min-h-48 sm:px-10 lg:min-h-55">
+        <h1 className="display-font text-4xl font-medium leading-none tracking-tight sm:text-5xl">{welcome ? t("welcomeTitle") : t("editTitle")}</h1>
+        <p className="mt-5 max-w-3xl text-sm leading-6 text-white/90 sm:text-base sm:leading-7">{t("intro")}</p>
       </header>
 
-      {/* ── Formulario (Figma: ProfileEditor) ── */}
-      <form
-        onSubmit={(event) => void submit(event)}
-        className="overflow-hidden rounded-2xl border border-black/10 bg-[var(--paper)] shadow-[var(--shadow-soft)]"
-      >
-        <div className="grid gap-0 lg:grid-cols-[18rem_1fr]">
-          {/* Foto de perfil — columna izquierda en desktop */}
-          <aside className="flex flex-col items-center justify-center gap-4 border-b border-black/10 bg-[var(--cream-deep)]/35 p-8 lg:border-b-0 lg:border-r">
-            {/* Drop zone */}
-            <div
-              className="flex w-full flex-col items-center justify-center gap-3 rounded-2xl border border-[var(--alpaca)] bg-[var(--paper)] px-6 py-10 text-center"
-              style={{ minHeight: "11rem" }}
-            >
-              <UploadSimple size={28} className="text-[var(--leather)]" aria-hidden="true" />
-              <p className="display-font text-xl font-medium text-[var(--walnut)]">
-                {t("profilePhoto")}
-              </p>
-              <p className="text-xs leading-5 text-black/50">
-                {t("fileHelp")}
-              </p>
-            </div>
-
-            {/* Botón seleccionar imagen */}
-            <label className="mt-1 w-full cursor-pointer rounded-2xl border border-[var(--alpaca)] bg-[var(--paper)] py-3 text-center text-sm font-semibold text-[var(--walnut)] transition-colors hover:border-[var(--walnut)] hover:bg-[var(--cream-deep)]/40">
-              {avatar ? avatar.name : t("selectImage")}
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                onChange={(event) => setAvatar(event.target.files?.[0] || null)}
-                className="sr-only"
-              />
-            </label>
-          </aside>
-
-          {/* Campos del formulario — columna derecha */}
-          <div className="p-6 sm:p-8">
-            {/* Eyebrow cuando es bienvenida */}
-            {welcome && (
-              <p className="eyebrow mb-6 text-[var(--leather)]">{t("welcomeEyebrow")}</p>
-            )}
-
-            <div className="grid gap-5 sm:grid-cols-2">
-              {/* Email — read only */}
-              <label className="text-sm font-semibold sm:col-span-2">
-                {t("email")}
-                <input
-                  value={email}
-                  readOnly
-                  aria-readonly="true"
-                  className="mt-2 h-12 w-full rounded-lg border border-black/10 bg-black/[0.035] px-4 text-black/50"
-                />
+      <form onSubmit={(event) => void submit(event)} className="border border-[#79452d]/25 bg-[#fffdf8] p-6 sm:p-8 lg:p-6">
+        {welcome && <p className="eyebrow mb-7 text-[var(--leather)]">{t("welcomeEyebrow")}</p>}
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_19.5rem] lg:gap-5">
+          <div>
+            <div className="grid gap-x-3 gap-y-5 sm:grid-cols-2">
+              <label className="text-xs font-semibold text-[#17130f]">
+                {t("fullName")}
+                <input ref={firstInvalid} name="name" autoComplete="name" required maxLength={120} value={form.fullName} onChange={(event) => update("fullName", event.target.value)} className={fieldClass} />
               </label>
 
-              {/* Nombre completo */}
-              <label className="text-sm font-semibold sm:col-span-2">
-                {t("fullName")} *
-                <input
-                  ref={firstInvalid}
-                  name="name"
-                  autoComplete="name"
-                  required
-                  maxLength={120}
-                  value={form.fullName}
-                  onChange={(event) => update("fullName", event.target.value)}
-                  className="mt-2 h-12 w-full rounded-lg border border-black/20 bg-transparent px-4 focus:border-[var(--leather)] focus:outline-none focus:ring-2 focus:ring-[var(--leather)]/20"
-                />
-              </label>
-
-              {/* Fecha de cumpleaños */}
-              <label className="text-sm font-semibold">
-                {t("birthday")} *
-                <input
-                  type="date"
-                  required
-                  min="1900-01-01"
-                  max={new Date().toISOString().slice(0, 10)}
-                  value={form.birthDate}
-                  onChange={(event) => update("birthDate", event.target.value)}
-                  className="mt-2 h-12 w-full rounded-lg border border-black/20 bg-transparent px-4 focus:border-[var(--leather)] focus:outline-none focus:ring-2 focus:ring-[var(--leather)]/20"
-                />
-              </label>
-
-              {/* Celular */}
-              <label className="text-sm font-semibold">
+              <label className="text-xs font-semibold text-[#17130f]">
                 {t("phone")}
-                <span className="mt-2 flex h-12 overflow-hidden rounded-lg border border-black/20 bg-transparent focus-within:border-[var(--leather)] focus-within:ring-2 focus-within:ring-[var(--leather)]/20">
-                  <span
-                    className="grid min-w-20 place-items-center border-r border-black/15 bg-[var(--cream-deep)]/55 px-3 text-sm font-semibold tabular-nums text-black/65"
-                    aria-label={callingCode ? t("callingCode", { code: callingCode }) : t("chooseCountryForCode")}
-                  >
-                    {callingCode || "—"}
-                  </span>
-                  <input
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel-national"
-                    maxLength={32}
-                    value={phoneNumber}
-                    onChange={(event) => updatePhone(event.target.value)}
-                    placeholder={t("phonePlaceholder")}
-                    aria-label={t("phoneAria")}
-                    className="min-w-0 flex-1 bg-transparent px-4 outline-none"
-                  />
-                </span>
-                <span className="mt-1.5 block text-xs font-normal leading-5 text-black/50">
-                  {t("phoneHelp")}
-                </span>
+                <input type="tel" inputMode="tel" autoComplete="tel-national" maxLength={32} value={phoneNumber} onChange={(event) => updatePhone(event.target.value)} aria-label={callingCode ? `${t("phone")}. ${t("callingCode", { code: callingCode })}` : t("chooseCountryForCode")} className={fieldClass} />
+                <span className="sr-only">{callingCode ? t("callingCode", { code: callingCode }) : t("chooseCountryForCode")}. {t("phoneHelp")}</span>
               </label>
 
-              {/* País */}
-              <label className="text-sm font-semibold">
-                {t("country")} *
-                <select
-                  autoComplete="country"
-                  required
-                  value={form.countryCode}
-                  onChange={(event) => updateCountry(event.target.value)}
-                  className="mt-2 h-12 w-full rounded-lg border border-black/20 bg-transparent px-4 focus:border-[var(--leather)] focus:outline-none focus:ring-2 focus:ring-[var(--leather)]/20"
-                >
+              <label className="text-xs font-semibold text-[#17130f]">
+                {t("birthday")}
+                <input type="date" required min="1900-01-01" max={new Date().toISOString().slice(0, 10)} value={form.birthDate} onChange={(event) => update("birthDate", event.target.value)} className={fieldClass} />
+              </label>
+
+              <label className="text-xs font-semibold text-[#17130f]">
+                {t("country")}
+                <select autoComplete="country" required value={form.countryCode} onChange={(event) => updateCountry(event.target.value)} className={fieldClass}>
                   <option value="">{t("chooseCountry")}</option>
-                  {countryOptions.map((country) => (
-                    <option key={country.code} value={country.code}>{country.name}</option>
-                  ))}
+                  {countryOptions.map((country) => <option key={country.code} value={country.code}>{country.name}</option>)}
                 </select>
               </label>
 
-              {/* Departamento / Estado */}
+              <label className="text-xs font-semibold text-[#17130f]">
+                {t("city")}
+                <input autoComplete="address-level2" required maxLength={120} value={form.city} onChange={(event) => update("city", event.target.value)} className={fieldClass} />
+              </label>
+
               {regions.length > 0 ? (
-                <label className="text-sm font-semibold">
-                  {form.countryCode === "UY" ? t("department") : t("state")} *
-                  <select
-                    autoComplete="address-level1"
-                    required
-                    value={form.department}
-                    onChange={(event) => update("department", event.target.value)}
-                    className="mt-2 h-12 w-full rounded-lg border border-black/20 bg-transparent px-4 focus:border-[var(--leather)] focus:outline-none focus:ring-2 focus:ring-[var(--leather)]/20"
-                  >
+                <label className="text-xs font-semibold text-[#17130f]">
+                  {form.countryCode === "UY" ? t("department") : t("state")}
+                  <select autoComplete="address-level1" required value={form.department} onChange={(event) => update("department", event.target.value)} className={fieldClass}>
                     <option value="">{t("chooseOption")}</option>
-                    {regions.map((region) => (
-                      <option key={region.code} value={region.name}>{region.name}</option>
-                    ))}
+                    {regions.map((region) => <option key={region.code} value={region.name}>{region.name}</option>)}
                   </select>
                 </label>
               ) : (
-                <label className="text-sm font-semibold">
+                <label className="text-xs font-semibold text-[#17130f]">
                   {t("state")} <span className="font-normal text-black/45">({t("optional")})</span>
-                  <input
-                    autoComplete="address-level1"
-                    maxLength={80}
-                    value={form.department}
-                    onChange={(event) => update("department", event.target.value)}
-                    className="mt-2 h-12 w-full rounded-lg border border-black/20 bg-transparent px-4 focus:border-[var(--leather)] focus:outline-none focus:ring-2 focus:ring-[var(--leather)]/20"
-                  />
+                  <input autoComplete="address-level1" maxLength={80} value={form.department} onChange={(event) => update("department", event.target.value)} className={fieldClass} />
                 </label>
               )}
 
-              {/* Ciudad */}
-              <label className="text-sm font-semibold">
-                {t("city")} *
-                <input
-                  autoComplete="address-level2"
-                  required
-                  maxLength={120}
-                  value={form.city}
-                  onChange={(event) => update("city", event.target.value)}
-                  className="mt-2 h-12 w-full rounded-lg border border-black/20 bg-transparent px-4 focus:border-[var(--leather)] focus:outline-none focus:ring-2 focus:ring-[var(--leather)]/20"
-                />
-              </label>
-
-              {/* Código postal */}
-              <label className="text-sm font-semibold">
-                {t("postalCode")}
-                <input
-                  autoComplete="postal-code"
-                  maxLength={20}
-                  value={form.postalCode}
-                  onChange={(event) => update("postalCode", event.target.value)}
-                  className="mt-2 h-12 w-full rounded-lg border border-black/20 bg-transparent px-4 focus:border-[var(--leather)] focus:outline-none focus:ring-2 focus:ring-[var(--leather)]/20"
-                />
-              </label>
-
-              {/* Dirección de entrega */}
-              <label className="text-sm font-semibold sm:col-span-2">
-                {t("address")} *
-                <input
-                  autoComplete="street-address"
-                  required
-                  maxLength={180}
-                  value={form.addressLine1}
-                  onChange={(event) => update("addressLine1", event.target.value)}
-                  className="mt-2 h-12 w-full rounded-lg border border-black/20 bg-transparent px-4 focus:border-[var(--leather)] focus:outline-none focus:ring-2 focus:ring-[var(--leather)]/20"
-                />
-              </label>
-
-              {/* Empresa (opcional) */}
-              <label className="text-sm font-semibold sm:col-span-2">
-                {t("company")} <span className="font-normal text-black/45">({t("optional")})</span>
-                <input
-                  maxLength={120}
-                  value={form.company}
-                  onChange={(event) => update("company", event.target.value)}
-                  className="mt-2 h-12 w-full rounded-lg border border-black/20 bg-transparent px-4 focus:border-[var(--leather)] focus:outline-none focus:ring-2 focus:ring-[var(--leather)]/20"
-                />
+              <label className="text-xs font-semibold text-[#17130f] sm:col-span-1">
+                {t("address")}
+                <input autoComplete="street-address" required maxLength={180} value={form.addressLine1} onChange={(event) => update("addressLine1", event.target.value)} className={fieldClass} />
               </label>
             </div>
+            {(error || saved) && <div className="mt-5" aria-live="polite">
+              {error && <p role="alert" className="text-sm text-[var(--danger)]">{error}</p>}
+              {saved && <p role="status" className="flex items-center gap-2 text-sm font-semibold text-[var(--whatsapp)]"><CheckCircle size={20} aria-hidden="true" />{t("saved")}</p>}
+            </div>}
           </div>
-        </div>
 
-        {/* ── Footer del formulario — botones ── */}
-        <div className="flex flex-wrap items-center justify-end gap-4 border-t border-black/10 px-6 py-5 sm:px-8">
-          {error && (
-            <p role="alert" className="mr-auto text-sm text-[var(--danger)]">{error}</p>
-          )}
-          {saved && (
-            <p role="status" className="mr-auto flex items-center gap-2 text-sm font-semibold text-[var(--whatsapp)]">
-              <CheckCircle size={20} aria-hidden="true" />
-              {t("saved")}
-            </p>
-          )}
-          {!welcome && (
-            <button
-              type="button"
-              onClick={() => router.push("/perfil")}
-              className="button-secondary"
-            >
-              {t("cancel")}
-            </button>
-          )}
-          <button
-            type="submit"
-            disabled={busy}
-            className="button-primary disabled:cursor-wait disabled:opacity-60"
-          >
-            {busy ? t("saving") : t("save")}
-          </button>
+          <aside className="flex flex-col gap-7">
+            <div className="flex min-h-60 flex-col items-center justify-center rounded-[14px] bg-[#908c76] px-5 py-7 text-center text-[#fffdf8]">
+              <p className="display-font text-2xl font-medium">{t("profilePhoto")}</p>
+              <p className="mt-3 max-w-40 text-xs leading-5 text-white/85">{t("fileHelp")}</p>
+              <label className="mt-8 flex min-h-12 w-full cursor-pointer items-center justify-center rounded-xl bg-[#fffdf8] px-4 text-sm font-semibold text-[#311c12] transition hover:bg-[#f5f0e8] focus-within:outline-3 focus-within:outline-offset-3 focus-within:outline-[#fffdf8]">
+                <span className="truncate">{avatar ? avatar.name : t("selectImage")}</span>
+                <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setAvatar(event.target.files?.[0] || null)} className="sr-only" />
+              </label>
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-3">
+              {!welcome && <button type="button" onClick={() => router.push("/perfil")} className="min-h-12 rounded-xl border border-[#311c12] bg-[#fffdf8] px-6 text-sm font-semibold text-[#311c12] transition hover:bg-[#f5f0e8] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#c7a071]">{t("cancel")}</button>}
+              <button type="submit" disabled={busy} className="min-h-12 rounded-xl bg-[#311c12] px-6 text-sm font-semibold text-[#fffdf8] transition hover:bg-[#4a2a1c] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#c7a071] disabled:cursor-wait disabled:opacity-60">{busy ? t("saving") : t("save")}</button>
+            </div>
+          </aside>
         </div>
       </form>
     </div>

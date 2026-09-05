@@ -4,6 +4,7 @@ import {
   orderedRimIconCatalog,
   rimIconCatalog,
 } from "../catalog/rimIconCatalog";
+import { MAX_RIM_ICONS } from "../catalog/rimCatalog";
 import type { IconElement } from "../types/customizer";
 
 interface VirolaIconSelectorProps {
@@ -14,7 +15,7 @@ interface VirolaIconSelectorProps {
   limit?: number;
 }
 
-export function VirolaIconSelector({ icons, onChange, selectedElementId, onSelectElement, limit = 3 }: VirolaIconSelectorProps) {
+export function VirolaIconSelector({ icons, onChange, selectedElementId, onSelectElement, limit = MAX_RIM_ICONS }: VirolaIconSelectorProps) {
   const hasAdditionalSelection = icons.some((icon) =>
     icon.selectedImageId
     && !featuredRimIconIds.some((featuredId) => featuredId === icon.selectedImageId),

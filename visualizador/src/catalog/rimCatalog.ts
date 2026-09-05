@@ -1,5 +1,6 @@
 import type { MateVariant } from "./mateCatalog";
 import type { RimFinishId } from "./rimFinishCatalog";
+import { rimIconCatalog } from "./rimIconCatalog";
 import { normalizeEngravingText } from "../utils/engravingText";
 import {
   createDefaultElementTransform,
@@ -34,6 +35,50 @@ export interface RimCustomization {
 }
 
 export const MAX_RIM_TEXT_LENGTH = 40;
+export const MAX_RIM_ICONS = 3;
+
+function hasUsableCustomImage(value: unknown): value is IconElement["customImage"] {
+  if (!value || typeof value !== "object") return false;
+  const asset = value as Record<string, unknown>;
+  return typeof asset.id === "string" && typeof asset.previewUrl === "string";
+}
+
+/**
+ * Older drafts can contain repeated or incomplete icon entries. Keep only
+ * selectable catalog items or valid uploads, and never let stale entries use
+ * a slot in the three-icon limit.
+ */
+export function normalizeRimIcons(value: unknown): IconElement[] {
+  if (!Array.isArray(value)) return [];
+
+  const seen = new Set<string>();
+  const icons: IconElement[] = [];
+
+  for (const rawIcon of value) {
+    if (!rawIcon || typeof rawIcon !== "object") continue;
+    const icon = rawIcon as Partial<IconElement>;
+    const customImage = hasUsableCustomImage(icon.customImage) ? icon.customImage : null;
+    const selectedImageId = typeof icon.selectedImageId === "string" ? icon.selectedImageId : null;
+    const catalogIconExists = selectedImageId !== null && rimIconCatalog.some((item) => item.id === selectedImageId);
+
+    if (!customImage && !catalogIconExists) continue;
+
+    const selectionKey = customImage ? `upload:${customImage.id}` : `catalog:${selectedImageId}`;
+    if (seen.has(selectionKey)) continue;
+    seen.add(selectionKey);
+
+    icons.push({
+      id: typeof icon.id === "string" ? icon.id : crypto.randomUUID(),
+      selectedImageId,
+      customImage,
+      transform: normalizeElementTransform(icon.transform, "rim"),
+    });
+
+    if (icons.length === MAX_RIM_ICONS) break;
+  }
+
+  return icons;
+}
 
 export function createDefaultRimTextElements(): RimTextElement[] {
   return [
@@ -137,14 +182,7 @@ export function normalizeRimSelection(variant: MateVariant, current?: Partial<Ri
     text: texts[0].text,
     textTransform: texts[0].transform,
     texts,
-    icons: Array.isArray(safeCurrent.icons)
-      ? safeCurrent.icons.map((icon) => ({
-          id: typeof icon.id === "string" ? icon.id : crypto.randomUUID(),
-          selectedImageId: typeof icon.selectedImageId === "string" ? icon.selectedImageId : null,
-          customImage: icon.customImage ?? null,
-          transform: normalizeElementTransform(icon.transform, "rim"),
-        }))
-      : [],
+    icons: normalizeRimIcons(safeCurrent.icons),
   };
 }
 

@@ -7,9 +7,18 @@ interface CustomImageUploadProps {
   onChange: (asset: CustomImageAsset | null) => void;
   onPlace?: () => void;
   isPlacing?: boolean;
+  disabled?: boolean;
+  disabledMessage?: string;
 }
 
-export function CustomImageUpload({ value, onChange, onPlace, isPlacing = false }: CustomImageUploadProps) {
+export function CustomImageUpload({
+  value,
+  onChange,
+  onPlace,
+  isPlacing = false,
+  disabled = false,
+  disabledMessage,
+}: CustomImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -36,6 +45,7 @@ export function CustomImageUpload({ value, onChange, onPlace, isPlacing = false 
         type="file"
         accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml"
         className="sr-only"
+        disabled={disabled || status === "loading"}
         onChange={(event) => {
           void handleFile(event.target.files?.[0]);
           event.target.value = "";
@@ -56,9 +66,9 @@ export function CustomImageUpload({ value, onChange, onPlace, isPlacing = false 
         <div className="custom-image-upload__actions">
           <button
             type="button"
-            disabled={status === "loading"}
+            disabled={disabled || status === "loading"}
             onClick={() => inputRef.current?.click()}
-            className="min-h-11 rounded-lg border border-[#7a4a31] bg-white px-3 text-xs font-bold text-[#7a4a31] transition-colors hover:bg-[#fbf3de] disabled:cursor-wait disabled:opacity-60"
+            className="min-h-11 rounded-lg border border-[#7a4a31] bg-white px-3 text-xs font-bold text-[#7a4a31] transition-colors hover:bg-[#fbf3de] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {status === "loading" ? "Procesando…" : value ? "Cambiar" : "Elegir"}
           </button>
@@ -81,6 +91,9 @@ export function CustomImageUpload({ value, onChange, onPlace, isPlacing = false 
           )}
         </div>
       </div>
+      {disabled && disabledMessage && (
+        <p className="mt-2 text-[10px] font-medium text-[#5f3826]/80">{disabledMessage}</p>
+      )}
       {message && <p role={status === "error" ? "alert" : "status"} className={`mt-2 text-[10px] font-medium ${status === "error" ? "text-red-700" : "text-[#5f3826]/80"}`}>{message}</p>}
     </div>
   );

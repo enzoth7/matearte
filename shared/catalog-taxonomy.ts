@@ -7,11 +7,14 @@
 export const catalogCategoryIds = [
   "mates",
   "bombillas",
+  "bombillones",
   "materas",
   "termos",
   "regalos",
-  "dama",
-  "caballero",
+  "cintos",
+  "calzado",
+  "botas",
+  "billeteras",
 ] as const;
 
 export const catalogMaterialIds = [
@@ -21,59 +24,33 @@ export const catalogMaterialIds = [
   "acero-inoxidable",
   "otros-metales",
   "madera",
+  "estampado",
 ] as const;
 
-/** Shapes/styles that are useful across mates, bombillas and accessories. */
+/** The four mate models used by the catalog. */
 export const catalogProductTypeIds = [
   "imperial",
   "camionero",
   "criollo",
   "torpedo",
-  "cuadrado",
-  "ovalado",
-  "fina",
-  "bombillon",
-  "pico-de-loro",
-  "cinto",
-  "billetera",
-  "calzado",
-  "bota",
-] as const;
-
-/** Details or treatments that can be shared by more than one product family. */
-export const catalogFinishIds = [
-  "premium",
-  "clasico",
-  "liso",
-  "estampado",
-  "cincelado",
-  "con-aplique",
-  "con-aros",
-  "con-virola",
 ] as const;
 
 export const catalogColorIds = [
   "marron",
   "negro",
   "natural",
-  "colorado",
   "cuero-crudo",
-  "cuero-tostado",
-  "arena",
-  "cacao",
-  "salvia",
 ] as const;
 
 export type CatalogCategoryId = (typeof catalogCategoryIds)[number];
 export type CatalogMaterialId = (typeof catalogMaterialIds)[number];
 export type CatalogProductTypeId = (typeof catalogProductTypeIds)[number];
-export type CatalogFinishId = (typeof catalogFinishIds)[number];
 export type CatalogColorId = (typeof catalogColorIds)[number];
 
 export type CatalogAttributes = {
   materials: CatalogMaterialId[];
   productTypes: CatalogProductTypeId[];
-  finishes: CatalogFinishId[];
+  finishes: string[];
   colors: CatalogColorId[];
 };
 
@@ -100,7 +77,7 @@ export function normalizeCatalogAttributes(value: unknown): CatalogAttributes {
   return {
     materials: knownValues(record.materials, catalogMaterialIds),
     productTypes: knownValues(record.productTypes, catalogProductTypeIds),
-    finishes: knownValues(record.finishes, catalogFinishIds),
+    finishes: Array.isArray(record.finishes) ? record.finishes.filter((item): item is string => typeof item === 'string') : [],
     colors: knownValues(record.colors, catalogColorIds),
   };
 }

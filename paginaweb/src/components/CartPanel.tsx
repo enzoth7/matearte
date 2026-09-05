@@ -16,7 +16,7 @@ type RemoteItem = {
 };
 type Cart = { id: string; items: RemoteItem[] };
 
-const money = (minor: number) => `$ ${new Intl.NumberFormat("es-UY").format(minor / 100)} UYU`;
+import { formatMoney as money } from "@/lib/money";
 
 const normalizeProductName = (value: string) => value
   .normalize("NFD")
@@ -88,9 +88,11 @@ function MobileEmptyCart({ showLogin }: { showLogin: boolean }) {
   );
 }
 
-export function CartPanel() {
+export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, number> }) {
   const locale = useLocale() as Locale;
   const t = useTranslations("cart");
+
+  const format = (minor: number) => money(minor, "UYU", locale, exchangeRates);
   const localizedProducts = getLocalizedProducts(locale);
   const titleFor = (item: RemoteItem) => itemTitle(item, localizedProducts, t("piece"));
   const subtitleFor = (item: RemoteItem) => itemSubtitle(item, t("customDesign"), t("catalogPiece"));
@@ -213,7 +215,7 @@ export function CartPanel() {
                   <div className="cart-mobile-item-copy">
                     <h3>{titleFor(item)}</h3>
                     <p>{subtitleFor(item)}</p>
-                    <span>{t("unitPrice", { price: money(item.unit_price_minor) })}</span>
+                    <span>{t("unitPrice", { price: format(item.unit_price_minor) })}</span>
                   </div>
                 </div>
                 <div className="cart-mobile-item-actions">
@@ -273,7 +275,7 @@ export function CartPanel() {
           <dl className="cart-mobile-summary-list">
             <div>
               <dt>{t("subtotal")}</dt>
-              <dd>{money(subtotal)}</dd>
+              <dd>{format(subtotal)}</dd>
             </div>
             <div>
               <dt>{t("shipping")}</dt>
@@ -283,7 +285,7 @@ export function CartPanel() {
           <div className="cart-mobile-summary-divider" aria-hidden="true" />
           <div className="cart-mobile-total">
             <span>{t("total")}</span>
-            <strong>{money(subtotal)}</strong>
+            <strong>{format(subtotal)}</strong>
           </div>
           <Link href="/checkout" className="cart-mobile-checkout">{t("continue")}</Link>
         </aside>
@@ -308,7 +310,7 @@ export function CartPanel() {
               <div className="cart-desktop-item-copy">
                 <h3>{titleFor(item)}</h3>
                 <p>{subtitleFor(item)}</p>
-                <span>{t("unitPrice", { price: money(item.unit_price_minor) })}</span>
+                <span>{t("unitPrice", { price: format(item.unit_price_minor) })}</span>
               </div>
               <div className="cart-desktop-quantity">
                 <span id={`cart-quantity-${item.id}`}>{t("quantity")}</span>
@@ -364,7 +366,7 @@ export function CartPanel() {
           <dl className="cart-desktop-summary-list">
             <div>
               <dt>{t("subtotal")}</dt>
-              <dd>{money(subtotal)}</dd>
+              <dd>{format(subtotal)}</dd>
             </div>
             <div>
               <dt>{t("shipping")}</dt>
@@ -374,7 +376,7 @@ export function CartPanel() {
           <div className="cart-desktop-summary-divider" aria-hidden="true" />
           <div className="cart-desktop-total">
             <span>{t("total")}</span>
-            <strong>{money(subtotal)}</strong>
+            <strong>{format(subtotal)}</strong>
           </div>
           <Link href="/checkout" className="cart-desktop-checkout">{t("continue")}</Link>
         </aside>

@@ -5,7 +5,6 @@ import { PersonalizedOrders } from './PersonalizedOrdersView';
 import {
   catalogCategoryIds,
   catalogColorIds,
-  catalogFinishIds,
   catalogMaterialIds,
   catalogProductTypeIds,
   emptyCatalogAttributes,
@@ -13,10 +12,10 @@ import {
   type CatalogAttributes,
 } from '../../shared/catalog-taxonomy';
 
-type Tab = 'catalog' | 'orders' | 'personalized' | 'shipping' | 'settings';
-type ProductImage = { id:string;storage_path:string;original_name:string;alt_text:string;mime_type:string;byte_size:number;sort_order:number };
+type Tab = 'catalog' | 'list' | 'orders' | 'personalized' | 'shipping' | 'settings' | 'rates';
+type ProductImage = { id:string;storage_path:string;original_name:string;alt_text:string;mime_type:string;byte_size:number;sort_order:number;variant_id:string|null };
 type SaleMode = 'standard'|'made_to_order';
-type ProductVariant = {id:string;sku:string;name:string;price_minor:number;weight_grams:number|null;inventory_tracked:boolean;stock_on_hand:number;stock_reserved:number;active:boolean};
+type ProductVariant = {id:string;sku:string;name:string;price_minor:number;active:boolean};
 type Product = { id:string; editorial_slug:string; name:string; category:string; description:string; sale_mode:SaleMode; published:boolean; catalog_filters?:unknown; commerce_variants:ProductVariant[]; commerce_product_images:ProductImage[] };
 type ProductForm = {name:string;category:string;description:string;saleMode:SaleMode;catalogFilters:CatalogAttributes};
 type Order = { id:string;order_number:number;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;order_items:Array<{id:string;title:string;requires_review:boolean;review_status:string|null}> };
@@ -36,9 +35,11 @@ type IconName = Tab | 'logout' | 'search';
 function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, ReactNode> = {
     catalog: <><path d="M4 5.5h16v13H4z"/><path d="M8 9h8M8 13h5"/></>,
+    list: <><path d="M8 6h12M8 12h12M8 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></>,
     orders: <><path d="M6 3.5h12v17H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></>,
     personalized: <><path d="M12 3 14.2 8.8 20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></>,
     shipping: <><path d="M3 6h11v11H3zM14 10h4l3 3v4h-7z"/><path d="M7 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm10 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/></>,
+    rates: <><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></>,
     settings: <><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></>,
     logout: <><path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10"/></>,
     search: <><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4 4"/></>,
@@ -59,24 +60,25 @@ const orderStatus = (status: string) => ({
   manual_review: 'Revisión manual',
 }[status] || status.replaceAll('_', ' '));
 const normalizeSearch = (value:string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+const catalogCategoryLabels: Record<string,string> = {
+  mates:'Mate',bombillas:'Bombilla',bombillones:'Bombillón',materas:'Matera',termos:'Termo',regalos:'Regalo',cintos:'Cinto',calzado:'Calzado',botas:'Bota',billeteras:'Billetera',
+};
+const catalogMaterialLabels: Record<string,string> = {
+  cuero:'Cuero',plata:'Plata',alpaca:'Alpaca','acero-inoxidable':'Acero inoxidable','otros-metales':'Otros metales',madera:'Madera',estampado:'Estampado',
+};
 
 type AttributeKey = keyof CatalogAttributes;
 const catalogAttributeGroups: Array<{key:AttributeKey;legend:string;options:Array<{value:string;label:string}>}> = [
-  {key:'materials',legend:'Material',options:catalogMaterialIds.map(value=>({value,label:({
-    cuero:'Cuero',plata:'Plata',alpaca:'Alpaca','acero-inoxidable':'Acero inoxidable','otros-metales':'Otros metales',madera:'Madera',
-  } as Record<string,string>)[value]}))},
-  {key:'productTypes',legend:'Tipo / modelo',options:catalogProductTypeIds.map(value=>({value,label:({
-    imperial:'Imperial',camionero:'Camionero',criollo:'Criollo',torpedo:'Torpedo',cuadrado:'Cuadrado',ovalado:'Ovalado',fina:'Fina',bombillon:'Bombillón','pico-de-loro':'Pico de loro',cinto:'Cinto',billetera:'Billetera',calzado:'Calzado',bota:'Bota',
-  } as Record<string,string>)[value]}))},
-  {key:'finishes',legend:'Terminación',options:catalogFinishIds.map(value=>({value,label:({
-    premium:'Premium',clasico:'Clásico',liso:'Liso',estampado:'Estampado',cincelado:'Cincelado','con-aplique':'Con aplique','con-aros':'Con aros','con-virola':'Con virola',
+  {key:'materials',legend:'Material',options:catalogMaterialIds.map(value=>({value,label:catalogMaterialLabels[value]}))},
+  {key:'productTypes',legend:'Modelo de mate',options:catalogProductTypeIds.map(value=>({value,label:({
+    imperial:'Imperial',camionero:'Camionero',criollo:'Criollo',torpedo:'Torpedo',
   } as Record<string,string>)[value]}))},
   {key:'colors',legend:'Color',options:catalogColorIds.map(value=>({value,label:({
-    marron:'Marrón',negro:'Negro',natural:'Natural',colorado:'Colorado','cuero-crudo':'Cuero crudo','cuero-tostado':'Cuero tostado',arena:'Arena',cacao:'Cacao',salvia:'Salvia',
+    marron:'Marrón',negro:'Negro',natural:'Natural','cuero-crudo':'Cuero crudo',
   } as Record<string,string>)[value]}))},
 ];
 
-function CatalogAttributeFields({attributes,onChange}:{attributes:CatalogAttributes;onChange:(value:CatalogAttributes)=>void}) {
+function CatalogAttributeFields({attributes,category,onChange}:{attributes:CatalogAttributes;category:string;onChange:(value:CatalogAttributes)=>void}) {
   const toggle = (key:AttributeKey,value:string) => {
     const selected = attributes[key] as string[];
     onChange({...attributes,[key]:selected.includes(value)?selected.filter(item=>item!==value):[...selected,value]} as CatalogAttributes);
@@ -85,7 +87,7 @@ function CatalogAttributeFields({attributes,onChange}:{attributes:CatalogAttribu
     <legend>Filtros del catálogo</legend>
     <p>Marcá todas las opciones que correspondan a esta ficha. Si el color cambia entre variantes, dejá marcados todos los colores disponibles.</p>
     <div className="catalog-attribute-groups">
-      {catalogAttributeGroups.map(group=><section key={group.key} className="catalog-attribute-group" aria-label={group.legend}>
+      {catalogAttributeGroups.filter(group=>group.key!=='productTypes'||category==='mates').map(group=><section key={group.key} className="catalog-attribute-group" aria-label={group.legend}>
         <h5>{group.legend}</h5>
         <div>{group.options.map(option=><label key={option.value}><input type="checkbox" checked={(attributes[group.key] as string[]).includes(option.value)} onChange={()=>toggle(group.key,option.value)}/><span>{option.label}</span></label>)}</div>
       </section>)}
@@ -101,29 +103,97 @@ export function App(){const[session,setSession]=useState<Session|null>(null);con
  if(!session)return <Login onSession={setSession}/>;if(authorized===null)return <p className="loading">Verificando membresía…</p>;if(authorizationError)return <main className="denied"><h1>Verificación no disponible</h1><p>No se pudo comprobar el permiso de Comercio por un problema temporal de Supabase. Intentá de nuevo en unos minutos.</p><button onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></main>;if(!authorized)return <main className="denied"><h1>Acceso denegado</h1><p>La cuenta está autenticada, pero no integra commerce_admin_users.</p><button onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></main>;
  const navItems: Array<{id:Tab;label:string}> = [
    {id:'catalog',label:'Catálogo'},
+   {id:'list',label:'Lista'},
    {id:'orders',label:'Pedidos'},
    {id:'personalized',label:'Pedidos personalizados'},
    {id:'shipping',label:'Envíos'},
+   {id:'rates',label:'Cotizaciones'},
    {id:'settings',label:'Activación'},
  ];
- const pageTitle = tab==='catalog'?'Catálogo y stock':tab==='orders'?'Pedidos':tab==='personalized'?'Pedidos personalizados':tab==='shipping'?'Zonas y tarifas':'Controles de salida';
+ const pageTitle = tab==='catalog'?'Catálogo':tab==='list'?'Lista':tab==='orders'?'Pedidos':tab==='personalized'?'Pedidos personalizados':tab==='shipping'?'Zonas y tarifas':tab==='rates'?'Cotizaciones':'Controles de salida';
  return (
    <div className="shell">
      <a className="skip-link" href="#commerce-content">Saltar al contenido</a>
      <aside className="side-navigation">
        <div className="brand-lockup"><img className="brand-logo" src="/logo-matearte.avif" alt="" aria-hidden="true"/><div><strong>MateArte</strong><small>COMERCIO</small></div></div>
        <nav aria-label="Administración de comercio">
-         {navItems.map(({id,label})=><button key={id} className={tab===id?'active':''} aria-current={tab===id?'page':undefined} onClick={()=>setTab(id)}><Icon name={id}/><span>{label}</span></button>)}
+         {navItems.map(({id,label})=><button type="button" key={id} className={tab===id?'active':''} aria-current={tab===id?'page':undefined} onClick={()=>setTab(id)}><Icon name={id}/><span>{label}</span></button>)}
        </nav>
        <div className="side-account"><small>{session.user.email}</small><button className="logout" onClick={()=>supabase.auth.signOut({scope:'local'})}><Icon name="logout"/><span>Cerrar sesión</span></button></div>
      </aside>
      <main id="commerce-content">
-       <header className="page-header"><div><small>Panel de comercio</small><h1>{pageTitle}</h1></div><strong>{session.user.email}</strong></header>
+       <header className="page-header"><div><h1>{pageTitle}</h1></div><strong>{session.user.email}</strong></header>
        {notice&&<div className="notice" role="status">{notice}</div>}
-       {tab==='catalog'&&<Catalog onNotice={setNotice}/>} {tab==='orders'&&<Orders session={session} onNotice={setNotice}/>} {tab==='personalized'&&<PersonalizedOrders onNotice={setNotice}/>} {tab==='shipping'&&<Shipping onNotice={setNotice}/>} {tab==='settings'&&<Settings onNotice={setNotice}/>}
+       {tab==='catalog'&&<Catalog onNotice={setNotice}/>} {tab==='list'&&<CatalogList onNotice={setNotice}/>} {tab==='orders'&&<Orders session={session} onNotice={setNotice}/>} {tab==='personalized'&&<PersonalizedOrders onNotice={setNotice}/>} {tab==='shipping'&&<Shipping onNotice={setNotice}/>} {tab==='rates'&&<Rates onNotice={setNotice}/>} {tab==='settings'&&<Settings onNotice={setNotice}/>}
      </main>
    </div>
  )}
+
+function Rates({onNotice}:{onNotice:(v:string)=>void}) {
+  const [rates, setRates] = useState<{currency_code:string;rate_to_uyu:number}[]>([]);
+  const [busy, setBusy] = useState(true);
+
+  const load = useCallback(async () => {
+    setBusy(true);
+    const { data, error } = await supabase.from('commerce_exchange_rates').select('*').order('currency_code');
+    if (error) { onNotice(error.message); setBusy(false); return; }
+    setRates(data || []);
+    setBusy(false);
+  }, [onNotice]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const updateRate = async (code: string, newRate: number) => {
+    if (isNaN(newRate) || newRate <= 0) { onNotice('La cotización debe ser un número positivo.'); return; }
+    const { error } = await supabase.from('commerce_exchange_rates').upsert({ currency_code: code, rate_to_uyu: newRate });
+    if (error) { onNotice(error.message); return; }
+    onNotice(`Cotización de ${code} guardada.`);
+    void load();
+  };
+
+  return <section className="commerce-section">
+    <div className="section-header">
+      <h2>Conversión de moneda</h2>
+      <p>Establecé el valor del Dólar y el Real frente al Peso Uruguayo (UYU). Este valor se usa para convertir los precios en la tienda según el idioma.</p>
+    </div>
+    {busy ? <p className="loading">Cargando cotizaciones…</p> : (
+      <div className="data-table" style={{ maxWidth: '600px', margin: '2rem 0' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <thead>
+            <tr>
+              <th style={{ padding: '0.75rem', borderBottom: '1px solid #ddd' }}>Moneda</th>
+              <th style={{ padding: '0.75rem', borderBottom: '1px solid #ddd' }}>Equivalencia (1 Unidad = X UYU)</th>
+              <th style={{ padding: '0.75rem', borderBottom: '1px solid #ddd' }}>Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            {['USD', 'BRL'].map(code => {
+              const current = rates.find(r => r.currency_code === code);
+              return <RateRow key={code} code={code} initialRate={current?.rate_to_uyu || 1} onSave={val => updateRate(code, val)} />
+            })}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </section>;
+}
+
+function RateRow({ code, initialRate, onSave }: { code: string; initialRate: number; onSave: (val: number) => void }) {
+  const [value, setValue] = useState(initialRate.toString());
+  return <tr>
+    <td style={{ padding: '0.75rem', borderBottom: '1px solid #ddd' }}><strong>{code}</strong></td>
+    <td style={{ padding: '0.75rem', borderBottom: '1px solid #ddd' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <span>$</span>
+        <input type="number" step="0.01" min="0.01" value={value} onChange={e => setValue(e.target.value)} style={{ width: '100px', padding: '0.25rem' }} />
+        <span>UYU</span>
+      </div>
+    </td>
+    <td style={{ padding: '0.75rem', borderBottom: '1px solid #ddd' }}>
+      <button type="button" onClick={() => onSave(parseFloat(value))} disabled={parseFloat(value) === initialRate}>Guardar</button>
+    </td>
+  </tr>;
+}
 
 function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
   const [products,setProducts] = useState<Product[]>([]);
@@ -135,10 +205,10 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
   const [showNewProduct,setShowNewProduct] = useState(false);
   const [newProduct,setNewProduct] = useState<ProductForm>(EMPTY_PRODUCT_FORM);
   const [productDetails,setProductDetails] = useState<ProductForm>(EMPTY_PRODUCT_FORM);
-  const [variant,setVariant] = useState({sku:'',name:'Única',price:'',weight:'',stock:'0',tracked:true});
+  const [variant,setVariant] = useState({sku:'',name:'Única',price:''});
 
   const load = useCallback(async(preferredId?:string) => {
-    const selection = 'id,editorial_slug,name,category,description,sale_mode,published,catalog_filters,commerce_variants(id,sku,name,price_minor,weight_grams,inventory_tracked,stock_on_hand,stock_reserved,active),commerce_product_images(id,storage_path,original_name,alt_text,mime_type,byte_size,sort_order)';
+    const selection = 'id,editorial_slug,name,category,description,sale_mode,published,catalog_filters,commerce_variants(id,sku,name,price_minor,active),commerce_product_images(id,storage_path,original_name,alt_text,mime_type,byte_size,sort_order,variant_id)';
     const legacySelection = selection.replace('catalog_filters,','');
     let {data,error}:{data:unknown;error:{message:string;code?:string}|null} = await supabase
       .from('commerce_products')
@@ -170,7 +240,8 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
 
   useEffect(() => {
     if (!product) return;
-    setProductDetails({name:product.name,category:product.category,description:product.description,saleMode:product.sale_mode,catalogFilters:normalizeCatalogAttributes(product.catalog_filters)});
+    const category = (catalogCategoryIds as readonly string[]).includes(product.category) ? product.category : '';
+    setProductDetails({name:product.name,category,description:product.description,saleMode:product.sale_mode,catalogFilters:normalizeCatalogAttributes(product.catalog_filters)});
   },[product]);
 
   const createProduct = async(event:React.FormEvent) => {
@@ -196,7 +267,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
       onNotice('Producto creado. Ahora podés cargar sus fotos y variantes.');
       await load(result.data.id);
     } catch (reason) {
-      onNotice(reason instanceof Error ? reason.message : 'No se pudo crear el producto.');
+      onNotice(reason && typeof reason === 'object' && 'message' in reason ? String(reason.message) : 'No se pudo crear el producto.');
     } finally {
       setProductBusy('');
     }
@@ -283,7 +354,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
       onNotice(uploaded === 1 ? 'Imagen subida.' : `${uploaded} imágenes subidas.`);
       await load();
     } catch (reason) {
-      const message = reason instanceof Error ? reason.message : 'No se pudieron subir las imágenes.';
+      const message = reason && typeof reason === 'object' && 'message' in reason ? String(reason.message) : 'No se pudieron subir las imágenes.';
       onNotice(uploaded ? `${uploaded} imágenes se guardaron. La siguiente falló: ${message}` : message);
       await load();
     } finally {
@@ -301,10 +372,18 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
       onNotice(storageError ? 'La imagen se quitó del catálogo, pero el archivo necesita limpieza manual.' : 'Imagen eliminada.');
       await load();
     } catch (reason) {
-      onNotice(reason instanceof Error ? reason.message : 'No se pudo eliminar la imagen.');
+      onNotice(reason && typeof reason === 'object' && 'message' in reason ? String(reason.message) : 'No se pudo eliminar la imagen.');
     } finally {
       setImageBusy('');
     }
+  };
+  const linkImageVariant = async(image:ProductImage, variantId:string|null) => {
+    if (!product) return;
+    setImageBusy(image.id);
+    const {error} = await supabase.from('commerce_product_images').update({variant_id: variantId}).eq('id', image.id);
+    onNotice(error ? error.message : 'Variante enlazada a la foto.');
+    if (!error) await load(product.id);
+    setImageBusy('');
   };
 
   const moveImage = async(image:ProductImage) => {
@@ -352,9 +431,9 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
     e.preventDefault();
     if (!product) return;
     setProductBusy('variant-create');
-    const {error} = await supabase.from('commerce_variants').insert({product_id:product.id,sku:variant.sku.trim(),name:variant.name.trim(),price_minor:Math.round(Number(variant.price)*100),weight_grams:variant.weight?Number(variant.weight):null,inventory_tracked:variant.tracked,stock_on_hand:Number(variant.stock),active:true});
+    const {error} = await supabase.from('commerce_variants').insert({product_id:product.id,sku:variant.sku.trim(),name:variant.name.trim(),price_minor:Math.round(Number(variant.price)*100),inventory_tracked:false,active:true});
     onNotice(error?error.message:'Variante creada.');
-    if(!error){setVariant({sku:'',name:'Única',price:'',weight:'',stock:'0',tracked:true});await load(product.id)}
+    if(!error){setVariant({sku:'',name:'Única',price:''});await load(product.id)}
     setProductBusy('');
   };
 
@@ -384,18 +463,17 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
             <div><p className="eyebrow">Nueva ficha</p><h3>Crear producto</h3></div>
             <button type="button" className="secondary-button" onClick={()=>{setShowNewProduct(false);setNewProduct(EMPTY_PRODUCT_FORM())}}>Cancelar</button>
           </div>
-          <p className="catalog-rule"><strong>¿Ficha o variante?</strong> Usá una variante si solo cambia el color o el tamaño. Creá otra ficha si cambia el modelo, el material o la terminación.</p>
+          <p className="catalog-rule"><strong>¿Ficha o variante?</strong> Usá una variante si solo cambia el color o el tamaño. Creá otra ficha si cambia el modelo o el material.</p>
           <div className="product-fields">
-            <label>Nombre del producto <span aria-hidden="true">*</span><input required autoFocus value={newProduct.name} onChange={event=>setNewProduct({...newProduct,name:event.target.value})} placeholder="Ej.: Imperial clásico marrón"/></label>
-            <label>Categoría <span aria-hidden="true">*</span><input required list="catalog-categories" value={newProduct.category} onChange={event=>setNewProduct({...newProduct,category:event.target.value})} placeholder="mates"/></label>
-            <label>Modalidad<select value={newProduct.saleMode} onChange={event=>setNewProduct({...newProduct,saleMode:event.target.value as SaleMode})}><option value="standard">Venta normal</option><option value="made_to_order">Por encargo</option></select></label>
-            <label className="wide-field">Descripción<textarea value={newProduct.description} onChange={event=>setNewProduct({...newProduct,description:event.target.value})} placeholder="Material, terminación y cualquier detalle que lo diferencie."/></label>
+            <label><span className="field-label">Nombre del producto <span className="field-required" aria-hidden="true">*</span></span><input required autoFocus value={newProduct.name} onChange={event=>setNewProduct({...newProduct,name:event.target.value})} placeholder="Ej.: Imperial clásico marrón"/></label>
+            <label><span className="field-label">Categoría <span className="field-required" aria-hidden="true">*</span></span><select required value={newProduct.category} onChange={event=>{const category=event.target.value;setNewProduct({...newProduct,category,catalogFilters:category==='mates'?newProduct.catalogFilters:{...newProduct.catalogFilters,productTypes:[]}})}}><option value="" disabled>Elegí una categoría</option>{catalogCategoryIds.map(category=><option key={category} value={category}>{catalogCategoryLabels[category]}</option>)}</select></label>
+            <label><span className="field-label">Modalidad</span><select value={newProduct.saleMode} onChange={event=>setNewProduct({...newProduct,saleMode:event.target.value as SaleMode})}><option value="standard">Venta normal</option><option value="made_to_order">Por encargo</option></select></label>
+            <label className="wide-field"><span className="field-label">Descripción</span><textarea value={newProduct.description} onChange={event=>setNewProduct({...newProduct,description:event.target.value})} placeholder="Material y cualquier detalle que lo diferencie."/></label>
           </div>
-          <CatalogAttributeFields attributes={newProduct.catalogFilters} onChange={catalogFilters=>setNewProduct({...newProduct,catalogFilters})}/>
+          <CatalogAttributeFields attributes={newProduct.catalogFilters} category={newProduct.category} onChange={catalogFilters=>setNewProduct({...newProduct,catalogFilters})}/>
           <div className="form-actions"><button type="submit" disabled={Boolean(productBusy)}>{productBusy === 'create' ? 'Creando…' : 'Crear producto'}</button></div>
         </form>
       )}
-      <datalist id="catalog-categories">{catalogCategoryIds.map(category=><option key={category} value={category}/>)}</datalist>
       <div className="catalog-index">
         <button className="new-product-button" type="button" onClick={()=>setShowNewProduct(value=>!value)}>{showNewProduct ? 'Cerrar formulario' : '+ Nuevo producto'}</button>
         <label className="catalog-search">
@@ -416,7 +494,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
       {product && (
         <div className="panel">
           <div className="panel-head">
-            <div><p className="eyebrow">{product.editorial_slug}</p><h3>{product.name}</h3></div>
+            <div><h3>{product.name}</h3></div>
             <div className="product-actions">
               <button className="secondary-button" disabled={Boolean(productBusy)} onClick={async()=>{setProductBusy('publish');const{error}=await supabase.from('commerce_products').update({published:!product.published}).eq('id',product.id);onNotice(error?error.message:!product.published?'Producto publicado.':'Producto oculto.');if(!error)await load(product.id);setProductBusy('')}}>{productBusy === 'publish' ? 'Guardando…' : product.published?'Ocultar':'Publicar'}</button>
               <button className="danger-button" disabled={Boolean(productBusy)} onClick={()=>void deleteProduct()}>{productBusy === 'delete' ? 'Eliminando…' : 'Eliminar producto'}</button>
@@ -426,27 +504,27 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
           <form className="product-details" onSubmit={event=>void saveProduct(event)}>
             <div><h4>Datos del producto</h4><p>Editá esta ficha sin afectar los demás productos del catálogo.</p></div>
             <div className="product-fields">
-              <label>Nombre <span aria-hidden="true">*</span><input required value={productDetails.name} onChange={event=>setProductDetails({...productDetails,name:event.target.value})}/></label>
-              <label>Categoría <span aria-hidden="true">*</span><input required list="catalog-categories" value={productDetails.category} onChange={event=>setProductDetails({...productDetails,category:event.target.value})}/></label>
-              <label>Modalidad<select value={productDetails.saleMode} onChange={event=>setProductDetails({...productDetails,saleMode:event.target.value as SaleMode})}><option value="standard">Venta normal</option><option value="made_to_order">Por encargo</option></select></label>
-              <label className="wide-field">Descripción<textarea value={productDetails.description} onChange={event=>setProductDetails({...productDetails,description:event.target.value})}/></label>
+              <label><span className="field-label">Nombre <span className="field-required" aria-hidden="true">*</span></span><input required value={productDetails.name} onChange={event=>setProductDetails({...productDetails,name:event.target.value})}/></label>
+              <label><span className="field-label">Categoría <span className="field-required" aria-hidden="true">*</span></span><select required value={productDetails.category} onChange={event=>{const category=event.target.value;setProductDetails({...productDetails,category,catalogFilters:category==='mates'?productDetails.catalogFilters:{...productDetails.catalogFilters,productTypes:[]}})}}><option value="" disabled>Elegí una categoría</option>{catalogCategoryIds.map(category=><option key={category} value={category}>{catalogCategoryLabels[category]}</option>)}</select></label>
+              <label><span className="field-label">Modalidad</span><select value={productDetails.saleMode} onChange={event=>setProductDetails({...productDetails,saleMode:event.target.value as SaleMode})}><option value="standard">Venta normal</option><option value="made_to_order">Por encargo</option></select></label>
+              <label className="wide-field"><span className="field-label">Descripción</span><textarea value={productDetails.description} onChange={event=>setProductDetails({...productDetails,description:event.target.value})}/></label>
             </div>
-            <CatalogAttributeFields attributes={productDetails.catalogFilters} onChange={catalogFilters=>setProductDetails({...productDetails,catalogFilters})}/>
+            <CatalogAttributeFields attributes={productDetails.catalogFilters} category={productDetails.category} onChange={catalogFilters=>setProductDetails({...productDetails,catalogFilters})}/>
             <div className="form-actions"><button type="submit" disabled={Boolean(productBusy)}>{productBusy === 'save' ? 'Guardando…' : 'Guardar cambios'}</button></div>
           </form>
 
           <section className="image-manager" aria-labelledby="product-images-title">
+            <input id={`product-images-${product.id}`} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={Boolean(imageBusy)} onChange={event=>void uploadImages(event)}/>
             <div className="image-manager-head">
               <div>
                 <h4 id="product-images-title">Imágenes del producto</h4>
                 <p>La primera imagen será la principal. PNG, JPEG o WebP de hasta 5 MB.</p>
               </div>
-              <div>
-                <input id={`product-images-${product.id}`} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={Boolean(imageBusy)} onChange={event=>void uploadImages(event)}/>
+              {images.length > 0 && (
                 <label className={`upload-button ${imageBusy ? 'disabled' : ''}`} htmlFor={`product-images-${product.id}`} aria-disabled={Boolean(imageBusy)}>
                   {imageBusy === 'upload' ? 'Subiendo…' : 'Subir imágenes'}
                 </label>
-              </div>
+              )}
             </div>
             {images.length ? (
               <div className="image-gallery">
@@ -456,6 +534,12 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
                     <figcaption>
                       <div className="image-meta"><strong>{index === 0 ? 'Principal' : `Imagen ${index + 1}`}</strong><span title={image.original_name}>{image.original_name}</span></div>
                       <div className="image-card-actions">
+                        {product.commerce_variants.length > 0 && (
+                          <select className="image-variant-select" value={image.variant_id || ''} disabled={Boolean(imageBusy)} onChange={event=>void linkImageVariant(image, event.target.value || null)} aria-label={`Color/Variante para ${image.original_name}`}>
+                            <option value="">General (Sin variante)</option>
+                            {product.commerce_variants.map(variant=><option key={variant.id} value={variant.id}>{variant.name}</option>)}
+                          </select>
+                        )}
                         <select value={imageTargets[image.id] || ''} disabled={Boolean(imageBusy)} onChange={event=>setImageTargets({...imageTargets,[image.id]:event.target.value})} aria-label={`Mover ${image.original_name} a otro producto`}>
                           <option value="">Mover a…</option>
                           {products.filter(item=>item.id!==product.id).map(item=><option key={item.id} value={item.id}>{item.name}</option>)}
@@ -468,27 +552,85 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
                 ))}
               </div>
             ) : (
-              <label className={`image-empty ${imageBusy ? 'disabled' : ''}`} htmlFor={`product-images-${product.id}`}>
+              <div className="image-empty">
                 <strong>Todavía no hay imágenes</strong>
-                <span>Hacé clic para seleccionar una o varias fotos.</span>
-              </label>
+                <span>Seleccioná una o varias fotos para este producto.</span>
+                <label className={`upload-button ${imageBusy ? 'disabled' : ''}`} htmlFor={`product-images-${product.id}`} aria-disabled={Boolean(imageBusy)}>
+                  {imageBusy === 'upload' ? 'Subiendo…' : 'Subir imágenes'}
+                </label>
+              </div>
             )}
           </section>
 
           <section className="variants-section" aria-labelledby="variants-title">
-            <div><h4 id="variants-title">Variantes</h4><p>Mismo producto con distinto color o tamaño. Si cambia el material o la terminación, creá otra ficha.</p></div>
+            <div><h4 id="variants-title">Variantes</h4><p>Mismo producto con distinto color o tamaño. Si cambia el material, creá otra ficha.</p></div>
             <div className="table-scroll">
-              <table><thead><tr><th>SKU</th><th>Precio</th><th>Stock</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
-                {product.commerce_variants.map(item=><tr key={item.id}><td>{item.sku}<small>{item.name}</small></td><td>{money(item.price_minor)}</td><td>{item.inventory_tracked?`${item.stock_on_hand-item.stock_reserved} disp.`:'Por encargo'}</td><td><span className={`status-badge ${item.active ? 'status-ready_for_production' : 'status-cancelled'}`}>{item.active ? 'Activa' : 'Inactiva'}</span></td><td><div className="row-actions"><button className="compact-button secondary-button" type="button" disabled={Boolean(productBusy)} onClick={()=>void toggleVariant(item)}>{item.active ? 'Desactivar' : 'Activar'}</button><button className="compact-button danger-button" type="button" disabled={Boolean(productBusy)} onClick={()=>void removeVariant(item)}>Eliminar</button></div></td></tr>)}
-                {!product.commerce_variants.length&&<tr><td className="empty-table" colSpan={5}>Este producto todavía no tiene variantes.</td></tr>}
+              <table><thead><tr><th>SKU</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+                {product.commerce_variants.map(item=><tr key={item.id}><td>{item.sku}<small>{item.name}</small></td><td>{money(item.price_minor)}</td><td><span className={`status-badge ${item.active ? 'status-ready_for_production' : 'status-cancelled'}`}>{item.active ? 'Activa' : 'Inactiva'}</span></td><td><div className="row-actions"><button className="compact-button secondary-button" type="button" disabled={Boolean(productBusy)} onClick={()=>void toggleVariant(item)}>{item.active ? 'Desactivar' : 'Activar'}</button><button className="compact-button danger-button" type="button" disabled={Boolean(productBusy)} onClick={()=>void removeVariant(item)}>Eliminar</button></div></td></tr>)}
+                {!product.commerce_variants.length&&<tr><td className="empty-table" colSpan={4}>Este producto todavía no tiene variantes.</td></tr>}
               </tbody></table>
             </div>
           </section>
-          <form className="form-grid" onSubmit={event=>void createVariant(event)}><h4>Nueva variante</h4><label>SKU<input required value={variant.sku} onChange={e=>setVariant({...variant,sku:e.target.value})}/></label><label>Nombre<input required value={variant.name} onChange={e=>setVariant({...variant,name:e.target.value})}/></label><label>Precio UYU<input required type="number" min="1" step="0.01" value={variant.price} onChange={e=>setVariant({...variant,price:e.target.value})}/></label><label>Peso (g)<input type="number" min="1" value={variant.weight} onChange={e=>setVariant({...variant,weight:e.target.value})}/></label><label>Stock<input type="number" min="0" value={variant.stock} onChange={e=>setVariant({...variant,stock:e.target.value})}/></label><label className="check"><input type="checkbox" checked={variant.tracked} onChange={e=>setVariant({...variant,tracked:e.target.checked})}/> Controlar stock</label><button disabled={Boolean(productBusy)}>{productBusy === 'variant-create' ? 'Creando…' : 'Crear variante'}</button></form>
+          <form className="form-grid" onSubmit={event=>void createVariant(event)}><h4>Nueva variante</h4><label>SKU<input required value={variant.sku} onChange={e=>setVariant({...variant,sku:e.target.value})}/></label><label>Nombre<input required value={variant.name} onChange={e=>setVariant({...variant,name:e.target.value})}/></label><label>Precio UYU<input required type="number" min="1" step="0.01" value={variant.price} onChange={e=>setVariant({...variant,price:e.target.value})}/></label><button disabled={Boolean(productBusy)}>{productBusy === 'variant-create' ? 'Creando…' : 'Crear variante'}</button></form>
         </div>
       )}
     </section>
   );
+}
+
+type CatalogListProduct = Pick<Product, 'id' | 'name' | 'category' | 'catalog_filters' | 'commerce_variants'>;
+type CatalogListRow = CatalogListProduct & { material:string; variant:ProductVariant|null };
+
+function CatalogList({onNotice}:{onNotice:(v:string)=>void}) {
+  const [products,setProducts] = useState<CatalogListProduct[]>([]);
+
+  const load = useCallback(async() => {
+    const selection = 'id,name,category,catalog_filters,commerce_variants(id,sku,name,price_minor,active)';
+    const legacySelection = selection.replace('catalog_filters,','');
+    let {data,error}:{data:unknown;error:{message:string;code?:string}|null} = await supabase
+      .from('commerce_products')
+      .select(selection)
+      .neq('category','sandbox')
+      .order('name');
+    if (error && (error.code === '42703' || /catalog_filters/i.test(error.message))) {
+      ({data,error} = await supabase.from('commerce_products').select(legacySelection).neq('category','sandbox').order('name'));
+    }
+    if (error) {
+      onNotice(`No se pudo cargar la lista: ${error.message}`);
+      return;
+    }
+    setProducts((data || []) as CatalogListProduct[]);
+  },[onNotice]);
+
+  useEffect(() => { void load(); },[load]);
+  const rows: CatalogListRow[] = products.flatMap<CatalogListRow>(product => {
+    const material = normalizeCatalogAttributes(product.catalog_filters).materials
+      .map(value => catalogMaterialLabels[value] || value)
+      .join(', ') || '—';
+    const variants = product.commerce_variants || [];
+    return variants.length
+      ? variants.map(variant => ({...product,material,variant}))
+      : [{...product,material,variant:null}];
+  });
+
+  return <section className="data-panel" aria-label="Lista de productos del catálogo">
+    <div className="table-summary"><strong>{products.length} productos</strong><small>{rows.length} {rows.length === 1 ? 'variante listada' : 'variantes listadas'}</small></div>
+    <div className="table-scroll">
+      <table className="data-table catalog-list-table">
+        <thead><tr><th>SKU</th><th>Producto</th><th>Categoría</th><th>Material</th><th className="numeric">Precio</th></tr></thead>
+        <tbody>
+          {rows.map(row => <tr key={`${row.id}-${row.variant?.id || 'sin-variante'}`}>
+            <td>{row.variant?.sku || '—'}</td>
+            <td><strong>{row.name}</strong>{row.variant?.name && <small>{row.variant.name}</small>}</td>
+            <td>{catalogCategoryLabels[row.category] || row.category || '—'}</td>
+            <td>{row.material}</td>
+            <td className="numeric"><strong>{row.variant ? money(row.variant.price_minor) : '—'}</strong></td>
+          </tr>)}
+          {!rows.length && <tr><td className="empty-table" colSpan={5}>Todavía no hay productos cargados.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  </section>;
 }
 
 function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) {

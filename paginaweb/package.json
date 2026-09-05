@@ -17,6 +17,7 @@
     "@supabase/ssr": "0.12.5",
     "@supabase/supabase-js": "2.112.4",
     "@svg-maps/world": "^2.0.0",
+    "@vercel/analytics": "^2.0.1",
     "countries-list": "3.4.1",
     "country-flag-icons": "^1.6.20",
     "country-region-data": "4.1.0",

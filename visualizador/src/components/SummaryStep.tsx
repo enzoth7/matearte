@@ -108,6 +108,9 @@ export function SummaryStep({
         </div>
 
         <button type="button" onClick={onEditDesign} className="brand-button brand-button--secondary summary-edit">Editar pedido</button>
+        <p className="summary-checkout__note">
+          Cada mate se termina a mano. Para que tu diseño se adapte mejor a su forma y luzca en armonía, podemos realizar pequeños ajustes de composición sin alterar la esencia de lo que elegiste.
+        </p>
         <button type="button" onClick={onEditContact} className="sr-only">Editar datos de {userData?.name ?? "cliente"}</button>
       </aside>
     </main>

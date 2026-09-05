@@ -42,7 +42,7 @@ import {
   type MateSelectionStage,
   type ResolvedMateProduct,
 } from "./catalog/mateDecisionCatalog";
-import { createDefaultRimSelection, normalizeRimSelection } from "./catalog/rimCatalog";
+import { createDefaultRimSelection, MAX_RIM_ICONS, normalizeRimIcons, normalizeRimSelection } from "./catalog/rimCatalog";
 import { getRimFinish, getRimFinishCatalogForEngravingType } from "./catalog/rimFinishCatalog";
 import { getFlejeFinish } from "./catalog/flejeFinishCatalog";
 import { calculateOrderPricing, countChargeableCharacters, formatUYU, getCustomizationPrice } from "./catalog/pricingCatalog";
@@ -486,17 +486,18 @@ function VisualizerApp() {
   const selectedMate = mateVariants.find((variant) => variant.id === configuration.variantId) ?? initialVariant;
   const [flejeConfig, setFlejeConfig] = useState<FlejeCustomization>(() => createDefaultFlejeCustomization());
   const [guestDraftHydrated, setGuestDraftHydrated] = useState(false);
+  const ignoreGuestDraftRestoreRef = useRef(false);
 
   useEffect(() => {
     let active = true;
     void loadGuestDraft().then((draft) => {
       if (!active) return;
-      if (draft?.configuration) {
+      if (!ignoreGuestDraftRestoreRef.current && draft?.configuration) {
         const normalized = normalizeMateConfiguration(draft.configuration);
         setConfiguration(normalized);
         if (!normalized.isLegacy) setSelection(normalized.selection);
       }
-      if (draft?.flejeConfiguration) setFlejeConfig(normalizeFlejeCustomization(draft.flejeConfiguration));
+      if (!ignoreGuestDraftRestoreRef.current && draft?.flejeConfiguration) setFlejeConfig(normalizeFlejeCustomization(draft.flejeConfiguration));
       setGuestDraftHydrated(true);
     }).catch(() => setGuestDraftHydrated(true));
     return () => { active = false; };
@@ -638,9 +639,15 @@ function VisualizerApp() {
   }, []);
 
   const startNewDraft = useCallback(() => {
+    ignoreGuestDraftRestoreRef.current = true;
     setLastSavedDesignId(null);
     setDraftIdentity(createDraftIdentity());
-  }, [setDraftIdentity]);
+    setConfiguration(createMateConfiguration(initialVariant));
+    setFlejeConfig(createDefaultFlejeCustomization());
+    setSelectedRimElement("text");
+    setSelectedFlejeElement("text");
+    setPlacingRimIconId(null);
+  }, [initialVariant, setDraftIdentity]);
 
   useEffect(() => {
     let active = true;
@@ -1185,29 +1192,36 @@ function VisualizerApp() {
                       <h3>Íconos</h3>
                       <RimImageModeSelector
                         mode={configuration.rim.imageMode}
-                        onSelect={(imageMode) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, imageMode } }))}
+                        onSelect={(imageMode) => setConfiguration((current) => ({
+                          ...current,
+                          rim: {
+                            ...current.rim,
+                            imageMode,
+                            icons: imageMode === "none" ? [] : current.rim.icons,
+                          },
+                        }))}
                       />
                       {configuration.rim.imageMode === "image" && (
                         <div className="customizer-card-body customizer-card-body--icons">
                           <VirolaIconSelector
                             icons={configuration.rim.icons}
-                            onChange={(icons) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, icons } }))}
+                            onChange={(icons) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, icons: normalizeRimIcons(icons) } }))}
                             selectedElementId={selectedRimElement}
                             onSelectElement={(id) => {
                               setSelectedRimElement(id);
                               setPreviewView("virola");
                             }}
                           />
-                          {(configuration.rim.icons.length < 3 || uploadedRimIcon) && (
-                            <div className="customizer-upload">
-                              <CustomImageUpload
-                                value={uploadedRimIcon?.customImage ?? null}
-                                onChange={updateUploadedRimIcon}
-                                onPlace={locateUploadedRimIcon}
-                                isPlacing={placingRimIconId === uploadedRimIcon?.id}
-                              />
-                            </div>
-                          )}
+                          <div className="customizer-upload">
+                            <CustomImageUpload
+                              value={uploadedRimIcon?.customImage ?? null}
+                              onChange={updateUploadedRimIcon}
+                              onPlace={locateUploadedRimIcon}
+                              isPlacing={placingRimIconId === uploadedRimIcon?.id}
+                              disabled={!uploadedRimIcon && configuration.rim.icons.length >= MAX_RIM_ICONS}
+                              disabledMessage="Ya elegiste 3 íconos. Quitá uno para subir tu propio diseño."
+                            />
+                          </div>
                         </div>
                       )}
                       {configuration.rim.imageMode === "image" && (() => {

@@ -16,11 +16,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const mapsUrl = "https://www.google.com/maps/search/?api=1&query=25+de+Mayo+1734+Paysandu+Uruguay";
+const contactWhatsAppMessage = "¡Hola! Vengo desde la web de MateArte y me gustaría hacer una consulta. ¡Gracias!";
 export default async function ContactoPage() {
   const locale = await getLocale();
   const t = await getTranslations("contact");
-  const whatsapp = await getTranslations("whatsapp");
-  const whatsappUrl = buildWhatsAppUrl(es.contact.phoneHref, whatsapp("message"));
+  const whatsappUrl = buildWhatsAppUrl(es.contact.phoneHref, contactWhatsAppMessage);
   return (
     <main id="contenido" className="contact-page">
       <JsonLd data={buildPageStructuredData({ locale, href: "/contacto", name: t("metadataTitle"), description: t("metadataDescription"), type: "ContactPage", homeLabel: "MateArte", includeOrganization: true })} />

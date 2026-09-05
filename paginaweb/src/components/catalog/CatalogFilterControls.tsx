@@ -3,7 +3,6 @@
 import {
   categoryOptions,
   colorOptions,
-  finishOptions,
   materialOptions,
   productTypeOptions,
   priceRangeOptions,
@@ -11,7 +10,7 @@ import {
   type PriceRangeId,
 } from "@/lib/catalog-filters";
 import { useTranslations } from "next-intl";
-import type { CatalogColorId, CatalogFinishId, CatalogMaterialId, CatalogProductTypeId, Product } from "@/types/catalog";
+import type { CatalogColorId, CatalogMaterialId, CatalogProductTypeId, Product } from "@/types/catalog";
 
 type Props = {
   variant: "desktop" | "mobile";
@@ -22,7 +21,6 @@ type Props = {
   onPriceToggle: (value: PriceRangeId) => void;
   onMaterialToggle: (value: CatalogMaterialId) => void;
   onProductTypeToggle: (value: CatalogProductTypeId) => void;
-  onFinishToggle: (value: CatalogFinishId) => void;
   onColorToggle: (value: CatalogColorId) => void;
   onClear: () => void;
 };
@@ -36,7 +34,6 @@ export function CatalogFilterControls({
   onPriceToggle,
   onMaterialToggle,
   onProductTypeToggle,
-  onFinishToggle,
   onColorToggle,
   onClear,
 }: Props) {
@@ -46,7 +43,7 @@ export function CatalogFilterControls({
   const listClass = mobile ? "catalog-mobile-filter-list" : "catalog-filter-list";
   const rowClass = mobile ? "catalog-mobile-filter-row" : "catalog-check-row";
   const availableColors = new Set(products.flatMap((product) => product.filterData.colors ?? []));
-  const hasActiveFilters = filters.category !== "todas" || filters.prices.length > 0 || filters.materials.length > 0 || filters.productTypes.length > 0 || filters.finishes.length > 0 || filters.colors.length > 0;
+  const hasActiveFilters = filters.category !== "todas" || filters.prices.length > 0 || filters.materials.length > 0 || filters.productTypes.length > 0 || filters.colors.length > 0;
 
   return (
     <div className={mobile ? "catalog-mobile-filter-groups" : "catalog-filter-groups"}>
@@ -101,19 +98,6 @@ export function CatalogFilterControls({
           {productTypeOptions.map((option) => (
             <label key={option.value} className={rowClass}>
               <input type="checkbox" checked={filters.productTypes.includes(option.value)} onChange={() => onProductTypeToggle(option.value)} />
-              <span className={mobile ? "catalog-mobile-checkbox" : "catalog-checkbox"} aria-hidden="true" />
-              <span>{t(option.labelKey)}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
-      <fieldset className={`${groupClass} catalog-finish-filter`}>
-        <legend>{t("finish")}</legend>
-        <div className={listClass}>
-          {finishOptions.map((option) => (
-            <label key={option.value} className={rowClass}>
-              <input type="checkbox" checked={filters.finishes.includes(option.value)} onChange={() => onFinishToggle(option.value)} />
               <span className={mobile ? "catalog-mobile-checkbox" : "catalog-checkbox"} aria-hidden="true" />
               <span>{t(option.labelKey)}</span>
             </label>

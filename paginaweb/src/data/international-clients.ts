@@ -36,6 +36,7 @@ export const customerTestimonials: readonly CustomerTestimonial[] = [
   { id: "review-01", quote: "Llegaron justo para el partido de Uruguay. Muy buen trabajo; ¡vamo arriba Uruguay!", authorName: "Luis N.", authorTitle: "Australia", sourceLabel: "cliente", countryCode: "AU" },
   { id: "review-02", quote: "Gran variedad de mates y personalizaciones hermosas. Del 1 al 10, un 10.", authorName: "Yaquelin L.", authorTitle: "Uruguay", sourceLabel: "Google Maps", countryCode: "UY" },
   { id: "review-03", quote: "Tengo un imperial y un torpedo hechos por ustedes: los dos son excelentes.", authorName: "Fernando P.", authorTitle: "Uruguay", sourceLabel: "Google Maps", countryCode: "UY" },
+  { id: "review-04", quote: "Me gustaron mucho los mates. El envío internacional funcionó perfecto y la calidad es increíble.", authorName: "Timur A.", authorTitle: "Rusia", sourceLabel: "cliente", countryCode: "RU" },
   { id: "review-05", quote: "¡Lujo!", authorName: "Agustín Z.", authorTitle: "Uruguay", sourceLabel: "Google Maps", countryCode: "UY" },
   { id: "review-06", quote: "Excelente calidad y terminación. ¡Súper conforme!", authorName: "Luz del Alba H.", authorTitle: "Uruguay", sourceLabel: "Google Maps", countryCode: "UY" },
   { id: "review-07", quote: "El juego es una belleza. ¡Enamorada!", authorName: "Laura B.", authorTitle: "Uruguay", sourceLabel: "Google Maps", countryCode: "UY" },
@@ -65,6 +66,7 @@ const testimonialQuotes: Record<Exclude<Locale, "es">, Record<string, string>> =
     "review-01": "They arrived just in time for Uruguay's match. Great work — let's go Uruguay!",
     "review-02": "A great variety of mates and beautiful customization. From 1 to 10, it's a 10.",
     "review-03": "I have an imperial and a torpedo made by you: both are excellent.",
+    "review-04": "I really liked the mates. International shipping worked perfectly and the quality is amazing.",
     "review-05": "Outstanding!",
     "review-06": "Excellent quality and finish. I couldn't be happier!",
     "review-07": "The set is beautiful. I'm in love!",
@@ -78,6 +80,7 @@ const testimonialQuotes: Record<Exclude<Locale, "es">, Record<string, string>> =
     "review-01": "Chegaram bem a tempo do jogo do Uruguai. Ótimo trabalho; vamos, Uruguai!",
     "review-02": "Grande variedade de mates e personalizações lindas. De 1 a 10, nota 10.",
     "review-03": "Tenho um imperial e um torpedo feitos por vocês: os dois são excelentes.",
+    "review-04": "Gostei muito dos mates. O envio internacional funcionou perfeitamente e a qualidade é incrível.",
     "review-05": "Um luxo!",
     "review-06": "Excelente qualidade e acabamento. Super satisfeita!",
     "review-07": "O conjunto é uma beleza. Apaixonada!",
@@ -95,7 +98,7 @@ export function getLocalizedInternationalData(locale: Locale) {
   const localizedTestimonials = customerTestimonials.map((testimonial) => ({
     ...testimonial,
     quote: testimonialQuotes[locale][testimonial.id],
-    authorTitle: testimonial.countryCode === "AU" ? destinationNames[locale].AU.name : locale === "en" ? "Uruguay" : "Uruguai",
+    authorTitle: testimonial.countryCode === "UY" ? (locale === "en" ? "Uruguay" : "Uruguai") : destinationNames[locale][testimonial.countryCode as DestinationCode].name,
     sourceLabel: testimonial.sourceLabel === "cliente" ? (locale === "en" ? "customer" : "cliente") : testimonial.sourceLabel,
   }));
   return {

@@ -9004,3 +9004,61 @@ img {
     line-height: 20px;
   }
 }
+
+.personalizados-empresas {
+  background: #e8dcc4;
+  padding: 60px 0;
+  overflow: hidden;
+}
+.personalizados-empresas h2 {
+  text-align: center;
+  color: #2d1d16;
+  font-size: 24px;
+  font-weight: 500;
+  font-family: var(--font-newsreader), Georgia, serif;
+  margin-bottom: 40px;
+}
+.personalizados-empresas-viewport {
+  width: 100%;
+  overflow: hidden;
+}
+@keyframes empresas-carousel-loop {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+.personalizados-empresas-track {
+  display: flex;
+  width: max-content;
+  animation: empresas-carousel-loop 20s linear infinite;
+  will-change: transform;
+}
+.personalizados-empresas-group {
+  display: flex;
+  gap: 40px;
+  padding-right: 40px;
+}
+.personalizados-empresas-card {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #fff;
+  margin: 0;
+}
+.personalizados-empresas-card img {
+  object-fit: cover;
+}
+@media (min-width: 1024px) {
+  .personalizados-empresas h2 {
+    font-size: 32px;
+    margin-bottom: 60px;
+  }
+  .personalizados-empresas-card {
+    width: 200px;
+    height: 200px;
+  }
+  .personalizados-empresas-track {
+    animation-duration: 30s;
+  }
+}

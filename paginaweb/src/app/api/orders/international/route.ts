@@ -32,6 +32,7 @@ export async function POST(request: Request) {
     const fullName = text(customer.fullName, 120);
     const phone = text(customer.phone, 40);
     const country = text(destination.country, 100);
+    const department = text(destination.department, 80);
     const city = text(destination.city, 100);
     const address = text(destination.address, 240);
     if (!fullName || !phone) return apiError("Completá nombre y teléfono.");
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
       p_cart_id: cart.id,
       p_design_prices: designPrices,
       p_customer_snapshot: { fullName, phone, email: user.email, pricingVersionId },
-      p_destination_snapshot: { country, city, address },
+      p_destination_snapshot: { country, department, city, address },
       p_idempotency_key: idempotencyKey,
     });
     if (orderError || !result) throw new Error(orderError?.message || "No se pudo crear la solicitud internacional.");
@@ -95,7 +96,7 @@ export async function POST(request: Request) {
       ...item,
       title: item.item_type === "design" ? item.title : localizeCatalogSnapshotTitle(item.title, locale),
     }, locale)).join("\n");
-    const destinationLabel = [city, country].filter(Boolean).join(", ");
+    const destinationLabel = [city, department, country].filter(Boolean).join(", ");
     const copy = {
       es: { intro: "Hola MateArte, quiero coordinar una compra desde el exterior.", order: "Pedido", name: "Nombre", destination: "Destino", items: "Artículos", subtotal: "Subtotal sin envío", closing: "Quiero coordinar el costo de envío internacional y la forma de pago." },
       en: { intro: "Hello MateArte, I'd like to arrange an international purchase.", order: "Order", name: "Name", destination: "Destination", items: "Items", subtotal: "Subtotal before shipping", closing: "I'd like to coordinate the international shipping cost and payment method." },

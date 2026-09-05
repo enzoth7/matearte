@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import { CheckoutForm } from "@/components/CheckoutForm";
 import { localizedAlternates } from "@/i18n/metadata";
@@ -27,10 +27,12 @@ export default async function CheckoutPage() {
     address,
   };
   const countryCode = profile?.country_code || "UY";
+  const { getExchangeRates } = await import("@/lib/storefront-catalog");
+  const exchangeRates = await getExchangeRates();
   return (
     <main id="contenido" className="bg-[var(--cream)] py-8 sm:py-12 lg:py-16">
       <div className="container-shell max-w-[77rem]">
-        <CheckoutForm initialCustomer={initialCustomer} initialDestination={{ international: countryCode !== "UY", country: countryCode === "UY" ? "" : countryName(countryCode, locale), city: profile?.city || "" }} />
+        <CheckoutForm initialCustomer={initialCustomer} initialDestination={{ international: countryCode !== "UY", country: countryCode === "UY" ? "" : countryName(countryCode, locale), city: profile?.city || "" }} exchangeRates={exchangeRates} />
       </div>
     </main>
   );

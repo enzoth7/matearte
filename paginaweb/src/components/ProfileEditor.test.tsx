@@ -21,15 +21,15 @@ const initial: ProfileFormData = {
 
 describe("ProfileEditor", () => {
   it("updates the phone prefix and provinces when the country changes", () => {
-    render(<ProfileEditor initial={initial} email="cliente@example.com" welcome={false} />);
+    render(<ProfileEditor initial={initial} welcome={false} />);
 
-    expect(screen.getByLabelText("Prefijo internacional +598")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /prefijo internacional \+598/i })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Paysandú" })).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("País *"), { target: { value: "AU" } });
+    fireEvent.change(screen.getByLabelText("País"), { target: { value: "AU" } });
 
-    expect(screen.getByLabelText("Prefijo internacional +61")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /prefijo internacional \+61/i })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Queensland" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Estado / provincia *")).toHaveValue("");
+    expect(screen.getByLabelText("Estado / provincia")).toHaveValue("");
   });
 });

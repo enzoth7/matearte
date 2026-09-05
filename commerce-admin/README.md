@@ -1,8 +1,8 @@
 # MateArte Commerce Admin
 
-Panel comercial separado del dashboard operativo anterior. Administra catálogo, variantes/SKU, precios, stock, envíos, pedidos, pagos y revisión de personalizados.
+Panel comercial separado del dashboard operativo anterior. Administra catálogo, variantes/SKU, precios, envíos, pedidos, pagos y revisión de personalizados.
 
-Los productos marcados como publicados alimentan directamente `/catalogo` y `/producto/[slug]` del sitio principal. Para que una ficha quede completa, cargar una imagen y al menos una variante activa con SKU, precio en UYU y stock antes de publicarla. Los cambios se ven al recargar el sitio.
+Los productos marcados como publicados alimentan directamente `/catalogo` y `/producto/[slug]` del sitio principal. Para que una ficha quede completa, cargar una imagen y al menos una variante activa con SKU y precio en UYU antes de publicarla. Los cambios se ven al recargar el sitio.
 
 La sesión usa Supabase Auth y cada vista verifica una membresía activa en `commerce_admin_users`. No se confía en `user_metadata`.
 

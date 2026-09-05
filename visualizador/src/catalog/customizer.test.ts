@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { calculateRimCharacterLayout, createArcPath, getRimGeometryProfile } from "./rimGeometry";
 import { getDefaultColor, getDefaultVariant, getVariantsByModel } from "./mateCatalog";
-import { createDefaultRimSelection, MAX_RIM_TEXT_LENGTH, normalizeRimSelection, sanitizeRimText } from "./rimCatalog";
+import { createDefaultRimSelection, MAX_RIM_ICONS, MAX_RIM_TEXT_LENGTH, normalizeRimIcons, normalizeRimSelection, sanitizeRimText } from "./rimCatalog";
 import {
   calculateOrderPricing,
   countChargeableCharacters,
@@ -89,6 +89,21 @@ describe("compatibilidad de personalizaciones", () => {
     expect(rim.texts.map((item) => item.text)).toEqual(["RICHARD", "MARÍA JOSÉ"]);
     expect(fleje.sides.front.text).toBe("RICHARD");
     expect(fleje.sides.back.text).toBe("MARÍA");
+  });
+
+  it("descarta íconos repetidos, incompletos y fuera del límite de la virola", () => {
+    const validIcon = { id: "1", selectedImageId: "uruguayescudo", customImage: null, transform: { x: 0.5, y: 0.5, scale: 1, rotation: 0, side: "rim" as const } };
+    const icons = normalizeRimIcons([
+      validIcon,
+      { ...validIcon, id: "2" },
+      { id: "3", selectedImageId: "un-icono-que-ya-no-existe", customImage: null },
+      { id: "4", selectedImageId: "uruguaybandera", customImage: null },
+      { id: "5", selectedImageId: "uruguaysol", customImage: null },
+      { id: "6", selectedImageId: "uruguayescudo", customImage: null },
+    ]);
+
+    expect(icons).toHaveLength(MAX_RIM_ICONS);
+    expect(icons.map((icon) => icon.selectedImageId)).toEqual(["uruguayescudo", "uruguaybandera", "uruguaysol"]);
   });
 
   it("migra el formato antiguo de fleje a la cara frontal", () => {

@@ -19,6 +19,7 @@ export type StorefrontImageRow = {
   alt_text: string;
   sort_order: number;
   mime_type: string;
+  variant_id: string | null;
 };
 
 export type StorefrontProductRow = {
@@ -68,6 +69,7 @@ function mapImages(row: StorefrontProductRow, supabaseBaseUrl: string, existing?
       source: "supabase" as const,
       sourceUrl: src,
       rightsStatus: "brand-public" as const,
+      variantId: image.variant_id,
     };
   });
 }
@@ -119,7 +121,6 @@ export function storefrontProductFromRow(
     filterData: {
       materials: storedAttributes.materials.length > 0 ? storedAttributes.materials : existing?.filterData.materials ?? [],
       productTypes: storedAttributes.productTypes.length > 0 ? storedAttributes.productTypes : existingProductTypes,
-      finishes: storedAttributes.finishes.length > 0 ? storedAttributes.finishes : existing?.filterData.finishes ?? [],
       colors: storedAttributes.colors.length > 0 ? storedAttributes.colors : existing?.filterData.colors ?? [],
       priceUYU: minimumPrice,
     },
@@ -137,16 +138,12 @@ export function mergeStorefrontProducts(
   locale: Locale,
 ) {
   const published = commerceProducts.filter((product) => product.published && product.category !== "sandbox");
-  const commerceBySlug = new Map(published.map((product) => [product.editorial_slug, product]));
-  const editorialSlugs = new Set(editorialProducts.map((product) => product.slug));
-  const merged = editorialProducts.map((product) => {
-    const commerceProduct = commerceBySlug.get(product.slug);
-    return commerceProduct
-      ? storefrontProductFromRow(commerceProduct, supabaseBaseUrl, locale, product)
-      : product;
-  });
-  const additions = published
-    .filter((product) => !editorialSlugs.has(product.editorial_slug))
-    .map((product) => storefrontProductFromRow(product, supabaseBaseUrl, locale));
-  return [...merged, ...additions];
+  const editorialBySlug = new Map(editorialProducts.map((product) => [product.slug, product]));
+
+  return published.map((product) => storefrontProductFromRow(
+    product,
+    supabaseBaseUrl,
+    locale,
+    editorialBySlug.get(product.editorial_slug),
+  ));
 }

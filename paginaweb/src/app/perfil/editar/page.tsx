@@ -32,10 +32,9 @@ export default async function EditProfilePage() {
       : "";
 
   return (
-    <main id="contenido" className="section-space">
-      <div className="container-shell max-w-[77rem]">
+    <main id="contenido" className="bg-[#f5f0e8] py-10 sm:py-12 lg:py-14">
+      <div className="container-shell max-w-[68rem]">
         <ProfileEditor
-          email={user.email || ""}
           welcome={!profile?.profile_completed_at}
           initial={{
             fullName: profile?.full_name || fallbackName,

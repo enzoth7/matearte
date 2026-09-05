@@ -68,8 +68,8 @@ function commerceProduct(overrides: Partial<StorefrontProductRow> = {}): Storefr
       },
     ],
     images: [
-      { id: "image-2", storage_path: "products/nuevo/segunda foto.webp", alt_text: "Segunda", sort_order: 2, mime_type: "image/webp" },
-      { id: "image-1", storage_path: "products/nuevo/portada.webp", alt_text: "Portada", sort_order: 1, mime_type: "image/webp" },
+      { id: "image-2", storage_path: "products/nuevo/segunda foto.webp", alt_text: "Segunda", sort_order: 2, mime_type: "image/webp", variant_id: null },
+      { id: "image-1", storage_path: "products/nuevo/portada.webp", alt_text: "Portada", sort_order: 1, mime_type: "image/webp", variant_id: null },
     ],
     ...overrides,
   };
@@ -93,30 +93,28 @@ describe("catálogo público conectado a Supabase", () => {
     ]);
   });
 
-  it("agrega productos publicados nuevos y excluye la categoría de pruebas", () => {
+  it("usa Supabase como fuente del catálogo y excluye productos ausentes o de pruebas", () => {
     const visible = commerceProduct();
     const sandbox = commerceProduct({ id: "sandbox-id", editorial_slug: "sandbox", category: "sandbox" });
     const result = mergeStorefrontProducts([editorialProduct], [visible, sandbox], baseUrl, "es");
 
-    expect(result.map((product) => product.slug)).toEqual(["mate-imperial", "producto-nuevo"]);
+    expect(result.map((product) => product.slug)).toEqual(["producto-nuevo"]);
   });
 
   it("usa los atributos normalizados cargados desde el panel", () => {
     const product = storefrontProductFromRow(commerceProduct({
-      category: "dama",
+      category: "billeteras",
       catalog_filters: {
         materials: ["cuero"],
-        productTypes: ["billetera"],
-        finishes: ["liso"],
+        productTypes: [],
         colors: ["negro", "natural"],
       },
     }), baseUrl, "es");
 
-    expect(product.category).toBe("dama");
+    expect(product.category).toBe("billeteras");
     expect(product.filterData).toMatchObject({
       materials: ["cuero"],
-      productTypes: ["billetera"],
-      finishes: ["liso"],
+      productTypes: [],
       colors: ["negro", "natural"],
     });
   });

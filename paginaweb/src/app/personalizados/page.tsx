@@ -146,6 +146,26 @@ export default async function PersonalizadosPage() {
           </div>
         </section>
       </div>
+      <section id="empresas" className="personalizados-empresas" aria-label="Empresas que confiaron en nosotros">
+        <h2>Empresas que confiaron en nosotros</h2>
+        <div className="personalizados-empresas-viewport">
+          <div className="personalizados-empresas-track">
+            {[false, true].map((duplicate) => (
+              <div
+                className="personalizados-empresas-group"
+                aria-hidden={duplicate || undefined}
+                key={duplicate ? "duplicate" : "original"}
+              >
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
+                  <figure className="personalizados-empresas-card" key={`${duplicate ? "duplicate" : "original"}-${num}`}>
+                    <Image src={`/assets/matearte/regalos-empresariales/${num}.jpeg`} alt={`Empresa ${num}`} fill sizes="200px" />
+                  </figure>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
     </main>
   );
 }

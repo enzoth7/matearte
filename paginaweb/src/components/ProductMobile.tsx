@@ -29,13 +29,6 @@ const productImages: Record<string, string> = {
   "box-matero": `${catalogAssetRoot}/background-14.png`,
 };
 
-const colors = [
-  { id: "toastedLeather", asset: "color-cuero-tostado.svg" },
-  { id: "sand", asset: "color-arena.svg" },
-  { id: "cocoa", asset: "color-cacao.svg" },
-  { id: "sage", asset: "color-salvia.svg" },
-] as const;
-
 type CommerceVariant = {
   id: string;
   price_minor: number;
@@ -47,16 +40,18 @@ type CommerceData = {
   product: { variants: CommerceVariant[] } | null;
 };
 
-const formatPrice = (amount: number) => `$ ${new Intl.NumberFormat("es-UY").format(amount)} UYU`;
+import { formatCatalogPrice } from "@/lib/catalog-filters";
 
-export function ProductMobile({ product }: { product: Product }) {
+export function ProductMobile({ product, exchangeRates }: { product: Product; exchangeRates?: Record<string, number> }) {
   const locale = useLocale();
   const t = useTranslations("product");
   const common = useTranslations("common");
-  const [selectedColor, setSelectedColor] = useState<(typeof colors)[number]["id"]>("toastedLeather");
+  
+  const formatPrice = (amount: number) => formatCatalogPrice(amount, undefined, locale, exchangeRates);
   const [commerce, setCommerce] = useState<CommerceData | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [selectedVariantId, setSelectedVariantId] = useState<string>("");
 
   useEffect(() => {
     let active = true;
@@ -71,28 +66,44 @@ export function ProductMobile({ product }: { product: Product }) {
     return () => { active = false; };
   }, [product.slug]);
 
-  const commerceVariant = commerce?.available ? commerce.product?.variants[0] : undefined;
+  useEffect(() => {
+    if (product.variants.length > 0 && !selectedVariantId) {
+      setSelectedVariantId(product.variants[0].id);
+    }
+  }, [product.variants, selectedVariantId]);
+
+  const activeVariantId = selectedVariantId || product.variants[0]?.id;
+  const catalogVariant = product.variants.find(v => v.id === activeVariantId) || product.variants[0];
+  const commerceVariant = commerce?.available ? commerce.product?.variants.find(v => v.id === activeVariantId) : undefined;
+  
   const displayedPrice = commerceVariant
     ? formatPrice(commerceVariant.price_minor / 100)
+    : catalogVariant?.price
+    ? formatPrice(catalogVariant.price.amountMinor / 100)
     : product.filterData.priceUYU === undefined ? common("consult") : formatPrice(product.filterData.priceUYU);
-  const mainImage = product.images[0];
+    
+  const variantImage = activeVariantId ? product.images.find(img => img.variantId === activeVariantId) : undefined;
+  const mainImage = variantImage || product.images[0];
   const productImage = mainImage.source === "supabase" ? mainImage.src : productImages[product.id] ?? mainImage.src;
 
   const addToCart = async () => {
     setMessage("");
-    if (!commerceVariant) {
+    if (!commerceVariant && !catalogVariant) {
       setMessage(t("purchaseUnavailable"));
       return;
     }
+    const targetVariantId = commerceVariant?.id || catalogVariant?.id;
+    if (!targetVariantId) return;
+
     setBusy(true);
     try {
       const response = await fetch("/api/cart/items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemType: "catalog", variantId: commerceVariant.id, quantity: 1, locale }),
+        body: JSON.stringify({ itemType: "catalog", variantId: targetVariantId, quantity: 1, locale }),
       });
       if (response.status === 401) {
-        addLocalCartItem(commerceVariant.id);
+        addLocalCartItem(targetVariantId);
         setMessage(t("savedLocally"));
       } else {
         await response.json();
@@ -123,33 +134,44 @@ export function ProductMobile({ product }: { product: Product }) {
           <p className="product-mobile-summary">{product.summary}</p>
           <p className="product-mobile-price">{displayedPrice}</p>
 
-          <div className="product-mobile-rule" aria-hidden="true" />
-          <p className="product-mobile-overline">{t("referenceOptions")}</p>
-
-          <fieldset className="product-mobile-colors">
-            <legend className="sr-only">{t("chooseReferenceColor")}</legend>
-            <div className="product-mobile-color-heading">
-              <span>{t("color")}</span>
-              <span>{t(selectedColor)}</span>
-            </div>
-            <div className="product-mobile-color-options">
-              {colors.map((color) => (
-                <button
-                  key={color.id}
-                  type="button"
-                  className={selectedColor === color.id ? "is-selected" : undefined}
-                  aria-label={t("colorLabel", { color: t(color.id) })}
-                  aria-pressed={selectedColor === color.id}
-                  onClick={() => setSelectedColor(color.id)}
-                >
-                  <Image src={`${productAssetRoot}/${color.asset}`} alt="" width={44} height={44} aria-hidden="true" />
-                </button>
-              ))}
-            </div>
-          </fieldset>
-
-          <p className="product-mobile-helper">{t("colorHelper")}</p>
           <div className="product-mobile-rule product-mobile-rule-actions" aria-hidden="true" />
+
+          {product.variants.length > 1 && (
+            <div className="product-mobile-variants" style={{ marginBottom: '1.5rem' }}>
+              <span style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: '#1a1a1a' }}>Opciones disponibles</span>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {product.variants.map(v => {
+                  const colorHex = v.label.toLowerCase().includes('negro') ? '#222222' 
+                                 : v.label.toLowerCase().includes('marr') ? '#8B4513'
+                                 : v.label.toLowerCase().includes('natural') ? '#D2B48C'
+                                 : v.label.toLowerCase().includes('crudo') ? '#E6C280'
+                                 : '#ccc';
+                  const isActive = activeVariantId === v.id;
+                  return (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => setSelectedVariantId(v.id)}
+                      title={v.label}
+                      style={{
+                        width: '2rem',
+                        height: '2rem',
+                        borderRadius: '50%',
+                        backgroundColor: colorHex,
+                        border: isActive ? '2px solid #000' : '1px solid #ccc',
+                        outline: isActive ? '2px solid #fff' : 'none',
+                        outlineOffset: '-4px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                      aria-label={v.label}
+                      aria-pressed={isActive}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <button className="product-mobile-primary" type="button" disabled={busy} onClick={() => void addToCart()}>
             {busy ? t("adding") : t("addToCart")}

@@ -20,7 +20,7 @@ function product(id: string, priceUYU: number, overrides: Partial<Product["filte
   };
 }
 
-const defaults: CatalogFilters = { category: "todas", prices: [], materials: [], productTypes: [], finishes: [], colors: [], sort: "editorial" };
+const defaults: CatalogFilters = { category: "todas", prices: [], materials: [], productTypes: [], colors: [], sort: "editorial" };
 
 describe("filtros del catálogo", () => {
   it("respeta los límites sin superponer rangos", () => {
@@ -42,30 +42,30 @@ describe("filtros del catálogo", () => {
   });
 
   it("lee, valida y vuelve a escribir parámetros repetibles", () => {
-    const filters = parseCatalogFilters(new URLSearchParams("categoria=dama&precio=menos-3000&precio=7000-mas&material=cuero&tipo=torpedo&terminacion=cincelado&orden=precio&precio=invalido"));
-    expect(filters).toMatchObject({ category: "dama", prices: ["menos-3000", "7000-mas"], materials: ["cuero"], productTypes: ["torpedo"], finishes: ["cincelado"], sort: "precio" });
+    const filters = parseCatalogFilters(new URLSearchParams("categoria=billeteras&precio=menos-3000&precio=7000-mas&material=estampado&tipo=torpedo&orden=precio&precio=invalido"));
+    expect(filters).toMatchObject({ category: "billeteras", prices: ["menos-3000", "7000-mas"], materials: ["estampado"], productTypes: ["torpedo"], sort: "precio" });
     expect(writeCatalogFilters(filters).getAll("precio")).toEqual(["menos-3000", "7000-mas"]);
-    expect(writeCatalogFilters(filters).getAll("terminacion")).toEqual(["cincelado"]);
+    expect(writeCatalogFilters(filters).getAll("material")).toEqual(["estampado"]);
   });
 
-  it("filtra los nuevos productos por familia, modelo, terminación y color", () => {
+  it("filtra los nuevos productos por categoría, material y color", () => {
     const entries: Array<{ product: Product }> = [
       {
         product: {
           ...product("bombillon-cincelado", 4200).product,
-          category: "bombillas",
-          filterData: { priceUYU: 4200, materials: ["plata"], productTypes: ["bombillon", "pico-de-loro"], finishes: ["cincelado", "con-aros"], colors: ["marron"] },
+          category: "bombillones",
+          filterData: { priceUYU: 4200, materials: ["plata"], productTypes: [], colors: ["marron"] },
         },
       },
       {
         product: {
           ...product("billetera-dama", 3500).product,
-          category: "dama",
-          filterData: { priceUYU: 3500, materials: ["cuero"], productTypes: ["billetera"], finishes: ["liso"], colors: ["negro", "natural"] },
+          category: "billeteras",
+          filterData: { priceUYU: 3500, materials: ["cuero"], productTypes: [], colors: ["negro", "natural"] },
         },
       },
     ];
-    const visible = filterAndSortCatalog(entries, { ...defaults, category: "bombillas", materials: ["plata"], productTypes: ["pico-de-loro"], finishes: ["con-aros"], colors: ["marron"] });
+    const visible = filterAndSortCatalog(entries, { ...defaults, category: "bombillones", materials: ["plata"], colors: ["marron"] });
     expect(visible.map(({ product }) => product.id)).toEqual(["bombillon-cincelado"]);
   });
 });

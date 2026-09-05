@@ -78,7 +78,7 @@ export default async function Home() {
           <div className="home-category-grid">
             {categories.map((category, index) => (
               <BandContent key={category.name} className={"home-category-wrap home-category-wrap-" + (index + 1)} delay={Math.min(index * 0.05, 0.2)}>
-                <Link className="home-category-card" href={{ pathname: "/catalogo", query: { categoria: category.category } }}>
+                <Link className="home-category-card" href={category.category === "regalos" ? "/personalizados#empresas" as any : { pathname: "/catalogo", query: { categoria: category.category } }}>
                   <div className="home-image home-category-image">
                     <Image src={`${assets}/${category.image}`} alt={t(category.name)} fill sizes="(max-width: 768px) 50vw, 20vw" />
                   </div>

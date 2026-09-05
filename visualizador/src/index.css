@@ -6892,6 +6892,16 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   margin: 3px 0 0;
 }
 
+.summary-checkout__note {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-left: 3px solid var(--salvia);
+  background: color-mix(in srgb, var(--arena) 22%, #fff);
+  color: var(--cacao);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .summary-checkout__actions {
   width: 100%;
   display: grid;
@@ -7095,6 +7105,12 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
 
   .summary-checkout__pending {
     font-size: 12px;
+  }
+
+  .summary-checkout__note {
+    margin-top: 12px;
+    padding: 10px 12px;
+    font-size: 11px;
   }
 
   .summary-checkout__actions {
