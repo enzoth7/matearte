@@ -190,26 +190,13 @@ export function PersonalizedOrders({ onNotice }: { onNotice: (value: string) => 
       <dialog ref={dialogRef} className="personalized-dialog" onClose={() => setSelectedId('')} onCancel={(event) => { event.preventDefault(); closeDetail(); }} onMouseDown={(event) => { if (event.target === event.currentTarget) closeDetail(); }}>
         {selected && <div className="dialog-surface">
           <header className="dialog-header">
-            <div><small>Pedido personalizado</small><h2>Pedido #{selected.order_number}</h2><div>{customerName(selected.customer_snapshot)} · {readableDate(selected.created_at)}</div></div>
+            <div><h2>Pedido #{selected.order_number}</h2><div>{customerName(selected.customer_snapshot)} · {readableDate(selected.created_at)}</div></div>
             <button className="icon-button dialog-close" type="button" onClick={closeDetail} aria-label="Cerrar detalle"><CloseIcon/></button>
           </header>
 
           <div className="dialog-body">
             <section className="personalization-images" aria-labelledby="personalization-images-title">
-              <div className="section-heading"><div><small>Lo más importante</small><h3 id="personalization-images-title">Diseños para producción</h3></div><strong>{previewCount} {previewCount === 1 ? 'vista' : 'vistas'}</strong></div>
-              {itemSummaries.map(({ item, summary }, index) => (
-                <section className="design-artifact-group" key={`assets-${item.id}`}>
-                  <h4>{itemSummaries.length > 1 ? `Mate ${index + 1} · ` : ''}{item.title}</h4>
-                  <div className="artifact-subheading"><strong>Vistas del diseño</strong><small>Archivos PNG listos para consultar o descargar.</small></div>
-                  {summary.previews.length
-                    ? <div className="customer-assets">{summary.previews.map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}</div>
-                    : <div className="empty-files">Vista final no disponible para este pedido anterior. Revisá las indicaciones escritas de virola y fleje.</div>}
-                  <div className="artifact-subheading originals"><strong>Originales subidos por el cliente</strong><small>{summary.uploads.length ? `${summary.uploads.length} ${summary.uploads.length === 1 ? 'archivo' : 'archivos'}` : 'Sin archivos externos'}</small></div>
-                  {summary.uploads.length
-                    ? <div className="customer-assets customer-assets--uploads">{summary.uploads.map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}</div>
-                    : <div className="empty-files">El diseño usa texto o íconos del catálogo; el cliente no subió archivos originales.</div>}
-                </section>
-              ))}
+              <div className="section-heading"><h3 id="personalization-images-title">Diseños para producción</h3><strong>{previewCount} {previewCount === 1 ? 'vista' : 'vistas'}</strong></div>
               {assetWarning && <div className="asset-warning" role="alert">{assetWarning}</div>}
             </section>
 
@@ -220,9 +207,21 @@ export function PersonalizedOrders({ onNotice }: { onNotice: (value: string) => 
               <div><small>Contacto</small><strong>{phone || email || 'Sin contacto guardado'}</strong></div>
             </div>
 
-            {itemSummaries.map(({ item, summary }, index) => (
+            {itemSummaries.map(({ item, summary }) => (
               <section className="personalized-item" key={item.id}>
-                <div className="personalized-item-head"><div><small>Mate {itemSummaries.length > 1 ? index + 1 : ''}</small><h3>{item.title}</h3></div><strong>{money(item.total_minor)}</strong></div>
+                <div className="personalized-item-head"><h3>{item.title}</h3><strong>{money(item.total_minor)}</strong></div>
+
+                <section className="design-artifact-group" aria-label={`Archivos de ${item.title}`}>
+                  <div className="artifact-subheading"><strong>Vistas del diseño</strong></div>
+                  {summary.previews.length
+                    ? <div className="customer-assets">{summary.previews.map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}</div>
+                    : <div className="empty-files">Vista final no disponible para este pedido anterior. Revisá las indicaciones escritas de virola y fleje.</div>}
+                  <div className="artifact-subheading originals"><strong>Originales subidos por el cliente</strong><small>{summary.uploads.length ? `${summary.uploads.length} ${summary.uploads.length === 1 ? 'archivo' : 'archivos'}` : 'Sin archivos externos'}</small></div>
+                  {summary.uploads.length
+                    ? <div className="customer-assets customer-assets--uploads">{summary.uploads.map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}</div>
+                    : <div className="empty-files">El diseño usa texto o íconos del catálogo; el cliente no subió archivos originales.</div>}
+                </section>
+
                 <dl className="mate-specs">
                   <div><dt>Modelo</dt><dd>{summary.mate.model}</dd></div>
                   <div><dt>Tamaño</dt><dd>{summary.mate.size}</dd></div>
