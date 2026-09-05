@@ -1,6 +1,6 @@
 -- Make the ready-to-sell storefront pieces available to the cart. Prices are
 -- the UYU amounts already displayed by the public catalog. They are kept as
--- made-to-order items, so cart availability does not pretend to know stock.
+-- made-to-order items available through the public cart.
 
 insert into public.commerce_variants (
   product_id,
@@ -8,8 +8,6 @@ insert into public.commerce_variants (
   name,
   price_minor,
   weight_grams,
-  inventory_tracked,
-  stock_on_hand,
   active
 )
 select
@@ -18,8 +16,6 @@ select
   'Única',
   seed.price_minor,
   null,
-  false,
-  0,
   true
 from (
   values
@@ -40,8 +36,6 @@ from (
 join public.commerce_products product on product.editorial_slug = seed.editorial_slug
 on conflict (sku) do update set
   price_minor = excluded.price_minor,
-  inventory_tracked = false,
-  stock_on_hand = 0,
   active = true;
 
 update public.commerce_products

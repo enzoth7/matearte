@@ -4,7 +4,6 @@ create index if not exists order_lines_customer_idx on public.order_lines (custo
 
 -- Explicit deny policies document that these tables are backend-only.
 create policy auth_handoffs_backend_only on public.auth_handoffs for all to anon, authenticated using (false) with check (false);
-create policy inventory_reservations_backend_only on public.inventory_reservations for all to anon, authenticated using (false) with check (false);
 create policy payment_webhook_events_backend_only on public.payment_webhook_events for all to anon, authenticated using (false) with check (false);
 
 -- Avoid overlapping SELECT policies while preserving the same admin capabilities.
@@ -23,7 +22,7 @@ create policy shipping_admin_insert on public.shipping_rates for insert to authe
 create policy shipping_admin_update on public.shipping_rates for update to authenticated using ((select private.is_commerce_admin())) with check ((select private.is_commerce_admin()));
 create policy shipping_admin_delete on public.shipping_rates for delete to authenticated using ((select private.is_commerce_admin()));
 
-create or replace function public.release_expired_commerce_reservations()
+create or replace function public.expire_pending_commerce_orders()
 returns integer
 language plpgsql
 security definer
@@ -39,15 +38,11 @@ begin
     order by reservation_expires_at
     for update skip locked
   loop
-    update public.commerce_variants v set stock_reserved = greatest(0, v.stock_reserved - r.quantity)
-    from public.inventory_reservations r
-    where r.order_id = v_order.id and r.variant_id = v.id and r.status = 'active';
-    update public.inventory_reservations set status = 'released' where order_id = v_order.id and status = 'active';
     update public.orders set status = 'cancelled', cancelled_at = now() where id = v_order.id;
     v_released := v_released + 1;
   end loop;
   return v_released;
 end;
 $$;
-revoke all on function public.release_expired_commerce_reservations() from public, anon, authenticated;
-grant execute on function public.release_expired_commerce_reservations() to service_role;
+revoke all on function public.expire_pending_commerce_orders() from public, anon, authenticated;
+grant execute on function public.expire_pending_commerce_orders() to service_role;

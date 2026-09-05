@@ -431,7 +431,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
     e.preventDefault();
     if (!product) return;
     setProductBusy('variant-create');
-    const {error} = await supabase.from('commerce_variants').insert({product_id:product.id,sku:variant.sku.trim(),name:variant.name.trim(),price_minor:Math.round(Number(variant.price)*100),inventory_tracked:false,active:true});
+    const {error} = await supabase.from('commerce_variants').insert({product_id:product.id,sku:variant.sku.trim(),name:variant.name.trim(),price_minor:Math.round(Number(variant.price)*100),active:true});
     onNotice(error?error.message:'Variante creada.');
     if(!error){setVariant({sku:'',name:'Única',price:''});await load(product.id)}
     setProductBusy('');

@@ -114,9 +114,6 @@ create table public.commerce_variants (
   price_minor bigint not null check (price_minor >= 0),
   currency text not null default 'UYU' check (currency = 'UYU'),
   weight_grams integer check (weight_grams is null or weight_grams > 0),
-  inventory_tracked boolean not null default true,
-  stock_on_hand integer not null default 0 check (stock_on_hand >= 0),
-  stock_reserved integer not null default 0 check (stock_reserved >= 0 and stock_reserved <= stock_on_hand),
   active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -221,21 +218,6 @@ create index order_items_order_idx on public.order_items (order_id);
 create index order_items_variant_idx on public.order_items (source_variant_id) where source_variant_id is not null;
 create index order_items_design_idx on public.order_items (source_design_id) where source_design_id is not null;
 
-create table public.inventory_reservations (
-  id uuid primary key default gen_random_uuid(),
-  order_id uuid not null references public.orders(id) on delete cascade,
-  variant_id uuid not null references public.commerce_variants(id) on delete restrict,
-  quantity integer not null check (quantity > 0),
-  status text not null default 'active' check (status in ('active', 'committed', 'released')),
-  expires_at timestamptz not null,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (order_id, variant_id)
-);
-create index inventory_reservations_order_idx on public.inventory_reservations (order_id);
-create index inventory_reservations_variant_idx on public.inventory_reservations (variant_id);
-create index inventory_reservations_expiry_idx on public.inventory_reservations (expires_at) where status = 'active';
-
 create table public.commerce_payments (
   id uuid primary key default gen_random_uuid(),
   order_id uuid not null references public.orders(id) on delete restrict,
@@ -311,7 +293,7 @@ declare table_name text;
 begin
   foreach table_name in array array[
     'customer_profiles', 'designs', 'commerce_products', 'commerce_variants',
-    'shipping_rates', 'carts', 'cart_items', 'orders', 'inventory_reservations',
+    'shipping_rates', 'carts', 'cart_items', 'orders',
     'commerce_payments', 'commerce_settings'
   ] loop
     execute format('create trigger %I before update on public.%I for each row execute function private.set_updated_at()', table_name || '_updated_at', table_name);
@@ -324,7 +306,7 @@ revoke all on table
   public.customer_profiles, public.designs, public.design_assets, public.auth_handoffs,
   public.commerce_admin_users, public.commerce_products, public.commerce_variants,
   public.shipping_rates, public.carts, public.cart_items, public.orders,
-  public.order_items, public.inventory_reservations, public.commerce_payments,
+  public.order_items, public.commerce_payments,
   public.payment_webhook_events, public.commerce_settings
 from anon, authenticated;
 grant usage on schema public to anon, authenticated;
@@ -336,7 +318,7 @@ grant select on public.orders, public.order_items, public.commerce_payments to a
 grant select on public.commerce_admin_users to authenticated;
 grant select, insert, update, delete on public.commerce_products, public.commerce_variants, public.shipping_rates to authenticated;
 grant select, update on public.orders, public.order_items, public.commerce_settings to authenticated;
-grant all on public.auth_handoffs, public.inventory_reservations, public.commerce_payments, public.payment_webhook_events to service_role;
+grant all on public.auth_handoffs, public.commerce_payments, public.payment_webhook_events to service_role;
 grant usage, select on sequence public.orders_order_number_seq to service_role;
 
 alter table public.customer_profiles enable row level security;
@@ -351,7 +333,6 @@ alter table public.carts enable row level security;
 alter table public.cart_items enable row level security;
 alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
-alter table public.inventory_reservations enable row level security;
 alter table public.commerce_payments enable row level security;
 alter table public.payment_webhook_events enable row level security;
 alter table public.commerce_settings enable row level security;

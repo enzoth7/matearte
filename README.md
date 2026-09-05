@@ -32,4 +32,4 @@ Las variables de entorno, URLs de Auth, migraciones, feature flags y orden segur
 
 ## Estado comercial
 
-La infraestructura de cuentas, biblioteca de diseños, carrito, catálogo, pedidos, reservas y Checkout Pro está implementada. El comercio permanece apagado hasta cargar variantes publicables, credenciales backend y completar la matriz sandbox de Mercado Pago. La redirección del navegador nunca confirma un pago: solamente lo hace un webhook válido y verificado.
+La infraestructura de cuentas, biblioteca de diseños, carrito, catálogo, pedidos y Checkout Pro está implementada. El comercio permanece apagado hasta cargar variantes publicables, credenciales backend y completar la matriz sandbox de Mercado Pago. La redirección del navegador nunca confirma un pago: solamente lo hace un webhook válido y verificado.

@@ -79,12 +79,6 @@ begin
     if not v_variant.active or not v_variant.published then
       raise exception 'Una variante ya no está publicada';
     end if;
-    if v_variant.sale_mode = 'standard' and not v_variant.inventory_tracked then
-      raise exception 'Una variante estándar no tiene control de stock';
-    end if;
-    if v_variant.inventory_tracked and v_variant.stock_on_hand - v_variant.stock_reserved < v_variant.quantity then
-      raise exception 'Stock insuficiente para %', v_variant.sku;
-    end if;
     v_catalog_subtotal := v_catalog_subtotal + v_variant.price_minor * v_variant.quantity;
   end loop;
 
@@ -175,4 +169,4 @@ grant execute on function public.create_international_order_request(uuid, uuid, 
 to service_role;
 
 comment on function public.create_international_order_request(uuid, uuid, jsonb, jsonb, jsonb, uuid)
-is 'Creates an immutable, server-only international purchase request for manual shipping and payment coordination without reserving stock.';
+is 'Creates an immutable, server-only international purchase request for manual shipping and payment coordination.';

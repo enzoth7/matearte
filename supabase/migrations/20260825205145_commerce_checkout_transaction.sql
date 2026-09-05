@@ -55,8 +55,6 @@ begin
     for update of v
   loop
     if not v_variant.active or not v_variant.published then raise exception 'Una variante ya no está publicada'; end if;
-    if v_variant.sale_mode = 'standard' and not v_variant.inventory_tracked then raise exception 'Una variante estándar no tiene control de stock'; end if;
-    if v_variant.inventory_tracked and v_variant.stock_on_hand - v_variant.stock_reserved < v_variant.quantity then raise exception 'Stock insuficiente para %', v_variant.sku; end if;
     v_catalog_subtotal := v_catalog_subtotal + v_variant.price_minor * v_variant.quantity;
   end loop;
 
@@ -122,14 +120,6 @@ begin
   from public.cart_items ci join public.designs d on d.id = ci.design_id
   where ci.cart_id = p_cart_id and ci.item_type = 'design' and d.user_id = p_user_id;
 
-  insert into public.inventory_reservations (order_id, variant_id, quantity, expires_at)
-  select v_order.id, v.id, sum(ci.quantity)::integer, v_order.reservation_expires_at
-  from public.cart_items ci join public.commerce_variants v on v.id = ci.variant_id
-  where ci.cart_id = p_cart_id and ci.item_type = 'catalog' and v.inventory_tracked
-  group by v.id;
-
-  update public.commerce_variants v set stock_reserved = v.stock_reserved + r.quantity
-  from public.inventory_reservations r where r.order_id = v_order.id and r.variant_id = v.id;
   update public.carts set status = 'converted' where id = p_cart_id;
 
   return jsonb_build_object(
@@ -145,4 +135,4 @@ revoke all on function public.create_checkout_order(uuid, uuid, uuid, jsonb, jso
 grant execute on function public.create_checkout_order(uuid, uuid, uuid, jsonb, jsonb, uuid) to service_role;
 
 comment on function public.create_checkout_order(uuid, uuid, uuid, jsonb, jsonb, uuid)
-is 'Atomically rechecks the server cart, creates an immutable order and reserves inventory. Server-only.';
+is 'Atomically rechecks the server cart and creates an immutable order. Server-only.';

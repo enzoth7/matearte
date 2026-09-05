@@ -71,22 +71,10 @@ begin
       select exists (select 1 from public.order_items where order_id = v_order.id and requires_review) into v_has_custom;
       v_target_status := case when v_has_custom then 'paid_pending_review' else 'ready_for_fulfillment' end;
       update public.orders set status = v_target_status, paid_at = coalesce(nullif(p_payment ->> 'date_approved', '')::timestamptz, now()) where id = v_order.id;
-      update public.commerce_variants v set
-        stock_on_hand = v.stock_on_hand - r.quantity,
-        stock_reserved = v.stock_reserved - r.quantity
-      from public.inventory_reservations r
-      where r.order_id = v_order.id and r.variant_id = v.id and r.status = 'active';
-      update public.inventory_reservations set status = 'committed' where order_id = v_order.id and status = 'active';
     end if;
   elsif v_status in ('rejected', 'cancelled') and v_order.status = 'pending_payment' then
-    update public.commerce_variants v set stock_reserved = greatest(0, v.stock_reserved - r.quantity)
-    from public.inventory_reservations r where r.order_id = v_order.id and r.variant_id = v.id and r.status = 'active';
-    update public.inventory_reservations set status = 'released' where order_id = v_order.id and status = 'active';
     update public.orders set status = 'payment_failed', cancelled_at = now() where id = v_order.id;
   elsif v_status in ('refunded', 'charged_back') then
-    update public.commerce_variants v set stock_reserved = greatest(0, v.stock_reserved - r.quantity)
-    from public.inventory_reservations r where r.order_id = v_order.id and r.variant_id = v.id and r.status = 'active';
-    update public.inventory_reservations set status = 'released' where order_id = v_order.id and status = 'active';
     update public.orders set status = 'refunded' where id = v_order.id;
   end if;
 
@@ -99,4 +87,4 @@ revoke all on function public.process_mercado_pago_payment(text, text, jsonb, js
 grant execute on function public.process_mercado_pago_payment(text, text, jsonb, jsonb) to service_role;
 
 comment on function public.process_mercado_pago_payment(text, text, jsonb, jsonb)
-is 'Idempotently persists a verified Mercado Pago payment and advances the order and inventory in one transaction.';
+is 'Idempotently persists a verified Mercado Pago payment and advances the order in one transaction.';
