@@ -48,21 +48,18 @@ function itemImage(item: RemoteItem) {
   const images = [...(item.variant?.product.commerce_product_images || [])].sort((a, b) => a.sort_order - b.sort_order);
   const imagePath = images[0]?.storage_path;
 
+  if (imagePath) {
+    const supabase = createBrowserSupabase();
+    return supabase.storage.from("product-images").getPublicUrl(imagePath).data.publicUrl;
+  }
+
   const remoteName = normalizeProductName(item.variant?.product.name || "");
-  let localImage;
   if (remoteName) {
     const product = products.find((candidate) => {
       const localName = normalizeProductName(candidate.name);
       return localName.includes(remoteName) || remoteName.includes(localName);
     });
-    if (product) localImage = product.images[0]?.src;
-  }
-
-  if (localImage) return localImage;
-  
-  if (imagePath) {
-    const supabase = createBrowserSupabase();
-    return supabase.storage.from("product-images").getPublicUrl(imagePath).data.publicUrl;
+    if (product?.images?.[0]?.src) return product.images[0].src;
   }
 
   return "/assets/matearte/profile-orders-desktop/catalog-fallback.png";
@@ -231,9 +228,9 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
             });
             const localImage = localMatch?.images[0]?.src;
 
-            const imageSrc = localImage || (imagePath
+            const imageSrc = imagePath
               ? supabase.storage.from("product-images").getPublicUrl(imagePath).data.publicUrl
-              : "/assets/matearte/profile-orders-desktop/catalog-fallback.png");
+              : (localImage || "/assets/matearte/profile-orders-desktop/catalog-fallback.png");
 
             resolved.push({
               title: rawProduct?.name || "Producto MateArte",
