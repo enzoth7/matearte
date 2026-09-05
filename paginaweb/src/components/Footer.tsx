@@ -1,4 +1,4 @@
-import { InstagramLogo } from "@phosphor-icons/react/dist/ssr";
+import { FacebookLogo, InstagramLogo, YoutubeLogo } from "@phosphor-icons/react/dist/ssr";
 import Image from "next/image";
 import { getLocale, getTranslations } from "next-intl/server";
 import { FooterPurchasesDisclosure } from "@/components/FooterPurchasesDisclosure";
@@ -37,6 +37,8 @@ export async function Footer() {
           <FooterPurchasesDisclosure />
           <div className="home-footer-socials home-footer-socials-desktop">
             <a href={es.contact.instagramUrl} target="_blank" rel="noreferrer" aria-label={t("instagramLabel")}><InstagramLogo size={18} aria-hidden="true" /></a>
+            <a href={es.contact.facebookUrl} target="_blank" rel="noreferrer" aria-label={t("facebookLabel")}><FacebookLogo size={18} aria-hidden="true" /></a>
+            <a href={es.contact.youtubeUrl} target="_blank" rel="noreferrer" aria-label={t("youtubeLabel")}><YoutubeLogo size={18} aria-hidden="true" /></a>
           </div>
         </div>
         <nav className="home-footer-purchases" aria-label={t("purchaseInfo")}>
@@ -61,6 +63,8 @@ export async function Footer() {
           <p>25 de Mayo 1734<br />Paysandú, Uruguay</p>
           <div className="home-footer-socials home-footer-socials-mobile">
             <a href={es.contact.instagramUrl} target="_blank" rel="noreferrer" aria-label={t("instagramLabel")}><InstagramLogo size={18} aria-hidden="true" /></a>
+            <a href={es.contact.facebookUrl} target="_blank" rel="noreferrer" aria-label={t("facebookLabel")}><FacebookLogo size={18} aria-hidden="true" /></a>
+            <a href={es.contact.youtubeUrl} target="_blank" rel="noreferrer" aria-label={t("youtubeLabel")}><YoutubeLogo size={18} aria-hidden="true" /></a>
           </div>
         </div>
       </div>

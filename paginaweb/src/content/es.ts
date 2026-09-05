@@ -22,5 +22,7 @@ export const es = {
     email: "matearte.ventas@gmail.com",
     instagram: "@matearteuruguay",
     instagramUrl: "https://www.instagram.com/matearteuruguay/",
+    facebookUrl: "https://www.facebook.com/ma.arteuy/",
+    youtubeUrl: "https://www.youtube.com/watch?v=vKVu9FNTOJw",
   },
 } as const;
