@@ -208,9 +208,15 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
             const rawProduct = vData.commerce_products as any;
             const images = (rawProduct?.commerce_product_images || []).sort((a: any, b: any) => a.sort_order - b.sort_order);
             const imagePath = images[0]?.storage_path;
-            const imageSrc = imagePath
-              ? `${supabaseUrlBase.replace(/\/$/, "")}/storage/v1/object/public/product-images/${imagePath}`
-              : "/assets/matearte/profile-orders-desktop/catalog-fallback.png";
+
+            // Try matching a local catalog image first for 100% reliable loading
+            const rawNameNorm = normalizeProductName(rawProduct?.name || "");
+            const localMatch = products.find(p => p.slug === rawProduct?.editorial_slug || p.id === rawProduct?.editorial_slug || (rawNameNorm && normalizeProductName(p.name).includes(rawNameNorm)));
+            const localImage = localMatch?.images[0]?.src;
+
+            const imageSrc = localImage || (imagePath
+              ? `${supabaseUrlBase.replace(/\/$/, "")}/storage/v1/object/public/product-images/${imagePath.split("/").map(encodeURIComponent).join("/")}`
+              : "/assets/matearte/profile-orders-desktop/catalog-fallback.png");
 
             resolved.push({
               title: rawProduct?.name || "Producto MateArte",
@@ -266,6 +272,21 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
     setLocalItems(prev => prev.filter(i => i.variantId !== variantId));
   };
 
+  const updateLocalItemQuantity = (variantId: string, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      removeLocalItem(variantId);
+      return;
+    }
+    const { readLocalCart } = require("@/lib/browser-cart") as typeof import("@/lib/browser-cart");
+    const cart = readLocalCart();
+    const item = cart.find((e: any) => e.variantId === variantId);
+    if (item) {
+      item.quantity = Math.min(99, newQuantity);
+      localStorage.setItem("matearte_visitor_cart_v1", JSON.stringify(cart));
+      window.dispatchEvent(new Event("matearte-cart-change"));
+    }
+  };
+
   if (needsLogin) {
     if (localItems.length === 0) return (
       <>
@@ -315,8 +336,14 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
                   <div className="cart-mobile-item-actions">
                     <div className="cart-mobile-quantity">
                       <span>{t("quantity")}</span>
-                      <div className="cart-mobile-quantity-control cart-mobile-quantity-static">
-                        <output>{item.quantity}</output>
+                      <div className="cart-mobile-quantity-control" role="group">
+                        <button type="button" aria-label="Disminuir" onClick={() => updateLocalItemQuantity(item.variantId, item.quantity - 1)}>
+                          <span aria-hidden="true">−</span>
+                        </button>
+                        <output aria-live="polite">{item.quantity}</output>
+                        <button type="button" aria-label="Aumentar" disabled={item.quantity >= 99} onClick={() => updateLocalItemQuantity(item.variantId, item.quantity + 1)}>
+                          <span aria-hidden="true">+</span>
+                        </button>
                       </div>
                     </div>
                     <button type="button" className="cart-mobile-remove" onClick={() => removeLocalItem(item.variantId)}>
@@ -359,8 +386,14 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
                   </div>
                   <div className="cart-desktop-quantity">
                     <span>{t("quantity")}</span>
-                    <div className="cart-desktop-quantity-control cart-desktop-quantity-static">
-                      <output>{item.quantity}</output>
+                    <div className="cart-desktop-quantity-control" role="group">
+                      <button type="button" aria-label="Disminuir" onClick={() => updateLocalItemQuantity(item.variantId, item.quantity - 1)}>
+                        <span aria-hidden="true">−</span>
+                      </button>
+                      <output aria-live="polite">{item.quantity}</output>
+                      <button type="button" aria-label="Aumentar" disabled={item.quantity >= 99} onClick={() => updateLocalItemQuantity(item.variantId, item.quantity + 1)}>
+                        <span aria-hidden="true">+</span>
+                      </button>
                     </div>
                   </div>
                   <button type="button" className="cart-desktop-remove" onClick={() => removeLocalItem(item.variantId)}>

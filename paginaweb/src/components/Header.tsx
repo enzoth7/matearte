@@ -78,10 +78,38 @@ export function Header() {
     const controller = new AbortController();
     fetch("/api/session", { signal: controller.signal, credentials: "same-origin" })
       .then((response) => response.ok ? response.json() : null)
-      .then((value) => value && setSession(value))
+      .then((value) => {
+        if (!value) return;
+        if (value.authenticated) {
+          setSession(value);
+        } else {
+          try {
+            const { readLocalCart } = require("@/lib/browser-cart");
+            const entries = readLocalCart();
+            const count = entries.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0);
+            setSession({ authenticated: false, user: null, cartCount: count });
+          } catch {
+            setSession(value);
+          }
+        }
+      })
       .catch(() => undefined);
     return () => controller.abort();
   }, [pathname]);
+
+  useEffect(() => {
+    const syncGuestCartCount = () => {
+      try {
+        const { readLocalCart } = require("@/lib/browser-cart");
+        const entries = readLocalCart();
+        const count = entries.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0);
+        setSession(prev => prev.authenticated ? prev : { ...prev, cartCount: count });
+      } catch {}
+    };
+    syncGuestCartCount();
+    window.addEventListener("matearte-cart-change", syncGuestCartCount);
+    return () => window.removeEventListener("matearte-cart-change", syncGuestCartCount);
+  }, []);
 
   const isActive = (href: string) => canonical === href || canonical.startsWith(`${href}/`);
 
