@@ -3371,7 +3371,7 @@
     display: grid;
     width: 100%;
     min-height: 220px;
-    grid-template-columns: 138px minmax(0, 1fr) 154px 152px;
+    grid-template-columns: 138px minmax(0, 1fr) 220px 152px;
     align-items: center;
     gap: 24px;
     border: 1px solid #bfab8c;
