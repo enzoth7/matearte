@@ -51,7 +51,12 @@ export async function GET(request: NextRequest) {
       .select("profile_completed_at")
       .eq("user_id", authData.user.id)
       .maybeSingle();
-    return privateRedirect(destination(profile?.profile_completed_at ? "/perfil" : "/perfil/editar"));
+    // If a postLoginRedirect was passed as state, respect it (only allow safe internal paths)
+    const rawState = url.searchParams.get("state");
+    const postLoginRedirect = rawState ? decodeURIComponent(rawState) : null;
+    const safeRedirect = postLoginRedirect?.startsWith("/") && !postLoginRedirect.startsWith("//") ? postLoginRedirect : null;
+    if (!profile?.profile_completed_at) return privateRedirect(destination("/perfil/editar"));
+    return privateRedirect(safeRedirect ? `${destination(safeRedirect)}` : destination("/perfil"));
   }
   const failure = (reason: string) => privateRedirect(`${destination("/carrito")}?handoff=${reason}`);
   if (!isOpaqueHandoffCode) return failure("invalid");

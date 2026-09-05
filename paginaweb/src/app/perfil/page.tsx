@@ -83,7 +83,7 @@ function orderThumbnail(item?: OrderItem) {
   return product?.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.png";
 }
 
-async function AccountAccessRequired({ authError }: { authError?: string }) {
+async function AccountAccessRequired({ authError, redirect: redirectPath }: { authError?: string; redirect?: string }) {
   const t = await getTranslations("profile");
   const [guestTitleOne, guestTitleTwo] = t("guestTitle").split("|");
   return (
@@ -111,7 +111,7 @@ async function AccountAccessRequired({ authError }: { authError?: string }) {
             <section className="profile-guest-login-card" aria-labelledby="profile-guest-login-title">
               <h2 id="profile-guest-login-title">{t("loginTitle")}</h2>
               <p className="profile-guest-login-intro">{t("loginIntro")}</p>
-              <GoogleAuthButton variant="editorial" />
+              <GoogleAuthButton variant="editorial" postLoginRedirect={redirectPath} />
               <p className="profile-guest-login-note">{t("loginNote")}</p>
               {authError && <p role="alert" className="profile-guest-auth-error">{t("loginError")}</p>}
             </section>
@@ -151,7 +151,7 @@ async function AccountAccessRequired({ authError }: { authError?: string }) {
           <section className="profile-guest-mobile-login-card" aria-labelledby="profile-guest-mobile-login-title">
             <h2 id="profile-guest-mobile-login-title">{t("loginTitle")}</h2>
             <p className="profile-guest-mobile-login-intro">{t("loginIntro")}</p>
-            <GoogleAuthButton variant="editorial" />
+            <GoogleAuthButton variant="editorial" postLoginRedirect={redirectPath} />
             <p className="profile-guest-mobile-login-note">{t("loginNote")}</p>
             {authError && <p role="alert" className="profile-guest-mobile-auth-error">{t("loginError")}</p>}
           </section>
@@ -170,7 +170,7 @@ async function AccountAccessRequired({ authError }: { authError?: string }) {
   );
 }
 
-export default async function ProfilePage({ searchParams }: { searchParams: Promise<{ auth?: string }> }) {
+export default async function ProfilePage({ searchParams }: { searchParams: Promise<{ auth?: string; redirect?: string }> }) {
   const params = await searchParams;
   const locale = await getLocale() as Locale;
   const t = await getTranslations("profile");
@@ -182,7 +182,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
     refunded: orderT("statuses.refunded"), manual_review: orderT("statuses.manual_review"),
   };
   const { user, client } = await requireUser();
-  if (!user) return <AccountAccessRequired authError={params.auth} />;
+  if (!user) return <AccountAccessRequired authError={params.auth} redirect={params.redirect} />;
 
   const [{ data: profile }, { data, error }] = await Promise.all([
     client

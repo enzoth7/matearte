@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 import { persistLocalePreference } from "@/lib/locale-preference";
 
-export function GoogleAuthButton({ variant = "default" }: { variant?: "default" | "editorial" }) {
+export function GoogleAuthButton({ variant = "default", postLoginRedirect }: { variant?: "default" | "editorial"; postLoginRedirect?: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const locale = useLocale();
@@ -19,14 +19,15 @@ export function GoogleAuthButton({ variant = "default" }: { variant?: "default" 
     try {
       persistLocalePreference(locale);
       const client = createBrowserSupabase();
-      // Supabase requires an exact match with the configured redirect URL.
-      // Keep the callback free of query parameters so it matches the production allow list.
-      const redirectTo = `${window.location.origin}/auth/handoff`;
+      const redirectTo = `${window.location.origin}/auth/handoff?flow=store`;
       const { error: authError } = await client.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo,
-          queryParams: { prompt: "select_account" },
+          queryParams: {
+            prompt: "select_account",
+            ...(postLoginRedirect ? { state: encodeURIComponent(postLoginRedirect) } : {}),
+          },
         },
       });
       if (authError) throw authError;

@@ -98,14 +98,20 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
   const subtitleFor = (item: RemoteItem) => itemSubtitle(item, t("customDesign"), t("catalogPiece"));
   const [cart, setCart] = useState<Cart | null>(null);
   const [needsLogin, setNeedsLogin] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
 
   const load = useCallback(async () => {
-    const response = await fetch("/api/cart", { cache: "no-store" });
-    if (response.status === 401) { setNeedsLogin(true); return; }
-    const value = await response.json();
-    if (!response.ok) throw new Error(t("loadFailed"));
+    const [cartResponse, sessionResponse] = await Promise.all([
+      fetch("/api/cart", { cache: "no-store" }),
+      fetch("/api/session", { cache: "no-store" }),
+    ]);
+    const session = await sessionResponse.json();
+    setIsAuthenticated(!!session?.authenticated);
+    if (cartResponse.status === 401) { setNeedsLogin(true); return; }
+    const value = await cartResponse.json();
+    if (!cartResponse.ok) throw new Error(t("loadFailed"));
     setCart(value); setNeedsLogin(false);
   }, [t]);
 
@@ -113,6 +119,8 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
     const timer = window.setTimeout(() => { void load().catch((reason) => setError(reason.message)); }, 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  const checkoutHref = isAuthenticated ? "/checkout" : "/perfil?redirect=/checkout";
 
   const mutate = async (method: "PATCH" | "DELETE", itemId: string, quantity?: number) => {
     setBusy(itemId); setError("");
@@ -287,7 +295,7 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
             <span>{t("total")}</span>
             <strong>{format(subtotal)}</strong>
           </div>
-          <Link href="/checkout" className="cart-mobile-checkout">{t("continue")}</Link>
+          <Link href={checkoutHref as any} className="cart-mobile-checkout">{t("continue")}</Link>
         </aside>
       </div>
 
@@ -378,7 +386,7 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
             <span>{t("total")}</span>
             <strong>{format(subtotal)}</strong>
           </div>
-          <Link href="/checkout" className="cart-desktop-checkout">{t("continue")}</Link>
+          <Link href={checkoutHref as any} className="cart-desktop-checkout">{t("continue")}</Link>
         </aside>
       </div>
     </>
