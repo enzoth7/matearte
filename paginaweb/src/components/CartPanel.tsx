@@ -42,7 +42,7 @@ function itemSubtitle(item: RemoteItem, customDesign: string, catalogPiece: stri
 
 function itemImage(item: RemoteItem) {
   if (item.item_type === "design") {
-    return "/assets/matearte/profile-orders-desktop/design-fallback.png";
+    return "/assets/matearte/01-marca/LogoOriginal.jpg";
   }
 
   const images = [...(item.variant?.product.commerce_product_images || [])].sort((a, b) => a.sort_order - b.sort_order);
