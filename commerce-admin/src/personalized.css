@@ -25,10 +25,11 @@
 .artifact-subheading.originals { margin-top: 1.2rem; }
 .customer-assets--uploads { grid-template-columns: repeat(auto-fit, minmax(12rem, 18rem)); }
 .customer-asset { min-width: 0; overflow: hidden; border: 1px solid #bfcac2; border-radius: .55rem; background: #fff; }
-.asset-preview { display: grid; place-items: center; height: 15rem; background: #ebece8; }
-.asset-preview img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.asset-preview { position: relative; display: grid; place-items: center; box-sizing: border-box; height: 15rem; overflow: hidden; background: #ebece8; padding: .75rem; }
+.asset-preview img { display: block; width: 100%; max-width: 100%; height: 100%; max-height: 100%; object-fit: contain; }
+.customer-assets--uploads .asset-preview { padding: 1rem; }
 .asset-placeholder { display: grid; place-items: center; width: 100%; height: 100%; color: var(--muted); font-size: .75rem; font-weight: 700; }
-.asset-caption { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: .2rem .75rem; align-items: center; border-top: 1px solid var(--line-soft); padding: .7rem .8rem; }
+.asset-caption { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: .2rem .75rem; align-items: center; border-top: 1px solid var(--line-soft); background: #fff; padding: .7rem .8rem; }
 .asset-caption strong { overflow: hidden; font-size: .76rem; text-overflow: ellipsis; white-space: nowrap; }
 .asset-caption small { grid-column: 1; font-size: .64rem; }
 .asset-caption a { grid-column: 2; grid-row: 1 / span 2; color: var(--green-800); font-size: .7rem; font-weight: 700; }
