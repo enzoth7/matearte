@@ -166,6 +166,61 @@ export async function saveUserProfileToSupabase(userData: UserData) {
   };
 }
 
+const storageReference = (value: unknown) => {
+  if (typeof value !== 'string' || !value.startsWith('storage:')) return null;
+  const separator = value.indexOf(':', 'storage:'.length);
+  if (separator < 0) return null;
+  const bucket = value.slice('storage:'.length, separator);
+  const path = value.slice(separator + 1);
+  return (bucket === 'design-assets' || bucket === 'design-previews') && path ? { bucket, path } : null;
+};
+
+export function serializeDesignConfiguration<T>(value: T): T {
+  const copy = structuredClone(value);
+  const visit = (current: unknown) => {
+    if (!current || typeof current !== 'object') return;
+    if (Array.isArray(current)) { current.forEach(visit); return; }
+    const record = current as Record<string, unknown>;
+    if (record.source === 'upload') {
+      const durable = storageReference(record.storageRef)?.path
+        ? String(record.storageRef)
+        : storageReference(record.originalUrl)?.path
+          ? String(record.originalUrl)
+          : typeof record.originalUrl === 'string' && record.originalUrl.startsWith('indexeddb:')
+            ? record.originalUrl
+            : '';
+      record.previewUrl = durable;
+      if (durable.startsWith('storage:')) record.storageRef = durable;
+    }
+    Object.values(record).forEach(visit);
+  };
+  visit(copy);
+  return copy;
+}
+
+async function hydrateDesignConfiguration<T>(value: T): Promise<T> {
+  const copy = structuredClone(value);
+  const records: Array<{ record: Record<string, unknown>; bucket: 'design-assets' | 'design-previews'; path: string }> = [];
+  const visit = (current: unknown) => {
+    if (!current || typeof current !== 'object') return;
+    if (Array.isArray(current)) { current.forEach(visit); return; }
+    const record = current as Record<string, unknown>;
+    if (record.source === 'upload') {
+      const ref = storageReference(record.storageRef) || storageReference(record.originalUrl) || storageReference(record.previewUrl);
+      if (ref) records.push({ record, bucket: ref.bucket as 'design-assets' | 'design-previews', path: ref.path });
+    }
+    Object.values(record).forEach(visit);
+  };
+  visit(copy);
+  await Promise.all(records.map(async ({ record, bucket, path }) => {
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
+    if (!error && data?.signedUrl) record.previewUrl = data.signedUrl;
+    record.originalUrl = `storage:${bucket}:${path}`;
+    record.storageRef = `storage:${bucket}:${path}`;
+  }));
+  return copy;
+}
+
 const normalizeDesign = (row: Record<string, any>): SavedDesignItem => ({
   id: String(row.id), user_id: row.user_id ? String(row.user_id) : undefined,
   client_draft_id: String(row.client_draft_id || row.id),
@@ -186,8 +241,8 @@ export async function saveDesignToSupabase(params: {
     client_draft_id: params.clientDraftId,
     title: (params.title || 'Diseño sin título').trim().slice(0, 120),
     schema_version: 1,
-    configuration: params.configuration,
-    fleje_configuration: params.flejeConfig,
+    configuration: serializeDesignConfiguration(params.configuration),
+    fleje_configuration: serializeDesignConfiguration(params.flejeConfig),
     status: params.status || 'draft',
   };
   const query = params.designId
@@ -200,7 +255,16 @@ export async function saveDesignToSupabase(params: {
 export async function getUserDesigns(userId?: string) {
   if (!isSupabaseConfigured || !userId) return { data: [], error: null };
   const { data, error } = await supabase.from('designs').select('*').eq('user_id', userId).in('status', ['draft', 'saved']).order('updated_at', { ascending: false });
-  return { data: (data || []).map(normalizeDesign), error };
+  if (error) return { data: [], error };
+  const designs = await Promise.all((data || []).map(async (row) => {
+    const normalized = normalizeDesign(row);
+    return {
+      ...normalized,
+      configuration: await hydrateDesignConfiguration(normalized.configuration),
+      fleje_config: await hydrateDesignConfiguration(normalized.fleje_config),
+    };
+  }));
+  return { data: designs, error: null };
 }
 
 export async function renameDesign(designId: string, title: string) {

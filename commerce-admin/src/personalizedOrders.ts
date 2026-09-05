@@ -30,6 +30,8 @@ export type PrivateAsset = {
   name: string;
   mimeType: string;
   byteSize: number | null;
+  kind: 'preview' | 'upload';
+  role?: 'mate' | 'virola' | 'fleje_front' | 'fleje_back';
 };
 
 export type SurfaceSideSummary = {
@@ -60,6 +62,8 @@ export type PersonalizationSummary = {
     back: SurfaceSideSummary;
     personalized: boolean;
   };
+  previews: PrivateAsset[];
+  uploads: PrivateAsset[];
   files: PrivateAsset[];
 };
 
@@ -157,7 +161,7 @@ function collectCustomImageAssets(value: unknown): PrivateAsset[] {
     }
     const record = asRecord(current);
     if (!Object.keys(record).length) return;
-    const ref = parseStorageReference(record.originalUrl);
+    const ref = parseStorageReference(record.storageRef) || parseStorageReference(record.originalUrl);
     if (ref) {
       result.push({
         key: `${ref.bucket}:${ref.path}`,
@@ -166,6 +170,7 @@ function collectCustomImageAssets(value: unknown): PrivateAsset[] {
         name: asString(record.name) || 'Logo personalizado',
         mimeType: asString(record.mimeType) || 'application/octet-stream',
         byteSize: typeof record.size === 'number' ? record.size : null,
+        kind: 'upload',
       });
     }
     Object.values(record).forEach(visit);
@@ -176,7 +181,7 @@ function collectCustomImageAssets(value: unknown): PrivateAsset[] {
 
 export function collectPrivateAssets(snapshotValue: unknown): PrivateAsset[] {
   const snapshot = asRecord(snapshotValue);
-  const assets = asArray(snapshot.assets).flatMap((entry): PrivateAsset[] => {
+  const metadataAssets = asArray(snapshot.assets).flatMap((entry): PrivateAsset[] => {
     const asset = asRecord(entry);
     const bucket = asString(asset.bucket_id) as PrivateAsset['bucket'];
     const path = asString(asset.object_path);
@@ -188,22 +193,50 @@ export function collectPrivateAssets(snapshotValue: unknown): PrivateAsset[] {
       name: asString(asset.original_name) || 'Archivo del cliente',
       mimeType: asString(asset.mime_type) || 'application/octet-stream',
       byteSize: typeof asset.byte_size === 'number' ? asset.byte_size : null,
+      kind: bucket === 'design-previews' ? 'preview' : 'upload',
+    }];
+  });
+
+  const previewNames: Record<string, string> = {
+    mate: 'Mate completo.png',
+    virola: 'Virola.png',
+    fleje_front: 'Fleje - frente.png',
+    fleje_back: 'Fleje - reverso.png',
+  };
+  const manifestPreviews = asArray(snapshot.previews).flatMap((entry): PrivateAsset[] => {
+    const preview = asRecord(entry);
+    const role = asString(preview.role) as PrivateAsset['role'];
+    const bucket = asString(preview.bucket_id) as PrivateAsset['bucket'];
+    const path = asString(preview.object_path);
+    if (!role || !previewNames[role] || bucket !== 'design-previews' || !path) return [];
+    return [{
+      key: `${bucket}:${path}`,
+      bucket,
+      path,
+      name: previewNames[role],
+      mimeType: asString(preview.mime_type) || 'image/png',
+      byteSize: typeof preview.byte_size === 'number' ? preview.byte_size : null,
+      kind: 'preview',
+      role,
     }];
   });
 
   const rawPreviewPath = asString(snapshot.previewPath);
   const previewReference = parseStorageReference(rawPreviewPath)
     || (rawPreviewPath ? { bucket: 'design-previews' as const, path: rawPreviewPath } : null);
-  const preview = previewReference ? [{
+  const legacyPreview = !manifestPreviews.length && previewReference ? [{
     key: `${previewReference.bucket}:${previewReference.path}`,
     bucket: previewReference.bucket,
     path: previewReference.path,
-    name: 'Vista previa del diseño',
+    name: 'Vista previa del diseño.png',
     mimeType: 'image/png',
     byteSize: null,
+    kind: 'preview' as const,
   } satisfies PrivateAsset] : [];
 
-  const found = [...assets, ...preview, ...collectCustomImageAssets(snapshot.configuration), ...collectCustomImageAssets(snapshot.flejeConfiguration)];
+  const activeUploads = [...collectCustomImageAssets(snapshot.configuration), ...collectCustomImageAssets(snapshot.flejeConfiguration)];
+  const fallbackUploads = activeUploads.length ? [] : metadataAssets.filter((asset) => asset.kind === 'upload');
+  const found = [...manifestPreviews, ...legacyPreview, ...activeUploads, ...fallbackUploads];
   return [...new Map(found.map((asset) => [asset.key, asset])).values()];
 }
 
@@ -229,6 +262,7 @@ export function summarizePersonalization(item: PersonalizedOrderItem): Personali
   const rimTechnique = asString(labels.engraving) || humanizeId(configuration.engravingTypeId);
   const flejeTechnique = humanizeId(configuration.flejeEngravingTypeId || configuration.engravingTypeId);
 
+  const files = collectPrivateAssets(snapshot);
   return {
     mate: {
       model: asString(labels.family) || humanizeId(configuration.modelId) || item.title,
@@ -252,7 +286,9 @@ export function summarizePersonalization(item: PersonalizedOrderItem): Personali
       back,
       personalized: flejeAvailable && (flejeFinishActive || Boolean(front.text) || front.images.length > 0 || Boolean(back.text) || back.images.length > 0),
     },
-    files: collectPrivateAssets(snapshot),
+    previews: files.filter((file) => file.kind === 'preview'),
+    uploads: files.filter((file) => file.kind === 'upload'),
+    files,
   };
 }
 

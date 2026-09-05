@@ -88,7 +88,22 @@ describe('archivos privados', () => {
     });
 
     expect(files).toHaveLength(1);
-    expect(files[0]).toMatchObject({ bucket: 'design-assets', path: 'user/design/logo.png', name: 'logo.png' });
+    expect(files[0]).toMatchObject({ bucket: 'design-assets', path: 'user/design/logo.png', name: 'logo.png', kind: 'upload' });
+  });
+
+  it('separa las vistas de producción de los originales activos', () => {
+    const summary = summarizePersonalization(item({
+      previews: [
+        { role: 'mate', bucket_id: 'design-previews', object_path: 'user/design/rev/mate.png', mime_type: 'image/png', byte_size: 1200 },
+        { role: 'virola', bucket_id: 'design-previews', object_path: 'user/design/rev/virola.png', mime_type: 'image/png', byte_size: 1400 },
+      ],
+      assets: [{ bucket_id: 'design-assets', object_path: 'user/design/old.png', original_name: 'viejo.png', mime_type: 'image/png', byte_size: 900 }],
+      configuration: { rim: { icons: [{ customImage: { name: 'logo.svg', mimeType: 'image/svg+xml', size: 2048, storageRef: 'storage:design-assets:user/design/logo.svg' } }] } },
+    }));
+
+    expect(summary.previews.map((asset) => asset.role)).toEqual(['mate', 'virola']);
+    expect(summary.uploads).toHaveLength(1);
+    expect(summary.uploads[0]).toMatchObject({ name: 'logo.svg', path: 'user/design/logo.svg' });
   });
 });
 

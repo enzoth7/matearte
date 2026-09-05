@@ -20,6 +20,13 @@
 .section-heading h3 { margin-top: .2rem; font-size: 1.35rem; }
 .section-heading > strong { border-radius: 999px; background: var(--green-100); color: var(--green-900); padding: .35rem .6rem; font-size: .68rem; white-space: nowrap; }
 .customer-assets { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: .8rem; margin-top: 1rem; }
+.design-artifact-group { margin-top: 1rem; border-top: 1px solid #c8d4cc; padding-top: 1rem; }
+.design-artifact-group > h4 { margin: 0 0 .7rem; font-size: .9rem; }
+.artifact-subheading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.artifact-subheading strong { font-size: .76rem; }
+.artifact-subheading small { font-size: .66rem; }
+.artifact-subheading.originals { margin-top: 1.2rem; }
+.customer-assets--uploads { grid-template-columns: repeat(auto-fit, minmax(12rem, 18rem)); }
 .customer-asset { min-width: 0; overflow: hidden; border: 1px solid #bfcac2; border-radius: .55rem; background: #fff; }
 .asset-preview { display: grid; place-items: center; height: 15rem; background: #ebece8; }
 .asset-preview img { display: block; width: 100%; height: 100%; object-fit: contain; }

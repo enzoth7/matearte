@@ -67,6 +67,7 @@ export async function syncDesignAssets<TConfiguration, TFleje>(configuration: TC
     const value = await response.json();
     if (!response.ok || !value.storageRef) throw new Error(value.error || `No se pudo subir ${file.name}.`);
     item.originalUrl = value.storageRef;
+    item.storageRef = value.storageRef;
   }
   return { configuration: configurationCopy, flejeConfiguration: flejeCopy, changed: true };
 }

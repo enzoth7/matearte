@@ -9,6 +9,8 @@ export type { FlejeCustomization } from "../types/customizer";
 export interface FlatFlejePreviewProps {
   flejeConfig: FlejeCustomization;
   activeSide?: FlejeSide;
+  visibleSides?: FlejeSide[];
+  showLabels?: boolean;
   editable?: boolean;
   selectedElement?: EditableElement | null;
   onSelectSide?: (side: FlejeSide) => void;
@@ -336,6 +338,8 @@ function FlejeSurface({
 export function FlatFlejePreview({
   flejeConfig,
   activeSide = "front",
+  visibleSides = ["front", "back"],
+  showLabels = true,
   editable = false,
   selectedElement,
   onSelectSide,
@@ -346,8 +350,8 @@ export function FlatFlejePreview({
 
   return (
     <div className="fleje-preview-stack" aria-label="Vista del fleje metálico">
-      <div className="fleje-preview-side">
-        <span>Frente</span>
+      {visibleSides.includes("front") && <div className="fleje-preview-side">
+        {showLabels && <span>Frente</span>}
         <FlejeSurface
           side="front"
           config={flejeConfig.sides.front}
@@ -359,9 +363,9 @@ export function FlatFlejePreview({
           onSelectElement={onSelectElement}
           onTransformChange={onTransformChange}
         />
-      </div>
-      <div className="fleje-preview-side">
-        <span>Dorso</span>
+      </div>}
+      {visibleSides.includes("back") && <div className="fleje-preview-side">
+        {showLabels && <span>Dorso</span>}
         <FlejeSurface
           side="back"
           config={flejeConfig.sides.back}
@@ -373,7 +377,7 @@ export function FlatFlejePreview({
           onSelectElement={onSelectElement}
           onTransformChange={onTransformChange}
         />
-      </div>
+      </div>}
     </div>
   );
 }

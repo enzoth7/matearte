@@ -21,6 +21,7 @@ import { RimTextFields } from "./components/RimTextFields";
 import { RimTextModeSelector } from "./components/RimTextModeSelector";
 import { CustomImageUpload } from "./components/CustomImageUpload";
 import { CheckoutStep } from "./components/CheckoutStep";
+import { DesignExportRenderer, type DesignExportRendererHandle } from "./components/DesignExportRenderer";
 import { VirolaIconSelector } from "./components/VirolaIconSelector";
 import { BrandFooter } from "./components/BrandFooter";
 import { StyleTransitionStep } from "./components/StyleTransitionStep";
@@ -48,6 +49,7 @@ import { getFlejeFinish } from "./catalog/flejeFinishCatalog";
 import { calculateOrderPricing, countChargeableCharacters, formatUYU, getCustomizationPrice } from "./catalog/pricingCatalog";
 import { createDefaultFlejeCustomization, normalizeFlejeCustomization, type CustomImageAsset, type EditableElement, type FlejeCustomization, type FlejeSide, type MateConfiguration } from "./types/customizer";
 import { loadGuestDraft, loadGuestDraftIdentity, saveGuestDraft, saveGuestDraftIdentity, syncDesignAssets } from "./services/guestDraftStorage";
+import { saveDesignPreviews } from "./services/designPreviews";
 import { shouldCompleteProfileInVisualizer } from "./lib/authRedirect";
 
 type CustomizationPhase = "mate" | "virola" | "fleje";
@@ -517,6 +519,7 @@ function VisualizerApp() {
   const [allowIncompletePhaseNavigation, setAllowIncompletePhaseNavigation] = useState(false);
   const [localDesigns] = useState<SavedDesignItem[]>([]);
   const previewContainerRef = useRef<HTMLDivElement>(null);
+  const designExportRef = useRef<DesignExportRendererHandle>(null);
   const uploadedRimIcon = configuration.rim.icons.find((icon) => icon.customImage) ?? null;
 
   const updateUploadedRimIcon = (asset: CustomImageAsset | null) => {
@@ -686,72 +689,77 @@ function VisualizerApp() {
   const handleSaveDesign = async () => {
     if (saveStatus !== "idle") return;
     setSaveStatus("saving");
-
-    const configurationForSave = configurationWithPricingSnapshot();
-    const { data, error } = await saveDesignToSupabase({
-      designId: lastSavedDesignId,
-      clientDraftId: currentDraftKey,
-      userId: userData?.id,
-      configuration: configurationForSave,
-      flejeConfig,
-      title: `Mate ${configuration.selectionLabels.texture}`,
-      status: 'draft',
-    });
-
-    if (error || !data?.[0]?.id) {
-      setSaveStatus("idle");
-      window.alert(error?.message || 'No se pudo guardar el diseño.');
-      return;
-    }
-    if (data && data[0]?.id) {
-      setLastSavedDesignId(data[0].id);
-      setDraftIdentity(data[0].client_draft_id);
+    try {
+      const configurationForSave = configurationWithPricingSnapshot();
+      const { data, error } = await saveDesignToSupabase({
+        designId: lastSavedDesignId,
+        clientDraftId: currentDraftKey,
+        userId: userData?.id,
+        configuration: configurationForSave,
+        flejeConfig,
+        title: `Mate ${configuration.selectionLabels.texture}`,
+        status: 'draft',
+      });
+      if (error || !data?.[0]?.id) throw error || new Error('No se pudo guardar el diseño.');
+      const design = data[0];
+      setLastSavedDesignId(design.id);
+      setDraftIdentity(design.client_draft_id);
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const synced = await syncDesignAssets(configurationForSave, flejeConfig, data[0].id, session.access_token);
-        if (synced.changed) {
-          setConfiguration(normalizeMateConfiguration(synced.configuration));
-          setFlejeConfig(normalizeFlejeCustomization(synced.flejeConfiguration));
-          await saveDesignToSupabase({ designId: data[0].id, clientDraftId: data[0].client_draft_id, userId: userData?.id, configuration: synced.configuration, flejeConfig: synced.flejeConfiguration, title: `Mate ${configuration.selectionLabels.texture}`, status: 'draft' });
-        }
+      if (!session || !userData?.id) throw new Error('La sesión venció. Volvé a ingresar.');
+      const synced = await syncDesignAssets(configurationForSave, flejeConfig, design.id, session.access_token);
+      if (synced.changed) {
+        setConfiguration(normalizeMateConfiguration(synced.configuration));
+        setFlejeConfig(normalizeFlejeCustomization(synced.flejeConfiguration));
+        const persisted = await saveDesignToSupabase({ designId: design.id, clientDraftId: design.client_draft_id, userId: userData.id, configuration: synced.configuration, flejeConfig: synced.flejeConfiguration, title: `Mate ${configuration.selectionLabels.texture}`, status: 'draft' });
+        if (persisted.error) throw persisted.error;
       }
-    }
+      const targets = designExportRef.current?.getTargets();
+      if (!targets) throw new Error('No se pudieron preparar las vistas del diseño.');
+      await saveDesignPreviews({ designId: design.id, userId: userData.id, hasFleje: configuration.capabilities.hasFleje, targets });
 
-    setTimeout(() => {
-      setSaveStatus("saved");
       setTimeout(() => {
-        setSaveStatus("idle");
-        changeStep("summary");
+        setSaveStatus("saved");
+        setTimeout(() => {
+          setSaveStatus("idle");
+          changeStep("summary");
+        }, 800);
       }, 800);
-    }, 800);
+    } catch (reason) {
+      setSaveStatus("idle");
+      window.alert(reason instanceof Error ? reason.message : 'No se pudo guardar el diseño.');
+    }
   };
 
   const handleSaveDraftFromSummary = async () => {
-    const configurationForSave = configurationWithPricingSnapshot();
-    const { data, error } = await saveDesignToSupabase({
-      designId: lastSavedDesignId,
-      clientDraftId: currentDraftKey,
-      userId: userData?.id,
-      configuration: configurationForSave,
-      flejeConfig,
-      title: `Mate ${configuration.selectionLabels.texture}`,
-      status: 'draft',
-    });
-    if (error || !data?.[0]?.id) {
-      window.alert(error?.message || 'No se pudo guardar el diseño.');
-      return;
-    }
-    if (data && data[0]?.id) {
-      setLastSavedDesignId(data[0].id);
-      setDraftIdentity(data[0].client_draft_id);
+    try {
+      const configurationForSave = configurationWithPricingSnapshot();
+      const { data, error } = await saveDesignToSupabase({
+        designId: lastSavedDesignId,
+        clientDraftId: currentDraftKey,
+        userId: userData?.id,
+        configuration: configurationForSave,
+        flejeConfig,
+        title: `Mate ${configuration.selectionLabels.texture}`,
+        status: 'draft',
+      });
+      if (error || !data?.[0]?.id) throw error || new Error('No se pudo guardar el diseño.');
+      const design = data[0];
+      setLastSavedDesignId(design.id);
+      setDraftIdentity(design.client_draft_id);
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const synced = await syncDesignAssets(configurationForSave, flejeConfig, data[0].id, session.access_token);
-        if (synced.changed) await saveDesignToSupabase({ designId: data[0].id, clientDraftId: data[0].client_draft_id, userId: userData?.id, configuration: synced.configuration, flejeConfig: synced.flejeConfiguration, title: `Mate ${configuration.selectionLabels.texture}`, status: 'draft' });
+      if (!session || !userData?.id) throw new Error('La sesión venció. Volvé a ingresar.');
+      const synced = await syncDesignAssets(configurationForSave, flejeConfig, design.id, session.access_token);
+      if (synced.changed) {
+        const persisted = await saveDesignToSupabase({ designId: design.id, clientDraftId: design.client_draft_id, userId: userData.id, configuration: synced.configuration, flejeConfig: synced.flejeConfiguration, title: `Mate ${configuration.selectionLabels.texture}`, status: 'draft' });
+        if (persisted.error) throw persisted.error;
       }
+      const targets = designExportRef.current?.getTargets();
+      if (!targets) throw new Error('No se pudieron preparar las vistas del diseño.');
+      await saveDesignPreviews({ designId: design.id, userId: userData.id, hasFleje: configuration.capabilities.hasFleje, targets });
+      changeStep("profile");
+    } catch (reason) {
+      window.alert(reason instanceof Error ? reason.message : 'No se pudo guardar el diseño.');
     }
-
-    changeStep("profile");
   };
 
   const handleCheckoutComplete = async () => {
@@ -772,7 +780,14 @@ function VisualizerApp() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('La sesión venció. Volvé a ingresar.');
     const synced = await syncDesignAssets(configurationForSave, flejeConfig, designId, session.access_token);
-    if (synced.changed) await saveDesignToSupabase({ designId, clientDraftId: data[0].client_draft_id, userId: userData?.id, configuration: synced.configuration, flejeConfig: synced.flejeConfiguration, title: `Mate ${configuration.selectionLabels.texture}`, status: 'draft' });
+    if (synced.changed) {
+      const persisted = await saveDesignToSupabase({ designId, clientDraftId: data[0].client_draft_id, userId: userData?.id, configuration: synced.configuration, flejeConfig: synced.flejeConfiguration, title: `Mate ${configuration.selectionLabels.texture}`, status: 'draft' });
+      if (persisted.error) throw persisted.error;
+    }
+    if (!userData?.id) throw new Error('La sesión venció. Volvé a ingresar.');
+    const targets = designExportRef.current?.getTargets();
+    if (!targets) throw new Error('No se pudieron preparar las vistas del diseño.');
+    await saveDesignPreviews({ designId, userId: userData.id, hasFleje: configuration.capabilities.hasFleje, targets });
     const redirectUrl = await createMainSiteHandoff('add_design', '/carrito', { designId });
     const finalized = await saveDesignToSupabase({
       designId,
@@ -1059,6 +1074,7 @@ function VisualizerApp() {
 
   return (
     <div className="brand-app brand-desktop-note">
+      <DesignExportRenderer ref={designExportRef} configuration={configuration} flejeConfig={flejeConfig} />
       <a className="brand-skip-link" href="#main-content">Saltar al contenido</a>
       <BrandHeader
         currentStep={wizardStep}
@@ -1449,7 +1465,7 @@ function VisualizerApp() {
                 <div className="mt-2 pt-4 border-t border-zinc-200/80">
                   <button
                     type="button"
-                    onClick={() => changeStep("summary")}
+                    onClick={() => requireAuthentication("save-customizer")}
                     disabled={saveStatus !== "idle"}
                     className={`flex w-full items-center justify-center gap-2 rounded-xl py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg transition-all active:scale-[0.98] cursor-pointer ${
                       saveStatus === "saved"

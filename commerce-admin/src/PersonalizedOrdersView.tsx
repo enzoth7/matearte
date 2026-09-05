@@ -78,7 +78,7 @@ function AssetCard({ asset, link }: { asset: PrivateAsset; link?: AssetLink }) {
       <div className="asset-caption">
         <strong title={asset.name}>{asset.name}</strong>
         <small>{[asset.mimeType.replace('image/', '').toUpperCase(), formatFileSize(asset.byteSize)].filter(Boolean).join(' · ')}</small>
-        {link?.downloadUrl && <a href={link.downloadUrl} target="_blank" rel="noreferrer">Abrir original</a>}
+        {link?.downloadUrl && <a href={link.downloadUrl} target="_blank" rel="noreferrer">{asset.kind === 'preview' ? 'Descargar PNG' : 'Descargar original'}</a>}
       </div>
     </article>
   );
@@ -116,6 +116,7 @@ export function PersonalizedOrders({ onNotice }: { onNotice: (value: string) => 
   const selectedItems = useMemo(() => selected ? getPersonalizedItems(selected) : [], [selected]);
   const itemSummaries = useMemo(() => selectedItems.map((item) => ({ item, summary: summarizePersonalization(item) })), [selectedItems]);
   const files = useMemo(() => [...new Map(itemSummaries.flatMap(({ summary }) => summary.files).map((asset) => [asset.key, asset])).values()], [itemSummaries]);
+  const previewCount = itemSummaries.reduce((total, { summary }) => total + summary.previews.length, 0);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -195,10 +196,20 @@ export function PersonalizedOrders({ onNotice }: { onNotice: (value: string) => 
 
           <div className="dialog-body">
             <section className="personalization-images" aria-labelledby="personalization-images-title">
-              <div className="section-heading"><div><small>Lo más importante</small><h3 id="personalization-images-title">Imágenes de la virola y el fleje</h3></div><strong>{files.length} {files.length === 1 ? 'archivo' : 'archivos'}</strong></div>
-              {files.length
-                ? <div className="customer-assets">{files.map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}</div>
-                : <div className="empty-files">El cliente no adjuntó imágenes. Revisá las indicaciones escritas de virola y fleje.</div>}
+              <div className="section-heading"><div><small>Lo más importante</small><h3 id="personalization-images-title">Diseños para producción</h3></div><strong>{previewCount} {previewCount === 1 ? 'vista' : 'vistas'}</strong></div>
+              {itemSummaries.map(({ item, summary }, index) => (
+                <section className="design-artifact-group" key={`assets-${item.id}`}>
+                  <h4>{itemSummaries.length > 1 ? `Mate ${index + 1} · ` : ''}{item.title}</h4>
+                  <div className="artifact-subheading"><strong>Vistas del diseño</strong><small>Archivos PNG listos para consultar o descargar.</small></div>
+                  {summary.previews.length
+                    ? <div className="customer-assets">{summary.previews.map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}</div>
+                    : <div className="empty-files">Vista final no disponible para este pedido anterior. Revisá las indicaciones escritas de virola y fleje.</div>}
+                  <div className="artifact-subheading originals"><strong>Originales subidos por el cliente</strong><small>{summary.uploads.length ? `${summary.uploads.length} ${summary.uploads.length === 1 ? 'archivo' : 'archivos'}` : 'Sin archivos externos'}</small></div>
+                  {summary.uploads.length
+                    ? <div className="customer-assets customer-assets--uploads">{summary.uploads.map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}</div>
+                    : <div className="empty-files">El diseño usa texto o íconos del catálogo; el cliente no subió archivos originales.</div>}
+                </section>
+              ))}
               {assetWarning && <div className="asset-warning" role="alert">{assetWarning}</div>}
             </section>
 

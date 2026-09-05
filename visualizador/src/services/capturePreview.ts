@@ -1,28 +1,34 @@
 import { domToBlob } from 'modern-screenshot';
 
+async function waitForVisualAssets(element: HTMLElement) {
+  await document.fonts?.ready;
+  const images = Array.from(element.querySelectorAll('img'));
+  await Promise.all(images.map(async (image) => {
+    if (!image.complete) await new Promise<void>((resolve) => {
+      image.addEventListener('load', () => resolve(), { once: true });
+      image.addEventListener('error', () => resolve(), { once: true });
+    });
+    try { await image.decode(); } catch { /* The capture reports unusable assets. */ }
+  }));
+  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+}
+
 /**
  * Captura un elemento del DOM como PNG Blob utilizando modern-screenshot.
  * Soporta nativamente Tailwind CSS v4 (colores oklch/oklab), máscaras SVG, y fuentes modernas.
  */
 export async function captureElementAsBlob(element: HTMLElement): Promise<Blob | null> {
   try {
-    console.log('📸 Capturando vista previa con modern-screenshot...', element);
+    await waitForVisualAssets(element);
 
     const blob = await domToBlob(element, {
       backgroundColor: '#fbf3de',
-      scale: 1.5,
-      quality: 0.9,
+      scale: 2,
+      quality: 1,
     });
-
-    if (blob) {
-      console.log('✅ Screenshot generado exitosamente con modern-screenshot:', blob.size, 'bytes');
-    } else {
-      console.warn('⚠️ domToBlob retornó null');
-    }
-
     return blob;
   } catch (err) {
-    console.error('❌ Error capturando vista previa con modern-screenshot:', err);
+    console.error('No se pudo capturar la vista previa:', err);
     return null;
   }
 }

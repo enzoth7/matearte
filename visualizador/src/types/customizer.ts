@@ -23,6 +23,7 @@ export interface CustomImageAsset {
   size: number;
   previewUrl: string;
   originalUrl: string;
+  storageRef?: string;
   source: "upload";
 }
 

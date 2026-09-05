@@ -13,15 +13,18 @@ export function OPTIONS(request: Request) {
   return origin && isAllowedCustomizerOrigin(origin) ? new Response(null, { status: 204, headers: cors(origin) }) : new Response(null, { status: 403 });
 }
 
-function sanitizeSvg(source: string) {
-  if (!/^\s*<svg[\s>]/i.test(source) || /<(?:script|foreignObject|iframe|object|embed)\b/i.test(source) || /\b(?:href|xlink:href)\s*=\s*["'](?!#)/i.test(source) || /url\s*\(\s*["']?(?:https?:|\/\/)/i.test(source)) throw new Error("El SVG contiene contenido externo o no permitido.");
+function assertSafeSvg(source: string) {
+  if (!/^\s*<svg[\s>]/i.test(source)
+    || /<(?:script|foreignObject|iframe|object|embed)\b/i.test(source)
+    || /<!\s*(?:doctype|entity)\b/i.test(source)
+    || /\b(?:href|xlink:href)\s*=\s*["'](?!#)/i.test(source)
+    || /url\s*\(\s*["']?(?:https?:|\/\/)/i.test(source)) throw new Error("El SVG contiene contenido externo o no permitido.");
   const clean = sanitizeHtml(source, {
     allowedTags: ["svg", "g", "path", "circle", "ellipse", "rect", "line", "polyline", "polygon", "defs", "lineargradient", "radialgradient", "stop", "clippath", "mask", "title", "desc", "text", "tspan"],
     allowedAttributes: { '*': ["id", "class", "transform", "fill", "fill-rule", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "opacity", "d", "x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "rx", "ry", "width", "height", "viewbox", "points", "offset", "stop-color", "stop-opacity", "clip-path", "mask", "xmlns", "preserveaspectratio", "font-size", "font-family", "text-anchor"] },
     allowedSchemes: [], allowProtocolRelative: false,
   });
   if (!clean.includes("<svg")) throw new Error("El SVG quedó vacío después de sanitizarlo.");
-  return clean;
 }
 
 export async function POST(request: Request) {
@@ -40,10 +43,10 @@ export async function POST(request: Request) {
     if (!["image/png", "image/jpeg", "image/svg+xml"].includes(file.type)) return apiError("Tipo de archivo no permitido.", 415);
     const { data: design } = await client.from("designs").select("id").eq("id", designId).eq("user_id", user.id).maybeSingle();
     if (!design) return apiError("El diseño no existe o no te pertenece.", 404);
-    let bytes = Buffer.from(await file.arrayBuffer());
+    const bytes = Buffer.from(await file.arrayBuffer());
     if (file.type === "image/png" && bytes.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a") throw new Error("El PNG no tiene una firma válida.");
     if (file.type === "image/jpeg" && bytes.subarray(0, 3).toString("hex") !== "ffd8ff") throw new Error("El JPEG no tiene una firma válida.");
-    if (file.type === "image/svg+xml") bytes = Buffer.from(sanitizeSvg(bytes.toString("utf8")), "utf8");
+    if (file.type === "image/svg+xml") assertSafeSvg(bytes.toString("utf8"));
     const sha256 = createHash("sha256").update(bytes).digest("hex");
     const existing = await client.from("design_assets").select("object_path").eq("design_id", designId).eq("user_id", user.id).eq("sha256", sha256).maybeSingle();
     if (existing.data) {
