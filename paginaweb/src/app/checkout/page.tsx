@@ -32,7 +32,7 @@ export default async function CheckoutPage() {
   return (
     <main id="contenido" className="bg-[var(--cream)] py-8 sm:py-12 lg:py-16">
       <div className="container-shell max-w-[77rem]">
-        <CheckoutForm initialCustomer={initialCustomer} initialDestination={{ international: countryCode !== "UY", country: countryCode === "UY" ? "" : countryName(countryCode, locale), city: profile?.city || "" }} exchangeRates={exchangeRates} />
+        <CheckoutForm initialCustomer={initialCustomer} initialDestination={{ international: countryCode !== "UY", country: countryCode === "UY" ? "" : countryCode, city: profile?.city || "" }} exchangeRates={exchangeRates} />
       </div>
     </main>
   );

@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { formatMoney } from "@/lib/money";
+import { countryOptionsForLocale, countryRegions, countryName } from "@/lib/countries";
 import type { Locale } from "@/types/catalog";
 
 type Rate = { id: string; name: string; rate_minor: number; is_pickup: boolean; departments: string[] };
@@ -97,7 +98,7 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
         const response = await fetch("/api/orders/international", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-          body: JSON.stringify({ customer: form, destination: { ...international, department: form.department, address: form.address }, locale }),
+          body: JSON.stringify({ customer: form, destination: { ...international, country: countryName(international.country, locale), department: form.department, address: form.address }, locale }),
         });
         const text = await response.text();
         const value = text ? JSON.parse(text) : {};
@@ -259,11 +260,21 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
             <div className="grid gap-5 sm:grid-cols-2">
               <label className="text-sm font-semibold text-[var(--walnut)]">
                 {t("country")}
-                <input name="country-name" autoComplete="country-name" required maxLength={100} value={international.country} onChange={(event) => updateInternational("country", event.target.value)} className={fieldClass} />
+                <select name="country-name" autoComplete="country-name" required value={international.country} onChange={(event) => { updateInternational("country", event.target.value); update("department", ""); }} className={fieldClass}>
+                  <option value="">{t("choose")}</option>
+                  {countryOptionsForLocale(locale).map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+                </select>
               </label>
               <label className="text-sm font-semibold text-[var(--walnut)]">
                 {t("state")}
-                <input name="address-level1" autoComplete="address-level1" maxLength={80} value={form.department} onChange={(event) => update("department", event.target.value)} className={fieldClass} />
+                {countryRegions(international.country).length > 0 ? (
+                  <select name="address-level1" autoComplete="address-level1" value={form.department} onChange={(event) => update("department", event.target.value)} className={fieldClass}>
+                    <option value="">{t("choose")}</option>
+                    {countryRegions(international.country).map((r) => <option key={r.code} value={r.name}>{r.name}</option>)}
+                  </select>
+                ) : (
+                  <input name="address-level1" autoComplete="address-level1" maxLength={80} value={form.department} onChange={(event) => update("department", event.target.value)} className={fieldClass} />
+                )}
               </label>
               <label className="text-sm font-semibold text-[var(--walnut)]">
                 {t("city")}
