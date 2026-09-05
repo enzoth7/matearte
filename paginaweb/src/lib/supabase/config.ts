@@ -8,7 +8,7 @@ export const supabaseUrl = () => required("NEXT_PUBLIC_SUPABASE_URL");
 export const supabasePublishableKey = () => required("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
 export const supabaseServiceRoleKey = () => required("SUPABASE_SERVICE_ROLE_KEY");
 
-export const siteUrl = () => (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").trim().replace(/\/$/, "");
+export const siteUrl = () => (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").trim().replace(/\/$/, "");
 export const customizerUrl = () => (process.env.NEXT_PUBLIC_CUSTOMIZER_URL || "http://localhost:5173").trim().replace(/\/$/, "");
 export const commerceAdminUrl = () => (process.env.COMMERCE_ADMIN_URL || "http://localhost:5174").trim().replace(/\/$/, "");
 export const whatsappNumber = () => (process.env.MATEARTE_WHATSAPP_NUMBER || "+59891674231").replace(/\D/g, "");
