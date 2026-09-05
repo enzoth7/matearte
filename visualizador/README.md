@@ -1,39 +1,67 @@
-# Matearte — configurador de mates
+# MateArte Visualizador
 
-Configurador web de Matearte construido con React, TypeScript y Vite. Permite elegir el producto, tamaño y color, personalizar virola y fleje, guardar diseños y revisar un checkout visual antes de producción.
+Personalizador de mates construido con React, TypeScript, Vite y Three.js. Está desplegado en <https://matearte-visualizador.vercel.app>.
 
-## Desarrollo local
+## Flujo actual
 
-```bash
-npm install
-npm run dev
-```
+1. El cliente elige modelo, tamaño, color y terminaciones.
+2. Personaliza virola y fleje con textos, íconos del catálogo o imágenes propias.
+3. El precio se calcula con el catálogo de precios publicado en Supabase.
+4. El diseño puede guardarse y retomarse desde “Mis diseños”.
+5. Antes de abrir el carrito se sincronizan los originales, se generan las vistas finales y se registra el diseño.
+6. Un código de sesión de un solo uso conecta al cliente con `https://www.matearteuruguay.com/carrito`.
 
-Verificaciones disponibles:
+Si falla la carga, captura o persistencia, el diseño no entra al carrito y la interfaz permite reintentar.
 
-```bash
-npm test
-npm run lint
-npm run build
-```
+## Diseños y archivos
 
-## Configuración
+Los borradores de invitados se conservan en IndexedDB hasta que la persona inicia sesión. Los diseños autenticados se guardan en Supabase.
 
-Copiá `.env.example` como `.env.local` si necesitás modificar opciones locales.
+Los archivos PNG, JPEG o SVG aportados por el cliente se almacenan sin transformación en el bucket privado `design-assets`. La configuración guarda una referencia permanente `storage:` separada de la URL firmada temporal usada para mostrarlos.
 
-- `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY`: conexión pública de Supabase. Sin un catálogo publicado válido el visualizador muestra “Precio no disponible” y bloquea el checkout.
-- `VITE_PRICING_ADMIN_USERNAME` y `VITE_PRICING_ADMIN_EMAIL`: alias visible e identidad interna del administrador de `/dashboard`. La contraseña vive únicamente en Supabase Auth.
+Antes de continuar al carrito se generan PNG versionados en `design-previews`:
 
-Para provisionar o rotar la cuenta administrativa sin escribir la contraseña en el código:
+- Mate completo: 1200 × 1200.
+- Virola: 1200 × 1200.
+- Fleje frente: 1800 × 600.
+- Fleje reverso: 1800 × 600.
+
+Los modelos sin fleje generan solamente mate y virola. Cada archivo debe ser válido y no superar 5 MB. Las rutas versionadas evitan sobrescribir imágenes ya utilizadas por pedidos.
+
+## Cuentas y panel de precios
+
+Registro, login, recuperación y biblioteca de diseños usan Supabase Auth. Las acciones que guardan o compran exigen una cuenta y, cuando corresponde, un perfil completo.
+
+`/dashboard` dentro del visualizador es el panel de precios del personalizador. Usa Supabase Auth y exige una membresía en `admin_users`. No es el mismo sistema que `matearte-dashboard.vercel.app`, que administra operaciones y producción.
+
+Para provisionar o rotar el administrador de precios:
 
 ```bash
 SUPABASE_URL=... SUPABASE_SECRET_KEY=... MATEARTE_ADMIN_PASSWORD=... npm run pricing:provision-admin
 ```
 
-`SUPABASE_SECRET_KEY` y `MATEARTE_ADMIN_PASSWORD` son variables exclusivas del entorno local/CI y nunca deben usar el prefijo `VITE_`.
+`SUPABASE_SECRET_KEY` y `MATEARTE_ADMIN_PASSWORD` son secretos locales o de CI; nunca deben usar el prefijo `VITE_`.
 
-## Alcance del checkout
+## Configuración
 
-La pantalla de pago es un mockup. Cambiar su estado no crea preferencias de Mercado Pago, no procesa transferencias, no genera comprobantes, no llama webhooks y no envía el pedido a producción. La continuación visual se habilita solamente cuando el estado simulado es `confirmado`.
+```dotenv
+VITE_SUPABASE_URL=https://PROJECT_REF.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
+VITE_MAIN_SITE_URL=http://localhost:3000
+VITE_PRICING_ADMIN_USERNAME=user
+VITE_PRICING_ADMIN_EMAIL=pricing-admin@matearte.uy
+```
 
-Los tamaños, precios específicos por tamaño y combinaciones que aún no fueron informados permanecen señalados como datos pendientes; el catálogo no inventa esas variantes.
+En producción, `VITE_MAIN_SITE_URL` debe ser `https://www.matearteuruguay.com`.
+
+## Desarrollo y verificación
+
+```bash
+npm install
+npm run dev
+npm run lint
+npm test
+npm run build
+```
+
+El servidor local usa `http://localhost:5173`.
