@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { addLocalCartItem } from "@/lib/browser-cart";
 import type { Product } from "@/types/catalog";
-import { Link } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 
 const catalogAssetRoot = "/assets/matearte/catalog-desktop";
 const productAssetRoot = "/assets/matearte/product-desktop";
@@ -46,6 +46,7 @@ export function ProductDesktop({ product, exchangeRates }: { product: Product; e
   const locale = useLocale();
   const t = useTranslations("product");
   const common = useTranslations("common");
+  const router = useRouter();
   
   const formatPrice = (amount: number) => formatCatalogPrice(amount, undefined, locale, exchangeRates);
   const [commerce, setCommerce] = useState<CommerceData | null>(null);
@@ -104,10 +105,14 @@ export function ProductDesktop({ product, exchangeRates }: { product: Product; e
       });
       if (response.status === 401) {
         addLocalCartItem(targetVariantId);
-        setMessage(t("savedLocally"));
+        router.push("/carrito");
       } else {
         await response.json();
-        setMessage(response.ok ? t("added") : t("addFailed"));
+        if (response.ok) {
+          router.push("/carrito");
+        } else {
+          setMessage(t("addFailed"));
+        }
       }
     } catch {
       setMessage(t("addRetry"));
