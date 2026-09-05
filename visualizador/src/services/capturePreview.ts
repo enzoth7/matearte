@@ -29,6 +29,7 @@ export async function captureElementAsBlob(element: HTMLElement): Promise<Blob |
     return blob;
   } catch (err) {
     console.error('No se pudo capturar la vista previa:', err);
-    return null;
+    const detail = err instanceof Error && err.message ? ` ${err.message}` : '';
+    throw new Error(`No se pudo renderizar la imagen final.${detail}`);
   }
 }

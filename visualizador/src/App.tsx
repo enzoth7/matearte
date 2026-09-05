@@ -763,43 +763,58 @@ function VisualizerApp() {
   };
 
   const handleCheckoutComplete = async () => {
-    const configurationForSave = configurationWithPricingSnapshot();
-    const { data, error } = await saveDesignToSupabase({
-      designId: lastSavedDesignId,
-      clientDraftId: currentDraftKey,
-      userId: userData?.id,
-      configuration: configurationForSave,
-      flejeConfig,
-      title: `Mate ${configuration.selectionLabels.texture}`,
-      status: "draft",
-    });
-    const designId = data?.[0]?.id;
-    if (error || !designId) throw error || new Error('No se pudo guardar el diseño.');
-    setLastSavedDesignId(designId);
-    setDraftIdentity(data[0].client_draft_id);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error('La sesión venció. Volvé a ingresar.');
-    const synced = await syncDesignAssets(configurationForSave, flejeConfig, designId, session.access_token);
-    if (synced.changed) {
-      const persisted = await saveDesignToSupabase({ designId, clientDraftId: data[0].client_draft_id, userId: userData?.id, configuration: synced.configuration, flejeConfig: synced.flejeConfiguration, title: `Mate ${configuration.selectionLabels.texture}`, status: 'draft' });
-      if (persisted.error) throw persisted.error;
+    let stage = 'guardar el borrador';
+    try {
+      const configurationForSave = configurationWithPricingSnapshot();
+      const { data, error } = await saveDesignToSupabase({
+        designId: lastSavedDesignId,
+        clientDraftId: currentDraftKey,
+        userId: userData?.id,
+        configuration: configurationForSave,
+        flejeConfig,
+        title: `Mate ${configuration.selectionLabels.texture}`,
+        status: "draft",
+      });
+      const designId = data?.[0]?.id;
+      if (error || !designId) throw error || new Error('No se pudo guardar el diseño.');
+      setLastSavedDesignId(designId);
+      setDraftIdentity(data[0].client_draft_id);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('La sesión venció. Volvé a ingresar.');
+
+      stage = 'subir los archivos originales';
+      const synced = await syncDesignAssets(configurationForSave, flejeConfig, designId, session.access_token);
+      if (synced.changed) {
+        stage = 'registrar los archivos originales';
+        const persisted = await saveDesignToSupabase({ designId, clientDraftId: data[0].client_draft_id, userId: userData?.id, configuration: synced.configuration, flejeConfig: synced.flejeConfiguration, title: `Mate ${configuration.selectionLabels.texture}`, status: 'draft' });
+        if (persisted.error) throw persisted.error;
+      }
+      if (!userData?.id) throw new Error('La sesión venció. Volvé a ingresar.');
+      const targets = designExportRef.current?.getTargets();
+      if (!targets) throw new Error('No se pudieron preparar las vistas del diseño.');
+
+      stage = 'generar las vistas finales';
+      await saveDesignPreviews({ designId, userId: userData.id, hasFleje: configuration.capabilities.hasFleje, targets });
+
+      stage = 'conectar el diseño con el carrito';
+      const redirectUrl = await createMainSiteHandoff('add_design', '/carrito', { designId });
+
+      stage = 'finalizar el diseño';
+      const finalized = await saveDesignToSupabase({
+        designId,
+        clientDraftId: data[0].client_draft_id,
+        userId: userData?.id,
+        configuration: synced.configuration,
+        flejeConfig: synced.flejeConfiguration,
+        title: `Mate ${configuration.selectionLabels.texture}`,
+        status: 'saved',
+      });
+      if (finalized.error) throw finalized.error;
+      window.location.assign(redirectUrl);
+    } catch (reason) {
+      const detail = reason instanceof Error && reason.message ? ` ${reason.message}` : '';
+      throw new Error(`No se pudo ${stage}.${detail}`);
     }
-    if (!userData?.id) throw new Error('La sesión venció. Volvé a ingresar.');
-    const targets = designExportRef.current?.getTargets();
-    if (!targets) throw new Error('No se pudieron preparar las vistas del diseño.');
-    await saveDesignPreviews({ designId, userId: userData.id, hasFleje: configuration.capabilities.hasFleje, targets });
-    const redirectUrl = await createMainSiteHandoff('add_design', '/carrito', { designId });
-    const finalized = await saveDesignToSupabase({
-      designId,
-      clientDraftId: data[0].client_draft_id,
-      userId: userData?.id,
-      configuration: synced.configuration,
-      flejeConfig: synced.flejeConfiguration,
-      title: `Mate ${configuration.selectionLabels.texture}`,
-      status: 'saved',
-    });
-    if (finalized.error) throw finalized.error;
-    window.location.assign(redirectUrl);
   };
 
   useEffect(() => {

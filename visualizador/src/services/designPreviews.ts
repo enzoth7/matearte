@@ -44,7 +44,12 @@ export async function saveDesignPreviews(params: {
     if (error) throw new Error(`No se pudieron registrar las vistas del diseño: ${error.message}`);
     return data;
   } catch (error) {
-    if (uploadedPaths.length) await supabase.storage.from("design-previews").remove(uploadedPaths);
+    // La limpieza nunca debe reemplazar el error que impidió generar o guardar la vista.
+    if (uploadedPaths.length) {
+      await supabase.storage.from("design-previews").remove(uploadedPaths).catch((cleanupError) => {
+        console.warn("No se pudieron limpiar vistas parciales del diseño:", cleanupError);
+      });
+    }
     throw error;
   }
 }
