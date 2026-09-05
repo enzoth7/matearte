@@ -1,4 +1,4 @@
-import { FacebookLogo, InstagramLogo, YoutubeLogo } from "@phosphor-icons/react/dist/ssr";
+import { InstagramLogo, YoutubeLogo } from "@phosphor-icons/react/dist/ssr";
 import Image from "next/image";
 import { getLocale, getTranslations } from "next-intl/server";
 import { FooterPurchasesDisclosure } from "@/components/FooterPurchasesDisclosure";
@@ -21,6 +21,14 @@ const purchaseLinks = [
   { label: "shipping", href: "/compras/envios" },
 ] as const;
 
+function FacebookMark() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <path d="M9.4 3.1h2V.2C11 .1 10.1 0 8.9 0 6.5 0 4.8 1.5 4.8 4.2v2.4H2v3.2h2.8V16h3.4V9.8h2.7l.4-3.2H8.2V4.5c0-.9.3-1.4 1.2-1.4Z" />
+    </svg>
+  );
+}
+
 export async function Footer() {
   const locale = await getLocale();
   const t = await getTranslations("footer");
@@ -37,7 +45,7 @@ export async function Footer() {
           <FooterPurchasesDisclosure />
           <div className="home-footer-socials home-footer-socials-desktop">
             <a href={es.contact.instagramUrl} target="_blank" rel="noreferrer" aria-label={t("instagramLabel")}><InstagramLogo size={18} aria-hidden="true" /></a>
-            <a href={es.contact.facebookUrl} target="_blank" rel="noreferrer" aria-label={t("facebookLabel")}><FacebookLogo size={18} aria-hidden="true" /></a>
+            <a href={es.contact.facebookUrl} target="_blank" rel="noreferrer" aria-label={t("facebookLabel")}><FacebookMark /></a>
             <a href={es.contact.youtubeUrl} target="_blank" rel="noreferrer" aria-label={t("youtubeLabel")}><YoutubeLogo size={18} aria-hidden="true" /></a>
           </div>
         </div>
@@ -63,7 +71,7 @@ export async function Footer() {
           <p>25 de Mayo 1734<br />Paysandú, Uruguay</p>
           <div className="home-footer-socials home-footer-socials-mobile">
             <a href={es.contact.instagramUrl} target="_blank" rel="noreferrer" aria-label={t("instagramLabel")}><InstagramLogo size={18} aria-hidden="true" /></a>
-            <a href={es.contact.facebookUrl} target="_blank" rel="noreferrer" aria-label={t("facebookLabel")}><FacebookLogo size={18} aria-hidden="true" /></a>
+            <a href={es.contact.facebookUrl} target="_blank" rel="noreferrer" aria-label={t("facebookLabel")}><FacebookMark /></a>
             <a href={es.contact.youtubeUrl} target="_blank" rel="noreferrer" aria-label={t("youtubeLabel")}><YoutubeLogo size={18} aria-hidden="true" /></a>
           </div>
         </div>
