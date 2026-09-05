@@ -75,6 +75,7 @@ const catalogAttributeGroups: Array<{key:AttributeKey;legend:string;options:Arra
   } as Record<string,string>)[value]}))},
   {key:'colors',legend:'Color',options:catalogColorIds.map(value=>({value,label:({
     marron:'Marrón',negro:'Negro',natural:'Natural','cuero-crudo':'Cuero crudo',
+    rojo:'Rojo',blanco:'Blanco',rosado:'Rosado',gris:'Gris',dorado:'Dorado',
   } as Record<string,string>)[value]}))},
 ];
 

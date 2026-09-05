@@ -40,6 +40,11 @@ export const catalogColorIds = [
   "negro",
   "natural",
   "cuero-crudo",
+  "rojo",
+  "blanco",
+  "rosado",
+  "gris",
+  "dorado",
 ] as const;
 
 export type CatalogCategoryId = (typeof catalogCategoryIds)[number];
