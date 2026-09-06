@@ -216,6 +216,7 @@ export function productSeoCopy(product: Product, locale: AppLocale) {
       calzado: `${product.name} de cuero artesanal`,
       botas: `${product.name} de cuero artesanal`,
       billeteras: `${product.name} de cuero artesanal`,
+      carteras: `${product.name} de cuero artesanal`,
     },
     en: {
       mates: `${product.name}, handmade Uruguayan mate gourd`,
@@ -228,6 +229,7 @@ export function productSeoCopy(product: Product, locale: AppLocale) {
       calzado: `${product.name}, handcrafted leather footwear`,
       botas: `${product.name}, handcrafted leather boots`,
       billeteras: `${product.name}, handcrafted leather wallet`,
+      carteras: `${product.name}, handcrafted leather bag`,
     },
     pt: {
       mates: `${product.name}, cuia uruguaia artesanal`,
@@ -238,8 +240,9 @@ export function productSeoCopy(product: Product, locale: AppLocale) {
       regalos: `${product.name}, presente uruguaio personalizado`,
       cintos: `${product.name}, cinto artesanal de couro`,
       calzado: `${product.name}, calçado artesanal de couro`,
-      botas: `${product.name}, botas artesanais de couro`,
+      botas: `${product.name}, bota artesanal de couro`,
       billeteras: `${product.name}, carteira artesanal de couro`,
+      carteras: `${product.name}, bolsa artesanal de couro`,
     },
   };
   const descriptions: Record<AppLocale, string> = {
