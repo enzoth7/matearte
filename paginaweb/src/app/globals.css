@@ -7233,11 +7233,6 @@ img {
 .product-mobile-gallery {
   position: relative;
   width: 100%;
-  height: 428px;
-  flex: 0 0 428px;
-  overflow: hidden;
-  border-radius: 8px;
-  background: #fffdf8;
 }
 
 .product-mobile-gallery img {
@@ -7438,10 +7433,6 @@ img {
   .product-desktop-gallery {
     position: relative;
     width: 100%;
-    height: 900px;
-    overflow: hidden;
-    border-radius: 8px;
-    background: #fffdf8;
   }
 
   .product-desktop-gallery img {
@@ -7618,7 +7609,6 @@ img {
 
   .product-desktop-gallery {
     height: auto;
-    aspect-ratio: 4 / 5;
   }
 
   .product-desktop-information h1 { font-size: 42px; line-height: 48px; }
