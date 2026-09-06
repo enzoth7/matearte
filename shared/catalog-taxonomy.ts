@@ -15,6 +15,7 @@ export const catalogCategoryIds = [
   "calzado",
   "botas",
   "billeteras",
+  "carteras",
 ] as const;
 
 export const catalogMaterialIds = [

@@ -18,6 +18,7 @@ export const categoryOptions = [
   { value: "calzado", labelKey: "footwear" },
   { value: "botas", labelKey: "boots" },
   { value: "billeteras", labelKey: "wallets" },
+  { value: "carteras", labelKey: "bags" },
 ] as const;
 
 export const priceRangeOptions = [

@@ -61,7 +61,7 @@ const orderStatus = (status: string) => ({
 }[status] || status.replaceAll('_', ' '));
 const normalizeSearch = (value:string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 const catalogCategoryLabels: Record<string,string> = {
-  mates:'Mate',bombillas:'Bombilla',bombillones:'Bombillón',materas:'Matera',termos:'Termo',regalos:'Regalo',cintos:'Cinto',calzado:'Calzado',botas:'Bota',billeteras:'Billetera',
+  mates:'Mate',bombillas:'Bombilla',bombillones:'Bombillón',materas:'Matera',termos:'Termo',regalos:'Regalo',cintos:'Cinto',calzado:'Calzado',botas:'Bota',billeteras:'Billetera',carteras:'Cartera',
 };
 const catalogMaterialLabels: Record<string,string> = {
   cuero:'Cuero',plata:'Plata',alpaca:'Alpaca','acero-inoxidable':'Acero inoxidable','otros-metales':'Otros metales',madera:'Madera',estampado:'Estampado',
