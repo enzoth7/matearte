@@ -84,8 +84,9 @@ export function ProductMobile({ product, exchangeRates }: { product: Product; ex
     ? formatPrice(catalogVariant.price.amountMinor / 100)
     : product.filterData.priceUYU === undefined ? common("consult") : formatPrice(product.filterData.priceUYU);
     
+  const generalImages = product.images.filter(img => !img.variantId);
   const variantImages = activeVariantId ? product.images.filter(img => img.variantId === activeVariantId) : [];
-  const imagesToShow = variantImages.length > 0 ? variantImages : product.images;
+  const imagesToShow = variantImages.length > 0 ? [...variantImages, ...generalImages] : product.images;
   const galleryImages = imagesToShow.map(img => ({
     ...img,
     src: img.source === "supabase" ? img.src : productImages[product.id] ?? img.src
