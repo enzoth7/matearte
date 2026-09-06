@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { addLocalCartItem } from "@/lib/browser-cart";
 import type { Product } from "@/types/catalog";
 import { Link, useRouter } from "@/i18n/navigation";
+import { ProductGallery } from "./ProductGallery";
 
 const catalogAssetRoot = "/assets/matearte/catalog-desktop";
 const productAssetRoot = "/assets/matearte/product-desktop";
@@ -83,9 +84,12 @@ export function ProductDesktop({ product, exchangeRates }: { product: Product; e
     ? formatPrice(catalogVariant.price.amountMinor / 100)
     : product.filterData.priceUYU === undefined ? common("consult") : formatPrice(product.filterData.priceUYU);
     
-  const variantImage = activeVariantId ? product.images.find(img => img.variantId === activeVariantId) : undefined;
-  const mainImage = variantImage || product.images[0];
-  const productImage = mainImage.source === "supabase" ? mainImage.src : productImages[product.id] ?? mainImage.src;
+  const variantImages = activeVariantId ? product.images.filter(img => img.variantId === activeVariantId) : [];
+  const imagesToShow = variantImages.length > 0 ? variantImages : product.images;
+  const galleryImages = imagesToShow.map(img => ({
+    ...img,
+    src: img.source === "supabase" ? img.src : productImages[product.id] ?? img.src
+  }));
 
   const addToCart = async () => {
     setMessage("");
@@ -125,13 +129,7 @@ export function ProductDesktop({ product, exchangeRates }: { product: Product; e
     <section className="product-desktop-detail" aria-labelledby="product-desktop-title">
       <div className="product-desktop-grid">
         <div className="product-desktop-gallery">
-          <Image
-            src={productImage}
-            alt={mainImage.alt}
-            fill
-            sizes="720px"
-            priority
-          />
+          <ProductGallery images={galleryImages} />
         </div>
 
         <div className="product-desktop-information">
