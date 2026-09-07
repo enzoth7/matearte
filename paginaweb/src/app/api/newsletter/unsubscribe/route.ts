@@ -15,9 +15,9 @@ function requestData(request: Request) {
   const url = new URL(request.url);
   const email = (url.searchParams.get("email") || "").trim().toLowerCase().slice(0, 320);
   const token = (url.searchParams.get("token") || "").trim();
-  const apiKey = process.env.RESEND_API_KEY?.trim() || "";
-  const topicId = process.env.RESEND_NEWSLETTER_TOPIC_ID?.trim() || "";
-  const secret = process.env.NEWSLETTER_UNSUBSCRIBE_SECRET?.trim() || "";
+  const apiKey = (process.env.RESEND_API_KEY?.replace(/^["']|["']$/g, "") || "").trim();
+  const topicId = (process.env.RESEND_NEWSLETTER_TOPIC_ID?.replace(/^["']|["']$/g, "") || "").trim();
+  const secret = (process.env.NEWSLETTER_UNSUBSCRIBE_SECRET?.replace(/^["']|["']$/g, "") || "").trim();
   const valid = emailPattern.test(email) && token && apiKey && topicId && secret
     && verifyNewsletterUnsubscribeToken(email, token, secret);
   return { email, token, apiKey, topicId, valid: Boolean(valid) };
@@ -39,7 +39,11 @@ export async function POST(request: Request) {
   if (!data.valid) return html("Enlace no válido", "No pudimos validar este enlace. Podés responder el correo y te ayudamos.");
   const response = await fetch(`https://api.resend.com/contacts/${encodeURIComponent(data.email)}/topics`, {
     method: "PATCH",
-    headers: { Authorization: `Bearer ${data.apiKey}`, "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${data.apiKey}`,
+      "Content-Type": "application/json",
+      "User-Agent": "matearte/1.0",
+    },
     body: JSON.stringify({ topics: [{ id: data.topicId, subscription: "opt_out" }] }),
     cache: "no-store",
   });

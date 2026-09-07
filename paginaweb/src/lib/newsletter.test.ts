@@ -15,7 +15,7 @@ describe("newsletter de Resend", () => {
     expect(JSON.parse(String(fetcher.mock.calls[1][1]?.body))).toEqual({
       email: "persona@example.com",
       unsubscribed: false,
-      properties: { first_name: "Ana" },
+      first_name: "Ana",
       topics: [{ id: "topic_test", subscription: "opt_in" }],
     });
   });

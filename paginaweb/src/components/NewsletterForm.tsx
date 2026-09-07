@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import { initialNewsletterState, subscribeToNewsletter } from "@/app/actions/newsletter";
+import { subscribeToNewsletter } from "@/app/actions/newsletter";
+import { initialNewsletterState } from "@/lib/newsletter";
 
 type NewsletterFormProps = {
   emailLabel: string;

@@ -1,5 +1,11 @@
 type Fetcher = typeof fetch;
 
+export type NewsletterState = {
+  status: "idle" | "success" | "invalid" | "error";
+};
+
+export const initialNewsletterState: NewsletterState = { status: "idle" };
+
 type NewsletterConfig = {
   apiKey: string;
   topicId: string;
@@ -18,6 +24,7 @@ async function resendRequest(
     headers: {
       Authorization: `Bearer ${config.apiKey}`,
       "Content-Type": "application/json",
+      "User-Agent": "matearte/1.0",
       ...init.headers,
     },
     cache: "no-store",
@@ -32,7 +39,7 @@ export async function subscribeNewsletterContact(
 ) {
   const encodedEmail = encodeURIComponent(email);
   const existing = await resendRequest(`/contacts/${encodedEmail}`, { method: "GET" }, config, fetcher);
-  const properties = name ? { first_name: name } : undefined;
+  const firstName = name.trim() || undefined;
   const topicSubscription = [{ id: config.topicId, subscription: "opt_in" }];
 
   if (existing.status === 404) {
@@ -41,7 +48,7 @@ export async function subscribeNewsletterContact(
       body: JSON.stringify({
         email,
         unsubscribed: false,
-        ...(properties && { properties }),
+        ...(firstName && { first_name: firstName }),
         topics: topicSubscription,
       }),
     }, config, fetcher);
@@ -54,7 +61,10 @@ export async function subscribeNewsletterContact(
 
   const updated = await resendRequest(`/contacts/${encodedEmail}`, {
     method: "PATCH",
-    body: JSON.stringify({ unsubscribed: false, ...(properties && { properties }) }),
+    body: JSON.stringify({
+      unsubscribed: false,
+      ...(firstName && { first_name: firstName }),
+    }),
   }, config, fetcher);
   if (!updated.ok) throw new Error(`Resend no pudo actualizar el contacto (${updated.status}).`);
 

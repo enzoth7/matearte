@@ -1,14 +1,12 @@
 "use server";
 
-import { subscribeNewsletterContact } from "@/lib/newsletter";
-
-export type NewsletterState = {
-  status: "idle" | "success" | "invalid" | "error";
-};
-
-export const initialNewsletterState: NewsletterState = { status: "idle" };
+import { subscribeNewsletterContact, type NewsletterState } from "@/lib/newsletter";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function cleanSecret(value?: string) {
+  return value?.replace(/^["']|["']$/g, "").trim();
+}
 
 export async function subscribeToNewsletter(
   _previousState: NewsletterState,
@@ -22,8 +20,8 @@ export async function subscribeToNewsletter(
   if (website) return { status: "success" };
   if (!emailPattern.test(email)) return { status: "invalid" };
 
-  const apiKey = process.env.RESEND_API_KEY?.trim();
-  const topicId = process.env.RESEND_NEWSLETTER_TOPIC_ID?.trim();
+  const apiKey = cleanSecret(process.env.RESEND_API_KEY);
+  const topicId = cleanSecret(process.env.RESEND_NEWSLETTER_TOPIC_ID);
   if (!apiKey || !topicId) {
     console.error("Newsletter no configurado: faltan secretos de Resend.");
     return { status: "error" };
