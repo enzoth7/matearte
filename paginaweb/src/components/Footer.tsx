@@ -1,9 +1,10 @@
 import { InstagramLogo, YoutubeLogo } from "@phosphor-icons/react/dist/ssr";
 import Image from "next/image";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { FooterPurchasesDisclosure } from "@/components/FooterPurchasesDisclosure";
+import { NewsletterForm } from "@/components/NewsletterForm";
 import { es } from "@/content/es";
-import { getPathname, Link } from "@/i18n/navigation";
+import { Link } from "@/i18n/navigation";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
 
 const footerNavigation = [
@@ -30,12 +31,10 @@ function FacebookMark() {
 }
 
 export async function Footer() {
-  const locale = await getLocale();
   const t = await getTranslations("footer");
   const navigation = await getTranslations("header");
   const whatsapp = await getTranslations("whatsapp");
   const whatsappUrl = buildWhatsAppUrl(es.contact.phoneHref, whatsapp("message"));
-  const contactPath = getPathname({ locale, href: "/contacto" });
   return (
     <footer className="home-footer">
       <div className="home-shell home-footer-main">
@@ -56,14 +55,17 @@ export async function Footer() {
         <div className="home-footer-newsletter">
           <p className="home-footer-label">{t("newsTitle")}</p>
           <p><span className="home-footer-copy-desktop">{t("newsDesktop")}</span><span className="home-footer-copy-mobile">{t("newsMobile")}</span></p>
-          <form action={contactPath} method="get">
-            <label htmlFor="site-newsletter-email">{t("email")}</label>
-            <input id="site-newsletter-email" name="email" type="email" autoComplete="email" placeholder={t("email")} required />
-            <div>
-              <input name="nombre" type="text" autoComplete="name" placeholder={t("name")} aria-label={t("name")} />
-              <button type="submit"><span className="home-footer-button-desktop">{t("subscribe")}</span><span className="home-footer-button-mobile">{t("subscribeMobile")}</span></button>
-            </div>
-          </form>
+          <NewsletterForm
+            emailLabel={t("email")}
+            nameLabel={t("name")}
+            subscribeLabel={t("subscribe")}
+            subscribeMobileLabel={t("subscribeMobile")}
+            subscribingLabel={t("subscribing")}
+            successMessage={t("subscribeSuccess")}
+            invalidEmailMessage={t("invalidEmail")}
+            errorMessage={t("subscribeError")}
+            consentMessage={t("consent")}
+          />
         </div>
         <div className="home-footer-contact">
           <Link className="home-footer-label" href="/contacto">{t("writeUs")}</Link>

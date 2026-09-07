@@ -73,7 +73,7 @@ export function buildCommerceEmail(job: EmailJob, order: EmailOrder, items: Emai
 
   switch (job.event_type) {
     case "customer_order_received":
-      return { subject: `Recibimos tu pedido #${order.order_number}`, html: layout(`${intro("Recibimos tu pedido", order, "guardamos todos los detalles y estamos esperando la confirmación del pago.")}${summary}${button("Ver estado del pedido", orderUrl)}`) };
+      return { subject: `Recibimos tu pedido #${order.order_number}`, html: layout(`${intro("Recibimos tu pedido", order, `recibimos tu pedido #${order.order_number} y guardamos correctamente todos los detalles.`)}${summary}<p style="font-size:16px;line-height:1.7">Ahora estamos verificando el pago y preparando el próximo paso. Te enviaremos otro correo cuando tengamos novedades.</p>${button("Ver estado del pedido", orderUrl)}<p style="font-size:16px;line-height:1.7">Si necesitás hacer una consulta, respondé este correo.</p><p style="font-size:16px;line-height:1.7">Gracias por elegir MateArte.</p>`) };
     case "customer_payment_confirmed":
       return { subject: `Pago confirmado · Pedido #${order.order_number}`, html: layout(`${intro("Pago confirmado", order, "Mercado Pago confirmó tu pago. Ya empezamos a preparar el próximo paso.")}${summary}${button("Seguir mi pedido", orderUrl)}`) };
     case "customer_custom_approved":

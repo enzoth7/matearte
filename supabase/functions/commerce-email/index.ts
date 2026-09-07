@@ -14,23 +14,41 @@ const safeEqual = (left: string, right: string) => {
   return result === 0;
 };
 
+const supabaseSecretKeys = () => {
+  const keys = [Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""];
+  try {
+    const configured = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}") as Record<string, unknown>;
+    keys.push(...Object.values(configured).filter((value): value is string => typeof value === "string"));
+  } catch {
+    // The legacy key above remains a supported fallback.
+  }
+  return [...new Set(keys.filter(Boolean))];
+};
+
 Deno.serve(async (request) => {
   if (request.method !== "POST") return json({ error: "Método no permitido." }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   const bearer = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1] || "";
   const apiKey = request.headers.get("apikey") || "";
-  const authorized = serviceRoleKey && (safeEqual(bearer, serviceRoleKey) || safeEqual(apiKey, serviceRoleKey));
+  const serverKeys = supabaseSecretKeys();
+  if (!supabaseUrl || !serverKeys.length) return json({ error: "Supabase no entregó una credencial interna." }, 503);
+  const admin = createClient(supabaseUrl, serverKeys[0], { auth: { persistSession: false } });
+  const configResult = await admin.rpc("get_email_delivery_config");
+  if (configResult.error) return json({ error: configResult.error.message }, 500);
+  const config = (configResult.data || {}) as Record<string, string>;
+  const trustedKeys = [...serverKeys, config.matearte_lifecycle_service_role].filter(Boolean);
+  const authorized = trustedKeys.some((key) => safeEqual(bearer, key) || safeEqual(apiKey, key));
   if (!authorized) return json({ error: "No autorizado." }, 401);
-
-  const resendApiKey = Deno.env.get("RESEND_API_KEY")?.trim();
-  const emailFrom = Deno.env.get("COMMERCE_EMAIL_FROM")?.trim();
-  const adminEmails = (Deno.env.get("COMMERCE_ADMIN_EMAIL") || "").split(",").map((value) => value.trim()).filter(Boolean);
-  const siteUrl = (Deno.env.get("MATEARTE_SITE_URL") || "https://matearte.vercel.app").trim();
+  const resendApiKey = Deno.env.get("RESEND_API_KEY")?.trim() || config.matearte_resend_api_key;
+  const emailFrom = Deno.env.get("COMMERCE_EMAIL_FROM")?.trim() || config.matearte_email_from;
+  const replyTo = Deno.env.get("COMMERCE_EMAIL_REPLY_TO")?.trim() || config.matearte_email_reply_to;
+  const adminEmails = (Deno.env.get("COMMERCE_ADMIN_EMAIL") || config.matearte_admin_email || "").split(",").map((value) => value.trim()).filter(Boolean);
+  const siteUrl = (Deno.env.get("MATEARTE_SITE_URL") || config.matearte_site_url || "https://www.matearteuruguay.com").trim();
   const missing = [
     !resendApiKey && "RESEND_API_KEY",
     !emailFrom && "COMMERCE_EMAIL_FROM",
+    !replyTo && "COMMERCE_EMAIL_REPLY_TO",
     !adminEmails.length && "COMMERCE_ADMIN_EMAIL",
   ].filter(Boolean);
   if (missing.length) return json({ error: "El correo transaccional todavía no está configurado.", missing }, 503);
@@ -39,7 +57,6 @@ Deno.serve(async (request) => {
   try { body = await request.json(); } catch { return json({ error: "JSON inválido." }, 400); }
   const orderId = typeof body.orderId === "string" && /^[0-9a-f-]{36}$/i.test(body.orderId) ? body.orderId : null;
   const limit = typeof body.limit === "number" ? Math.min(Math.max(Math.floor(body.limit), 1), 50) : 20;
-  const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
   const firstClaim = await admin.rpc("claim_commerce_email_jobs", { p_order_id: orderId, p_limit: limit });
   if (firstClaim.error) return json({ error: firstClaim.error.message }, 500);
   const claimed = [...(firstClaim.data || [])];
@@ -62,8 +79,12 @@ Deno.serve(async (request) => {
       const message = buildCommerceEmail(job, order as EmailOrder, (order.order_items || []) as EmailOrderItem[], siteUrl);
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}` },
-        body: JSON.stringify({ from: emailFrom, to: recipients, subject: message.subject, html: message.html }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${resendApiKey}`,
+          "Idempotency-Key": `matearte/commerce/${job.id}`,
+        },
+        body: JSON.stringify({ from: emailFrom, to: recipients, subject: message.subject, html: message.html, reply_to: replyTo }),
       });
       const value = await response.json().catch(() => ({})) as { id?: unknown; message?: unknown; error?: unknown };
       if (!response.ok || typeof value.id !== "string") throw new Error(typeof value.message === "string" ? value.message : typeof value.error === "string" ? value.error : "El proveedor rechazó el correo.");

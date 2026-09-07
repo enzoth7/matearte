@@ -5449,6 +5449,11 @@ img {
 .home-footer-newsletter form > div { display: flex; }
 .home-footer-newsletter input { width: 100%; min-height: 3rem; border: 1px solid rgb(255 253 248 / 0.5); border-radius: 0.25rem 0 0 0.25rem; padding-inline: 0.85rem; background: transparent; color: white; }
 .home-footer-newsletter button { min-height: 3rem; border: 1px solid #311c12; border-radius: 0 0.25rem 0.25rem 0; padding-inline: 1rem; background: #311c12; color: #fffdf8; font-size: 0.8rem; font-weight: 650; }
+.home-footer-newsletter button:disabled { cursor: wait; opacity: 0.72; }
+.home-footer-newsletter .home-footer-newsletter-trap { position: absolute !important; width: 1px !important; height: 1px !important; min-height: 0 !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; pointer-events: none !important; }
+.home-footer-newsletter-consent { margin-top: 0.65rem; font-size: 0.68rem; line-height: 1.35; opacity: 0.82; }
+.home-footer-newsletter-feedback { min-height: 1.15rem; margin-top: 0.45rem; font-size: 0.75rem; font-weight: 600; line-height: 1.35; }
+.home-footer-newsletter-feedback.is-error { color: #ffe1db; }
 .home-footer-contact > a { font-family: var(--font-newsreader), Georgia, serif; font-size: 1.5rem; text-decoration: none; }
 .home-footer-contact > p:last-child { margin-top: 1.25rem; font-size: 0.9rem; line-height: 1.55; }
 .home-footer-bottom { border-top: 1px solid rgb(255 253 248 / 0.3); background: #f5f0e8; color: #311c12; }
