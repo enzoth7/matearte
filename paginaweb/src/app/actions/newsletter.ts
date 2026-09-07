@@ -1,6 +1,7 @@
 "use server";
 
 import { subscribeNewsletterContact, type NewsletterState } from "@/lib/newsletter";
+import { createAdminSupabase } from "@/lib/supabase/server";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -28,7 +29,23 @@ export async function subscribeToNewsletter(
   }
 
   try {
-    await subscribeNewsletterContact(email, name, { apiKey, topicId });
+    const result = await subscribeNewsletterContact(email, name, { apiKey, topicId });
+
+    try {
+      const supabase = createAdminSupabase();
+      await supabase.from("newsletter_subscribers").upsert({
+        email,
+        first_name: name || null,
+        status: "active",
+        source: "footer",
+        resend_contact_id: result?.contactId || null,
+        subscribed_at: new Date().toISOString(),
+        unsubscribed_at: null,
+      }, { onConflict: "email" });
+    } catch (dbError) {
+      console.error("No se pudo persistir el suscriptor en Supabase.", dbError);
+    }
+
     return { status: "success" };
   } catch (error) {
     console.error("No se pudo registrar la suscripción en Resend.", error);

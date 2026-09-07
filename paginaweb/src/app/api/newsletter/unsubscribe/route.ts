@@ -50,6 +50,18 @@ export async function POST(request: Request) {
   if (!response.ok && response.status !== 404) {
     return html("No pudimos completar la baja", "Intentá nuevamente en unos minutos o respondé el correo y te ayudamos.");
   }
+
+  try {
+    const { createAdminSupabase } = await import("@/lib/supabase/server");
+    const supabase = createAdminSupabase();
+    await supabase.from("newsletter_subscribers").update({
+      status: "unsubscribed",
+      unsubscribed_at: new Date().toISOString(),
+    }).eq("email", data.email);
+  } catch (dbError) {
+    console.error("No se pudo registrar la baja en Supabase.", dbError);
+  }
+
   return html("Baja confirmada", "Ya no vas a recibir correos comerciales de Novedades. Los correos necesarios sobre tu cuenta y tus pedidos no se ven afectados.");
 }
 

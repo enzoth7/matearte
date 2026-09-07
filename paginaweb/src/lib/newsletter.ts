@@ -54,10 +54,13 @@ export async function subscribeNewsletterContact(
     }, config, fetcher);
 
     if (!created.ok) throw new Error(`Resend rechazó el alta (${created.status}).`);
-    return;
+    const createdData = await created.json().catch(() => null) as { id?: string } | null;
+    return { contactId: createdData?.id };
   }
 
   if (!existing.ok) throw new Error(`Resend no pudo consultar el contacto (${existing.status}).`);
+
+  const existingData = await existing.json().catch(() => null) as { id?: string } | null;
 
   const updated = await resendRequest(`/contacts/${encodedEmail}`, {
     method: "PATCH",
@@ -73,4 +76,6 @@ export async function subscribeNewsletterContact(
     body: JSON.stringify({ topics: topicSubscription }),
   }, config, fetcher);
   if (!topicUpdated.ok) throw new Error(`Resend no pudo actualizar la suscripción (${topicUpdated.status}).`);
+
+  return { contactId: existingData?.id };
 }
