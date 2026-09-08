@@ -13,7 +13,7 @@ const cors = (origin: string) => ({
 });
 
 function response(origin: string, body: Record<string, unknown>, status = 200) {
-  return NextResponse.json(body, { status, headers: cors(origin) });
+  return NextResponse.json(body, { status, headers: { ...cors(origin), "Cache-Control": "private, no-store" } });
 }
 
 export function OPTIONS(request: Request) {
