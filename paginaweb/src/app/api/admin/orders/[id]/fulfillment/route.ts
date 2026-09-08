@@ -59,7 +59,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!order) return response(origin, { error: "El pedido no existe." }, 404);
 
     if (action === "ship") {
-      if (!["ready_for_fulfillment", "ready_for_production", "shipped"].includes(order.status)) {
+      if (!["ready_for_fulfillment", "ready_for_production", "shipped", "manual_review"].includes(order.status)) {
         return response(origin, { error: "El pedido todavía no está listo para enviarse." }, 409);
       }
       if (order.shipping_method === "pickup") {
@@ -99,7 +99,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     const hasCustomItem = (order.order_items as Array<{ requires_review: boolean }> | null)?.some((item) => item.requires_review) ?? false;
-    const restoredStatus = hasCustomItem ? "ready_for_production" : "ready_for_fulfillment";
+    const restoredStatus = order.shipping_method === "international_coordination" ? "manual_review" : hasCustomItem ? "ready_for_production" : "ready_for_fulfillment";
     const { data: updated, error: updateError } = await admin
       .from("orders")
       .update({ status: restoredStatus, shipped_at: null })

@@ -462,7 +462,7 @@
     "processingPayment": "Procesando el pago",
     "updatesAutomatically": "Esta pantalla se actualizará cuando cambie la situación del pedido.",
     "paymentNotCompletedTitle": "El pago no se concretó",
-    "paymentNotCompletedBody": "No guardamos ningún pedido ni enviamos notificaciones. Tu carrito sigue disponible para que vuelvas a intentarlo.",
+    "paymentNotCompletedBody": "Tu carrito sigue disponible para que vuelvas a intentarlo.",
     "backToCart": "Volver al carrito",
     "piece": "Pieza MateArte",
     "customMate": "Mate personalizado",

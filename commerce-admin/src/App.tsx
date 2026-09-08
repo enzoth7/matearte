@@ -862,7 +862,7 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
                 const destination = order.shipping_method==='international_coordination'
                   ? [textValue(order.shipping_snapshot.city),textValue(order.shipping_snapshot.country)].filter(Boolean).join(', ') || 'Exterior'
                   : order.shipping_method === 'pickup' ? 'Retiro' : 'Envío';
-                const canShip = order.shipping_method!=='pickup' && ['ready_for_fulfillment','ready_for_production'].includes(order.status);
+                const canShip = order.shipping_method !== 'pickup' && ['ready_for_fulfillment', 'ready_for_production', 'manual_review'].includes(order.status);
                 const hasActions = order.status==='paid_pending_review' || canShip || order.status==='shipped';
                 return <tr key={order.id} id={`order-${order.order_number}`}>
                   <td><strong>#{order.order_number}</strong></td>
@@ -875,7 +875,7 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
                   <td>{hasActions ? <div className="row-actions">
                     {order.status==='paid_pending_review'&&<><button className="compact-button" disabled={busy===order.id} onClick={()=>void review(order.id,'approve')}>{busy===order.id?'Procesando…':'Aprobar'}</button><button className="compact-button danger" disabled={busy===order.id} onClick={()=>void review(order.id,'reject')}>Rechazar</button></>}
                     {canShip&&<button className="compact-button" disabled={busy===order.id} onClick={()=>openShipment(order)}>Marcar enviado</button>}
-                    {order.status==='shipped'&&<><button className="compact-button secondary-button" disabled={busy===order.id} onClick={()=>openShipment(order)}>Editar envío</button><button className="compact-button secondary-button" disabled={busy===order.id} onClick={()=>{if(window.confirm('¿Querés volver este pedido a preparación? El cliente dejará de verlo como enviado.'))void updateFulfillment(order,'restore')}}>{busy===order.id?'Procesando…':order.order_items.some(item=>item.requires_review)?'Volver a producción':'Volver a preparación'}</button></>}
+                    {order.status==='shipped'&&<><button className="compact-button secondary-button" disabled={busy===order.id} onClick={()=>openShipment(order)}>Editar envío</button><button className="compact-button secondary-button" disabled={busy===order.id} onClick={()=>{if(window.confirm('¿Querés volver este pedido a preparación? El cliente dejará de verlo como enviado.'))void updateFulfillment(order,'restore')}}>{busy===order.id?'Procesando…':order.shipping_method==='international_coordination'?'Volver a revisión':order.order_items.some(item=>item.requires_review)?'Volver a producción':'Volver a preparación'}</button></>}
                   </div> : <small>{order.shipping_method==='pickup'&&['ready_for_fulfillment','ready_for_production'].includes(order.status)?'Retiro: no requiere envío':'Sin acciones'}</small>}</td>
                 </tr>;
               })}
@@ -894,7 +894,16 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
               <p id="shipment-modal-description">Guardá la empresa y el código que el cliente necesita para seguir el paquete.</p>
             </header>
             <label htmlFor="shipping-carrier">Empresa de envío <span aria-hidden="true">*</span></label>
-            <input id="shipping-carrier" autoFocus required minLength={2} maxLength={120} autoComplete="organization" value={shippingCarrier} onChange={event=>setShippingCarrier(event.target.value)} />
+            <input id="shipping-carrier" list="carrier-suggestions" autoFocus required minLength={2} maxLength={120} autoComplete="organization" value={shippingCarrier} onChange={event=>setShippingCarrier(event.target.value)} />
+            <datalist id="carrier-suggestions">
+              <option value="DHL Express" />
+              <option value="FedEx" />
+              <option value="UPS" />
+              <option value="Correo Uruguayo" />
+              <option value="DAC" />
+              <option value="Mirtrans" />
+              <option value="DePunta" />
+            </datalist>
             <label htmlFor="tracking-code">Código de seguimiento <span aria-hidden="true">*</span></label>
             <input id="tracking-code" required minLength={3} maxLength={160} autoComplete="off" value={trackingCode} onChange={event=>setTrackingCode(event.target.value)} />
             <p className="field-help">{shipmentOrder.status==='shipped'?'Los cambios se verán en el detalle del pedido del cliente.':'Al confirmar, el pedido cambia a Enviado y el cliente recibe estos datos por correo.'}</p>

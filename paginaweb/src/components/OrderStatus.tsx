@@ -198,7 +198,7 @@ export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paym
   const isInternational = order.shipping_method === "international_coordination";
   const isPending = status === "pending_payment";
   const isProblem = ["payment_failed", "cancelled", "refunded"].includes(status);
-  const StatusIcon = isInternational ? WhatsappLogo : isPending ? Clock : isProblem ? WarningCircle : CheckCircle;
+  const StatusIcon = status === "shipped" ? CheckCircle : isInternational && status === "manual_review" ? WhatsappLogo : isPending ? Clock : isProblem ? WarningCircle : CheckCircle;
   const statusDescription = isInternational && status === "manual_review"
     ? t("internationalStatus")
     : statusDescriptions[status] || t("processingFallback");
@@ -208,6 +208,7 @@ export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paym
     : statusDescription;
   const items = order.order_items || [];
   const showTracking = status === "shipped" && Boolean(order.shipping_carrier && order.tracking_code);
+  const isTrackingUrl = Boolean(order.tracking_code && (order.tracking_code.startsWith("http://") || order.tracking_code.startsWith("https://")));
 
   return (
     <>
@@ -268,7 +269,7 @@ export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paym
             <div><dt>{t("total")}</dt><dd>{formatMoney(order.total_minor)}</dd></div>
             <div><dt>{t("purchaseDate")}</dt><dd>{date(order.created_at, locale)}</dd></div>
             <div className="order-mobile-summary-tall"><dt>{t("shippingAddress")}</dt><dd>{shippingAddress(order, t("pickup"), t("toConfirm"))}</dd></div>
-            {showTracking&&<><div><dt>{t("shippingCarrier")}</dt><dd>{order.shipping_carrier}</dd></div><div><dt>{t("trackingCode")}</dt><dd>{order.tracking_code}</dd></div></>}
+            {showTracking&&<><div><dt>{t("shippingCarrier")}</dt><dd>{order.shipping_carrier}</dd></div><div><dt>{t("trackingCode")}</dt><dd>{isTrackingUrl ? <a href={order.tracking_code!} target="_blank" rel="noreferrer" className="underline hover:opacity-80">{order.tracking_code}</a> : order.tracking_code}</dd></div></>}
             <div><dt>{t("purchaseCode")}</dt><dd>{orderCode(order)}</dd></div>
           </dl>
           <div className="order-mobile-summary-divider" aria-hidden="true" />
@@ -325,7 +326,7 @@ export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paym
             <div><dt>{t("total")}</dt><dd>{formatMoney(order.total_minor)}</dd></div>
             <div><dt>{t("purchaseDate")}</dt><dd>{date(order.created_at, locale)}</dd></div>
             <div><dt>{t("shippingAddress")}</dt><dd title={shippingAddress(order, t("pickup"), t("toConfirm"))}>{shippingAddress(order, t("pickup"), t("toConfirm"))}</dd></div>
-            {showTracking&&<><div><dt>{t("shippingCarrier")}</dt><dd>{order.shipping_carrier}</dd></div><div><dt>{t("trackingCode")}</dt><dd title={order.tracking_code||undefined}>{order.tracking_code}</dd></div></>}
+            {showTracking&&<><div><dt>{t("shippingCarrier")}</dt><dd>{order.shipping_carrier}</dd></div><div><dt>{t("trackingCode")}</dt><dd title={order.tracking_code||undefined}>{isTrackingUrl ? <a href={order.tracking_code!} target="_blank" rel="noreferrer" className="underline hover:opacity-80">{order.tracking_code}</a> : order.tracking_code}</dd></div></>}
             <div><dt>{t("purchaseCode")}</dt><dd>{orderCode(order)}</dd></div>
           </dl>
           <div className="order-desktop-summary-divider" aria-hidden="true" />

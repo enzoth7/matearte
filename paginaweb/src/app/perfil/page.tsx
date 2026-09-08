@@ -38,6 +38,8 @@ type CustomerOrder = {
   order_number: number;
   status: string;
   shipping_method: string;
+  shipping_carrier: string | null;
+  tracking_code: string | null;
   total_minor: number;
   currency: string;
   created_at: string;
@@ -194,7 +196,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       .maybeSingle(),
     client
       .from("orders")
-      .select("id,order_number,status,shipping_method,total_minor,currency,created_at,paid_at,order_items(id,item_type,title,quantity,total_minor)")
+      .select("id,order_number,status,shipping_method,shipping_carrier,tracking_code,total_minor,currency,created_at,paid_at,order_items(id,item_type,title,quantity,total_minor)")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false }),
   ]);
@@ -425,7 +427,14 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                       <div className="profile-order-info">
                         <h3 title={orderTitle}>{orderTitle}</h3>
                         <time dateTime={order.created_at}>{date(order.created_at, locale)}</time>
-                        <span className="profile-order-status" title={orderStatusLabels[order.status] || statusLabel}>{statusLabel}</span>
+                        <div className="flex flex-col items-center justify-center gap-1 min-w-0">
+                          <span className="profile-order-status" title={orderStatusLabels[order.status] || statusLabel}>{statusLabel}</span>
+                          {order.status === "shipped" && order.tracking_code && (
+                            <span className="text-[11px] text-[#705c53] truncate max-w-full text-center" title={[order.shipping_carrier, order.tracking_code].filter(Boolean).join(" · ")}>
+                              {[order.shipping_carrier, order.tracking_code].filter(Boolean).join(" · ")}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <p className="profile-order-total">
@@ -509,10 +518,17 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                         />
                       </div>
 
-                      <div className="profile-orders-mobile-info">
+                      <div className="profile-orders-mobile-info !h-auto">
                         <time dateTime={order.created_at}>{compactDate(order.created_at, locale)}</time>
                         <h3 title={orderTitle}>{orderTitle}</h3>
-                        <span className="profile-orders-mobile-status" title={orderStatusLabels[order.status] || statusLabel}>{statusLabel}</span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span className="profile-orders-mobile-status" title={orderStatusLabels[order.status] || statusLabel}>{statusLabel}</span>
+                          {order.status === "shipped" && order.tracking_code && (
+                            <span className="text-[11px] text-[#705c53] truncate max-w-full" title={[order.shipping_carrier, order.tracking_code].filter(Boolean).join(" · ")}>
+                              {[order.shipping_carrier, order.tracking_code].filter(Boolean).join(" · ")}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -634,9 +650,16 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                         <p className="text-xs font-bold tracking-[0.12em] text-[var(--walnut)] uppercase">{t("orderNumber", { number: order.order_number })}</p>
                         <p className="text-xs text-black/55">{date(order.created_at, locale)}</p>
                       </div>
-                      <span className={`inline-flex min-h-8 items-center rounded-full border px-3 text-xs font-semibold ${orderStatusTone(order.status)}`}>
-                        {orderStatusLabels[order.status] || order.status}
-                      </span>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className={`inline-flex min-h-8 items-center rounded-full border px-3 text-xs font-semibold ${orderStatusTone(order.status)}`}>
+                          {orderStatusLabels[order.status] || order.status}
+                        </span>
+                        {order.status === "shipped" && order.tracking_code && (
+                          <span className="text-xs text-black/60" title={[order.shipping_carrier, order.tracking_code].filter(Boolean).join(" · ")}>
+                            {[order.shipping_carrier, order.tracking_code].filter(Boolean).join(" · ")}
+                          </span>
+                        )}
+                      </div>
                     </header>
                     <div className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_15rem] lg:items-center">
                       <div className="min-w-0">
