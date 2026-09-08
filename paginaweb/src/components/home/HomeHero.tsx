@@ -11,18 +11,57 @@ const assets = "/assets/matearte/home-v2";
 export function HomeHero() {
   const t = useTranslations("home");
   const videoRef = useRef<HTMLVideoElement>(null);
+  const backdropVideoRef = useRef<HTMLVideoElement>(null);
   const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    const backdropVideo = backdropVideoRef.current;
+    if (!video || !backdropVideo) return;
 
     if (reduceMotion) {
       video.pause();
+      backdropVideo.pause();
       return;
     }
 
+    const wideScreen = window.matchMedia("(min-width: 641px)");
+
+    const syncBackdrop = () => {
+      if (!wideScreen.matches || backdropVideo.readyState === 0) return;
+      if (Math.abs(backdropVideo.currentTime - video.currentTime) > 0.1) {
+        backdropVideo.currentTime = video.currentTime;
+      }
+    };
+
+    const playBackdrop = () => {
+      if (!wideScreen.matches) return;
+      syncBackdrop();
+      backdropVideo.play().catch(() => undefined);
+    };
+    const pauseBackdrop = () => backdropVideo.pause();
+
+    const updateBackdropPlayback = () => {
+      if (wideScreen.matches) playBackdrop();
+      else backdropVideo.pause();
+    };
+
+    video.addEventListener("play", playBackdrop);
+    video.addEventListener("pause", pauseBackdrop);
+    video.addEventListener("seeking", syncBackdrop);
+    video.addEventListener("timeupdate", syncBackdrop);
+    wideScreen.addEventListener("change", updateBackdropPlayback);
+
     video.play().catch(() => undefined);
+    updateBackdropPlayback();
+
+    return () => {
+      video.removeEventListener("play", playBackdrop);
+      video.removeEventListener("pause", pauseBackdrop);
+      video.removeEventListener("seeking", syncBackdrop);
+      video.removeEventListener("timeupdate", syncBackdrop);
+      wideScreen.removeEventListener("change", updateBackdropPlayback);
+    };
   }, [reduceMotion]);
 
   return (
@@ -39,6 +78,7 @@ export function HomeHero() {
           }}
         >
           <Image src={`${assets}/hero-overlay.jpg`} alt={t("heroAlt")} fill sizes="100vw" className="home-hero-poster" priority />
+          <video ref={backdropVideoRef} className="home-hero-video-backdrop" src={`${assets}/hero-segment.mp4`} poster={`${assets}/hero-poster.jpg`} muted loop playsInline preload="metadata" tabIndex={-1} aria-hidden="true" />
           <video ref={videoRef} className="home-hero-video" src={`${assets}/hero-segment.mp4`} poster={`${assets}/hero-poster.jpg`} autoPlay muted loop playsInline preload="metadata" tabIndex={-1} aria-hidden="true" />
         </motion.div>
         <div className="home-hero-scrim" />
