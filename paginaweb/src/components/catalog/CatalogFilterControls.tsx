@@ -10,8 +10,83 @@ import {
   type CatalogFilters,
   type PriceRangeId,
 } from "@/lib/catalog-filters";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import type { CatalogColorId, CatalogMaterialId, CatalogProductTypeId, Product } from "@/types/catalog";
+
+const COLOR_FALLBACKS: Record<string, Record<string, string>> = {
+  es: {
+    brown: "Marrón",
+    marron: "Marrón",
+    black: "Negro",
+    negro: "Negro",
+    natural: "Natural",
+    rawLeather: "Cuero crudo",
+    "cuero-crudo": "Cuero crudo",
+    red: "Rojo",
+    rojo: "Rojo",
+    white: "Blanco",
+    blanco: "Blanco",
+    pink: "Rosado",
+    rosado: "Rosado",
+    gray: "Gris",
+    gris: "Gris",
+    gold: "Dorado",
+    dorado: "Dorado",
+    skyBlue: "Celeste",
+    celeste: "Celeste",
+    blue: "Azul",
+    azul: "Azul",
+    beige: "Beige",
+  },
+  en: {
+    brown: "Brown",
+    marron: "Brown",
+    black: "Black",
+    negro: "Black",
+    natural: "Natural",
+    rawLeather: "Raw leather",
+    "cuero-crudo": "Raw leather",
+    red: "Red",
+    rojo: "Red",
+    white: "White",
+    blanco: "White",
+    pink: "Pink",
+    rosado: "Pink",
+    gray: "Gray",
+    gris: "Gray",
+    gold: "Gold",
+    dorado: "Gold",
+    skyBlue: "Light blue",
+    celeste: "Light blue",
+    blue: "Blue",
+    azul: "Blue",
+    beige: "Beige",
+  },
+  pt: {
+    brown: "Marrom",
+    marron: "Marrom",
+    black: "Preto",
+    negro: "Preto",
+    natural: "Natural",
+    rawLeather: "Couro cru",
+    "cuero-crudo": "Couro cru",
+    red: "Vermelho",
+    rojo: "Vermelho",
+    white: "Branco",
+    blanco: "Branco",
+    pink: "Rosa",
+    rosado: "Rosa",
+    gray: "Cinza",
+    gris: "Cinza",
+    gold: "Dourado",
+    dorado: "Dourado",
+    skyBlue: "Azul celeste",
+    celeste: "Azul celeste",
+    blue: "Azul",
+    azul: "Azul",
+    beige: "Bege",
+  },
+};
 
 type Props = {
   variant: "desktop" | "mobile";
@@ -39,6 +114,30 @@ export function CatalogFilterControls({
   onClear,
 }: Props) {
   const t = useTranslations("catalog");
+  const locale = useLocale();
+
+  const getColorLabel = (labelKey: string, value: string) => {
+    let rawLabel = "";
+    try {
+      rawLabel = t(labelKey as any);
+    } catch {
+      rawLabel = "";
+    }
+    if (!rawLabel || rawLabel.startsWith("catalog.")) {
+      const cleanKey = rawLabel?.startsWith("catalog.") ? rawLabel.replace(/^catalog\./, "") : labelKey;
+      const dict = COLOR_FALLBACKS[locale] || COLOR_FALLBACKS.es;
+      return (
+        dict[cleanKey] ||
+        dict[labelKey] ||
+        dict[value] ||
+        COLOR_FALLBACKS.es[cleanKey] ||
+        COLOR_FALLBACKS.es[labelKey] ||
+        COLOR_FALLBACKS.es[value] ||
+        value
+      );
+    }
+    return rawLabel;
+  };
   const mobile = variant === "mobile";
   const groupClass = mobile ? "catalog-mobile-filter-group" : "catalog-filter-group";
   const listClass = mobile ? "catalog-mobile-filter-list" : "catalog-filter-list";
@@ -116,7 +215,7 @@ export function CatalogFilterControls({
                 <input type="checkbox" disabled={!available} checked={filters.colors.includes(option.value)} onChange={() => onColorToggle(option.value)} />
                 <span className={mobile ? "catalog-mobile-checkbox" : "catalog-checkbox"} aria-hidden="true" />
                 <span className="catalog-color-swatch" style={{ backgroundColor: option.color }} aria-hidden="true" />
-                <span>{t(option.labelKey)}</span>
+                <span>{getColorLabel(option.labelKey, option.value)}</span>
               </label>
             );
           })}
