@@ -62,9 +62,10 @@ La autorización del panel comercial depende de `commerce_admin_users`; nunca de
 
 ## Garantías del checkout
 
-- `POST /api/checkout` ignora precios enviados por el navegador y recalcula productos, diseños, envío y comisión en backend.
-- El pedido `pending_payment` se crea atómicamente antes de la preferencia.
-- La preferencia de pago vence a los 30 minutos; los pedidos pendientes vencidos se cancelan al ejecutar el proceso de expiración o al iniciar un nuevo checkout.
+- `POST /api/checkout` ignora precios enviados por el navegador y recalcula productos, diseños y comisión en backend.
+- El checkout nacional crea solamente la preferencia de Mercado Pago. El pedido, sus artículos, el pago y las notificaciones se guardan recién cuando el webhook confirma un pago aprobado.
+- Los pagos pendientes, rechazados, cancelados o vencidos no generan registros internos ni correos. La preferencia de pago vence a los 30 minutos.
+- El envío nacional no forma parte del importe de Mercado Pago: queda registrado como pago al recibir y su costo es cero dentro del pedido.
 - `POST /api/webhooks/mercado-pago` valida `x-signature`, consulta el pago a Mercado Pago y procesa el evento de manera idempotente.
 - Un personalizado aprobado queda en `paid_pending_review`; solamente el panel administrativo puede aprobar producción o rechazar y reembolsar.
 - Las compras con destino fuera de Uruguay no crean una preferencia de Mercado Pago. Generan un pedido `manual_review` con artículos inmutables, subtotal sin envío y un mensaje de WhatsApp preparado por el backend para coordinar envío y pago.

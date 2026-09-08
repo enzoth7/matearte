@@ -313,7 +313,10 @@ begin
     where id = v_cart.id and status = 'active';
   else
     if v_currency <> 'UYU' or v_amount_minor <> v_order.total_minor then
-      update public.orders set status = 'manual_review' where id = v_order.id;
+      update public.orders
+      set status = 'manual_review'
+      where id = v_order.id
+      returning * into v_order;
     elsif v_status = 'approved' and v_order.status = 'pending_payment' then
       select exists (
         select 1 from public.order_items where order_id = v_order.id and requires_review

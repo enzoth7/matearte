@@ -33,7 +33,7 @@ Las rutas públicas se localizan con `next-intl`. El español se sirve sin prefi
 
 El catálogo se obtiene desde Supabase en cada visita. Los productos editoriales funcionan como respaldo cuando no existe una ficha comercial publicada con el mismo slug.
 
-El backend recalcula productos, diseños y envío; no confía en importes enviados por el navegador. Para pagos nacionales crea el pedido y luego la preferencia de Mercado Pago. El webhook firmado es la única fuente que confirma el pago.
+El backend recalcula productos, diseños y comisión; no confía en importes enviados por el navegador. Para pagos nacionales crea primero la preferencia de Mercado Pago y guarda el pedido solamente cuando el webhook firmado confirma un pago aprobado. Los intentos no concretados no generan pedidos, pagos ni notificaciones. El envío nacional se excluye del cobro online y se paga al recibir.
 
 Los pedidos internacionales se crean con estado de revisión manual y abren WhatsApp con número de pedido, destino, artículos y subtotal. No generan una preferencia de Mercado Pago.
 

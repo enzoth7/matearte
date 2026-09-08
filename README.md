@@ -36,7 +36,7 @@ Los originales aportados por clientes se guardan sin transformación en el bucke
 
 ## Comercio
 
-El catálogo y los checkout están implementados. La disponibilidad efectiva depende de las variables públicas de cada despliegue y de `commerce_settings` en Supabase. El backend recalcula precios y envío, crea el pedido antes de abrir Mercado Pago y confirma pagos únicamente mediante un webhook validado. Los pedidos internacionales se registran sin preferencia de pago y continúan por WhatsApp.
+El catálogo y los checkout están implementados. La disponibilidad efectiva depende de las variables públicas de cada despliegue y de `commerce_settings` en Supabase. El backend recalcula los precios, abre Mercado Pago sin cobrar envío y crea el pedido únicamente cuando el webhook confirma un pago aprobado. Los intentos pendientes, rechazados o vencidos no generan pedidos, notificaciones ni registros de pago internos. El envío nacional se paga al recibir. Los pedidos internacionales se registran sin preferencia de pago y continúan por WhatsApp.
 
 No existe control de stock en el flujo comercial actual.
 
