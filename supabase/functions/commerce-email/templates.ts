@@ -70,6 +70,7 @@ export function buildCommerceEmail(job: EmailJob, order: EmailOrder, items: Emai
   const rejectionReason = items.find((item) => item.review_reason)?.review_reason;
   const trackingCode = job.payload?.trackingCode;
   const trackingUrl = job.payload?.trackingUrl;
+  const shippingCarrier = job.payload?.shippingCarrier;
 
   switch (job.event_type) {
     case "customer_order_received":
@@ -83,7 +84,7 @@ export function buildCommerceEmail(job: EmailJob, order: EmailOrder, items: Emai
     case "customer_order_ready":
       return { subject: `Tu pedido #${order.order_number} está pronto`, html: layout(`${intro("Tu pedido está pronto", order, order.shipping_method === "pickup" ? "ya podés coordinar el retiro." : "terminamos de prepararlo y pronto saldrá hacia tu dirección.")}${button("Ver mi pedido", orderUrl)}`) };
     case "customer_order_shipped":
-      return { subject: `Enviamos tu pedido #${order.order_number}`, html: layout(`${intro("Tu pedido está en camino", order, "el envío ya fue despachado.")}${trackingCode ? `<p><strong>Código de seguimiento:</strong> ${escapeHtml(trackingCode)}</p>` : ""}${trackingUrl ? button("Seguir envío", String(trackingUrl)) : button("Ver mi pedido", orderUrl)}`) };
+      return { subject: `Enviamos tu pedido #${order.order_number}`, html: layout(`${intro("Tu pedido está en camino", order, "el envío ya fue despachado.")}${shippingCarrier ? `<p><strong>Empresa de envío:</strong> ${escapeHtml(shippingCarrier)}</p>` : ""}${trackingCode ? `<p><strong>Código de seguimiento:</strong> ${escapeHtml(trackingCode)}</p>` : ""}${trackingUrl ? button("Seguir envío", String(trackingUrl)) : button("Ver mi pedido", orderUrl)}`) };
     case "customer_international_received":
       return { subject: `Solicitud internacional recibida · #${order.order_number}`, html: layout(`${intro("Recibimos tu solicitud internacional", order, "guardamos los artículos y nos comunicaremos para coordinar disponibilidad, envío y forma de pago.")}${summary}${button("Ver solicitud", orderUrl)}`) };
     case "customer_payment_failed":

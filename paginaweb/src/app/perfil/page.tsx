@@ -179,6 +179,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const orderStatusLabels: Record<string, string> = {
     pending_payment: orderT("statuses.pending_payment"), paid_pending_review: orderT("statuses.paid_pending_review"),
     ready_for_fulfillment: orderT("statuses.ready_for_fulfillment"), ready_for_production: orderT("statuses.ready_for_production"),
+    shipped: orderT("statuses.shipped"),
     payment_failed: orderT("statuses.payment_failed"), cancelled: orderT("statuses.cancelled"),
     refunded: orderT("statuses.refunded"), manual_review: orderT("statuses.manual_review"),
   };

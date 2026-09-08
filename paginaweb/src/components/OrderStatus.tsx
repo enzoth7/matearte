@@ -24,6 +24,9 @@ type OrderValue = {
   status: string;
   shipping_method: string;
   shipping_snapshot: Snapshot;
+  shipping_carrier: string | null;
+  tracking_code: string | null;
+  shipped_at: string | null;
   customer_snapshot: Snapshot;
   total_minor: number;
   currency: string;
@@ -98,12 +101,14 @@ export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paym
   const statusLabels: Record<string, string> = {
     pending_payment: t("statuses.pending_payment"), paid_pending_review: t("statuses.paid_pending_review"),
     ready_for_fulfillment: t("statuses.ready_for_fulfillment"), ready_for_production: t("statuses.ready_for_production"),
+    shipped: t("statuses.shipped"),
     payment_failed: t("statuses.payment_failed"), cancelled: t("statuses.cancelled"),
     refunded: t("statuses.refunded"), manual_review: t("statuses.manual_review"),
   };
   const statusDescriptions: Record<string, string> = {
     pending_payment: t("descriptions.pending_payment"), paid_pending_review: t("descriptions.paid_pending_review"),
     ready_for_fulfillment: t("descriptions.ready_for_fulfillment"), ready_for_production: t("descriptions.ready_for_production"),
+    shipped: t("descriptions.shipped"),
     payment_failed: t("descriptions.payment_failed"), cancelled: t("descriptions.cancelled"),
     refunded: t("descriptions.refunded"), manual_review: t("descriptions.manual_review"),
   };
@@ -202,6 +207,7 @@ export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paym
     ? t("updatesAutomatically")
     : statusDescription;
   const items = order.order_items || [];
+  const showTracking = status === "shipped" && Boolean(order.shipping_carrier && order.tracking_code);
 
   return (
     <>
@@ -262,6 +268,7 @@ export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paym
             <div><dt>{t("total")}</dt><dd>{formatMoney(order.total_minor)}</dd></div>
             <div><dt>{t("purchaseDate")}</dt><dd>{date(order.created_at, locale)}</dd></div>
             <div className="order-mobile-summary-tall"><dt>{t("shippingAddress")}</dt><dd>{shippingAddress(order, t("pickup"), t("toConfirm"))}</dd></div>
+            {showTracking&&<><div><dt>{t("shippingCarrier")}</dt><dd>{order.shipping_carrier}</dd></div><div><dt>{t("trackingCode")}</dt><dd>{order.tracking_code}</dd></div></>}
             <div><dt>{t("purchaseCode")}</dt><dd>{orderCode(order)}</dd></div>
           </dl>
           <div className="order-mobile-summary-divider" aria-hidden="true" />
@@ -318,6 +325,7 @@ export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paym
             <div><dt>{t("total")}</dt><dd>{formatMoney(order.total_minor)}</dd></div>
             <div><dt>{t("purchaseDate")}</dt><dd>{date(order.created_at, locale)}</dd></div>
             <div><dt>{t("shippingAddress")}</dt><dd title={shippingAddress(order, t("pickup"), t("toConfirm"))}>{shippingAddress(order, t("pickup"), t("toConfirm"))}</dd></div>
+            {showTracking&&<><div><dt>{t("shippingCarrier")}</dt><dd>{order.shipping_carrier}</dd></div><div><dt>{t("trackingCode")}</dt><dd title={order.tracking_code||undefined}>{order.tracking_code}</dd></div></>}
             <div><dt>{t("purchaseCode")}</dt><dd>{orderCode(order)}</dd></div>
           </dl>
           <div className="order-desktop-summary-divider" aria-hidden="true" />

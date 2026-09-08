@@ -18,7 +18,7 @@ type SaleMode = 'standard'|'made_to_order';
 type ProductVariant = {id:string;sku:string;name:string;price_minor:number;active:boolean;color?:string|null};
 type Product = { id:string; editorial_slug:string; name:string; category:string; description:string; sale_mode:SaleMode; published:boolean; catalog_filters?:unknown; commerce_variants:ProductVariant[]; commerce_product_images:ProductImage[] };
 type ProductForm = {name:string;category:string;description:string;saleMode:SaleMode;catalogFilters:CatalogAttributes};
-type Order = { id:string;order_number:number;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;order_items:Array<{id:string;title:string;requires_review:boolean;review_status:string|null}> };
+type Order = { id:string;order_number:number;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;order_items:Array<{id:string;title:string;requires_review:boolean;review_status:string|null}> };
 type Rate = {id:string;code:string;name:string;departments:string[];rate_minor:number;is_pickup:boolean;active:boolean};
 const money=(minor:number)=>new Intl.NumberFormat('es-UY',{style:'currency',currency:'UYU',maximumFractionDigits:0}).format(minor/100);
 const MAX_PRODUCT_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -54,6 +54,7 @@ const orderStatus = (status: string) => ({
   paid_pending_review: 'Requiere revisión',
   ready_for_production: 'En producción',
   ready_for_fulfillment: 'Listo para entregar',
+  shipped: 'Enviado',
   payment_failed: 'Pago fallido',
   cancelled: 'Cancelado',
   refunded: 'Reembolsado',
@@ -670,8 +671,12 @@ function CatalogList({onNotice}:{onNotice:(v:string)=>void}) {
 function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) {
   const [orders,setOrders] = useState<Order[]>([]);
   const [busy,setBusy] = useState('');
+  const [shipmentOrder,setShipmentOrder] = useState<Order|null>(null);
+  const [shippingCarrier,setShippingCarrier] = useState('');
+  const [trackingCode,setTrackingCode] = useState('');
+  const [shipmentError,setShipmentError] = useState('');
   const load = useCallback(async() => {
-    const {data,error} = await supabase.from('orders').select('id,order_number,status,shipping_method,shipping_snapshot,total_minor,created_at,customer_snapshot,order_items(id,title,requires_review,review_status)').order('created_at',{ascending:false}).limit(100);
+    const {data,error} = await supabase.from('orders').select('id,order_number,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,total_minor,created_at,customer_snapshot,order_items(id,title,requires_review,review_status)').order('created_at',{ascending:false}).limit(100);
     if (error) onNotice(`No se pudieron cargar los pedidos: ${error.message}`);
     setOrders((data||[]) as Order[]);
   },[onNotice]);
@@ -694,35 +699,109 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
     }
   };
 
+  const updateFulfillment = async(order:Order,action:'ship'|'restore',details?:{shippingCarrier:string;trackingCode:string}) => {
+    setBusy(order.id);
+    setShipmentError('');
+    try {
+      const storeApi=(import.meta.env.VITE_STORE_API_URL||'http://localhost:3000').trim().replace(/\/$/,'');
+      const response=await fetch(`${storeApi}/api/admin/orders/${order.id}/fulfillment`,{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({action,...details})});
+      const value=await response.json();
+      if (!response.ok) {
+        const message=value.error||'No se pudo actualizar el envío.';
+        if (action === 'ship') setShipmentError(message);
+        else onNotice(message);
+        return false;
+      }
+      onNotice(action==='ship'?(order.status==='shipped'?'Datos de envío actualizados.':'Pedido marcado como enviado.'):'Pedido devuelto a preparación.');
+      await load();
+      return true;
+    } catch {
+      const message='No se pudo conectar con el servicio de pedidos.';
+      if (action === 'ship') setShipmentError(message);
+      else onNotice(message);
+      return false;
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const openShipment = (order:Order) => {
+    setShipmentOrder(order);
+    setShippingCarrier(order.shipping_carrier||'');
+    setTrackingCode(order.tracking_code||'');
+    setShipmentError('');
+  };
+
+  const closeShipment = () => {
+    if (shipmentOrder && busy === shipmentOrder.id) return;
+    setShipmentOrder(null);
+    setShipmentError('');
+  };
+
+  useEffect(() => {
+    if (!shipmentOrder) return;
+    const onKeyDown = (event:KeyboardEvent) => { if (event.key === 'Escape') closeShipment(); };
+    window.addEventListener('keydown',onKeyDown);
+    return () => window.removeEventListener('keydown',onKeyDown);
+  },[shipmentOrder,busy]);
+
   return (
-    <section className="data-panel" aria-label="Listado de pedidos">
-      <div className="table-summary"><strong>{orders.length} pedidos</strong><small>Últimos 100 registros</small></div>
-      <div className="table-scroll">
-        <table className="data-table orders-table">
-          <thead><tr><th>Pedido</th><th>Fecha</th><th>Cliente</th><th>Detalle</th><th>Entrega</th><th>Estado</th><th className="numeric">Total</th><th>Acciones</th></tr></thead>
-          <tbody>
-            {orders.map(order => {
-              const destination = order.shipping_method==='international_coordination'
-                ? [textValue(order.shipping_snapshot.city),textValue(order.shipping_snapshot.country)].filter(Boolean).join(', ') || 'Exterior'
-                : order.shipping_method === 'pickup' ? 'Retiro' : 'Envío';
-              return <tr key={order.id}>
-                <td><strong>#{order.order_number}</strong></td>
-                <td>{new Date(order.created_at).toLocaleDateString('es-UY')}</td>
-                <td>{orderCustomer(order.customer_snapshot)}</td>
-                <td className="order-items-cell">{order.order_items.map(item=>item.title).join(' · ') || 'Sin artículos'}</td>
-                <td>{destination}</td>
-                <td><span className={`status-badge status-${order.status}`}>{orderStatus(order.status)}</span></td>
-                <td className="numeric"><strong>{money(order.total_minor)}</strong></td>
-                <td>{order.status==='paid_pending_review'
-                  ? <div className="row-actions"><button className="compact-button" disabled={busy===order.id} onClick={()=>void review(order.id,'approve')}>{busy===order.id?'Procesando…':'Aprobar'}</button><button className="compact-button danger" disabled={busy===order.id} onClick={()=>void review(order.id,'reject')}>Rechazar</button></div>
-                  : <small>Sin acciones</small>}</td>
-              </tr>;
-            })}
-            {!orders.length && <tr><td className="empty-table" colSpan={8}>Todavía no hay pedidos.</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <>
+      <section className="data-panel" aria-label="Listado de pedidos">
+        <div className="table-summary"><strong>{orders.length} pedidos</strong><small>Últimos 100 registros</small></div>
+        <div className="table-scroll">
+          <table className="data-table orders-table">
+            <thead><tr><th>Pedido</th><th>Fecha</th><th>Cliente</th><th>Detalle</th><th>Entrega</th><th>Estado</th><th className="numeric">Total</th><th>Acciones</th></tr></thead>
+            <tbody>
+              {orders.map(order => {
+                const destination = order.shipping_method==='international_coordination'
+                  ? [textValue(order.shipping_snapshot.city),textValue(order.shipping_snapshot.country)].filter(Boolean).join(', ') || 'Exterior'
+                  : order.shipping_method === 'pickup' ? 'Retiro' : 'Envío';
+                const canShip = order.shipping_method!=='pickup' && ['ready_for_fulfillment','ready_for_production'].includes(order.status);
+                const hasActions = order.status==='paid_pending_review' || canShip || order.status==='shipped';
+                return <tr key={order.id}>
+                  <td><strong>#{order.order_number}</strong></td>
+                  <td>{new Date(order.created_at).toLocaleDateString('es-UY')}</td>
+                  <td>{orderCustomer(order.customer_snapshot)}</td>
+                  <td className="order-items-cell">{order.order_items.map(item=>item.title).join(' · ') || 'Sin artículos'}</td>
+                  <td><strong>{destination}</strong>{order.status==='shipped'&&<small className="tracking-summary">{order.shipping_carrier} · {order.tracking_code}</small>}</td>
+                  <td><span className={`status-badge status-${order.status}`}>{orderStatus(order.status)}</span></td>
+                  <td className="numeric"><strong>{money(order.total_minor)}</strong></td>
+                  <td>{hasActions ? <div className="row-actions">
+                    {order.status==='paid_pending_review'&&<><button className="compact-button" disabled={busy===order.id} onClick={()=>void review(order.id,'approve')}>{busy===order.id?'Procesando…':'Aprobar'}</button><button className="compact-button danger" disabled={busy===order.id} onClick={()=>void review(order.id,'reject')}>Rechazar</button></>}
+                    {canShip&&<button className="compact-button" disabled={busy===order.id} onClick={()=>openShipment(order)}>Marcar enviado</button>}
+                    {order.status==='shipped'&&<><button className="compact-button secondary-button" disabled={busy===order.id} onClick={()=>openShipment(order)}>Editar envío</button><button className="compact-button secondary-button" disabled={busy===order.id} onClick={()=>{if(window.confirm('¿Querés volver este pedido a preparación? El cliente dejará de verlo como enviado.'))void updateFulfillment(order,'restore')}}>{busy===order.id?'Procesando…':order.order_items.some(item=>item.requires_review)?'Volver a producción':'Volver a preparación'}</button></>}
+                  </div> : <small>{order.shipping_method==='pickup'&&['ready_for_fulfillment','ready_for_production'].includes(order.status)?'Retiro: no requiere envío':'Sin acciones'}</small>}</td>
+                </tr>;
+              })}
+              {!orders.length && <tr><td className="empty-table" colSpan={8}>Todavía no hay pedidos.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {shipmentOrder&&<div className="modal-backdrop">
+        <section className="shipment-modal" role="dialog" aria-modal="true" aria-labelledby="shipment-modal-title" aria-describedby="shipment-modal-description">
+          <form onSubmit={async event=>{event.preventDefault();const saved=await updateFulfillment(shipmentOrder,'ship',{shippingCarrier,trackingCode});if(saved)setShipmentOrder(null)}}>
+            <header>
+              <p className="eyebrow">Pedido #{shipmentOrder.order_number}</p>
+              <h2 id="shipment-modal-title">{shipmentOrder.status==='shipped'?'Editar datos de envío':'Marcar como enviado'}</h2>
+              <p id="shipment-modal-description">Guardá la empresa y el código que el cliente necesita para seguir el paquete.</p>
+            </header>
+            <label htmlFor="shipping-carrier">Empresa de envío <span aria-hidden="true">*</span></label>
+            <input id="shipping-carrier" autoFocus required minLength={2} maxLength={120} autoComplete="organization" value={shippingCarrier} onChange={event=>setShippingCarrier(event.target.value)} />
+            <label htmlFor="tracking-code">Código de seguimiento <span aria-hidden="true">*</span></label>
+            <input id="tracking-code" required minLength={3} maxLength={160} autoComplete="off" value={trackingCode} onChange={event=>setTrackingCode(event.target.value)} />
+            <p className="field-help">{shipmentOrder.status==='shipped'?'Los cambios se verán en el detalle del pedido del cliente.':'Al confirmar, el pedido cambia a Enviado y el cliente recibe estos datos por correo.'}</p>
+            {shipmentError&&<p className="modal-error" role="alert">{shipmentError}</p>}
+            <footer>
+              <button type="button" className="secondary-button" disabled={busy===shipmentOrder.id} onClick={closeShipment}>Cancelar</button>
+              <button type="submit" disabled={busy===shipmentOrder.id}>{busy===shipmentOrder.id?'Guardando…':shipmentOrder.status==='shipped'?'Guardar cambios':'Confirmar envío'}</button>
+            </footer>
+          </form>
+        </section>
+      </div>}
+    </>
   );
 }
 
