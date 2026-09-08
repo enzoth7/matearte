@@ -13,6 +13,32 @@ import {
 } from '../../shared/catalog-taxonomy';
 
 type Tab = 'catalog' | 'list' | 'orders' | 'personalized' | 'shipping' | 'settings' | 'rates';
+
+const VALID_TABS: Record<string, Tab> = {
+  catalog: 'catalog',
+  catalogo: 'catalog',
+  list: 'list',
+  lista: 'list',
+  orders: 'orders',
+  pedidos: 'orders',
+  personalized: 'personalized',
+  personalizados: 'personalized',
+  'pedidos-personalizados': 'personalized',
+  shipping: 'shipping',
+  envios: 'shipping',
+  rates: 'rates',
+  cotizaciones: 'rates',
+  settings: 'settings',
+  configuracion: 'settings',
+};
+
+export function getTabFromUrl(urlPath?: string, search?: string): Tab {
+  const currentPath = (urlPath !== undefined ? urlPath : (typeof window !== 'undefined' ? window.location.pathname : '')).replace(/^\/+|\/+$/g, '').toLowerCase();
+  const currentSearch = search !== undefined ? search : (typeof window !== 'undefined' ? window.location.search : '');
+  const searchTab = new URLSearchParams(currentSearch).get('tab')?.toLowerCase();
+  const key = searchTab || currentPath;
+  return VALID_TABS[key] || 'catalog';
+}
 type ProductImage = { id:string;storage_path:string;original_name:string;alt_text:string;mime_type:string;byte_size:number;sort_order:number;variant_id:string|null };
 type SaleMode = 'standard'|'made_to_order';
 type ProductVariant = {id:string;sku:string;name:string;price_minor:number;active:boolean;color?:string|null};
@@ -116,30 +142,72 @@ function CatalogAttributeFields({attributes,category,onChange}:{attributes:Catal
 
 function Login({onSession}:{onSession:(session:Session)=>void}){const[username,setUsername]=useState('');const[password,setPassword]=useState('');const[error,setError]=useState('');const[busy,setBusy]=useState(false);return <main className="login"><form onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');const value=username.trim().toLowerCase();const email=value===TEST_ADMIN_USERNAME?TEST_ADMIN_EMAIL:value;const{data,error}=await supabase.auth.signInWithPassword({email,password});setBusy(false);if(error)setError(error.message);else if(data.session)onSession(data.session)}}><p className="eyebrow">Administración segura</p><h1>Comercio MateArte</h1><p>Acceso limitado a membresías guardadas en la base de datos.</p>{error&&<div className="error">{error}</div>}<label>Usuario o correo<input type="text" autoComplete="username" required value={username} onChange={e=>setUsername(e.target.value)}/></label><label>Contraseña<input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={busy}>{busy?'Ingresando…':'Ingresar'}</button></form></main>}
 
-export function App(){const[session,setSession]=useState<Session|null>(null);const[authorized,setAuthorized]=useState<boolean|null>(null);const[authorizationError,setAuthorizationError]=useState('');const[tab,setTab]=useState<Tab>('catalog');const[notice,setNotice]=useState('');
- useEffect(()=>{supabase.auth.getSession().then(({data})=>setSession(data.session));const{data}=supabase.auth.onAuthStateChange((_e,next)=>setSession(next));return()=>data.subscription.unsubscribe()},[]);
- useEffect(()=>{if(!session){setAuthorized(null);setAuthorizationError('');return}let cancelled=false;supabase.from('commerce_admin_users').select('user_id').eq('user_id',session.user.id).eq('active',true).maybeSingle().then(({data,error})=>{if(cancelled)return;if(error){setAuthorizationError(error.message);setAuthorized(false);return}setAuthorizationError('');setAuthorized(Boolean(data))});return()=>{cancelled=true}},[session]);
- if(!session)return <Login onSession={setSession}/>;if(authorized===null)return <p className="loading">Verificando membresía…</p>;if(authorizationError)return <main className="denied"><h1>Verificación no disponible</h1><p>No se pudo comprobar el permiso de Comercio por un problema temporal de Supabase. Intentá de nuevo en unos minutos.</p><button onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></main>;if(!authorized)return <main className="denied"><h1>Acceso denegado</h1><p>La cuenta está autenticada, pero no integra commerce_admin_users.</p><button onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></main>;
- const navItems: Array<{id:Tab;label:string}> = [
-   {id:'catalog',label:'Catálogo'},
-   {id:'list',label:'Lista'},
-   {id:'orders',label:'Pedidos'},
-   {id:'personalized',label:'Pedidos personalizados'},
-   {id:'shipping',label:'Envíos'},
-   {id:'rates',label:'Cotizaciones'},
-   {id:'settings',label:'Activación'},
- ];
- const pageTitle = tab==='catalog'?'Catálogo':tab==='list'?'Lista':tab==='orders'?'Pedidos':tab==='personalized'?'Pedidos personalizados':tab==='shipping'?'Zonas y tarifas':tab==='rates'?'Cotizaciones':'Controles de salida';
- return (
-   <div className="shell">
-     <a className="skip-link" href="#commerce-content">Saltar al contenido</a>
-     <aside className="side-navigation">
-       <div className="brand-lockup"><img className="brand-logo" src="/logo-matearte.avif" alt="" aria-hidden="true"/><div><strong>MateArte</strong><small>COMERCIO</small></div></div>
-       <nav aria-label="Administración de comercio">
-         {navItems.map(({id,label})=><button type="button" key={id} className={tab===id?'active':''} aria-current={tab===id?'page':undefined} onClick={()=>setTab(id)}><Icon name={id}/><span>{label}</span></button>)}
-       </nav>
-       <div className="side-account"><small>{session.user.email}</small><button className="logout" onClick={()=>supabase.auth.signOut({scope:'local'})}><Icon name="logout"/><span>Cerrar sesión</span></button></div>
-     </aside>
+export function App(){
+  const [session, setSession] = useState<Session|null>(null);
+  const [authorized, setAuthorized] = useState<boolean|null>(null);
+  const [authorizationError, setAuthorizationError] = useState('');
+  const [tab, setTab] = useState<Tab>(getTabFromUrl);
+  const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({data}) => setSession(data.session));
+    const {data} = supabase.auth.onAuthStateChange((_e, next) => setSession(next));
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const onPopState = () => {
+      setTab(getTabFromUrl());
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  const switchTab = (nextTab: Tab) => {
+    setTab(nextTab);
+    const targetPath = nextTab === 'catalog' ? '/' : `/${nextTab}`;
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState(null, '', targetPath);
+    }
+  };
+
+  useEffect(() => {
+    if (!session) { setAuthorized(null); setAuthorizationError(''); return; }
+    let cancelled = false;
+    supabase.from('commerce_admin_users').select('user_id').eq('user_id', session.user.id).eq('active', true).maybeSingle().then(({data, error}) => {
+      if (cancelled) return;
+      if (error) { setAuthorizationError(error.message); setAuthorized(false); return; }
+      setAuthorizationError('');
+      setAuthorized(Boolean(data));
+    });
+    return () => { cancelled = true; };
+  }, [session]);
+
+  if (!session) return <Login onSession={setSession} />;
+  if (authorized === null) return <p className="loading">Verificando membresía…</p>;
+  if (authorizationError) return <main className="denied"><h1>Verificación no disponible</h1><p>No se pudo comprobar el permiso de Comercio por un problema temporal de Supabase. Intentá de nuevo en unos minutos.</p><button onClick={() => supabase.auth.signOut()}>Cerrar sesión</button></main>;
+  if (!authorized) return <main className="denied"><h1>Acceso denegado</h1><p>La cuenta está autenticada, pero no integra commerce_admin_users.</p><button onClick={() => supabase.auth.signOut()}>Cerrar sesión</button></main>;
+
+  const navItems: Array<{id:Tab;label:string}> = [
+    {id:'catalog',label:'Catálogo'},
+    {id:'list',label:'Lista'},
+    {id:'orders',label:'Pedidos'},
+    {id:'personalized',label:'Pedidos personalizados'},
+    {id:'shipping',label:'Envíos'},
+    {id:'rates',label:'Cotizaciones'},
+    {id:'settings',label:'Activación'},
+  ];
+  const pageTitle = tab==='catalog'?'Catálogo':tab==='list'?'Lista':tab==='orders'?'Pedidos':tab==='personalized'?'Pedidos personalizados':tab==='shipping'?'Zonas y tarifas':tab==='rates'?'Cotizaciones':'Controles de salida';
+  return (
+    <div className="shell">
+      <a className="skip-link" href="#commerce-content">Saltar al contenido</a>
+      <aside className="side-navigation">
+        <div className="brand-lockup"><img className="brand-logo" src="/logo-matearte.avif" alt="" aria-hidden="true"/><div><strong>MateArte</strong><small>COMERCIO</small></div></div>
+        <nav aria-label="Administración de comercio">
+          {navItems.map(({id,label})=><button type="button" key={id} className={tab===id?'active':''} aria-current={tab===id?'page':undefined} onClick={()=>switchTab(id)}><Icon name={id}/><span>{label}</span></button>)}
+        </nav>
+        <div className="side-account"><small>{session.user.email}</small><button className="logout" onClick={()=>supabase.auth.signOut({scope:'local'})}><Icon name="logout"/><span>Cerrar sesión</span></button></div>
+      </aside>
      <main id="commerce-content">
        <header className="page-header"><div><h1>{pageTitle}</h1></div><strong>{session.user.email}</strong></header>
        {notice&&<div className="notice" role="status">{notice}</div>}
@@ -675,12 +743,31 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
   const [shippingCarrier,setShippingCarrier] = useState('');
   const [trackingCode,setTrackingCode] = useState('');
   const [shipmentError,setShipmentError] = useState('');
+  const [search,setSearch] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    const params = new URLSearchParams(window.location.search);
+    return params.get('q') || params.get('search') || params.get('order') || '';
+  });
   const load = useCallback(async() => {
     const {data,error} = await supabase.from('orders').select('id,order_number,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,total_minor,created_at,customer_snapshot,order_items(id,title,requires_review,review_status)').order('created_at',{ascending:false}).limit(100);
     if (error) onNotice(`No se pudieron cargar los pedidos: ${error.message}`);
     setOrders((data||[]) as Order[]);
   },[onNotice]);
   useEffect(()=>{void load()},[load]);
+
+  const filteredOrders = useMemo(() => {
+    const q = search.trim().toLowerCase().replace(/^#/, '');
+    if (!q) return orders;
+    return orders.filter(o => {
+      const orderNum = String(o.order_number);
+      const customer = orderCustomer(o.customer_snapshot).toLowerCase();
+      const email = textValue(o.customer_snapshot.email).toLowerCase();
+      const status = orderStatus(o.status).toLowerCase();
+      const tracking = (o.tracking_code || '').toLowerCase();
+      const id = o.id.toLowerCase();
+      return orderNum.includes(q) || customer.includes(q) || email.includes(q) || status.includes(q) || tracking.includes(q) || id.includes(q);
+    });
+  }, [orders, search]);
 
   const review = async(id:string,decision:'approve'|'reject') => {
     const reason = decision === 'reject' ? window.prompt('Indicá el motivo del rechazo y reembolso:')?.trim() || '' : '';
@@ -748,18 +835,36 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
   return (
     <>
       <section className="data-panel" aria-label="Listado de pedidos">
-        <div className="table-summary"><strong>{orders.length} pedidos</strong><small>Últimos 100 registros</small></div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+          <div className="table-summary"><strong>{filteredOrders.length} {filteredOrders.length === 1 ? 'pedido' : 'pedidos'}</strong><small>{search ? `Filtrado por "${search}"` : 'Últimos 100 registros'}</small></div>
+          <div style={{ position: 'relative', minWidth: '220px', maxWidth: '340px', flex: '1 1 auto' }}>
+            <input
+              type="search"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar por #, cliente, correo o estado…"
+              style={{
+                width: '100%',
+                height: '38px',
+                padding: '0.4rem 0.75rem',
+                border: '1px solid #b7c0b9',
+                borderRadius: '0.25rem',
+                fontSize: '0.85rem'
+              }}
+            />
+          </div>
+        </div>
         <div className="table-scroll">
           <table className="data-table orders-table">
             <thead><tr><th>Pedido</th><th>Fecha</th><th>Cliente</th><th>Detalle</th><th>Entrega</th><th>Estado</th><th className="numeric">Total</th><th>Acciones</th></tr></thead>
             <tbody>
-              {orders.map(order => {
+              {filteredOrders.map(order => {
                 const destination = order.shipping_method==='international_coordination'
                   ? [textValue(order.shipping_snapshot.city),textValue(order.shipping_snapshot.country)].filter(Boolean).join(', ') || 'Exterior'
                   : order.shipping_method === 'pickup' ? 'Retiro' : 'Envío';
                 const canShip = order.shipping_method!=='pickup' && ['ready_for_fulfillment','ready_for_production'].includes(order.status);
                 const hasActions = order.status==='paid_pending_review' || canShip || order.status==='shipped';
-                return <tr key={order.id}>
+                return <tr key={order.id} id={`order-${order.order_number}`}>
                   <td><strong>#{order.order_number}</strong></td>
                   <td>{new Date(order.created_at).toLocaleDateString('es-UY')}</td>
                   <td>{orderCustomer(order.customer_snapshot)}</td>
@@ -774,7 +879,7 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
                   </div> : <small>{order.shipping_method==='pickup'&&['ready_for_fulfillment','ready_for_production'].includes(order.status)?'Retiro: no requiere envío':'Sin acciones'}</small>}</td>
                 </tr>;
               })}
-              {!orders.length && <tr><td className="empty-table" colSpan={8}>Todavía no hay pedidos.</td></tr>}
+              {!filteredOrders.length && <tr><td className="empty-table" colSpan={8}>{search ? `No se encontraron pedidos con "${search}".` : 'Todavía no hay pedidos.'}</td></tr>}
             </tbody>
           </table>
         </div>
