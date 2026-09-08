@@ -770,6 +770,18 @@ export function resolveCarrierSelection(rawCarrier?: string | null, predefinedOp
   };
 }
 
+export function getStoreApiUrl(): string {
+  const envUrl = (import.meta.env.VITE_STORE_API_URL || '').trim();
+  if (envUrl) return envUrl.replace(/\/$/, '');
+  const isLocalhost = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === '[::1]' ||
+    window.location.hostname.endsWith('.localhost')
+  );
+  return isLocalhost ? 'http://localhost:3000' : 'https://www.matearteuruguay.com';
+}
+
 function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) {
   const [orders,setOrders] = useState<Order[]>([]);
   const [busy,setBusy] = useState('');
@@ -810,13 +822,40 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
     if (decision === 'reject' && !reason) return;
     setBusy(id);
     try {
-      const storeApi=(import.meta.env.VITE_STORE_API_URL||'http://localhost:3000').trim().replace(/\/$/,'');
-      const response=await fetch(`${storeApi}/api/admin/orders/${id}/review`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({decision,reason})});
-      const value=await response.json();
-      onNotice(response.ok?'Pedido actualizado.':value.error||'No se pudo actualizar.');
-      if(response.ok) await load();
-    } catch {
-      onNotice('No se pudo conectar con el servicio de pedidos.');
+      if (decision === 'approve') {
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .update({ review_status: 'approved' })
+          .eq('order_id', id);
+        if (itemsError) throw itemsError;
+
+        const { error: orderError } = await supabase
+          .from('orders')
+          .update({ status: 'ready_for_production' })
+          .eq('id', id);
+        if (orderError) throw orderError;
+
+        void supabase.functions.invoke('commerce-email', { body: { orderId: id } }).catch(() => {});
+        onNotice('Pedido aprobado.');
+        await load();
+      } else {
+        const storeApi = getStoreApiUrl();
+        const response = await fetch(`${storeApi}/api/admin/orders/${id}/review`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ decision, reason }),
+        });
+        const value = await response.json();
+        onNotice(response.ok ? 'Pedido actualizado.' : value.error || 'No se pudo actualizar.');
+        if (response.ok) await load();
+      }
+    } catch (err) {
+      onNotice(decision === 'approve'
+        ? (err instanceof Error ? `No se pudo aprobar el pedido: ${err.message}` : 'No se pudo aprobar el pedido.')
+        : (err instanceof Error ? err.message : 'No se pudo conectar con el servicio de pedidos.'));
     } finally {
       setBusy('');
     }
@@ -826,20 +865,74 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
     setBusy(order.id);
     setShipmentError('');
     try {
-      const storeApi=(import.meta.env.VITE_STORE_API_URL||'http://localhost:3000').trim().replace(/\/$/,'');
-      const response=await fetch(`${storeApi}/api/admin/orders/${order.id}/fulfillment`,{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({action,...details})});
-      const value=await response.json();
-      if (!response.ok) {
-        const message=value.error||'No se pudo actualizar el envío.';
-        if (action === 'ship') setShipmentError(message);
-        else onNotice(message);
-        return false;
+      if (action === 'ship') {
+        const carrier = (details?.shippingCarrier || '').trim();
+        const tracking = (details?.trackingCode || '').trim();
+        if (carrier.length < 2 || carrier.length > 120) {
+          setShipmentError('Ingresá una empresa de envío válida.');
+          return false;
+        }
+        if (tracking.length < 3 || tracking.length > 160) {
+          setShipmentError('Ingresá un código de seguimiento válido.');
+          return false;
+        }
+
+        const isNewShipment = order.status !== 'shipped';
+        const shippedAt = order.status === 'shipped' && order.shipped_at ? order.shipped_at : new Date().toISOString();
+
+        const { error } = await supabase
+          .from('orders')
+          .update({
+            status: 'shipped',
+            shipping_carrier: carrier,
+            tracking_code: tracking,
+            shipped_at: shippedAt,
+          })
+          .eq('id', order.id);
+
+        if (error) {
+          setShipmentError(`No se pudo actualizar el envío: ${error.message}`);
+          return false;
+        }
+
+        if (isNewShipment) {
+          void supabase.functions.invoke('commerce-email', { body: { orderId: order.id } }).catch(() => {});
+        }
+
+        onNotice(order.status === 'shipped' ? 'Datos de envío actualizados.' : 'Pedido marcado como enviado.');
+        await load();
+        return true;
       }
-      onNotice(action==='ship'?(order.status==='shipped'?'Datos de envío actualizados.':'Pedido marcado como enviado.'):'Pedido devuelto a preparación.');
-      await load();
-      return true;
-    } catch {
-      const message='No se pudo conectar con el servicio de pedidos.';
+
+      if (action === 'restore') {
+        const hasCustomItem = order.order_items?.some(item => item.requires_review) ?? false;
+        const restoredStatus = order.shipping_method === 'international_coordination'
+          ? 'manual_review'
+          : hasCustomItem
+            ? 'ready_for_production'
+            : 'ready_for_fulfillment';
+
+        const { error } = await supabase
+          .from('orders')
+          .update({
+            status: restoredStatus,
+            shipped_at: null,
+          })
+          .eq('id', order.id);
+
+        if (error) {
+          onNotice(`No se pudo restaurar el pedido: ${error.message}`);
+          return false;
+        }
+
+        onNotice('Pedido devuelto a preparación.');
+        await load();
+        return true;
+      }
+
+      return false;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error inesperado al actualizar el envío.';
       if (action === 'ship') setShipmentError(message);
       else onNotice(message);
       return false;

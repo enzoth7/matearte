@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { CARRIER_OPTIONS, resolveCarrierSelection } from './App';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { CARRIER_OPTIONS, getStoreApiUrl, resolveCarrierSelection } from './App';
 
 describe('CARRIER_OPTIONS', () => {
   it('contiene transportistas nacionales e internacionales esperados', () => {
@@ -46,5 +46,47 @@ describe('resolveCarrierSelection', () => {
     expect(emptyString.selectedCarrier).toBe('');
     expect(emptyString.customCarrier).toBe('');
     expect(emptyString.shippingCarrier).toBe('');
+  });
+});
+
+describe('getStoreApiUrl', () => {
+  afterEach(() => {
+    delete (globalThis as unknown as { window?: unknown }).window;
+    vi.unstubAllEnvs();
+  });
+
+  it('usa VITE_STORE_API_URL si está definido en el entorno', () => {
+    vi.stubEnv('VITE_STORE_API_URL', 'https://custom-api.matearteuruguay.com/');
+    expect(getStoreApiUrl()).toBe('https://custom-api.matearteuruguay.com');
+  });
+
+  it('devuelve http://localhost:3000 si está en localhost', () => {
+    vi.stubEnv('VITE_STORE_API_URL', '');
+    (globalThis as unknown as { window: unknown }).window = {
+      location: { hostname: 'localhost' },
+    };
+    expect(getStoreApiUrl()).toBe('http://localhost:3000');
+  });
+
+  it('devuelve http://localhost:3000 si está en 127.0.0.1', () => {
+    vi.stubEnv('VITE_STORE_API_URL', '');
+    (globalThis as unknown as { window: unknown }).window = {
+      location: { hostname: '127.0.0.1' },
+    };
+    expect(getStoreApiUrl()).toBe('http://localhost:3000');
+  });
+
+  it('devuelve https://www.matearteuruguay.com como fallback en producción/Vercel', () => {
+    vi.stubEnv('VITE_STORE_API_URL', '');
+    (globalThis as unknown as { window: unknown }).window = {
+      location: { hostname: 'matearte-commerce-admin.vercel.app' },
+    };
+    expect(getStoreApiUrl()).toBe('https://www.matearteuruguay.com');
+  });
+
+  it('devuelve https://www.matearteuruguay.com si window no está definido', () => {
+    vi.stubEnv('VITE_STORE_API_URL', '');
+    delete (globalThis as unknown as { window?: unknown }).window;
+    expect(getStoreApiUrl()).toBe('https://www.matearteuruguay.com');
   });
 });
