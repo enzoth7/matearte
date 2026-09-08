@@ -216,7 +216,39 @@ td small { display: block; }
 .shipment-modal header > p:last-child { margin: .6rem 0 0; color: var(--muted); font-size: .86rem; line-height: 1.55; }
 .shipment-modal label { display: block; margin-top: .9rem; color: #2f3f36; font-size: .78rem; font-weight: 700; }
 .shipment-modal label span { color: var(--danger); }
-.shipment-modal input { width: 100%; min-height: 44px; margin-top: .4rem; border: 1px solid #aeb9b1; border-radius: .35rem; background: #fff; color: #142019; padding: .65rem .75rem; }
+.shipment-modal input,
+.shipment-modal select { width: 100%; min-height: 44px; margin-top: .4rem; border: 1px solid #aeb9b1; border-radius: .35rem; background: #fff; color: #142019; padding: .65rem .75rem; }
+.shipment-modal select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2322513c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right .85rem center;
+  background-size: 1.1rem;
+  padding-right: 2.4rem;
+  cursor: pointer;
+}
+.shipment-modal select:focus-visible {
+  outline: 3px solid #d78a4e;
+  outline-offset: 2px;
+}
+.shipment-modal select optgroup {
+  font-weight: 700;
+  font-style: normal;
+  color: #2f3f36;
+  background: #fff;
+  padding: .3rem 0;
+}
+.shipment-modal select option {
+  font-weight: 400;
+  color: #142019;
+  background: #fff;
+  padding: .35rem .5rem;
+}
+.shipment-modal select option[disabled] {
+  color: #8c9790;
+}
 .field-help { margin: .8rem 0 0; color: var(--muted); font-size: .74rem; line-height: 1.5; }
 .modal-error { margin: .8rem 0 0; border-left: 4px solid var(--danger); background: #fff0ed; color: #7e211a; padding: .7rem .8rem; font-size: .8rem; line-height: 1.45; }
 .shipment-modal footer { display: flex; justify-content: flex-end; gap: .65rem; margin-top: 1.4rem; border-top: 1px solid var(--line-soft); padding-top: 1rem; }

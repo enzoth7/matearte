@@ -736,11 +736,47 @@ function CatalogList({onNotice}:{onNotice:(v:string)=>void}) {
   </section>;
 }
 
+export const CARRIER_OPTIONS = [
+  { value: 'DAC', label: 'DAC', group: 'national' },
+  { value: 'Correo Uruguayo', label: 'Correo Uruguayo', group: 'national' },
+  { value: 'Mirtrans', label: 'Mirtrans', group: 'national' },
+  { value: 'DePunta', label: 'DePunta', group: 'national' },
+  { value: 'DHL Express', label: 'DHL Express', group: 'international' },
+  { value: 'FedEx', label: 'FedEx', group: 'international' },
+  { value: 'UPS', label: 'UPS', group: 'international' },
+];
+
+export function resolveCarrierSelection(rawCarrier?: string | null, predefinedOptions = CARRIER_OPTIONS) {
+  const carrier = rawCarrier?.trim() || '';
+  const matched = predefinedOptions.find(c => c.value === carrier);
+  if (matched) {
+    return {
+      selectedCarrier: matched.value,
+      customCarrier: '',
+      shippingCarrier: matched.value,
+    };
+  }
+  if (carrier) {
+    return {
+      selectedCarrier: '__other__',
+      customCarrier: carrier,
+      shippingCarrier: carrier,
+    };
+  }
+  return {
+    selectedCarrier: '',
+    customCarrier: '',
+    shippingCarrier: '',
+  };
+}
+
 function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) {
   const [orders,setOrders] = useState<Order[]>([]);
   const [busy,setBusy] = useState('');
   const [shipmentOrder,setShipmentOrder] = useState<Order|null>(null);
   const [shippingCarrier,setShippingCarrier] = useState('');
+  const [selectedCarrier,setSelectedCarrier] = useState('');
+  const [customCarrier,setCustomCarrier] = useState('');
   const [trackingCode,setTrackingCode] = useState('');
   const [shipmentError,setShipmentError] = useState('');
   const [search,setSearch] = useState(() => {
@@ -814,7 +850,10 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
 
   const openShipment = (order:Order) => {
     setShipmentOrder(order);
-    setShippingCarrier(order.shipping_carrier||'');
+    const resolved = resolveCarrierSelection(order.shipping_carrier);
+    setSelectedCarrier(resolved.selectedCarrier);
+    setCustomCarrier(resolved.customCarrier);
+    setShippingCarrier(resolved.shippingCarrier);
     setTrackingCode(order.tracking_code||'');
     setShipmentError('');
   };
@@ -893,17 +932,53 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
               <h2 id="shipment-modal-title">{shipmentOrder.status==='shipped'?'Editar datos de envío':'Marcar como enviado'}</h2>
               <p id="shipment-modal-description">Guardá la empresa y el código que el cliente necesita para seguir el paquete.</p>
             </header>
-            <label htmlFor="shipping-carrier">Empresa de envío <span aria-hidden="true">*</span></label>
-            <input id="shipping-carrier" list="carrier-suggestions" autoFocus required minLength={2} maxLength={120} autoComplete="organization" value={shippingCarrier} onChange={event=>setShippingCarrier(event.target.value)} />
-            <datalist id="carrier-suggestions">
-              <option value="DHL Express" />
-              <option value="FedEx" />
-              <option value="UPS" />
-              <option value="Correo Uruguayo" />
-              <option value="DAC" />
-              <option value="Mirtrans" />
-              <option value="DePunta" />
-            </datalist>
+            <label htmlFor="shipping-carrier-select">Empresa de envío <span aria-hidden="true">*</span></label>
+            <select
+              id="shipping-carrier-select"
+              required
+              autoFocus={selectedCarrier !== '__other__'}
+              value={selectedCarrier}
+              onChange={event => {
+                const val = event.target.value;
+                setSelectedCarrier(val);
+                if (val === '__other__') {
+                  setShippingCarrier(customCarrier);
+                } else {
+                  setShippingCarrier(val);
+                }
+              }}
+            >
+              <option value="" disabled>Seleccioná una empresa</option>
+              <optgroup label="Envíos nacionales (Uruguay)">
+                {CARRIER_OPTIONS.filter(c => c.group === 'national').map(c => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Envíos internacionales">
+                {CARRIER_OPTIONS.filter(c => c.group === 'international').map(c => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </optgroup>
+              <option value="__other__">Otra empresa (escribir nombre)…</option>
+            </select>
+            {selectedCarrier === '__other__' && (
+              <>
+                <label htmlFor="custom-shipping-carrier">Nombre de la empresa <span aria-hidden="true">*</span></label>
+                <input
+                  id="custom-shipping-carrier"
+                  required
+                  minLength={2}
+                  maxLength={120}
+                  placeholder="Ej.: Turil, Nuñez, Starken…"
+                  value={customCarrier}
+                  onChange={e => {
+                    setCustomCarrier(e.target.value);
+                    setShippingCarrier(e.target.value);
+                  }}
+                  autoFocus
+                />
+              </>
+            )}
             <label htmlFor="tracking-code">Código de seguimiento <span aria-hidden="true">*</span></label>
             <input id="tracking-code" required minLength={3} maxLength={160} autoComplete="off" value={trackingCode} onChange={event=>setTrackingCode(event.target.value)} />
             <p className="field-help">{shipmentOrder.status==='shipped'?'Los cambios se verán en el detalle del pedido del cliente.':'Al confirmar, el pedido cambia a Enviado y el cliente recibe estos datos por correo.'}</p>
