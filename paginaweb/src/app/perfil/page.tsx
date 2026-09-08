@@ -9,9 +9,9 @@ import { localizeCatalogSnapshotTitle } from "@/content/catalog-localization";
 import { Link } from "@/i18n/navigation";
 import { localizedAlternates } from "@/i18n/metadata";
 import { localizeCanonicalPath } from "@/i18n/paths";
-import { products } from "@/data/catalog";
 import { countryName } from "@/lib/countries";
 import { formatMoney } from "@/lib/money";
+import { orderItemImagePath, type OrderItemImageSource } from "@/lib/order-item-image";
 import { isActiveOrder, isConfirmedOrder, orderStatusTone } from "@/lib/order-status";
 import { requireUser } from "@/lib/supabase/server";
 import type { Locale } from "@/types/catalog";
@@ -31,6 +31,7 @@ type OrderItem = {
   title: string;
   quantity: number;
   total_minor: number;
+  image_url: string | null;
 };
 
 type CustomerOrder = {
@@ -70,20 +71,11 @@ const birthdayDate = (value: string, locale: Locale) =>
     timeZone: "UTC",
   }).format(new Date(`${value}T00:00:00Z`));
 
-const normalizedProductName = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLocaleLowerCase("es-UY");
-
 function orderThumbnail(item?: OrderItem) {
   if (item?.item_type === "design") {
     return "/assets/matearte/01-marca/LogoOriginal.jpg";
   }
-
-  const itemName = normalizedProductName(item?.title || "");
-  const product = products.find((candidate) => itemName.includes(normalizedProductName(candidate.name)));
-  return product?.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.png";
+  return item?.image_url || "/assets/matearte/profile-orders-desktop/catalog-fallback.png";
 }
 
 async function AccountAccessRequired({ authError, redirect: redirectPath }: { authError?: string; redirect?: string }) {
@@ -196,7 +188,13 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       .maybeSingle(),
     client
       .from("orders")
-      .select("id,order_number,status,shipping_method,shipping_carrier,tracking_code,total_minor,currency,created_at,paid_at,order_items(id,item_type,title,quantity,total_minor)")
+      .select(`
+        id,order_number,status,shipping_method,shipping_carrier,tracking_code,total_minor,currency,created_at,paid_at,
+        order_items(
+          id,item_type,title,quantity,total_minor,source_variant_id,
+          variant:commerce_variants(product:commerce_products(commerce_product_images(storage_path,sort_order,variant_id)))
+        )
+      `)
       .eq("user_id", user.id)
       .order("created_at", { ascending: false }),
   ]);
@@ -207,7 +205,22 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
     redirect(safeRedirect ? `${editorPath}?redirect=${encodeURIComponent(safeRedirect)}` : editorPath);
   }
 
-  const orders = (data || []) as CustomerOrder[];
+  const orders = (data || []).map((order) => ({
+    ...order,
+    order_items: (order.order_items || []).map((item) => {
+      const imagePath = orderItemImagePath(item as OrderItemImageSource);
+      return {
+        id: item.id,
+        item_type: item.item_type,
+        title: item.title,
+        quantity: item.quantity,
+        total_minor: item.total_minor,
+        image_url: imagePath
+          ? client.storage.from("product-images").getPublicUrl(imagePath).data.publicUrl
+          : null,
+      };
+    }),
+  })) as CustomerOrder[];
   const name = profile?.full_name || (typeof user.user_metadata?.full_name === "string" ? user.user_metadata.full_name : "");
   const firstName = name.trim().split(/\s+/)[0] || t("fallbackName");
   const localizedCountry = countryName(profile?.country_code, locale);

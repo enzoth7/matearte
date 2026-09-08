@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { CheckCircle, Clock, WarningCircle, WhatsappLogo } from "@phosphor-icons/react";
 import { Link } from "@/i18n/navigation";
-import { getLocalizedProducts, localizeCatalogSnapshotTitle } from "@/content/catalog-localization";
+import { localizeCatalogSnapshotTitle } from "@/content/catalog-localization";
 import { formatMoney } from "@/lib/money";
 import type { Locale } from "@/types/catalog";
 
@@ -17,6 +17,7 @@ type OrderItem = {
   quantity: number;
   unit_price_minor: number;
   total_minor: number;
+  image_url: string | null;
 };
 type OrderValue = {
   id: string;
@@ -35,13 +36,6 @@ type OrderValue = {
 };
 
 const date = (value: string, locale: Locale) => new Intl.DateTimeFormat({ es: "es-UY", en: "en", pt: "pt-BR" }[locale], { day: "numeric", month: "long", year: "numeric" }).format(new Date(value));
-const normalizeProductName = (value: string) => value
-  .normalize("NFD")
-  .replace(/[\u0300-\u036f]/g, "")
-  .toLocaleLowerCase("es")
-  .replace(/[^a-z0-9]+/g, " ")
-  .trim();
-
 function snapshotText(snapshot: Snapshot, key: string) {
   const value = snapshot?.[key];
   return typeof value === "string" ? value.trim() : "";
@@ -57,19 +51,9 @@ function itemCopy(item: OrderItem, locale: Locale, labels: { custom: string; cat
   };
 }
 
-function itemImage(item: OrderItem, locale: Locale, labels: Parameters<typeof itemCopy>[2]) {
+function itemImage(item: OrderItem) {
   if (item.item_type === "design") return "/assets/matearte/profile-orders-desktop/design-fallback.png";
-
-  const remoteName = normalizeProductName(itemCopy(item, locale, labels).name);
-  if (remoteName) {
-    const product = getLocalizedProducts(locale).find((candidate) => {
-      const localName = normalizeProductName(candidate.name);
-      return localName.includes(remoteName) || remoteName.includes(localName);
-    });
-    if (product) return product.images[0].src;
-  }
-
-  return "/assets/matearte/profile-orders-desktop/catalog-fallback.png";
+  return item.image_url || "/assets/matearte/profile-orders-desktop/catalog-fallback.png";
 }
 
 function shippingAddress(order: OrderValue, pickup: string, toConfirm: string) {
@@ -227,7 +211,7 @@ export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paym
                 return (
                   <article className="order-mobile-item" key={item.id}>
                     <div className="order-mobile-thumbnail">
-                      <Image src={itemImage(item, locale, itemLabels)} alt={copy.name} fill priority={index === 0} sizes="96px" />
+                      <Image src={itemImage(item)} alt={copy.name} fill priority={index === 0} sizes="96px" />
                     </div>
                     <div className="order-mobile-item-copy">
                       <h2>{copy.name}</h2>
@@ -287,7 +271,7 @@ export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paym
                 return (
                   <article className="order-desktop-item" key={item.id}>
                     <div className="order-desktop-thumbnail">
-                      <Image src={itemImage(item, locale, itemLabels)} alt={copy.name} fill priority={index === 0} sizes="120px" />
+                      <Image src={itemImage(item)} alt={copy.name} fill priority={index === 0} sizes="120px" />
                     </div>
                     <div className="order-desktop-item-copy">
                       <h2>{copy.name}</h2>
