@@ -46,6 +46,9 @@ export const catalogColorIds = [
   "rosado",
   "gris",
   "dorado",
+  "celeste",
+  "azul",
+  "beige",
 ] as const;
 
 export type CatalogCategoryId = (typeof catalogCategoryIds)[number];

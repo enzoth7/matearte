@@ -38,7 +38,7 @@ export function HomeHero() {
             scaleY: { duration: 2, times: [0, 0.04, 0.36, 1], ease: ["linear", "easeOut", "linear"], repeat: Infinity },
           }}
         >
-          <Image src={`${assets}/hero-overlay.png`} alt={t("heroAlt")} fill sizes="100vw" className="home-hero-poster" priority />
+          <Image src={`${assets}/hero-overlay.jpg`} alt={t("heroAlt")} fill sizes="100vw" className="home-hero-poster" priority />
           <video ref={videoRef} className="home-hero-video" src={`${assets}/hero-segment.mp4`} poster={`${assets}/hero-poster.jpg`} autoPlay muted loop playsInline preload="metadata" tabIndex={-1} aria-hidden="true" />
         </motion.div>
         <div className="home-hero-scrim" />

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 import { persistLocalePreference } from "@/lib/locale-preference";
+import { storeOAuthCallbackUrl } from "@/lib/auth-redirect";
 
 export function GoogleAuthButton({ variant = "default", postLoginRedirect }: { variant?: "default" | "editorial"; postLoginRedirect?: string }) {
   const [busy, setBusy] = useState(false);
@@ -19,14 +20,13 @@ export function GoogleAuthButton({ variant = "default", postLoginRedirect }: { v
     try {
       persistLocalePreference(locale);
       const client = createBrowserSupabase();
-      const redirectTo = `${window.location.origin}/auth/handoff?flow=store`;
+      const redirectTo = storeOAuthCallbackUrl(window.location.origin, postLoginRedirect);
       const { error: authError } = await client.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo,
           queryParams: {
             prompt: "select_account",
-            ...(postLoginRedirect ? { state: encodeURIComponent(postLoginRedirect) } : {}),
           },
         },
       });

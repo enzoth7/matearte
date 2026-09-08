@@ -92,7 +92,7 @@ function orderCode(order: OrderValue) {
   return compactId || `MA${String(order.order_number).padStart(8, "0")}`;
 }
 
-export function OrderStatus({ orderId }: { orderId: string }) {
+export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paymentOutcome?: string }) {
   const locale = useLocale() as Locale;
   const t = useTranslations("order");
   const statusLabels: Record<string, string> = {
@@ -118,8 +118,15 @@ export function OrderStatus({ orderId }: { orderId: string }) {
 
     const load = async () => {
       try {
-        const response = await fetch(`/api/orders/${orderId}`, { cache: "no-store" });
+        if (paymentOutcome === "failure") return;
+        const awaiting = paymentOutcome === "success" || paymentOutcome === "pending";
+        const response = await fetch(`/api/orders/${orderId}${awaiting ? "?awaiting=1" : ""}`, { cache: "no-store" });
         const value = await response.json();
+        if (response.status === 202 && value.pending) {
+          setError("");
+          if (!stopped) timer = setTimeout(load, 3_000);
+          return;
+        }
         if (!response.ok) {
           setError(t("loadFailed"));
           return;
@@ -137,7 +144,18 @@ export function OrderStatus({ orderId }: { orderId: string }) {
       stopped = true;
       clearTimeout(timer);
     };
-  }, [orderId, retryKey, t]);
+  }, [orderId, paymentOutcome, retryKey, t]);
+
+  if (paymentOutcome === "failure") {
+    return (
+      <div role="status" className="order-status-feedback border border-black/15 bg-[var(--paper)] p-6 shadow-[var(--shadow-soft)] sm:p-8">
+        <WarningCircle size={30} className="text-[var(--leather)]" aria-hidden="true" />
+        <h2 className="display-font mt-4 text-3xl">{t("paymentNotCompletedTitle")}</h2>
+        <p className="mt-3 max-w-xl text-sm leading-7 text-black/60">{t("paymentNotCompletedBody")}</p>
+        <Link className="button-primary mt-6" href="/carrito">{t("backToCart")}</Link>
+      </div>
+    );
+  }
 
   if (error) {
     return (

@@ -25,7 +25,8 @@ const storefrontSelection = `
     name,
     price_minor,
     currency,
-    active
+    active,
+    color
   ),
   images:commerce_product_images(
     id,

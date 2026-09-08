@@ -218,6 +218,9 @@
     "pink": "Rosa",
     "gray": "Cinza",
     "gold": "Dourado",
+    "skyBlue": "Azul celeste",
+    "blue": "Azul",
+    "beige": "Bege",
     "comingSoon": "Em breve"
   },
   "product": {
@@ -278,7 +281,10 @@
     "gallery7": "Mate de couro personalizado junto ao mar",
     "gallery8": "Peça personalizada produzida pela MateArte",
     "gallery9": "Mate artesanal com gravação personalizada",
-    "gallery10": "Mate personalizado de couro e metal"
+    "gallery10": "Mate personalizado de couro e metal",
+    "gallery11": "Mate personalizado com design exclusivo",
+    "gallery12": "Detalhe artesanal em mate personalizado",
+    "gallery13": "Mate personalizado com virola gravada"
   },
   "aboutPage": {
     "metadataTitle": "MateArte: tradição artesanal de Paysandú",
@@ -377,7 +383,7 @@
     "summary": "Resumo",
     "subtotal": "Subtotal",
     "shipping": "Envio",
-    "toCalculate": "A calcular",
+    "toCalculate": "Pago na entrega",
     "total": "Total",
     "continue": "Continuar"
   },
@@ -410,7 +416,7 @@
     "city": "Cidade",
     "optional": "opcional",
     "securePayment": "Pagamento seguro",
-    "serverRecalc": "Antes de redirecionar você, recalculamos preço, envio e personalizados no servidor.",
+    "serverRecalc": "Antes de redirecionar você, recalculamos os itens e personalizados no servidor. O envio é pago na entrega.",
     "personalAttention": "Atendimento pessoal",
     "coordinateWhatsapp": "Combine pelo WhatsApp",
     "whatsappSummary": "A mensagem incluirá o número do pedido, seu destino, os itens e o subtotal sem envio.",
@@ -426,7 +432,8 @@
     "shippingPickup": "Retirada",
     "shippingDelivery": "Envio nacional",
     "pickupAtStore": "Retirada na loja",
-    "homeDelivery": "Entrega em domicílio"
+    "homeDelivery": "Entrega em domicílio",
+    "payOnDelivery": "Pago na entrega"
   },
   "auth": {
     "openGoogle": "Abrindo o Google…",
@@ -452,6 +459,9 @@
     "processingFallback": "Estamos processando as informações do seu pedido.",
     "processingPayment": "Processando o pagamento",
     "updatesAutomatically": "Esta página será atualizada quando o status do pedido mudar.",
+    "paymentNotCompletedTitle": "O pagamento não foi concluído",
+    "paymentNotCompletedBody": "Não salvamos nenhum pedido nem enviamos notificações. Seu carrinho continua disponível para tentar novamente.",
+    "backToCart": "Voltar ao carrinho",
     "piece": "Peça MateArte",
     "customMate": "Mate personalizado",
     "catalogProduct": "Produto do catálogo",

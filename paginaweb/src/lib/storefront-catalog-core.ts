@@ -1,4 +1,4 @@
-import type { Locale, MediaAsset, Product, ProductVariant } from "@/types/catalog";
+import type { CatalogColorId, Locale, MediaAsset, Product, ProductVariant } from "@/types/catalog";
 import { normalizeCatalogAttributes } from "../../../shared/catalog-taxonomy";
 
 export type StorefrontVariantRow = {
@@ -8,6 +8,7 @@ export type StorefrontVariantRow = {
   price_minor: number;
   currency: "UYU";
   active: boolean;
+  color?: string | null;
 };
 
 export type StorefrontImageRow = {
@@ -82,6 +83,7 @@ function mapVariants(row: StorefrontProductRow): ProductVariant[] {
       commerceId: variant.id,
       price: { amountMinor: variant.price_minor, currency: variant.currency },
       available: true,
+      color: (variant.color as CatalogColorId) || undefined,
     }));
 }
 

@@ -9,8 +9,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: t("metadataTitle"), alternates: localizedAlternates(locale, { pathname: "/pedidos/[id]", params: { id } }), robots: { index: false, follow: false } };
 }
 
-export default async function OrderPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function OrderPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ payment?: string }> }) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
   const t = await getTranslations("order");
   return (
     <main id="contenido" className="order-detail-page pb-24 pt-8 sm:pb-32 sm:pt-12">
@@ -20,7 +20,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             <h1 id="order-detail-title">{t("title")}</h1>
             <p>{t("intro")}</p>
           </header>
-          <div className="order-detail-content"><OrderStatus orderId={id} /></div>
+          <div className="order-detail-content"><OrderStatus orderId={id} paymentOutcome={query.payment} /></div>
         </div>
       </div>
     </main>

@@ -399,8 +399,8 @@ test("personalizados web conserva la composición del frame de Figma", async ({ 
   await expect(page.locator(".personalizados-desktop-hero")).toHaveCSS("height", "680px");
   await expect(page.locator(".personalizados-desktop-gallery")).toHaveCSS("height", "544px");
   await expect(page.locator(".personalizados-desktop-craft")).toHaveCSS("height", "380px");
-  await expect(page.locator(".personalizados-desktop-gallery-card")).toHaveCount(14);
-  await expect(page.locator(".personalizados-desktop-gallery-group").first().locator(".personalizados-desktop-gallery-card")).toHaveCount(7);
+  await expect(page.locator(".personalizados-desktop-gallery-card")).toHaveCount(26);
+  await expect(page.locator(".personalizados-desktop-gallery-group").first().locator(".personalizados-desktop-gallery-card")).toHaveCount(13);
   await expect(page.locator(".personalizados-mobile-view")).toBeHidden();
   await expect(page.getByRole("link", { name: "Abrir personalizador" })).toBeVisible();
   await expect(page.locator(".personalizados-desktop-pagination")).toHaveCount(0);
@@ -474,8 +474,8 @@ test("personalizados móvil conserva la composición del frame de Figma", async 
   const mobile = page.locator(".personalizados-mobile-view");
   await expect(mobile.locator(".personalizados-mobile-hero")).toHaveCSS("height", "640px");
   await expect(mobile.locator(".personalizados-mobile-gallery")).toHaveCSS("height", "476px");
-  await expect(mobile.locator(".personalizados-mobile-gallery-card")).toHaveCount(20);
-  await expect(mobile.locator(".personalizados-mobile-gallery-group").first().locator(".personalizados-mobile-gallery-card")).toHaveCount(10);
+  await expect(mobile.locator(".personalizados-mobile-gallery-card")).toHaveCount(26);
+  await expect(mobile.locator(".personalizados-mobile-gallery-group").first().locator(".personalizados-mobile-gallery-card")).toHaveCount(13);
   await expect(mobile.locator(".personalizados-mobile-gallery-card").first()).toHaveCSS("width", "300px");
   await expect(mobile.locator(".personalizados-mobile-gallery-card").first()).toHaveCSS("height", "380px");
   await expect(mobile.locator(".personalizados-mobile-pagination")).toHaveCount(0);

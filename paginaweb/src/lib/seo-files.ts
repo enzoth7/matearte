@@ -71,7 +71,7 @@ export function buildSitemapFile(catalogProducts = products): MetadataRoute.Site
       href: "/contacto" as const,
       changeFrequency: "monthly" as const,
       priority: 0.7,
-      images: ["/assets/matearte/contact-desktop/local.png"],
+      images: ["/assets/matearte/contact-desktop/local.jpg"],
     },
   ];
   const locales = ["es", "en", "pt"] as const;

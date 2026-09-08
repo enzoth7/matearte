@@ -37,7 +37,7 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
   const rate = useMemo(() => rates.find((item) => item.id === rateId), [rates, rateId]);
   const isDelivery = Boolean(rate && !rate.is_pickup);
   const isInternational = isDelivery && purchaseRegion === "international";
-  const shippingMinor = rate ? rate.rate_minor : null;
+  const shippingMinor = rate ? 0 : null;
   const totalMinor = subtotalMinor === null || shippingMinor === null ? null : subtotalMinor + shippingMinor;
 
   const loadRates = useCallback(async () => {
@@ -203,7 +203,7 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
                     {rateId === item.id && <Check size={18} weight="bold" className="absolute top-3 right-3" aria-hidden="true" />}
                     <strong className="text-sm">{item.is_pickup ? t("pickupAtStore") : t("homeDelivery")}</strong>
                     <span className={`text-sm font-medium ${rateId === item.id ? "text-white/90" : "text-black/55"}`}>
-                      {item.is_pickup ? t("free") : item.rate_minor ? formatMoney(item.rate_minor, "UYU", locale, exchangeRates) : tCart("toCalculate")}
+                      {item.is_pickup ? t("free") : t("payOnDelivery")}
                     </span>
                   </label>
                 ))}
@@ -300,7 +300,7 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
                   <dt className="text-white/75">{tCart("shipping")}</dt>
-                  <dd className="font-semibold"><MoneyValue amount={shippingMinor} locale={locale} exchangeRates={exchangeRates} /></dd>
+                  <dd className="font-semibold">{rate?.is_pickup ? t("free") : t("payOnDelivery")}</dd>
                 </div>
                 <div className="border-t border-white/25 pt-4">
                   <div className="flex items-baseline justify-between gap-4">

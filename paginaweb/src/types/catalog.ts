@@ -71,6 +71,7 @@ export type ProductVariant = {
   commerceId?: string;
   price?: Money;
   available?: boolean;
+  color?: CatalogColorId | null;
 };
 
 export type Product = {

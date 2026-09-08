@@ -4,6 +4,7 @@ import { localizeCanonicalPath } from "@/i18n/paths";
 import { siteUrl, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { isLocale } from "@/i18n/config";
+import { safeStoreRedirect } from "@/lib/auth-redirect";
 
 function privateRedirect(destination: string) {
   const response = NextResponse.redirect(destination, 303);
@@ -51,12 +52,16 @@ export async function GET(request: NextRequest) {
       .select("profile_completed_at")
       .eq("user_id", authData.user.id)
       .maybeSingle();
-    // If a postLoginRedirect was passed as state, respect it (only allow safe internal paths)
-    const rawState = url.searchParams.get("state");
-    const postLoginRedirect = rawState ? decodeURIComponent(rawState) : null;
-    const safeRedirect = postLoginRedirect?.startsWith("/") && !postLoginRedirect.startsWith("//") ? postLoginRedirect : null;
-    if (!profile?.profile_completed_at) return privateRedirect(destination("/perfil/editar"));
-    return privateRedirect(safeRedirect ? `${destination(safeRedirect)}` : destination("/perfil"));
+    // The destination travels inside redirectTo, never in OAuth's reserved state.
+    // Keep accepting the former state value for callbacks already in flight.
+    const safeRedirect = safeStoreRedirect(url.searchParams.get("next"))
+      || safeStoreRedirect(url.searchParams.get("state"));
+    if (!profile?.profile_completed_at) {
+      const editProfileUrl = new URL(destination("/perfil/editar"));
+      if (safeRedirect) editProfileUrl.searchParams.set("redirect", safeRedirect);
+      return privateRedirect(editProfileUrl.toString());
+    }
+    return privateRedirect(safeRedirect ? destination(safeRedirect) : destination("/perfil"));
   }
   const failure = (reason: string) => privateRedirect(`${destination("/carrito")}?handoff=${reason}`);
   if (!isOpaqueHandoffCode) return failure("invalid");

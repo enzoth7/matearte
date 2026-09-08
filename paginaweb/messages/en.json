@@ -218,6 +218,9 @@
     "pink": "Pink",
     "gray": "Gray",
     "gold": "Gold",
+    "skyBlue": "Light blue",
+    "blue": "Blue",
+    "beige": "Beige",
     "comingSoon": "Coming soon"
   },
   "product": {
@@ -278,7 +281,10 @@
     "gallery7": "Custom leather mate by the sea",
     "gallery8": "Custom piece made by MateArte",
     "gallery9": "Handcrafted mate with custom engraving",
-    "gallery10": "Custom mate in leather and metal"
+    "gallery10": "Custom mate in leather and metal",
+    "gallery11": "Custom mate with exclusive design",
+    "gallery12": "Handcrafted detail on custom mate",
+    "gallery13": "Custom mate with engraved ferrule"
   },
   "aboutPage": {
     "metadataTitle": "MateArte: artisan tradition from Paysandú",
@@ -377,7 +383,7 @@
     "summary": "Summary",
     "subtotal": "Subtotal",
     "shipping": "Shipping",
-    "toCalculate": "To be calculated",
+    "toCalculate": "Paid on delivery",
     "total": "Total",
     "continue": "Continue"
   },
@@ -410,7 +416,7 @@
     "city": "City",
     "optional": "optional",
     "securePayment": "Secure payment",
-    "serverRecalc": "Before redirecting you, we recalculate prices, shipping and custom items on the server.",
+    "serverRecalc": "Before redirecting you, we recalculate the items and custom pieces on the server. Shipping is paid on delivery.",
     "personalAttention": "Personal assistance",
     "coordinateWhatsapp": "Coordinate on WhatsApp",
     "whatsappSummary": "The message will include your order number, destination, items and subtotal before shipping.",
@@ -426,7 +432,8 @@
     "shippingPickup": "Pickup",
     "shippingDelivery": "Domestic shipping",
     "pickupAtStore": "Store pickup",
-    "homeDelivery": "Home delivery"
+    "homeDelivery": "Home delivery",
+    "payOnDelivery": "Paid on delivery"
   },
   "auth": {
     "openGoogle": "Opening Google…",
@@ -452,6 +459,9 @@
     "processingFallback": "We're processing your order information.",
     "processingPayment": "Processing payment",
     "updatesAutomatically": "This page will update when your order status changes.",
+    "paymentNotCompletedTitle": "The payment was not completed",
+    "paymentNotCompletedBody": "We did not save an order or send notifications. Your cart is still available if you want to try again.",
+    "backToCart": "Back to cart",
     "piece": "MateArte piece",
     "customMate": "Custom mate",
     "catalogProduct": "Catalog product",

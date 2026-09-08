@@ -32,7 +32,7 @@ export default async function ContactoPage() {
           </div>
           <div className="contact-desktop-hero-image">
             <Image
-              src="/assets/matearte/contact-desktop/local.png"
+              src="/assets/matearte/contact-desktop/local.jpg"
               alt={t("storeAlt")}
               fill
               priority
@@ -92,7 +92,7 @@ export default async function ContactoPage() {
           </div>
           <div className="contact-mobile-hero-image">
             <Image
-              src="/assets/matearte/contact-desktop/local.png"
+              src="/assets/matearte/contact-desktop/local.jpg"
               alt={t("storeAlt")}
               fill
               priority

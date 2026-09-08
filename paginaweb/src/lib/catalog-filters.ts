@@ -4,6 +4,7 @@ import type {
   CatalogProductTypeId,
   CategorySlug,
   Product,
+  ProductVariant,
 } from "@/types/catalog";
 
 export const categoryOptions = [
@@ -45,7 +46,7 @@ export const productTypeOptions: ReadonlyArray<{ value: CatalogProductTypeId; la
   { value: "torpedo", labelKey: "torpedo" },
 ];
 
-export const colorOptions: ReadonlyArray<{ value: CatalogColorId; labelKey: "brown" | "black" | "natural" | "rawLeather" | "red" | "white" | "pink" | "gray" | "gold"; color: string }> = [
+export const colorOptions: ReadonlyArray<{ value: CatalogColorId; labelKey: "brown" | "black" | "natural" | "rawLeather" | "red" | "white" | "pink" | "gray" | "gold" | "skyBlue" | "blue" | "beige"; color: string }> = [
   { value: "marron", labelKey: "brown", color: "#6c4530" },
   { value: "negro", labelKey: "black", color: "#241d1a" },
   { value: "natural", labelKey: "natural", color: "#cfaf79" },
@@ -55,6 +56,9 @@ export const colorOptions: ReadonlyArray<{ value: CatalogColorId; labelKey: "bro
   { value: "rosado", labelKey: "pink", color: "#e8a4a4" },
   { value: "gris", labelKey: "gray", color: "#8c8c8c" },
   { value: "dorado", labelKey: "gold", color: "#c9a859" },
+  { value: "celeste", labelKey: "skyBlue", color: "#74acdf" },
+  { value: "azul", labelKey: "blue", color: "#1e3a8a" },
+  { value: "beige", labelKey: "beige", color: "#dfd1b8" },
 ];
 
 export type PriceRangeId = (typeof priceRangeOptions)[number]["value"];
@@ -112,6 +116,140 @@ function getProductTypes(product: Product) {
   return product.filterData.productTypes ?? (product.filterData.mateType ? [product.filterData.mateType] : []);
 }
 
+/**
+ * Checks if a variant label matches a given catalog color ID.
+ */
+export function matchVariantWithColor(variantLabel: string, color: CatalogColorId): boolean {
+  const norm = variantLabel.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  switch (color) {
+    case "negro":
+      return norm.includes("negro") || norm.includes("black");
+    case "marron":
+      return norm.includes("marron") || norm.includes("brown") || norm.includes("suela");
+    case "natural":
+      return norm.includes("natural");
+    case "cuero-crudo":
+      return norm.includes("crudo") || norm.includes("raw");
+    case "rojo":
+      return norm.includes("rojo") || norm.includes("red");
+    case "blanco":
+      return norm.includes("blanco") || norm.includes("white");
+    case "rosado":
+      return norm.includes("rosado") || norm.includes("rosa") || norm.includes("pink");
+    case "gris":
+      return norm.includes("gris") || norm.includes("gray") || norm.includes("grey");
+    case "dorado":
+      return norm.includes("dorado") || norm.includes("oro") || norm.includes("gold");
+    case "celeste":
+      return norm.includes("celeste") || norm.includes("sky");
+    case "azul":
+      return norm.includes("azul") || norm.includes("blue");
+    case "beige":
+      return norm.includes("beige") || norm.includes("arena");
+    default:
+      return false;
+  }
+}
+
+/**
+ * Returns the CatalogColorId that corresponds to a variant or variant label, if any.
+ * If v.color is present, uses it directly.
+ */
+export function getVariantColorId(
+  variantOrLabel: ProductVariant | string,
+  explicitColor?: CatalogColorId | null,
+): CatalogColorId | undefined {
+  if (typeof variantOrLabel === "object" && variantOrLabel !== null) {
+    if (variantOrLabel.color) return variantOrLabel.color;
+    return getVariantColorId(variantOrLabel.label);
+  }
+  if (explicitColor) return explicitColor;
+  const norm = variantOrLabel.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (norm.includes("negro") || norm.includes("black")) return "negro";
+  if (norm.includes("marron") || norm.includes("brown") || norm.includes("suela")) return "marron";
+  if (norm.includes("crudo") || norm.includes("raw")) return "cuero-crudo";
+  if (norm.includes("natural")) return "natural";
+  if (norm.includes("rojo") || norm.includes("red")) return "rojo";
+  if (norm.includes("blanco") || norm.includes("white")) return "blanco";
+  if (norm.includes("rosado") || norm.includes("rosa") || norm.includes("pink")) return "rosado";
+  if (norm.includes("gris") || norm.includes("gray") || norm.includes("grey")) return "gris";
+  if (norm.includes("dorado") || norm.includes("oro") || norm.includes("gold")) return "dorado";
+  if (norm.includes("celeste") || norm.includes("sky")) return "celeste";
+  if (norm.includes("azul") || norm.includes("blue")) return "azul";
+  if (norm.includes("beige") || norm.includes("arena")) return "beige";
+  return undefined;
+}
+
+/**
+ * Returns the hex color string for a variant or variant label.
+ * If v.color is present, uses it directly.
+ */
+export function getVariantColorHex(
+  variantOrLabel: ProductVariant | string,
+  explicitColor?: CatalogColorId | null,
+): string {
+  const colorId = typeof variantOrLabel === "object" && variantOrLabel !== null
+    ? (variantOrLabel.color ?? getVariantColorId(variantOrLabel.label))
+    : (explicitColor ?? getVariantColorId(variantOrLabel));
+
+  if (colorId) {
+    const found = colorOptions.find((opt) => opt.value === colorId);
+    if (found) return found.color;
+  }
+  const label = typeof variantOrLabel === "object" && variantOrLabel !== null ? variantOrLabel.label : variantOrLabel;
+  const norm = label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (norm.includes("celeste") || norm.includes("sky")) return "#74acdf";
+  if (norm.includes("azul") || norm.includes("blue")) return "#1e3a8a";
+  if (norm.includes("beige") || norm.includes("arena")) return "#dfd1b8";
+  if (norm.includes("verde") || norm.includes("green")) return "#2d5a27";
+  return "#cccccc";
+}
+
+/**
+ * Finds the first variant of a product that matches any of the given colors.
+ * Searches first by v.color === color and then by name match.
+ */
+export function findMatchingVariantForColors(
+  product: Product,
+  colors: CatalogColorId[]
+): ProductVariant | undefined {
+  if (!product.variants || product.variants.length === 0 || colors.length === 0) return undefined;
+  for (const color of colors) {
+    const variant = product.variants.find((v) => v.color === color);
+    if (variant) return variant;
+  }
+  for (const color of colors) {
+    const variant = product.variants.find((v) => matchVariantWithColor(v.label, color));
+    if (variant) return variant;
+  }
+  return undefined;
+}
+
+/**
+ * Returns all colors associated with a product (from filterData and variant labels).
+ * If the product has variants with color, uses those colors with priority.
+ */
+export function getProductColors(product: Product): CatalogColorId[] {
+  const variants = product.variants ?? [];
+  const variantExplicitColors = variants
+    .map((v) => v.color)
+    .filter((c): c is CatalogColorId => Boolean(c));
+
+  if (variantExplicitColors.length > 0) {
+    const fromVariants = variants
+      .map((v) => v.color ?? getVariantColorId(v))
+      .filter((c): c is CatalogColorId => Boolean(c));
+    const explicit = product.filterData.colors ?? [];
+    return [...new Set([...fromVariants, ...explicit])];
+  }
+
+  const explicit = product.filterData.colors ?? [];
+  const fromVariants = variants
+    .map((v) => getVariantColorId(v))
+    .filter((c): c is CatalogColorId => Boolean(c));
+  return [...new Set([...explicit, ...fromVariants])];
+}
+
 export function filterAndSortCatalog<T extends { product: Product }>(entries: T[], filters: CatalogFilters, locale = "es") {
   const filtered = entries.filter(({ product }) => {
     const data = product.filterData;
@@ -124,7 +262,8 @@ export function filterAndSortCatalog<T extends { product: Product }>(entries: T[
     );
     const matchesMaterial = filters.materials.length === 0 || data.materials.some((material) => filters.materials.includes(material));
     const matchesProductType = filters.productTypes.length === 0 || getProductTypes(product).some((type) => filters.productTypes.includes(type));
-    const matchesColor = filters.colors.length === 0 || Boolean(data.colors?.some((color) => filters.colors.includes(color)));
+    const productColors = getProductColors(product);
+    const matchesColor = filters.colors.length === 0 || productColors.some((color) => filters.colors.includes(color));
     return matchesCategory && matchesPrice && matchesMaterial && matchesProductType && matchesColor;
   });
 

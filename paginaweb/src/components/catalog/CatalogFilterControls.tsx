@@ -6,6 +6,7 @@ import {
   materialOptions,
   productTypeOptions,
   priceRangeOptions,
+  getProductColors,
   type CatalogFilters,
   type PriceRangeId,
 } from "@/lib/catalog-filters";
@@ -42,7 +43,7 @@ export function CatalogFilterControls({
   const groupClass = mobile ? "catalog-mobile-filter-group" : "catalog-filter-group";
   const listClass = mobile ? "catalog-mobile-filter-list" : "catalog-filter-list";
   const rowClass = mobile ? "catalog-mobile-filter-row" : "catalog-check-row";
-  const availableColors = new Set(products.flatMap((product) => product.filterData.colors ?? []));
+  const availableColors = new Set(products.flatMap((product) => getProductColors(product)));
   const hasActiveFilters = filters.category !== "todas" || filters.prices.length > 0 || filters.materials.length > 0 || filters.productTypes.length > 0 || filters.colors.length > 0;
 
   return (
@@ -113,6 +114,7 @@ export function CatalogFilterControls({
             return (
               <label key={option.value} className={`${rowClass}${available ? "" : " is-disabled"}`}>
                 <input type="checkbox" disabled={!available} checked={filters.colors.includes(option.value)} onChange={() => onColorToggle(option.value)} />
+                <span className={mobile ? "catalog-mobile-checkbox" : "catalog-checkbox"} aria-hidden="true" />
                 <span className="catalog-color-swatch" style={{ backgroundColor: option.color }} aria-hidden="true" />
                 <span>{t(option.labelKey)}</span>
               </label>

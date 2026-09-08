@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Product } from "@/types/catalog";
-import { colorOptions } from "@/lib/catalog-filters";
+import { getVariantColorHex } from "@/lib/catalog-filters";
 
 export function ProductCard({ product, priority = false, headingLevel = "h3" }: { product: Product; priority?: boolean; headingLevel?: "h2" | "h3" }) {
   const image = product.images[0];
@@ -30,16 +30,7 @@ export function ProductCard({ product, priority = false, headingLevel = "h3" }: 
           {product.variants && product.variants.length > 1 && (
             <div className="mt-4 flex items-center gap-2">
               {product.variants.map((v) => {
-                const colorHex = v.label.toLowerCase().includes('negro') ? '#222222' 
-                               : v.label.toLowerCase().includes('marr') ? '#8B4513'
-                               : v.label.toLowerCase().includes('natural') ? '#D2B48C'
-                               : v.label.toLowerCase().includes('crudo') ? '#E6C280'
-                               : v.label.toLowerCase().includes('rojo') ? '#a83232'
-                               : v.label.toLowerCase().includes('blanco') ? '#f5f5f5'
-                               : v.label.toLowerCase().includes('rosado') ? '#e8a4a4'
-                               : v.label.toLowerCase().includes('gris') ? '#8c8c8c'
-                               : v.label.toLowerCase().includes('dorado') ? '#c9a859'
-                               : '#ccc';
+                const colorHex = getVariantColorHex(v);
                 return (
                   <span
                     key={v.id}

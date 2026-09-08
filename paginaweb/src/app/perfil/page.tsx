@@ -15,6 +15,7 @@ import { formatMoney } from "@/lib/money";
 import { isActiveOrder, isConfirmedOrder, orderStatusTone } from "@/lib/order-status";
 import { requireUser } from "@/lib/supabase/server";
 import type { Locale } from "@/types/catalog";
+import { safeStoreRedirect } from "@/lib/auth-redirect";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale() as Locale;
@@ -197,7 +198,11 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       .order("created_at", { ascending: false }),
   ]);
 
-  if (!profile?.profile_completed_at) redirect(localizeCanonicalPath("/perfil/editar", locale));
+  if (!profile?.profile_completed_at) {
+    const safeRedirect = safeStoreRedirect(params.redirect);
+    const editorPath = localizeCanonicalPath("/perfil/editar", locale);
+    redirect(safeRedirect ? `${editorPath}?redirect=${encodeURIComponent(safeRedirect)}` : editorPath);
+  }
 
   const orders = (data || []) as CustomerOrder[];
   const name = profile?.full_name || (typeof user.user_metadata?.full_name === "string" ? user.user_metadata.full_name : "");

@@ -6179,14 +6179,34 @@ img {
 }
 
 .catalog-mobile-checkbox {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 14px;
   height: 14px;
   flex: 0 0 14px;
   border: 1px solid #705c53;
   border-radius: 2px;
+  background: transparent;
 }
 
-.catalog-mobile-category-option input:checked + .catalog-mobile-checkbox { background: #2d1d16; }
+.catalog-mobile-category-option input:checked + .catalog-mobile-checkbox {
+  background: #2d1d16;
+  border-color: #2d1d16;
+}
+.catalog-mobile-category-option input:checked + .catalog-mobile-checkbox::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  width: 4px;
+  height: 7px;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  box-sizing: border-box;
+}
 .catalog-mobile-category-option:has(input:checked) { color: #2d1d16; font-weight: 500; }
 .catalog-mobile-category-option:has(input:focus-visible) .catalog-mobile-checkbox { outline: 3px solid var(--yerba); outline-offset: 3px; }
 
@@ -6506,6 +6526,10 @@ img {
   }
 
   .catalog-checkbox {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 14px;
     height: 14px;
     flex: 0 0 14px;
@@ -6514,7 +6538,22 @@ img {
     background: transparent;
   }
 
-  .catalog-check-row input:checked + .catalog-checkbox { background: #2d1d16; }
+  .catalog-check-row input:checked + .catalog-checkbox {
+    background: #2d1d16;
+    border-color: #2d1d16;
+  }
+  .catalog-check-row input:checked + .catalog-checkbox::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 5px;
+    width: 4px;
+    height: 7px;
+    border: solid #ffffff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    box-sizing: border-box;
+  }
   .catalog-check-row:has(input:checked) { color: #2d1d16; font-weight: 500; }
   .catalog-check-row:has(input:focus-visible) .catalog-checkbox { outline: 3px solid var(--yerba); outline-offset: 3px; }
 
@@ -6956,9 +6995,11 @@ img {
 }
 
 .catalog-color-swatch {
+  display: inline-block;
   width: 16px;
   height: 16px;
   flex: 0 0 16px;
+  align-self: center;
   border: 1px solid rgb(45 29 22 / 0.28);
   border-radius: 999px;
   box-shadow: inset 0 0 0 2px #faf6ee;
@@ -7051,10 +7092,44 @@ img {
   opacity: 0;
 }
 
-.catalog-mobile-filter-row input:checked + .catalog-mobile-checkbox { background: #2d1d16; }
+.catalog-mobile-filter-row input:checked + .catalog-mobile-checkbox {
+  background: #2d1d16;
+  border-color: #2d1d16;
+}
+.catalog-mobile-filter-row input:checked + .catalog-mobile-checkbox::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  width: 4px;
+  height: 7px;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  box-sizing: border-box;
+}
 .catalog-mobile-filter-row:has(input:checked) { color: #2d1d16; font-weight: 500; }
-.catalog-mobile-filter-row:has(input:focus-visible) .catalog-mobile-checkbox,
-.catalog-mobile-filter-row:has(input:focus-visible) .catalog-color-swatch { outline: 3px solid var(--yerba); outline-offset: 3px; }
+.catalog-mobile-filter-row:has(input:focus-visible) .catalog-mobile-checkbox { outline: 3px solid var(--yerba); outline-offset: 3px; }
+
+input:checked + .catalog-checkbox,
+input:checked + .catalog-mobile-checkbox {
+  background: #2d1d16;
+  border-color: #2d1d16;
+}
+
+input:checked + .catalog-checkbox::after,
+input:checked + .catalog-mobile-checkbox::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  width: 4px;
+  height: 7px;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  box-sizing: border-box;
+}
 
 .catalog-mobile-products {
   height: auto;
@@ -7728,7 +7803,7 @@ img {
 
 .personalizados-mobile-gallery-track {
   --personalizados-mobile-carousel-inset: 24px;
-  --personalizados-mobile-carousel-cycle: 3160px;
+  --personalizados-mobile-carousel-cycle: 4108px;
   display: flex;
   width: max-content;
   height: 380px;
@@ -7900,7 +7975,7 @@ img {
 
   .personalizados-desktop-gallery-track {
     --personalizados-carousel-inset: 64px;
-    --personalizados-carousel-cycle: 2408px;
+    --personalizados-carousel-cycle: 4472px;
     display: flex;
     width: max-content;
     height: 400px;

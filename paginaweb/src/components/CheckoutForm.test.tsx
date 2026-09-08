@@ -35,12 +35,12 @@ describe("CheckoutForm", () => {
     fireEvent.click(await screen.findByRole("radio", { name: /envío a domicilio/i }));
     fireEvent.click(screen.getByRole("radio", { name: /exterior/i }));
 
-    expect(screen.getByRole("textbox", { name: /^país$/i })).toBeRequired();
+    expect(screen.getByRole("combobox", { name: /^país$/i })).toBeRequired();
     expect(screen.getByLabelText(/^departamento \/ estado/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^dirección$/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /contactarte con nosotros/i })).toBeDisabled();
 
-    fireEvent.change(screen.getByRole("textbox", { name: /^país$/i }), { target: { value: "España" } });
+    fireEvent.change(screen.getByRole("combobox", { name: /^país$/i }), { target: { value: "ES" } });
     expect(screen.getByRole("button", { name: /contactarte con nosotros/i })).toBeEnabled();
   });
 
@@ -51,7 +51,7 @@ describe("CheckoutForm", () => {
     fireEvent.click(await screen.findByRole("radio", { name: /envío a domicilio/i }));
     fireEvent.click(screen.getByRole("radio", { name: /uruguay/i }));
 
-    expect(screen.queryByRole("textbox", { name: /^país$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /^país$/i })).not.toBeInTheDocument();
     expect(screen.getByLabelText(/^departamento$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^ciudad$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^dirección$/i)).toBeInTheDocument();

@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { filterAndSortCatalog, parseCatalogFilters, writeCatalogFilters, type CatalogFilters } from "./catalog-filters";
+import {
+  filterAndSortCatalog,
+  findMatchingVariantForColors,
+  getProductColors,
+  getVariantColorHex,
+  getVariantColorId,
+  matchVariantWithColor,
+  parseCatalogFilters,
+  writeCatalogFilters,
+  type CatalogFilters,
+} from "./catalog-filters";
 import type { Product } from "@/types/catalog";
 
 function product(id: string, priceUYU: number, overrides: Partial<Product["filterData"]> = {}) {
@@ -68,4 +78,74 @@ describe("filtros del catálogo", () => {
     const visible = filterAndSortCatalog(entries, { ...defaults, category: "bombillones", materials: ["plata"], colors: ["marron"] });
     expect(visible.map(({ product }) => product.id)).toEqual(["bombillon-cincelado"]);
   });
+
+  it("reconoce colores de variantes y permite filtrar por ellos", () => {
+    const p1: Product = {
+      ...product("mate-camionero-cuero", 4000).product,
+      variants: [
+        { id: "v-negro", label: "Negro", value: "negro" },
+        { id: "v-marron", label: "Marrón", value: "marron" },
+      ],
+      filterData: { priceUYU: 4000, materials: ["cuero"], productTypes: [] },
+    };
+    const p2: Product = {
+      ...product("mate-imperial-rojo", 4500).product,
+      variants: [
+        { id: "v-rojo", label: "Rojo", value: "rojo" },
+      ],
+      filterData: { priceUYU: 4500, materials: ["cuero"], productTypes: [] },
+    };
+
+    const entries = [{ product: p1 }, { product: p2 }];
+
+    const filteredNegro = filterAndSortCatalog(entries, { ...defaults, colors: ["negro"] });
+    expect(filteredNegro.map(({ product }) => product.id)).toEqual(["mate-camionero-cuero"]);
+
+    const filteredRojo = filterAndSortCatalog(entries, { ...defaults, colors: ["rojo"] });
+    expect(filteredRojo.map(({ product }) => product.id)).toEqual(["mate-imperial-rojo"]);
+  });
+
+  it("prioriza el campo color explícito de las variantes", () => {
+    const p: Product = {
+      ...product("mate-imperial-especial", 5000).product,
+      variants: [
+        { id: "v-1", label: "Edición A", value: "ed-a", color: "cuero-crudo" },
+        { id: "v-2", label: "Edición B (negro)", value: "ed-b", color: "marron" },
+      ],
+      filterData: { priceUYU: 5000, materials: ["cuero"], productTypes: [], colors: ["blanco"] },
+    };
+
+    // getProductColors prioriza los colores de las variantes sobre filterData
+    const colors = getProductColors(p);
+    expect(colors).toEqual(["cuero-crudo", "marron", "blanco"]);
+
+    // findMatchingVariantForColors busca primero por v.color
+    const matchMarron = findMatchingVariantForColors(p, ["marron"]);
+    expect(matchMarron?.id).toBe("v-2");
+
+    // getVariantColorId y getVariantColorHex usan v.color directamente
+    expect(getVariantColorId(p.variants[0])).toBe("cuero-crudo");
+    expect(getVariantColorHex(p.variants[0])).toBe("#e8d9bb");
+    expect(getVariantColorId(p.variants[1])).toBe("marron");
+    expect(getVariantColorHex(p.variants[1])).toBe("#6c4530");
+  });
+
+  it("reconoce y procesa correctamente los nuevos colores celeste, azul y beige", () => {
+    expect(matchVariantWithColor("Mate Celeste Cielo", "celeste")).toBe(true);
+    expect(matchVariantWithColor("Sky blue edition", "celeste")).toBe(true);
+    expect(matchVariantWithColor("Mate Azul Marino", "azul")).toBe(true);
+    expect(matchVariantWithColor("Blue classic", "azul")).toBe(true);
+    expect(matchVariantWithColor("Mate Beige Suave", "beige")).toBe(true);
+    expect(matchVariantWithColor("Color Arena", "beige")).toBe(true);
+
+    expect(getVariantColorId("Celeste")).toBe("celeste");
+    expect(getVariantColorId("Azul profundo")).toBe("azul");
+    expect(getVariantColorId("Arena")).toBe("beige");
+    expect(getVariantColorId("Beige claro")).toBe("beige");
+
+    expect(getVariantColorHex("celeste")).toBe("#74acdf");
+    expect(getVariantColorHex("azul")).toBe("#1e3a8a");
+    expect(getVariantColorHex("beige")).toBe("#dfd1b8");
+  });
 });
+

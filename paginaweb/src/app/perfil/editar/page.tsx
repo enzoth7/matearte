@@ -6,6 +6,7 @@ import { localizedAlternates } from "@/i18n/metadata";
 import { localizeCanonicalPath } from "@/i18n/paths";
 import { requireUser } from "@/lib/supabase/server";
 import type { Locale } from "@/types/catalog";
+import { safeStoreRedirect } from "@/lib/auth-redirect";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale() as Locale;
@@ -14,7 +15,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 export const dynamic = "force-dynamic";
 
-export default async function EditProfilePage() {
+export default async function EditProfilePage({ searchParams }: { searchParams: Promise<{ redirect?: string }> }) {
+  const params = await searchParams;
   const locale = await getLocale() as Locale;
   const { user, client } = await requireUser();
   if (!user) redirect(localizeCanonicalPath("/perfil", locale));
@@ -36,6 +38,7 @@ export default async function EditProfilePage() {
       <div className="container-shell max-w-[68rem]">
         <ProfileEditor
           welcome={!profile?.profile_completed_at}
+          postSaveRedirect={safeStoreRedirect(params.redirect) || undefined}
           initial={{
             fullName: profile?.full_name || fallbackName,
             phone: profile?.phone || "",

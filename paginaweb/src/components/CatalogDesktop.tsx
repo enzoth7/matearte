@@ -7,8 +7,10 @@ import { useMemo } from "react";
 import { CatalogFilterControls } from "@/components/catalog/CatalogFilterControls";
 import { useCatalogFilters } from "@/components/catalog/useCatalogFilters";
 import { filterAndSortCatalog, formatCatalogPrice, type CatalogSort } from "@/lib/catalog-filters";
-import type { Product } from "@/types/catalog";
+import type { CatalogColorId, Product } from "@/types/catalog";
 import { Link } from "@/i18n/navigation";
+import { ProductCardSwatches } from "@/components/catalog/ProductCardSwatches";
+import { useProductCardVariant } from "@/components/catalog/useProductCardVariant";
 
 const assetRoot = "/assets/matearte/catalog-desktop";
 
@@ -36,6 +38,84 @@ const productPresentation: Record<string, ProductPresentation> = {
   "box-matero": { image: "product-09.png", background: "background-14.png" },
 };
 
+type DesktopCardProps = {
+  product: Product;
+  presentation?: ProductPresentation;
+  index: number;
+  activeFilterColors: CatalogColorId[];
+  locale: string;
+  exchangeRates?: Record<string, number>;
+  consultLabel: string;
+};
+
+function CatalogDesktopCard({
+  product,
+  presentation,
+  index,
+  activeFilterColors,
+  locale,
+  exchangeRates,
+  consultLabel,
+}: DesktopCardProps) {
+  const {
+    highlightedVariantId,
+    variantImage,
+    displayedPrice,
+    swatchesToShow,
+    setHoveredVariantId,
+    handleSelectVariant,
+  } = useProductCardVariant(product, activeFilterColors);
+
+  const defaultImage = product.images?.[0];
+  const isEditorialFallback = !variantImage && defaultImage?.source !== "supabase" && Boolean(presentation);
+  const imageSrc = variantImage
+    ? variantImage.src
+    : isEditorialFallback
+    ? `${assetRoot}/${presentation!.image}`
+    : (defaultImage?.src ?? "");
+  const imageAlt = variantImage?.alt || defaultImage?.alt || product.name;
+  const showBackground = isEditorialFallback && Boolean(presentation?.background);
+
+  return (
+    <article className="catalog-product-card">
+      <Link href={{ pathname: "/producto/[slug]", params: { slug: product.slug } }}>
+        <div className="catalog-product-media">
+          {showBackground ? (
+            <Image
+              src={`${assetRoot}/${presentation!.background}`}
+              alt=""
+              fill
+              sizes="(max-width: 1200px) 28vw, 290px"
+              className="catalog-product-background"
+              aria-hidden="true"
+            />
+          ) : null}
+          {imageSrc ? (
+            <Image
+              src={imageSrc}
+              alt={imageAlt}
+              fill
+              sizes="(max-width: 1200px) 28vw, 290px"
+              className={`catalog-product-image ${presentation?.imageClass ?? ""}`}
+              priority={index < 3}
+            />
+          ) : null}
+        </div>
+        <div className="catalog-product-meta">
+          <h2>{product.name}</h2>
+          <p>{formatCatalogPrice(displayedPrice, consultLabel, locale, exchangeRates)}</p>
+          <ProductCardSwatches
+            variants={swatchesToShow}
+            highlightedVariantId={highlightedVariantId}
+            onSelect={handleSelectVariant}
+            onHover={setHoveredVariantId}
+          />
+        </div>
+      </Link>
+    </article>
+  );
+}
+
 export function CatalogDesktop({ products, exchangeRates }: { products: Product[]; exchangeRates?: Record<string, number> }) {
   const locale = useLocale();
   const t = useTranslations("catalog");
@@ -44,27 +124,10 @@ export function CatalogDesktop({ products, exchangeRates }: { products: Product[
   const { filters } = catalogFilters;
 
   const cards = useMemo(() => {
-    const entries = products.flatMap((product) => {
-      if (product.variants && product.variants.length > 1) {
-        return product.variants.map((variant) => {
-          const variantImage = product.images.find(img => img.variantId === variant.id) || product.images[0];
-          return {
-            product: {
-              ...product,
-              name: `${product.name} - ${variant.label}`,
-              filterData: {
-                ...product.filterData,
-                priceUYU: variant.price?.amountMinor ? variant.price.amountMinor / 100 : product.filterData.priceUYU
-              },
-              images: [variantImage],
-              variants: product.variants
-            },
-            presentation: productPresentation[product.id]
-          };
-        });
-      }
-      return [{ product, presentation: productPresentation[product.id] }];
-    });
+    const entries = products.map((product) => ({
+      product,
+      presentation: productPresentation[product.id],
+    }));
     return filterAndSortCatalog(entries, filters, locale);
   }, [filters, locale, products]);
 
@@ -103,54 +166,18 @@ export function CatalogDesktop({ products, exchangeRates }: { products: Product[
 
         {cards.length > 0 ? (
           <div className="catalog-product-grid">
-            {cards.map(({ product, presentation }, index) => {
-              const uploadedImage = product.images[0].source === "supabase" || !presentation;
-              const imageSrc = uploadedImage ? product.images[0].src : `${assetRoot}/${presentation.image}`;
-              return (
-                <article key={`${product.id}-${product.name}`} className="catalog-product-card">
-                  <Link href={{ pathname: "/producto/[slug]", params: { slug: product.slug } }}>
-                    <div className="catalog-product-media">
-                      {!uploadedImage && presentation.background ? <Image src={`${assetRoot}/${presentation.background}`} alt="" fill sizes="(max-width: 1200px) 28vw, 290px" className="catalog-product-background" aria-hidden="true" /> : null}
-                      <Image src={imageSrc} alt={product.images[0].alt} fill sizes="(max-width: 1200px) 28vw, 290px" className={`catalog-product-image ${presentation?.imageClass ?? ""}`} priority={index < 3} />
-                    </div>
-                    <div className="catalog-product-meta">
-                      <h2>{product.name}</h2>
-                      <p>{formatCatalogPrice(product.filterData.priceUYU, common("consult"), locale, exchangeRates)}</p>
-                      {product.variants && product.variants.length > 1 && (
-                        <div style={{ display: 'flex', gap: '0.25rem', marginTop: '0.5rem' }}>
-                          {product.variants.map((v) => {
-                            const colorHex = v.label.toLowerCase().includes('negro') ? '#222222' 
-                                           : v.label.toLowerCase().includes('marr') ? '#8B4513'
-                                           : v.label.toLowerCase().includes('natural') ? '#D2B48C'
-                                           : v.label.toLowerCase().includes('crudo') ? '#E6C280'
-                                           : v.label.toLowerCase().includes('rojo') ? '#a83232'
-                                           : v.label.toLowerCase().includes('blanco') ? '#f5f5f5'
-                                           : v.label.toLowerCase().includes('rosado') ? '#e8a4a4'
-                                           : v.label.toLowerCase().includes('gris') ? '#8c8c8c'
-                                           : v.label.toLowerCase().includes('dorado') ? '#c9a859'
-                                           : '#ccc';
-                            return (
-                              <span
-                                key={v.id}
-                                style={{
-                                  display: 'block',
-                                  height: '0.75rem',
-                                  width: '0.75rem',
-                                  borderRadius: '0',
-                                  border: '1px solid #ccc',
-                                  backgroundColor: colorHex
-                                }}
-                                title={v.label}
-                              />
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-                </article>
-              );
-            })}
+            {cards.map(({ product, presentation }, index) => (
+              <CatalogDesktopCard
+                key={product.id}
+                product={product}
+                presentation={presentation}
+                index={index}
+                activeFilterColors={filters.colors}
+                locale={locale}
+                exchangeRates={exchangeRates}
+                consultLabel={common("consult")}
+              />
+            ))}
           </div>
         ) : (
           <div className="catalog-empty">
