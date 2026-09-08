@@ -143,7 +143,6 @@ export function CatalogFilterControls({
   const listClass = mobile ? "catalog-mobile-filter-list" : "catalog-filter-list";
   const rowClass = mobile ? "catalog-mobile-filter-row" : "catalog-check-row";
   const availableColors = new Set(products.flatMap((product) => getProductColors(product)));
-  const hasActiveFilters = filters.category !== "todas" || filters.prices.length > 0 || filters.materials.length > 0 || filters.productTypes.length > 0 || filters.colors.length > 0;
 
   return (
     <div className={mobile ? "catalog-mobile-filter-groups" : "catalog-filter-groups"}>
@@ -222,8 +221,6 @@ export function CatalogFilterControls({
         </div>
         {availableColors.size === 0 && <p id={`${idPrefix}-color-note`} className="catalog-filter-note">{t("comingSoon")}</p>}
       </fieldset>
-
-      {hasActiveFilters && <button type="button" className="catalog-clear-filters" onClick={onClear}>{t("clear")}</button>}
     </div>
   );
 }

@@ -6074,9 +6074,17 @@ img {
 
 .catalog-mobile-controls-heading {
   display: flex;
-  height: 32px;
+  min-height: 32px;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+}
+
+.catalog-mobile-heading-left {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .catalog-mobile-controls-heading h2 {
@@ -6461,6 +6469,14 @@ img {
     width: 220px;
     min-height: 523px;
     color: #705c53;
+  }
+
+  .catalog-filters-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
   }
 
   .catalog-filters h2 {
@@ -7012,16 +7028,27 @@ img {
 }
 
 .catalog-clear-filters {
-  min-height: 44px;
-  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
   border-bottom: 1px solid currentColor;
-  color: #2d1d16;
+  color: #705c53;
   cursor: pointer;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-underline-offset: 2px;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.catalog-clear-filters:focus-visible { outline: 3px solid var(--yerba); outline-offset: 3px; }
+.catalog-clear-filters:hover {
+  color: #2d1d16;
+}
+
+.catalog-clear-filters:focus-visible { outline: 2px solid var(--yerba); outline-offset: 2px; }
 
 .catalog-mobile-controls {
   height: auto;

@@ -284,3 +284,13 @@ export function formatCatalogPrice(priceUYU?: number, consultLabel = "Consultar"
   }
   return `$ ${new Intl.NumberFormat("es-UY").format(priceUYU)} UYU`;
 }
+
+export function hasActiveCatalogFilters(filters: CatalogFilters): boolean {
+  return (
+    filters.category !== "todas" ||
+    filters.prices.length > 0 ||
+    filters.materials.length > 0 ||
+    filters.productTypes.length > 0 ||
+    filters.colors.length > 0
+  );
+}

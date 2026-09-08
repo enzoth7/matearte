@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useMemo } from "react";
 import { CatalogFilterControls } from "@/components/catalog/CatalogFilterControls";
 import { useCatalogFilters } from "@/components/catalog/useCatalogFilters";
-import { filterAndSortCatalog, formatCatalogPrice, type CatalogSort } from "@/lib/catalog-filters";
+import { filterAndSortCatalog, formatCatalogPrice, hasActiveCatalogFilters, type CatalogSort } from "@/lib/catalog-filters";
 import type { CatalogColorId, Product } from "@/types/catalog";
 import { Link } from "@/i18n/navigation";
 import { ProductCardSwatches } from "@/components/catalog/ProductCardSwatches";
@@ -112,6 +112,8 @@ export function CatalogMobile({ products, exchangeRates }: { products: Product[]
     return filterAndSortCatalog(entries, filters, locale);
   }, [filters, locale, products]);
 
+  const hasActiveFilters = hasActiveCatalogFilters(filters);
+
   return (
     <>
       <section className="catalog-mobile-hero">
@@ -126,7 +128,18 @@ export function CatalogMobile({ products, exchangeRates }: { products: Product[]
       <section className="catalog-mobile-controls" aria-label={t("filtersLabel")}>
         <div className="catalog-mobile-controls-inner">
           <div className="catalog-mobile-controls-heading">
-            <h2>{t("filters")}</h2>
+            <div className="catalog-mobile-heading-left">
+              <h2>{t("filters")}</h2>
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  className="catalog-clear-filters"
+                  onClick={catalogFilters.clearFilters}
+                >
+                  {t("clear")}
+                </button>
+              )}
+            </div>
             <label className="catalog-mobile-sort">
               <span>{t("sortBy")}</span>
               <span className="catalog-mobile-sort-control">

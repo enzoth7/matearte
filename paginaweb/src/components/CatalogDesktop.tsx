@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useMemo } from "react";
 import { CatalogFilterControls } from "@/components/catalog/CatalogFilterControls";
 import { useCatalogFilters } from "@/components/catalog/useCatalogFilters";
-import { filterAndSortCatalog, formatCatalogPrice, type CatalogSort } from "@/lib/catalog-filters";
+import { filterAndSortCatalog, formatCatalogPrice, hasActiveCatalogFilters, type CatalogSort } from "@/lib/catalog-filters";
 import type { CatalogColorId, Product } from "@/types/catalog";
 import { Link } from "@/i18n/navigation";
 import { ProductCardSwatches } from "@/components/catalog/ProductCardSwatches";
@@ -131,11 +131,24 @@ export function CatalogDesktop({ products, exchangeRates }: { products: Product[
     return filterAndSortCatalog(entries, filters, locale);
   }, [filters, locale, products]);
 
+  const hasActiveFilters = hasActiveCatalogFilters(filters);
+
   return (
     <div className="catalog-desktop-layout">
       <aside className="catalog-filters" aria-label={t("filtersLabel")}>
         <div className="catalog-filters-inner">
-          <h2>{t("filters")}</h2>
+          <div className="catalog-filters-header">
+            <h2>{t("filters")}</h2>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                className="catalog-clear-filters"
+                onClick={catalogFilters.clearFilters}
+              >
+                {t("clear")}
+              </button>
+            )}
+          </div>
           <CatalogFilterControls
             variant="desktop"
             idPrefix="catalog-desktop"

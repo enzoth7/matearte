@@ -5,6 +5,7 @@ import {
   getProductColors,
   getVariantColorHex,
   getVariantColorId,
+  hasActiveCatalogFilters,
   matchVariantWithColor,
   parseCatalogFilters,
   writeCatalogFilters,
@@ -146,6 +147,15 @@ describe("filtros del catálogo", () => {
     expect(getVariantColorHex("celeste")).toBe("#74acdf");
     expect(getVariantColorHex("azul")).toBe("#1e3a8a");
     expect(getVariantColorHex("beige")).toBe("#dfd1b8");
+  });
+
+  it("determina correctamente si existen filtros activos", () => {
+    expect(hasActiveCatalogFilters(defaults)).toBe(false);
+    expect(hasActiveCatalogFilters({ ...defaults, category: "mates" })).toBe(true);
+    expect(hasActiveCatalogFilters({ ...defaults, prices: ["menos-3000"] })).toBe(true);
+    expect(hasActiveCatalogFilters({ ...defaults, materials: ["cuero"] })).toBe(true);
+    expect(hasActiveCatalogFilters({ ...defaults, productTypes: ["imperial"] })).toBe(true);
+    expect(hasActiveCatalogFilters({ ...defaults, colors: ["negro"] })).toBe(true);
   });
 });
 
