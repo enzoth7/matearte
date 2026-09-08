@@ -5300,12 +5300,27 @@ img {
 
 .home-hero-media,
 .home-hero-scrim { position: absolute; inset: 0; }
-.home-hero-media { will-change: transform, opacity; }
+.home-hero-media { background: #111713; will-change: transform, opacity; }
 .home-hero-poster,
 .home-hero-video { width: 100%; height: 100%; object-fit: cover; }
 .home-hero-poster { object-position: 50% 58%; }
 .home-hero-video { position: absolute; inset: 0; object-position: 50% 47%; }
 .home-hero-scrim { z-index: 1; background: linear-gradient(90deg, rgb(34 16 9 / 0.7), rgb(34 16 9 / 0.32) 50%, rgb(34 16 9 / 0.7)), linear-gradient(0deg, rgb(34 16 9 / 0.48), transparent 58%); }
+
+/* The source is a vertical 9:16 video. On wider screens, keeping it edge-to-edge
+   zooms it too far and discards most of the frame, so constrain the moving layer
+   and blend its sides into the poster instead. */
+@media (min-width: 641px) {
+  .home-hero-poster { filter: blur(16px) brightness(0.55); transform: scale(1.06); }
+  .home-hero-video {
+    inset: 50% auto auto 50%;
+    width: min(62vw, 52.5rem);
+    height: 100%;
+    transform: translate(-50%, -50%);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  }
+}
 
 .home-hero-content {
   position: relative;
