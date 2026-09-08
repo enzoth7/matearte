@@ -157,5 +157,14 @@ describe("filtros del catálogo", () => {
     expect(hasActiveCatalogFilters({ ...defaults, productTypes: ["imperial"] })).toBe(true);
     expect(hasActiveCatalogFilters({ ...defaults, colors: ["negro"] })).toBe(true);
   });
+
+  it("reconoce formas femeninas y variantes reales como Ovalada Negra y Celeste", () => {
+    expect(getVariantColorId("Ovalada Negra")).toBe("negro");
+    expect(getVariantColorHex("Ovalada Negra")).toBe("#241d1a");
+    expect(getVariantColorId("Celeste Seleccion Uruguaya")).toBe("celeste");
+    expect(getVariantColorHex("Celeste Seleccion Uruguaya")).toBe("#74acdf");
+    expect(getVariantColorId("Cuadrada Roja")).toBe("rojo");
+    expect(getVariantColorHex("Cuadrada Roja")).toBe("#a83232");
+  });
 });
 

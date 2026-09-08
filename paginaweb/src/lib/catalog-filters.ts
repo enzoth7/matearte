@@ -123,29 +123,29 @@ export function matchVariantWithColor(variantLabel: string, color: CatalogColorI
   const norm = variantLabel.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   switch (color) {
     case "negro":
-      return norm.includes("negro") || norm.includes("black");
+      return norm.includes("negr") || norm.includes("black");
     case "marron":
-      return norm.includes("marron") || norm.includes("brown") || norm.includes("suela");
+      return norm.includes("marr") || norm.includes("brown") || norm.includes("suela") || norm.includes("chocolate") || norm.includes("cafe");
     case "natural":
       return norm.includes("natural");
     case "cuero-crudo":
       return norm.includes("crudo") || norm.includes("raw");
     case "rojo":
-      return norm.includes("rojo") || norm.includes("red");
+      return norm.includes("roj") || norm.includes("red") || norm.includes("bordo");
     case "blanco":
-      return norm.includes("blanco") || norm.includes("white");
+      return norm.includes("blanc") || norm.includes("white");
     case "rosado":
-      return norm.includes("rosado") || norm.includes("rosa") || norm.includes("pink");
+      return norm.includes("rosad") || norm.includes("rosa") || norm.includes("pink");
     case "gris":
-      return norm.includes("gris") || norm.includes("gray") || norm.includes("grey");
+      return norm.includes("gris") || norm.includes("gray") || norm.includes("grey") || norm.includes("plata") || norm.includes("acero");
     case "dorado":
-      return norm.includes("dorado") || norm.includes("oro") || norm.includes("gold");
+      return norm.includes("dorad") || norm.includes("oro") || norm.includes("gold") || norm.includes("bronce") || norm.includes("cobre");
     case "celeste":
       return norm.includes("celeste") || norm.includes("sky");
     case "azul":
-      return norm.includes("azul") || norm.includes("blue");
+      return norm.includes("azul") || norm.includes("blue") || norm.includes("marino");
     case "beige":
-      return norm.includes("beige") || norm.includes("arena");
+      return norm.includes("beige") || norm.includes("arena") || norm.includes("crema") || norm.includes("nude") || norm.includes("camel");
     default:
       return false;
   }
@@ -165,18 +165,18 @@ export function getVariantColorId(
   }
   if (explicitColor) return explicitColor;
   const norm = variantOrLabel.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  if (norm.includes("negro") || norm.includes("black")) return "negro";
-  if (norm.includes("marron") || norm.includes("brown") || norm.includes("suela")) return "marron";
+  if (norm.includes("negr") || norm.includes("black")) return "negro";
+  if (norm.includes("marr") || norm.includes("brown") || norm.includes("suela") || norm.includes("chocolate") || norm.includes("cafe")) return "marron";
   if (norm.includes("crudo") || norm.includes("raw")) return "cuero-crudo";
   if (norm.includes("natural")) return "natural";
-  if (norm.includes("rojo") || norm.includes("red")) return "rojo";
-  if (norm.includes("blanco") || norm.includes("white")) return "blanco";
-  if (norm.includes("rosado") || norm.includes("rosa") || norm.includes("pink")) return "rosado";
-  if (norm.includes("gris") || norm.includes("gray") || norm.includes("grey")) return "gris";
-  if (norm.includes("dorado") || norm.includes("oro") || norm.includes("gold")) return "dorado";
+  if (norm.includes("roj") || norm.includes("red") || norm.includes("bordo")) return "rojo";
+  if (norm.includes("blanc") || norm.includes("white")) return "blanco";
+  if (norm.includes("rosad") || norm.includes("rosa") || norm.includes("pink")) return "rosado";
+  if (norm.includes("gris") || norm.includes("gray") || norm.includes("grey") || norm.includes("plata") || norm.includes("acero")) return "gris";
+  if (norm.includes("dorad") || norm.includes("oro") || norm.includes("gold") || norm.includes("bronce") || norm.includes("cobre")) return "dorado";
   if (norm.includes("celeste") || norm.includes("sky")) return "celeste";
-  if (norm.includes("azul") || norm.includes("blue")) return "azul";
-  if (norm.includes("beige") || norm.includes("arena")) return "beige";
+  if (norm.includes("azul") || norm.includes("blue") || norm.includes("marino")) return "azul";
+  if (norm.includes("beige") || norm.includes("arena") || norm.includes("crema") || norm.includes("nude") || norm.includes("camel")) return "beige";
   return undefined;
 }
 
