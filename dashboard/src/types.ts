@@ -1,4 +1,5 @@
 export type ProductionStatus = "Pendiente" | "En producción";
+export type OrderType = "normal" | "no_cost";
 
 export type ViewId = "resumen" | "nuevo" | "clientes" | "produccion" | "historico" | "productos";
 
@@ -21,6 +22,7 @@ export interface ProductionItem {
   variant: string;
   quantity: number;
   status: ProductionStatus;
+  orderType?: OrderType;
   unitPriceArg?: number;
   unitPriceUyu?: number;
   exchangeRate?: number;
@@ -37,6 +39,7 @@ export interface HistoryItem {
   variant: string;
   quantity: number;
   completedAt: string | null;
+  orderType?: OrderType;
   unitPriceArg?: number;
   unitPriceUyu?: number;
   exchangeRate?: number;

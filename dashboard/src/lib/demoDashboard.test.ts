@@ -93,6 +93,25 @@ describe("demo dashboard", () => {
     expect(persistingLine?.totalUyu).toBe(originalPriceUyu * 3);
   });
 
+  it("guarda los pedidos sin costo con importes en cero", async () => {
+    const initial = await demoRequest<DashboardData>("/api/dashboard");
+    const result = await demoRequest<{ data: DashboardData; orderId: string }>("/api/orders", {
+      method: "POST",
+      body: JSON.stringify({
+        customer: "Cliente ya pago",
+        orderType: "no_cost",
+        items: [{ key: "1", productId: initial.products[0].id, quantity: 2 }],
+      }),
+    });
+
+    const line = result.data.production.find((item) => item.orderId === result.orderId);
+    expect(line?.orderType).toBe("no_cost");
+    expect(line?.unitPriceArg).toBe(0);
+    expect(line?.unitPriceUyu).toBe(0);
+    expect(line?.totalArg).toBe(0);
+    expect(line?.totalUyu).toBe(0);
+  });
+
   it("fusiona clientes reasignando pedidos y combinando notas al renombrar hacia un cliente existente", async () => {
     const initial = await demoRequest<DashboardData>("/api/dashboard");
     const pId = initial.products[0].id;

@@ -75,6 +75,7 @@ async function getDashboardData() {
         variant: l.variant,
         quantity: l.quantity,
         status: l.status,
+        orderType: l.order_type === "no_cost" ? "no_cost" : "normal",
         unitPriceArg: l.unit_price_arg != null ? Number(l.unit_price_arg) : undefined,
         unitPriceUyu: l.unit_price_uyu != null ? Number(l.unit_price_uyu) : undefined,
         exchangeRate: l.exchange_rate != null ? Number(l.exchange_rate) : undefined,
@@ -92,6 +93,7 @@ async function getDashboardData() {
         variant: l.variant,
         quantity: l.quantity,
         completedAt: l.completed_at,
+        orderType: l.order_type === "no_cost" ? "no_cost" : "normal",
         unitPriceArg: l.unit_price_arg != null ? Number(l.unit_price_arg) : undefined,
         unitPriceUyu: l.unit_price_uyu != null ? Number(l.unit_price_uyu) : undefined,
         exchangeRate: l.exchange_rate != null ? Number(l.exchange_rate) : undefined,
@@ -229,6 +231,7 @@ app.post("/api/orders", async (request, response, next) => {
   try {
     const customer = cleanText(request.body.customer);
     const items = Array.isArray(request.body.items) ? request.body.items : [];
+    const orderType = request.body.orderType === "no_cost" ? "no_cost" : "normal";
     if (!customer || !items.length) return response.status(400).json({ error: "Cliente y artículos son obligatorios." });
 
     const orderId = `PED-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -245,8 +248,8 @@ app.post("/api/orders", async (request, response, next) => {
       const product = productsMap.get(String(item.productId));
       if (!product) throw new Error(`Producto inexistente: ${item.productId}`);
       const quantity = cleanQuantity(item.quantity);
-      const unitPriceArg = Number(product.price_arg) || 0;
-      const unitPriceUyu = Number(product.price_uyu) || (unitPriceArg * rate);
+      const unitPriceArg = orderType === "no_cost" ? 0 : Number(product.price_arg) || 0;
+      const unitPriceUyu = orderType === "no_cost" ? 0 : Number(product.price_uyu) || (unitPriceArg * rate);
       const totalArg = unitPriceArg * quantity;
       const totalUyu = unitPriceUyu * quantity;
       return {
@@ -257,6 +260,7 @@ app.post("/api/orders", async (request, response, next) => {
         variant: product.variant,
         quantity,
         status: "Pendiente",
+        order_type: orderType,
         created_at: createdAt,
         unit_price_arg: unitPriceArg,
         unit_price_uyu: unitPriceUyu,

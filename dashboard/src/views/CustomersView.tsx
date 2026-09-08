@@ -1,8 +1,10 @@
 import { useMemo, useState, type FormEvent } from "react";
-import { CaretDownIcon, CaretUpDownIcon, CaretUpIcon, MagnifyingGlassIcon, PlusIcon, XIcon } from "@phosphor-icons/react";
+import { CaretDownIcon, CaretUpDownIcon, CaretUpIcon, FilePdfIcon, MagnifyingGlassIcon, PlusIcon, PrinterIcon, XIcon } from "@phosphor-icons/react";
 import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
-import { formatDate, formatNumber, normalizeText } from "../lib/format";
+import { formatArg, formatDate, formatNumber, normalizeText } from "../lib/format";
+import { exportCustomerOrderToPdf, groupCustomerHistoryByOrder } from "../lib/customerOrderPdf";
+import { exportCustomerPendingToPdf } from "../lib/pdfExport";
 import type { CustomerProfile, DashboardData } from "../types";
 
 interface CustomersViewProps {
@@ -36,6 +38,7 @@ export function CustomersView({ data, onAdd, onRename }: CustomersViewProps) {
   const [editingCustomer, setEditingCustomer] = useState<string | null>(null);
   const [form, setForm] = useState<CustomerProfile>(emptyCustomer);
   const [saving, setSaving] = useState(false);
+  const [historyView, setHistoryView] = useState<"products" | "orders">("products");
   const [customerSort, setCustomerSort] = useState<{ key: CustomerSortKey; direction: CustomerSortDirection }>({ key: "latestPurchase", direction: "desc" });
 
   const customerOptions = useMemo(() => {
@@ -104,6 +107,24 @@ export function CustomersView({ data, onAdd, onRename }: CustomersViewProps) {
     };
   }, [data.history, editingCustomer]);
 
+  const editingPending = useMemo(() => {
+    if (!editingCustomer) return [];
+    const customerKey = normalizeText(editingCustomer);
+    return data.production.filter((item) => item.status === "Pendiente" && normalizeText(item.customer) === customerKey);
+  }, [data.production, editingCustomer]);
+
+  const editingOrders = useMemo(() => {
+    if (!editingCustomer) return [];
+    const customerKey = normalizeText(editingCustomer);
+    return groupCustomerHistoryByOrder(
+      [
+        ...data.history.filter((item) => normalizeText(item.customer) === customerKey),
+        ...data.production.filter((item) => normalizeText(item.customer) === customerKey),
+      ],
+      data.products,
+    );
+  }, [data.history, data.production, data.products, editingCustomer]);
+
   const requestCustomerSort = (key: CustomerSortKey) => {
     setCustomerSort((current) => current.key === key
       ? { key, direction: current.direction === "desc" ? "asc" : "desc" }
@@ -128,12 +149,14 @@ export function CustomersView({ data, onAdd, onRename }: CustomersViewProps) {
   const openNewCustomer = () => {
     setEditingCustomer(null);
     setForm(emptyCustomer);
+    setHistoryView("products");
     setDialogOpen(true);
   };
 
   const openCustomer = (profile: CustomerProfile) => {
     setEditingCustomer(profile.fullName);
     setForm(profile);
+    setHistoryView("products");
     setDialogOpen(true);
   };
 
@@ -259,10 +282,18 @@ export function CustomersView({ data, onAdd, onRename }: CustomersViewProps) {
             {editingCustomer && (
               <section className="customer-history-summary" aria-labelledby="customer-history-title">
                 <div className="customer-history-heading">
-                  <h3 id="customer-history-title">Histórico por tipo de mate</h3>
-                  <p>{formatNumber(editingHistory.totalOrders)} pedidos · {formatNumber(editingHistory.totalUnits)} unidades</p>
+                  <div>
+                    <h3 id="customer-history-title">Pedidos del cliente</h3>
+                    <p>{historyView === "orders"
+                      ? `${formatNumber(editingOrders.length)} pedidos · ${formatNumber(editingOrders.reduce((sum, order) => sum + order.totalUnits, 0))} unidades`
+                      : `${formatNumber(editingHistory.totalOrders)} pedidos · ${formatNumber(editingHistory.totalUnits)} unidades`}</p>
+                  </div>
+                  <div className="customer-history-tabs" role="tablist" aria-label="Vista del histórico">
+                    <button type="button" role="tab" aria-selected={historyView === "products"} className={historyView === "products" ? "is-active" : ""} onClick={() => setHistoryView("products")}>Por tipo de mate</button>
+                    <button type="button" role="tab" aria-selected={historyView === "orders"} className={historyView === "orders" ? "is-active" : ""} onClick={() => setHistoryView("orders")}>Por pedido</button>
+                  </div>
                 </div>
-                {editingHistory.rows.length ? (
+                {historyView === "products" && editingHistory.rows.length ? (
                   <div className="responsive-table-wrap">
                     <table className="data-table customer-history-table">
                       <thead><tr><th>Tipo de mate</th><th>Pedidos</th><th>Unidades</th></tr></thead>
@@ -278,13 +309,53 @@ export function CustomersView({ data, onAdd, onRename }: CustomersViewProps) {
                       <tfoot><tr><th>Total</th><td>{formatNumber(editingHistory.totalOrders)}</td><td>{formatNumber(editingHistory.totalUnits)}</td></tr></tfoot>
                     </table>
                   </div>
+                ) : historyView === "orders" && editingOrders.length ? (
+                  <div className="responsive-table-wrap">
+                    <table className="data-table customer-history-table customer-orders-table">
+                      <thead><tr><th>Pedido</th><th>Fecha</th><th>Estado</th><th>Tipo</th><th>Unidades</th><th>Total</th><th><span className="sr-only">PDF</span></th></tr></thead>
+                      <tbody>
+                        {editingOrders.map((order) => (
+                          <tr key={order.orderId}>
+                            <th scope="row" data-label="Pedido">{order.orderId}</th>
+                            <td data-label="Fecha">{formatDate(order.createdAt, false)}</td>
+                            <td data-label="Estado"><span className={`order-status-badge is-${normalizeText(order.status).replace(/\s+/g, "-")}`}>{order.status}</span></td>
+                            <td data-label="Tipo">{order.orderType === "no_cost" ? <span className="order-type-badge is-no-cost">Sin costo</span> : <span className="order-type-badge">Normal</span>}</td>
+                            <td data-label="Unidades">{formatNumber(order.totalUnits)}</td>
+                            <td data-label="Total">{formatArg(order.totalArg)}</td>
+                            <td data-label="Documento">
+                              <button
+                                type="button"
+                                className="customer-order-pdf-button"
+                                aria-label={`Generar PDF del pedido ${order.orderId}`}
+                                onClick={() => void exportCustomerOrderToPdf(order, data.products, form)}
+                              >
+                                <FilePdfIcon size={18} aria-hidden="true" />
+                                PDF
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 ) : (
-                  <p className="customer-history-empty">No hay pedidos históricos para este cliente.</p>
+                  <p className="customer-history-empty">No hay pedidos para este cliente.</p>
                 )}
               </section>
             )}
 
             <footer>
+              {editingCustomer && (
+                <button
+                  type="button"
+                  className="button-secondary customer-print-pending"
+                  disabled={!editingPending.length}
+                  onClick={() => exportCustomerPendingToPdf(data.production, editingCustomer)}
+                >
+                  <PrinterIcon size={18} aria-hidden="true" />
+                  {editingPending.length ? `Imprimir pendientes (${formatNumber(editingPending.reduce((sum, item) => sum + item.quantity, 0))})` : "Sin pendientes para imprimir"}
+                </button>
+              )}
               <button type="button" className="button-quiet" onClick={closeDialog}>Cancelar</button>
               <button type="submit" className="button-primary" disabled={saving || !form.firstName.trim()}>{saving ? "Guardando…" : "Guardar cliente"}</button>
             </footer>

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DashboardData } from "../types";
 import { NewOrderView } from "./NewOrderView";
@@ -31,7 +31,8 @@ describe("NewOrderView", () => {
 
     expect(screen.getByRole("heading", { name: "Encargar pedido" })).toBeInTheDocument();
     expect(container.querySelector(".order-page-heading img")).not.toBeInTheDocument();
-    expect(container.querySelectorAll("legend")).toHaveLength(0);
+    expect(container.querySelectorAll("legend")).toHaveLength(1);
+    expect(screen.getByRole("radio", { name: /Pedido normal/ })).toBeChecked();
     expect(screen.getAllByText("Modelo")).toHaveLength(1);
 
     fireEvent.click(screen.getByRole("button", { name: "Agregar artículo" }));
@@ -52,5 +53,21 @@ describe("NewOrderView", () => {
 
     expect(screen.queryByRole("button", { name: "Administrar clientes" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Pedido nuevo" })).not.toBeInTheDocument();
+  });
+
+  it("registra un pedido sin costo sin reflejar importe", async () => {
+    const onAddOrder = vi.fn().mockResolvedValue("PED-200");
+    render(<NewOrderView data={data} onAddOrder={onAddOrder} onNavigate={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("Encargar pedido a"), { target: { value: "GASPAR" } });
+    fireEvent.click(screen.getByRole("radio", { name: /Pedido sin costo/ }));
+    fireEvent.change(screen.getByLabelText("Modelo de la fila 1"), { target: { value: "Torpedo" } });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar pedido" }));
+
+    await waitFor(() => expect(onAddOrder).toHaveBeenCalledWith(
+      "GASPAR",
+      [expect.objectContaining({ productId: "torpedo-natural", quantity: 1 })],
+      "no_cost",
+    ));
   });
 });

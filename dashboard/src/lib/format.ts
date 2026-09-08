@@ -10,6 +10,7 @@ export interface ProductionExportRow {
   Cuero: string;
   Cantidad: number;
   Estado: string;
+  "Tipo de pedido": string;
   "Precio Unitario ARG": number;
   "Total ARG": number;
   "Total UYU": number;
@@ -59,10 +60,10 @@ export const findProduct = (products: Product[], item: Pick<ProductionItem, "mod
   );
 
 export const getLineValueArg = (products: Product[], item: ProductionItem) =>
-  item.totalArg ?? (item.unitPriceArg ? item.unitPriceArg * item.quantity : (findProduct(products, item)?.priceArg ?? 0) * item.quantity);
+  item.orderType === "no_cost" ? 0 : item.totalArg ?? (item.unitPriceArg ? item.unitPriceArg * item.quantity : (findProduct(products, item)?.priceArg ?? 0) * item.quantity);
 
 export const getLineValueUyu = (products: Product[], item: ProductionItem, fallbackExchangeRate: number) =>
-  item.totalUyu ?? (item.unitPriceUyu ? item.unitPriceUyu * item.quantity : getLineValueArg(products, item) * (item.exchangeRate ?? fallbackExchangeRate));
+  item.orderType === "no_cost" ? 0 : item.totalUyu ?? (item.unitPriceUyu ? item.unitPriceUyu * item.quantity : getLineValueArg(products, item) * (item.exchangeRate ?? fallbackExchangeRate));
 
 export const downloadCsv = (filename: string, rows: Array<Array<string | number>>) => {
   const escapeCell = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
@@ -90,10 +91,10 @@ export const buildProductionExportRows = (
 ): ProductionExportRow[] =>
   items.map((item) => {
     const product = findProduct(products, item);
-    const priceArg = item.unitPriceArg ?? product?.priceArg ?? 0;
-    const totalArg = item.totalArg ?? (item.quantity * priceArg);
+    const priceArg = item.orderType === "no_cost" ? 0 : item.unitPriceArg ?? product?.priceArg ?? 0;
+    const totalArg = item.orderType === "no_cost" ? 0 : item.totalArg ?? (item.quantity * priceArg);
     const rate = item.exchangeRate ?? exchangeRate;
-    const totalUyu = item.totalUyu ?? Math.round(totalArg * rate * 100) / 100;
+    const totalUyu = item.orderType === "no_cost" ? 0 : item.totalUyu ?? Math.round(totalArg * rate * 100) / 100;
 
     return {
       Pedido: item.orderId?.trim() || "-",
@@ -104,6 +105,7 @@ export const buildProductionExportRows = (
       Cuero: product?.leatherType?.trim() || "-",
       Cantidad: item.quantity,
       Estado: item.status,
+      "Tipo de pedido": item.orderType === "no_cost" ? "Sin costo" : "Normal",
       "Precio Unitario ARG": priceArg,
       "Total ARG": totalArg,
       "Total UYU": totalUyu,
@@ -121,6 +123,7 @@ export const createProductionWorkbook = (
   worksheet["!cols"] = [
     { wch: 14 },
     { wch: 22 },
+    { wch: 16 },
     { wch: 16 },
     { wch: 20 },
     { wch: 16 },

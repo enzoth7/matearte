@@ -3,6 +3,7 @@ import type {
   CustomerProfile,
   DashboardData,
   DraftOrderItem,
+  OrderType,
   Product,
   ProductionItem,
 } from "../types";
@@ -61,6 +62,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     variant: string;
     quantity: number;
     status: string;
+    order_type?: string | null;
     completed_at?: string | null;
     unit_price_arg?: number | null;
     unit_price_uyu?: number | null;
@@ -105,6 +107,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
         variant: l.variant,
         quantity: Number(l.quantity) || 1,
         status: (l.status === "En producción" ? "En producción" : "Pendiente") as "Pendiente" | "En producción",
+        orderType: l.order_type === "no_cost" ? "no_cost" : "normal",
         unitPriceArg: l.unit_price_arg != null ? Number(l.unit_price_arg) : undefined,
         unitPriceUyu: l.unit_price_uyu != null ? Number(l.unit_price_uyu) : undefined,
         exchangeRate: l.exchange_rate != null ? Number(l.exchange_rate) : undefined,
@@ -112,6 +115,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
         totalUyu: l.total_uyu != null ? Number(l.total_uyu) : undefined,
       })),
     history: rawLines
+      .filter((l) => l.status === "Completado")
       .map((l) => ({
         lineId: l.line_id,
         orderId: l.order_id,
@@ -121,6 +125,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
         variant: l.variant,
         quantity: Number(l.quantity) || 1,
         completedAt: l.completed_at || null,
+        orderType: l.order_type === "no_cost" ? "no_cost" : "normal",
         unitPriceArg: l.unit_price_arg != null ? Number(l.unit_price_arg) : undefined,
         unitPriceUyu: l.unit_price_uyu != null ? Number(l.unit_price_uyu) : undefined,
         exchangeRate: l.exchange_rate != null ? Number(l.exchange_rate) : undefined,
@@ -248,6 +253,7 @@ export async function mergeOrUpdateCustomer(
 export async function createOrder(
   customer: string,
   items: DraftOrderItem[],
+  orderType: OrderType = "normal",
 ): Promise<{ data: DashboardData; orderId: string }> {
   const client = getClient();
   const cleanCust = cleanText(customer);
@@ -271,8 +277,9 @@ export async function createOrder(
     const product = productsMap.get(String(item.productId));
     if (!product) throw new Error(`Producto inexistente: ${item.productId}`);
     const quantity = cleanQuantity(item.quantity);
-    const unitPriceArg = Number(product.price_arg) || 0;
-    const unitPriceUyu = Number(product.price_uyu) || (unitPriceArg * rate);
+    const isNoCost = orderType === "no_cost";
+    const unitPriceArg = isNoCost ? 0 : Number(product.price_arg) || 0;
+    const unitPriceUyu = isNoCost ? 0 : Number(product.price_uyu) || (unitPriceArg * rate);
     const totalArg = unitPriceArg * quantity;
     const totalUyu = unitPriceUyu * quantity;
 
@@ -284,6 +291,7 @@ export async function createOrder(
       variant: product.variant,
       quantity,
       status: "Pendiente",
+      order_type: isNoCost ? "no_cost" : "normal",
       created_at: createdAt,
       unit_price_arg: unitPriceArg,
       unit_price_uyu: unitPriceUyu,

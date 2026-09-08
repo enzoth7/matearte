@@ -3,6 +3,10 @@ ALTER TABLE IF EXISTS order_lines ADD COLUMN IF NOT EXISTS unit_price_uyu numeri
 ALTER TABLE IF EXISTS order_lines ADD COLUMN IF NOT EXISTS exchange_rate numeric;
 ALTER TABLE IF EXISTS order_lines ADD COLUMN IF NOT EXISTS total_arg numeric;
 ALTER TABLE IF EXISTS order_lines ADD COLUMN IF NOT EXISTS total_uyu numeric;
+ALTER TABLE IF EXISTS order_lines ADD COLUMN IF NOT EXISTS order_type text NOT NULL DEFAULT 'normal';
+
+ALTER TABLE IF EXISTS order_lines DROP CONSTRAINT IF EXISTS order_lines_order_type_check;
+ALTER TABLE IF EXISTS order_lines ADD CONSTRAINT order_lines_order_type_check CHECK (order_type IN ('normal', 'no_cost'));
 
 DELETE FROM order_lines;
 DELETE FROM customers;

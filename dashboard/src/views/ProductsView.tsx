@@ -194,10 +194,17 @@ export function ProductsView({ data, onAdd, onUpdate, onUpdateExchangeRate }: Pr
                   <th>
                     <select
                       className="header-filter-select"
+                      aria-label="Filtrar por modelo"
                       value={modelFilter}
-                      onChange={(event) => setModelFilter(event.target.value)}
+                      onChange={(event) => {
+                        const nextModel = event.target.value;
+                        setModelFilter(nextModel);
+                        if (variantFilter && nextModel && !data.products.some((product) => product.model === nextModel && product.variant === variantFilter)) {
+                          setVariantFilter("");
+                        }
+                      }}
                     >
-                      <option value="">Modelo</option>
+                      <option value="">Todos los modelos</option>
                       {modelOptions.map((model) => (
                         <option key={model} value={model}>{model}</option>
                       ))}
@@ -206,10 +213,11 @@ export function ProductsView({ data, onAdd, onUpdate, onUpdateExchangeRate }: Pr
                   <th>
                     <select
                       className="header-filter-select"
+                      aria-label="Filtrar por variante"
                       value={variantFilter}
                       onChange={(event) => setVariantFilter(event.target.value)}
                     >
-                      <option value="">Variante</option>
+                      <option value="">Todas las variantes</option>
                       {variantOptions.map((variant) => (
                         <option key={variant} value={variant}>{variant}</option>
                       ))}
@@ -218,10 +226,11 @@ export function ProductsView({ data, onAdd, onUpdate, onUpdateExchangeRate }: Pr
                   <th>
                     <select
                       className="header-filter-select"
+                      aria-label="Filtrar por virola"
                       value={rimFilter}
                       onChange={(event) => setRimFilter(event.target.value)}
                     >
-                      <option value="">Virola</option>
+                      <option value="">Todas las virolas</option>
                       {rimOptions.map((rim) => (
                         <option key={rim} value={rim}>{rim}</option>
                       ))}
@@ -230,10 +239,11 @@ export function ProductsView({ data, onAdd, onUpdate, onUpdateExchangeRate }: Pr
                   <th>
                     <select
                       className="header-filter-select"
+                      aria-label="Filtrar por cuero"
                       value={leatherFilter}
                       onChange={(event) => setLeatherFilter(event.target.value)}
                     >
-                      <option value="">Cuero</option>
+                      <option value="">Todos los cueros</option>
                       {leatherOptions.map((leather) => (
                         <option key={leather} value={leather}>{leather}</option>
                       ))}

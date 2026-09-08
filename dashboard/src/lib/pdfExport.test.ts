@@ -5,6 +5,7 @@ import {
   exportProductionToPdf,
   getProductionPdfFilename,
   groupProductionByCustomer,
+  groupProductionByOrder,
 } from "./pdfExport";
 
 const sampleItems: ProductionItem[] = [
@@ -57,9 +58,20 @@ describe("pdfExport", () => {
     expect(groups[1].totalUnits).toBe(45);
   });
 
-  it("crea el documento PDF con 1 página por cliente", () => {
+  it("crea una hoja de resumen y 1 página por cliente", () => {
     const doc = createProductionPdfDocument(sampleItems);
-    expect(doc.getNumberOfPages()).toBe(2);
+    expect(doc.getNumberOfPages()).toBe(3);
+  });
+
+  it("mantiene separados los productos que pertenecen a pedidos distintos", () => {
+    const orders = groupProductionByOrder([
+      { ...sampleItems[0], createdAt: "2026-09-01T10:00:00.000Z" },
+      { ...sampleItems[0], lineId: "line-4", orderId: "PED-202", createdAt: "2026-09-07T10:00:00.000Z" },
+    ]);
+
+    expect(orders).toHaveLength(2);
+    expect(orders.map((order) => order.orderId)).toEqual(["PED-101", "PED-202"]);
+    expect(orders.map((order) => order.createdAt)).toEqual(["2026-09-01T10:00:00.000Z", "2026-09-07T10:00:00.000Z"]);
   });
 
   it("maneja lista vacía sin fallar", () => {

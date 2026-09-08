@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DashboardData } from "../types";
+import * as pdfExport from "../lib/pdfExport";
+import * as customerOrderPdf from "../lib/customerOrderPdf";
 import { CustomersView } from "./CustomersView";
 
 const data: DashboardData = {
@@ -88,7 +90,8 @@ describe("CustomersView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Editar cliente MANU PEREZ" }));
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByRole("heading", { name: "Histórico por tipo de mate" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("heading", { name: "Pedidos del cliente" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("tab", { name: "Por tipo de mate", selected: true })).toBeInTheDocument();
     expect(within(dialog).getByText("2 pedidos · 6 unidades")).toBeInTheDocument();
     expect(within(dialog).getByRole("row", { name: "Criollo 2 6" })).toBeInTheDocument();
     expect(within(dialog).getByRole("row", { name: "Total 2 6" })).toBeInTheDocument();
@@ -131,5 +134,47 @@ describe("CustomersView", () => {
     fireEvent.change(searchInput, { target: { value: "PEREZ" } });
     expect(screen.getByRole("button", { name: "Editar cliente MANU PEREZ" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Editar cliente GASPAR" })).not.toBeInTheDocument();
+  });
+
+  it("imprime solamente los pendientes del cliente abierto", () => {
+    const exportSpy = vi.spyOn(pdfExport, "exportCustomerPendingToPdf").mockImplementation(() => undefined);
+    render(<CustomersView data={data} onAdd={vi.fn()} onRename={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar cliente GASPAR" }));
+    fireEvent.click(screen.getByRole("button", { name: "Imprimir pendientes (12)" }));
+
+    expect(exportSpy).toHaveBeenCalledWith(data.production, "GASPAR");
+    exportSpy.mockRestore();
+  });
+
+  it("muestra los pedidos por número y genera el PDF del pedido elegido", () => {
+    const exportSpy = vi.spyOn(customerOrderPdf, "exportCustomerOrderToPdf").mockResolvedValue(undefined);
+    render(<CustomersView data={data} onAdd={vi.fn()} onRename={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar cliente MANU PEREZ" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("tab", { name: "Por pedido" }));
+
+    expect(within(dialog).getByRole("row", { name: /PED-2.*01 jul\. 2026.*Finalizado.*Normal.*4.*ARS.*0.*PDF/i })).toBeInTheDocument();
+    expect(within(dialog).getByRole("row", { name: /PED-3.*01 jun\. 2026.*Finalizado.*Normal.*2.*ARS.*0.*PDF/i })).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Generar PDF del pedido PED-2" }));
+    expect(exportSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: "PED-2", totalUnits: 4 }),
+      data.products,
+      expect.objectContaining({ fullName: "MANU PEREZ" }),
+    );
+    exportSpy.mockRestore();
+  });
+
+  it("incluye en Por pedido los pedidos que todavía están en producción", () => {
+    render(<CustomersView data={data} onAdd={vi.fn()} onRename={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar cliente GASPAR" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("tab", { name: "Por pedido" }));
+
+    expect(within(dialog).getByText("1 pedidos · 12 unidades")).toBeInTheDocument();
+    expect(within(dialog).getByRole("row", { name: /PED-1.*12 ago\. 2026.*Pendiente.*Normal.*12.*ARS.*0.*PDF/i })).toBeInTheDocument();
   });
 });

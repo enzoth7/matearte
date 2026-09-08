@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { CheckCircleIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { formatArg, formatUyu } from "../lib/format";
-import type { DashboardData, DraftOrderItem, ViewId } from "../types";
+import type { DashboardData, DraftOrderItem, OrderType, ViewId } from "../types";
 
 const createDraft = (): DraftOrderItem => ({
   key: crypto.randomUUID(),
@@ -11,13 +11,14 @@ const createDraft = (): DraftOrderItem => ({
 
 interface NewOrderViewProps {
   data: DashboardData;
-  onAddOrder: (customer: string, items: DraftOrderItem[]) => Promise<string>;
+  onAddOrder: (customer: string, items: DraftOrderItem[], orderType: OrderType) => Promise<string>;
   onNavigate: (view: ViewId) => void;
 }
 
 export function NewOrderView({ data, onAddOrder, onNavigate }: NewOrderViewProps) {
   const [customer, setCustomer] = useState("");
   const [items, setItems] = useState<DraftOrderItem[]>([createDraft()]);
+  const [orderType, setOrderType] = useState<OrderType>("normal");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<string | null>(null);
@@ -26,10 +27,11 @@ export function NewOrderView({ data, onAddOrder, onNavigate }: NewOrderViewProps
   const recurrentCustomers = data.customers ?? [];
   const productMap = useMemo(() => new Map(data.products.map((product) => [product.id, product])), [data.products]);
   const selectedItems = items.filter((item) => productMap.has(item.productId));
-  const totalArg = selectedItems.reduce(
+  const pricedTotalArg = selectedItems.reduce(
     (sum, item) => sum + (productMap.get(item.productId)?.priceArg ?? 0) * Math.max(0, item.quantity || 0),
     0,
   );
+  const totalArg = orderType === "no_cost" ? 0 : pricedTotalArg;
 
   const updateItem = (key: string, patch: Partial<DraftOrderItem>) => {
     setItems((current) => current.map((item) => (item.key === key ? { ...item, ...patch } : item)));
@@ -56,10 +58,11 @@ export function NewOrderView({ data, onAddOrder, onNavigate }: NewOrderViewProps
     if (items.some((item) => !item.productId || item.quantity <= 0)) return setError("Completá todos los artículos.");
     setSaving(true);
     try {
-      const orderId = await onAddOrder(customer.trim(), items);
+      const orderId = await onAddOrder(customer.trim(), items, orderType);
       setCreatedOrder(orderId);
       setCustomer("");
       setItems([createDraft()]);
+      setOrderType("normal");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "No se pudo registrar el pedido.");
     } finally {
@@ -144,7 +147,7 @@ export function NewOrderView({ data, onAddOrder, onNavigate }: NewOrderViewProps
                     />
 
                     <output className="order-line-subtotal" aria-label={`Subtotal del artículo ${index + 1}`}>
-                      {formatArg((product?.priceArg ?? 0) * Math.max(0, item.quantity || 0))}
+                      {formatArg(orderType === "no_cost" ? 0 : (product?.priceArg ?? 0) * Math.max(0, item.quantity || 0))}
                     </output>
 
                     <button
@@ -166,6 +169,18 @@ export function NewOrderView({ data, onAddOrder, onNavigate }: NewOrderViewProps
         </section>
 
         <aside className="order-summary-panel" aria-label="Resumen del pedido">
+          <fieldset className="order-type-fieldset">
+            <legend>Tipo de pedido</legend>
+            <label className={orderType === "normal" ? "is-selected" : ""}>
+              <input type="radio" name="order-type" value="normal" checked={orderType === "normal"} onChange={() => setOrderType("normal")} />
+              <span><strong>Pedido normal</strong><small>Suma al valor de producción.</small></span>
+            </label>
+            <label className={orderType === "no_cost" ? "is-selected" : ""}>
+              <input type="radio" name="order-type" value="no_cost" checked={orderType === "no_cost"} onChange={() => setOrderType("no_cost")} />
+              <span><strong>Pedido sin costo</strong><small>No suma dinero; ya fue pagado.</small></span>
+            </label>
+          </fieldset>
+
           <section className="order-summary-customers" aria-labelledby="customers-title">
             <h2 id="customers-title">Cliente</h2>
             <label className="order-recurrent-customer" htmlFor="recurrent-customer">
@@ -191,7 +206,7 @@ export function NewOrderView({ data, onAddOrder, onNavigate }: NewOrderViewProps
                   <li key={item.key}>
                     <p>{product.model}</p>
                     <p className="order-summary-detail">{item.quantity} × {product.variant}</p>
-                    <strong>{formatArg(product.priceArg * Math.max(0, item.quantity || 0))}</strong>
+                    <strong>{formatArg(orderType === "no_cost" ? 0 : product.priceArg * Math.max(0, item.quantity || 0))}</strong>
                   </li>
                 );
               })}
