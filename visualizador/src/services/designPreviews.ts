@@ -2,7 +2,7 @@ import type { DesignExportTargets, DesignPreviewRole } from "../components/Desig
 import { supabase } from "../lib/supabase";
 import { captureElementAsBlob } from "./capturePreview";
 
-export const MAX_DESIGN_PREVIEW_SIZE = 5 * 1024 * 1024;
+export const MAX_DESIGN_PREVIEW_SIZE = 10 * 1024 * 1024;
 
 export const requiredDesignPreviewRoles = (hasFleje: boolean): DesignPreviewRole[] => hasFleje
   ? ["mate", "virola", "fleje_front", "fleje_back"]
@@ -25,7 +25,7 @@ export async function saveDesignPreviews(params: {
       if (!target) throw new Error(`No se encontró la vista ${role} para exportar.`);
       const blob = await captureElementAsBlob(target);
       if (!blob || blob.type !== "image/png" || blob.size < 1) throw new Error(`No se pudo generar la vista ${role}.`);
-      if (blob.size > MAX_DESIGN_PREVIEW_SIZE) throw new Error(`La vista ${role} supera el máximo de 5 MB.`);
+      if (blob.size > MAX_DESIGN_PREVIEW_SIZE) throw new Error(`La vista ${role} supera el máximo de 10 MB.`);
       const objectPath = `${params.userId}/${params.designId}/${revision}/${role}.png`;
       const { error } = await supabase.storage.from("design-previews").upload(objectPath, blob, {
         contentType: "image/png",

@@ -61,7 +61,7 @@ export function CustomImageUpload({
         )}
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-bold text-[#2d1d14]">{value?.name ?? "Cargá tu imagen"}</p>
-          <p className="text-[10px] text-[#5f3826]/70">PNG, JPG o SVG · máximo 5 MB</p>
+          <p className="text-[10px] text-[#5f3826]/70">PNG, JPG o SVG · máximo 10 MB</p>
         </div>
         <div className="custom-image-upload__actions">
           <button

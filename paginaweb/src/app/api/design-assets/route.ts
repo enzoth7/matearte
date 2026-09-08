@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const file = form.get("file"), designId = String(form.get("designId") || ""), assetId = String(form.get("assetId") || "");
     if (!(file instanceof File) || !uuid.test(designId) || !/^upload-[0-9a-f-]{36}$/i.test(assetId)) return apiError("Archivo o diseño inválido.");
-    if (file.size < 1 || file.size > 5 * 1024 * 1024) return apiError("El archivo debe pesar entre 1 byte y 5 MB.", 413);
+    if (file.size < 1 || file.size > 10 * 1024 * 1024) return apiError("El archivo debe pesar entre 1 byte y 10 MB.", 413);
     if (!["image/png", "image/jpeg", "image/svg+xml"].includes(file.type)) return apiError("Tipo de archivo no permitido.", 415);
     const { data: design } = await client.from("designs").select("id").eq("id", designId).eq("user_id", user.id).maybeSingle();
     if (!design) return apiError("El diseño no existe o no te pertenece.", 404);

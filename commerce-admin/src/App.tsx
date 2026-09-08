@@ -21,7 +21,7 @@ type ProductForm = {name:string;category:string;description:string;saleMode:Sale
 type Order = { id:string;order_number:number;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;order_items:Array<{id:string;title:string;requires_review:boolean;review_status:string|null}> };
 type Rate = {id:string;code:string;name:string;departments:string[];rate_minor:number;is_pickup:boolean;active:boolean};
 const money=(minor:number)=>new Intl.NumberFormat('es-UY',{style:'currency',currency:'UYU',maximumFractionDigits:0}).format(minor/100);
-const MAX_PRODUCT_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_PRODUCT_IMAGE_BYTES = 10 * 1024 * 1024;
 const PRODUCT_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const productImageUrl = (path:string) => supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
 const fileExtension = (file:File) => file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || (file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg');
@@ -342,7 +342,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
     }
     const oversized = files.find(file => file.size > MAX_PRODUCT_IMAGE_BYTES);
     if (oversized) {
-      onNotice(`“${oversized.name}” supera el máximo de 5 MB.`);
+      onNotice(`“${oversized.name}” supera el máximo de 10 MB.`);
       return;
     }
 
@@ -552,7 +552,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
             <div className="image-manager-head">
               <div>
                 <h4 id="product-images-title">Imágenes del producto</h4>
-                <p>La primera imagen será la principal. PNG, JPEG o WebP de hasta 5 MB.</p>
+                <p>La primera imagen será la principal. PNG, JPEG o WebP de hasta 10 MB.</p>
               </div>
               {images.length > 0 && (
                 <label className={`upload-button ${imageBusy ? 'disabled' : ''}`} htmlFor={`product-images-${product.id}`} aria-disabled={Boolean(imageBusy)}>

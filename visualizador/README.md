@@ -26,7 +26,7 @@ Antes de continuar al carrito se generan PNG versionados en `design-previews`:
 - Fleje frente: 1800 × 600.
 - Fleje reverso: 1800 × 600.
 
-Los modelos sin fleje generan solamente mate y virola. Cada archivo debe ser válido y no superar 5 MB. Las rutas versionadas evitan sobrescribir imágenes ya utilizadas por pedidos.
+Los modelos sin fleje generan solamente mate y virola. Cada archivo debe ser válido y no superar 10 MB. Las rutas versionadas evitan sobrescribir imágenes ya utilizadas por pedidos.
 
 ## Cuentas y panel de precios
 

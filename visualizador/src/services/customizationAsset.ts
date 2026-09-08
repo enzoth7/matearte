@@ -1,7 +1,7 @@
 import type { CustomImageAsset } from "../types/customizer";
 import { storeGuestAsset } from "./guestDraftStorage";
 
-export const MAX_CUSTOM_IMAGE_SIZE = 5 * 1024 * 1024;
+export const MAX_CUSTOM_IMAGE_SIZE = 10 * 1024 * 1024;
 export const ACCEPTED_CUSTOM_IMAGE_TYPES = ["image/png", "image/jpeg", "image/svg+xml"] as const;
 
 export function validateCustomizationFile(file: File): string | null {
@@ -10,7 +10,7 @@ export function validateCustomizationFile(file: File): string | null {
   if (!hasValidType && !hasValidExtension) {
     return "El archivo debe ser PNG, JPG o SVG.";
   }
-  if (file.size > MAX_CUSTOM_IMAGE_SIZE) return "El archivo supera el máximo de 5 MB.";
+  if (file.size > MAX_CUSTOM_IMAGE_SIZE) return "El archivo supera el máximo de 10 MB.";
   if (file.size === 0) return "El archivo está vacío.";
   return null;
 }

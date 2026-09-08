@@ -275,6 +275,6 @@ describe("validación de archivos", () => {
     expect(validateCustomizationFile(file("image/jpeg", 1024))).toBeNull();
     expect(validateCustomizationFile(file("image/svg+xml", 1024))).toBeNull();
     expect(validateCustomizationFile(file("application/pdf", 1024))).toMatch(/PNG/);
-    expect(validateCustomizationFile(file("image/png", 5 * 1024 * 1024 + 1))).toMatch(/5 MB/);
+    expect(validateCustomizationFile(file("image/png", 10 * 1024 * 1024 + 1))).toMatch(/10 MB/);
   });
 });
