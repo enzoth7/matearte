@@ -204,7 +204,7 @@ export function buildProductStructuredData(
 }
 
 export function productSeoCopy(product: Product, locale: AppLocale) {
-  const titles: Record<AppLocale, Record<CategorySlug, string>> = {
+  const titles: Record<AppLocale, Partial<Record<CategorySlug, string>>> = {
     es: {
       mates: `${product.name} uruguayo artesanal`,
       bombillas: `${product.name} para mate uruguayo`,

@@ -156,7 +156,7 @@ export function CatalogFilterControls({
                 name={`${idPrefix}-category`}
                 value={option.value}
                 checked={filters.category === option.value}
-                onChange={() => onCategoryChange(option.value)}
+                onChange={() => onCategoryChange(option.value as CatalogFilters["category"])}
               />
               <span className={mobile ? "catalog-mobile-checkbox" : "catalog-checkbox"} aria-hidden="true" />
               <span>{t(option.labelKey)}</span>
