@@ -2,6 +2,7 @@ import Image from "next/image";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 import { HomeHero } from "@/components/home/HomeHero";
+import { HomeFeaturedProducts } from "@/components/home/HomeFeaturedProducts";
 import { JsonLd } from "@/components/JsonLd";
 import { Link } from "@/i18n/navigation";
 import { buildSiteStructuredData } from "@/lib/seo";
@@ -34,6 +35,8 @@ export default async function Home() {
     <main id="contenido" className="home-page">
       <JsonLd data={buildSiteStructuredData(locale, metadata("description"))} />
       <HomeHero />
+
+      <HomeFeaturedProducts />
 
       <section className="home-section home-scroll-band home-craft">
         <div className="home-shell home-craft-grid">
