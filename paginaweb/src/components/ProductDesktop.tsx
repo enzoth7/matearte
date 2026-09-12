@@ -99,12 +99,18 @@ export function ProductDesktop({ product, exchangeRates }: { product: Product; e
     const targetVariantId = commerceVariant?.id || catalogVariant?.id;
     if (!targetVariantId) return;
 
+    const activeVariantOptions = variantSelection.activeVariant?.options ?? {};
+    const optionValuesOverride: Record<string, string | number | boolean> = {};
+    if (activeVariantOptions.talle === "todos" && variantSelection.selected.talle) {
+      optionValuesOverride.talle = variantSelection.selected.talle;
+    }
+
     setBusy(true);
     try {
       const response = await fetch("/api/cart/items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemType: "catalog", variantId: targetVariantId, quantity: 1, locale }),
+        body: JSON.stringify({ itemType: "catalog", variantId: targetVariantId, quantity: 1, locale, ...(Object.keys(optionValuesOverride).length > 0 ? { optionValuesOverride } : {}) }),
       });
       if (response.status === 401) {
         addLocalCartItem(targetVariantId);

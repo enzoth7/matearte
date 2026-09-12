@@ -59,7 +59,7 @@ export async function readPricedCart(client: SupabaseClient, userId: string) {
   };
 }
 
-export async function addCatalogItem(client: SupabaseClient, userId: string, variantId: string, quantity: number) {
+export async function addCatalogItem(client: SupabaseClient, userId: string, variantId: string, quantity: number, optionValuesOverride?: Record<string, string | number | boolean>) {
   const cart = await getOrCreateCart(client, userId);
   const { data: variant, error } = await client.from("commerce_variants").select("id,active,product:commerce_products!inner(published)").eq("id", variantId).single();
   if (error || !variant?.active || !(variant.product as unknown as { published: boolean }).published) throw new Error("La variante no está disponible.");
@@ -70,7 +70,7 @@ export async function addCatalogItem(client: SupabaseClient, userId: string, var
     if (result.error) throw result.error;
     return result.data;
   }
-  const result = await client.from("cart_items").insert({ cart_id: cart.id, item_type: "catalog", variant_id: variantId, quantity }).select("id").single();
+  const result = await client.from("cart_items").insert({ cart_id: cart.id, item_type: "catalog", variant_id: variantId, quantity, ...(optionValuesOverride ? { option_values_override: optionValuesOverride } : {}) }).select("id").single();
   if (result.error) throw result.error;
   return result.data;
 }

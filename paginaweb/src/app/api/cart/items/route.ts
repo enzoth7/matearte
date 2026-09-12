@@ -8,7 +8,12 @@ export async function POST(request: Request) {
   try {
     const body = await readJson(request);
     const admin = client;
-    if (body.itemType === "catalog" && typeof body.variantId === "string") await addCatalogItem(admin, user.id, body.variantId, Math.max(1, Math.min(99, Number(body.quantity) || 1)));
+    if (body.itemType === "catalog" && typeof body.variantId === "string") {
+      const override = body.optionValuesOverride && typeof body.optionValuesOverride === "object" && !Array.isArray(body.optionValuesOverride)
+        ? body.optionValuesOverride as Record<string, string | number | boolean>
+        : undefined;
+      await addCatalogItem(admin, user.id, body.variantId, Math.max(1, Math.min(99, Number(body.quantity) || 1)), override);
+    }
     else if (body.itemType === "design" && typeof body.designId === "string") await addDesignItem(admin, user.id, body.designId);
     else return apiError("Artículo inválido.");
     return apiOk(await readPricedCart(admin, user.id), 201);

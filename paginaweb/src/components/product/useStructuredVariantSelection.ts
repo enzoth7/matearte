@@ -5,8 +5,14 @@ import type { CatalogValueMap } from "../../../../shared/catalog-taxonomy";
 import type { Product } from "@/types/catalog";
 import { getVariantColorId } from "@/lib/catalog-filters";
 
+const ALL_TALLES = Array.from({ length: 13 }, (_, i) => String(i + 34)); // ['34','35',...,'46']
+
 function valuesFor(product: Product, code: string) {
-  return [...new Set(product.variants.map(variant => variant.options?.[code] ?? (code === "color" ? getVariantColorId(variant) : undefined)).filter(value => value !== undefined).map(String))];
+  const raw = [...new Set(product.variants.map(variant => variant.options?.[code] ?? (code === "color" ? getVariantColorId(variant) : undefined)).filter(value => value !== undefined).map(String))];
+  if (code === "talle" && raw.includes("todos")) {
+    return ALL_TALLES;
+  }
+  return raw;
 }
 
 export function useStructuredVariantSelection(product: Product) {
@@ -29,8 +35,9 @@ export function useStructuredVariantSelection(product: Product) {
     setSelected(next);
   }, [axes, product]);
 
-  const matches = product.variants.filter(variant => Object.entries(selected).every(([code,value]) => {
+  const matches = product.variants.filter(variant => Object.entries(selected).every(([code, value]) => {
     const variantValue = variant.options?.[code] ?? (code === "color" ? getVariantColorId(variant) : undefined);
+    if (String(variantValue ?? "") === "todos") return true;
     return String(variantValue ?? "") === String(value);
   }));
   const complete = axes.every(axis => selected[axis] !== undefined && selected[axis] !== "");
