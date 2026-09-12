@@ -16,6 +16,11 @@ const optionLabels: Record<string, Record<string, Record<string, string>>> = {
     en: { chico: "Small", mediano: "Medium", grande: "Large", pequeno: "Small" },
     pt: { chico: "Pequeno", mediano: "Médio", grande: "Grande", pequeno: "Pequeno" },
   },
+  talle: {
+    es: { todos: "Todos los talles" },
+    en: { todos: "All sizes" },
+    pt: { todos: "Todos os tamanhos" },
+  },
 };
 
 function formatOptionLabel(axisCode: string, value: string, locale: string): string {

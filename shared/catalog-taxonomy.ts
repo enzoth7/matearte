@@ -128,7 +128,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     option("forma", "ovalada", "Ovalada", 10), option("forma", "cuadrada", "Cuadrada", 20),
     option("tamano", "chico", "Chico", 10), option("tamano", "mediano", "Mediano", 20), option("tamano", "grande", "Grande", 30),
     ...catalogColorIds.map((code, index) => option("color", code, labels.color[code], index * 10, labels.swatch[code])),
-    ...Array.from({ length: 13 }, (_, index) => option("talle", String(index + 34), String(index + 34), (index + 1) * 10)),
+    option("talle", "todos", "Todos los talles", 5), ...Array.from({ length: 13 }, (_, index) => option("talle", String(index + 34), String(index + 34), (index + 1) * 10)),
     option("genero", "hombre", "Hombre", 10), option("genero", "mujer", "Mujer", 20), option("genero", "unisex", "Unisex", 30),
     option("tipo-bombilla", "clasica", "Clásica", 10), option("tipo-bombilla", "bombillon", "Bombillón", 20), option("tipo-bombilla", "apaga", "Apaga", 30),
     option("forma-pico", "pico-loro", "Pico loro", 10), option("material-cuerpo", "alpaca", "Alpaca", 10), option("material-cuerpo", "bronce", "Bronce", 20), option("material-cuerpo", "acero-inoxidable", "Acero inoxidable", 30),
