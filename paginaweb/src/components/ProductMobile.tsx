@@ -134,6 +134,7 @@ export function ProductMobile({ product, exchangeRates }: { product: Product; ex
           <h1 id="product-mobile-title">{product.name}</h1>
           <p className="product-mobile-summary">{product.summary}</p>
           {product.attributes?.forma && <p className="product-attribute-summary">{locale==='en'?'Shape':locale==='pt'?'Forma':'Forma'}: {String(product.attributes.forma)==='ovalada'?(locale==='en'?'Oval':locale==='pt'?'Oval':'Ovalada'):String(product.attributes.forma)==='cuadrada'?(locale==='en'?'Square':locale==='pt'?'Quadrada':'Cuadrada'):String(product.attributes.forma)}</p>}
+          {product.attributes?.genero && <p className="product-attribute-summary">{locale==='en'?'Gender':locale==='pt'?'Gênero':'Género'}: {String(product.attributes.genero).toLowerCase()==='hombre'?(locale==='en'?'Men':locale==='pt'?'Masculino':'Hombre'):String(product.attributes.genero).toLowerCase()==='mujer'?(locale==='en'?'Women':locale==='pt'?'Feminino':'Mujer'):String(product.attributes.genero).toLowerCase()==='unisex'?(locale==='en'?'Unisex':locale==='pt'?'Unissex':'Unisex'):String(product.attributes.genero)}</p>}
           <p className="product-mobile-price">{displayedPrice}</p>
 
           <div className="product-mobile-rule product-mobile-rule-actions" aria-hidden="true" />

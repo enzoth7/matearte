@@ -119,6 +119,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     attribute("configuracion-filo", "Configuración del filo", "enum", "select"), attribute("tiene-gavilan", "Tiene gavilán", "boolean", "checkbox"),
     attribute("forma-gavilan", "Forma del gavilán", "enum", "select"), attribute("material-hoja", "Material de hoja", "enum", "select"),
     attribute("material-cabo", "Material del cabo", "enum", "select"), attribute("material-vaina", "Material de la vaina", "enum", "select"),
+    attribute("genero", "Género", "enum", "select"),
   ],
   options: [
     ...catalogProductTypeIds.map((code, index) => option("tipo-mate", code, ({ imperial: "Imperial", camionero: "Camionero", criollo: "Criollo", torpedo: "Torpedo" } as Record<string, string>)[code], index * 10)),
@@ -127,6 +128,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     option("tamano", "chico", "Chico", 10), option("tamano", "mediano", "Mediano", 20), option("tamano", "grande", "Grande", 30),
     ...catalogColorIds.map((code, index) => option("color", code, labels.color[code], index * 10, labels.swatch[code])),
     ...Array.from({ length: 13 }, (_, index) => option("talle", String(index + 34), String(index + 34), (index + 1) * 10)),
+    option("genero", "hombre", "Hombre", 10), option("genero", "mujer", "Mujer", 20), option("genero", "unisex", "Unisex", 30),
     option("tipo-bombilla", "clasica", "Clásica", 10), option("tipo-bombilla", "bombillon", "Bombillón", 20), option("tipo-bombilla", "apaga", "Apaga", 30),
     option("forma-pico", "pico-loro", "Pico loro", 10), option("material-cuerpo", "alpaca", "Alpaca", 10), option("material-cuerpo", "bronce", "Bronce", 20), option("material-cuerpo", "acero-inoxidable", "Acero inoxidable", 30),
     option("material-pico", "alpaca", "Alpaca", 10), option("material-pico", "bronce", "Bronce", 20),
@@ -145,7 +147,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     rule("materas","forma","product",10,true), rule("materas","material","product",20), rule("materas","tamano","product",30), rule("materas","acabado","product",40), rule("materas","color","variant",100,true),
     rule("kits-materos","material","product",10), rule("kits-materos","color","variant",100),
     rule("cuchillos","tipo-cuchillo","product",10,true), rule("cuchillos","largo-hoja-mm","product",20,true), rule("cuchillos","ancho-hoja-mm","product",30,false,false), rule("cuchillos","configuracion-filo","product",40,true), rule("cuchillos","tiene-gavilan","product",50), rule("cuchillos","forma-gavilan","product",60), rule("cuchillos","material-hoja","product",70), rule("cuchillos","material-cabo","product",80), rule("cuchillos","material-vaina","product",90), rule("cuchillos","acabado","product",100),
-    rule("calzado","material","product",10), rule("calzado","color","variant",100,true), rule("calzado","talle","variant",110,true),
+    rule("calzado","material","product",10), rule("calzado","genero","product",20), rule("calzado","color","variant",100,true), rule("calzado","talle","variant",110,true),
     rule("marroquineria","material","product",10), rule("marroquineria","forma","product",20), rule("marroquineria","acabado","product",30), rule("marroquineria","color","variant",100,true),
   ],
 };
