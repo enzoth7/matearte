@@ -7087,6 +7087,73 @@ img {
   padding-bottom: 32px;
 }
 
+/* Filtros mobile como selectores únicos */
+.catalog-mobile-filter-selects {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.catalog-mobile-filter-select-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.catalog-mobile-filter-select-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #705c53;
+  line-height: 1.2;
+}
+
+.catalog-mobile-filter-select-wrap {
+  position: relative;
+}
+
+.catalog-mobile-filter-select-wrap::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid #705c53;
+  pointer-events: none;
+}
+
+.catalog-mobile-filter-select-wrap select {
+  appearance: none;
+  width: 100%;
+  height: 38px;
+  padding: 0 28px 0 10px;
+  border: 1px solid rgb(45 29 22 / 0.22);
+  border-radius: 8px;
+  background: #fff8f0;
+  color: #2d1d16;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.catalog-mobile-filter-select-wrap select:focus {
+  outline: 2px solid var(--yerba);
+  outline-offset: 2px;
+}
+
+.catalog-mobile-filter-select-wrap select:focus-visible {
+  outline: 2px solid var(--yerba);
+  outline-offset: 2px;
+}
+
 .catalog-mobile-filter-groups {
   display: flex;
   flex-direction: column;

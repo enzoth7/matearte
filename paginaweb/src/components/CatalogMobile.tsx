@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
-import { CatalogFilterControls } from "@/components/catalog/CatalogFilterControls";
+import { CatalogFilterControlsMobile } from "@/components/catalog/CatalogFilterControlsMobile";
 import { CatalogPagination } from "@/components/catalog/CatalogPagination";
 import { useCatalogFilters } from "@/components/catalog/useCatalogFilters";
 import { filterAndSortCatalog, formatCatalogPrice, hasActiveCatalogFilters, type CatalogSort } from "@/lib/catalog-filters";
@@ -169,17 +169,14 @@ export function CatalogMobile({ products, exchangeRates }: { products: Product[]
             </label>
           </div>
 
-          <CatalogFilterControls
-            variant="mobile"
-            idPrefix="catalog-mobile"
+          <CatalogFilterControlsMobile
             products={products}
             filters={filters}
             onCategoryChange={catalogFilters.setCategory}
-            onPriceToggle={catalogFilters.togglePrice}
-            onMaterialToggle={catalogFilters.toggleMaterial}
-            onProductTypeToggle={catalogFilters.toggleProductType}
-            onColorToggle={catalogFilters.toggleColor}
-            onClear={catalogFilters.clearFilters}
+            onPriceChange={catalogFilters.setPrice}
+            onMaterialChange={catalogFilters.setMaterial}
+            onProductTypeChange={catalogFilters.setProductType}
+            onColorChange={catalogFilters.setColor}
           />
         </div>
       </section>

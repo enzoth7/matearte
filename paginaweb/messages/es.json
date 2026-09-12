@@ -226,6 +226,10 @@
     "azul": "Azul",
     "beige": "Beige",
     "comingSoon": "Próximamente",
+    "allPrices": "Todos los precios",
+    "allMaterials": "Todos los materiales",
+    "allTypes": "Todos los tipos",
+    "allColors": "Todos los colores",
     "prevPage": "Anterior",
     "nextPage": "Siguiente"
   },

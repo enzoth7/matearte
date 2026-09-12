@@ -2,7 +2,7 @@ import { hasLocale } from "next-intl";
 import { getRequestConfig } from "next-intl/server";
 import { routing } from "./routing";
 
-// Cache invalidation token: 20260911-pagination-keys
+// Cache invalidation token: 20260911-mobile-filter-selects
 export default getRequestConfig(async ({ requestLocale }) => {
   const requested = await requestLocale;
   const locale = hasLocale(routing.locales, requested) ? requested : routing.defaultLocale;
