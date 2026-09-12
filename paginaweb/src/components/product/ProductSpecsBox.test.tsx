@@ -49,10 +49,14 @@ describe("ProductSpecsBox", () => {
     renderBox(product, undefined, undefined, "es");
 
     expect(screen.getByText("Características")).toBeInTheDocument();
-    expect(screen.getByText("Material: Cuero")).toBeInTheDocument();
-    expect(screen.getByText("Forma: Cuadrada")).toBeInTheDocument();
-    expect(screen.getByText("Género: Hombre")).toBeInTheDocument();
-    expect(screen.getByText("Largo del cinto: 110 cm")).toBeInTheDocument();
+    expect(screen.getByText("Material:")).toBeInTheDocument();
+    expect(screen.getByText("Cuero")).toBeInTheDocument();
+    expect(screen.getByText("Forma:")).toBeInTheDocument();
+    expect(screen.getByText("Cuadrada")).toBeInTheDocument();
+    expect(screen.getByText("Género:")).toBeInTheDocument();
+    expect(screen.getByText("Hombre")).toBeInTheDocument();
+    expect(screen.getByText("Largo del cinto:")).toBeInTheDocument();
+    expect(screen.getByText("110 cm")).toBeInTheDocument();
   });
 
   it("muestra título y atributos en inglés", () => {
@@ -67,9 +71,12 @@ describe("ProductSpecsBox", () => {
     renderBox(product, undefined, undefined, "en");
 
     expect(screen.getByText("Specifications")).toBeInTheDocument();
-    expect(screen.getByText("Shape: Oval")).toBeInTheDocument();
-    expect(screen.getByText("Gender: Women")).toBeInTheDocument();
-    expect(screen.getByText("Belt length: 105 cm")).toBeInTheDocument();
+    expect(screen.getByText("Shape:")).toBeInTheDocument();
+    expect(screen.getByText("Oval")).toBeInTheDocument();
+    expect(screen.getByText("Gender:")).toBeInTheDocument();
+    expect(screen.getByText("Women")).toBeInTheDocument();
+    expect(screen.getByText("Belt length:")).toBeInTheDocument();
+    expect(screen.getByText("105 cm")).toBeInTheDocument();
   });
 
   it("muestra título y atributos en portugués", () => {
@@ -83,8 +90,10 @@ describe("ProductSpecsBox", () => {
     renderBox(product, undefined, undefined, "pt");
 
     expect(screen.getByText("Características")).toBeInTheDocument();
-    expect(screen.getByText("Gênero: Unissex")).toBeInTheDocument();
-    expect(screen.getByText("Comprimento do cinto: 120 cm")).toBeInTheDocument();
+    expect(screen.getByText("Gênero:")).toBeInTheDocument();
+    expect(screen.getByText("Unissex")).toBeInTheDocument();
+    expect(screen.getByText("Comprimento do cinto:")).toBeInTheDocument();
+    expect(screen.getByText("120 cm")).toBeInTheDocument();
   });
 
   it("muestra color y tamaño seleccionados dinámicamente", () => {
@@ -98,9 +107,12 @@ describe("ProductSpecsBox", () => {
     };
     renderBox(product, { color: "marron", tamano: "grande" }, undefined, "es");
 
-    expect(screen.getByText("Modelo de mate: Imperial")).toBeInTheDocument();
-    expect(screen.getByText("Color: Marrón")).toBeInTheDocument();
-    expect(screen.getByText("Tamaño: Grande")).toBeInTheDocument();
+    expect(screen.getByText("Modelo de mate:")).toBeInTheDocument();
+    expect(screen.getByText("Imperial")).toBeInTheDocument();
+    expect(screen.getByText("Color:")).toBeInTheDocument();
+    expect(screen.getByText("Marrón")).toBeInTheDocument();
+    expect(screen.getByText("Tamaño:")).toBeInTheDocument();
+    expect(screen.getByText("Grande")).toBeInTheDocument();
   });
 
   it("muestra atributos de cuchillos", () => {
@@ -116,10 +128,14 @@ describe("ProductSpecsBox", () => {
     };
     renderBox(product, undefined, undefined, "es");
 
-    expect(screen.getByText("Tipo de cuchillo: Facón")).toBeInTheDocument();
-    expect(screen.getByText("Largo de hoja: 180 mm")).toBeInTheDocument();
-    expect(screen.getByText("Material del cabo: Asta o guampa")).toBeInTheDocument();
-    expect(screen.getByText("Material de la vaina: Cuero crudo")).toBeInTheDocument();
+    expect(screen.getByText("Tipo de cuchillo:")).toBeInTheDocument();
+    expect(screen.getByText("Facón")).toBeInTheDocument();
+    expect(screen.getByText("Largo de hoja:")).toBeInTheDocument();
+    expect(screen.getByText("180 mm")).toBeInTheDocument();
+    expect(screen.getByText("Material del cabo:")).toBeInTheDocument();
+    expect(screen.getByText("Asta o guampa")).toBeInTheDocument();
+    expect(screen.getByText("Material de la vaina:")).toBeInTheDocument();
+    expect(screen.getByText("Cuero crudo")).toBeInTheDocument();
   });
 
   it("muestra atributos de bombillas", () => {
@@ -135,10 +151,14 @@ describe("ProductSpecsBox", () => {
     };
     renderBox(product, undefined, undefined, "es");
 
-    expect(screen.getByText("Tipo de bombilla: Bombillón")).toBeInTheDocument();
-    expect(screen.getByText("Forma del pico: Pico loro")).toBeInTheDocument();
-    expect(screen.getByText("Material del cuerpo: Alpaca")).toBeInTheDocument();
-    expect(screen.getByText("Decoración: Cincelada")).toBeInTheDocument();
+    expect(screen.getByText("Tipo de bombilla:")).toBeInTheDocument();
+    expect(screen.getByText("Bombillón")).toBeInTheDocument();
+    expect(screen.getByText("Forma del pico:")).toBeInTheDocument();
+    expect(screen.getByText("Pico loro")).toBeInTheDocument();
+    expect(screen.getByText("Material del cuerpo:")).toBeInTheDocument();
+    expect(screen.getByText("Alpaca")).toBeInTheDocument();
+    expect(screen.getByText("Decoración:")).toBeInTheDocument();
+    expect(screen.getByText("Cincelada")).toBeInTheDocument();
   });
 
   it("muestra talle y capacidad", () => {
@@ -151,7 +171,9 @@ describe("ProductSpecsBox", () => {
     };
     renderBox(product, undefined, undefined, "es");
 
-    expect(screen.getByText("Talle: 42")).toBeInTheDocument();
-    expect(screen.getByText("Capacidad: 1000 ml")).toBeInTheDocument();
+    expect(screen.getByText("Talle:")).toBeInTheDocument();
+    expect(screen.getByText("42")).toBeInTheDocument();
+    expect(screen.getByText("Capacidad:")).toBeInTheDocument();
+    expect(screen.getByText("1000 ml")).toBeInTheDocument();
   });
 });

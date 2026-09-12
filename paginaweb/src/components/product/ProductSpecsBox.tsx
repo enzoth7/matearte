@@ -375,7 +375,8 @@ export function ProductSpecsBox({ product, selectedOptions, activeVariant }: Pro
       <ul className="product-specs-list">
         {specs.map((item) => (
           <li key={item.key} className="product-specs-item">
-            <span>{item.label}: {item.value}</span>
+            <strong className="product-specs-label">{item.label}:</strong>{" "}
+            <span className="product-specs-value">{item.value}</span>
           </li>
         ))}
       </ul>

@@ -60,19 +60,22 @@ describe("Atributo Genero en ProductDesktop y ProductMobile", () => {
     it("muestra Género en español correctamente (hombre)", () => {
       const product = { ...baseProduct, attributes: { genero: "hombre" } };
       renderComponent(<ProductDesktop product={product} />, "es");
-      expect(screen.getByText("Género: Hombre")).toBeInTheDocument();
+      expect(screen.getByText("Género:")).toBeInTheDocument();
+      expect(screen.getByText("Hombre")).toBeInTheDocument();
     });
 
     it("muestra Gender en inglés correctamente (mujer)", () => {
       const product = { ...baseProduct, attributes: { genero: "mujer" } };
       renderComponent(<ProductDesktop product={product} />, "en");
-      expect(screen.getByText("Gender: Women")).toBeInTheDocument();
+      expect(screen.getByText("Gender:")).toBeInTheDocument();
+      expect(screen.getByText("Women")).toBeInTheDocument();
     });
 
     it("muestra Gênero en portugués correctamente (unisex)", () => {
       const product = { ...baseProduct, attributes: { genero: "unisex" } };
       renderComponent(<ProductDesktop product={product} />, "pt");
-      expect(screen.getByText("Gênero: Unissex")).toBeInTheDocument();
+      expect(screen.getByText("Gênero:")).toBeInTheDocument();
+      expect(screen.getByText("Unissex")).toBeInTheDocument();
     });
 
     it("no muestra párrafo de género si el atributo no está presente", () => {
@@ -85,19 +88,22 @@ describe("Atributo Genero en ProductDesktop y ProductMobile", () => {
     it("muestra Gender en inglés correctamente (hombre -> Men)", () => {
       const product = { ...baseProduct, attributes: { genero: "hombre" } };
       renderComponent(<ProductMobile product={product} />, "en");
-      expect(screen.getByText("Gender: Men")).toBeInTheDocument();
+      expect(screen.getByText("Gender:")).toBeInTheDocument();
+      expect(screen.getByText("Men")).toBeInTheDocument();
     });
 
     it("muestra Gênero en portugués correctamente (mujer -> Feminino)", () => {
       const product = { ...baseProduct, attributes: { genero: "mujer" } };
       renderComponent(<ProductMobile product={product} />, "pt");
-      expect(screen.getByText("Gênero: Feminino")).toBeInTheDocument();
+      expect(screen.getByText("Gênero:")).toBeInTheDocument();
+      expect(screen.getByText("Feminino")).toBeInTheDocument();
     });
 
     it("muestra Género en español correctamente (unisex -> Unisex)", () => {
       const product = { ...baseProduct, attributes: { genero: "unisex" } };
       renderComponent(<ProductMobile product={product} />, "es");
-      expect(screen.getByText("Género: Unisex")).toBeInTheDocument();
+      expect(screen.getByText("Género:")).toBeInTheDocument();
+      expect(screen.getByText("Unisex")).toBeInTheDocument();
     });
 
     it("no muestra párrafo de género si el atributo no está presente", () => {

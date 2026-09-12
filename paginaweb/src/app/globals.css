@@ -8096,24 +8096,34 @@ input:checked + .catalog-mobile-checkbox::after {
 }
 
 .product-specs-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 8px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin: 0;
-  padding: 0;
-  list-style: none;
+  padding: 0 0 0 18px;
+  list-style-type: disc;
 }
 
 .product-specs-item {
   margin: 0;
   padding: 0;
   font-size: 14px;
-  line-height: 20px;
+  line-height: 22px;
   color: #311c12;
 }
 
-.product-specs-item span {
-  display: inline-block;
+.product-specs-item::marker {
+  color: #79452d;
+}
+
+.product-specs-label {
+  font-weight: 700;
+  color: #311c12;
+}
+
+.product-specs-value {
+  color: #311c12;
+  font-weight: 400;
 }
 
 /* Personalizados — Figma frame 476:41 (mobile) */
