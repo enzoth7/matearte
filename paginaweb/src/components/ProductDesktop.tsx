@@ -135,6 +135,7 @@ export function ProductDesktop({ product, exchangeRates }: { product: Product; e
           <p className="product-desktop-summary">{product.summary}</p>
           {product.attributes?.forma && <p className="product-attribute-summary">{locale==='en'?'Shape':locale==='pt'?'Forma':'Forma'}: {String(product.attributes.forma)==='ovalada'?(locale==='en'?'Oval':locale==='pt'?'Oval':'Ovalada'):String(product.attributes.forma)==='cuadrada'?(locale==='en'?'Square':locale==='pt'?'Quadrada':'Cuadrada'):String(product.attributes.forma)}</p>}
           {product.attributes?.genero && <p className="product-attribute-summary">{locale==='en'?'Gender':locale==='pt'?'Gênero':'Género'}: {String(product.attributes.genero).toLowerCase()==='hombre'?(locale==='en'?'Men':locale==='pt'?'Masculino':'Hombre'):String(product.attributes.genero).toLowerCase()==='mujer'?(locale==='en'?'Women':locale==='pt'?'Feminino':'Mujer'):String(product.attributes.genero).toLowerCase()==='unisex'?(locale==='en'?'Unisex':locale==='pt'?'Unissex':'Unisex'):String(product.attributes.genero)}</p>}
+          {product.attributes?.['largo-cinto-cm'] && <p className="product-attribute-summary">{locale==='en'?'Belt length':locale==='pt'?'Comprimento do cinto':'Largo del cinto'}: {String(product.attributes['largo-cinto-cm'])} cm</p>}
           <p className="product-desktop-price">{displayedPrice}</p>
 
           <div className="product-desktop-rule product-desktop-rule-actions" aria-hidden="true" />

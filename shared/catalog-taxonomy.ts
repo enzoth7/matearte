@@ -120,6 +120,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     attribute("forma-gavilan", "Forma del gavilán", "enum", "select"), attribute("material-hoja", "Material de hoja", "enum", "select"),
     attribute("material-cabo", "Material del cabo", "enum", "select"), attribute("material-vaina", "Material de la vaina", "enum", "select"),
     attribute("genero", "Género", "enum", "select"),
+    attribute("largo-cinto-cm", "Largo del cinto", "number", "number", "cm"),
   ],
   options: [
     ...catalogProductTypeIds.map((code, index) => option("tipo-mate", code, ({ imperial: "Imperial", camionero: "Camionero", criollo: "Criollo", torpedo: "Torpedo" } as Record<string, string>)[code], index * 10)),
@@ -149,5 +150,6 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     rule("cuchillos","tipo-cuchillo","product",10,true), rule("cuchillos","largo-hoja-mm","product",20,true), rule("cuchillos","ancho-hoja-mm","product",30,false,false), rule("cuchillos","configuracion-filo","product",40,true), rule("cuchillos","tiene-gavilan","product",50), rule("cuchillos","forma-gavilan","product",60), rule("cuchillos","material-hoja","product",70), rule("cuchillos","material-cabo","product",80), rule("cuchillos","material-vaina","product",90), rule("cuchillos","acabado","product",100),
     rule("calzado","material","product",10), rule("calzado","genero","product",20), rule("calzado","color","variant",100,true), rule("calzado","talle","variant",110,true),
     rule("marroquineria","material","product",10), rule("marroquineria","acabado","product",30), rule("marroquineria","color","variant",100,true),
+    rule("cintos", "largo-cinto-cm", "product", 20),
   ],
 };
