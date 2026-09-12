@@ -196,12 +196,16 @@ td small { display: block; }
 .orders-table { min-width: 78rem; }
 .numeric { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .order-items-cell { max-width: 18rem; color: #4f5c55; }
+.order-detail-trigger { min-height: 44px; border: 0; background: transparent; color: var(--green-800); padding: .35rem .25rem; font-size: .78rem; font-weight: 800; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .2rem; cursor: pointer; }
+.order-detail-trigger:hover { color: var(--brown); }
+.order-detail-trigger:focus-visible { border-radius: .25rem; outline: 3px solid #d78a4e; outline-offset: 2px; }
 .status-badge { display: inline-flex; align-items: center; min-height: 1.7rem; border: 1px solid #ccd5ce; border-radius: 999px; background: #edf1ee; color: #35483d; padding: .2rem .5rem; font-size: .65rem; font-weight: 700; line-height: 1.2; white-space: nowrap; }
 .status-ready_for_production, .status-ready_for_fulfillment { border-color: #add0ba; background: #e4f3e8; color: #1e5b38; }
 .status-shipped { border-color: #91b9c8; background: #e4f3f7; color: #174f63; }
 .status-paid_pending_review, .status-manual_review { border-color: #e2bc99; background: #fff0df; color: #814315; }
 .status-cancelled, .status-refunded, .status-payment_failed { border-color: #e5bcb7; background: #fff0ed; color: #8a261e; }
 .row-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.row-action-note { margin-top: .35rem; color: var(--muted); line-height: 1.4; }
 .compact-button { min-height: 44px; padding: .35rem .55rem; font-size: .68rem; white-space: nowrap; }
 .compact-button.danger { border-color: var(--danger); background: #fff; color: var(--danger); }
 .compact-button.danger:hover { background: var(--danger); color: #fff; }
@@ -210,10 +214,35 @@ td small { display: block; }
 
 .modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; overflow-y: auto; background: rgba(8,20,14,.58); padding: 1.25rem; }
 .shipment-modal { width: min(31rem,100%); max-height: calc(100dvh - 2.5rem); overflow-y: auto; border: 1px solid var(--line); border-radius: .75rem; background: var(--paper); box-shadow: 0 2rem 5rem rgba(8,20,14,.3); }
+.order-detail-modal { width: min(46rem,100%); }
 .shipment-modal form { padding: 1.5rem; }
+.order-detail-modal__content { padding: 1.5rem; }
 .shipment-modal header { margin-bottom: 1.25rem; }
 .shipment-modal h2 { margin-top: .3rem; font-size: 1.8rem; }
 .shipment-modal header > p:last-child { margin: .6rem 0 0; color: var(--muted); font-size: .86rem; line-height: 1.55; }
+.order-detail-modal__title-row { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
+.order-delivery-summary { border: 1px solid #c8d3cb; border-radius: .55rem; background: #f7faf7; padding: 1rem; }
+.order-delivery-summary__heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--line-soft); padding-bottom: .75rem; }
+.order-delivery-summary__heading > div { display: grid; gap: .2rem; }
+.order-delivery-summary small, .order-detail-items h3, .order-tracking-detail small { color: #53635a; font-size: .66rem; font-weight: 800; letter-spacing: .055em; text-transform: uppercase; }
+.order-delivery-summary__heading > span { border-radius: 999px; background: #e6eee8; color: #315142; padding: .3rem .55rem; font-size: .68rem; font-weight: 700; }
+.order-delivery-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1.1rem; padding-top: .9rem; }
+.order-delivery-grid > div { display: flex; min-width: 0; flex-direction: column; gap: .22rem; }
+.order-delivery-grid strong { color: #142019; line-height: 1.35; }
+.order-delivery-grid span { color: #4c5c53; font-size: .78rem; line-height: 1.45; overflow-wrap: anywhere; }
+.order-delivery-grid address { display: flex; flex-direction: column; gap: .22rem; font-style: normal; }
+.missing-delivery-data { color: var(--danger) !important; }
+.order-delivery-summary--compact { margin-bottom: 1.15rem; background: #fffaf2; }
+.order-delivery-summary--compact .order-delivery-grid { grid-template-columns: 1fr; }
+.order-detail-items { margin-top: 1rem; border: 1px solid var(--line); border-radius: .55rem; background: #fff; padding: 1rem; }
+.order-detail-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.order-detail-section-heading h3 { margin: 0; }
+.order-detail-items ul { display: grid; gap: .65rem; margin: .8rem 0 0; padding: 0; list-style: none; }
+.order-detail-items li { display: flex; align-items: start; justify-content: space-between; gap: 1rem; border-top: 1px solid var(--line-soft); padding-top: .65rem; font-size: .8rem; line-height: 1.4; }
+.order-detail-items li strong { white-space: nowrap; }
+.order-tracking-detail { display: grid; grid-template-columns: 1fr auto; gap: .2rem 1rem; margin-top: 1rem; border-left: 4px solid #39758a; background: #eef7fa; padding: .8rem 1rem; }
+.order-tracking-detail small { grid-column: 1 / -1; }
+.order-tracking-detail span { color: #31566a; overflow-wrap: anywhere; }
 .shipment-modal label { display: block; margin-top: .9rem; color: #2f3f36; font-size: .78rem; font-weight: 700; }
 .shipment-modal label span { color: var(--danger); }
 .shipment-modal input,
@@ -307,9 +336,13 @@ td small { display: block; }
   .image-gallery { grid-template-columns: 1fr; }
   .modal-backdrop { align-items: end; padding: .65rem; }
   .shipment-modal { max-height: calc(100dvh - 1.3rem); }
-  .shipment-modal form { padding: 1.2rem; }
+  .shipment-modal form, .order-detail-modal__content { padding: 1.2rem; }
   .shipment-modal footer { display: grid; grid-template-columns: 1fr; }
   .shipment-modal footer button { width: 100%; }
+  .order-detail-modal__title-row { align-items: stretch; flex-direction: column; }
+  .order-delivery-grid { grid-template-columns: 1fr; }
+  .order-delivery-summary__heading { align-items: stretch; flex-direction: column; }
+  .order-delivery-summary__heading > span { align-self: flex-start; }
 }
 
 @media (prefers-reduced-motion: reduce) {

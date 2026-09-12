@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { PersonalizedOrders } from './PersonalizedOrdersView';
@@ -44,7 +44,7 @@ type SaleMode = 'standard'|'made_to_order';
 type ProductVariant = {id:string;sku:string;name:string;price_minor:number;active:boolean;color?:string|null};
 type Product = { id:string; editorial_slug:string; name:string; category:string; description:string; sale_mode:SaleMode; published:boolean; catalog_filters?:unknown; commerce_variants:ProductVariant[]; commerce_product_images:ProductImage[] };
 type ProductForm = {name:string;category:string;description:string;saleMode:SaleMode;catalogFilters:CatalogAttributes};
-type Order = { id:string;order_number:number;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;order_items:Array<{id:string;title:string;requires_review:boolean;review_status:string|null}> };
+type Order = { id:string;order_number:number;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;order_items:Array<{id:string;title:string;quantity:number;requires_review:boolean;review_status:string|null}> };
 type Rate = {id:string;code:string;name:string;departments:string[];rate_minor:number;is_pickup:boolean;active:boolean};
 const money=(minor:number)=>new Intl.NumberFormat('es-UY',{style:'currency',currency:'UYU',maximumFractionDigits:0}).format(minor/100);
 const MAX_PRODUCT_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -74,7 +74,29 @@ function Icon({ name }: { name: IconName }) {
 }
 
 const textValue = (value: unknown) => typeof value === 'string' ? value.trim() : '';
-const orderCustomer = (snapshot: Record<string, unknown>) => textValue(snapshot.fullName) || textValue(snapshot.name) || textValue(snapshot.email) || 'Cliente sin nombre';
+const snapshotValue = (snapshot: Record<string, unknown>, ...keys:string[]) => keys.map(key=>textValue(snapshot[key])).find(Boolean) || '';
+const orderCustomer = (snapshot: Record<string, unknown>) => snapshotValue(snapshot,'fullName','full_name','name','email') || 'Cliente sin nombre';
+export function getOrderDeliveryDetails(order:Pick<Order,'shipping_method'|'shipping_snapshot'|'customer_snapshot'>) {
+  const customer = order.customer_snapshot || {};
+  const shipping = order.shipping_snapshot || {};
+  const isPickup = order.shipping_method === 'pickup';
+  const isInternational = order.shipping_method === 'international_coordination';
+  const source = isInternational ? shipping : customer;
+  const countryCode = snapshotValue(source,'country','countryCode','country_code');
+  const country = countryCode.toUpperCase() === 'UY' ? 'Uruguay' : countryCode || (!isInternational ? 'Uruguay' : '');
+  return {
+    isPickup,
+    contactName: orderCustomer(customer),
+    phone: snapshotValue(customer,'phone','telephone'),
+    email: snapshotValue(customer,'email'),
+    address: snapshotValue(source,'address','addressLine1','address_line1'),
+    city: snapshotValue(source,'city'),
+    department: snapshotValue(source,'department','state','province'),
+    country,
+    zone: snapshotValue(shipping,'name'),
+    methodLabel: isPickup ? 'Retiro' : isInternational ? 'Envío internacional a coordinar' : 'Envío nacional',
+  };
+}
 const orderStatus = (status: string) => ({
   pending_payment: 'Pendiente de pago',
   paid_pending_review: 'Requiere revisión',
@@ -88,7 +110,7 @@ const orderStatus = (status: string) => ({
 }[status] || status.replaceAll('_', ' '));
 const normalizeSearch = (value:string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 const catalogCategoryLabels: Record<string,string> = {
-  mates:'Mate',bombillas:'Bombilla',bombillones:'Bombillón',materas:'Matera',termos:'Termo',regalos:'Regalo',cintos:'Cinto',calzado:'Calzado',botas:'Bota',billeteras:'Billetera',carteras:'Cartera',
+  mates:'Mate',bombillas:'Bombilla',bombillones:'Bombillón',materas:'Matera',termos:'Termo','kits-materos':'Kit Matero',cuchillos:'Cuchillo',regalos:'Regalo',cintos:'Cinto',calzado:'Calzado',botas:'Bota',billeteras:'Billetera',carteras:'Cartera',
 };
 const catalogMaterialLabels: Record<string,string> = {
   cuero:'Cuero',plata:'Plata',alpaca:'Alpaca','acero-inoxidable':'Acero inoxidable','otros-metales':'Otros metales',madera:'Madera',estampado:'Estampado',
@@ -327,7 +349,8 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
 
   useEffect(() => {
     if (!product) return;
-    const category = (catalogCategoryIds as readonly string[]).includes(product.category) ? product.category : '';
+    const rawCategory = product.category === 'kit-matero' ? 'kits-materos' : product.category === 'cuchillo' ? 'cuchillos' : product.category;
+    const category = (catalogCategoryIds as readonly string[]).includes(rawCategory) ? rawCategory : '';
     setProductDetails({name:product.name,category,description:product.description,saleMode:product.sale_mode,catalogFilters:normalizeCatalogAttributes(product.catalog_filters)});
   },[product]);
 
@@ -686,6 +709,9 @@ type CatalogListRow = CatalogListProduct & { material:string; variant:ProductVar
 
 function CatalogList({onNotice}:{onNotice:(v:string)=>void}) {
   const [products,setProducts] = useState<CatalogListProduct[]>([]);
+  const [skuSort, setSkuSort] = useState<'none' | 'asc' | 'desc'>('asc');
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
 
   const load = useCallback(async() => {
     const selection = 'id,name,category,catalog_filters,commerce_variants(id,sku,name,price_minor,active,color)';
@@ -706,30 +732,152 @@ function CatalogList({onNotice}:{onNotice:(v:string)=>void}) {
   },[onNotice]);
 
   useEffect(() => { void load(); },[load]);
-  const rows: CatalogListRow[] = products.flatMap<CatalogListRow>(product => {
-    const material = normalizeCatalogAttributes(product.catalog_filters).materials
-      .map(value => catalogMaterialLabels[value] || value)
-      .join(', ') || '—';
-    const variants = product.commerce_variants || [];
-    return variants.length
-      ? variants.map(variant => ({...product,material,variant}))
-      : [{...product,material,variant:null}];
-  });
+
+  const rows: CatalogListRow[] = useMemo(() => {
+    return products.flatMap<CatalogListRow>(product => {
+      const material = normalizeCatalogAttributes(product.catalog_filters).materials
+        .map(value => catalogMaterialLabels[value] || value)
+        .join(', ') || '—';
+      const variants = product.commerce_variants || [];
+      return variants.length
+        ? variants.map(variant => ({...product,material,variant}))
+        : [{...product,material,variant:null}];
+    });
+  }, [products]);
+
+  const toggleSkuSort = () => {
+    setSkuSort(current => {
+      if (current === 'asc') return 'desc';
+      if (current === 'desc') return 'none';
+      return 'asc';
+    });
+  };
+
+  const filteredAndSortedRows = useMemo(() => {
+    let result = rows;
+
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter(r =>
+        (r.variant?.sku && r.variant.sku.toLowerCase().includes(q)) ||
+        r.name.toLowerCase().includes(q) ||
+        (r.variant?.name && r.variant.name.toLowerCase().includes(q)) ||
+        r.material.toLowerCase().includes(q)
+      );
+    }
+
+    if (categoryFilter !== 'all') {
+      result = result.filter(r => r.category === categoryFilter);
+    }
+
+    if (skuSort !== 'none') {
+      result = [...result].sort((a, b) => {
+        const skuA = (a.variant?.sku || '').trim();
+        const skuB = (b.variant?.sku || '').trim();
+        if (!skuA && !skuB) return 0;
+        if (!skuA) return 1;
+        if (!skuB) return -1;
+        const cmp = skuA.localeCompare(skuB, undefined, { numeric: true, sensitivity: 'base' });
+        return skuSort === 'asc' ? cmp : -cmp;
+      });
+    }
+
+    return result;
+  }, [rows, search, categoryFilter, skuSort]);
 
   return <section className="data-panel" aria-label="Lista de productos del catálogo">
-    <div className="table-summary"><strong>{products.length} productos</strong><small>{rows.length} {rows.length === 1 ? 'variante listada' : 'variantes listadas'}</small></div>
+    <div className="table-summary" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
+      <div>
+        <strong>{products.length} productos</strong>
+        <small style={{ marginLeft: '0.5rem' }}>
+          {filteredAndSortedRows.length} {filteredAndSortedRows.length === 1 ? 'variante listada' : 'variantes listadas'}
+        </small>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+        <input
+          type="search"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Buscar por SKU o producto…"
+          style={{
+            height: '34px',
+            padding: '0.35rem 0.65rem',
+            border: '1px solid #b7c0b9',
+            borderRadius: '0.25rem',
+            fontSize: '0.8rem',
+            minWidth: '180px',
+          }}
+        />
+        <select
+          value={categoryFilter}
+          onChange={e => setCategoryFilter(e.target.value)}
+          style={{
+            height: '34px',
+            padding: '0.35rem 0.65rem',
+            border: '1px solid #b7c0b9',
+            borderRadius: '0.25rem',
+            fontSize: '0.8rem',
+            background: '#fff',
+          }}
+        >
+          <option value="all">Todas las categorías</option>
+          {catalogCategoryIds.map(cat => (
+            <option key={cat} value={cat}>{catalogCategoryLabels[cat] || cat}</option>
+          ))}
+        </select>
+        <select
+          value={skuSort}
+          onChange={e => setSkuSort(e.target.value as 'none' | 'asc' | 'desc')}
+          aria-label="Ordenar lista por SKU"
+          style={{
+            height: '34px',
+            padding: '0.35rem 0.65rem',
+            border: '1px solid #b7c0b9',
+            borderRadius: '0.25rem',
+            fontSize: '0.8rem',
+            background: '#fff',
+            fontWeight: skuSort !== 'none' ? 600 : 400,
+            color: skuSort !== 'none' ? 'var(--green-800)' : 'inherit',
+          }}
+        >
+          <option value="asc">SKU: menor a mayor (0-9, A-Z) ↑</option>
+          <option value="desc">SKU: mayor a menor (Z-A, 9-0) ↓</option>
+          <option value="none">Por defecto (Nombre)</option>
+        </select>
+      </div>
+    </div>
     <div className="table-scroll">
       <table className="data-table catalog-list-table">
-        <thead><tr><th>SKU</th><th>Producto</th><th>Categoría</th><th>Material</th><th className="numeric">Precio</th></tr></thead>
+        <thead>
+          <tr>
+            <th
+              scope="col"
+              style={{ cursor: 'pointer', userSelect: 'none' }}
+              onClick={toggleSkuSort}
+              title="Click para alternar orden por SKU (menor a mayor / mayor a menor)"
+            >
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                <span>SKU</span>
+                <span style={{ fontSize: '0.85rem', color: skuSort !== 'none' ? 'var(--green-800)' : '#8a9990' }}>
+                  {skuSort === 'asc' ? '▲' : skuSort === 'desc' ? '▼' : '↕'}
+                </span>
+              </div>
+            </th>
+            <th>Producto</th>
+            <th>Categoría</th>
+            <th>Material</th>
+            <th className="numeric">Precio</th>
+          </tr>
+        </thead>
         <tbody>
-          {rows.map(row => <tr key={`${row.id}-${row.variant?.id || 'sin-variante'}`}>
+          {filteredAndSortedRows.map(row => <tr key={`${row.id}-${row.variant?.id || 'sin-variante'}`}>
             <td>{row.variant?.sku || '—'}</td>
             <td><strong>{row.name}</strong>{row.variant?.name && <small>{row.variant.name}</small>}</td>
             <td>{catalogCategoryLabels[row.category] || row.category || '—'}</td>
             <td>{row.material}</td>
             <td className="numeric"><strong>{row.variant ? money(row.variant.price_minor) : '—'}</strong></td>
           </tr>)}
-          {!rows.length && <tr><td className="empty-table" colSpan={5}>Todavía no hay productos cargados.</td></tr>}
+          {!filteredAndSortedRows.length && <tr><td className="empty-table" colSpan={5}>No se encontraron productos con los filtros seleccionados.</td></tr>}
         </tbody>
       </table>
     </div>
@@ -782,22 +930,53 @@ export function getStoreApiUrl(): string {
   return isLocalhost ? 'http://localhost:3000' : 'https://www.matearteuruguay.com';
 }
 
+function OrderDeliverySummary({order,compact=false}:{order:Order;compact?:boolean}) {
+  const details = getOrderDeliveryDetails(order);
+  const locality = [details.city,details.department].filter((value,index,all)=>value&&all.indexOf(value)===index).join(', ');
+  return <section className={`order-delivery-summary${compact?' order-delivery-summary--compact':''}`} aria-label="Datos de entrega">
+    <div className="order-delivery-summary__heading">
+      <div><small>Entrega</small><strong>{details.methodLabel}</strong></div>
+      {details.zone&&<span>{details.zone}</span>}
+    </div>
+    <div className="order-delivery-grid">
+      <div>
+        <small>Cliente</small>
+        <strong>{details.contactName}</strong>
+        {details.phone&&<span>{details.phone}</span>}
+        {details.email&&<span>{details.email}</span>}
+      </div>
+      <div>
+        <small>{details.isPickup?'Modalidad':'Enviar a'}</small>
+        {details.isPickup
+          ? <strong>Retiro: no requiere despacho</strong>
+          : <address>
+              <strong className={details.address?'':'missing-delivery-data'}>{details.address||'Dirección no disponible'}</strong>
+              {locality&&<span>{locality}</span>}
+              {details.country&&<span>{details.country}</span>}
+            </address>}
+      </div>
+    </div>
+  </section>;
+}
+
 function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) {
   const [orders,setOrders] = useState<Order[]>([]);
   const [busy,setBusy] = useState('');
+  const [detailOrder,setDetailOrder] = useState<Order|null>(null);
   const [shipmentOrder,setShipmentOrder] = useState<Order|null>(null);
   const [shippingCarrier,setShippingCarrier] = useState('');
   const [selectedCarrier,setSelectedCarrier] = useState('');
   const [customCarrier,setCustomCarrier] = useState('');
   const [trackingCode,setTrackingCode] = useState('');
   const [shipmentError,setShipmentError] = useState('');
+  const detailTriggerRef = useRef<HTMLElement|null>(null);
   const [search,setSearch] = useState(() => {
     if (typeof window === 'undefined') return '';
     const params = new URLSearchParams(window.location.search);
     return params.get('q') || params.get('search') || params.get('order') || '';
   });
   const load = useCallback(async() => {
-    const {data,error} = await supabase.from('orders').select('id,order_number,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,total_minor,created_at,customer_snapshot,order_items(id,title,requires_review,review_status)').order('created_at',{ascending:false}).limit(100);
+    const {data,error} = await supabase.from('orders').select('id,order_number,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,total_minor,created_at,customer_snapshot,order_items(id,title,quantity,requires_review,review_status)').order('created_at',{ascending:false}).limit(100);
     if (error) onNotice(`No se pudieron cargar los pedidos: ${error.message}`);
     setOrders((data||[]) as Order[]);
   },[onNotice]);
@@ -951,6 +1130,16 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
     setShipmentError('');
   };
 
+  const openDetails = (order:Order) => {
+    detailTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setDetailOrder(order);
+  };
+
+  const closeDetails = () => {
+    setDetailOrder(null);
+    window.requestAnimationFrame(()=>detailTriggerRef.current?.focus());
+  };
+
   const closeShipment = () => {
     if (shipmentOrder && busy === shipmentOrder.id) return;
     setShipmentOrder(null);
@@ -963,6 +1152,13 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
     window.addEventListener('keydown',onKeyDown);
     return () => window.removeEventListener('keydown',onKeyDown);
   },[shipmentOrder,busy]);
+
+  useEffect(() => {
+    if (!detailOrder) return;
+    const onKeyDown = (event:KeyboardEvent) => { if (event.key === 'Escape') closeDetails(); };
+    window.addEventListener('keydown',onKeyDown);
+    return () => window.removeEventListener('keydown',onKeyDown);
+  },[detailOrder]);
 
   return (
     <>
@@ -995,20 +1191,20 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
                   ? [textValue(order.shipping_snapshot.city),textValue(order.shipping_snapshot.country)].filter(Boolean).join(', ') || 'Exterior'
                   : order.shipping_method === 'pickup' ? 'Retiro' : 'Envío';
                 const canShip = order.shipping_method !== 'pickup' && ['ready_for_fulfillment', 'ready_for_production', 'manual_review'].includes(order.status);
-                const hasActions = order.status==='paid_pending_review' || canShip || order.status==='shipped';
                 return <tr key={order.id} id={`order-${order.order_number}`}>
-                  <td><strong>#{order.order_number}</strong></td>
+                  <td><button type="button" className="order-detail-trigger" onClick={()=>openDetails(order)} aria-label={`Ver detalle del pedido ${order.order_number}`}>#{order.order_number}</button></td>
                   <td>{new Date(order.created_at).toLocaleDateString('es-UY')}</td>
                   <td>{orderCustomer(order.customer_snapshot)}</td>
                   <td className="order-items-cell">{order.order_items.map(item=>item.title).join(' · ') || 'Sin artículos'}</td>
                   <td><strong>{destination}</strong>{order.status==='shipped'&&<small className="tracking-summary">{order.shipping_carrier} · {order.tracking_code}</small>}</td>
                   <td><span className={`status-badge status-${order.status}`}>{orderStatus(order.status)}</span></td>
                   <td className="numeric"><strong>{money(order.total_minor)}</strong></td>
-                  <td>{hasActions ? <div className="row-actions">
+                  <td><div className="row-actions">
+                    <button className="compact-button secondary-button" type="button" onClick={()=>openDetails(order)}>Ver detalle</button>
                     {order.status==='paid_pending_review'&&<><button className="compact-button" disabled={busy===order.id} onClick={()=>void review(order.id,'approve')}>{busy===order.id?'Procesando…':'Aprobar'}</button><button className="compact-button danger" disabled={busy===order.id} onClick={()=>void review(order.id,'reject')}>Rechazar</button></>}
                     {canShip&&<button className="compact-button" disabled={busy===order.id} onClick={()=>openShipment(order)}>Marcar enviado</button>}
                     {order.status==='shipped'&&<><button className="compact-button secondary-button" disabled={busy===order.id} onClick={()=>openShipment(order)}>Editar envío</button><button className="compact-button secondary-button" disabled={busy===order.id} onClick={()=>{if(window.confirm('¿Querés volver este pedido a preparación? El cliente dejará de verlo como enviado.'))void updateFulfillment(order,'restore')}}>{busy===order.id?'Procesando…':order.shipping_method==='international_coordination'?'Volver a revisión':order.order_items.some(item=>item.requires_review)?'Volver a producción':'Volver a preparación'}</button></>}
-                  </div> : <small>{order.shipping_method==='pickup'&&['ready_for_fulfillment','ready_for_production'].includes(order.status)?'Retiro: no requiere envío':'Sin acciones'}</small>}</td>
+                  </div>{order.shipping_method==='pickup'&&['ready_for_fulfillment','ready_for_production'].includes(order.status)&&<small className="row-action-note">Retiro: no requiere envío</small>}</td>
                 </tr>;
               })}
               {!filteredOrders.length && <tr><td className="empty-table" colSpan={8}>{search ? `No se encontraron pedidos con "${search}".` : 'Todavía no hay pedidos.'}</td></tr>}
@@ -1016,6 +1212,31 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
           </table>
         </div>
       </section>
+
+      {detailOrder&&<div className="modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)closeDetails()}}>
+        <section className="shipment-modal order-detail-modal" role="dialog" aria-modal="true" aria-labelledby="order-detail-modal-title" aria-describedby="order-detail-modal-description">
+          <div className="order-detail-modal__content">
+            <header>
+              <div className="order-detail-modal__title-row">
+                <div><p className="eyebrow">Pedido #{detailOrder.order_number}</p><h2 id="order-detail-modal-title">Detalle del pedido</h2></div>
+                <span className={`status-badge status-${detailOrder.status}`}>{orderStatus(detailOrder.status)}</span>
+              </div>
+              <p id="order-detail-modal-description">Datos guardados al confirmar la compra. Usá este destino para preparar la entrega.</p>
+            </header>
+            <OrderDeliverySummary order={detailOrder}/>
+            <section className="order-detail-items" aria-labelledby="order-detail-items-title">
+              <div className="order-detail-section-heading"><h3 id="order-detail-items-title">Artículos</h3><strong>{money(detailOrder.total_minor)}</strong></div>
+              <ul>{detailOrder.order_items.map(item=><li key={item.id}><span>{item.title}</span><strong>{item.quantity} ×</strong></li>)}</ul>
+            </section>
+            {detailOrder.status==='shipped'&&<section className="order-tracking-detail" aria-label="Seguimiento guardado"><small>Envío registrado</small><strong>{detailOrder.shipping_carrier}</strong><span>{detailOrder.tracking_code}</span></section>}
+            <footer>
+              <button type="button" className="secondary-button" autoFocus onClick={closeDetails}>Cerrar</button>
+              {detailOrder.shipping_method!=='pickup'&&['ready_for_fulfillment','ready_for_production','manual_review'].includes(detailOrder.status)&&<button type="button" onClick={()=>{const order=detailOrder;setDetailOrder(null);openShipment(order)}}>Marcar enviado</button>}
+              {detailOrder.status==='shipped'&&<button type="button" onClick={()=>{const order=detailOrder;setDetailOrder(null);openShipment(order)}}>Editar envío</button>}
+            </footer>
+          </div>
+        </section>
+      </div>}
 
       {shipmentOrder&&<div className="modal-backdrop">
         <section className="shipment-modal" role="dialog" aria-modal="true" aria-labelledby="shipment-modal-title" aria-describedby="shipment-modal-description">
@@ -1025,6 +1246,7 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
               <h2 id="shipment-modal-title">{shipmentOrder.status==='shipped'?'Editar datos de envío':'Marcar como enviado'}</h2>
               <p id="shipment-modal-description">Guardá la empresa y el código que el cliente necesita para seguir el paquete.</p>
             </header>
+            <OrderDeliverySummary order={shipmentOrder} compact/>
             <label htmlFor="shipping-carrier-select">Empresa de envío <span aria-hidden="true">*</span></label>
             <select
               id="shipping-carrier-select"
