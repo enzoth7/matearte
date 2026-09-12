@@ -9605,4 +9605,13 @@ input:checked + .catalog-mobile-checkbox::after {
     min-width: 3.5rem;
   }
 }
-
+.structured-variant-picker { display: grid; gap: 1rem; margin: 0 0 1.25rem; }
+.structured-variant-picker fieldset { margin: 0; padding: 0; border: 0; }
+.structured-variant-picker legend { margin-bottom: .55rem; font-size: .875rem; font-weight: 650; text-transform: capitalize; }
+.structured-variant-picker fieldset > div { display: flex; flex-wrap: wrap; gap: .65rem; }
+.structured-color { width: 2rem; height: 2rem; border: 1px solid rgba(0,0,0,.24); border-radius: 50%; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
+.structured-color[data-selected="true"] { transform: scale(1.08); box-shadow: 0 0 0 2px #faf6ee, 0 0 0 4px #2d1d16; }
+.structured-option { min-width: 2.8rem; padding: .55rem .75rem; border: 1px solid rgba(45,29,22,.3); border-radius: .3rem; background: transparent; color: inherit; cursor: pointer; }
+.structured-option[data-selected="true"] { border-color: #2d1d16; background: #2d1d16; color: #fff; }
+.variant-selection-note, .product-attribute-summary { margin: -.65rem 0 1rem; font-size: .83rem; color: rgba(26,26,26,.68); }
+.product-desktop-primary:disabled, .product-mobile-primary:disabled { cursor: not-allowed; opacity: .55; }

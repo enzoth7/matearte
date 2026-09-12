@@ -11,12 +11,13 @@ import type { Locale, Product } from "@/types/catalog";
 type RemoteItem = {
   id: string; item_type: "catalog" | "design"; quantity: number;
   unit_price_minor: number; currency: string;
-  variant: null | { name: string; price_minor: number; currency: string; product: { name: string; commerce_product_images?: { storage_path: string; sort_order: number }[] } };
+  variant: null | { id: string; name: string; price_minor: number; currency: string; option_values?: Record<string,string|number|boolean>; product: { name: string; commerce_product_images?: { storage_path: string; sort_order: number; variant_id: string | null; option_values?: Record<string,string|number|boolean> }[] } };
   design: null | { title: string };
 };
 type Cart = { id: string; items: RemoteItem[] };
 
 import { formatMoney as money } from "@/lib/money";
+import { orderItemImagePath } from "@/lib/order-item-image";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 
 const normalizeProductName = (value: string) => value
@@ -45,8 +46,11 @@ function itemImage(item: RemoteItem) {
     return "/assets/matearte/01-marca/LogoOriginal.jpg";
   }
 
-  const images = [...(item.variant?.product.commerce_product_images || [])].sort((a, b) => a.sort_order - b.sort_order);
-  const imagePath = images[0]?.storage_path;
+  const imagePath = orderItemImagePath({
+    item_type: item.item_type,
+    source_variant_id: item.variant?.id,
+    variant: item.variant,
+  });
 
   if (imagePath) {
     const supabase = createBrowserSupabase();
@@ -59,7 +63,10 @@ function itemImage(item: RemoteItem) {
       const localName = normalizeProductName(candidate.name);
       return localName.includes(remoteName) || remoteName.includes(localName);
     });
-    if (product?.images?.[0]?.src) return product.images[0].src;
+    const variantImage = product?.images.find(image => image.variantId === item.variant?.id);
+    const generalImage = product?.images.find(image => !image.variantId);
+    const imageSrc = variantImage?.src || generalImage?.src || product?.images[0]?.src;
+    if (imageSrc) return imageSrc;
   }
 
   return "/assets/matearte/profile-orders-desktop/catalog-fallback.png";
@@ -175,13 +182,15 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
         const localizedName = localizedProducts.find(lp => lp.id === product.id)?.name || product.name;
         const variant = product.variants.find(v => v.id === variantId);
         const priceMinor = variant?.price?.amountMinor ?? (product.filterData.priceUYU ? product.filterData.priceUYU * 100 : 0);
+        const variantImage = product.images.find(image => image.variantId === variantId);
+        const generalImage = product.images.find(image => !image.variantId);
         resolved.push({
           title: localizedName,
           variantLabel: variant?.label ?? "",
           variantId,
           quantity,
           priceMinor,
-          imageSrc: product.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.png",
+          imageSrc: variantImage?.src || generalImage?.src || product.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.png",
         });
       } else {
         missingUUIDs.push({ variantId, quantity });
@@ -198,13 +207,16 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
             id,
             name,
             price_minor,
+            option_values,
             commerce_products (
               id,
               editorial_slug,
               name,
               commerce_product_images (
                 storage_path,
-                sort_order
+                sort_order,
+                variant_id
+                ,option_values
               )
             )
           `)
@@ -216,8 +228,11 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
           const vData = dbVariants?.find((v: any) => v.id === variantId);
           if (vData) {
             const rawProduct = vData.commerce_products as any;
-            const images = (rawProduct?.commerce_product_images || []).sort((a: any, b: any) => a.sort_order - b.sort_order);
-            const imagePath = images[0]?.storage_path;
+            const imagePath = orderItemImagePath({
+              item_type: "catalog",
+              source_variant_id: variantId,
+              variant: { product: rawProduct, option_values: vData.option_values },
+            });
 
             // Try matching a local catalog image first for 100% reliable loading
             const rawNameNorm = normalizeProductName(rawProduct?.name || "");
@@ -227,7 +242,9 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
                 || p.id === rawProduct?.editorial_slug
                 || (rawNameNorm && (pNameNorm.includes(rawNameNorm) || rawNameNorm.includes(pNameNorm)));
             });
-            const localImage = localMatch?.images[0]?.src;
+            const localVariantImage = localMatch?.images.find(image => image.variantId === variantId);
+            const localGeneralImage = localMatch?.images.find(image => !image.variantId);
+            const localImage = localVariantImage?.src || localGeneralImage?.src || localMatch?.images[0]?.src;
 
             const imageSrc = imagePath
               ? supabase.storage.from("product-images").getPublicUrl(imagePath).data.publicUrl

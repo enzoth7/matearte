@@ -109,7 +109,7 @@ describe("catálogo público conectado a Supabase", () => {
     expect(product.filterData).toMatchObject({
       materials: ["cuero"],
       productTypes: [],
-      colors: ["negro", "natural"],
+      colors: [],
     });
   });
 

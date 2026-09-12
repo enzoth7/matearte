@@ -40,3 +40,21 @@ describe('getTabFromUrl', () => {
     expect(getTabFromUrl('/ruta-inexistente')).toBe('catalog');
   });
 });
+
+describe('catalogColorLabels', () => {
+  it('contiene las etiquetas de color definidas y exportadas', async () => {
+    const { catalogColorLabels } = await import('./App');
+    expect(catalogColorLabels.marron).toBe('Marrón');
+    expect(catalogColorLabels.negro).toBe('Negro');
+    expect(catalogColorLabels.natural).toBe('Natural');
+    expect(catalogColorLabels['cuero-crudo']).toBe('Cuero crudo');
+    expect(catalogColorLabels.rojo).toBe('Rojo');
+    expect(catalogColorLabels.blanco).toBe('Blanco');
+    expect(catalogColorLabels.rosado).toBe('Rosado');
+    expect(catalogColorLabels.gris).toBe('Gris');
+    expect(catalogColorLabels.dorado).toBe('Dorado');
+    expect(catalogColorLabels.celeste).toBe('Celeste');
+    expect(catalogColorLabels.azul).toBe('Azul');
+    expect(catalogColorLabels.beige).toBe('Beige');
+  });
+});

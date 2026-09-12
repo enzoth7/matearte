@@ -41,10 +41,12 @@ export function useCatalogFilters() {
     toggleMaterial: (value: CatalogMaterialId) => commit({ ...filters, materials: toggleFilterValue(filters.materials, value) }),
     toggleProductType: (value: CatalogProductTypeId) => commit({ ...filters, productTypes: toggleFilterValue(filters.productTypes, value) }),
     toggleColor: (value: CatalogColorId) => commit({ ...filters, colors: toggleFilterValue(filters.colors, value) }),
+    toggleShape: (value: string) => commit({ ...filters, shapes: toggleFilterValue(filters.shapes, value) }),
     setPrice: (value: PriceRangeId | "") => commit({ ...filters, prices: value ? [value] : [] }),
     setMaterial: (value: CatalogMaterialId | "") => commit({ ...filters, materials: value ? [value] : [] }),
     setProductType: (value: CatalogProductTypeId | "") => commit({ ...filters, productTypes: value ? [value] : [] }),
     setColor: (value: CatalogColorId | "") => commit({ ...filters, colors: value ? [value] : [] }),
-    clearFilters: () => commit({ ...filters, category: "todas", prices: [], materials: [], productTypes: [], colors: [] }),
+    setShape: (value: string | "") => commit({ ...filters, shapes: value ? [value] : [] }),
+    clearFilters: () => commit({ ...filters, category: "todas", prices: [], materials: [], productTypes: [], colors: [], shapes: [] }),
   };
 }

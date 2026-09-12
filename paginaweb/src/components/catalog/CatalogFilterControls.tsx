@@ -6,6 +6,7 @@ import {
   materialOptions,
   productTypeOptions,
   priceRangeOptions,
+  shapeOptions,
   getProductColors,
   type CatalogFilters,
   type PriceRangeId,
@@ -37,6 +38,7 @@ const COLOR_FALLBACKS: Record<string, Record<string, string>> = {
     blue: "Azul",
     azul: "Azul",
     beige: "Beige",
+    metallic: "Metálico", metalico: "Metálico",
   },
   en: {
     brown: "Brown",
@@ -61,6 +63,7 @@ const COLOR_FALLBACKS: Record<string, Record<string, string>> = {
     blue: "Blue",
     azul: "Blue",
     beige: "Beige",
+    metallic: "Metallic", metalico: "Metallic",
   },
   pt: {
     brown: "Marrom",
@@ -85,6 +88,7 @@ const COLOR_FALLBACKS: Record<string, Record<string, string>> = {
     blue: "Azul",
     azul: "Azul",
     beige: "Bege",
+    metallic: "Metálico", metalico: "Metálico",
   },
 };
 
@@ -98,6 +102,7 @@ type Props = {
   onMaterialToggle: (value: CatalogMaterialId) => void;
   onProductTypeToggle: (value: CatalogProductTypeId) => void;
   onColorToggle: (value: CatalogColorId) => void;
+  onShapeToggle: (value: string) => void;
   onClear: () => void;
 };
 
@@ -111,6 +116,7 @@ export function CatalogFilterControls({
   onMaterialToggle,
   onProductTypeToggle,
   onColorToggle,
+  onShapeToggle,
   onClear,
 }: Props) {
   const t = useTranslations("catalog");
@@ -143,6 +149,7 @@ export function CatalogFilterControls({
   const listClass = mobile ? "catalog-mobile-filter-list" : "catalog-filter-list";
   const rowClass = mobile ? "catalog-mobile-filter-row" : "catalog-check-row";
   const availableColors = new Set(products.flatMap((product) => getProductColors(product)));
+  const availableShapes = new Set(products.flatMap(product=>product.filterData.shapes ?? []));
 
   return (
     <div className={mobile ? "catalog-mobile-filter-groups" : "catalog-filter-groups"}>
@@ -221,6 +228,7 @@ export function CatalogFilterControls({
         </div>
         {availableColors.size === 0 && <p id={`${idPrefix}-color-note`} className="catalog-filter-note">{t("comingSoon")}</p>}
       </fieldset>
+      {availableShapes.size > 0 && <fieldset className={`${groupClass} catalog-shape-filter`}><legend>{t("shape")}</legend><div className={listClass}>{shapeOptions.filter(option=>availableShapes.has(option.value)).map(option=><label key={option.value} className={rowClass}><input type="checkbox" checked={filters.shapes.includes(option.value)} onChange={()=>onShapeToggle(option.value)}/><span className={mobile ? "catalog-mobile-checkbox" : "catalog-checkbox"} aria-hidden="true"/><span>{t(option.labelKey)}</span></label>)}</div></fieldset>}
     </div>
   );
 }

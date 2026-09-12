@@ -31,7 +31,7 @@ function product(id: string, priceUYU: number, overrides: Partial<Product["filte
   };
 }
 
-const defaults: CatalogFilters = { category: "todas", prices: [], materials: [], productTypes: [], colors: [], sort: "editorial" };
+const defaults: CatalogFilters = { category: "todas", prices: [], materials: [], productTypes: [], colors: [], shapes: [], sort: "editorial" };
 
 describe("filtros del catálogo", () => {
   it("respeta los límites sin superponer rangos", () => {
@@ -78,7 +78,7 @@ describe("filtros del catálogo", () => {
       {
         product: {
           ...product("bombillon-cincelado", 4200).product,
-          category: "bombillones",
+          category: "bombillas",
           filterData: { priceUYU: 4200, materials: ["plata"], productTypes: [], colors: ["marron"] },
         },
       },
@@ -90,7 +90,7 @@ describe("filtros del catálogo", () => {
         },
       },
     ];
-    const visible = filterAndSortCatalog(entries, { ...defaults, category: "bombillones", materials: ["plata"], colors: ["marron"] });
+    const visible = filterAndSortCatalog(entries, { ...defaults, category: "bombillas", materials: ["plata"], colors: ["marron"] });
     expect(visible.map(({ product }) => product.id)).toEqual(["bombillon-cincelado"]);
   });
 
@@ -132,7 +132,7 @@ describe("filtros del catálogo", () => {
 
     // getProductColors prioriza los colores de las variantes sobre filterData
     const colors = getProductColors(p);
-    expect(colors).toEqual(["cuero-crudo", "marron", "blanco"]);
+    expect(colors).toEqual(["cuero-crudo", "marron"]);
 
     // findMatchingVariantForColors busca primero por v.color
     const matchMarron = findMatchingVariantForColors(p, ["marron"]);
@@ -180,5 +180,25 @@ describe("filtros del catálogo", () => {
     expect(getVariantColorId("Cuadrada Roja")).toBe("rojo");
     expect(getVariantColorHex("Cuadrada Roja")).toBe("#a83232");
   });
-});
 
+  it("combina forma ovalada con una variante beige activa", () => {
+    const matera: Product = {
+      ...product("matera-ovalada", 3900).product,
+      category: "materas",
+      attributes: { forma: "ovalada" },
+      filterData: { priceUYU: 3900, materials: ["cuero"], shapes: ["ovalada"] },
+      variants: [
+        { id: "beige-39", label: "Beige · Talle 39", value: "MAT-BEI-39", color: "beige", options: { color: "beige", talle: "39" }, available: true },
+        { id: "negra-39", label: "Negro · Talle 39", value: "MAT-NEG-39", color: "negro", options: { color: "negro", talle: "39" }, available: true },
+      ],
+    };
+    expect(filterAndSortCatalog([{product:matera}], {...defaults,colors:["beige"],shapes:["ovalada"]})).toHaveLength(1);
+  });
+
+  it("no convierte materiales metálicos en gris o dorado", () => {
+    expect(getVariantColorId("Acero inoxidable")).toBeUndefined();
+    expect(getVariantColorId("Plata artesanal")).toBeUndefined();
+    expect(getVariantColorId("Bronce y cobre")).toBeUndefined();
+    expect(getVariantColorId("Metálico")).toBe("metalico");
+  });
+});

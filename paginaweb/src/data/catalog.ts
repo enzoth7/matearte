@@ -82,12 +82,6 @@ export const categories: Category[] = [
     description: "Compañeros resistentes para viajes, trabajo y reuniones.",
     image: webImage("02-banners-y-categorias/categoria-termos.webp", "Termo para mate", 381, 326),
   },
-  {
-    slug: "regalos",
-    name: "Regalos personalizados",
-    description: "Piezas y conjuntos pensados para contar una historia propia.",
-    image: socialImage("04-instagram/seleccion-hd/02-set-premium.jpg", "Set premium de mate, termo y accesorios", 2835, 3544),
-  },
 ];
 
 export const products: Product[] = [
@@ -286,35 +280,6 @@ export const products: Product[] = [
     filterData: { priceUYU: 6000, materials: [] },
     variants: [{ id: "color", label: "Color", value: "A confirmar" }],
     images: [webImage("03-productos-web/14-termo-termolar-1l.png", "Termo Termolar de un litro", 573, 573)],
-  },
-  {
-    id: "set-premium",
-    slug: "set-premium",
-    name: "Set premium",
-    category: "regalos",
-    eyebrow: "Idea para regalar",
-    summary: "Una composición de piezas MateArte en tonos naturales.",
-    description: "Inspiración editorial basada en material público de la marca. La composición exacta y su disponibilidad deben confirmarse.",
-    materials: ["Cuero", "Metal", "Madera"],
-    filterData: { priceUYU: 3600, materials: ["cuero", "otros-metales", "madera"] },
-    editorial: true,
-    featured: true,
-    variants: [],
-    images: [socialImage("04-instagram/seleccion-hd/02-set-premium.jpg", "Set premium MateArte sobre una mesa de madera", 2835, 3544)],
-  },
-  {
-    id: "box-matero",
-    slug: "box-matero",
-    name: "Box matero",
-    category: "regalos",
-    eyebrow: "Idea para regalar",
-    summary: "Una selección matera presentada como inspiración para un obsequio.",
-    description: "Contenido editorial de la marca, sujeto a validación de composición y derechos antes de publicar.",
-    materials: ["Selección a confirmar"],
-    filterData: { priceUYU: 8500, materials: [] },
-    editorial: true,
-    variants: [],
-    images: [socialImage("04-instagram/seleccion-hd/06-box-matero.jpg", "Box matero presentado para regalo", 781, 1041)],
   },
 ];
 

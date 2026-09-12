@@ -14,7 +14,6 @@ const categories = [
   { name: "categoryBombillas", copy: "categoryBombillasCopy", image: "category-bombillas.png", category: "bombillas" },
   { name: "categoryMateras", copy: "categoryMaterasCopy", image: "category-materas.png", category: "materas" },
   { name: "categoryTermos", copy: "categoryTermosCopy", image: "category-termos.png", category: "termos" },
-  { name: "categoryGifts", copy: "categoryGiftsCopy", image: "category-regalos.png", category: "regalos" },
 ] as const;
 
 const champions = [
@@ -81,7 +80,7 @@ export default async function Home() {
           <div className="home-category-grid">
             {categories.map((category, index) => (
               <BandContent key={category.name} className={"home-category-wrap home-category-wrap-" + (index + 1)} delay={Math.min(index * 0.05, 0.2)}>
-                <Link className="home-category-card" href={category.category === "regalos" ? "/personalizados#empresas" as any : { pathname: "/catalogo", query: { categoria: category.category } }}>
+                <Link className="home-category-card" href={{ pathname: "/catalogo", query: { categoria: category.category } }}>
                   <div className="home-image home-category-image">
                     <Image src={`${assets}/${category.image}`} alt={t(category.name)} fill sizes="(max-width: 768px) 50vw, 20vw" />
                   </div>

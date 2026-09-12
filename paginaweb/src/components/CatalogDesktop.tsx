@@ -62,6 +62,8 @@ function CatalogDesktopCard({
     highlightedVariantId,
     variantImage,
     displayedPrice,
+    priceIsFrom,
+    activeColor,
     swatchesToShow,
     setHoveredVariantId,
     handleSelectVariant,
@@ -79,7 +81,7 @@ function CatalogDesktopCard({
 
   return (
     <article className="catalog-product-card">
-      <Link href={{ pathname: "/producto/[slug]", params: { slug: product.slug } }}>
+      <Link href={{ pathname: "/producto/[slug]", params: { slug: product.slug }, query: activeColor ? { color: activeColor } : {} }}>
         <div className="catalog-product-media">
           {showBackground ? (
             <Image
@@ -104,7 +106,7 @@ function CatalogDesktopCard({
         </div>
         <div className="catalog-product-meta">
           <h2>{product.name}</h2>
-          <p>{formatCatalogPrice(displayedPrice, consultLabel, locale, exchangeRates)}</p>
+          <p>{priceIsFrom ? `${locale==='en'?'From':locale==='pt'?'A partir de':'Desde'} ` : ''}{formatCatalogPrice(displayedPrice, consultLabel, locale, exchangeRates)}</p>
           <ProductCardSwatches
             variants={swatchesToShow}
             highlightedVariantId={highlightedVariantId}
@@ -171,6 +173,7 @@ export function CatalogDesktop({ products, exchangeRates }: { products: Product[
             onMaterialToggle={catalogFilters.toggleMaterial}
             onProductTypeToggle={catalogFilters.toggleProductType}
             onColorToggle={catalogFilters.toggleColor}
+            onShapeToggle={catalogFilters.toggleShape}
             onClear={catalogFilters.clearFilters}
           />
         </div>

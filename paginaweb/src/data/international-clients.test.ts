@@ -12,9 +12,10 @@ describe("clientes internacionales", () => {
     expect(names).toEqual([...names].sort((left, right) => left.localeCompare(right, "es", { sensitivity: "base" })));
   });
 
-  it("publica las once reseñas reales con procedencia identificada", () => {
-    expect(customerTestimonials).toHaveLength(11);
+  it("publica las doce reseñas reales con procedencia identificada", () => {
+    expect(customerTestimonials).toHaveLength(12);
     expect(customerTestimonials.filter((testimonial) => testimonial.countryCode === "AU")).toHaveLength(1);
+    expect(customerTestimonials.filter((testimonial) => testimonial.countryCode === "RU")).toHaveLength(1);
     expect(customerTestimonials.filter((testimonial) => testimonial.countryCode === "UY")).toHaveLength(10);
     expect(customerTestimonials.every((testimonial) => testimonial.sourceLabel.length > 0)).toBe(true);
   });

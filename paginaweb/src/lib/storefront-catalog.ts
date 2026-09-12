@@ -15,6 +15,8 @@ const storefrontSelection = `
   editorial_slug,
   name,
   category,
+  category_code,
+  attributes,
   description,
   sale_mode,
   published,
@@ -26,7 +28,9 @@ const storefrontSelection = `
     price_minor,
     currency,
     active,
-    color
+    color,
+    weight_grams,
+    option_values
   ),
   images:commerce_product_images(
     id,
@@ -34,14 +38,19 @@ const storefrontSelection = `
     alt_text,
     sort_order,
     mime_type,
-    variant_id
+    variant_id,
+    option_values
   )
 `;
 
-const legacyStorefrontSelection = storefrontSelection.replace("  catalog_filters,\n", "");
+const legacyStorefrontSelection = `
+  id, editorial_slug, name, category, description, sale_mode, published, catalog_filters,
+  variants:commerce_variants(id,sku,name,price_minor,currency,active,color),
+  images:commerce_product_images(id,storage_path,alt_text,sort_order,mime_type,variant_id)
+`;
 
-function missingCatalogFiltersColumn(error: { message?: string; code?: string } | null) {
-  return Boolean(error && (error.code === "42703" || /catalog_filters/i.test(error.message ?? "")));
+function missingStructuredCatalogColumn(error: { message?: string; code?: string } | null) {
+  return Boolean(error && (error.code === "42703" || /category_code|attributes|option_values|weight_grams/i.test(error.message ?? "")));
 }
 
 export async function getStorefrontProducts(locale: Locale) {
@@ -54,7 +63,7 @@ export async function getStorefrontProducts(locale: Locale) {
       .eq("published", true)
       .neq("category", "sandbox")
       .order("created_at", { ascending: true });
-    if (missingCatalogFiltersColumn(error)) {
+    if (missingStructuredCatalogColumn(error)) {
       ({ data, error } = await client
         .from("commerce_products")
         .select(legacyStorefrontSelection)
@@ -86,7 +95,7 @@ export async function getStorefrontProduct(slug: string, locale: Locale) {
       .eq("published", true)
       .neq("category", "sandbox")
       .maybeSingle();
-    if (missingCatalogFiltersColumn(error)) {
+    if (missingStructuredCatalogColumn(error)) {
       ({ data, error } = await client
         .from("commerce_products")
         .select(legacyStorefrontSelection)

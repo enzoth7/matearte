@@ -22,6 +22,18 @@ export function ProductGallery({ images }: { images: MediaAsset[] }) {
     return () => el.removeEventListener("scroll", handleScroll);
   }, []);
 
+  useEffect(() => {
+    setActiveIndex(0);
+    scroller.current?.scrollTo?.({ left: 0 });
+  }, [images]);
+
+  const goTo = (index: number) => {
+    if (!scroller.current || images.length === 0) return;
+    const next = (index + images.length) % images.length;
+    scroller.current.scrollTo?.({ left: scroller.current.clientWidth * next, behavior: "smooth" });
+    setActiveIndex(next);
+  };
+
   return (
     <div>
       <div
@@ -38,7 +50,7 @@ export function ProductGallery({ images }: { images: MediaAsset[] }) {
         ))}
       </div>
       {images.length > 1 && (
-        <div className="mt-4 flex gap-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <><div className="mt-4 flex items-center justify-between"><button type="button" onClick={()=>goTo(activeIndex-1)} aria-label={t("previousImage")}><CaretLeft aria-hidden="true"/></button><button type="button" onClick={()=>goTo(activeIndex+1)} aria-label={t("nextImage")}><CaretRight aria-hidden="true"/></button></div><div className="mt-4 flex gap-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {images.map((image, i) => (
             <button
               key={image.src}
@@ -58,7 +70,7 @@ export function ProductGallery({ images }: { images: MediaAsset[] }) {
               <Image src={image.src} alt={image.alt} fill sizes="64px" className="object-cover" />
             </button>
           ))}
-        </div>
+        </div></>
       )}
     </div>
   );

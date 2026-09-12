@@ -4,6 +4,7 @@ import type {
   CatalogMaterialId as SharedCatalogMaterialId,
   CatalogProductTypeId as SharedCatalogProductTypeId,
 } from "../../../shared/catalog-taxonomy";
+import type { CatalogValueMap } from "../../../shared/catalog-taxonomy";
 
 export type Locale = "es" | "en" | "pt";
 
@@ -24,6 +25,7 @@ export type CatalogFilterData = {
   /** Kept to preserve existing editorial mate records while they are migrated. */
   mateType?: MateTypeId;
   colors?: CatalogColorId[];
+  shapes?: string[];
 };
 
 export type RightsStatus =
@@ -42,6 +44,7 @@ export type MediaAsset = {
   sourceUrl: string;
   rightsStatus: RightsStatus;
   variantId?: string | null;
+  optionValues?: CatalogValueMap;
 };
 
 export type ExchangeRates = Record<string, number>;
@@ -72,6 +75,8 @@ export type ProductVariant = {
   price?: Money;
   available?: boolean;
   color?: CatalogColorId | null;
+  options?: CatalogValueMap;
+  weightGrams?: number | null;
 };
 
 export type Product = {
@@ -79,6 +84,7 @@ export type Product = {
   slug: string;
   name: string;
   category: string;
+  attributes?: CatalogValueMap;
   eyebrow: string;
   summary: string;
   description: string;

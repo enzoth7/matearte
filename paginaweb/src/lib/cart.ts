@@ -17,7 +17,7 @@ export async function readCart(client: SupabaseClient, userId: string) {
   const cart = await getOrCreateCart(client, userId);
   const { data: items, error } = await client.from("cart_items").select(`
     id,item_type,variant_id,design_id,quantity,updated_at,
-    variant:commerce_variants(id,sku,name,price_minor,currency,active,product:commerce_products(id,editorial_slug,name,sale_mode,published,commerce_product_images(storage_path,sort_order))),
+    variant:commerce_variants(id,sku,name,price_minor,currency,active,option_values,product:commerce_products(id,editorial_slug,name,sale_mode,published,commerce_product_images(storage_path,sort_order,variant_id,option_values))),
     design:designs(id,title,preview_path,updated_at)
   `).eq("cart_id", cart.id).order("created_at");
   if (error) throw error;

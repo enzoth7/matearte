@@ -11,12 +11,11 @@ export const categoryOptions = [
   { value: "todas", labelKey: "all" },
   { value: "mates", labelKey: "mates" },
   { value: "bombillas", labelKey: "bombillas" },
-  { value: "bombillones", labelKey: "bombillones" },
   { value: "materas", labelKey: "materas" },
   { value: "termos", labelKey: "termos" },
   { value: "kits-materos", labelKey: "kitMatero" },
   { value: "cuchillos", labelKey: "knives" },
-  { value: "regalos", labelKey: "gifts" },
+  { value: "marroquineria", labelKey: "leatherGoods" },
   { value: "cintos", labelKey: "belts" },
   { value: "calzado", labelKey: "footwear" },
   { value: "botas", labelKey: "boots" },
@@ -48,7 +47,7 @@ export const productTypeOptions: ReadonlyArray<{ value: CatalogProductTypeId; la
   { value: "torpedo", labelKey: "torpedo" },
 ];
 
-export const colorOptions: ReadonlyArray<{ value: CatalogColorId; labelKey: "brown" | "black" | "natural" | "rawLeather" | "red" | "white" | "pink" | "gray" | "gold" | "skyBlue" | "blue" | "beige"; color: string }> = [
+export const colorOptions: ReadonlyArray<{ value: CatalogColorId; labelKey: "brown" | "black" | "natural" | "rawLeather" | "red" | "white" | "pink" | "gray" | "gold" | "skyBlue" | "blue" | "beige" | "metallic"; color: string }> = [
   { value: "marron", labelKey: "brown", color: "#6c4530" },
   { value: "negro", labelKey: "black", color: "#241d1a" },
   { value: "natural", labelKey: "natural", color: "#cfaf79" },
@@ -61,7 +60,10 @@ export const colorOptions: ReadonlyArray<{ value: CatalogColorId; labelKey: "bro
   { value: "celeste", labelKey: "skyBlue", color: "#74acdf" },
   { value: "azul", labelKey: "blue", color: "#1e3a8a" },
   { value: "beige", labelKey: "beige", color: "#dfd1b8" },
+  { value: "metalico", labelKey: "metallic", color: "#9b9b95" },
 ];
+
+export const shapeOptions = [{ value: "ovalada", labelKey: "oval" }] as const;
 
 export type PriceRangeId = (typeof priceRangeOptions)[number]["value"];
 export type CatalogSort = "editorial" | "nombre" | "precio";
@@ -72,6 +74,7 @@ export type CatalogFilters = {
   materials: CatalogMaterialId[];
   productTypes: CatalogProductTypeId[];
   colors: CatalogColorId[];
+  shapes: string[];
   sort: CatalogSort;
 };
 
@@ -80,6 +83,7 @@ const priceIds: ReadonlySet<string> = new Set(priceRangeOptions.map((option) => 
 const materialIds: ReadonlySet<string> = new Set(materialOptions.map((option) => option.value));
 const productTypeIds: ReadonlySet<string> = new Set(productTypeOptions.map((option) => option.value));
 const colorIds: ReadonlySet<string> = new Set(colorOptions.map((option) => option.value));
+const shapeIds: ReadonlySet<string> = new Set(shapeOptions.map((option) => option.value));
 const sortIds = new Set<CatalogSort>(["editorial", "nombre", "precio"]);
 
 function validValues<T extends string>(params: URLSearchParams, key: string, allowed: ReadonlySet<string>) {
@@ -96,6 +100,7 @@ export function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
     materials: validValues<CatalogMaterialId>(params, "material", materialIds),
     productTypes: validValues<CatalogProductTypeId>(params, "tipo", productTypeIds),
     colors: validValues<CatalogColorId>(params, "color", colorIds),
+    shapes: validValues<string>(params, "forma", shapeIds),
     sort: sortIds.has(sortValue as CatalogSort) ? sortValue as CatalogSort : "editorial",
   };
 }
@@ -108,6 +113,7 @@ export function writeCatalogFilters(filters: CatalogFilters) {
   filters.materials.forEach((value) => params.append("material", value));
   filters.productTypes.forEach((value) => params.append("tipo", value));
   filters.colors.forEach((value) => params.append("color", value));
+  filters.shapes.forEach((value) => params.append("forma", value));
   return params;
 }
 
@@ -140,15 +146,17 @@ export function matchVariantWithColor(variantLabel: string, color: CatalogColorI
     case "rosado":
       return norm.includes("rosad") || norm.includes("rosa") || norm.includes("pink");
     case "gris":
-      return norm.includes("gris") || norm.includes("gray") || norm.includes("grey") || norm.includes("plata") || norm.includes("acero");
+      return norm.includes("gris") || norm.includes("gray") || norm.includes("grey");
     case "dorado":
-      return norm.includes("dorad") || norm.includes("oro") || norm.includes("gold") || norm.includes("bronce") || norm.includes("cobre");
+      return norm.includes("dorad") || norm.includes("oro") || norm.includes("gold");
     case "celeste":
       return norm.includes("celeste") || norm.includes("sky");
     case "azul":
       return norm.includes("azul") || norm.includes("blue") || norm.includes("marino");
     case "beige":
       return norm.includes("beige") || norm.includes("arena") || norm.includes("crema") || norm.includes("nude") || norm.includes("camel");
+    case "metalico":
+      return norm.includes("metalico") || norm.includes("metallic");
     default:
       return false;
   }
@@ -163,6 +171,8 @@ export function getVariantColorId(
   explicitColor?: CatalogColorId | null,
 ): CatalogColorId | undefined {
   if (typeof variantOrLabel === "object" && variantOrLabel !== null) {
+    const optionColor = variantOrLabel.options?.color;
+    if (typeof optionColor === "string" && colorIds.has(optionColor)) return optionColor as CatalogColorId;
     if (variantOrLabel.color) return variantOrLabel.color;
     return getVariantColorId(variantOrLabel.label);
   }
@@ -175,11 +185,12 @@ export function getVariantColorId(
   if (norm.includes("roj") || norm.includes("red") || norm.includes("bordo")) return "rojo";
   if (norm.includes("blanc") || norm.includes("white")) return "blanco";
   if (norm.includes("rosad") || norm.includes("rosa") || norm.includes("pink")) return "rosado";
-  if (norm.includes("gris") || norm.includes("gray") || norm.includes("grey") || norm.includes("plata") || norm.includes("acero")) return "gris";
-  if (norm.includes("dorad") || norm.includes("oro") || norm.includes("gold") || norm.includes("bronce") || norm.includes("cobre")) return "dorado";
+  if (norm.includes("gris") || norm.includes("gray") || norm.includes("grey")) return "gris";
+  if (norm.includes("dorad") || norm.includes("oro") || norm.includes("gold")) return "dorado";
   if (norm.includes("celeste") || norm.includes("sky")) return "celeste";
   if (norm.includes("azul") || norm.includes("blue") || norm.includes("marino")) return "azul";
   if (norm.includes("beige") || norm.includes("arena") || norm.includes("crema") || norm.includes("nude") || norm.includes("camel")) return "beige";
+  if (norm.includes("metalico") || norm.includes("metallic")) return "metalico";
   return undefined;
 }
 
@@ -242,8 +253,7 @@ export function getProductColors(product: Product): CatalogColorId[] {
     const fromVariants = variants
       .map((v) => v.color ?? getVariantColorId(v))
       .filter((c): c is CatalogColorId => Boolean(c));
-    const explicit = product.filterData.colors ?? [];
-    return [...new Set([...fromVariants, ...explicit])];
+    return [...new Set(fromVariants)];
   }
 
   const explicit = product.filterData.colors ?? [];
@@ -256,7 +266,8 @@ export function getProductColors(product: Product): CatalogColorId[] {
 export function filterAndSortCatalog<T extends { product: Product }>(entries: T[], filters: CatalogFilters, locale = "es") {
   const filtered = entries.filter(({ product }) => {
     const data = product.filterData;
-    const matchesCategory = filters.category === "todas" || product.category === filters.category;
+    const categoryParent: Record<string,string> = { botas:"calzado", cintos:"marroquineria", billeteras:"marroquineria", carteras:"marroquineria" };
+    const matchesCategory = filters.category === "todas" || product.category === filters.category || categoryParent[product.category] === filters.category;
     const matchesPrice = filters.prices.length === 0 || (
       data.priceUYU !== undefined && filters.prices.some((rangeId) => {
         const range = priceRangeOptions.find((option) => option.value === rangeId);
@@ -267,7 +278,9 @@ export function filterAndSortCatalog<T extends { product: Product }>(entries: T[
     const matchesProductType = filters.productTypes.length === 0 || getProductTypes(product).some((type) => filters.productTypes.includes(type));
     const productColors = getProductColors(product);
     const matchesColor = filters.colors.length === 0 || productColors.some((color) => filters.colors.includes(color));
-    return matchesCategory && matchesPrice && matchesMaterial && matchesProductType && matchesColor;
+    const shapes = product.filterData.shapes ?? (typeof product.attributes?.forma === "string" ? [product.attributes.forma] : []);
+    const matchesShape = filters.shapes.length === 0 || shapes.some(shape=>filters.shapes.includes(shape));
+    return matchesCategory && matchesPrice && matchesMaterial && matchesProductType && matchesColor && matchesShape;
   });
 
   if (filters.sort === "nombre") return [...filtered].sort((a, b) => a.product.name.localeCompare(b.product.name, locale));
@@ -294,6 +307,7 @@ export function hasActiveCatalogFilters(filters: CatalogFilters): boolean {
     filters.prices.length > 0 ||
     filters.materials.length > 0 ||
     filters.productTypes.length > 0 ||
-    filters.colors.length > 0
+    filters.colors.length > 0 ||
+    filters.shapes.length > 0
   );
 }

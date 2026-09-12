@@ -7,6 +7,8 @@ import { addLocalCartItem } from "@/lib/browser-cart";
 import type { Product } from "@/types/catalog";
 import { Link, useRouter } from "@/i18n/navigation";
 import { ProductGallery } from "./ProductGallery";
+import { StructuredVariantPicker } from "./product/StructuredVariantPicker";
+import { useStructuredVariantSelection } from "./product/useStructuredVariantSelection";
 
 const catalogAssetRoot = "/assets/matearte/catalog-desktop";
 const productAssetRoot = "/assets/matearte/product-desktop";
@@ -41,7 +43,7 @@ type CommerceData = {
   product: { variants: CommerceVariant[] } | null;
 };
 
-import { formatCatalogPrice, getVariantColorHex } from "@/lib/catalog-filters";
+import { formatCatalogPrice } from "@/lib/catalog-filters";
 
 export function ProductDesktop({ product, exchangeRates }: { product: Product; exchangeRates?: Record<string, number> }) {
   const locale = useLocale();
@@ -53,7 +55,7 @@ export function ProductDesktop({ product, exchangeRates }: { product: Product; e
   const [commerce, setCommerce] = useState<CommerceData | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [selectedVariantId, setSelectedVariantId] = useState<string>("");
+  const variantSelection = useStructuredVariantSelection(product);
 
   useEffect(() => {
     let active = true;
@@ -68,32 +70,27 @@ export function ProductDesktop({ product, exchangeRates }: { product: Product; e
     return () => { active = false; };
   }, [product.slug]);
 
-  useEffect(() => {
-    if (product.variants.length > 0 && !selectedVariantId) {
-      setSelectedVariantId(product.variants[0].id);
-    }
-  }, [product.variants, selectedVariantId]);
-
-  const activeVariantId = selectedVariantId || product.variants[0]?.id;
-  const catalogVariant = product.variants.find(v => v.id === activeVariantId) || product.variants[0];
+  const catalogVariant = variantSelection.activeVariant;
+  const activeVariantId = catalogVariant?.id;
   const commerceVariant = commerce?.available ? commerce.product?.variants.find(v => v.id === activeVariantId) : undefined;
   
   const displayedPrice = commerceVariant
     ? formatPrice(commerceVariant.price_minor / 100)
     : catalogVariant?.price
     ? formatPrice(catalogVariant.price.amountMinor / 100)
-    : product.filterData.priceUYU === undefined ? common("consult") : formatPrice(product.filterData.priceUYU);
+    : variantSelection.displayedPrice === undefined ? common("consult") : `${variantSelection.priceIsFrom ? `${locale==='en'?'From':locale==='pt'?'A partir de':'Desde'} ` : ''}${formatPrice(variantSelection.displayedPrice)}`;
     
-  const generalImages = product.images.filter(img => !img.variantId);
-  const variantImages = activeVariantId ? product.images.filter(img => img.variantId === activeVariantId) : [];
-  const imagesToShow = variantImages.length > 0 ? [...variantImages, ...generalImages] : product.images;
-  const galleryImages = imagesToShow.map(img => ({
+  const galleryImages = variantSelection.images.map(img => ({
     ...img,
     src: img.source === "supabase" ? img.src : productImages[product.id] ?? img.src
   }));
 
   const addToCart = async () => {
     setMessage("");
+    if (!variantSelection.complete) {
+      setMessage(locale==='en'?'Select all options before adding this product.':locale==='pt'?'Selecione todas as opções antes de adicionar este produto.':'Seleccioná todas las opciones antes de agregar este producto.');
+      return;
+    }
     if (!commerceVariant && !catalogVariant) {
       setMessage(t("purchaseUnavailable"));
       return;
@@ -136,43 +133,15 @@ export function ProductDesktop({ product, exchangeRates }: { product: Product; e
         <div className="product-desktop-information">
           <h1 id="product-desktop-title">{product.name}</h1>
           <p className="product-desktop-summary">{product.summary}</p>
+          {product.attributes?.forma && <p className="product-attribute-summary">{locale==='en'?'Shape':locale==='pt'?'Forma':'Forma'}: {String(product.attributes.forma)==='ovalada'?(locale==='en'?'Oval':locale==='pt'?'Oval':'Ovalada'):String(product.attributes.forma)}</p>}
           <p className="product-desktop-price">{displayedPrice}</p>
 
           <div className="product-desktop-rule product-desktop-rule-actions" aria-hidden="true" />
 
-          {product.variants.length > 1 && (
-            <div className="product-desktop-variants" style={{ marginBottom: '1.5rem' }}>
-              <span style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: '#1a1a1a' }}>Opciones disponibles</span>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                {product.variants.map(v => {
-                  const colorHex = getVariantColorHex(v);
-                  const isActive = activeVariantId === v.id;
-                  return (
-                    <button
-                      key={v.id}
-                      type="button"
-                      onClick={() => setSelectedVariantId(v.id)}
-                      title={v.label}
-                      style={{
-                        width: '2rem',
-                        height: '2rem',
-                        borderRadius: '50%',
-                        backgroundColor: colorHex,
-                        border: '1px solid rgba(0, 0, 0, 0.2)',
-                        boxShadow: isActive ? '0 0 0 2px #faf6ee, 0 0 0 4px #2d1d16' : 'none',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease'
-                      }}
-                      aria-label={v.label}
-                      aria-pressed={isActive}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          <StructuredVariantPicker product={product} axes={variantSelection.axes} selected={variantSelection.selected} onSelect={variantSelection.select}/>
+          {!variantSelection.complete && <p className="variant-selection-note">{locale==='en'?'Select all options to continue.':locale==='pt'?'Selecione todas as opções para continuar.':'Seleccioná todas las opciones para continuar.'}</p>}
 
-          <button className="product-desktop-primary" type="button" disabled={busy} onClick={() => void addToCart()}>
+          <button className="product-desktop-primary" type="button" disabled={busy || !variantSelection.complete} onClick={() => void addToCart()}>
             {busy ? t("adding") : t("addToCart")}
           </button>
           <Link className="product-desktop-secondary" href="/personalizados">{t("learnCustomization")}</Link>

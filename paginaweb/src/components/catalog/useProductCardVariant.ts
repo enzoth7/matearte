@@ -27,7 +27,7 @@ export function useProductCardVariant(
       return product.variants?.find((v) => v.id === selectedVariantId);
     }
     if (activeFilterColors.length > 0) {
-      const byExplicitColor = product.variants?.find((v) => v.color && activeFilterColors.includes(v.color));
+      const byExplicitColor = product.variants?.filter((v) => v.color && activeFilterColors.includes(v.color)).sort((a,b)=>(a.price?.amountMinor??Infinity)-(b.price?.amountMinor??Infinity))[0];
       return byExplicitColor ?? findMatchingVariantForColors(product, activeFilterColors);
     }
     return undefined;
@@ -45,13 +45,19 @@ export function useProductCardVariant(
     matchedFilterVariant?.id ||
     null;
 
+  const activeColor = activeVariant ? getVariantColorId(activeVariant) : undefined;
+  const matchingColorVariants = activeColor ? product.variants.filter(variant=>getVariantColorId(variant)===activeColor) : [];
+  const priceVariant = matchingColorVariants.length > 0
+    ? [...matchingColorVariants].sort((a,b)=>(a.price?.amountMinor??Infinity)-(b.price?.amountMinor??Infinity))[0]
+    : activeVariant;
   const variantImage = activeVariant
-    ? product.images?.find((img) => img.variantId === activeVariant.id)
+    ? product.images?.find((img) => img.optionValues?.color === activeColor) ?? product.images?.find((img) => img.variantId === activeVariant.id)
     : undefined;
 
-  const displayedPrice = activeVariant?.price?.amountMinor
-    ? activeVariant.price.amountMinor / 100
+  const displayedPrice = priceVariant?.price?.amountMinor
+    ? priceVariant.price.amountMinor / 100
     : product.filterData.priceUYU;
+  const priceIsFrom = matchingColorVariants.length > 1;
 
   const hasMultipleVariants = Boolean(product.variants && product.variants.length > 1);
   const colorVariants = hasMultipleVariants
@@ -62,9 +68,10 @@ export function useProductCardVariant(
           product.images?.some((img) => img.variantId === v.id)
       )
     : [];
+  const representativeColors = colorVariants.filter((variant,index,array)=>array.findIndex(candidate=>(getVariantColorId(candidate)??candidate.id)===(getVariantColorId(variant)??variant.id))===index);
   const swatchesToShow =
     colorVariants.length > 0
-      ? colorVariants
+      ? representativeColors
       : hasMultipleVariants
       ? product.variants
       : [];
@@ -78,6 +85,8 @@ export function useProductCardVariant(
     highlightedVariantId,
     variantImage,
     displayedPrice,
+    priceIsFrom,
+    activeColor,
     swatchesToShow,
     hoveredVariantId,
     setHoveredVariantId,

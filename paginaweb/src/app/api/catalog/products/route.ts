@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   const admin = createPublicSupabase();
   const [{ data: settings }, { data: product, error }] = await Promise.all([
     admin.from("commerce_settings").select("commerce_enabled").eq("singleton", true).single(),
-    admin.from("commerce_products").select("id,editorial_slug,name,sale_mode,published,variants:commerce_variants(id,sku,name,price_minor,currency,weight_grams,active)").eq("editorial_slug", slug).eq("published", true).maybeSingle(),
+    admin.from("commerce_products").select("id,editorial_slug,name,sale_mode,published,variants:commerce_variants(id,sku,name,price_minor,currency,weight_grams,active,color,option_values)").eq("editorial_slug", slug).eq("published", true).maybeSingle(),
   ]);
   if (error || !product) return apiOk({ available: false, commerceEnabled: Boolean(settings?.commerce_enabled), product: null });
   const variants = (product.variants || [])

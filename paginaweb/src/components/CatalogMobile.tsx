@@ -55,6 +55,8 @@ function CatalogMobileCard({
     highlightedVariantId,
     variantImage,
     displayedPrice,
+    priceIsFrom,
+    activeColor,
     swatchesToShow,
     setHoveredVariantId,
     handleSelectVariant,
@@ -71,7 +73,7 @@ function CatalogMobileCard({
 
   return (
     <article className="catalog-mobile-product-card">
-      <Link href={{ pathname: "/producto/[slug]", params: { slug: product.slug } }}>
+      <Link href={{ pathname: "/producto/[slug]", params: { slug: product.slug }, query: activeColor ? { color: activeColor } : {} }}>
         <div className="catalog-mobile-product-image">
           {imageSrc ? (
             <Image
@@ -85,7 +87,7 @@ function CatalogMobileCard({
         </div>
         <div className="catalog-mobile-product-copy">
           <h2>{product.name}</h2>
-          <p>{formatCatalogPrice(displayedPrice, consultLabel, locale, exchangeRates)}</p>
+          <p>{priceIsFrom ? `${locale==='en'?'From':locale==='pt'?'A partir de':'Desde'} ` : ''}{formatCatalogPrice(displayedPrice, consultLabel, locale, exchangeRates)}</p>
           <ProductCardSwatches
             variants={swatchesToShow}
             highlightedVariantId={highlightedVariantId}
@@ -177,6 +179,7 @@ export function CatalogMobile({ products, exchangeRates }: { products: Product[]
             onMaterialChange={catalogFilters.setMaterial}
             onProductTypeChange={catalogFilters.setProductType}
             onColorChange={catalogFilters.setColor}
+            onShapeChange={catalogFilters.setShape}
           />
         </div>
       </section>

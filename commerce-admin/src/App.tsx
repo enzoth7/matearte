@@ -2,14 +2,28 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { PersonalizedOrders } from './PersonalizedOrdersView';
+import { TaxonomyManager } from './TaxonomyManager';
+import { loadCatalogTaxonomy } from './catalogTaxonomy';
 import {
+  catalogAttributeLabel,
   catalogCategoryIds,
   catalogColorIds,
   catalogMaterialIds,
   catalogProductTypeIds,
+  catalogValueLabel,
+  defaultCatalogTaxonomy,
   emptyCatalogAttributes,
+  formatVariantLabel,
   normalizeCatalogAttributes,
+  normalizeCatalogValueMap,
+  optionSignature,
+  taxonomyOptionsFor,
+  taxonomyRulesForCategory,
   type CatalogAttributes,
+  type CatalogAttributeDefinition,
+  type CatalogTaxonomy,
+  type CatalogValue,
+  type CatalogValueMap,
 } from '../../shared/catalog-taxonomy';
 
 type Tab = 'catalog' | 'list' | 'orders' | 'personalized' | 'shipping' | 'settings' | 'rates';
@@ -39,11 +53,11 @@ export function getTabFromUrl(urlPath?: string, search?: string): Tab {
   const key = searchTab || currentPath;
   return VALID_TABS[key] || 'catalog';
 }
-type ProductImage = { id:string;storage_path:string;original_name:string;alt_text:string;mime_type:string;byte_size:number;sort_order:number;variant_id:string|null };
+type ProductImage = { id:string;storage_path:string;original_name:string;alt_text:string;mime_type:string;byte_size:number;sort_order:number;variant_id:string|null;option_values?:unknown };
 type SaleMode = 'standard'|'made_to_order';
-type ProductVariant = {id:string;sku:string;name:string;price_minor:number;active:boolean;color?:string|null};
-type Product = { id:string; editorial_slug:string; name:string; category:string; description:string; sale_mode:SaleMode; published:boolean; catalog_filters?:unknown; commerce_variants:ProductVariant[]; commerce_product_images:ProductImage[] };
-type ProductForm = {name:string;category:string;description:string;saleMode:SaleMode;catalogFilters:CatalogAttributes};
+type ProductVariant = {id:string;sku:string;name:string;price_minor:number;active:boolean;color?:string|null;weight_grams?:number|null;option_values?:unknown};
+type Product = { id:string; editorial_slug:string; name:string; category:string; category_code?:string|null; description:string; sale_mode:SaleMode; published:boolean; catalog_filters?:unknown; attributes?:unknown; commerce_variants:ProductVariant[]; commerce_product_images:ProductImage[] };
+type ProductForm = {name:string;category:string;description:string;saleMode:SaleMode;catalogFilters:CatalogAttributes;attributes:CatalogValueMap};
 type Order = { id:string;order_number:number;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;order_items:Array<{id:string;title:string;quantity:number;requires_review:boolean;review_status:string|null}> };
 type Rate = {id:string;code:string;name:string;departments:string[];rate_minor:number;is_pickup:boolean;active:boolean};
 const money=(minor:number)=>new Intl.NumberFormat('es-UY',{style:'currency',currency:'UYU',maximumFractionDigits:0}).format(minor/100);
@@ -53,10 +67,10 @@ const productImageUrl = (path:string) => supabase.storage.from('product-images')
 const fileExtension = (file:File) => file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || (file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg');
 const TEST_ADMIN_USERNAME = (import.meta.env.VITE_COMMERCE_ADMIN_USERNAME || 'user').trim().toLowerCase();
 const TEST_ADMIN_EMAIL = (import.meta.env.VITE_COMMERCE_ADMIN_EMAIL || 'user@matearte.uy').trim().toLowerCase();
-const EMPTY_PRODUCT_FORM = (): ProductForm => ({name:'',category:'mates',description:'',saleMode:'standard',catalogFilters:emptyCatalogAttributes()});
+const EMPTY_PRODUCT_FORM = (): ProductForm => ({name:'',category:'mates',description:'',saleMode:'standard',catalogFilters:emptyCatalogAttributes(),attributes:{}});
 const productSlug = (name:string) => name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,120) || `producto-${Date.now()}`;
 
-type IconName = Tab | 'logout' | 'search';
+type IconName = Tab | 'logout' | 'search' | 'print';
 
 function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, ReactNode> = {
@@ -69,6 +83,7 @@ function Icon({ name }: { name: IconName }) {
     settings: <><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></>,
     logout: <><path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10"/></>,
     search: <><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4 4"/></>,
+    print: <><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></>,
   };
   return <svg className="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
@@ -110,56 +125,42 @@ const orderStatus = (status: string) => ({
 }[status] || status.replaceAll('_', ' '));
 const normalizeSearch = (value:string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 const catalogCategoryLabels: Record<string,string> = {
-  mates:'Mate',bombillas:'Bombilla',bombillones:'Bombillón',materas:'Matera',termos:'Termo','kits-materos':'Kit Matero',cuchillos:'Cuchillo',regalos:'Regalo',cintos:'Cinto',calzado:'Calzado',botas:'Bota',billeteras:'Billetera',carteras:'Cartera',
+  mates:'Mate',bombillas:'Bombilla',materas:'Matera',termos:'Termo','kits-materos':'Kit matero',cuchillos:'Cuchillo',cintos:'Cinto',calzado:'Calzado',botas:'Bota',marroquineria:'Marroquinería',billeteras:'Billetera',carteras:'Cartera',
 };
 const catalogMaterialLabels: Record<string,string> = {
   cuero:'Cuero',plata:'Plata',alpaca:'Alpaca','acero-inoxidable':'Acero inoxidable','otros-metales':'Otros metales',madera:'Madera',estampado:'Estampado',
 };
 
-type AttributeKey = keyof CatalogAttributes;
-const catalogAttributeGroups: Array<{key:AttributeKey;legend:string;options:Array<{value:string;label:string}>}> = [
-  {key:'materials',legend:'Material',options:catalogMaterialIds.map(value=>({value,label:catalogMaterialLabels[value]}))},
-  {key:'productTypes',legend:'Modelo de mate',options:catalogProductTypeIds.map(value=>({value,label:({
-    imperial:'Imperial',camionero:'Camionero',criollo:'Criollo',torpedo:'Torpedo',
-  } as Record<string,string>)[value]}))},
-  {key:'colors',legend:'Color',options:catalogColorIds.map(value=>({value,label:({
-    marron:'Marrón',negro:'Negro',natural:'Natural','cuero-crudo':'Cuero crudo',
-    rojo:'Rojo',blanco:'Blanco',rosado:'Rosado',gris:'Gris',dorado:'Dorado',
-    celeste:'Celeste',azul:'Azul',beige:'Beige',
-  } as Record<string,string>)[value]}))},
-];
+export const catalogColorLabels: Record<string, string> = {
+  marron: 'Marrón',
+  negro: 'Negro',
+  natural: 'Natural',
+  'cuero-crudo': 'Cuero crudo',
+  rojo: 'Rojo',
+  blanco: 'Blanco',
+  rosado: 'Rosado',
+  gris: 'Gris',
+  dorado: 'Dorado',
+  celeste: 'Celeste',
+  azul: 'Azul',
+  beige: 'Beige',
+  metalico: 'Metálico',
+};
 
-const VARIANT_COLOR_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: '', label: 'Sin color' },
-  { value: 'marron', label: 'Marrón' },
-  { value: 'negro', label: 'Negro' },
-  { value: 'natural', label: 'Natural' },
-  { value: 'cuero-crudo', label: 'Cuero crudo' },
-  { value: 'rojo', label: 'Rojo' },
-  { value: 'blanco', label: 'Blanco' },
-  { value: 'rosado', label: 'Rosado' },
-  { value: 'gris', label: 'Gris' },
-  { value: 'dorado', label: 'Dorado' },
-  { value: 'celeste', label: 'Celeste' },
-  { value: 'azul', label: 'Azul' },
-  { value: 'beige', label: 'Beige' },
-];
+function TaxonomyValueField({ definition, taxonomy, value, required, onChange }:{ definition:CatalogAttributeDefinition;taxonomy:CatalogTaxonomy;value:CatalogValue|undefined;required:boolean;onChange:(value:CatalogValue|undefined)=>void }) {
+  const label = <span className="field-label">{definition.label_es}{definition.unit ? ` (${definition.unit})` : ''}{required&&<span className="field-required" aria-hidden="true">*</span>}</span>;
+  if (definition.data_type === 'boolean') return <label className="taxonomy-boolean-field">{label}<input type="checkbox" checked={value===true} onChange={event=>onChange(event.target.checked)}/></label>;
+  if (definition.data_type === 'enum') return <label>{label}<select required={required} value={typeof value==='string'?value:''} onChange={event=>onChange(event.target.value||undefined)}><option value="">Sin especificar</option>{taxonomyOptionsFor(taxonomy,definition.code).map(option=><option key={option.code} value={option.code}>{option.label_es}</option>)}</select></label>;
+  return <label>{label}<input required={required} type={definition.data_type==='number'?'number':'text'} min={definition.data_type==='number'?'0':undefined} step={definition.data_type==='number'?'any':undefined} value={value===undefined?'':String(value)} onChange={event=>onChange(event.target.value===''?undefined:definition.data_type==='number'?Number(event.target.value):event.target.value)}/></label>;
+}
 
-function CatalogAttributeFields({attributes,category,onChange}:{attributes:CatalogAttributes;category:string;onChange:(value:CatalogAttributes)=>void}) {
-  const toggle = (key:AttributeKey,value:string) => {
-    const selected = attributes[key] as string[];
-    onChange({...attributes,[key]:selected.includes(value)?selected.filter(item=>item!==value):[...selected,value]} as CatalogAttributes);
-  };
-  return <fieldset className="catalog-attributes">
-    <legend>Filtros del catálogo</legend>
-    <p>Marcá todas las opciones que correspondan a esta ficha. Si el color cambia entre variantes, dejá marcados todos los colores disponibles.</p>
-    <div className="catalog-attribute-groups">
-      {catalogAttributeGroups.filter(group=>group.key!=='productTypes'||category==='mates').map(group=><section key={group.key} className="catalog-attribute-group" aria-label={group.legend}>
-        <h5>{group.legend}</h5>
-        <div>{group.options.map(option=><label key={option.value}><input type="checkbox" checked={(attributes[group.key] as string[]).includes(option.value)} onChange={()=>toggle(group.key,option.value)}/><span>{option.label}</span></label>)}</div>
-      </section>)}
-    </div>
-  </fieldset>;
+function DynamicAttributeFields({taxonomy,category,scope,values,onChange}:{taxonomy:CatalogTaxonomy;category:string;scope:'product'|'variant';values:CatalogValueMap;onChange:(values:CatalogValueMap)=>void}) {
+  const rules = taxonomyRulesForCategory(taxonomy,category,scope);
+  if (!rules.length) return null;
+  const knifeLength=category==='cuchillos'&&typeof values['largo-hoja-mm']==='number'?values['largo-hoja-mm']:null;
+  const knifeType=typeof values['tipo-cuchillo']==='string'?values['tipo-cuchillo']:'';
+  const orientativeWarning=knifeLength!==null&&((knifeType==='verijero'&&knifeLength>200)||(knifeType==='caronero'&&knifeLength<300));
+  return <fieldset className="catalog-attributes"><legend>{scope==='product'?'Características del producto':'Opciones de la variante'}</legend><p>{scope==='product'?'Estos datos alimentan la ficha y los filtros del catálogo.':'Cada combinación debe tener un SKU propio.'}</p><div className="product-fields">{rules.map(rule=>{const definition=taxonomy.attributes.find(item=>item.code===rule.attribute_code);if(!definition)return null;if(definition.code==='forma-gavilan'&&values['tiene-gavilan']!==true)return null;return <TaxonomyValueField key={definition.code} definition={definition} taxonomy={taxonomy} value={values[definition.code]} required={rule.required} onChange={value=>{const next={...values};if(value===undefined)delete next[definition.code];else next[definition.code]=value;onChange(next)}}/>})}</div>{orientativeWarning&&<p className="warning-inline">El largo no es el habitual para este tipo tradicional. Es una advertencia orientativa: podés guardar la pieza si la clasificación es correcta.</p>}</fieldset>;
 }
 
 function Login({onSession}:{onSession:(session:Session)=>void}){const[username,setUsername]=useState('');const[password,setPassword]=useState('');const[error,setError]=useState('');const[busy,setBusy]=useState(false);return <main className="login"><form onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');const value=username.trim().toLowerCase();const email=value===TEST_ADMIN_USERNAME?TEST_ADMIN_EMAIL:value;const{data,error}=await supabase.auth.signInWithPassword({email,password});setBusy(false);if(error)setError(error.message);else if(data.session)onSession(data.session)}}><p className="eyebrow">Administración segura</p><h1>Comercio MateArte</h1><p>Acceso limitado a membresías guardadas en la base de datos.</p>{error&&<div className="error">{error}</div>}<label>Usuario o correo<input type="text" autoComplete="username" required value={username} onChange={e=>setUsername(e.target.value)}/></label><label>Contraseña<input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={busy}>{busy?'Ingresando…':'Ingresar'}</button></form></main>}
@@ -217,9 +218,9 @@ export function App(){
     {id:'personalized',label:'Pedidos personalizados'},
     {id:'shipping',label:'Envíos'},
     {id:'rates',label:'Cotizaciones'},
-    {id:'settings',label:'Activación'},
+    {id:'settings',label:'Configuración'},
   ];
-  const pageTitle = tab==='catalog'?'Catálogo':tab==='list'?'Lista':tab==='orders'?'Pedidos':tab==='personalized'?'Pedidos personalizados':tab==='shipping'?'Zonas y tarifas':tab==='rates'?'Cotizaciones':'Controles de salida';
+  const pageTitle = tab==='catalog'?'Catálogo':tab==='list'?'Lista':tab==='orders'?'Pedidos':tab==='personalized'?'Pedidos personalizados':tab==='shipping'?'Zonas y tarifas':tab==='rates'?'Cotizaciones':'Configuración';
   return (
     <div className="shell">
       <a className="skip-link" href="#commerce-content">Saltar al contenido</a>
@@ -305,6 +306,7 @@ function RateRow({ code, initialRate, onSave }: { code: string; initialRate: num
 }
 
 function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
+  const [taxonomy,setTaxonomy] = useState<CatalogTaxonomy>(defaultCatalogTaxonomy);
   const [products,setProducts] = useState<Product[]>([]);
   const [selected,setSelected] = useState('');
   const [search,setSearch] = useState('');
@@ -314,16 +316,20 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
   const [showNewProduct,setShowNewProduct] = useState(false);
   const [newProduct,setNewProduct] = useState<ProductForm>(EMPTY_PRODUCT_FORM);
   const [productDetails,setProductDetails] = useState<ProductForm>(EMPTY_PRODUCT_FORM);
-  const [variant,setVariant] = useState({sku:'',name:'Única',price:'',color:''});
+  const [variant,setVariant] = useState<{sku:string;price:string;weight:string;options:CatalogValueMap}>({sku:'',price:'',weight:'',options:{}});
+  const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
+  const [editingVariantForm, setEditingVariantForm] = useState<{sku:string;price:string;weight:string;options:CatalogValueMap}>({sku:'',price:'',weight:'',options:{}});
+
+  useEffect(()=>{void loadCatalogTaxonomy(false).then(setTaxonomy)},[]);
 
   const load = useCallback(async(preferredId?:string) => {
-    const selection = 'id,editorial_slug,name,category,description,sale_mode,published,catalog_filters,commerce_variants(id,sku,name,price_minor,active,color),commerce_product_images(id,storage_path,original_name,alt_text,mime_type,byte_size,sort_order,variant_id)';
-    const legacySelection = selection.replace('catalog_filters,','');
+    const selection = 'id,editorial_slug,name,category,category_code,description,sale_mode,published,catalog_filters,attributes,commerce_variants(id,sku,name,price_minor,weight_grams,active,color,option_values),commerce_product_images(id,storage_path,original_name,alt_text,mime_type,byte_size,sort_order,variant_id,option_values)';
+    const legacySelection = 'id,editorial_slug,name,category,description,sale_mode,published,catalog_filters,commerce_variants(id,sku,name,price_minor,active,color),commerce_product_images(id,storage_path,original_name,alt_text,mime_type,byte_size,sort_order,variant_id)';
     let {data,error}:{data:unknown;error:{message:string;code?:string}|null} = await supabase
       .from('commerce_products')
       .select(selection)
       .order('name');
-    if (error && (error.code === '42703' || /catalog_filters/i.test(error.message))) {
+    if (error && (error.code === '42703' || /category_code|attributes|option_values|weight_grams/i.test(error.message))) {
       ({data,error} = await supabase.from('commerce_products').select(legacySelection).order('name'));
     }
     if (error) {
@@ -346,13 +352,17 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
   }, [products, search]);
   const product = products.find(item => item.id === selected);
   const images = [...(product?.commerce_product_images || [])].sort((a,b) => a.sort_order - b.sort_order || a.original_name.localeCompare(b.original_name));
+  const variantRules = product ? taxonomyRulesForCategory(taxonomy,product.category_code||product.category,'variant') : [];
+  const variantDefinitions = variantRules.map(rule=>({rule,definition:taxonomy.attributes.find(item=>item.code===rule.attribute_code)})).filter((item):item is typeof item & {definition:CatalogAttributeDefinition}=>Boolean(item.definition));
+  const imageColors = [...new Set((product?.commerce_variants||[]).map(item=>String(normalizeCatalogValueMap(item.option_values).color||item.color||'')).filter(Boolean))];
 
   useEffect(() => {
     if (!product) return;
-    const rawCategory = product.category === 'kit-matero' ? 'kits-materos' : product.category === 'cuchillo' ? 'cuchillos' : product.category;
-    const category = (catalogCategoryIds as readonly string[]).includes(rawCategory) ? rawCategory : '';
-    setProductDetails({name:product.name,category,description:product.description,saleMode:product.sale_mode,catalogFilters:normalizeCatalogAttributes(product.catalog_filters)});
-  },[product]);
+    const rawCategory = product.category_code || (product.category === 'kit-matero' ? 'kits-materos' : product.category === 'cuchillo' ? 'cuchillos' : product.category);
+    const category = taxonomy.categories.some(item=>item.code===rawCategory) ? rawCategory : '';
+    setProductDetails({name:product.name,category,description:product.description,saleMode:product.sale_mode,catalogFilters:normalizeCatalogAttributes(product.catalog_filters),attributes:normalizeCatalogValueMap(product.attributes)});
+    setEditingVariantId(null);
+  },[product,taxonomy.categories]);
 
   const createProduct = async(event:React.FormEvent) => {
     event.preventDefault();
@@ -365,7 +375,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
 
     setProductBusy('create');
     try {
-      const payload = {name,category,description:newProduct.description.trim(),sale_mode:newProduct.saleMode,catalog_filters:newProduct.catalogFilters,published:false};
+      const payload = {name,category,category_code:category,description:newProduct.description.trim(),sale_mode:newProduct.saleMode,catalog_filters:newProduct.catalogFilters,attributes:newProduct.attributes,published:false};
       const baseSlug = productSlug(name);
       let result = await supabase.from('commerce_products').insert({...payload,editorial_slug:baseSlug}).select('id').single();
       if (result.error?.code === '23505') {
@@ -394,7 +404,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
     }
 
     setProductBusy('save');
-    const {error} = await supabase.from('commerce_products').update({name,category,description:productDetails.description.trim(),sale_mode:productDetails.saleMode,catalog_filters:productDetails.catalogFilters}).eq('id',product.id);
+    const {error} = await supabase.from('commerce_products').update({name,category,category_code:category,description:productDetails.description.trim(),sale_mode:productDetails.saleMode,catalog_filters:productDetails.catalogFilters,attributes:productDetails.attributes}).eq('id',product.id);
     onNotice(error ? error.message : 'Datos del producto guardados.');
     if (!error) await load(product.id);
     setProductBusy('');
@@ -487,11 +497,11 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
       setImageBusy('');
     }
   };
-  const linkImageVariant = async(image:ProductImage, variantId:string|null) => {
+  const linkImageColor = async(image:ProductImage, color:string) => {
     if (!product) return;
     setImageBusy(image.id);
-    const {error} = await supabase.from('commerce_product_images').update({variant_id: variantId}).eq('id', image.id);
-    onNotice(error ? error.message : 'Variante enlazada a la foto.');
+    const {error} = await supabase.from('commerce_product_images').update({option_values:color?{color}:{},variant_id:null}).eq('id', image.id);
+    onNotice(error ? error.message : color ? 'Color enlazado a la foto.' : 'Foto marcada como general.');
     if (!error) await load(product.id);
     setImageBusy('');
   };
@@ -540,26 +550,57 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
   const createVariant = async(e:React.FormEvent) => {
     e.preventDefault();
     if (!product) return;
+    const price = Number(variant.price);
+    const weight = variant.weight ? Number(variant.weight) : null;
+    const missing = variantRules.find(rule=>rule.required&&(variant.options[rule.attribute_code]===undefined||variant.options[rule.attribute_code]===''));
+    if(!variant.sku.trim()||!Number.isFinite(price)||price<=0||missing){onNotice(missing?`Completá ${catalogAttributeLabel(taxonomy,missing.attribute_code)}.`:'Completá SKU y un precio válido.');return}
+    if(product.sale_mode==='standard'&&(!weight||weight<=0)){onNotice('Indicá el peso para poder publicar un producto de venta normal.');return}
+    const signature=optionSignature(variant.options);
+    if(product.commerce_variants.some(item=>optionSignature(normalizeCatalogValueMap(item.option_values))===signature)){onNotice('Ya existe una variante con esa combinación de opciones.');return}
     setProductBusy('variant-create');
     const {error} = await supabase.from('commerce_variants').insert({
       product_id: product.id,
       sku: variant.sku.trim(),
-      name: variant.name.trim(),
-      price_minor: Math.round(Number(variant.price)*100),
-      color: variant.color || null,
+      name: formatVariantLabel(taxonomy,product.category_code||product.category,variant.options),
+      price_minor: Math.round(price*100),
+      weight_grams: weight,
+      option_values: variant.options,
+      color: typeof variant.options.color==='string'?variant.options.color:null,
       active: true,
     });
     onNotice(error?error.message:'Variante creada.');
-    if(!error){setVariant({sku:'',name:'Única',price:'',color:''});await load(product.id)}
+    if(!error){setVariant({sku:'',price:'',weight:'',options:{}});await load(product.id)}
     setProductBusy('');
   };
 
-  const updateVariantColor = async(item:ProductVariant, newColor:string) => {
+  const updateVariant = async (item: ProductVariant, form: typeof editingVariantForm) => {
     if (!product) return;
+    const priceNum = Number(form.price);
+    const weight = form.weight ? Number(form.weight) : null;
+    const missing = variantRules.find(rule=>rule.required&&(form.options[rule.attribute_code]===undefined||form.options[rule.attribute_code]===''));
+    if (!form.sku.trim() || !form.price.trim() || isNaN(priceNum) || priceNum <= 0 || missing || (product.sale_mode==='standard'&&(!weight||weight<=0))) {
+      onNotice(missing?`Completá ${catalogAttributeLabel(taxonomy,missing.attribute_code)}.`:product.sale_mode==='standard'&&(!weight||weight<=0)?'Indicá un peso válido.':'Completá SKU y un precio válido mayor a 0.');
+      return;
+    }
+    const signature=optionSignature(form.options);
+    if(product.commerce_variants.some(candidate=>candidate.id!==item.id&&optionSignature(normalizeCatalogValueMap(candidate.option_values))===signature)){onNotice('Ya existe una variante con esa combinación de opciones.');return}
     setProductBusy(`variant-${item.id}`);
-    const {error} = await supabase.from('commerce_variants').update({color:newColor||null}).eq('id',item.id).eq('product_id',product.id);
-    onNotice(error ? error.message : 'Color de variante actualizado.');
-    if (!error) await load(product.id);
+    const { error } = await supabase.from('commerce_variants').update({
+      sku: form.sku.trim(),
+      name: formatVariantLabel(taxonomy,product.category_code||product.category,form.options),
+      color: typeof form.options.color==='string'?form.options.color:null,
+      option_values: form.options,
+      weight_grams: weight,
+      price_minor: Math.round(Number(form.price) * 100),
+    }).eq('id', item.id).eq('product_id', product.id);
+
+    if (error) {
+      onNotice(error.message);
+    } else {
+      onNotice('Variante actualizada.');
+      setEditingVariantId(null);
+      await load(product.id);
+    }
     setProductBusy('');
   };
 
@@ -581,6 +622,33 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
     setProductBusy('');
   };
 
+  const toggleProductPublication = async () => {
+    if (!product) return;
+    if (!product.published) {
+      const category=product.category_code||product.category;
+      const productAttributes=normalizeCatalogValueMap(product.attributes);
+      const missingProduct=taxonomyRulesForCategory(taxonomy,category,'product').find(rule=>rule.required&&(productAttributes[rule.attribute_code]===undefined||productAttributes[rule.attribute_code]===''));
+      if(missingProduct){onNotice(`Antes de publicar completá ${catalogAttributeLabel(taxonomy,missingProduct.attribute_code)}.`);return}
+      const activeVariants=product.commerce_variants.filter(item=>item.active);
+      if(!activeVariants.length){onNotice('Antes de publicar agregá al menos una variante activa.');return}
+      const rules=taxonomyRulesForCategory(taxonomy,category,'variant');
+      const signatures=new Set<string>();
+      for(const item of activeVariants){
+        const options=normalizeCatalogValueMap(item.option_values);if(!options.color&&item.color)options.color=item.color;
+        const missing=rules.find(rule=>rule.required&&(options[rule.attribute_code]===undefined||options[rule.attribute_code]===''));
+        if(missing){onNotice(`La variante ${item.sku} necesita ${catalogAttributeLabel(taxonomy,missing.attribute_code)}.`);return}
+        if(!item.sku.trim()){onNotice('Todas las variantes activas necesitan SKU.');return}
+        if(product.sale_mode==='standard'&&(!item.weight_grams||item.weight_grams<=0)){onNotice(`La variante ${item.sku} necesita peso para envío.`);return}
+        const signature=optionSignature(options);if(signatures.has(signature)){onNotice('Hay dos variantes activas con la misma combinación de opciones.');return}signatures.add(signature);
+      }
+    }
+    setProductBusy('publish');
+    const{error}=await supabase.from('commerce_products').update({published:!product.published}).eq('id',product.id);
+    onNotice(error?error.message:!product.published?'Producto publicado.':'Producto oculto.');
+    if(!error)await load(product.id);
+    setProductBusy('');
+  };
+
   return (
     <section className="catalog-workspace">
       {showNewProduct && (
@@ -592,11 +660,11 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
           <p className="catalog-rule"><strong>¿Ficha o variante?</strong> Usá una variante si solo cambia el color o el tamaño. Creá otra ficha si cambia el modelo o el material.</p>
           <div className="product-fields">
             <label><span className="field-label">Nombre del producto <span className="field-required" aria-hidden="true">*</span></span><input required autoFocus value={newProduct.name} onChange={event=>setNewProduct({...newProduct,name:event.target.value})} placeholder="Ej.: Imperial clásico marrón"/></label>
-            <label><span className="field-label">Categoría <span className="field-required" aria-hidden="true">*</span></span><select required value={newProduct.category} onChange={event=>{const category=event.target.value;setNewProduct({...newProduct,category,catalogFilters:category==='mates'?newProduct.catalogFilters:{...newProduct.catalogFilters,productTypes:[]}})}}><option value="" disabled>Elegí una categoría</option>{catalogCategoryIds.map(category=><option key={category} value={category}>{catalogCategoryLabels[category]}</option>)}</select></label>
+            <label><span className="field-label">Categoría <span className="field-required" aria-hidden="true">*</span></span><select required value={newProduct.category} onChange={event=>setNewProduct({...newProduct,category:event.target.value,attributes:{}})}><option value="" disabled>Elegí una categoría</option>{taxonomy.categories.filter(item=>item.active).sort((a,b)=>a.sort_order-b.sort_order).map(category=><option key={category.code} value={category.code}>{category.parent_code?'↳ ':''}{category.label_es}</option>)}</select></label>
             <label><span className="field-label">Modalidad</span><select value={newProduct.saleMode} onChange={event=>setNewProduct({...newProduct,saleMode:event.target.value as SaleMode})}><option value="standard">Venta normal</option><option value="made_to_order">Por encargo</option></select></label>
             <label className="wide-field"><span className="field-label">Descripción</span><textarea value={newProduct.description} onChange={event=>setNewProduct({...newProduct,description:event.target.value})} placeholder="Material y cualquier detalle que lo diferencie."/></label>
           </div>
-          <CatalogAttributeFields attributes={newProduct.catalogFilters} category={newProduct.category} onChange={catalogFilters=>setNewProduct({...newProduct,catalogFilters})}/>
+          <DynamicAttributeFields taxonomy={taxonomy} category={newProduct.category} scope="product" values={newProduct.attributes} onChange={attributes=>setNewProduct({...newProduct,attributes})}/>
           <div className="form-actions"><button type="submit" disabled={Boolean(productBusy)}>{productBusy === 'create' ? 'Creando…' : 'Crear producto'}</button></div>
         </form>
       )}
@@ -622,7 +690,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
           <div className="panel-head">
             <div><h3>{product.name}</h3></div>
             <div className="product-actions">
-              <button className="secondary-button" disabled={Boolean(productBusy)} onClick={async()=>{setProductBusy('publish');const{error}=await supabase.from('commerce_products').update({published:!product.published}).eq('id',product.id);onNotice(error?error.message:!product.published?'Producto publicado.':'Producto oculto.');if(!error)await load(product.id);setProductBusy('')}}>{productBusy === 'publish' ? 'Guardando…' : product.published?'Ocultar':'Publicar'}</button>
+              <button className="secondary-button" disabled={Boolean(productBusy)} onClick={()=>void toggleProductPublication()}>{productBusy === 'publish' ? 'Guardando…' : product.published?'Ocultar':'Publicar'}</button>
               <button className="danger-button" disabled={Boolean(productBusy)} onClick={()=>void deleteProduct()}>{productBusy === 'delete' ? 'Eliminando…' : 'Eliminar producto'}</button>
             </div>
           </div>
@@ -631,11 +699,11 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
             <div><h4>Datos del producto</h4><p>Editá esta ficha sin afectar los demás productos del catálogo.</p></div>
             <div className="product-fields">
               <label><span className="field-label">Nombre <span className="field-required" aria-hidden="true">*</span></span><input required value={productDetails.name} onChange={event=>setProductDetails({...productDetails,name:event.target.value})}/></label>
-              <label><span className="field-label">Categoría <span className="field-required" aria-hidden="true">*</span></span><select required value={productDetails.category} onChange={event=>{const category=event.target.value;setProductDetails({...productDetails,category,catalogFilters:category==='mates'?productDetails.catalogFilters:{...productDetails.catalogFilters,productTypes:[]}})}}><option value="" disabled>Elegí una categoría</option>{catalogCategoryIds.map(category=><option key={category} value={category}>{catalogCategoryLabels[category]}</option>)}</select></label>
+              <label><span className="field-label">Categoría <span className="field-required" aria-hidden="true">*</span></span><select required value={productDetails.category} onChange={event=>setProductDetails({...productDetails,category:event.target.value,attributes:{}})}><option value="" disabled>Elegí una categoría</option>{taxonomy.categories.filter(item=>item.active).sort((a,b)=>a.sort_order-b.sort_order).map(category=><option key={category.code} value={category.code}>{category.parent_code?'↳ ':''}{category.label_es}</option>)}</select></label>
               <label><span className="field-label">Modalidad</span><select value={productDetails.saleMode} onChange={event=>setProductDetails({...productDetails,saleMode:event.target.value as SaleMode})}><option value="standard">Venta normal</option><option value="made_to_order">Por encargo</option></select></label>
               <label className="wide-field"><span className="field-label">Descripción</span><textarea value={productDetails.description} onChange={event=>setProductDetails({...productDetails,description:event.target.value})}/></label>
             </div>
-            <CatalogAttributeFields attributes={productDetails.catalogFilters} category={productDetails.category} onChange={catalogFilters=>setProductDetails({...productDetails,catalogFilters})}/>
+            <DynamicAttributeFields taxonomy={taxonomy} category={productDetails.category} scope="product" values={productDetails.attributes} onChange={attributes=>setProductDetails({...productDetails,attributes})}/>
             <div className="form-actions"><button type="submit" disabled={Boolean(productBusy)}>{productBusy === 'save' ? 'Guardando…' : 'Guardar cambios'}</button></div>
           </form>
 
@@ -660,10 +728,10 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
                     <figcaption>
                       <div className="image-meta"><strong>{index === 0 ? 'Principal' : `Imagen ${index + 1}`}</strong><span title={image.original_name}>{image.original_name}</span></div>
                       <div className="image-card-actions">
-                        {product.commerce_variants.length > 0 && (
-                          <select className="image-variant-select" value={image.variant_id || ''} disabled={Boolean(imageBusy)} onChange={event=>void linkImageVariant(image, event.target.value || null)} aria-label={`Color/Variante para ${image.original_name}`}>
-                            <option value="">General (Sin variante)</option>
-                            {product.commerce_variants.map(variant=><option key={variant.id} value={variant.id}>{variant.name}</option>)}
+                        {imageColors.length > 0 && (
+                          <select className="image-variant-select" value={String(normalizeCatalogValueMap(image.option_values).color || '')} disabled={Boolean(imageBusy)} onChange={event=>void linkImageColor(image, event.target.value)} aria-label={`Color para ${image.original_name}`}>
+                            <option value="">General (todos los colores)</option>
+                            {imageColors.map(color=><option key={color} value={color}>{catalogValueLabel(taxonomy,'color',color)}</option>)}
                           </select>
                         )}
                         <select value={imageTargets[image.id] || ''} disabled={Boolean(imageBusy)} onChange={event=>setImageTargets({...imageTargets,[image.id]:event.target.value})} aria-label={`Mover ${image.original_name} a otro producto`}>
@@ -689,39 +757,130 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
           </section>
 
           <section className="variants-section" aria-labelledby="variants-title">
-            <div><h4 id="variants-title">Variantes</h4><p>Mismo producto con distinto color o tamaño. Si cambia el material, creá otra ficha.</p></div>
+            <div><h4 id="variants-title">Variantes comprables</h4><p>El SKU y las opciones identifican cada variante. La etiqueta se genera automáticamente.</p></div>
             <div className="table-scroll">
-              <table><thead><tr><th>SKU</th><th>Color</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
-                {product.commerce_variants.map(item=><tr key={item.id}><td>{item.sku}<small>{item.name}</small></td><td><select value={item.color || ''} disabled={Boolean(productBusy)} onChange={e=>void updateVariantColor(item,e.target.value)}>{VARIANT_COLOR_OPTIONS.map(opt=><option key={opt.value} value={opt.value}>{opt.label}</option>)}</select></td><td>{money(item.price_minor)}</td><td><span className={`status-badge ${item.active ? 'status-ready_for_production' : 'status-cancelled'}`}>{item.active ? 'Activa' : 'Inactiva'}</span></td><td><div className="row-actions"><button className="compact-button secondary-button" type="button" disabled={Boolean(productBusy)} onClick={()=>void toggleVariant(item)}>{item.active ? 'Desactivar' : 'Activar'}</button><button className="compact-button danger-button" type="button" disabled={Boolean(productBusy)} onClick={()=>void removeVariant(item)}>Eliminar</button></div></td></tr>)}
-                {!product.commerce_variants.length&&<tr><td className="empty-table" colSpan={5}>Este producto todavía no tiene variantes.</td></tr>}
+              <table><thead><tr><th>SKU</th>{variantDefinitions.map(({definition})=><th key={definition.code}>{definition.label_es}</th>)}<th>Precio</th><th>Peso</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+                {product.commerce_variants.map(item => {
+                  const itemOptions = normalizeCatalogValueMap(item.option_values);
+                  if (!itemOptions.color && item.color) itemOptions.color = item.color;
+                  if (editingVariantId !== item.id) {
+                    return (
+                      <tr key={item.id}>
+                        <td>{item.sku}<small>{item.name}</small></td>
+                        {variantDefinitions.map(({definition})=><td key={definition.code}>{itemOptions[definition.code]!==undefined?catalogValueLabel(taxonomy,definition.code,itemOptions[definition.code] as CatalogValue):'—'}</td>)}
+                        <td>{money(item.price_minor)}</td>
+                        <td>{item.weight_grams ? `${item.weight_grams} g` : '—'}</td>
+                        <td><span className={`status-badge ${item.active ? 'status-ready_for_production' : 'status-cancelled'}`}>{item.active ? 'Activa' : 'Inactiva'}</span></td>
+                        <td>
+                          <div className="row-actions">
+                            <button className="compact-button secondary-button" type="button" disabled={Boolean(productBusy)} onClick={() => { setEditingVariantId(item.id); setEditingVariantForm({ sku: item.sku, price: (item.price_minor / 100).toString(), weight: item.weight_grams?.toString() || '', options: itemOptions }); }}>Editar</button>
+                            <button className="compact-button secondary-button" type="button" disabled={Boolean(productBusy)} onClick={()=>void toggleVariant(item)}>{item.active ? 'Desactivar' : 'Activar'}</button>
+                            <button className="compact-button danger-button" type="button" disabled={Boolean(productBusy)} onClick={()=>void removeVariant(item)}>Eliminar</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  const handleKeyDown = (e: React.KeyboardEvent) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void updateVariant(item, editingVariantForm);
+                    } else if (e.key === 'Escape') {
+                      e.preventDefault();
+                      setEditingVariantId(null);
+                    }
+                  };
+
+                  return (
+                    <tr key={item.id}>
+                      <td>
+                        <input type="text" placeholder="SKU" value={editingVariantForm.sku} disabled={Boolean(productBusy)} onChange={e => setEditingVariantForm({ ...editingVariantForm, sku: e.target.value })} onKeyDown={handleKeyDown} aria-label="SKU" autoFocus />
+                      </td>
+                      {variantDefinitions.map(({rule,definition})=><td key={definition.code}><TaxonomyValueField definition={definition} taxonomy={taxonomy} value={editingVariantForm.options[definition.code]} required={rule.required} onChange={value=>{const options={...editingVariantForm.options};if(value===undefined)delete options[definition.code];else options[definition.code]=value;setEditingVariantForm({...editingVariantForm,options})}}/></td>)}
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <span>$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            value={editingVariantForm.price}
+                            disabled={Boolean(productBusy)}
+                            onChange={e => setEditingVariantForm({ ...editingVariantForm, price: e.target.value })}
+                            onKeyDown={handleKeyDown}
+                            style={{ width: '85px' }}
+                            aria-label="Precio"
+                          />
+                        </div>
+                      </td>
+                      <td><input type="number" min="1" step="1" value={editingVariantForm.weight} disabled={Boolean(productBusy)} onChange={e=>setEditingVariantForm({...editingVariantForm,weight:e.target.value})} onKeyDown={handleKeyDown} aria-label="Peso en gramos" /></td>
+                      <td>
+                        <span className={`status-badge ${item.active ? 'status-ready_for_production' : 'status-cancelled'}`}>
+                          {item.active ? 'Activa' : 'Inactiva'}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="row-actions">
+                          <button
+                            className="compact-button"
+                            type="button"
+                            disabled={Boolean(productBusy)}
+                            onClick={() => void updateVariant(item, editingVariantForm)}
+                          >
+                            {productBusy === `variant-${item.id}` ? 'Guardando…' : 'Guardar'}
+                          </button>
+                          <button
+                            className="compact-button secondary-button"
+                            type="button"
+                            disabled={Boolean(productBusy)}
+                            onClick={() => setEditingVariantId(null)}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {!product.commerce_variants.length&&<tr><td className="empty-table" colSpan={variantDefinitions.length+5}>Este producto todavía no tiene variantes.</td></tr>}
               </tbody></table>
             </div>
           </section>
-          <form className="form-grid" onSubmit={event=>void createVariant(event)}><h4>Nueva variante</h4><label>SKU<input required value={variant.sku} onChange={e=>setVariant({...variant,sku:e.target.value})}/></label><label>Nombre<input required value={variant.name} onChange={e=>setVariant({...variant,name:e.target.value})}/></label><label>Color<select value={variant.color} onChange={e=>setVariant({...variant,color:e.target.value})}>{VARIANT_COLOR_OPTIONS.map(opt=><option key={opt.value} value={opt.value}>{opt.label}</option>)}</select></label><label>Precio UYU<input required type="number" min="1" step="0.01" value={variant.price} onChange={e=>setVariant({...variant,price:e.target.value})}/></label><button disabled={Boolean(productBusy)}>{productBusy === 'variant-create' ? 'Creando…' : 'Crear variante'}</button></form>
+          <form className="form-grid variant-create" onSubmit={event=>void createVariant(event)}>
+            <h4>Nueva variante</h4>
+            <label><span className="field-label">SKU <span className="field-required" aria-hidden="true">*</span></span><input required value={variant.sku} onChange={e=>setVariant({...variant,sku:e.target.value})}/></label>
+            <DynamicAttributeFields taxonomy={taxonomy} category={product.category_code||product.category} scope="variant" values={variant.options} onChange={options=>setVariant({...variant,options})}/>
+            <label><span className="field-label">Precio UYU <span className="field-required" aria-hidden="true">*</span></span><input required type="number" min="1" step="0.01" value={variant.price} onChange={e=>setVariant({...variant,price:e.target.value})}/></label>
+            <label><span className="field-label">Peso para envío (g){product.sale_mode==='standard'&&<span className="field-required" aria-hidden="true"> *</span>}</span><input required={product.sale_mode==='standard'} type="number" min="1" step="1" value={variant.weight} onChange={e=>setVariant({...variant,weight:e.target.value})}/></label>
+            <p className="variant-label-preview">Etiqueta automática: <strong>{formatVariantLabel(taxonomy,product.category_code||product.category,variant.options)}</strong></p>
+            <button disabled={Boolean(productBusy)}>{productBusy === 'variant-create' ? 'Creando…' : 'Crear variante'}</button>
+          </form>
         </div>
       )}
     </section>
   );
 }
 
-type CatalogListProduct = Pick<Product, 'id' | 'name' | 'category' | 'catalog_filters' | 'commerce_variants'>;
-type CatalogListRow = CatalogListProduct & { material:string; variant:ProductVariant|null };
+type CatalogListProduct = Pick<Product, 'id' | 'name' | 'category' | 'category_code' | 'attributes' | 'catalog_filters' | 'commerce_variants'>;
+type CatalogListRow = CatalogListProduct & { material:string; color:string; variant:ProductVariant|null };
 
 function CatalogList({onNotice}:{onNotice:(v:string)=>void}) {
   const [products,setProducts] = useState<CatalogListProduct[]>([]);
-  const [skuSort, setSkuSort] = useState<'none' | 'asc' | 'desc'>('asc');
+  const [sortColumn, setSortColumn] = useState<'sku' | 'price' | null>('sku');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
 
   const load = useCallback(async() => {
-    const selection = 'id,name,category,catalog_filters,commerce_variants(id,sku,name,price_minor,active,color)';
-    const legacySelection = selection.replace('catalog_filters,','');
+    const selection = 'id,name,category,category_code,attributes,catalog_filters,commerce_variants(id,sku,name,price_minor,active,color,weight_grams,option_values)';
+    const legacySelection = 'id,name,category,commerce_variants(id,sku,name,price_minor,active,color)';
     let {data,error}:{data:unknown;error:{message:string;code?:string}|null} = await supabase
       .from('commerce_products')
       .select(selection)
       .neq('category','sandbox')
       .order('name');
-    if (error && (error.code === '42703' || /catalog_filters/i.test(error.message))) {
+    if (error && (error.code === '42703' || /category_code|attributes|option_values|catalog_filters/i.test(error.message))) {
       ({data,error} = await supabase.from('commerce_products').select(legacySelection).neq('category','sandbox').order('name'));
     }
     if (error) {
@@ -735,22 +894,47 @@ function CatalogList({onNotice}:{onNotice:(v:string)=>void}) {
 
   const rows: CatalogListRow[] = useMemo(() => {
     return products.flatMap<CatalogListRow>(product => {
-      const material = normalizeCatalogAttributes(product.catalog_filters).materials
+      const normalizedAttrs = normalizeCatalogAttributes(product.catalog_filters);
+      const structuredAttributes = normalizeCatalogValueMap(product.attributes);
+      const structuredMaterial = structuredAttributes.material;
+      const material = structuredMaterial !== undefined
+        ? catalogValueLabel(defaultCatalogTaxonomy,'material',structuredMaterial)
+        : normalizedAttrs.materials
         .map(value => catalogMaterialLabels[value] || value)
+        .join(', ') || '—';
+      const defaultColor = normalizedAttrs.colors
+        .map(value => catalogColorLabels[value] || value)
         .join(', ') || '—';
       const variants = product.commerce_variants || [];
       return variants.length
-        ? variants.map(variant => ({...product,material,variant}))
-        : [{...product,material,variant:null}];
+        ? variants.map(variant => {
+            const structuredColor = normalizeCatalogValueMap(variant.option_values).color;
+            const variantColor = structuredColor === undefined ? variant.color : String(structuredColor);
+            const color = variantColor
+              ? catalogValueLabel(defaultCatalogTaxonomy,'color',variantColor)
+              : defaultColor;
+            return { ...product, material, color, variant };
+          })
+        : [{ ...product, material, color: defaultColor, variant: null }];
     });
   }, [products]);
 
   const toggleSkuSort = () => {
-    setSkuSort(current => {
-      if (current === 'asc') return 'desc';
-      if (current === 'desc') return 'none';
-      return 'asc';
-    });
+    if (sortColumn === 'sku') {
+      setSortDirection(current => (current === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortColumn('sku');
+      setSortDirection('asc');
+    }
+  };
+
+  const togglePriceSort = () => {
+    if (sortColumn === 'price') {
+      setSortDirection(current => (current === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortColumn('price');
+      setSortDirection('asc');
+    }
   };
 
   const filteredAndSortedRows = useMemo(() => {
@@ -762,7 +946,8 @@ function CatalogList({onNotice}:{onNotice:(v:string)=>void}) {
         (r.variant?.sku && r.variant.sku.toLowerCase().includes(q)) ||
         r.name.toLowerCase().includes(q) ||
         (r.variant?.name && r.variant.name.toLowerCase().includes(q)) ||
-        r.material.toLowerCase().includes(q)
+        r.material.toLowerCase().includes(q) ||
+        r.color.toLowerCase().includes(q)
       );
     }
 
@@ -770,7 +955,7 @@ function CatalogList({onNotice}:{onNotice:(v:string)=>void}) {
       result = result.filter(r => r.category === categoryFilter);
     }
 
-    if (skuSort !== 'none') {
+    if (sortColumn === 'sku') {
       result = [...result].sort((a, b) => {
         const skuA = (a.variant?.sku || '').trim();
         const skuB = (b.variant?.sku || '').trim();
@@ -778,14 +963,40 @@ function CatalogList({onNotice}:{onNotice:(v:string)=>void}) {
         if (!skuA) return 1;
         if (!skuB) return -1;
         const cmp = skuA.localeCompare(skuB, undefined, { numeric: true, sensitivity: 'base' });
-        return skuSort === 'asc' ? cmp : -cmp;
+        return sortDirection === 'asc' ? cmp : -cmp;
+      });
+    } else if (sortColumn === 'price') {
+      result = [...result].sort((a, b) => {
+        const priceA = a.variant?.price_minor ?? Infinity;
+        const priceB = b.variant?.price_minor ?? Infinity;
+        if (priceA === priceB) return 0;
+        if (priceA === Infinity) return 1;
+        if (priceB === Infinity) return -1;
+        return sortDirection === 'asc' ? priceA - priceB : priceB - priceA;
       });
     }
 
     return result;
-  }, [rows, search, categoryFilter, skuSort]);
+  }, [rows, search, categoryFilter, sortColumn, sortDirection]);
 
   return <section className="data-panel" aria-label="Lista de productos del catálogo">
+    <div className="print-only-header">
+      <div className="print-header-top">
+        <div className="print-brand">
+          <img src="/logo-matearte.avif" alt="MateArte" className="print-logo" />
+          <div>
+            <h2>MateArte</h2>
+            <span className="print-subtitle">Lista de Precios</span>
+          </div>
+        </div>
+        <div className="print-meta">
+          <div><span>Fecha:</span> <strong>{new Date().toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric' })}</strong></div>
+          {categoryFilter !== 'all' && (
+            <div><span>Categoría:</span> <strong>{catalogCategoryLabels[categoryFilter] || categoryFilter}</strong></div>
+          )}
+        </div>
+      </div>
+    </div>
     <div className="table-summary" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
       <div>
         <strong>{products.length} productos</strong>
@@ -793,9 +1004,10 @@ function CatalogList({onNotice}:{onNotice:(v:string)=>void}) {
           {filteredAndSortedRows.length} {filteredAndSortedRows.length === 1 ? 'variante listada' : 'variantes listadas'}
         </small>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+      <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
         <input
           type="search"
+          className="no-print"
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Buscar por SKU o producto…"
@@ -809,6 +1021,7 @@ function CatalogList({onNotice}:{onNotice:(v:string)=>void}) {
           }}
         />
         <select
+          className="no-print"
           value={categoryFilter}
           onChange={e => setCategoryFilter(e.target.value)}
           style={{
@@ -825,25 +1038,25 @@ function CatalogList({onNotice}:{onNotice:(v:string)=>void}) {
             <option key={cat} value={cat}>{catalogCategoryLabels[cat] || cat}</option>
           ))}
         </select>
-        <select
-          value={skuSort}
-          onChange={e => setSkuSort(e.target.value as 'none' | 'asc' | 'desc')}
-          aria-label="Ordenar lista por SKU"
+        <button
+          type="button"
+          className="secondary-button no-print print-button"
+          onClick={() => window.print()}
+          title="Imprimir lista de precios"
           style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            minHeight: '34px',
             height: '34px',
-            padding: '0.35rem 0.65rem',
-            border: '1px solid #b7c0b9',
-            borderRadius: '0.25rem',
+            padding: '0.35rem 0.75rem',
             fontSize: '0.8rem',
-            background: '#fff',
-            fontWeight: skuSort !== 'none' ? 600 : 400,
-            color: skuSort !== 'none' ? 'var(--green-800)' : 'inherit',
+            cursor: 'pointer',
           }}
         >
-          <option value="asc">SKU: menor a mayor (0-9, A-Z) ↑</option>
-          <option value="desc">SKU: mayor a menor (Z-A, 9-0) ↓</option>
-          <option value="none">Por defecto (Nombre)</option>
-        </select>
+          <Icon name="print" />
+          <span>Imprimir</span>
+        </button>
       </div>
     </div>
     <div className="table-scroll">
@@ -858,26 +1071,41 @@ function CatalogList({onNotice}:{onNotice:(v:string)=>void}) {
             >
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
                 <span>SKU</span>
-                <span style={{ fontSize: '0.85rem', color: skuSort !== 'none' ? 'var(--green-800)' : '#8a9990' }}>
-                  {skuSort === 'asc' ? '▲' : skuSort === 'desc' ? '▼' : '↕'}
+                <span className="no-print" style={{ fontSize: '0.85rem', color: sortColumn === 'sku' ? 'var(--green-800)' : '#8a9990' }}>
+                  {sortColumn === 'sku' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}
                 </span>
               </div>
             </th>
             <th>Producto</th>
             <th>Categoría</th>
             <th>Material</th>
-            <th className="numeric">Precio</th>
+            <th>Color</th>
+            <th
+              scope="col"
+              className="numeric"
+              style={{ cursor: 'pointer', userSelect: 'none' }}
+              onClick={togglePriceSort}
+              title="Ordenar por precio (menor a mayor / mayor a menor)"
+            >
+              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.35rem' }}>
+                <span>Precio</span>
+                <span className="no-print" style={{ fontSize: '0.85rem', color: sortColumn === 'price' ? 'var(--green-800)' : '#8a9990' }}>
+                  {sortColumn === 'price' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}
+                </span>
+              </div>
+            </th>
           </tr>
         </thead>
         <tbody>
           {filteredAndSortedRows.map(row => <tr key={`${row.id}-${row.variant?.id || 'sin-variante'}`}>
             <td>{row.variant?.sku || '—'}</td>
             <td><strong>{row.name}</strong>{row.variant?.name && <small>{row.variant.name}</small>}</td>
-            <td>{catalogCategoryLabels[row.category] || row.category || '—'}</td>
+            <td>{catalogCategoryLabels[row.category_code||row.category] || row.category_code || row.category || '—'}</td>
             <td>{row.material}</td>
+            <td>{row.color}</td>
             <td className="numeric"><strong>{row.variant ? money(row.variant.price_minor) : '—'}</strong></td>
           </tr>)}
-          {!filteredAndSortedRows.length && <tr><td className="empty-table" colSpan={5}>No se encontraron productos con los filtros seleccionados.</td></tr>}
+          {!filteredAndSortedRows.length && <tr><td className="empty-table" colSpan={6}>No se encontraron productos con los filtros seleccionados.</td></tr>}
         </tbody>
       </table>
     </div>
@@ -1311,4 +1539,4 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
 
 function Shipping({onNotice}:{onNotice:(v:string)=>void}){const[rates,setRates]=useState<Rate[]>([]);const[form,setForm]=useState({code:'',name:'',rate:'',departments:''});const load=useCallback(async()=>{const{data}=await supabase.from('shipping_rates').select('*').order('is_pickup',{ascending:false});setRates((data||[]) as Rate[])},[]);useEffect(()=>{void load()},[load]);return <section className="panel"><table><thead><tr><th>Zona</th><th>Departamentos</th><th>Tarifa</th><th>Estado</th></tr></thead><tbody>{rates.map(r=><tr key={r.id}><td>{r.name}</td><td>{r.is_pickup?'Retiro':r.departments.join(', ')}</td><td>{money(r.rate_minor)}</td><td>{r.active?'Activa':'Inactiva'}</td></tr>)}</tbody></table><form className="form-grid" onSubmit={async e=>{e.preventDefault();const{error}=await supabase.from('shipping_rates').insert({code:form.code,name:form.name,rate_minor:Math.round(Number(form.rate)*100),departments:form.departments.split(',').map(v=>v.trim()).filter(Boolean),is_pickup:false,active:true});onNotice(error?error.message:'Zona creada.');if(!error){setForm({code:'',name:'',rate:'',departments:''});await load()}}}><h4>Nueva zona nacional</h4><label>Código<input required value={form.code} onChange={e=>setForm({...form,code:e.target.value})}/></label><label>Nombre<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label><label>Tarifa UYU<input required type="number" min="0" value={form.rate} onChange={e=>setForm({...form,rate:e.target.value})}/></label><label>Departamentos, separados por coma<input required value={form.departments} onChange={e=>setForm({...form,departments:e.target.value})}/></label><button>Crear zona</button></form></section>}
 
-function Settings({onNotice}:{onNotice:(v:string)=>void}){const[value,setValue]=useState<Record<string,boolean|number>|null>(null);const load=useCallback(async()=>{const{data}=await supabase.from('commerce_settings').select('*').eq('singleton',true).single();setValue(data)},[]);useEffect(()=>{void load()},[load]);if(!value)return <p>Cargando…</p>;const save=async(next:Record<string,boolean|number>)=>{const{error}=await supabase.from('commerce_settings').update(next).eq('singleton',true);onNotice(error?error.message:'Configuración guardada.');if(!error)setValue({...value,...next})};return <section className="panel settings"><div className="warning"><strong>Salida controlada</strong><p>Mercado Pago y el comercio permanecen apagados hasta cerrar sandbox, credenciales y catálogo. La comisión requiere aprobación legal independiente.</p></div>{[['commerce_enabled','Habilitar comercio'],['mercado_pago_enabled','Habilitar Mercado Pago'],['payment_fee_legal_approval','Aprobación escrita de comisión'],['payment_fee_enabled','Cobrar comisión separada']].map(([key,label])=><label className="toggle" key={key}><span>{label}</span><input type="checkbox" checked={Boolean(value[key])} onChange={e=>void save({[key]:e.target.checked})}/></label>)}</section>}
+function Settings({onNotice}:{onNotice:(v:string)=>void}){const[value,setValue]=useState<Record<string,boolean|number>|null>(null);const load=useCallback(async()=>{const{data}=await supabase.from('commerce_settings').select('*').eq('singleton',true).single();setValue(data)},[]);useEffect(()=>{void load()},[load]);if(!value)return <p>Cargando…</p>;const save=async(next:Record<string,boolean|number>)=>{const{error}=await supabase.from('commerce_settings').update(next).eq('singleton',true);onNotice(error?error.message:'Configuración guardada.');if(!error)setValue({...value,...next})};return <><section className="panel settings"><div className="warning"><strong>Salida controlada</strong><p>Mercado Pago y el comercio permanecen apagados hasta cerrar sandbox, credenciales y catálogo. La comisión requiere aprobación legal independiente.</p></div>{[['commerce_enabled','Habilitar comercio'],['mercado_pago_enabled','Habilitar Mercado Pago'],['payment_fee_legal_approval','Aprobación escrita de comisión'],['payment_fee_enabled','Cobrar comisión separada']].map(([key,label])=><label className="toggle" key={key}><span>{label}</span><input type="checkbox" checked={Boolean(value[key])} onChange={e=>void save({[key]:e.target.checked})}/></label>)}</section><TaxonomyManager onNotice={onNotice}/></>}

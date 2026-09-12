@@ -88,18 +88,6 @@ const enProducts: Record<string, ProductCopy> = {
     summary: "A one-liter thermos designed for daily use.",
     description: "A visual catalog reference. Color and pricing will come from the real commercial source.",
   },
-  "set-premium": {
-    name: "Premium set",
-    eyebrow: "A gift idea",
-    summary: "A composition of MateArte pieces in natural tones.",
-    description: "Editorial inspiration based on the brand's public material. The exact contents and availability must be confirmed.",
-  },
-  "box-matero": {
-    name: "Mate box",
-    eyebrow: "A gift idea",
-    summary: "A mate selection presented as gift inspiration.",
-    description: "Editorial brand content, subject to validation of its contents and rights before publication.",
-  },
 };
 
 const ptProducts: Record<string, ProductCopy> = {
@@ -187,18 +175,6 @@ const ptProducts: Record<string, ProductCopy> = {
     summary: "Uma garrafa térmica de um litro pensada para o uso diário.",
     description: "Referência visual do catálogo. A cor e o preço virão da fonte comercial real.",
   },
-  "set-premium": {
-    name: "Conjunto premium",
-    eyebrow: "Ideia para presentear",
-    summary: "Uma composição de peças MateArte em tons naturais.",
-    description: "Inspiração editorial baseada em material público da marca. A composição exata e sua disponibilidade devem ser confirmadas.",
-  },
-  "box-matero": {
-    name: "Box de mate",
-    eyebrow: "Ideia para presentear",
-    summary: "Uma seleção para mate apresentada como inspiração de presente.",
-    description: "Conteúdo editorial da marca, sujeito à validação de composição e direitos antes da publicação.",
-  },
 };
 
 const materialTranslations = {
@@ -254,14 +230,12 @@ const categoryCopies: Record<Locale, Record<string, { name: string; description:
     bombillas: { name: "Bombillas", description: "Classic shapes in steel and alpaca for the everyday ritual.", alt: "Metal bombillas" },
     materas: { name: "Materas & kits", description: "Worked leather made to carry mate to every gathering.", alt: "Leather matera" },
     termos: { name: "Thermoses", description: "Durable companions for travel, work and gatherings.", alt: "Thermos for mate" },
-    regalos: { name: "Custom gifts", description: "Pieces and sets designed to tell a story of their own.", alt: "Premium mate, thermos and accessory set" },
   },
   pt: {
     mates: { name: "Mates", description: "Imperiais, camioneros, crioulos e torpedos em materiais nobres.", alt: "Mate Imperial artesanal MateArte" },
     bombillas: { name: "Bombillas", description: "Formatos clássicos em aço e alpaca para o ritual cotidiano.", alt: "Bombillas de metal" },
     materas: { name: "Materas & kits", description: "Couro trabalhado para levar o mate a cada encontro.", alt: "Matera de couro" },
     termos: { name: "Garrafas térmicas", description: "Companheiras resistentes para viagens, trabalho e encontros.", alt: "Garrafa térmica para mate" },
-    regalos: { name: "Presentes personalizados", description: "Peças e conjuntos pensados para contar uma história própria.", alt: "Conjunto premium de mate, garrafa térmica e acessórios" },
   },
 };
 

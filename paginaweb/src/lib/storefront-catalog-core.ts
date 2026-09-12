@@ -1,5 +1,5 @@
 import type { CatalogColorId, Locale, MediaAsset, Product, ProductVariant } from "@/types/catalog";
-import { normalizeCatalogAttributes } from "../../../shared/catalog-taxonomy";
+import { canonicalCategoryCode, normalizeCatalogAttributes, normalizeCatalogValueMap } from "../../../shared/catalog-taxonomy";
 
 export type StorefrontVariantRow = {
   id: string;
@@ -9,6 +9,8 @@ export type StorefrontVariantRow = {
   currency: "UYU";
   active: boolean;
   color?: string | null;
+  weight_grams?: number | null;
+  option_values?: unknown;
 };
 
 export type StorefrontImageRow = {
@@ -18,6 +20,7 @@ export type StorefrontImageRow = {
   sort_order: number;
   mime_type: string;
   variant_id: string | null;
+  option_values?: unknown;
 };
 
 export type StorefrontProductRow = {
@@ -25,10 +28,12 @@ export type StorefrontProductRow = {
   editorial_slug: string;
   name: string;
   category: string;
+  category_code?: string | null;
   description: string;
   sale_mode: "standard" | "made_to_order";
   published: boolean;
   catalog_filters?: unknown;
+  attributes?: unknown;
   variants: StorefrontVariantRow[] | null;
   images: StorefrontImageRow[] | null;
 };
@@ -68,6 +73,7 @@ function mapImages(row: StorefrontProductRow, supabaseBaseUrl: string, existing?
       sourceUrl: src,
       rightsStatus: "brand-public" as const,
       variantId: image.variant_id,
+      optionValues: normalizeCatalogValueMap(image.option_values),
     };
   });
 }
@@ -76,15 +82,21 @@ function mapVariants(row: StorefrontProductRow): ProductVariant[] {
   return (row.variants ?? [])
     .filter((variant) => variant.active && variant.price_minor > 0)
     .sort((a, b) => a.price_minor - b.price_minor || a.name.localeCompare(b.name))
-    .map((variant) => ({
+    .map((variant) => {
+      const options = normalizeCatalogValueMap(variant.option_values);
+      const structuredColor = typeof options.color === "string" ? options.color as CatalogColorId : undefined;
+      return ({
       id: variant.id,
       label: variant.name,
       value: variant.sku,
       commerceId: variant.id,
       price: { amountMinor: variant.price_minor, currency: variant.currency },
       available: true,
-      color: (variant.color as CatalogColorId) || undefined,
-    }));
+      color: structuredColor || (variant.color as CatalogColorId) || undefined,
+      options,
+      weightGrams: variant.weight_grams,
+    });
+    });
 }
 
 export function storefrontProductFromRow(
@@ -105,6 +117,7 @@ export function storefrontProductFromRow(
     ? existing!.summary
     : row.description.trim() || existing?.summary || genericCopy[locale].summary;
   const storedAttributes = normalizeCatalogAttributes(row.catalog_filters);
+  const attributes = normalizeCatalogValueMap(row.attributes);
   const existingProductTypes = existing?.filterData.productTypes
     ?? (existing?.filterData.mateType ? [existing.filterData.mateType] : []);
 
@@ -112,7 +125,8 @@ export function storefrontProductFromRow(
     id: existing?.id ?? row.id,
     slug: row.editorial_slug,
     name: keepEditorialTranslation ? existing!.name : row.name,
-    category: row.category,
+    category: canonicalCategoryCode(row.category_code || row.category),
+    attributes,
     eyebrow: existing?.eyebrow ?? genericCopy[locale].eyebrow,
     summary,
     description,
@@ -120,7 +134,8 @@ export function storefrontProductFromRow(
     filterData: {
       materials: storedAttributes.materials.length > 0 ? storedAttributes.materials : existing?.filterData.materials ?? [],
       productTypes: storedAttributes.productTypes.length > 0 ? storedAttributes.productTypes : existingProductTypes,
-      colors: storedAttributes.colors.length > 0 ? storedAttributes.colors : existing?.filterData.colors ?? [],
+      colors: variants.length > 0 ? variants.map(variant=>variant.color).filter((color):color is CatalogColorId=>Boolean(color)) : storedAttributes.colors,
+      shapes: typeof attributes.forma === "string" ? [attributes.forma] : existing?.filterData.shapes ?? [],
       priceUYU: minimumPrice,
     },
     images: mapImages(row, supabaseBaseUrl, existing),
@@ -136,7 +151,7 @@ export function mergeStorefrontProducts(
   supabaseBaseUrl: string,
   locale: Locale,
 ) {
-  const published = commerceProducts.filter((product) => product.published && product.category !== "sandbox");
+  const published = commerceProducts.filter((product) => product.published && product.category !== "sandbox" && product.category !== "regalos");
   const editorialBySlug = new Map(editorialProducts.map((product) => [product.slug, product]));
 
   return published.map((product) => storefrontProductFromRow(
