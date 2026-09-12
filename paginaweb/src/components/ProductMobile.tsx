@@ -9,6 +9,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { ProductGallery } from "./ProductGallery";
 import { StructuredVariantPicker } from "./product/StructuredVariantPicker";
 import { useStructuredVariantSelection } from "./product/useStructuredVariantSelection";
+import { ProductSpecsBox } from "./product/ProductSpecsBox";
 
 const catalogAssetRoot = "/assets/matearte/catalog-desktop";
 const productAssetRoot = "/assets/matearte/product-mobile";
@@ -133,9 +134,6 @@ export function ProductMobile({ product, exchangeRates }: { product: Product; ex
         <div className="product-mobile-information">
           <h1 id="product-mobile-title">{product.name}</h1>
           <p className="product-mobile-summary">{product.summary}</p>
-          {product.attributes?.forma && <p className="product-attribute-summary">{locale==='en'?'Shape':locale==='pt'?'Forma':'Forma'}: {String(product.attributes.forma)==='ovalada'?(locale==='en'?'Oval':locale==='pt'?'Oval':'Ovalada'):String(product.attributes.forma)==='cuadrada'?(locale==='en'?'Square':locale==='pt'?'Quadrada':'Cuadrada'):String(product.attributes.forma)}</p>}
-          {product.attributes?.genero && <p className="product-attribute-summary">{locale==='en'?'Gender':locale==='pt'?'Gênero':'Género'}: {String(product.attributes.genero).toLowerCase()==='hombre'?(locale==='en'?'Men':locale==='pt'?'Masculino':'Hombre'):String(product.attributes.genero).toLowerCase()==='mujer'?(locale==='en'?'Women':locale==='pt'?'Feminino':'Mujer'):String(product.attributes.genero).toLowerCase()==='unisex'?(locale==='en'?'Unisex':locale==='pt'?'Unissex':'Unisex'):String(product.attributes.genero)}</p>}
-          {product.attributes?.['largo-cinto-cm'] && <p className="product-attribute-summary">{locale==='en'?'Belt length':locale==='pt'?'Comprimento do cinto':'Largo del cinto'}: {String(product.attributes['largo-cinto-cm'])} cm</p>}
           <p className="product-mobile-price">{displayedPrice}</p>
 
           <div className="product-mobile-rule product-mobile-rule-actions" aria-hidden="true" />
@@ -148,6 +146,7 @@ export function ProductMobile({ product, exchangeRates }: { product: Product; ex
           </button>
           <Link className="product-mobile-secondary" href="/personalizados">{t("learnCustomization")}</Link>
           {message ? <p className="product-mobile-status" role="status" aria-live="polite">{message}</p> : null}
+          <ProductSpecsBox product={product} selectedOptions={variantSelection.selected} activeVariant={variantSelection.activeVariant} />
         </div>
       </div>
     </section>

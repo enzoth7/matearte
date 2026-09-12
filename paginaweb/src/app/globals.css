@@ -8074,6 +8074,48 @@ input:checked + .catalog-mobile-checkbox::after {
   .product-desktop-gallery:hover img { transform: none; }
 }
 
+/* Detalle de producto — Specs Box */
+.product-specs-card {
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 24px;
+  padding: 16px 20px;
+  background: #fbf7ee;
+  border: 1px solid #e8decb;
+  border-radius: 8px;
+}
+
+.product-specs-title {
+  margin: 0 0 12px;
+  color: #79452d;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 18px;
+}
+
+.product-specs-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.product-specs-item {
+  margin: 0;
+  padding: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: #311c12;
+}
+
+.product-specs-item span {
+  display: inline-block;
+}
+
 /* Personalizados — Figma frame 476:41 (mobile) */
 .personalizados-page { overflow: hidden; background: #f5f0e8; color: #311c12; }
 

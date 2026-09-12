@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
-import type { Product } from "@/types/catalog";
+import type { Locale, Product } from "@/types/catalog";
 import esMessages from "../../../messages/es.json";
 import enMessages from "../../../messages/en.json";
 import ptMessages from "../../../messages/pt.json";
@@ -20,7 +20,7 @@ const mockProduct: Product = {
   summary: "Mate tradicional",
   description: "Mate de cuero",
   materials: ["Cuero"],
-  filterData: { priceUYU: 3500 },
+  filterData: { priceUYU: 3500, materials: ["cuero"] },
   images: [],
   variants: [
     { id: "v-chico", label: "Chico", value: "chico", options: { tamano: "chico" } },
@@ -29,7 +29,7 @@ const mockProduct: Product = {
   ],
 };
 
-function renderWithLocale(ui: React.ReactElement, locale = "es", messages = esMessages) {
+function renderWithLocale(ui: React.ReactElement, locale: Locale = "es", messages = esMessages) {
   return render(
     <NextIntlClientProvider locale={locale} messages={messages}>
       {ui}

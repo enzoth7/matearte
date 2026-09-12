@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
-import type { Product } from "@/types/catalog";
+import type { Locale, Product } from "@/types/catalog";
 import esMessages from "../../messages/es.json";
 import enMessages from "../../messages/en.json";
 import ptMessages from "../../messages/pt.json";
@@ -21,7 +21,7 @@ const messagesByLocale: Record<string, any> = {
   pt: ptMessages,
 };
 
-function renderComponent(ui: React.ReactElement, locale = "es") {
+function renderComponent(ui: React.ReactElement, locale: Locale = "es") {
   return render(
     <NextIntlClientProvider locale={locale} messages={messagesByLocale[locale]}>
       {ui}
@@ -38,7 +38,7 @@ const baseProduct: Product = {
   summary: "Cinto tradicional.",
   description: "Cinto artesanal.",
   materials: ["Cuero"],
-  filterData: { priceUYU: 2500 },
+  filterData: { priceUYU: 2500, materials: ["cuero"] },
   images: [{ src: "/cinto.png", alt: "Cinto", width: 600, height: 600, source: "web", sourceUrl: "", rightsStatus: "brand-public" }],
   variants: [],
 };
