@@ -59,6 +59,20 @@ describe("filtros del catálogo", () => {
     expect(writeCatalogFilters(filters).getAll("material")).toEqual(["estampado"]);
   });
 
+  it("reconoce y normaliza la categoria de kits materos", () => {
+    const fromSingular = parseCatalogFilters(new URLSearchParams("categoria=kit-matero"));
+    const fromPlural = parseCatalogFilters(new URLSearchParams("categoria=kits-materos"));
+    expect(fromSingular.category).toBe("kits-materos");
+    expect(fromPlural.category).toBe("kits-materos");
+  });
+
+  it("reconoce y normaliza la categoria de cuchillos", () => {
+    const fromSingular = parseCatalogFilters(new URLSearchParams("categoria=cuchillo"));
+    const fromPlural = parseCatalogFilters(new URLSearchParams("categoria=cuchillos"));
+    expect(fromSingular.category).toBe("cuchillos");
+    expect(fromPlural.category).toBe("cuchillos");
+  });
+
   it("filtra los nuevos productos por categoría, material y color", () => {
     const entries: Array<{ product: Product }> = [
       {

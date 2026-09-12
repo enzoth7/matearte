@@ -17,9 +17,13 @@ const nextConfig: NextConfig = {
       { source: "/catalogo/bombillas", destination: "/catalogo?categoria=bombillas", permanent: true },
       { source: "/catalogo/materas", destination: "/catalogo?categoria=materas", permanent: true },
       { source: "/catalogo/termos", destination: "/catalogo?categoria=termos", permanent: true },
+      { source: "/catalogo/kits-materos", destination: "/catalogo?categoria=kits-materos", permanent: true },
+      { source: "/catalogo/kit-matero", destination: "/catalogo?categoria=kits-materos", permanent: true },
+      { source: "/catalogo/cuchillos", destination: "/catalogo?categoria=cuchillos", permanent: true },
+      { source: "/catalogo/cuchillo", destination: "/catalogo?categoria=cuchillos", permanent: true },
       { source: "/catalogo/regalos", destination: "/catalogo?categoria=regalos", permanent: true },
-      { source: "/en/catalog/:category(mates|bombillas|materas|termos|regalos)", destination: "/en/catalog?categoria=:category", permanent: true },
-      { source: "/pt/catalogo/:category(mates|bombillas|materas|termos|regalos)", destination: "/pt/catalogo?categoria=:category", permanent: true },
+      { source: "/en/catalog/:category(mates|bombillas|materas|termos|kits-materos|kit-matero|cuchillos|cuchillo|regalos)", destination: "/en/catalog?categoria=:category", permanent: true },
+      { source: "/pt/catalogo/:category(mates|bombillas|materas|termos|kits-materos|kit-matero|cuchillos|cuchillo|regalos)", destination: "/pt/catalogo?categoria=:category", permanent: true },
     ];
   },
   images: {

@@ -20,7 +20,7 @@ test("portada, navegación y accesibilidad", async ({ page }) => {
   await page.waitForTimeout(500);
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
-  await page.getByRole("link", { name: "Ver mates" }).click();
+  await page.getByRole("link", { name: "Ver catálogo" }).click();
   await expect(page).toHaveURL(/\/catalogo/);
   await expect(page).toHaveTitle(/Catálogo/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Elegí tu producto");

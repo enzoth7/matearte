@@ -86,7 +86,7 @@
     "heroLine1": "TRADICIÓN",
     "heroLine2": "QUE NOS UNE",
     "heroBody": "Mates personalizados y artesanales en Uruguay",
-    "viewMates": "Ver mates",
+    "viewMates": "Ver catálogo",
     "createMine": "Crear el mío",
     "heroAlt": "Mate artesanal MateArte sobre una mesa de madera",
     "craftTitleTop": "El Arte",
@@ -175,6 +175,8 @@
     "bombillones": "Bombillones",
     "materas": "Materas",
     "termos": "Termos",
+    "kitMatero": "Kit Matero",
+    "knives": "Cuchillos",
     "gifts": "Regalos personalizados",
     "belts": "Cintos",
     "footwear": "Calzado",
@@ -223,7 +225,9 @@
     "blue": "Azul",
     "azul": "Azul",
     "beige": "Beige",
-    "comingSoon": "Próximamente"
+    "comingSoon": "Próximamente",
+    "prevPage": "Anterior",
+    "nextPage": "Siguiente"
   },
   "product": {
     "inspiration": "Inspiración",

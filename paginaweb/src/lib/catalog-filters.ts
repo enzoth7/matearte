@@ -14,6 +14,8 @@ export const categoryOptions = [
   { value: "bombillones", labelKey: "bombillones" },
   { value: "materas", labelKey: "materas" },
   { value: "termos", labelKey: "termos" },
+  { value: "kits-materos", labelKey: "kitMatero" },
+  { value: "cuchillos", labelKey: "knives" },
   { value: "regalos", labelKey: "gifts" },
   { value: "cintos", labelKey: "belts" },
   { value: "calzado", labelKey: "footwear" },
@@ -85,7 +87,8 @@ function validValues<T extends string>(params: URLSearchParams, key: string, all
 }
 
 export function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
-  const categoryValue = params.get("categoria") ?? "todas";
+  const rawCategory = params.get("categoria") ?? "todas";
+  const categoryValue = rawCategory === "kit-matero" ? "kits-materos" : rawCategory === "cuchillo" ? "cuchillos" : rawCategory;
   const sortValue = params.get("orden") ?? "editorial";
   return {
     category: categoryIds.has(categoryValue) ? categoryValue as CatalogFilters["category"] : "todas",

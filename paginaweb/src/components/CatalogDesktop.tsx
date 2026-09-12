@@ -3,8 +3,9 @@
 import Image from "next/image";
 import { CaretDown } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CatalogFilterControls } from "@/components/catalog/CatalogFilterControls";
+import { CatalogPagination } from "@/components/catalog/CatalogPagination";
 import { useCatalogFilters } from "@/components/catalog/useCatalogFilters";
 import { filterAndSortCatalog, formatCatalogPrice, hasActiveCatalogFilters, type CatalogSort } from "@/lib/catalog-filters";
 import type { CatalogColorId, Product } from "@/types/catalog";
@@ -123,6 +124,9 @@ export function CatalogDesktop({ products, exchangeRates }: { products: Product[
   const catalogFilters = useCatalogFilters();
   const { filters } = catalogFilters;
 
+  const PAGE_SIZE = 21;
+  const [page, setPage] = useState(1);
+
   const cards = useMemo(() => {
     const entries = products.map((product) => ({
       product,
@@ -130,6 +134,14 @@ export function CatalogDesktop({ products, exchangeRates }: { products: Product[
     }));
     return filterAndSortCatalog(entries, filters, locale);
   }, [filters, locale, products]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [filters]);
+
+  const totalPages = Math.max(1, Math.ceil(cards.length / PAGE_SIZE));
+  const pagedCards = cards.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const hasActiveFilters = hasActiveCatalogFilters(filters);
 
@@ -178,20 +190,29 @@ export function CatalogDesktop({ products, exchangeRates }: { products: Product[
         </label>
 
         {cards.length > 0 ? (
-          <div className="catalog-product-grid">
-            {cards.map(({ product, presentation }, index) => (
-              <CatalogDesktopCard
-                key={product.id}
-                product={product}
-                presentation={presentation}
-                index={index}
-                activeFilterColors={filters.colors}
-                locale={locale}
-                exchangeRates={exchangeRates}
-                consultLabel={common("consult")}
-              />
-            ))}
-          </div>
+          <>
+            <div className="catalog-product-grid">
+              {pagedCards.map(({ product, presentation }, index) => (
+                <CatalogDesktopCard
+                  key={product.id}
+                  product={product}
+                  presentation={presentation}
+                  index={index}
+                  activeFilterColors={filters.colors}
+                  locale={locale}
+                  exchangeRates={exchangeRates}
+                  consultLabel={common("consult")}
+                />
+              ))}
+            </div>
+            <CatalogPagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={(p) => { setPage(p); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+              prevLabel={t.has("prevPage") ? t("prevPage") : (locale === "en" ? "Previous" : "Anterior")}
+              nextLabel={t.has("nextPage") ? t("nextPage") : (locale === "en" ? "Next" : locale === "pt" ? "Próxima" : "Siguiente")}
+            />
+          </>
         ) : (
           <div className="catalog-empty">
             <p>{t("empty")}</p>

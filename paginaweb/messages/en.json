@@ -86,7 +86,7 @@
     "heroLine1": "TRADITION",
     "heroLine2": "THAT BRINGS US TOGETHER",
     "heroBody": "Custom, handcrafted mates made in Uruguay",
-    "viewMates": "View mates",
+    "viewMates": "View catalog",
     "createMine": "Create mine",
     "heroAlt": "Handcrafted MateArte mate on a wooden table",
     "craftTitleTop": "The Art",
@@ -175,6 +175,8 @@
     "bombillones": "Large bombillas",
     "materas": "Materas",
     "termos": "Thermoses",
+    "kitMatero": "Mate Kits",
+    "knives": "Knives",
     "gifts": "Custom gifts",
     "belts": "Belts",
     "footwear": "Footwear",
@@ -223,7 +225,9 @@
     "blue": "Blue",
     "azul": "Blue",
     "beige": "Beige",
-    "comingSoon": "Coming soon"
+    "comingSoon": "Coming soon",
+    "prevPage": "Previous",
+    "nextPage": "Next"
   },
   "product": {
     "inspiration": "Inspiration",

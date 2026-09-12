@@ -6,6 +6,7 @@ import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { CartMerger } from "@/components/CartMerger";
+import { WhatsAppFab } from "@/components/WhatsAppFab";
 import SmoothScroll from "@/components/ui/smooth-scroll";
 import { localeConfig } from "@/i18n/config";
 import { defaultSocialImage, localizedAlternates } from "@/i18n/metadata";
@@ -93,6 +94,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             {children}
             <Footer />
           </SmoothScroll>
+          <WhatsAppFab />
         </NextIntlClientProvider>
         <Analytics />
       </body>
