@@ -58,7 +58,8 @@ type SaleMode = 'standard'|'made_to_order';
 type ProductVariant = {id:string;sku:string;name:string;price_minor:number;active:boolean;color?:string|null;weight_grams?:number|null;option_values?:unknown};
 type Product = { id:string; editorial_slug:string; name:string; category:string; category_code?:string|null; description:string; sale_mode:SaleMode; published:boolean; catalog_filters?:unknown; attributes?:unknown; commerce_variants:ProductVariant[]; commerce_product_images:ProductImage[] };
 type ProductForm = {name:string;category:string;description:string;saleMode:SaleMode;catalogFilters:CatalogAttributes;attributes:CatalogValueMap};
-type Order = { id:string;order_number:number;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;order_items:Array<{id:string;title:string;quantity:number;requires_review:boolean;review_status:string|null}> };
+type OrderItem = {id:string;item_type:'catalog'|'design';title:string;quantity:number;requires_review:boolean;review_status:string|null;immutable_snapshot:Record<string,unknown>};
+type Order = { id:string;order_number:number;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;order_items:OrderItem[] };
 type Rate = {id:string;code:string;name:string;departments:string[];rate_minor:number;is_pickup:boolean;active:boolean};
 const money=(minor:number)=>new Intl.NumberFormat('es-UY',{style:'currency',currency:'UYU',maximumFractionDigits:0}).format(minor/100);
 const MAX_PRODUCT_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -89,8 +90,26 @@ function Icon({ name }: { name: IconName }) {
 }
 
 const textValue = (value: unknown) => typeof value === 'string' ? value.trim() : '';
+const recordValue = (value: unknown): Record<string,unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string,unknown> : {};
 const snapshotValue = (snapshot: Record<string, unknown>, ...keys:string[]) => keys.map(key=>textValue(snapshot[key])).find(Boolean) || '';
 const orderCustomer = (snapshot: Record<string, unknown>) => snapshotValue(snapshot,'fullName','full_name','name','email') || 'Cliente sin nombre';
+export function getCatalogOrderOptionDetails(item:Pick<OrderItem,'item_type'|'immutable_snapshot'>,taxonomy:CatalogTaxonomy=defaultCatalogTaxonomy) {
+  if (item.item_type !== 'catalog') return [];
+  const snapshot = recordValue(item.immutable_snapshot);
+  const variant = recordValue(snapshot.variant);
+  const product = recordValue(snapshot.product);
+  const variantOptions = normalizeCatalogValueMap(variant.option_values);
+  const selectedOptions = normalizeCatalogValueMap(snapshot.selectedOptions ?? snapshot.optionValues ?? snapshot.option_values_override);
+  const options = {...variantOptions,...selectedOptions};
+  const category = textValue(product.category_code) || textValue(product.category);
+  const orderedAttributes = taxonomyRulesForCategory(taxonomy,category,'variant').map(rule=>rule.attribute_code);
+  const keys = [...new Set([...orderedAttributes,...Object.keys(options).sort()])].filter(key=>options[key]!==undefined&&options[key]!=="");
+  return keys.map(attribute=>({
+    attribute,
+    label: catalogAttributeLabel(taxonomy,attribute),
+    value: catalogValueLabel(taxonomy,attribute,options[attribute]),
+  }));
+}
 export function getOrderDeliveryDetails(order:Pick<Order,'shipping_method'|'shipping_snapshot'|'customer_snapshot'>) {
   const customer = order.customer_snapshot || {};
   const shipping = order.shipping_snapshot || {};
@@ -1182,6 +1201,7 @@ function OrderDeliverySummary({order,compact=false}:{order:Order;compact?:boolea
 
 function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) {
   const [orders,setOrders] = useState<Order[]>([]);
+  const [taxonomy,setTaxonomy] = useState<CatalogTaxonomy>(defaultCatalogTaxonomy);
   const [busy,setBusy] = useState('');
   const [detailOrder,setDetailOrder] = useState<Order|null>(null);
   const [shipmentOrder,setShipmentOrder] = useState<Order|null>(null);
@@ -1197,11 +1217,12 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
     return params.get('q') || params.get('search') || params.get('order') || '';
   });
   const load = useCallback(async() => {
-    const {data,error} = await supabase.from('orders').select('id,order_number,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,total_minor,created_at,customer_snapshot,order_items(id,title,quantity,requires_review,review_status)').order('created_at',{ascending:false}).limit(100);
+    const {data,error} = await supabase.from('orders').select('id,order_number,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,total_minor,created_at,customer_snapshot,order_items(id,item_type,title,quantity,requires_review,review_status,immutable_snapshot)').order('created_at',{ascending:false}).limit(100);
     if (error) onNotice(`No se pudieron cargar los pedidos: ${error.message}`);
     setOrders((data||[]) as Order[]);
   },[onNotice]);
   useEffect(()=>{void load()},[load]);
+  useEffect(()=>{let active=true;void loadCatalogTaxonomy().then(value=>{if(active)setTaxonomy(value)});return()=>{active=false}},[]);
 
   const filteredOrders = useMemo(() => {
     const q = search.trim().toLowerCase().replace(/^#/, '');
@@ -1416,7 +1437,7 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
                   <td><button type="button" className="order-detail-trigger" onClick={()=>openDetails(order)} aria-label={`Ver detalle del pedido ${order.order_number}`}>#{order.order_number}</button></td>
                   <td>{new Date(order.created_at).toLocaleDateString('es-UY')}</td>
                   <td>{orderCustomer(order.customer_snapshot)}</td>
-                  <td className="order-items-cell">{order.order_items.map(item=>item.title).join(' · ') || 'Sin artículos'}</td>
+                  <td className="order-items-cell">{order.order_items.length?<div className="order-items-summary">{order.order_items.map(item=>{const options=getCatalogOrderOptionDetails(item,taxonomy);return <div key={item.id}><strong>{item.title}</strong>{options.length>0&&<small>{options.map(option=>`${option.label}: ${option.value}`).join(' · ')}</small>}</div>})}</div>:'Sin artículos'}</td>
                   <td><strong>{destination}</strong>{order.status==='shipped'&&<small className="tracking-summary">{order.shipping_carrier} · {order.tracking_code}</small>}</td>
                   <td><span className={`status-badge status-${order.status}`}>{orderStatus(order.status)}</span></td>
                   <td className="numeric"><strong>{money(order.total_minor)}</strong></td>
@@ -1447,7 +1468,7 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
             <OrderDeliverySummary order={detailOrder}/>
             <section className="order-detail-items" aria-labelledby="order-detail-items-title">
               <div className="order-detail-section-heading"><h3 id="order-detail-items-title">Artículos</h3><strong>{money(detailOrder.total_minor)}</strong></div>
-              <ul>{detailOrder.order_items.map(item=><li key={item.id}><span>{item.title}</span><strong>{item.quantity} ×</strong></li>)}</ul>
+              <ul>{detailOrder.order_items.map(item=>{const options=getCatalogOrderOptionDetails(item,taxonomy);return <li key={item.id}><div className="order-detail-item-copy"><span>{item.title}</span>{options.length>0&&<dl>{options.map(option=><div key={option.attribute}><dt>{option.label}</dt><dd>{option.value}</dd></div>)}</dl>}</div><strong>{item.quantity} ×</strong></li>})}</ul>
             </section>
             {detailOrder.status==='shipped'&&<section className="order-tracking-detail" aria-label="Seguimiento guardado"><small>Envío registrado</small><strong>{detailOrder.shipping_carrier}</strong><span>{detailOrder.tracking_code}</span></section>}
             <footer>

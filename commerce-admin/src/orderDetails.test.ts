@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { getOrderDeliveryDetails } from './App';
+import { getCatalogOrderOptionDetails, getOrderDeliveryDetails } from './App';
+import { defaultCatalogTaxonomy } from '../../shared/catalog-taxonomy';
 
 describe('getOrderDeliveryDetails', () => {
   it('usa la copia inmutable del cliente como destino de un envío nacional', () => {
@@ -65,5 +66,38 @@ describe('getOrderDeliveryDetails', () => {
       country: 'Uruguay',
       methodLabel: 'Retiro',
     });
+  });
+});
+
+describe('getCatalogOrderOptionDetails', () => {
+  it('prioriza la selección concreta del cliente sobre una variante genérica', () => {
+    const details = getCatalogOrderOptionDetails({
+      item_type: 'catalog',
+      immutable_snapshot: {
+        product: { category_code: 'mates' },
+        variant: { option_values: { color: 'marron', tamano: 'todos' } },
+        selectedOptions: { color: 'marron', tamano: 'mediano' },
+      },
+    }, defaultCatalogTaxonomy);
+
+    expect(details).toEqual([
+      { attribute: 'color', label: 'Color', value: 'Marrón' },
+      { attribute: 'tamano', label: 'Tamaño', value: 'Mediano' },
+    ]);
+  });
+
+  it('recupera las opciones de pedidos anteriores desde la variante inmutable', () => {
+    const details = getCatalogOrderOptionDetails({
+      item_type: 'catalog',
+      immutable_snapshot: {
+        product: { category_code: 'cintos' },
+        variant: { option_values: { color: 'negro', talle: '105' } },
+      },
+    }, defaultCatalogTaxonomy);
+
+    expect(details.map(detail => [detail.label, detail.value])).toEqual([
+      ['Color', 'Negro'],
+      ['Talle', '105'],
+    ]);
   });
 });
