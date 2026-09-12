@@ -133,7 +133,7 @@ export function ProductDesktop({ product, exchangeRates }: { product: Product; e
         <div className="product-desktop-information">
           <h1 id="product-desktop-title">{product.name}</h1>
           <p className="product-desktop-summary">{product.summary}</p>
-          {product.attributes?.forma && <p className="product-attribute-summary">{locale==='en'?'Shape':locale==='pt'?'Forma':'Forma'}: {String(product.attributes.forma)==='ovalada'?(locale==='en'?'Oval':locale==='pt'?'Oval':'Ovalada'):String(product.attributes.forma)}</p>}
+          {product.attributes?.forma && <p className="product-attribute-summary">{locale==='en'?'Shape':locale==='pt'?'Forma':'Forma'}: {String(product.attributes.forma)==='ovalada'?(locale==='en'?'Oval':locale==='pt'?'Oval':'Ovalada'):String(product.attributes.forma)==='cuadrada'?(locale==='en'?'Square':locale==='pt'?'Quadrada':'Cuadrada'):String(product.attributes.forma)}</p>}
           <p className="product-desktop-price">{displayedPrice}</p>
 
           <div className="product-desktop-rule product-desktop-rule-actions" aria-hidden="true" />

@@ -63,7 +63,10 @@ export const colorOptions: ReadonlyArray<{ value: CatalogColorId; labelKey: "bro
   { value: "metalico", labelKey: "metallic", color: "#9b9b95" },
 ];
 
-export const shapeOptions = [{ value: "ovalada", labelKey: "oval" }] as const;
+export const shapeOptions = [
+  { value: "ovalada", labelKey: "oval" },
+  { value: "cuadrada", labelKey: "square" },
+] as const;
 
 export type PriceRangeId = (typeof priceRangeOptions)[number]["value"];
 export type CatalogSort = "editorial" | "nombre" | "precio";

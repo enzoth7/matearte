@@ -133,7 +133,7 @@ export function ProductMobile({ product, exchangeRates }: { product: Product; ex
         <div className="product-mobile-information">
           <h1 id="product-mobile-title">{product.name}</h1>
           <p className="product-mobile-summary">{product.summary}</p>
-          {product.attributes?.forma && <p className="product-attribute-summary">{locale==='en'?'Shape':locale==='pt'?'Forma':'Forma'}: {String(product.attributes.forma)==='ovalada'?(locale==='en'?'Oval':locale==='pt'?'Oval':'Ovalada'):String(product.attributes.forma)}</p>}
+          {product.attributes?.forma && <p className="product-attribute-summary">{locale==='en'?'Shape':locale==='pt'?'Forma':'Forma'}: {String(product.attributes.forma)==='ovalada'?(locale==='en'?'Oval':locale==='pt'?'Oval':'Ovalada'):String(product.attributes.forma)==='cuadrada'?(locale==='en'?'Square':locale==='pt'?'Quadrada':'Cuadrada'):String(product.attributes.forma)}</p>}
           <p className="product-mobile-price">{displayedPrice}</p>
 
           <div className="product-mobile-rule product-mobile-rule-actions" aria-hidden="true" />
