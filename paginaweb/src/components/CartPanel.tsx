@@ -7,11 +7,14 @@ import { getLocalizedProducts } from "@/content/catalog-localization";
 import { products } from "@/data/catalog";
 import { Link } from "@/i18n/navigation";
 import type { Locale, Product } from "@/types/catalog";
+import { localCartEntryKey, readLocalCart, removeLocalCartItem, updateLocalCartItemQuantity } from "@/lib/browser-cart";
+import { defaultCatalogTaxonomy, formatVariantLabel, normalizeCatalogValueMap, type CatalogValueMap } from "../../../shared/catalog-taxonomy";
 
 type RemoteItem = {
   id: string; item_type: "catalog" | "design"; quantity: number;
   unit_price_minor: number; currency: string;
-  variant: null | { id: string; name: string; price_minor: number; currency: string; option_values?: Record<string,string|number|boolean>; product: { name: string; commerce_product_images?: { storage_path: string; sort_order: number; variant_id: string | null; option_values?: Record<string,string|number|boolean> }[] } };
+  option_values_override?: CatalogValueMap;
+  variant: null | { id: string; name: string; price_minor: number; currency: string; option_values?: CatalogValueMap; product: { name: string; category?: string; category_code?: string | null; commerce_product_images?: { storage_path: string; sort_order: number; variant_id: string | null; option_values?: CatalogValueMap }[] } };
   design: null | { title: string };
 };
 type Cart = { id: string; items: RemoteItem[] };
@@ -38,7 +41,11 @@ function itemTitle(item: RemoteItem, localizedProducts: Product[], fallback: str
 }
 
 function itemSubtitle(item: RemoteItem, customDesign: string, catalogPiece: string) {
-  return item.item_type === "design" ? customDesign : catalogPiece;
+  if (item.item_type === "design") return customDesign;
+  const options = { ...normalizeCatalogValueMap(item.variant?.option_values), ...normalizeCatalogValueMap(item.option_values_override) };
+  const category = item.variant?.product.category_code || item.variant?.product.category || "";
+  const selection = formatVariantLabel(defaultCatalogTaxonomy, category, options);
+  return selection === "Única" ? item.variant?.name || catalogPiece : selection;
 }
 
 function itemImage(item: RemoteItem) {
@@ -152,9 +159,11 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
 
   // Guest cart: read localStorage items and resolve to catalog or DB products
   type LocalResolvedItem = {
+    lineKey: string;
     title: string;
     variantLabel: string;
     variantId: string;
+    optionValues?: CatalogValueMap;
     quantity: number;
     priceMinor: number;
     imageSrc: string;
@@ -163,7 +172,6 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
   const [localItems, setLocalItems] = useState<LocalResolvedItem[]>([]);
 
   const resolveLocalCart = useCallback(async () => {
-    const { readLocalCart } = require("@/lib/browser-cart") as typeof import("@/lib/browser-cart");
     const entries = readLocalCart();
     if (entries.length === 0) {
       setLocalItems([]);
@@ -171,9 +179,10 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
     }
 
     const resolved: LocalResolvedItem[] = [];
-    const missingUUIDs: Array<{ variantId: string; quantity: number }> = [];
+    const missingUUIDs: typeof entries = [];
 
-    for (const { variantId, quantity } of entries) {
+    for (const entry of entries) {
+      const { variantId, quantity, optionValues } = entry;
       const pByVariant = products.find(p => p.variants.some(v => v.id === variantId));
       const pByIdOrSlug = products.find(p => p.id === variantId || p.slug === variantId);
       const product = pByVariant || pByIdOrSlug;
@@ -184,16 +193,20 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
         const priceMinor = variant?.price?.amountMinor ?? (product.filterData.priceUYU ? product.filterData.priceUYU * 100 : 0);
         const variantImage = product.images.find(image => image.variantId === variantId);
         const generalImage = product.images.find(image => !image.variantId);
+        const normalizedOptions = normalizeCatalogValueMap(optionValues);
+        const selectedLabel = formatVariantLabel(defaultCatalogTaxonomy, product.category, normalizedOptions);
         resolved.push({
+          lineKey: localCartEntryKey(entry),
           title: localizedName,
-          variantLabel: variant?.label ?? "",
+          variantLabel: selectedLabel === "Única" ? variant?.label ?? "" : selectedLabel,
           variantId,
+          optionValues: normalizedOptions,
           quantity,
           priceMinor,
           imageSrc: variantImage?.src || generalImage?.src || product.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.png",
         });
       } else {
-        missingUUIDs.push({ variantId, quantity });
+        missingUUIDs.push(entry);
       }
     }
 
@@ -207,11 +220,13 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
             id,
             name,
             price_minor,
-            option_values,
-            commerce_products (
-              id,
-              editorial_slug,
-              name,
+             option_values,
+             commerce_products (
+               id,
+               editorial_slug,
+               name,
+               category,
+               category_code,
               commerce_product_images (
                 storage_path,
                 sort_order,
@@ -224,7 +239,8 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
 
         const supabaseUrlBase = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://agdkljuulwjwjasftcce.supabase.co").trim();
 
-        for (const { variantId, quantity } of missingUUIDs) {
+        for (const entry of missingUUIDs) {
+          const { variantId, quantity, optionValues } = entry;
           const vData = dbVariants?.find((v: any) => v.id === variantId);
           if (vData) {
             const rawProduct = vData.commerce_products as any;
@@ -249,11 +265,15 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
             const imageSrc = imagePath
               ? supabase.storage.from("product-images").getPublicUrl(imagePath).data.publicUrl
               : (localImage || "/assets/matearte/profile-orders-desktop/catalog-fallback.png");
+            const normalizedOptions = normalizeCatalogValueMap(optionValues);
+            const selectedLabel = formatVariantLabel(defaultCatalogTaxonomy, rawProduct?.category_code || rawProduct?.category || "", normalizedOptions);
 
             resolved.push({
+              lineKey: localCartEntryKey(entry),
               title: rawProduct?.name || "Producto MateArte",
-              variantLabel: vData.name || "",
+              variantLabel: selectedLabel === "Única" ? vData.name || "" : selectedLabel,
               variantId,
+              optionValues: normalizedOptions,
               quantity,
               priceMinor: vData.price_minor || 0,
               imageSrc,
@@ -261,6 +281,7 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
           } else {
             const fallbackP = products[0];
             resolved.push({
+              lineKey: localCartEntryKey(entry),
               title: fallbackP?.name || "Producto",
               variantLabel: "",
               variantId,
@@ -271,12 +292,15 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
           }
         }
       } catch {
-        for (const { variantId, quantity } of missingUUIDs) {
+        for (const entry of missingUUIDs) {
+          const { variantId, quantity, optionValues } = entry;
           const fallbackP = products[0];
           resolved.push({
+            lineKey: localCartEntryKey(entry),
             title: fallbackP?.name || "Producto",
             variantLabel: "",
             variantId,
+            optionValues,
             quantity,
             priceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
             imageSrc: fallbackP?.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.png",
@@ -296,27 +320,17 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
     return () => { window.removeEventListener("matearte-cart-change", handleCartChange); };
   }, [needsLogin, resolveLocalCart]);
 
-  const removeLocalItem = (variantId: string) => {
-    const { readLocalCart } = require("@/lib/browser-cart") as typeof import("@/lib/browser-cart");
-    const updated = readLocalCart().filter((e: any) => e.variantId !== variantId);
-    localStorage.setItem("matearte_visitor_cart_v1", JSON.stringify(updated));
-    window.dispatchEvent(new Event("matearte-cart-change"));
-    setLocalItems(prev => prev.filter(i => i.variantId !== variantId));
+  const removeLocalItem = (lineKey: string) => {
+    removeLocalCartItem(lineKey);
+    setLocalItems(prev => prev.filter(i => i.lineKey !== lineKey));
   };
 
-  const updateLocalItemQuantity = (variantId: string, newQuantity: number) => {
+  const updateLocalItemQuantity = (lineKey: string, newQuantity: number) => {
     if (newQuantity <= 0) {
-      removeLocalItem(variantId);
+      removeLocalItem(lineKey);
       return;
     }
-    const { readLocalCart } = require("@/lib/browser-cart") as typeof import("@/lib/browser-cart");
-    const cart = readLocalCart();
-    const item = cart.find((e: any) => e.variantId === variantId);
-    if (item) {
-      item.quantity = Math.min(99, newQuantity);
-      localStorage.setItem("matearte_visitor_cart_v1", JSON.stringify(cart));
-      window.dispatchEvent(new Event("matearte-cart-change"));
-    }
+    updateLocalCartItemQuantity(lineKey, newQuantity);
   };
 
   if (needsLogin) {
@@ -354,7 +368,7 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
             <div className="cart-mobile-selection-divider" aria-hidden="true" />
             <div className="cart-mobile-items">
               {localItems.map((item) => (
-                <article key={item.variantId} className="cart-mobile-item">
+                <article key={item.lineKey} className="cart-mobile-item">
                   <div className="cart-mobile-item-row">
                     <div className="cart-mobile-thumbnail">
                       <Image src={item.imageSrc} alt={item.title} fill sizes="104px" />
@@ -369,16 +383,16 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
                     <div className="cart-mobile-quantity">
                       <span>{t("quantity")}</span>
                       <div className="cart-mobile-quantity-control" role="group">
-                        <button type="button" aria-label="Disminuir" onClick={() => updateLocalItemQuantity(item.variantId, item.quantity - 1)}>
+                        <button type="button" aria-label="Disminuir" onClick={() => updateLocalItemQuantity(item.lineKey, item.quantity - 1)}>
                           <span aria-hidden="true">−</span>
                         </button>
                         <output aria-live="polite">{item.quantity}</output>
-                        <button type="button" aria-label="Aumentar" disabled={item.quantity >= 99} onClick={() => updateLocalItemQuantity(item.variantId, item.quantity + 1)}>
+                        <button type="button" aria-label="Aumentar" disabled={item.quantity >= 99} onClick={() => updateLocalItemQuantity(item.lineKey, item.quantity + 1)}>
                           <span aria-hidden="true">+</span>
                         </button>
                       </div>
                     </div>
-                    <button type="button" className="cart-mobile-remove" onClick={() => removeLocalItem(item.variantId)}>
+                    <button type="button" className="cart-mobile-remove" onClick={() => removeLocalItem(item.lineKey)}>
                       <Image src="/assets/matearte/cart-desktop/remove.svg" alt="" width={16} height={16} aria-hidden="true" />
                       {t("remove")}
                     </button>
@@ -407,7 +421,7 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
             <div className="cart-desktop-selection-divider" aria-hidden="true" />
             <div className="cart-desktop-items">
               {localItems.map((item) => (
-                <article key={item.variantId} className="cart-desktop-item">
+                <article key={item.lineKey} className="cart-desktop-item">
                   <div className="cart-desktop-thumbnail">
                     <Image src={item.imageSrc} alt={item.title} fill sizes="120px" />
                   </div>
@@ -419,16 +433,16 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
                   <div className="cart-desktop-quantity">
                     <span>{t("quantity")}</span>
                     <div className="cart-desktop-quantity-control" role="group">
-                      <button type="button" aria-label="Disminuir" onClick={() => updateLocalItemQuantity(item.variantId, item.quantity - 1)}>
+                      <button type="button" aria-label="Disminuir" onClick={() => updateLocalItemQuantity(item.lineKey, item.quantity - 1)}>
                         <span aria-hidden="true">−</span>
                       </button>
                       <output aria-live="polite">{item.quantity}</output>
-                      <button type="button" aria-label="Aumentar" disabled={item.quantity >= 99} onClick={() => updateLocalItemQuantity(item.variantId, item.quantity + 1)}>
+                      <button type="button" aria-label="Aumentar" disabled={item.quantity >= 99} onClick={() => updateLocalItemQuantity(item.lineKey, item.quantity + 1)}>
                         <span aria-hidden="true">+</span>
                       </button>
                     </div>
                   </div>
-                  <button type="button" className="cart-desktop-remove" onClick={() => removeLocalItem(item.variantId)}>
+                  <button type="button" className="cart-desktop-remove" onClick={() => removeLocalItem(item.lineKey)}>
                     <Image src="/assets/matearte/cart-desktop/remove.svg" alt="" width={16} height={16} aria-hidden="true" />
                     {t("remove")}
                   </button>

@@ -99,21 +99,17 @@ export function ProductMobile({ product, exchangeRates }: { product: Product; ex
     const targetVariantId = commerceVariant?.id || catalogVariant?.id;
     if (!targetVariantId) return;
 
-    const activeVariantOptions = variantSelection.activeVariant?.options ?? {};
-    const optionValuesOverride: Record<string, string | number | boolean> = {};
-    if (activeVariantOptions.talle === "todos" && variantSelection.selected.talle) {
-      optionValuesOverride.talle = variantSelection.selected.talle;
-    }
+    const selectedOptions = variantSelection.selected;
 
     setBusy(true);
     try {
       const response = await fetch("/api/cart/items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemType: "catalog", variantId: targetVariantId, quantity: 1, locale, ...(Object.keys(optionValuesOverride).length > 0 ? { optionValuesOverride } : {}) }),
+        body: JSON.stringify({ itemType: "catalog", variantId: targetVariantId, quantity: 1, locale, optionValuesOverride: selectedOptions }),
       });
       if (response.status === 401) {
-        addLocalCartItem(targetVariantId);
+        addLocalCartItem(targetVariantId, 1, selectedOptions);
         router.push("/carrito");
       } else {
         await response.json();

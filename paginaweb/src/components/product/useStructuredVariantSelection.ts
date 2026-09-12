@@ -6,11 +6,15 @@ import type { Product } from "@/types/catalog";
 import { getVariantColorId } from "@/lib/catalog-filters";
 
 const ALL_TALLES = Array.from({ length: 13 }, (_, i) => String(i + 34)); // ['34','35',...,'46']
+const ALL_TAMANOS = ["chico", "mediano", "grande"];
 
 function valuesFor(product: Product, code: string) {
   const raw = [...new Set(product.variants.map(variant => variant.options?.[code] ?? (code === "color" ? getVariantColorId(variant) : undefined)).filter(value => value !== undefined).map(String))];
   if (code === "talle" && raw.includes("todos")) {
     return ALL_TALLES;
+  }
+  if (code === "tamano" && raw.includes("todos")) {
+    return ALL_TAMANOS;
   }
   return raw;
 }

@@ -8,6 +8,7 @@ import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
 import { isLocale } from "@/i18n/config";
 import { localizeCanonicalPath } from "@/i18n/paths";
 import type { Locale } from "@/types/catalog";
+import { normalizeCatalogValueMap } from "../../../../../shared/catalog-taxonomy";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type PublishedPricingCatalog = { versionId: string; version: number; rules: Record<string, number> };
@@ -74,7 +75,13 @@ export async function POST(request: Request) {
         ? designPrices[String(item.design_id)]
         : Number(variant?.price_minor);
       if (!sourceId || !Number.isSafeInteger(unitPriceMinor) || unitPriceMinor < 0) throw new Error("No se pudo verificar uno de los artículos.");
-      return { itemType: item.item_type, sourceId: String(sourceId), quantity: Number(item.quantity), unitPriceMinor };
+      return {
+        itemType: item.item_type,
+        sourceId: String(sourceId),
+        quantity: Number(item.quantity),
+        unitPriceMinor,
+        ...(item.item_type === "catalog" ? { selectedOptions: normalizeCatalogValueMap(item.option_values_override) } : {}),
+      };
     });
     const itemsSubtotalMinor = checkoutItems.reduce((total, item) => total + item.unitPriceMinor * item.quantity, 0);
     const feePercent = publicSettings.payment_fee_enabled && publicSettings.payment_fee_legal_approval

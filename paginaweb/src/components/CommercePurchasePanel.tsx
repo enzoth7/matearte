@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { addLocalCartItem } from "@/lib/browser-cart";
 import { useRouter } from "@/i18n/navigation";
 
-type Variant = { id: string; sku: string; name: string; price_minor: number };
+type Variant = { id: string; sku: string; name: string; price_minor: number; option_values?: Record<string, string | number | boolean> };
 export function CommercePurchasePanel({ slug }: { slug: string }) {
   const locale = useLocale();
   const t = useTranslations("product");
@@ -18,8 +18,8 @@ export function CommercePurchasePanel({ slug }: { slug: string }) {
   const variant = data.product.variants.find((item) => item.id === selected)!;
   const add = async () => {
     setBusy(true); setMessage("");
-    const response = await fetch("/api/cart/items", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ itemType: "catalog", variantId: selected, quantity: 1, locale }) });
-    if (response.status === 401) { addLocalCartItem(selected); router.push("/carrito"); }
+    const response = await fetch("/api/cart/items", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ itemType: "catalog", variantId: selected, quantity: 1, locale, optionValuesOverride: variant.option_values || {} }) });
+    if (response.status === 401) { addLocalCartItem(selected, 1, variant.option_values); router.push("/carrito"); }
     else { await response.json(); if (response.ok) { router.push("/carrito"); } else { setMessage(t("addFailed")); } }
     setBusy(false);
   };

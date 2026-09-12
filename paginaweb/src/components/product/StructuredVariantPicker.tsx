@@ -12,9 +12,9 @@ const labels: Record<string, Record<string, string>> = {
 
 const optionLabels: Record<string, Record<string, Record<string, string>>> = {
   tamano: {
-    es: { chico: "Chico", mediano: "Mediano", grande: "Grande", pequeno: "Chico" },
-    en: { chico: "Small", mediano: "Medium", grande: "Large", pequeno: "Small" },
-    pt: { chico: "Pequeno", mediano: "Médio", grande: "Grande", pequeno: "Pequeno" },
+    es: { todos: "Todos los tamaños", chico: "Chico", mediano: "Mediano", grande: "Grande", pequeno: "Chico" },
+    en: { todos: "All sizes", chico: "Small", mediano: "Medium", grande: "Large", pequeno: "Small" },
+    pt: { todos: "Todos os tamanhos", chico: "Pequeno", mediano: "Médio", grande: "Grande", pequeno: "Pequeno" },
   },
   talle: {
     es: { todos: "Todos los talles" },

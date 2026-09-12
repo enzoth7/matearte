@@ -115,6 +115,20 @@ describe("ProductSpecsBox", () => {
     expect(screen.getByText("Grande")).toBeInTheDocument();
   });
 
+  it("describe los tres tamaños antes de elegir una variante marcada como todos", () => {
+    const product: Product = {
+      ...emptyProduct,
+      category: "mates",
+      variants: [
+        { id: "v-todos", label: "Todos los tamaños", value: "v-todos", options: { tamano: "todos" } },
+      ],
+    };
+    renderBox(product, {}, undefined, "es");
+
+    expect(screen.getByText("Tamaño:")).toBeInTheDocument();
+    expect(screen.getByText("Chico, Mediano, Grande")).toBeInTheDocument();
+  });
+
   it("muestra atributos de cuchillos", () => {
     const product: Product = {
       ...emptyProduct,

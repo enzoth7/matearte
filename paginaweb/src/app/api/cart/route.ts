@@ -25,7 +25,10 @@ export async function POST(request: Request) {
       const item = raw as Record<string, unknown>;
       if (typeof item.variantId !== "string") continue;
       const quantity = Math.max(1, Math.min(99, Number(item.quantity) || 1));
-      await addCatalogItem(admin, user.id, item.variantId, quantity);
+      const optionValues = item.optionValues && typeof item.optionValues === "object" && !Array.isArray(item.optionValues)
+        ? item.optionValues as Record<string, string | number | boolean>
+        : undefined;
+      await addCatalogItem(admin, user.id, item.variantId, quantity, optionValues);
     }
     const mergeKeys = [...cart.merge_keys, mergeKey].slice(-50);
     await admin.from("carts").update({ merge_keys: mergeKeys }).eq("id", cart.id);

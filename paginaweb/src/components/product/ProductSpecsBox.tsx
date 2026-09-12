@@ -51,6 +51,7 @@ const colorMap: Record<string, Record<Locale, string>> = {
 };
 
 const tamanoMap: Record<string, Record<Locale, string>> = {
+  todos: { es: "Chico, Mediano, Grande", en: "Small, Medium, Large", pt: "Pequeno, Médio, Grande" },
   chico: { es: "Chico", en: "Small", pt: "Pequeno" },
   mediano: { es: "Mediano", en: "Medium", pt: "Médio" },
   grande: { es: "Grande", en: "Large", pt: "Grande" },
