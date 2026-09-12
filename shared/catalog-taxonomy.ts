@@ -1,7 +1,7 @@
 /** Stable storage/query contracts shared by Commerce Admin and the storefront. */
 export const catalogCategoryIds = [
   "mates", "bombillas", "termos", "materas", "kits-materos", "cuchillos",
-  "calzado", "botas", "marroquineria", "cintos", "billeteras", "carteras",
+  "botas", "cintos", "billeteras", "carteras",
 ] as const;
 export const catalogMaterialIds = ["cuero", "plata", "alpaca", "acero-inoxidable", "otros-metales", "madera", "estampado"] as const;
 export const catalogProductTypeIds = ["imperial", "camionero", "criollo", "torpedo"] as const;
@@ -49,7 +49,7 @@ export function normalizeCatalogValueMap(value: unknown): CatalogValueMap {
   return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, CatalogValue] => ["string", "number", "boolean"].includes(typeof entry[1])));
 }
 export function canonicalCategoryCode(value: string) {
-  return ({ bombillones: "bombillas", "kit-matero": "kits-materos", cuchillo: "cuchillos" } as Record<string, string>)[value] ?? value;
+  return ({ bombillones: "bombillas", "kit-matero": "kits-materos", cuchillo: "cuchillos", calzado: "botas", marroquineria: "cintos" } as Record<string, string>)[value] ?? value;
 }
 export function taxonomyRulesForCategory(taxonomy: CatalogTaxonomy, categoryCode: string, scope?: CatalogAttributeScope) {
   const lineage: string[] = [];
@@ -104,8 +104,8 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
   categories: [
     category("mates", "Mates", null, 10), category("bombillas", "Bombillas", null, 20), category("termos", "Termos", null, 30),
     category("materas", "Materas", null, 40), category("kits-materos", "Kits materos", null, 50), category("cuchillos", "Cuchillos", null, 60),
-    category("calzado", "Calzado", null, 70), category("botas", "Botas", "calzado", 71), category("marroquineria", "Marroquinería", null, 80),
-    category("cintos", "Cintos", "marroquineria", 81), category("billeteras", "Billeteras", "marroquineria", 82), category("carteras", "Carteras", "marroquineria", 83),
+    category("botas", "Botas", null, 70), category("cintos", "Cintos", null, 80),
+    category("billeteras", "Billeteras", null, 81), category("carteras", "Carteras", null, 82),
   ],
   attributes: [
     attribute("tipo-mate", "Modelo de mate", "enum", "select"), attribute("material", "Material", "enum", "select"),
@@ -148,8 +148,9 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     rule("materas","forma","product",10,true), rule("materas","material","product",20), rule("materas","acabado","product",40), rule("materas","color","variant",100,true),
     rule("kits-materos","material","product",10), rule("kits-materos","color","variant",100),
     rule("cuchillos","tipo-cuchillo","product",10,true), rule("cuchillos","largo-hoja-mm","product",20,true), rule("cuchillos","ancho-hoja-mm","product",30,false,false), rule("cuchillos","configuracion-filo","product",40,true), rule("cuchillos","tiene-gavilan","product",50), rule("cuchillos","forma-gavilan","product",60), rule("cuchillos","material-hoja","product",70), rule("cuchillos","material-cabo","product",80), rule("cuchillos","material-vaina","product",90), rule("cuchillos","acabado","product",100),
-    rule("calzado","material","product",10), rule("calzado","genero","product",20), rule("calzado","color","variant",100,true), rule("calzado","talle","variant",110,true),
-    rule("marroquineria","material","product",10), rule("marroquineria","acabado","product",30), rule("marroquineria","color","variant",100,true),
-    rule("cintos", "largo-cinto-cm", "product", 20),
+    rule("botas","material","product",10), rule("botas","genero","product",20), rule("botas","color","variant",100,true), rule("botas","talle","variant",110,true),
+    rule("cintos","material","product",10), rule("cintos","largo-cinto-cm","product",20), rule("cintos","acabado","product",30), rule("cintos","color","variant",100,true),
+    rule("billeteras","material","product",10), rule("billeteras","acabado","product",30), rule("billeteras","color","variant",100,true),
+    rule("carteras","material","product",10), rule("carteras","acabado","product",30), rule("carteras","color","variant",100,true),
   ],
 };
