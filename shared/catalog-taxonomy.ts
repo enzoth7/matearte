@@ -10,6 +10,8 @@ export const catalogCategoryIds = [
   "bombillones",
   "materas",
   "termos",
+  "kits-materos",
+  "cuchillos",
   "regalos",
   "cintos",
   "calzado",
