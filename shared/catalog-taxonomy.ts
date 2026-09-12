@@ -124,7 +124,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     ...catalogProductTypeIds.map((code, index) => option("tipo-mate", code, ({ imperial: "Imperial", camionero: "Camionero", criollo: "Criollo", torpedo: "Torpedo" } as Record<string, string>)[code], index * 10)),
     ...catalogMaterialIds.map((code, index) => option("material", code, labels.material[code], index * 10)),
     option("forma", "ovalada", "Ovalada", 10),
-    option("tamano", "pequeno", "Pequeño", 10), option("tamano", "mediano", "Mediano", 20), option("tamano", "grande", "Grande", 30),
+    option("tamano", "chico", "Chico", 10), option("tamano", "mediano", "Mediano", 20), option("tamano", "grande", "Grande", 30),
     ...catalogColorIds.map((code, index) => option("color", code, labels.color[code], index * 10, labels.swatch[code])),
     ...Array.from({ length: 13 }, (_, index) => option("talle", String(index + 34), String(index + 34), (index + 1) * 10)),
     option("tipo-bombilla", "clasica", "Clásica", 10), option("tipo-bombilla", "bombillon", "Bombillón", 20), option("tipo-bombilla", "apaga", "Apaga", 30),
@@ -139,7 +139,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     ...["cuero-crudo|Cuero crudo", "suela|Suela", "metal|Metal", "combinada|Combinada"].map((item, index) => { const [code, label] = item.split("|"); return option("material-vaina", code, label, index * 10); }),
   ],
   rules: [
-    rule("mates","tipo-mate","product",10), rule("mates","material","product",20), rule("mates","acabado","product",30), rule("mates","color","variant",100),
+    rule("mates","tipo-mate","product",10), rule("mates","material","product",20), rule("mates","acabado","product",30), rule("mates","color","variant",100), rule("mates","tamano","variant",110),
     rule("bombillas","tipo-bombilla","product",10,true), rule("bombillas","diametro-cano-mm","product",20), rule("bombillas","largo-mm","product",30,false,false), rule("bombillas","material-cuerpo","product",40), rule("bombillas","forma-pico","product",50), rule("bombillas","material-pico","product",60), rule("bombillas","decoracion","product",70), rule("bombillas","color","variant",100),
     rule("termos","material","product",10), rule("termos","acabado","product",20), rule("termos","color","variant",100,true), rule("termos","capacidad-ml","variant",110),
     rule("materas","forma","product",10,true), rule("materas","material","product",20), rule("materas","tamano","product",30), rule("materas","acabado","product",40), rule("materas","color","variant",100,true),
