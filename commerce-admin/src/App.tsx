@@ -160,7 +160,10 @@ function DynamicAttributeFields({taxonomy,category,scope,values,onChange}:{taxon
   const knifeLength=category==='cuchillos'&&typeof values['largo-hoja-mm']==='number'?values['largo-hoja-mm']:null;
   const knifeType=typeof values['tipo-cuchillo']==='string'?values['tipo-cuchillo']:'';
   const orientativeWarning=knifeLength!==null&&((knifeType==='verijero'&&knifeLength>200)||(knifeType==='caronero'&&knifeLength<300));
-  return <fieldset className="catalog-attributes"><legend>{scope==='product'?'Características del producto':'Opciones de la variante'}</legend><p>{scope==='product'?'Estos datos alimentan la ficha y los filtros del catálogo.':'Cada combinación debe tener un SKU propio.'}</p><div className="product-fields">{rules.map(rule=>{const definition=taxonomy.attributes.find(item=>item.code===rule.attribute_code);if(!definition)return null;if(definition.code==='forma-gavilan'&&values['tiene-gavilan']!==true)return null;return <TaxonomyValueField key={definition.code} definition={definition} taxonomy={taxonomy} value={values[definition.code]} required={rule.required} onChange={value=>{const next={...values};if(value===undefined)delete next[definition.code];else next[definition.code]=value;onChange(next)}}/>})}</div>{orientativeWarning&&<p className="warning-inline">El largo no es el habitual para este tipo tradicional. Es una advertencia orientativa: podés guardar la pieza si la clasificación es correcta.</p>}</fieldset>;
+  if (scope === 'variant') {
+    return <div className="product-fields">{rules.map(rule=>{const definition=taxonomy.attributes.find(item=>item.code===rule.attribute_code);if(!definition)return null;return <TaxonomyValueField key={definition.code} definition={definition} taxonomy={taxonomy} value={values[definition.code]} required={rule.required} onChange={value=>{const next={...values};if(value===undefined)delete next[definition.code];else next[definition.code]=value;onChange(next)}}/>;})}</div>;
+  }
+  return <fieldset className="catalog-attributes"><legend>Características del producto</legend><p>Estos datos alimentan la ficha y los filtros del catálogo.</p><div className="product-fields">{rules.map(rule=>{const definition=taxonomy.attributes.find(item=>item.code===rule.attribute_code);if(!definition)return null;if(definition.code==='forma-gavilan'&&values['tiene-gavilan']!==true)return null;return <TaxonomyValueField key={definition.code} definition={definition} taxonomy={taxonomy} value={values[definition.code]} required={rule.required} onChange={value=>{const next={...values};if(value===undefined)delete next[definition.code];else next[definition.code]=value;onChange(next)}}/>})}</div>{orientativeWarning&&<p className="warning-inline">El largo no es el habitual para este tipo tradicional. Es una advertencia orientativa: podés guardar la pieza si la clasificación es correcta.</p>}</fieldset>;
 }
 
 function Login({onSession}:{onSession:(session:Session)=>void}){const[username,setUsername]=useState('');const[password,setPassword]=useState('');const[error,setError]=useState('');const[busy,setBusy]=useState(false);return <main className="login"><form onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');const value=username.trim().toLowerCase();const email=value===TEST_ADMIN_USERNAME?TEST_ADMIN_EMAIL:value;const{data,error}=await supabase.auth.signInWithPassword({email,password});setBusy(false);if(error)setError(error.message);else if(data.session)onSession(data.session)}}><p className="eyebrow">Administración segura</p><h1>Comercio MateArte</h1><p>Acceso limitado a membresías guardadas en la base de datos.</p>{error&&<div className="error">{error}</div>}<label>Usuario o correo<input type="text" autoComplete="username" required value={username} onChange={e=>setUsername(e.target.value)}/></label><label>Contraseña<input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={busy}>{busy?'Ingresando…':'Ingresar'}</button></form></main>}
@@ -316,9 +319,9 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
   const [showNewProduct,setShowNewProduct] = useState(false);
   const [newProduct,setNewProduct] = useState<ProductForm>(EMPTY_PRODUCT_FORM);
   const [productDetails,setProductDetails] = useState<ProductForm>(EMPTY_PRODUCT_FORM);
-  const [variant,setVariant] = useState<{sku:string;price:string;weight:string;options:CatalogValueMap}>({sku:'',price:'',weight:'',options:{}});
+  const [variant,setVariant] = useState<{sku:string;price:string;options:CatalogValueMap}>({sku:'',price:'',options:{}});
   const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
-  const [editingVariantForm, setEditingVariantForm] = useState<{sku:string;price:string;weight:string;options:CatalogValueMap}>({sku:'',price:'',weight:'',options:{}});
+  const [editingVariantForm, setEditingVariantForm] = useState<{sku:string;price:string;options:CatalogValueMap}>({sku:'',price:'',options:{}});
 
   useEffect(()=>{void loadCatalogTaxonomy(false).then(setTaxonomy)},[]);
 
@@ -551,10 +554,8 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
     e.preventDefault();
     if (!product) return;
     const price = Number(variant.price);
-    const weight = variant.weight ? Number(variant.weight) : null;
     const missing = variantRules.find(rule=>rule.required&&(variant.options[rule.attribute_code]===undefined||variant.options[rule.attribute_code]===''));
     if(!variant.sku.trim()||!Number.isFinite(price)||price<=0||missing){onNotice(missing?`Completá ${catalogAttributeLabel(taxonomy,missing.attribute_code)}.`:'Completá SKU y un precio válido.');return}
-    if(product.sale_mode==='standard'&&(!weight||weight<=0)){onNotice('Indicá el peso para poder publicar un producto de venta normal.');return}
     const signature=optionSignature(variant.options);
     if(product.commerce_variants.some(item=>optionSignature(normalizeCatalogValueMap(item.option_values))===signature)){onNotice('Ya existe una variante con esa combinación de opciones.');return}
     setProductBusy('variant-create');
@@ -563,23 +564,21 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
       sku: variant.sku.trim(),
       name: formatVariantLabel(taxonomy,product.category_code||product.category,variant.options),
       price_minor: Math.round(price*100),
-      weight_grams: weight,
       option_values: variant.options,
       color: typeof variant.options.color==='string'?variant.options.color:null,
       active: true,
     });
     onNotice(error?error.message:'Variante creada.');
-    if(!error){setVariant({sku:'',price:'',weight:'',options:{}});await load(product.id)}
+    if(!error){setVariant({sku:'',price:'',options:{}});await load(product.id)}
     setProductBusy('');
   };
 
   const updateVariant = async (item: ProductVariant, form: typeof editingVariantForm) => {
     if (!product) return;
     const priceNum = Number(form.price);
-    const weight = form.weight ? Number(form.weight) : null;
     const missing = variantRules.find(rule=>rule.required&&(form.options[rule.attribute_code]===undefined||form.options[rule.attribute_code]===''));
-    if (!form.sku.trim() || !form.price.trim() || isNaN(priceNum) || priceNum <= 0 || missing || (product.sale_mode==='standard'&&(!weight||weight<=0))) {
-      onNotice(missing?`Completá ${catalogAttributeLabel(taxonomy,missing.attribute_code)}.`:product.sale_mode==='standard'&&(!weight||weight<=0)?'Indicá un peso válido.':'Completá SKU y un precio válido mayor a 0.');
+    if (!form.sku.trim() || !form.price.trim() || isNaN(priceNum) || priceNum <= 0 || missing) {
+      onNotice(missing?`Completá ${catalogAttributeLabel(taxonomy,missing.attribute_code)}.`:'Completá SKU y un precio válido mayor a 0.');
       return;
     }
     const signature=optionSignature(form.options);
@@ -590,7 +589,6 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
       name: formatVariantLabel(taxonomy,product.category_code||product.category,form.options),
       color: typeof form.options.color==='string'?form.options.color:null,
       option_values: form.options,
-      weight_grams: weight,
       price_minor: Math.round(Number(form.price) * 100),
     }).eq('id', item.id).eq('product_id', product.id);
 
@@ -638,7 +636,6 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
         const missing=rules.find(rule=>rule.required&&(options[rule.attribute_code]===undefined||options[rule.attribute_code]===''));
         if(missing){onNotice(`La variante ${item.sku} necesita ${catalogAttributeLabel(taxonomy,missing.attribute_code)}.`);return}
         if(!item.sku.trim()){onNotice('Todas las variantes activas necesitan SKU.');return}
-        if(product.sale_mode==='standard'&&(!item.weight_grams||item.weight_grams<=0)){onNotice(`La variante ${item.sku} necesita peso para envío.`);return}
         const signature=optionSignature(options);if(signatures.has(signature)){onNotice('Hay dos variantes activas con la misma combinación de opciones.');return}signatures.add(signature);
       }
     }
@@ -660,7 +657,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
           <p className="catalog-rule"><strong>¿Ficha o variante?</strong> Usá una variante si solo cambia el color o el tamaño. Creá otra ficha si cambia el modelo o el material.</p>
           <div className="product-fields">
             <label><span className="field-label">Nombre del producto <span className="field-required" aria-hidden="true">*</span></span><input required autoFocus value={newProduct.name} onChange={event=>setNewProduct({...newProduct,name:event.target.value})} placeholder="Ej.: Imperial clásico marrón"/></label>
-            <label><span className="field-label">Categoría <span className="field-required" aria-hidden="true">*</span></span><select required value={newProduct.category} onChange={event=>setNewProduct({...newProduct,category:event.target.value,attributes:{}})}><option value="" disabled>Elegí una categoría</option>{taxonomy.categories.filter(item=>item.active).sort((a,b)=>a.sort_order-b.sort_order).map(category=><option key={category.code} value={category.code}>{category.parent_code?'↳ ':''}{category.label_es}</option>)}</select></label>
+            <label><span className="field-label">Categoría <span className="field-required" aria-hidden="true">*</span></span><select required value={newProduct.category} onChange={event=>setNewProduct({...newProduct,category:event.target.value,attributes:{}})}><option value="" disabled>Elegí una categoría</option>{taxonomy.categories.filter(item=>item.active).sort((a,b)=>a.sort_order-b.sort_order).map(category=><option key={category.code} value={category.code}>{category.label_es}</option>)}</select></label>
             <label><span className="field-label">Modalidad</span><select value={newProduct.saleMode} onChange={event=>setNewProduct({...newProduct,saleMode:event.target.value as SaleMode})}><option value="standard">Venta normal</option><option value="made_to_order">Por encargo</option></select></label>
             <label className="wide-field"><span className="field-label">Descripción</span><textarea value={newProduct.description} onChange={event=>setNewProduct({...newProduct,description:event.target.value})} placeholder="Material y cualquier detalle que lo diferencie."/></label>
           </div>
@@ -699,7 +696,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
             <div><h4>Datos del producto</h4><p>Editá esta ficha sin afectar los demás productos del catálogo.</p></div>
             <div className="product-fields">
               <label><span className="field-label">Nombre <span className="field-required" aria-hidden="true">*</span></span><input required value={productDetails.name} onChange={event=>setProductDetails({...productDetails,name:event.target.value})}/></label>
-              <label><span className="field-label">Categoría <span className="field-required" aria-hidden="true">*</span></span><select required value={productDetails.category} onChange={event=>setProductDetails({...productDetails,category:event.target.value,attributes:{}})}><option value="" disabled>Elegí una categoría</option>{taxonomy.categories.filter(item=>item.active).sort((a,b)=>a.sort_order-b.sort_order).map(category=><option key={category.code} value={category.code}>{category.parent_code?'↳ ':''}{category.label_es}</option>)}</select></label>
+              <label><span className="field-label">Categoría <span className="field-required" aria-hidden="true">*</span></span><select required value={productDetails.category} onChange={event=>setProductDetails({...productDetails,category:event.target.value,attributes:{}})}><option value="" disabled>Elegí una categoría</option>{taxonomy.categories.filter(item=>item.active).sort((a,b)=>a.sort_order-b.sort_order).map(category=><option key={category.code} value={category.code}>{category.label_es}</option>)}</select></label>
               <label><span className="field-label">Modalidad</span><select value={productDetails.saleMode} onChange={event=>setProductDetails({...productDetails,saleMode:event.target.value as SaleMode})}><option value="standard">Venta normal</option><option value="made_to_order">Por encargo</option></select></label>
               <label className="wide-field"><span className="field-label">Descripción</span><textarea value={productDetails.description} onChange={event=>setProductDetails({...productDetails,description:event.target.value})}/></label>
             </div>
@@ -759,7 +756,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
           <section className="variants-section" aria-labelledby="variants-title">
             <div><h4 id="variants-title">Variantes comprables</h4><p>El SKU y las opciones identifican cada variante. La etiqueta se genera automáticamente.</p></div>
             <div className="table-scroll">
-              <table><thead><tr><th>SKU</th>{variantDefinitions.map(({definition})=><th key={definition.code}>{definition.label_es}</th>)}<th>Precio</th><th>Peso</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+              <table><thead><tr><th>SKU</th>{variantDefinitions.map(({definition})=><th key={definition.code}>{definition.label_es}</th>)}<th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
                 {product.commerce_variants.map(item => {
                   const itemOptions = normalizeCatalogValueMap(item.option_values);
                   if (!itemOptions.color && item.color) itemOptions.color = item.color;
@@ -769,11 +766,10 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
                         <td>{item.sku}<small>{item.name}</small></td>
                         {variantDefinitions.map(({definition})=><td key={definition.code}>{itemOptions[definition.code]!==undefined?catalogValueLabel(taxonomy,definition.code,itemOptions[definition.code] as CatalogValue):'—'}</td>)}
                         <td>{money(item.price_minor)}</td>
-                        <td>{item.weight_grams ? `${item.weight_grams} g` : '—'}</td>
                         <td><span className={`status-badge ${item.active ? 'status-ready_for_production' : 'status-cancelled'}`}>{item.active ? 'Activa' : 'Inactiva'}</span></td>
                         <td>
                           <div className="row-actions">
-                            <button className="compact-button secondary-button" type="button" disabled={Boolean(productBusy)} onClick={() => { setEditingVariantId(item.id); setEditingVariantForm({ sku: item.sku, price: (item.price_minor / 100).toString(), weight: item.weight_grams?.toString() || '', options: itemOptions }); }}>Editar</button>
+                            <button className="compact-button secondary-button" type="button" disabled={Boolean(productBusy)} onClick={() => { setEditingVariantId(item.id); setEditingVariantForm({ sku: item.sku, price: (item.price_minor / 100).toString(), options: itemOptions }); }}>Editar</button>
                             <button className="compact-button secondary-button" type="button" disabled={Boolean(productBusy)} onClick={()=>void toggleVariant(item)}>{item.active ? 'Desactivar' : 'Activar'}</button>
                             <button className="compact-button danger-button" type="button" disabled={Boolean(productBusy)} onClick={()=>void removeVariant(item)}>Eliminar</button>
                           </div>
@@ -814,7 +810,6 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
                           />
                         </div>
                       </td>
-                      <td><input type="number" min="1" step="1" value={editingVariantForm.weight} disabled={Boolean(productBusy)} onChange={e=>setEditingVariantForm({...editingVariantForm,weight:e.target.value})} onKeyDown={handleKeyDown} aria-label="Peso en gramos" /></td>
                       <td>
                         <span className={`status-badge ${item.active ? 'status-ready_for_production' : 'status-cancelled'}`}>
                           {item.active ? 'Activa' : 'Inactiva'}
@@ -843,7 +838,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
                     </tr>
                   );
                 })}
-                {!product.commerce_variants.length&&<tr><td className="empty-table" colSpan={variantDefinitions.length+5}>Este producto todavía no tiene variantes.</td></tr>}
+                {!product.commerce_variants.length&&<tr><td className="empty-table" colSpan={variantDefinitions.length+4}>Este producto todavía no tiene variantes.</td></tr>}
               </tbody></table>
             </div>
           </section>
@@ -852,8 +847,6 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
             <label><span className="field-label">SKU <span className="field-required" aria-hidden="true">*</span></span><input required value={variant.sku} onChange={e=>setVariant({...variant,sku:e.target.value})}/></label>
             <DynamicAttributeFields taxonomy={taxonomy} category={product.category_code||product.category} scope="variant" values={variant.options} onChange={options=>setVariant({...variant,options})}/>
             <label><span className="field-label">Precio UYU <span className="field-required" aria-hidden="true">*</span></span><input required type="number" min="1" step="0.01" value={variant.price} onChange={e=>setVariant({...variant,price:e.target.value})}/></label>
-            <label><span className="field-label">Peso para envío (g){product.sale_mode==='standard'&&<span className="field-required" aria-hidden="true"> *</span>}</span><input required={product.sale_mode==='standard'} type="number" min="1" step="1" value={variant.weight} onChange={e=>setVariant({...variant,weight:e.target.value})}/></label>
-            <p className="variant-label-preview">Etiqueta automática: <strong>{formatVariantLabel(taxonomy,product.category_code||product.category,variant.options)}</strong></p>
             <button disabled={Boolean(productBusy)}>{productBusy === 'variant-create' ? 'Creando…' : 'Crear variante'}</button>
           </form>
         </div>
