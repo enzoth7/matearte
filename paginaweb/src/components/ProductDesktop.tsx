@@ -79,7 +79,7 @@ export function ProductDesktop({ product, exchangeRates }: { product: Product; e
     ? formatPrice(commerceVariant.price_minor / 100)
     : catalogVariant?.price
     ? formatPrice(catalogVariant.price.amountMinor / 100)
-    : variantSelection.displayedPrice === undefined ? common("consult") : `${variantSelection.priceIsFrom ? `${locale==='en'?'From':locale==='pt'?'A partir de':'Desde'} ` : ''}${formatPrice(variantSelection.displayedPrice)}`;
+    : variantSelection.displayedPrice === undefined ? common("consult") : formatPrice(variantSelection.displayedPrice);
     
   const galleryImages = variantSelection.images.map(img => ({
     ...img,
@@ -150,7 +150,7 @@ export function ProductDesktop({ product, exchangeRates }: { product: Product; e
           <button className="product-desktop-primary" type="button" disabled={busy || !variantSelection.complete} onClick={() => void addToCart()}>
             {busy ? t("adding") : t("addToCart")}
           </button>
-          <Link className="product-desktop-secondary" href="/personalizados">{t("learnCustomization")}</Link>
+          {product.category === "mates" && <Link className="product-desktop-secondary" href="/personalizados">{t("learnCustomization")}</Link>}
           <p className="product-desktop-status" role="status" aria-live="polite">{message}</p>
           <ProductSpecsBox product={product} selectedOptions={variantSelection.selected} activeVariant={variantSelection.activeVariant} />
         </div>
