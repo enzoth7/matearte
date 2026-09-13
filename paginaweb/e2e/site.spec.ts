@@ -232,17 +232,15 @@ test("el acceso del carrito dirige al perfil", async ({ page }) => {
   await expect(page).toHaveURL(/\/perfil$/);
 });
 
-test("las categorías de inicio abren el catálogo filtrado", async ({ page }) => {
+test("las categorías de inicio abren el catálogo o la personalización correspondiente", async ({ page }) => {
   await page.goto("/");
   const cards = page.locator(".home-category-card");
   await expect(cards).toHaveCount(5);
   await expect(cards.nth(0)).toHaveAttribute("href", "/catalogo?categoria=mates");
-  await expect(cards.nth(4)).toHaveAttribute("href", "/catalogo?categoria=regalos");
-  await cards.nth(1).click();
-  await expect(page).toHaveURL(/\/catalogo\?categoria=bombillas$/);
-  const catalog = page.locator((page.viewportSize()?.width ?? 1440) >= 1024 ? ".catalog-desktop-view" : ".catalog-mobile-view");
-  await expect(catalog.getByRole("radio", { name: "Bombillas", exact: true })).toBeChecked();
-  await expect(catalog.locator((page.viewportSize()?.width ?? 1440) >= 1024 ? ".catalog-product-card" : ".catalog-mobile-product-card")).toHaveCount(2);
+  await expect(cards.nth(4)).toHaveAttribute("href", "/personalizados#empresas");
+  await cards.nth(4).click();
+  await expect(page).toHaveURL(/\/personalizados#empresas$/);
+  await expect(page.locator("#empresas")).toBeVisible();
 });
 
 test("las subpáginas antiguas redirigen al catálogo unificado", async ({ page, request }) => {

@@ -126,7 +126,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     ...catalogProductTypeIds.map((code, index) => option("tipo-mate", code, ({ imperial: "Imperial", camionero: "Camionero", criollo: "Criollo", torpedo: "Torpedo" } as Record<string, string>)[code], index * 10)),
     ...catalogMaterialIds.map((code, index) => option("material", code, labels.material[code], index * 10)),
     option("forma", "ovalada", "Ovalada", 10), option("forma", "cuadrada", "Cuadrada", 20),
-    option("tamano", "chico", "Chico", 10), option("tamano", "mediano", "Mediano", 20), option("tamano", "grande", "Grande", 30),
+    option("tamano", "todos", "Todos los tamaños", 5), option("tamano", "chico", "Chico", 10), option("tamano", "mediano", "Mediano", 20), option("tamano", "grande", "Grande", 30),
     ...catalogColorIds.map((code, index) => option("color", code, labels.color[code], index * 10, labels.swatch[code])),
     option("talle", "todos", "Todos los talles", 5), ...Array.from({ length: 13 }, (_, index) => option("talle", String(index + 34), String(index + 34), (index + 1) * 10)),
     option("genero", "hombre", "Hombre", 10), option("genero", "mujer", "Mujer", 20), option("genero", "unisex", "Unisex", 30),
