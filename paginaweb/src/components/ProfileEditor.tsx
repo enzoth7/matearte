@@ -6,7 +6,8 @@ import { useRef, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { countryCallingCode, countryOptionsForLocale, countryRegions, internationalPhoneNumber, localPhoneNumber } from "@/lib/countries";
 import type { Locale } from "@/types/catalog";
-import type { StoreRedirect } from "@/lib/auth-redirect";
+import { isOrderRedirect, type StoreRedirect } from "@/lib/auth-redirect";
+import { localizeCanonicalPath } from "@/i18n/paths";
 
 export type ProfileFormData = {
   fullName: string;
@@ -71,6 +72,10 @@ export function ProfileEditor({ initial, welcome, postSaveRedirect }: { initial:
       if (!response.ok) throw new Error(t("saveFailed"));
       setSaved(true);
       window.setTimeout(() => {
+        if (postSaveRedirect && isOrderRedirect(postSaveRedirect)) {
+          window.location.assign(localizeCanonicalPath(postSaveRedirect, locale));
+          return;
+        }
         router.push(postSaveRedirect || "/perfil");
         router.refresh();
       }, 500);

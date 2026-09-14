@@ -55,6 +55,7 @@ const layout = (content: string) => `<!doctype html>
 </body></html>`;
 
 const button = (label: string, url: string) => `<p style="margin:28px 0 6px"><a href="${escapeHtml(url)}" style="display:inline-block;background:#351d13;color:#fff;text-decoration:none;padding:14px 22px;font-weight:bold">${escapeHtml(label)}</a></p>`;
+const accountNotice = `<p style="margin:10px 0 0;color:#735947;font-size:12px;line-height:1.6">Por seguridad, si abrís el enlace en otro dispositivo te pediremos ingresar con la cuenta de Google usada en la compra.</p>`;
 
 const itemsBlock = (items: EmailOrderItem[]) => `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:22px 0;border-top:1px solid #e7dac8">
   ${items.map((item) => `<tr><td style="padding:12px 0;border-bottom:1px solid #e7dac8"><strong>${item.item_type === "design" ? "Mate personalizado" : "Producto"}</strong><br>${escapeHtml(item.title)} × ${item.quantity}</td><td align="right" style="padding:12px 0;border-bottom:1px solid #e7dac8">${escapeHtml(money(item.total_minor))}</td></tr>`).join("")}
@@ -63,8 +64,9 @@ const itemsBlock = (items: EmailOrderItem[]) => `<table role="presentation" widt
 const customerName = (order: EmailOrder) => escapeHtml(order.customer_snapshot?.fullName || "");
 const intro = (title: string, order: EmailOrder, text: string) => `<p style="margin:0 0 8px;color:#8a5031;font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase">Pedido #${order.order_number}</p><h1 style="margin:0 0 18px;font-family:Georgia,serif;font-size:34px;line-height:1.15">${escapeHtml(title)}</h1><p style="font-size:16px;line-height:1.7">Hola${customerName(order) ? ` ${customerName(order)}` : ""}, ${text}</p>`;
 
-export function buildCommerceEmail(job: EmailJob, order: EmailOrder, items: EmailOrderItem[], siteUrl: string) {
-  const orderUrl = `${siteUrl.replace(/\/$/, "")}/pedidos/${order.id}`;
+export function buildCommerceEmail(job: EmailJob, order: EmailOrder, items: EmailOrderItem[], siteUrl: string, orderAccessToken?: string | null) {
+  const orderUrl = `${siteUrl.replace(/\/$/, "")}/pedidos/${order.id}${orderAccessToken ? `#access=${encodeURIComponent(orderAccessToken)}` : ""}`;
+  const orderButton = (label: string) => `${button(label, orderUrl)}${accountNotice}`;
   const adminUrl = "https://matearte-commerce-admin.vercel.app/orders";
   const summary = `${itemsBlock(items)}<p style="font-size:18px"><strong>Total: ${escapeHtml(money(order.total_minor, order.currency))}</strong></p>`;
   const rejectionReason = items.find((item) => item.review_reason)?.review_reason;
@@ -74,25 +76,25 @@ export function buildCommerceEmail(job: EmailJob, order: EmailOrder, items: Emai
 
   switch (job.event_type) {
     case "customer_order_received":
-      return { subject: `Recibimos tu pedido #${order.order_number}`, html: layout(`${intro("Recibimos tu pedido", order, `recibimos tu pedido #${order.order_number} y guardamos correctamente todos los detalles.`)}${summary}<p style="font-size:16px;line-height:1.7">Ahora estamos verificando el pago y preparando el próximo paso. Te enviaremos otro correo cuando tengamos novedades.</p>${button("Ver estado del pedido", orderUrl)}<p style="font-size:16px;line-height:1.7">Si necesitás hacer una consulta, respondé este correo.</p><p style="font-size:16px;line-height:1.7">Gracias por elegir MateArte.</p>`) };
+      return { subject: `Recibimos tu pedido #${order.order_number}`, html: layout(`${intro("Recibimos tu pedido", order, `recibimos tu pedido #${order.order_number} y guardamos correctamente todos los detalles.`)}${summary}<p style="font-size:16px;line-height:1.7">Ahora estamos verificando el pago y preparando el próximo paso. Te enviaremos otro correo cuando tengamos novedades.</p>${orderButton("Ver estado del pedido")}<p style="font-size:16px;line-height:1.7">Si necesitás hacer una consulta, respondé este correo.</p><p style="font-size:16px;line-height:1.7">Gracias por elegir MateArte.</p>`) };
     case "customer_payment_confirmed":
-      return { subject: `Pago confirmado · Pedido #${order.order_number}`, html: layout(`${intro("Pago confirmado", order, "Mercado Pago confirmó tu pago. Ya empezamos a preparar el próximo paso.")}${summary}${button("Seguir mi pedido", orderUrl)}`) };
+      return { subject: `Pago confirmado · Pedido #${order.order_number}`, html: layout(`${intro("Pago confirmado", order, "Mercado Pago confirmó tu pago. Ya empezamos a preparar el próximo paso.")}${summary}${orderButton("Seguir mi pedido")}`) };
     case "customer_custom_approved":
-      return { subject: `Tu mate personalizado pasó a producción · #${order.order_number}`, html: layout(`${intro("Tu diseño fue aprobado", order, "revisamos el personalizado y ya está listo para entrar en producción.")}${itemsBlock(items)}${button("Ver mi pedido", orderUrl)}`) };
+      return { subject: `Tu mate personalizado pasó a producción · #${order.order_number}`, html: layout(`${intro("Tu diseño fue aprobado", order, "revisamos el personalizado y ya está listo para entrar en producción.")}${itemsBlock(items)}${orderButton("Ver mi pedido")}`) };
     case "customer_custom_rejected_refunded":
-      return { subject: `Actualización y reembolso del pedido #${order.order_number}`, html: layout(`${intro("No pudimos producir este diseño", order, "la revisión técnica indicó que no podemos fabricarlo tal como fue solicitado. Iniciamos el reembolso completo.")}${rejectionReason ? `<p style="padding:16px;background:#f8eee5"><strong>Motivo:</strong> ${escapeHtml(rejectionReason)}</p>` : ""}${button("Ver detalle", orderUrl)}`) };
+      return { subject: `Actualización y reembolso del pedido #${order.order_number}`, html: layout(`${intro("No pudimos producir este diseño", order, "la revisión técnica indicó que no podemos fabricarlo tal como fue solicitado. Iniciamos el reembolso completo.")}${rejectionReason ? `<p style="padding:16px;background:#f8eee5"><strong>Motivo:</strong> ${escapeHtml(rejectionReason)}</p>` : ""}${orderButton("Ver detalle")}`) };
     case "customer_order_ready":
-      return { subject: `Tu pedido #${order.order_number} está pronto`, html: layout(`${intro("Tu pedido está pronto", order, order.shipping_method === "pickup" ? "ya podés coordinar el retiro." : "terminamos de prepararlo y pronto saldrá hacia tu dirección.")}${button("Ver mi pedido", orderUrl)}`) };
+      return { subject: `Tu pedido #${order.order_number} está pronto`, html: layout(`${intro("Tu pedido está pronto", order, order.shipping_method === "pickup" ? "ya podés coordinar el retiro." : "terminamos de prepararlo y pronto saldrá hacia tu dirección.")}${orderButton("Ver mi pedido")}`) };
     case "customer_order_shipped":
-      return { subject: `Enviamos tu pedido #${order.order_number}`, html: layout(`${intro("Tu pedido está en camino", order, "el envío ya fue despachado.")}${shippingCarrier ? `<p><strong>Empresa de envío:</strong> ${escapeHtml(shippingCarrier)}</p>` : ""}${trackingCode ? `<p><strong>Código de seguimiento:</strong> ${escapeHtml(trackingCode)}</p>` : ""}${trackingUrl ? button("Seguir envío", String(trackingUrl)) : button("Ver mi pedido", orderUrl)}`) };
+      return { subject: `Enviamos tu pedido #${order.order_number}`, html: layout(`${intro("Tu pedido está en camino", order, "el envío ya fue despachado.")}${shippingCarrier ? `<p><strong>Empresa de envío:</strong> ${escapeHtml(shippingCarrier)}</p>` : ""}${trackingCode ? `<p><strong>Código de seguimiento:</strong> ${escapeHtml(trackingCode)}</p>` : ""}${trackingUrl ? button("Seguir envío", String(trackingUrl)) : orderButton("Ver mi pedido")}`) };
     case "customer_international_received":
-      return { subject: `Solicitud internacional recibida · #${order.order_number}`, html: layout(`${intro("Recibimos tu solicitud internacional", order, "guardamos los artículos y nos comunicaremos para coordinar disponibilidad, envío y forma de pago.")}${summary}${button("Ver solicitud", orderUrl)}`) };
+      return { subject: `Solicitud internacional recibida · #${order.order_number}`, html: layout(`${intro("Recibimos tu solicitud internacional", order, "guardamos los artículos y nos comunicaremos para coordinar disponibilidad, envío y forma de pago.")}${summary}${orderButton("Ver solicitud")}`) };
     case "customer_payment_failed":
-      return { subject: `No pudimos confirmar el pago · Pedido #${order.order_number}`, html: layout(`${intro("El pago no fue aprobado", order, "Mercado Pago no pudo confirmar la operación. Tu pedido todavía no está pagado.")}${button("Ver estado", orderUrl)}`) };
+      return { subject: `No pudimos confirmar el pago · Pedido #${order.order_number}`, html: layout(`${intro("El pago no fue aprobado", order, "Mercado Pago no pudo confirmar la operación. Tu pedido todavía no está pagado.")}${orderButton("Ver estado")}`) };
     case "customer_order_cancelled":
-      return { subject: `Pedido #${order.order_number} cancelado`, html: layout(`${intro("El pedido fue cancelado", order, "registramos la cancelación. Si necesitás ayuda, respondé este correo.")}${button("Ver detalle", orderUrl)}`) };
+      return { subject: `Pedido #${order.order_number} cancelado`, html: layout(`${intro("El pedido fue cancelado", order, "registramos la cancelación. Si necesitás ayuda, respondé este correo.")}${orderButton("Ver detalle")}`) };
     case "customer_order_refunded":
-      return { subject: `Reembolso del pedido #${order.order_number}`, html: layout(`${intro("Pago reembolsado", order, "el reembolso fue registrado. La acreditación final depende de los plazos del medio de pago.")}${button("Ver detalle", orderUrl)}`) };
+      return { subject: `Reembolso del pedido #${order.order_number}`, html: layout(`${intro("Pago reembolsado", order, "el reembolso fue registrado. La acreditación final depende de los plazos del medio de pago.")}${orderButton("Ver detalle")}`) };
     case "admin_order_created":
       return { subject: `Nuevo pedido MateArte #${order.order_number}`, html: layout(`<h1 style="font-family:Georgia,serif">Nuevo pedido #${order.order_number}</h1>${summary}<p><strong>Cliente:</strong> ${customerName(order) || "Sin nombre"}</p>${button("Abrir pedidos", adminUrl)}`) };
     case "admin_payment_confirmed":

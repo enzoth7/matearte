@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { CheckCircle, Clock, WarningCircle, WhatsappLogo } from "@phosphor-icons/react";
+import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { Link } from "@/i18n/navigation";
 import { localizeCatalogSnapshotTitle } from "@/content/catalog-localization";
 import { formatMoney } from "@/lib/money";
@@ -79,6 +80,22 @@ function orderCode(order: OrderValue) {
   return compactId || `MA${String(order.order_number).padStart(8, "0")}`;
 }
 
+function trackingAccessToken(orderId: string) {
+  const storageKey = `matearte:order-access:${orderId}`;
+  const hashToken = new URLSearchParams(window.location.hash.slice(1)).get("access") || "";
+  if (/^[A-Za-z0-9_-]{43}$/.test(hashToken)) {
+    try { window.sessionStorage.setItem(storageKey, hashToken); } catch { /* The fragment still works when storage is unavailable. */ }
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}`);
+    return hashToken;
+  }
+  try {
+    const stored = window.sessionStorage.getItem(storageKey) || "";
+    return /^[A-Za-z0-9_-]{43}$/.test(stored) ? stored : "";
+  } catch {
+    return "";
+  }
+}
+
 export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paymentOutcome?: string }) {
   const locale = useLocale() as Locale;
   const t = useTranslations("order");
@@ -99,6 +116,7 @@ export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paym
   const itemLabels = { custom: t("customMate"), catalog: t("catalogProduct"), piece: t("piece"), units: (count: number) => t("units", { count }) };
   const [order, setOrder] = useState<OrderValue | null>(null);
   const [error, setError] = useState("");
+  const [accessIssue, setAccessIssue] = useState<"auth" | "unavailable" | null>(null);
   const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
@@ -108,12 +126,27 @@ export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paym
     const load = async () => {
       try {
         if (paymentOutcome === "failure") return;
+        setAccessIssue(null);
         const awaiting = paymentOutcome === "success" || paymentOutcome === "pending";
-        const response = await fetch(`/api/orders/${orderId}${awaiting ? "?awaiting=1" : ""}`, { cache: "no-store" });
+        const token = trackingAccessToken(orderId);
+        const response = await fetch(`/api/orders/${orderId}${awaiting ? "?awaiting=1" : ""}`, {
+          cache: "no-store",
+          headers: token ? { "X-MateArte-Order-Access": token } : undefined,
+        });
         const value = await response.json();
         if (response.status === 202 && value.pending) {
           setError("");
           if (!stopped) timer = setTimeout(load, 3_000);
+          return;
+        }
+        if (response.status === 401) {
+          setError("");
+          setAccessIssue("auth");
+          return;
+        }
+        if (response.status === 403 || response.status === 404) {
+          setError("");
+          setAccessIssue("unavailable");
           return;
         }
         if (!response.ok) {
@@ -142,6 +175,23 @@ export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paym
         <h2 className="display-font mt-4 text-3xl">{t("paymentNotCompletedTitle")}</h2>
         <p className="mt-3 max-w-xl text-sm leading-7 text-black/60">{t("paymentNotCompletedBody")}</p>
         <Link className="button-primary mt-6" href="/carrito">{t("backToCart")}</Link>
+      </div>
+    );
+  }
+
+  if (accessIssue) {
+    const authenticationRequired = accessIssue === "auth";
+    return (
+      <div role="status" className="order-status-feedback border border-black/15 bg-[var(--paper)] p-6 shadow-[var(--shadow-soft)] sm:p-8">
+        {authenticationRequired
+          ? <Clock size={30} className="text-[var(--leather)]" aria-hidden="true" />
+          : <WarningCircle size={30} className="text-[var(--danger)]" aria-hidden="true" />}
+        <h2 className="display-font mt-4 text-3xl">{authenticationRequired ? t("authRequiredTitle") : t("unavailableTitle")}</h2>
+        <p className="mt-3 max-w-xl text-sm leading-7 text-black/60">{authenticationRequired ? t("authRequiredBody") : t("unavailableBody")}</p>
+        <div className="mt-6 max-w-sm">
+          <GoogleAuthButton postLoginRedirect={`/pedidos/${orderId}`} />
+        </div>
+        <Link className="button-secondary mt-4" href="/perfil">{t("back")}</Link>
       </div>
     );
   }

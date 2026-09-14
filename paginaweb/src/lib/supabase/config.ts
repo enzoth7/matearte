@@ -1,5 +1,7 @@
 const required = (name: string) => {
-  const value = process.env[name]?.trim();
+  // Some Windows-generated env files can retain a literal trailing `\\r`.
+  // Strip escaped line endings as well as real whitespace before creating clients.
+  const value = process.env[name]?.trim().replace(/\\[rn]+$/, "").trim();
   if (!value) throw new Error(`Falta configurar ${name}.`);
   return value;
 };

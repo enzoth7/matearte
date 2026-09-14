@@ -29,4 +29,12 @@ describe("store OAuth redirect", () => {
     expect(safeStoreRedirect("/admin")).toBeNull();
     expect(safeStoreRedirect(encodeURIComponent("/carrito"))).toBe("/carrito");
   });
+
+  it("accepts an order detail as a safe post-login destination", () => {
+    const orderPath = "/pedidos/9adc7c83-c3a9-4ca1-8962-bb7056b6e209";
+    expect(safeStoreRedirect(orderPath)).toBe(orderPath);
+    expect(safeStoreRedirect(encodeURIComponent(orderPath))).toBe(orderPath);
+    expect(safeStoreRedirect("/pedidos/not-a-valid-order-id")).toBeNull();
+    expect(safeStoreRedirect(`${orderPath}?admin=1`)).toBeNull();
+  });
 });

@@ -76,7 +76,13 @@ Deno.serve(async (request) => {
       const customerEmail = String((order.customer_snapshot as Record<string, unknown>)?.email || "");
       const recipients = job.recipient_kind === "admin" ? adminEmails : [job.recipient_email || customerEmail].filter(Boolean);
       if (!recipients.length) throw new Error("El destinatario no tiene correo.");
-      const message = buildCommerceEmail(job, order as EmailOrder, (order.order_items || []) as EmailOrderItem[], siteUrl);
+      let orderAccessToken: string | null = null;
+      if (job.recipient_kind === "customer") {
+        const issued = await admin.rpc("issue_order_tracking_token", { p_order_id: order.id });
+        if (issued.error || typeof issued.data !== "string") throw new Error(issued.error?.message || "No se pudo crear el acceso seguro al pedido.");
+        orderAccessToken = issued.data;
+      }
+      const message = buildCommerceEmail(job, order as EmailOrder, (order.order_items || []) as EmailOrderItem[], siteUrl, orderAccessToken);
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
