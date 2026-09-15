@@ -144,7 +144,7 @@ const orderStatus = (status: string) => ({
 }[status] || status.replaceAll('_', ' '));
 const normalizeSearch = (value:string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 const catalogCategoryLabels: Record<string,string> = {
-  mates:'Mate',bombillas:'Bombilla',materas:'Matera',termos:'Termo','kits-materos':'Kit matero',cuchillos:'Cuchillo',cintos:'Cinto',calzado:'Calzado',botas:'Bota',marroquineria:'Marroquinería',billeteras:'Billetera',carteras:'Cartera',
+  mates:'Mate','mates-personalizados':'Mates Personalizados',bombillas:'Bombilla',materas:'Matera',termos:'Termo','kits-materos':'Kit matero',cuchillos:'Cuchillo',cintos:'Cinto',calzado:'Calzado',botas:'Bota',marroquineria:'Marroquinería',billeteras:'Billetera',carteras:'Cartera',
 };
 const catalogMaterialLabels: Record<string,string> = {
   cuero:'Cuero',plata:'Plata',alpaca:'Alpaca','acero-inoxidable':'Acero inoxidable','otros-metales':'Otros metales',madera:'Madera',estampado:'Estampado',
@@ -358,7 +358,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
       onNotice(error.message);
       return;
     }
-    const nextProducts = (data || []) as Product[];
+    const nextProducts = ((data || []) as Product[]).sort((a, b) => a.name.localeCompare(b.name, 'es'));
     setProducts(nextProducts);
     setSelected(current => {
       const requested = preferredId || current;
@@ -369,8 +369,10 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
   useEffect(() => { void load(); },[load]);
   const filteredProducts = useMemo(() => {
     const query = normalizeSearch(search);
-    if (!query) return products;
-    return products.filter(item => normalizeSearch(`${item.name} ${item.editorial_slug} ${item.category}`).includes(query));
+    const list = !query
+      ? products
+      : products.filter(item => normalizeSearch(`${item.name} ${item.editorial_slug} ${item.category}`).includes(query));
+    return [...list].sort((a, b) => a.name.localeCompare(b.name, 'es'));
   }, [products, search]);
   const product = products.find(item => item.id === selected);
   const images = [...(product?.commerce_product_images || [])].sort((a,b) => a.sort_order - b.sort_order || a.original_name.localeCompare(b.original_name));
@@ -899,7 +901,7 @@ function CatalogList({onNotice}:{onNotice:(v:string)=>void}) {
       onNotice(`No se pudo cargar la lista: ${error.message}`);
       return;
     }
-    setProducts((data || []) as CatalogListProduct[]);
+    setProducts(((data || []) as CatalogListProduct[]).sort((a, b) => a.name.localeCompare(b.name, 'es')));
   },[onNotice]);
 
   useEffect(() => { void load(); },[load]);
