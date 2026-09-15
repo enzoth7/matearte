@@ -207,6 +207,7 @@ export function productSeoCopy(product: Product, locale: AppLocale) {
   const titles: Record<AppLocale, Record<string, string>> = {
     es: {
       mates: `${product.name} uruguayo artesanal`,
+      "mates-personalizados": `${product.name} uruguayo artesanal personalizado`,
       bombillas: `${product.name} para mate uruguayo`,
       bombillones: `${product.name} para mate uruguayo`,
       materas: `${product.name} artesanal`,
@@ -222,6 +223,7 @@ export function productSeoCopy(product: Product, locale: AppLocale) {
     },
     en: {
       mates: `${product.name}, handmade Uruguayan mate gourd`,
+      "mates-personalizados": `${product.name}, handcrafted personalized Uruguayan mate gourd`,
       bombillas: `${product.name} for yerba mate`,
       bombillones: `${product.name} for yerba mate`,
       materas: `${product.name}, handcrafted mate bag`,
@@ -237,6 +239,7 @@ export function productSeoCopy(product: Product, locale: AppLocale) {
     },
     pt: {
       mates: `${product.name}, cuia uruguaia artesanal`,
+      "mates-personalizados": `${product.name}, cuia uruguaia artesanal personalizada`,
       bombillas: `${product.name} para mate`,
       bombillones: `${product.name} para mate`,
       materas: `${product.name} artesanal`,

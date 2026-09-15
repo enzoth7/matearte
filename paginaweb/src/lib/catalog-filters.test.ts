@@ -31,7 +31,7 @@ function product(id: string, priceUYU: number, overrides: Partial<Product["filte
   };
 }
 
-const defaults: CatalogFilters = { category: "todas", prices: [], materials: [], productTypes: [], colors: [], shapes: [], sort: "editorial" };
+const defaults: CatalogFilters = { category: "todas", prices: [], materials: [], productTypes: [], colors: [], shapes: [], sort: "nombre" };
 
 describe("filtros del catálogo", () => {
   it("respeta los límites sin superponer rangos", () => {
@@ -49,7 +49,7 @@ describe("filtros del catálogo", () => {
       product("imperial-alpaca", 3800, { materials: ["alpaca"], mateType: "imperial" }),
     ];
     const visible = filterAndSortCatalog(entries, { ...defaults, prices: ["3000-4999", "5000-6999"], materials: ["cuero", "alpaca"], productTypes: ["imperial"] });
-    expect(visible.map(({ product }) => product.id)).toEqual(["imperial-cuero", "imperial-alpaca"]);
+    expect(visible.map(({ product }) => product.id)).toEqual(["imperial-alpaca", "imperial-cuero"]);
   });
 
   it("lee, valida y vuelve a escribir parámetros repetibles", () => {
@@ -57,6 +57,26 @@ describe("filtros del catálogo", () => {
     expect(filters).toMatchObject({ category: "billeteras", prices: ["menos-3000", "7000-mas"], materials: ["estampado"], productTypes: ["torpedo"], sort: "precio" });
     expect(writeCatalogFilters(filters).getAll("precio")).toEqual(["menos-3000", "7000-mas"]);
     expect(writeCatalogFilters(filters).getAll("material")).toEqual(["estampado"]);
+  });
+
+  it("reconoce la categoría de mates personalizados", () => {
+    const parsed = parseCatalogFilters(new URLSearchParams("categoria=mates-personalizados"));
+    expect(parsed.category).toBe("mates-personalizados");
+    expect(parsed.sort).toBe("nombre");
+  });
+
+  it("ordena el catálogo alfabéticamente por nombre por defecto", () => {
+    const entries: Array<{ product: Product }> = [
+      product("Termo Stanley", 3500),
+      product("Bombilla Pico de Loro", 1200),
+      product("Mate Imperial", 4500),
+    ];
+    const sorted = filterAndSortCatalog(entries, defaults);
+    expect(sorted.map(({ product }) => product.name)).toEqual([
+      "Bombilla Pico de Loro",
+      "Mate Imperial",
+      "Termo Stanley",
+    ]);
   });
 
   it("reconoce y normaliza la categoria de kits materos", () => {

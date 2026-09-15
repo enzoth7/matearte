@@ -9,16 +9,17 @@ import type {
 
 export const categoryOptions = [
   { value: "todas", labelKey: "all" },
-  { value: "mates", labelKey: "mates" },
-  { value: "bombillas", labelKey: "bombillas" },
-  { value: "materas", labelKey: "materas" },
-  { value: "termos", labelKey: "termos" },
-  { value: "kits-materos", labelKey: "kitMatero" },
-  { value: "cuchillos", labelKey: "knives" },
-  { value: "cintos", labelKey: "belts" },
-  { value: "botas", labelKey: "boots" },
   { value: "billeteras", labelKey: "wallets" },
+  { value: "bombillas", labelKey: "bombillas" },
+  { value: "botas", labelKey: "boots" },
   { value: "carteras", labelKey: "bags" },
+  { value: "cintos", labelKey: "belts" },
+  { value: "cuchillos", labelKey: "knives" },
+  { value: "kits-materos", labelKey: "kitMatero" },
+  { value: "materas", labelKey: "materas" },
+  { value: "mates", labelKey: "mates" },
+  { value: "mates-personalizados", labelKey: "customMates" },
+  { value: "termos", labelKey: "termos" },
 ] as const;
 
 export const priceRangeOptions = [
@@ -94,7 +95,7 @@ function validValues<T extends string>(params: URLSearchParams, key: string, all
 export function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
   const rawCategory = params.get("categoria") ?? "todas";
   const categoryValue = rawCategory === "kit-matero" ? "kits-materos" : rawCategory === "cuchillo" ? "cuchillos" : rawCategory;
-  const sortValue = params.get("orden") ?? "editorial";
+  const sortValue = params.get("orden") ?? "nombre";
   return {
     category: categoryIds.has(categoryValue) ? categoryValue as CatalogFilters["category"] : "todas",
     prices: validValues<PriceRangeId>(params, "precio", priceIds),
@@ -102,14 +103,14 @@ export function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
     productTypes: validValues<CatalogProductTypeId>(params, "tipo", productTypeIds),
     colors: validValues<CatalogColorId>(params, "color", colorIds),
     shapes: validValues<string>(params, "forma", shapeIds),
-    sort: sortIds.has(sortValue as CatalogSort) ? sortValue as CatalogSort : "editorial",
+    sort: sortIds.has(sortValue as CatalogSort) ? sortValue as CatalogSort : "nombre",
   };
 }
 
 export function writeCatalogFilters(filters: CatalogFilters) {
   const params = new URLSearchParams();
   if (filters.category !== "todas") params.set("categoria", filters.category);
-  if (filters.sort !== "editorial") params.set("orden", filters.sort);
+  if (filters.sort !== "nombre") params.set("orden", filters.sort);
   filters.prices.forEach((value) => params.append("precio", value));
   filters.materials.forEach((value) => params.append("material", value));
   filters.productTypes.forEach((value) => params.append("tipo", value));
@@ -284,9 +285,9 @@ export function filterAndSortCatalog<T extends { product: Product }>(entries: T[
     return matchesCategory && matchesPrice && matchesMaterial && matchesProductType && matchesColor && matchesShape;
   });
 
-  if (filters.sort === "nombre") return [...filtered].sort((a, b) => a.product.name.localeCompare(b.product.name, locale));
   if (filters.sort === "precio") return [...filtered].sort((a, b) => (a.product.filterData.priceUYU ?? Number.POSITIVE_INFINITY) - (b.product.filterData.priceUYU ?? Number.POSITIVE_INFINITY));
-  return filtered;
+  if (filters.sort === "editorial") return [...filtered].sort((a, b) => (b.product.featured ? 1 : 0) - (a.product.featured ? 1 : 0) || a.product.name.localeCompare(b.product.name, locale));
+  return [...filtered].sort((a, b) => a.product.name.localeCompare(b.product.name, locale));
 }
 
 export function formatCatalogPrice(priceUYU?: number, consultLabel = "Consultar", locale = "es", exchangeRates?: Record<string, number>) {

@@ -154,10 +154,12 @@ export function mergeStorefrontProducts(
   const published = commerceProducts.filter((product) => product.published && product.category !== "sandbox" && product.category !== "regalos");
   const editorialBySlug = new Map(editorialProducts.map((product) => [product.slug, product]));
 
-  return published.map((product) => storefrontProductFromRow(
-    product,
-    supabaseBaseUrl,
-    locale,
-    editorialBySlug.get(product.editorial_slug),
-  ));
+  return published
+    .map((product) => storefrontProductFromRow(
+      product,
+      supabaseBaseUrl,
+      locale,
+      editorialBySlug.get(product.editorial_slug),
+    ))
+    .sort((a, b) => a.name.localeCompare(b.name, locale));
 }

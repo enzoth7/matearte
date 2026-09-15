@@ -184,9 +184,9 @@ export function CatalogDesktop({ products, exchangeRates }: { products: Product[
           <span>{t("sortBy")}</span>
           <span className="catalog-sort-control">
             <select aria-label={t("sortLabel")} value={filters.sort} onChange={(event) => catalogFilters.setSort(event.target.value as CatalogSort)}>
-              <option value="editorial">{t("featured")}</option>
               <option value="nombre">{t("name")}</option>
               <option value="precio">{t("price")}</option>
+              <option value="editorial">{t("featured")}</option>
             </select>
             <CaretDown size={10} weight="bold" aria-hidden="true" />
           </span>

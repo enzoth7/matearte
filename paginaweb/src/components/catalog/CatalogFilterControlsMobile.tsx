@@ -41,6 +41,63 @@ const COLOR_FALLBACKS: Record<string, Record<string, string>> = {
   },
 };
 
+const CATEGORY_FALLBACKS: Record<string, Record<string, string>> = {
+  es: {
+    all: "Todos",
+    mates: "Mates",
+    customMates: "Mates Personalizados",
+    bombillas: "Bombillas",
+    bombillones: "Bombillones",
+    materas: "Materas",
+    termos: "Termos",
+    kitMatero: "Kit Matero",
+    knives: "Cuchillos",
+    leatherGoods: "Marroquinería",
+    gifts: "Regalos personalizados",
+    belts: "Cintos",
+    footwear: "Calzado",
+    boots: "Botas",
+    wallets: "Billeteras",
+    bags: "Carteras",
+  },
+  en: {
+    all: "All",
+    mates: "Mates",
+    customMates: "Custom Mates",
+    bombillas: "Bombillas",
+    bombillones: "Large bombillas",
+    materas: "Materas",
+    termos: "Thermoses",
+    kitMatero: "Mate Kits",
+    knives: "Knives",
+    leatherGoods: "Leather goods",
+    gifts: "Custom gifts",
+    belts: "Belts",
+    footwear: "Footwear",
+    boots: "Boots",
+    wallets: "Wallets",
+    bags: "Bags",
+  },
+  pt: {
+    all: "Todos",
+    mates: "Mates",
+    customMates: "Mates Personalizados",
+    bombillas: "Bombillas",
+    bombillones: "Bombillas grandes",
+    materas: "Materas",
+    termos: "Garrafas térmicas",
+    kitMatero: "Kits de mate",
+    knives: "Facas",
+    leatherGoods: "Artigos de couro",
+    gifts: "Presentes personalizados",
+    belts: "Cintos",
+    footwear: "Calçados",
+    boots: "Botas",
+    wallets: "Carteiras",
+    bags: "Bolsas",
+  },
+};
+
 type Props = {
   products: Product[];
   filters: CatalogFilters;
@@ -64,6 +121,24 @@ export function CatalogFilterControlsMobile({
 }: Props) {
   const t = useTranslations("catalog");
   const locale = useLocale();
+
+  const getCategoryLabel = (labelKey: string) => {
+    const dict = CATEGORY_FALLBACKS[locale] || CATEGORY_FALLBACKS.es;
+    const fallback = dict[labelKey] || CATEGORY_FALLBACKS.es[labelKey] || labelKey;
+    if (labelKey === "customMates") {
+      return fallback || "Mates Personalizados";
+    }
+    try {
+      if (typeof (t as any).has === "function" && !(t as any).has(labelKey)) {
+        return fallback;
+      }
+      const raw = t(labelKey as any);
+      if (!raw || raw.startsWith("catalog.")) return fallback;
+      return raw;
+    } catch {
+      return fallback;
+    }
+  };
 
   const getColorLabel = (labelKey: string, value: string) => {
     let rawLabel = "";
@@ -108,7 +183,7 @@ export function CatalogFilterControlsMobile({
           >
             {categoryOptions.map((option) => (
               <option key={option.value} value={option.value}>
-                {t(option.labelKey)}
+                {getCategoryLabel(option.labelKey)}
               </option>
             ))}
           </select>

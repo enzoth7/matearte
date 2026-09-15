@@ -162,9 +162,9 @@ export function CatalogMobile({ products, exchangeRates }: { products: Product[]
                   value={filters.sort}
                   onChange={(event) => catalogFilters.setSort(event.target.value as CatalogSort)}
                 >
-                  <option value="editorial">{t("featured")}</option>
                   <option value="nombre">{t("name")}</option>
                   <option value="precio">{t("price")}</option>
+                  <option value="editorial">{t("featured")}</option>
                 </select>
                 <Image src={`${assetRoot}/chevron-down.svg`} alt="" width={10} height={10} aria-hidden="true" />
               </span>

@@ -62,14 +62,14 @@ export async function getStorefrontProducts(locale: Locale) {
       .select(storefrontSelection)
       .eq("published", true)
       .neq("category", "sandbox")
-      .order("created_at", { ascending: true });
+      .order("name", { ascending: true });
     if (missingStructuredCatalogColumn(error)) {
       ({ data, error } = await client
         .from("commerce_products")
         .select(legacyStorefrontSelection)
         .eq("published", true)
         .neq("category", "sandbox")
-        .order("created_at", { ascending: true }));
+        .order("name", { ascending: true }));
     }
     if (error) throw error;
     return mergeStorefrontProducts(
