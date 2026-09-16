@@ -1,7 +1,7 @@
 /** Stable storage/query contracts shared by Commerce Admin and the storefront. */
 export const catalogCategoryIds = [
-  "mates", "bombillas", "termos", "materas", "kits-materos", "cuchillos",
-  "botas", "cintos", "billeteras", "carteras",
+  "billeteras", "bombillas", "botas", "carteras", "cintos", "cuchillos",
+  "kits-materos", "materas", "mates", "mates-personalizados", "termos",
 ] as const;
 export const catalogMaterialIds = ["cuero", "plata", "alpaca", "acero-inoxidable", "otros-metales", "madera", "estampado"] as const;
 export const catalogProductTypeIds = ["imperial", "camionero", "criollo", "torpedo"] as const;
@@ -102,10 +102,10 @@ const labels = {
 
 export const defaultCatalogTaxonomy: CatalogTaxonomy = {
   categories: [
-    category("mates", "Mates", null, 10), category("bombillas", "Bombillas", null, 20), category("termos", "Termos", null, 30),
-    category("materas", "Materas", null, 40), category("kits-materos", "Kits materos", null, 50), category("cuchillos", "Cuchillos", null, 60),
-    category("botas", "Botas", null, 70), category("cintos", "Cintos", null, 80),
-    category("billeteras", "Billeteras", null, 81), category("carteras", "Carteras", null, 82),
+    category("billeteras", "Billeteras", null, 10), category("bombillas", "Bombillas", null, 20), category("botas", "Botas", null, 30),
+    category("carteras", "Carteras", null, 40), category("cintos", "Cintos", null, 50), category("cuchillos", "Cuchillos", null, 60),
+    category("kits-materos", "Kits materos", null, 70), category("materas", "Materas", null, 80), category("mates", "Mates", null, 90),
+    category("mates-personalizados", "Mates Personalizados", null, 100), category("termos", "Termos", null, 110),
   ],
   attributes: [
     attribute("tipo-mate", "Modelo de mate", "enum", "select"), attribute("material", "Material", "enum", "select"),
@@ -143,6 +143,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
   ],
   rules: [
     rule("mates","tipo-mate","product",10), rule("mates","material","product",20), rule("mates","acabado","product",30), rule("mates","color","variant",100), rule("mates","tamano","variant",110),
+    rule("mates-personalizados","tipo-mate","product",10), rule("mates-personalizados","material","product",20), rule("mates-personalizados","acabado","product",30), rule("mates-personalizados","color","variant",100), rule("mates-personalizados","tamano","variant",110),
     rule("bombillas","tipo-bombilla","product",10,true), rule("bombillas","diametro-cano-mm","product",20), rule("bombillas","largo-mm","product",30,false,false), rule("bombillas","material-cuerpo","product",40), rule("bombillas","forma-pico","product",50), rule("bombillas","material-pico","product",60), rule("bombillas","decoracion","product",70), rule("bombillas","color","variant",100),
     rule("termos","material","product",10), rule("termos","acabado","product",20), rule("termos","color","variant",100,true), rule("termos","capacidad-ml","variant",110),
     rule("materas","forma","product",10,true), rule("materas","material","product",20), rule("materas","acabado","product",40), rule("materas","color","variant",100,true),
