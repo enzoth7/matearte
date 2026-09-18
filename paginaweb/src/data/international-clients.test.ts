@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { customerTestimonials, destinationCountries, getLocalizedInternationalData, testimonialRows } from "@/data/international-clients";
 
 describe("clientes internacionales", () => {
-  it("registra los dieciocho destinos solicitados sin duplicados", () => {
-    expect(destinationCountries).toHaveLength(18);
-    expect(new Set(destinationCountries.map((country) => country.code)).size).toBe(18);
+  it("registra los veinte destinos solicitados sin duplicados", () => {
+    expect(destinationCountries).toHaveLength(20);
+    expect(new Set(destinationCountries.map((country) => country.code)).size).toBe(20);
   });
 
   it("mantiene los destinos en orden alfabético", () => {

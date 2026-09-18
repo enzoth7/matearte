@@ -4736,6 +4736,29 @@ img {
   stroke-width: 1.7;
 }
 
+.international-map-country--origin {
+  fill: var(--walnut);
+  stroke: var(--ink);
+  stroke-width: 1.2;
+  cursor: pointer;
+  transition: fill 220ms ease, stroke 220ms ease, filter 220ms ease;
+}
+
+.international-map-country--origin:hover,
+.international-map-country--origin:focus-visible {
+  fill: #1a100b;
+  stroke: var(--paper);
+  stroke-width: 1.6;
+  outline: none;
+}
+
+.international-map-country--origin[data-active] {
+  fill: #1a100b;
+  stroke: var(--paper);
+  stroke-width: 2;
+  filter: drop-shadow(0 2px 5px rgb(45 29 22 / 0.45));
+}
+
 .international-map-caption {
   position: absolute;
   right: 1rem;
@@ -4798,7 +4821,26 @@ img {
   transition: color 180ms ease, padding-left 180ms ease, background-color 180ms ease;
 }
 
-.international-destination-button span {
+.international-destination-flag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 15px;
+  flex-shrink: 0;
+  border-radius: 2px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgb(23 19 15 / 0.12);
+}
+
+.international-flag-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.international-destination-button span:not(.international-destination-flag) {
   color: rgb(23 19 15 / 0.72);
   font-size: 0.65rem;
   font-weight: 650;
@@ -8528,7 +8570,8 @@ input:checked + .catalog-mobile-checkbox::after {
 
   .clientes-page .international-map-section {
     box-sizing: border-box;
-    height: 1171.719px;
+    height: auto;
+    min-height: 940px;
     padding: 88px 0 80px;
     background: #f5f0e8;
   }
@@ -8578,15 +8621,16 @@ input:checked + .catalog-mobile-checkbox::after {
 
   .clientes-page .international-map-layout {
     display: grid;
-    height: 748px;
-    grid-template-columns: minmax(0, 3fr) minmax(232px, 1fr);
+    height: auto;
+    min-height: 540px;
+    grid-template-columns: minmax(0, 1.4fr) minmax(460px, 1.05fr);
     align-items: stretch;
     gap: 32px;
   }
 
   .clientes-page .international-map-canvas {
-    min-height: 0;
-    height: 748px;
+    height: 100%;
+    min-height: 540px;
     border-width: 0.667px;
     border-radius: 12px;
     background: #fffdf8;
@@ -8631,37 +8675,50 @@ input:checked + .catalog-mobile-checkbox::after {
 
   .clientes-page .international-destination-list {
     display: grid;
-    height: 748px;
-    grid-template-rows: repeat(17, 44px);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: column;
+    grid-template-rows: repeat(10, 54px);
+    column-gap: 20px;
+    height: 540px;
     align-content: start;
+    border-bottom: 0.667px solid rgb(23 19 15 / 0.15);
   }
 
   .clientes-page .international-destination-button {
-    display: grid;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     box-sizing: border-box;
-    min-height: 44px;
-    height: 44px;
-    grid-template-columns: 40px minmax(0, 1fr);
-    border-top-width: 0.667px;
-    padding: 7.867px 0 7.2px;
+    min-height: 54px;
+    height: 54px;
+    border: 0;
+    border-top: 0.667px solid rgb(23 19 15 / 0.15);
+    padding: 0 10px;
+    border-radius: 4px;
     color: #17130f;
-  }
-
-  .clientes-page .international-destination-button span {
-    visibility: hidden;
+    transition: background-color 160ms ease, color 160ms ease, padding-left 160ms ease;
+    cursor: pointer;
   }
 
   .clientes-page .international-destination-button strong {
     font-size: 14.08px;
     font-weight: 560;
     line-height: 22.528px;
+    color: inherit;
+    transition: color 160ms ease;
   }
 
   .clientes-page .international-destination-button:hover,
   .clientes-page .international-destination-button[data-active] {
-    padding-left: 8px;
-    background: rgb(199 160 113 / 0.14);
+    padding-left: 14px;
+    background: #ede6d9;
     color: #8a5a3b;
+  }
+
+  .clientes-page .international-destination-button:hover strong,
+  .clientes-page .international-destination-button[data-active] strong {
+    color: #8a5a3b;
+    font-weight: 600;
   }
 
   .clientes-page .legal-note {

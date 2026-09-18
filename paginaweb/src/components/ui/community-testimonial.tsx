@@ -1,7 +1,7 @@
 "use client";
 
 import { Pause, Play } from "@phosphor-icons/react";
-import { AE, AR, AU, BR, CL, CR, DE, ES, FR, GB, HN, IT, MX, PH, PY, RU, SG, US, UY } from "country-flag-icons/react/3x2";
+import { AE, AR, AU, BR, CL, CR, DE, ES, FR, GB, HN, IT, JP, MX, NL, PH, PY, RU, SG, US, UY } from "country-flag-icons/react/3x2";
 import { useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
 import { useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
@@ -26,7 +26,7 @@ type TestimonialsSectionProps = {
 
 type ScrollerStyle = CSSProperties & { "--scroll-duration": string };
 
-const flagComponents = { AE, AR, AU, BR, CL, CR, DE, ES, FR, GB, HN, IT, MX, PH, PY, RU, SG, US, UY } satisfies Record<TestimonialCountryCode, typeof AR>;
+const flagComponents = { AE, AR, AU, BR, CL, CR, DE, ES, FR, GB, HN, IT, JP, MX, NL, PH, PY, RU, SG, US, UY } satisfies Record<TestimonialCountryCode, typeof AR>;
 const subscribeToHydration = () => () => undefined;
 const getClientHydrationSnapshot = () => true;
 const getServerHydrationSnapshot = () => false;

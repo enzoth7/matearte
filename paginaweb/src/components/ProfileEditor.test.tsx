@@ -1,5 +1,5 @@
-import { fireEvent, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderWithIntl as render } from "@/test-utils";
 import { ProfileEditor, type ProfileFormData } from "./ProfileEditor";
 
@@ -20,6 +20,10 @@ const initial: ProfileFormData = {
 };
 
 describe("ProfileEditor", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   it("updates the phone prefix and provinces when the country changes", () => {
     render(<ProfileEditor initial={initial} welcome={false} />);
 
@@ -31,5 +35,16 @@ describe("ProfileEditor", () => {
     expect(screen.getByRole("textbox", { name: /prefijo internacional \+61/i })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Queensland" })).toBeInTheDocument();
     expect(screen.getByLabelText("Estado / provincia")).toHaveValue("");
+  });
+
+  it("allows selecting a phone country independently from residence country", () => {
+    render(<ProfileEditor initial={initial} welcome={false} />);
+
+    fireEvent.change(screen.getByLabelText("País"), { target: { value: "NL" } });
+    expect(screen.getByLabelText("País")).toHaveValue("NL");
+
+    fireEvent.change(screen.getByLabelText("País y prefijo del teléfono"), { target: { value: "IT" } });
+
+    expect(screen.getByRole("textbox", { name: /prefijo internacional \+39/i })).toBeInTheDocument();
   });
 });

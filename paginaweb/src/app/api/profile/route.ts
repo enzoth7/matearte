@@ -1,6 +1,6 @@
 import { countries } from "country-flag-icons";
 import { apiError, apiOk } from "@/lib/api";
-import { countryCallingCode, countryRegions } from "@/lib/countries";
+import { countryRegions } from "@/lib/countries";
 import { requireUser } from "@/lib/supabase/server";
 
 const allowedCountries = new Set(countries.filter((code) => /^[A-Z]{2}$/.test(code)));
@@ -34,9 +34,8 @@ export async function POST(request: Request) {
     if (department && regions.length > 0 && !regions.some((region) => region.name === department)) {
       return apiError("La provincia seleccionada no corresponde al país elegido.");
     }
-    const callingCode = countryCallingCode(countryCode);
-    if (phone && callingCode && !phone.startsWith(`${callingCode} `)) {
-      return apiError(`El teléfono debe incluir el prefijo internacional ${callingCode}.`);
+    if (phone && !/^\+\d{1,4}\s+\S+/.test(phone)) {
+      return apiError("El teléfono debe incluir un prefijo internacional válido (por ejemplo +598 o +39).");
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return apiError("La fecha de cumpleaños no es válida.");
     const birth = new Date(`${birthDate}T00:00:00Z`);

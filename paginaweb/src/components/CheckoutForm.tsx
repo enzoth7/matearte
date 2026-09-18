@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { formatMoney } from "@/lib/money";
-import { countryOptionsForLocale, countryRegions, countryName } from "@/lib/countries";
+import { countryCallingCode, countryOptionsForLocale, countryPhoneOptionsForLocale, countryRegions, countryName, internationalPhoneNumber, localPhoneNumber, parsePhoneNumber } from "@/lib/countries";
 import type { Locale } from "@/types/catalog";
 
 type Rate = { id: string; name: string; rate_minor: number; is_pickup: boolean; departments: string[] };
@@ -24,10 +24,19 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
   const locale = useLocale() as Locale;
   const t = useTranslations("checkout");
   const tCart = useTranslations("cart");
+  const phoneCountryOptions = countryPhoneOptionsForLocale(locale);
   const [purchaseRegion, setPurchaseRegion] = useState<PurchaseRegion>(initialDestination.international ? "international" : "uruguay");
   const [rates, setRates] = useState<Rate[]>([]);
   const [rateId, setRateId] = useState("");
-  const [form, setForm] = useState(initialCustomer);
+  const [parsedPhone] = useState(() => parsePhoneNumber(initialCustomer.phone, "UY"));
+  const [phoneCountry, setPhoneCountry] = useState(parsedPhone.phoneCountryCode);
+  const [phoneNumber, setPhoneNumber] = useState(parsedPhone.localNumber);
+  const [form, setForm] = useState(() => ({
+    ...initialCustomer,
+    phone: parsedPhone.localNumber
+      ? internationalPhoneNumber(parsedPhone.phoneCountryCode, parsedPhone.localNumber)
+      : initialCustomer.phone,
+  }));
   const [international, setInternational] = useState({ country: initialDestination.country, city: initialDestination.city });
   const [subtotalMinor, setSubtotalMinor] = useState<number | null>(null);
   const [ratesLoading, setRatesLoading] = useState(true);
@@ -86,10 +95,28 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
   const update = (key: keyof typeof form, value: string) => setForm((current) => ({ ...current, [key]: value }));
   const updateInternational = (key: keyof typeof international, value: string) => setInternational((current) => ({ ...current, [key]: value }));
 
+  const callingCode = countryCallingCode(phoneCountry);
+
+  const updatePhoneCountry = (countryCode: string) => {
+    setPhoneCountry(countryCode);
+    const fullPhone = internationalPhoneNumber(countryCode, phoneNumber);
+    setForm((current) => ({ ...current, phone: fullPhone }));
+  };
+
+  const updatePhone = (value: string) => {
+    const localNumber = localPhoneNumber(value, phoneCountry);
+    setPhoneNumber(localNumber);
+    const fullPhone = internationalPhoneNumber(phoneCountry, localNumber);
+    setForm((current) => ({ ...current, phone: fullPhone }));
+  };
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setError("");
+    const fullPhone = internationalPhoneNumber(phoneCountry, phoneNumber);
+    const customerPayload = { ...form, phone: fullPhone };
+    setForm((current) => ({ ...current, phone: fullPhone }));
     try {
       if (isInternational) {
         const storedKey = sessionStorage.getItem("matearte_international_order_idempotency");
@@ -98,7 +125,7 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
         const response = await fetch("/api/orders/international", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-          body: JSON.stringify({ customer: form, destination: { ...international, country: countryName(international.country, locale), department: form.department, address: form.address }, locale }),
+          body: JSON.stringify({ customer: customerPayload, destination: { ...international, country: countryName(international.country, locale), department: form.department, address: form.address }, locale }),
         });
         const text = await response.text();
         const value = text ? JSON.parse(text) : {};
@@ -114,7 +141,7 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-        body: JSON.stringify({ shippingRateId: rateId, customer: form, locale }),
+        body: JSON.stringify({ shippingRateId: rateId, customer: customerPayload, locale }),
       });
       const text = await response.text();
       const value = text ? JSON.parse(text) : {};
@@ -168,17 +195,32 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
             </label>
             <label className="text-sm font-semibold text-[var(--walnut)]">
               {t("phone")}
-              <input
-                name="tel"
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
-                required
-                maxLength={40}
-                value={form.phone}
-                onChange={(event) => update("phone", event.target.value)}
-                className={fieldClass}
-              />
+              <div className="mt-2 flex min-h-12 w-full rounded-lg border border-[#b8a88a]/60 bg-transparent transition focus-within:border-[var(--leather)] focus-within:ring-2 focus-within:ring-[var(--rawhide)]/30">
+                <select
+                  aria-label={t("phoneCountryAria")}
+                  value={phoneCountry}
+                  onChange={(event) => updatePhoneCountry(event.target.value)}
+                  className="max-w-[42%] shrink-0 rounded-l-lg border-r border-[#b8a88a]/60 bg-transparent px-2.5 text-xs text-[var(--walnut)] outline-none transition sm:max-w-[48%] sm:text-sm"
+                >
+                  {phoneCountryOptions.map((c) => (
+                    <option key={c.code} value={c.code} className="bg-[#fffdf8] text-[#17130f]">
+                      {c.code} ({c.callingCode}) · {c.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  name="tel"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel-national"
+                  required
+                  maxLength={32}
+                  value={phoneNumber}
+                  onChange={(event) => updatePhone(event.target.value)}
+                  aria-label={callingCode ? `${t("phone")}. ${callingCode}` : t("phone")}
+                  className="min-w-0 flex-1 rounded-r-lg bg-transparent px-3 text-[15px] text-[var(--walnut)] outline-none"
+                />
+              </div>
             </label>
           </div>
 

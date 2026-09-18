@@ -31,6 +31,23 @@ export function countryOptionsForLocale(locale: Locale = "es") {
     .sort((left, right) => sorter.compare(left.name, right.name));
 }
 
+export function countryPhoneOptionsForLocale(locale: Locale = "es") {
+  const names = displayNames(locale);
+  const sorter = collator(locale);
+  return countries
+    .filter((code) => /^[A-Z]{2}$/.test(code))
+    .map((code) => {
+      const callingCode = countryCallingCode(code);
+      return {
+        code,
+        callingCode,
+        name: names.of(code) || code,
+      };
+    })
+    .filter(({ name, callingCode }) => callingCode && name)
+    .sort((a, b) => sorter.compare(a.name, b.name));
+}
+
 export const countryOptions = countryOptionsForLocale("es");
 
 export function countryName(code?: string | null, locale: Locale = "es") {
@@ -67,3 +84,65 @@ export function internationalPhoneNumber(countryCode: string, localNumber: strin
     : value;
   return `${callingCode} ${withoutRepeatedPrefix}`.trim();
 }
+
+export type ParsedPhoneNumber = {
+  phoneCountryCode: string;
+  callingCode: string;
+  localNumber: string;
+};
+
+export function parsePhoneNumber(
+  phone: string,
+  fallbackCountryCode: string = "UY",
+): ParsedPhoneNumber {
+  const fallbackUpper = fallbackCountryCode && /^[A-Z]{2}$/i.test(fallbackCountryCode)
+    ? fallbackCountryCode.toUpperCase()
+    : "UY";
+  const fallbackCalling = countryCallingCode(fallbackUpper) || "+598";
+  const trimmed = (phone || "").trim();
+
+  if (!trimmed.startsWith("+")) {
+    return {
+      phoneCountryCode: fallbackUpper,
+      callingCode: fallbackCalling,
+      localNumber: trimmed,
+    };
+  }
+
+  const afterPlus = trimmed.slice(1).trimStart();
+  const validCountryCodes = countries.filter((code) => /^[A-Z]{2}$/.test(code));
+
+  for (let len = 4; len >= 1; len--) {
+    const candidateDigits = afterPlus.slice(0, len);
+    if (candidateDigits.length !== len || !/^\d+$/.test(candidateDigits)) {
+      continue;
+    }
+    const candidateCode = `+${candidateDigits}`;
+
+    if (countryCallingCode(fallbackUpper) === candidateCode) {
+      return {
+        phoneCountryCode: fallbackUpper,
+        callingCode: candidateCode,
+        localNumber: afterPlus.slice(len).trimStart(),
+      };
+    }
+
+    const matchedCountry = validCountryCodes.find(
+      (code) => countryCallingCode(code) === candidateCode,
+    );
+    if (matchedCountry) {
+      return {
+        phoneCountryCode: matchedCountry,
+        callingCode: candidateCode,
+        localNumber: afterPlus.slice(len).trimStart(),
+      };
+    }
+  }
+
+  return {
+    phoneCountryCode: fallbackUpper,
+    callingCode: fallbackCalling,
+    localNumber: afterPlus,
+  };
+}
+

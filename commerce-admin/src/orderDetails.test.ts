@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { getCatalogOrderOptionDetails, getOrderDeliveryDetails } from './App';
+import {
+  CALLING_CODE_TO_COUNTRY,
+  formatOrderPhone,
+  getCatalogOrderOptionDetails,
+  getItemPricing,
+  getItemSku,
+  getOrderDeliveryDetails,
+  type OrderItem,
+} from './App';
 import { defaultCatalogTaxonomy } from '../../shared/catalog-taxonomy';
 
 describe('getOrderDeliveryDetails', () => {
@@ -20,7 +28,14 @@ describe('getOrderDeliveryDetails', () => {
     expect(details).toMatchObject({
       isPickup: false,
       contactName: 'Ana Pérez',
-      phone: '099 123 456',
+      phone: '+598 099 123 456 (Uruguay)',
+      phoneInfo: {
+        prefix: '+598',
+        number: '099 123 456',
+        country: 'Uruguay',
+        display: '+598 099 123 456 (Uruguay)',
+        whatsappDigits: '59899123456',
+      },
       email: 'ana@example.com',
       address: '18 de Julio 1234',
       city: 'Paysandú',
@@ -48,6 +63,14 @@ describe('getOrderDeliveryDetails', () => {
       city: 'São Paulo',
       department: 'SP',
       country: 'Brasil',
+      phone: '+55 11 99999-9999 (Brasil)',
+      phoneInfo: {
+        prefix: '+55',
+        number: '11 99999-9999',
+        country: 'Brasil',
+        display: '+55 11 99999-9999 (Brasil)',
+        whatsappDigits: '5511999999999',
+      },
       methodLabel: 'Envío internacional a coordinar',
     });
   });
@@ -66,6 +89,170 @@ describe('getOrderDeliveryDetails', () => {
       country: 'Uruguay',
       methodLabel: 'Retiro',
     });
+  });
+
+  it('resuelve caso Pedido 23: orden con destino internacional (Holanda / NL) y celular de Italia (+39)', () => {
+    const details = getOrderDeliveryDetails({
+      shipping_method: 'international_coordination',
+      customer_snapshot: {
+        fullName: 'Marco Rossi',
+        phone: '+39 340 1234567',
+        email: 'marco@example.it',
+      },
+      shipping_snapshot: {
+        address: 'Keizersgracht 42',
+        city: 'Amsterdam',
+        department: 'North Holland',
+        country: 'Holanda',
+        countryCode: 'NL',
+      },
+    });
+
+    expect(details.country).toBe('Holanda');
+    expect(details.phoneInfo).toEqual({
+      prefix: '+39',
+      number: '340 1234567',
+      country: 'Italia',
+      display: '+39 340 1234567 (Italia)',
+      whatsappDigits: '393401234567',
+    });
+    expect(details.phone).toBe('+39 340 1234567 (Italia)');
+    expect(details.methodLabel).toBe('Envío internacional a coordinar');
+  });
+
+  it('resuelve caso Pedido 23 cuando shipping_snapshot solo provee countryCode NL', () => {
+    const details = getOrderDeliveryDetails({
+      shipping_method: 'international_coordination',
+      customer_snapshot: {
+        fullName: 'Marco Rossi',
+        phone: '+39 340 1234567',
+      },
+      shipping_snapshot: {
+        countryCode: 'NL',
+      },
+    });
+
+    expect(details.country).toBe('Holanda');
+    expect(details.phoneInfo?.prefix).toBe('+39');
+    expect(details.phoneInfo?.country).toBe('Italia');
+  });
+
+  it('resuelve caso celular nacional de Uruguay (099 123 456)', () => {
+    const details = getOrderDeliveryDetails({
+      shipping_method: 'national_shipping',
+      customer_snapshot: {
+        fullName: 'Lucía Fernández',
+        phone: '099 123 456',
+      },
+      shipping_snapshot: {},
+    });
+
+    expect(details.phoneInfo).toEqual({
+      prefix: '+598',
+      number: '099 123 456',
+      country: 'Uruguay',
+      display: '+598 099 123 456 (Uruguay)',
+      whatsappDigits: '59899123456',
+    });
+    expect(details.phone).toBe('+598 099 123 456 (Uruguay)');
+  });
+
+  it('resuelve caso celular de Brasil (+55 11 99999-9999)', () => {
+    const details = getOrderDeliveryDetails({
+      shipping_method: 'international_coordination',
+      customer_snapshot: {
+        fullName: 'Carlos Eduardo',
+        phone: '+55 11 99999-9999',
+      },
+      shipping_snapshot: {
+        country: 'Brasil',
+      },
+    });
+
+    expect(details.phoneInfo).toEqual({
+      prefix: '+55',
+      number: '11 99999-9999',
+      country: 'Brasil',
+      display: '+55 11 99999-9999 (Brasil)',
+      whatsappDigits: '5511999999999',
+    });
+    expect(details.phone).toBe('+55 11 99999-9999 (Brasil)');
+  });
+});
+
+describe('formatOrderPhone', () => {
+  it('extrae el prefijo internacional si empieza con + y asigna el país correspondiente', () => {
+    const info = formatOrderPhone('+39 340 1234567');
+    expect(info).toEqual({
+      prefix: '+39',
+      number: '340 1234567',
+      country: 'Italia',
+      display: '+39 340 1234567 (Italia)',
+      whatsappDigits: '393401234567',
+    });
+  });
+
+  it('formatea celular nacional de Uruguay comenzando con 09', () => {
+    const info = formatOrderPhone('099 123 456');
+    expect(info).toEqual({
+      prefix: '+598',
+      number: '099 123 456',
+      country: 'Uruguay',
+      display: '+598 099 123 456 (Uruguay)',
+      whatsappDigits: '59899123456',
+    });
+  });
+
+  it('formatea celular de Brasil con prefijo +55', () => {
+    const info = formatOrderPhone('+55 11 99999-9999');
+    expect(info).toEqual({
+      prefix: '+55',
+      number: '11 99999-9999',
+      country: 'Brasil',
+      display: '+55 11 99999-9999 (Brasil)',
+      whatsappDigits: '5511999999999',
+    });
+  });
+
+  it('maneja números que comiencen con dígitos de código conocidos sin + (ej. 39 para Italia, 598 para Uruguay)', () => {
+    expect(formatOrderPhone('39 340 123456')).toEqual({
+      prefix: '+39',
+      number: '340 123456',
+      country: 'Italia',
+      display: '+39 340 123456 (Italia)',
+      whatsappDigits: '39340123456',
+    });
+
+    expect(formatOrderPhone('598 99 123 456')).toEqual({
+      prefix: '+598',
+      number: '99 123 456',
+      country: 'Uruguay',
+      display: '+598 99 123 456 (Uruguay)',
+      whatsappDigits: '59899123456',
+    });
+  });
+
+  it('maneja números con prefijo 00 internacional', () => {
+    expect(formatOrderPhone('0039 340 123456')).toEqual({
+      prefix: '+39',
+      number: '340 123456',
+      country: 'Italia',
+      display: '+39 340 123456 (Italia)',
+      whatsappDigits: '39340123456',
+    });
+  });
+
+  it('retorna null cuando el teléfono está vacío o es nulo', () => {
+    expect(formatOrderPhone('')).toBeNull();
+    expect(formatOrderPhone('   ')).toBeNull();
+    expect(formatOrderPhone(undefined)).toBeNull();
+    expect(formatOrderPhone(null)).toBeNull();
+  });
+
+  it('soporta claves del diccionario CALLING_CODE_TO_COUNTRY', () => {
+    expect(CALLING_CODE_TO_COUNTRY['+598']).toBe('Uruguay');
+    expect(CALLING_CODE_TO_COUNTRY['+39']).toBe('Italia');
+    expect(CALLING_CODE_TO_COUNTRY['+55']).toBe('Brasil');
   });
 });
 
@@ -100,4 +287,207 @@ describe('getCatalogOrderOptionDetails', () => {
       ['Talle', '105'],
     ]);
   });
+
+  it('soporta color plano legacy en la variante cuando no está en option_values', () => {
+    const details = getCatalogOrderOptionDetails({
+      item_type: 'catalog',
+      immutable_snapshot: {
+        product: { category_code: 'mates' },
+        variant: { color: 'marron' },
+      },
+    }, defaultCatalogTaxonomy);
+
+    expect(details).toEqual([
+      { attribute: 'color', label: 'Color', value: 'Marrón' },
+    ]);
+  });
+
+  it('prioriza color en option_values sobre el color legacy en la variante', () => {
+    const details = getCatalogOrderOptionDetails({
+      item_type: 'catalog',
+      immutable_snapshot: {
+        product: { category_code: 'mates' },
+        variant: { color: 'marron', option_values: { color: 'negro' } },
+      },
+    }, defaultCatalogTaxonomy);
+
+    expect(details).toEqual([
+      { attribute: 'color', label: 'Color', value: 'Negro' },
+    ]);
+  });
+
+  it('retorna array vacío para items de diseño o personalizados (exclusión)', () => {
+    const details = getCatalogOrderOptionDetails({
+      item_type: 'design',
+      immutable_snapshot: {
+        product: { category_code: 'mates' },
+        variant: { color: 'marron', option_values: { color: 'marron' } },
+      },
+    }, defaultCatalogTaxonomy);
+
+    expect(details).toEqual([]);
+  });
 });
+
+describe('getItemSku', () => {
+  it('prioriza item.sku directo cuando está disponible', () => {
+    const sku = getItemSku({
+      item_type: 'catalog',
+      sku: 'MAT-CAM-01',
+      immutable_snapshot: {
+        sku: 'SNAP-01',
+        variant: { sku: 'VAR-01' },
+      },
+    });
+
+    expect(sku).toBe('MAT-CAM-01');
+  });
+
+  it('usa immutable_snapshot.variant.sku si item.sku no está presente', () => {
+    const sku = getItemSku({
+      item_type: 'catalog',
+      sku: null,
+      immutable_snapshot: {
+        sku: 'SNAP-01',
+        variant: { sku: 'VAR-01' },
+      },
+    });
+
+    expect(sku).toBe('VAR-01');
+  });
+
+  it('usa immutable_snapshot.sku si ni item.sku ni variant.sku están presentes', () => {
+    const sku = getItemSku({
+      item_type: 'catalog',
+      sku: undefined,
+      immutable_snapshot: {
+        sku: 'SNAP-01',
+        variant: {},
+      },
+    });
+
+    expect(sku).toBe('SNAP-01');
+  });
+
+  it('retorna string vacío si ningún SKU está disponible en catálogo', () => {
+    const sku = getItemSku({
+      item_type: 'catalog',
+      sku: null,
+      immutable_snapshot: {},
+    });
+
+    expect(sku).toBe('');
+  });
+
+  it('retorna string vacío para items personalizados (item_type !== "catalog")', () => {
+    const sku = getItemSku({
+      item_type: 'design',
+      sku: 'DES-001',
+      immutable_snapshot: {
+        sku: 'DES-SNAP-001',
+        variant: { sku: 'DES-VAR-001' },
+      },
+    });
+
+    expect(sku).toBe('');
+  });
+});
+
+describe('getItemPricing', () => {
+  it('resuelve precios directos de unit_price_minor y total_minor en el item', () => {
+    const item: OrderItem = {
+      id: 'item-1',
+      item_type: 'catalog',
+      title: 'Mate Camionero',
+      quantity: 2,
+      unit_price_minor: 150000,
+      total_minor: 300000,
+      requires_review: false,
+      review_status: null,
+      immutable_snapshot: {},
+    };
+
+    const pricing = getItemPricing(item);
+    expect(pricing).toEqual({
+      unitPriceMinor: 150000,
+      totalMinor: 300000,
+    });
+  });
+
+  it('calcula totalMinor usando cantidad y precio unitario si total_minor no está', () => {
+    const item: OrderItem = {
+      id: 'item-2',
+      item_type: 'catalog',
+      title: 'Bombilla Pico de Loro',
+      quantity: 3,
+      unit_price_minor: 45000,
+      requires_review: false,
+      review_status: null,
+      immutable_snapshot: {},
+    };
+
+    const pricing = getItemPricing(item);
+    expect(pricing).toEqual({
+      unitPriceMinor: 45000,
+      totalMinor: 135000,
+    });
+  });
+
+  it('obtiene precio unitario desde variant.price_minor en immutable_snapshot', () => {
+    const item: OrderItem = {
+      id: 'item-3',
+      item_type: 'catalog',
+      title: 'Matera de Cuero',
+      quantity: 1,
+      requires_review: false,
+      review_status: null,
+      immutable_snapshot: {
+        variant: { price_minor: 220000 },
+      },
+    };
+
+    const pricing = getItemPricing(item);
+    expect(pricing).toEqual({
+      unitPriceMinor: 220000,
+      totalMinor: 220000,
+    });
+  });
+
+  it('deduce unitPriceMinor dividiendo totalMinor por cantidad si falta el unitario', () => {
+    const item: OrderItem = {
+      id: 'item-4',
+      item_type: 'design',
+      title: 'Mate Personalizado con Grabado',
+      quantity: 2,
+      total_minor: 500000,
+      requires_review: true,
+      review_status: 'pending',
+      immutable_snapshot: {},
+    };
+
+    const pricing = getItemPricing(item);
+    expect(pricing).toEqual({
+      unitPriceMinor: 250000,
+      totalMinor: 500000,
+    });
+  });
+
+  it('retorna 0 y 0 cuando no hay ninguna información de precio', () => {
+    const item: OrderItem = {
+      id: 'item-5',
+      item_type: 'catalog',
+      title: 'Item sin precio',
+      quantity: 1,
+      requires_review: false,
+      review_status: null,
+      immutable_snapshot: {},
+    };
+
+    const pricing = getItemPricing(item);
+    expect(pricing).toEqual({
+      unitPriceMinor: 0,
+      totalMinor: 0,
+    });
+  });
+});
+

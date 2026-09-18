@@ -238,6 +238,14 @@ td small { display: block; }
 .missing-delivery-data { color: var(--danger) !important; }
 .order-delivery-summary--compact { margin-bottom: 1.15rem; background: #fffaf2; }
 .order-delivery-summary--compact .order-delivery-grid { grid-template-columns: 1fr; }
+.order-delivery-phone-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.order-delivery-phone-text { display: flex; align-items: center; gap: 0.35rem; color: #142019; font-weight: 500; font-size: 0.82rem; }
+.order-delivery-phone-badge { display: inline-block; font-family: monospace; font-weight: 700; font-size: 0.72rem; padding: 0.1rem 0.35rem; border-radius: 3px; background: #edf3ec; color: #274836; border: 1px solid #cfe0ce; }
+.order-delivery-grid .order-delivery-phone-badge { font-family: monospace; font-weight: 700; font-size: 0.72rem; color: #274836; }
+.order-delivery-grid .order-delivery-phone-text { color: #142019; font-weight: 500; font-size: 0.82rem; }
+.order-delivery-grid .order-delivery-phone-text > span { color: #142019; font-weight: 500; font-size: 0.82rem; }
+.order-delivery-phone-country { color: #55685d; font-size: 0.75rem; }
+.order-delivery-wa-link { font-size: 0.72rem; font-weight: 600; color: #1b6e41; text-decoration: underline; cursor: pointer; }
 .order-detail-items { margin-top: 1rem; border: 1px solid var(--line); border-radius: .55rem; background: #fff; padding: 1rem; }
 .order-detail-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .order-detail-section-heading h3 { margin: 0; }
@@ -246,6 +254,13 @@ td small { display: block; }
 .order-detail-items li strong { white-space: nowrap; }
 .order-detail-item-copy { display: grid; min-width: 0; gap: .5rem; }
 .order-detail-item-copy > span { color: #142019; font-weight: 750; }
+.order-detail-item-header { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.order-detail-item-header > span { color: #142019; font-weight: 750; }
+.order-detail-sku-badge { display: inline-flex; align-items: center; border-radius: .25rem; background: #e8ede9; color: #2d4538; padding: .15rem .45rem; font-family: 'IBM Plex Mono', monospace; font-size: .68rem; font-weight: 600; letter-spacing: .02em; }
+.order-detail-custom-badge { display: inline-flex; align-items: center; border-radius: .25rem; background: #fef3e2; color: #9a531b; border: 1px solid #f1d7ba; padding: .15rem .45rem; font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+.order-detail-item-total { display: flex; flex-direction: column; align-items: flex-end; text-align: right; gap: .15rem; white-space: nowrap; flex-shrink: 0; }
+.order-detail-item-total strong { color: #142019; font-size: .84rem; font-weight: 750; }
+.order-detail-item-amount { color: var(--muted); font-size: .72rem; font-weight: 500; }
 .order-detail-item-copy dl { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0; }
 .order-detail-item-copy dl > div { display: inline-flex; gap: .25rem; border-radius: 999px; background: #edf3ee; padding: .25rem .5rem; }
 .order-detail-item-copy dt { color: #52625a; font-size: .66rem; font-weight: 800; text-transform: uppercase; }

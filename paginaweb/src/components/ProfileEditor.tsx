@@ -4,7 +4,7 @@ import { CheckCircle } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
-import { countryCallingCode, countryOptionsForLocale, countryRegions, internationalPhoneNumber, localPhoneNumber } from "@/lib/countries";
+import { countryCallingCode, countryOptionsForLocale, countryPhoneOptionsForLocale, countryRegions, internationalPhoneNumber, localPhoneNumber, parsePhoneNumber } from "@/lib/countries";
 import type { Locale } from "@/types/catalog";
 import { isOrderRedirect, type StoreRedirect } from "@/lib/auth-redirect";
 import { localizeCanonicalPath } from "@/i18n/paths";
@@ -26,9 +26,13 @@ export function ProfileEditor({ initial, welcome, postSaveRedirect }: { initial:
   const locale = useLocale() as Locale;
   const t = useTranslations("profileEditor");
   const countryOptions = countryOptionsForLocale(locale);
+  const phoneCountryOptions = countryPhoneOptionsForLocale(locale);
   const firstInvalid = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState(initial);
-  const [phoneNumber, setPhoneNumber] = useState(() => localPhoneNumber(initial.phone, initial.countryCode));
+  const [parsedPhone] = useState(() => parsePhoneNumber(initial.phone, initial.countryCode || "UY"));
+  const [phoneCountry, setPhoneCountry] = useState(parsedPhone.phoneCountryCode);
+  const [phoneNumber, setPhoneNumber] = useState(parsedPhone.localNumber);
+  const [phoneCountryManuallyChanged, setPhoneCountryManuallyChanged] = useState(false);
   const [avatar, setAvatar] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -40,17 +44,36 @@ export function ProfileEditor({ initial, welcome, postSaveRedirect }: { initial:
   };
 
   const regions = countryRegions(form.countryCode);
-  const callingCode = countryCallingCode(form.countryCode);
+  const callingCode = countryCallingCode(phoneCountry);
 
   const updateCountry = (countryCode: string) => {
     setSaved(false);
-    setForm((current) => ({ ...current, countryCode, department: "", phone: internationalPhoneNumber(countryCode, phoneNumber) }));
+    const nextPhoneCountry = !phoneCountryManuallyChanged ? countryCode : phoneCountry;
+    if (!phoneCountryManuallyChanged) {
+      setPhoneCountry(countryCode);
+    }
+    setForm((current) => ({
+      ...current,
+      countryCode,
+      department: "",
+      phone: internationalPhoneNumber(nextPhoneCountry, phoneNumber),
+    }));
+  };
+
+  const updatePhoneCountry = (code: string) => {
+    setSaved(false);
+    setPhoneCountryManuallyChanged(true);
+    setPhoneCountry(code);
+    setForm((current) => ({
+      ...current,
+      phone: internationalPhoneNumber(code, phoneNumber),
+    }));
   };
 
   const updatePhone = (value: string) => {
-    const localNumber = localPhoneNumber(value, form.countryCode);
+    const localNumber = localPhoneNumber(value, phoneCountry);
     setPhoneNumber(localNumber);
-    update("phone", internationalPhoneNumber(form.countryCode, localNumber));
+    update("phone", internationalPhoneNumber(phoneCountry, localNumber));
   };
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -108,7 +131,30 @@ export function ProfileEditor({ initial, welcome, postSaveRedirect }: { initial:
 
               <label className="text-xs font-semibold text-[#17130f]">
                 {t("phone")}
-                <input type="tel" inputMode="tel" autoComplete="tel-national" maxLength={32} value={phoneNumber} onChange={(event) => updatePhone(event.target.value)} aria-label={callingCode ? `${t("phone")}. ${t("callingCode", { code: callingCode })}` : t("chooseCountryForCode")} className={fieldClass} />
+                <div className="mt-2 flex min-h-12 w-full rounded-lg border border-[#311c12]/75 bg-[#fffdf8] transition focus-within:border-[#79452d] focus-within:ring-2 focus-within:ring-[#c7a071]/45">
+                  <select
+                    aria-label={t("phoneCountryAria")}
+                    value={phoneCountry}
+                    onChange={(event) => updatePhoneCountry(event.target.value)}
+                    className="max-w-[44%] shrink-0 rounded-l-lg border-r border-[#311c12]/30 bg-transparent px-2.5 text-xs text-[#311c12] outline-none transition sm:max-w-[48%] sm:text-sm"
+                  >
+                    {phoneCountryOptions.map((country) => (
+                      <option key={country.code} value={country.code}>
+                        {country.code} ({country.callingCode}) · {country.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel-national"
+                    maxLength={32}
+                    value={phoneNumber}
+                    onChange={(event) => updatePhone(event.target.value)}
+                    aria-label={callingCode ? `${t("phone")}. ${t("callingCode", { code: callingCode })}` : t("chooseCountryForCode")}
+                    className="min-w-0 flex-1 rounded-r-lg bg-transparent px-3 text-sm text-[#311c12] outline-none"
+                  />
+                </div>
                 <span className="sr-only">{callingCode ? t("callingCode", { code: callingCode }) : t("chooseCountryForCode")}. {t("phoneHelp")}</span>
               </label>
 

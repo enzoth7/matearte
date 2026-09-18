@@ -58,7 +58,7 @@ type SaleMode = 'standard'|'made_to_order';
 type ProductVariant = {id:string;sku:string;name:string;price_minor:number;active:boolean;color?:string|null;weight_grams?:number|null;option_values?:unknown};
 type Product = { id:string; editorial_slug:string; name:string; category:string; category_code?:string|null; description:string; sale_mode:SaleMode; published:boolean; catalog_filters?:unknown; attributes?:unknown; commerce_variants:ProductVariant[]; commerce_product_images:ProductImage[] };
 type ProductForm = {name:string;category:string;description:string;saleMode:SaleMode;catalogFilters:CatalogAttributes;attributes:CatalogValueMap};
-type OrderItem = {id:string;item_type:'catalog'|'design';title:string;quantity:number;requires_review:boolean;review_status:string|null;immutable_snapshot:Record<string,unknown>};
+export type OrderItem = {id:string;item_type:'catalog'|'design';title:string;quantity:number;requires_review:boolean;review_status:string|null;immutable_snapshot:Record<string,unknown>;sku?:string|null;unit_price_minor?:number|null;total_minor?:number|null};
 type Order = { id:string;order_number:number;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;order_items:OrderItem[] };
 type Rate = {id:string;code:string;name:string;departments:string[];rate_minor:number;is_pickup:boolean;active:boolean};
 const money=(minor:number)=>new Intl.NumberFormat('es-UY',{style:'currency',currency:'UYU',maximumFractionDigits:0}).format(minor/100);
@@ -90,17 +90,69 @@ function Icon({ name }: { name: IconName }) {
 }
 
 const textValue = (value: unknown) => typeof value === 'string' ? value.trim() : '';
+const numberValue = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
 const recordValue = (value: unknown): Record<string,unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string,unknown> : {};
 const snapshotValue = (snapshot: Record<string, unknown>, ...keys:string[]) => keys.map(key=>textValue(snapshot[key])).find(Boolean) || '';
 const orderCustomer = (snapshot: Record<string, unknown>) => snapshotValue(snapshot,'fullName','full_name','name','email') || 'Cliente sin nombre';
+export function getItemSku(item: Pick<OrderItem, 'item_type' | 'sku' | 'immutable_snapshot'>): string {
+  if (item.item_type !== 'catalog') return '';
+  const itemSku = textValue(item.sku);
+  if (itemSku) return itemSku;
+  const snapshot = recordValue(item.immutable_snapshot);
+  const variant = recordValue(snapshot.variant);
+  const variantSku = textValue(variant.sku);
+  if (variantSku) return variantSku;
+  return textValue(snapshot.sku);
+}
+export function getItemPricing(item: OrderItem): { unitPriceMinor: number; totalMinor: number } {
+  const snapshot = recordValue(item.immutable_snapshot);
+  const variant = recordValue(snapshot.variant);
+
+  const rawUnitPrice = [
+    item.unit_price_minor,
+    snapshot.unit_price_minor,
+    snapshot.unitPriceMinor,
+    snapshot.price_minor,
+    snapshot.price,
+    variant.price_minor,
+    variant.price,
+  ].map(numberValue).find((val): val is number => val !== null) ?? null;
+
+  const rawTotal = [
+    item.total_minor,
+    snapshot.total_minor,
+    snapshot.totalMinor,
+  ].map(numberValue).find((val): val is number => val !== null) ?? null;
+
+  const quantity = typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1;
+
+  if (rawUnitPrice !== null && rawTotal !== null) {
+    return { unitPriceMinor: rawUnitPrice, totalMinor: rawTotal };
+  }
+  if (rawUnitPrice !== null) {
+    return { unitPriceMinor: rawUnitPrice, totalMinor: rawUnitPrice * quantity };
+  }
+  if (rawTotal !== null) {
+    return { unitPriceMinor: Math.round(rawTotal / quantity), totalMinor: rawTotal };
+  }
+  return { unitPriceMinor: 0, totalMinor: 0 };
+}
 export function getCatalogOrderOptionDetails(item:Pick<OrderItem,'item_type'|'immutable_snapshot'>,taxonomy:CatalogTaxonomy=defaultCatalogTaxonomy) {
   if (item.item_type !== 'catalog') return [];
   const snapshot = recordValue(item.immutable_snapshot);
   const variant = recordValue(snapshot.variant);
   const product = recordValue(snapshot.product);
+  const legacyColor: CatalogValueMap = textValue(variant.color) ? { color: textValue(variant.color) } : {};
   const variantOptions = normalizeCatalogValueMap(variant.option_values);
   const selectedOptions = normalizeCatalogValueMap(snapshot.selectedOptions ?? snapshot.optionValues ?? snapshot.option_values_override);
-  const options = {...variantOptions,...selectedOptions};
+  const options: CatalogValueMap = {...legacyColor,...variantOptions,...selectedOptions};
   const category = textValue(product.category_code) || textValue(product.category);
   const orderedAttributes = taxonomyRulesForCategory(taxonomy,category,'variant').map(rule=>rule.attribute_code);
   const keys = [...new Set([...orderedAttributes,...Object.keys(options).sort()])].filter(key=>options[key]!==undefined&&options[key]!=="");
@@ -110,6 +162,164 @@ export function getCatalogOrderOptionDetails(item:Pick<OrderItem,'item_type'|'im
     value: catalogValueLabel(taxonomy,attribute,options[attribute]),
   }));
 }
+
+export const CALLING_CODE_TO_COUNTRY: Record<string, string> = {
+  '+598': 'Uruguay',
+  '+54': 'Argentina',
+  '+55': 'Brasil',
+  '+56': 'Chile',
+  '+34': 'España',
+  '+1': 'EE. UU. / Canadá',
+  '+39': 'Italia',
+  '+31': 'Países Bajos',
+  '+33': 'Francia',
+  '+49': 'Alemania',
+  '+44': 'Reino Unido',
+  '+81': 'Japón',
+  '+52': 'México',
+  '+595': 'Paraguay',
+  '+506': 'Costa Rica',
+  '+504': 'Honduras',
+  '+61': 'Australia',
+  '+971': 'Emiratos Árabes',
+  '+63': 'Filipinas',
+  '+7': 'Rusia',
+  '+65': 'Singapur',
+  '+351': 'Portugal',
+  '+41': 'Suiza',
+  '+43': 'Austria',
+  '+32': 'Bélgica',
+  '+46': 'Suecia',
+  '+47': 'Noruega',
+  '+45': 'Dinamarca',
+  '+358': 'Finlandia',
+  '+48': 'Polonia',
+  '+57': 'Colombia',
+  '+51': 'Perú',
+  '+591': 'Bolivia',
+  '+593': 'Ecuador',
+  '+58': 'Venezuela',
+  '+507': 'Panamá',
+};
+
+export type OrderPhoneInfo = {
+  prefix: string;
+  number: string;
+  country: string;
+  display: string;
+  whatsappDigits: string;
+};
+
+export function formatOrderPhone(rawPhone?: unknown): OrderPhoneInfo | null {
+  if (rawPhone === null || rawPhone === undefined) return null;
+  const raw = typeof rawPhone === 'string'
+    ? rawPhone.trim()
+    : typeof rawPhone === 'number'
+      ? String(rawPhone).trim()
+      : '';
+  if (!raw) return null;
+
+  const normalized = raw.replace(/^\((\+?\d+)\)\s*/, '$1 ');
+  let prefix = '';
+  let country = '';
+  let number = '';
+
+  const knownEntries = Object.entries(CALLING_CODE_TO_COUNTRY)
+    .sort(([a], [b]) => b.length - a.length);
+
+  if (normalized.startsWith('+')) {
+    const match = knownEntries.find(([code]) => normalized.startsWith(code));
+    if (match) {
+      prefix = match[0];
+      country = match[1];
+      number = normalized.slice(prefix.length).replace(/^[\s.-]+/, '').trim();
+    } else {
+      const genericMatch = normalized.match(/^(\+\d{1,4})(?:[\s.-]+(.*)|(\d+.*))?$/);
+      if (genericMatch) {
+        prefix = genericMatch[1];
+        country = '';
+        number = (genericMatch[2] ?? genericMatch[3] ?? '').trim();
+      } else {
+        prefix = '+';
+        country = '';
+        number = normalized.slice(1).trim();
+      }
+    }
+  } else if (normalized.startsWith('00')) {
+    return formatOrderPhone('+' + normalized.slice(2).trim());
+  } else if (/^09\d/.test(normalized.replace(/\s+/g, '')) || normalized.startsWith('09')) {
+    prefix = '+598';
+    country = 'Uruguay';
+    number = normalized;
+  } else {
+    let matchedCode = false;
+    for (const [codeWithPlus, countryName] of knownEntries) {
+      const codeDigits = codeWithPlus.slice(1);
+      if (normalized.startsWith(codeDigits)) {
+        const rest = normalized.slice(codeDigits.length);
+        const restDigits = rest.replace(/\D/g, '');
+        if (codeDigits.length === 1) {
+          if (/^[\s.-]/.test(rest) || restDigits.length === 10) {
+            prefix = codeWithPlus;
+            country = countryName;
+            number = rest.replace(/^[\s.-]+/, '').trim();
+            matchedCode = true;
+            break;
+          }
+        } else {
+          if (/^[\s.-]/.test(rest) || restDigits.length >= 6) {
+            prefix = codeWithPlus;
+            country = countryName;
+            number = rest.replace(/^[\s.-]+/, '').trim();
+            matchedCode = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!matchedCode) {
+      prefix = '';
+      country = '';
+      number = normalized;
+    }
+  }
+
+  let display = '';
+  if (prefix && number) {
+    display = country ? `${prefix} ${number} (${country})` : `${prefix} ${number}`;
+  } else if (prefix) {
+    display = country ? `${prefix} (${country})` : prefix;
+  } else {
+    display = country ? `${number} (${country})` : number;
+  }
+
+  const nationalDigits = number.replace(/\D/g, '');
+  const prefixDigits = prefix.replace(/\D/g, '');
+  let whatsappDigits = '';
+
+  if (country === 'Uruguay' || prefix === '+598') {
+    const localDigits = nationalDigits.startsWith('0') ? nationalDigits.slice(1) : nationalDigits;
+    whatsappDigits = localDigits ? `598${localDigits}` : '';
+  } else if (prefixDigits) {
+    whatsappDigits = `${prefixDigits}${nationalDigits}`;
+  } else if (nationalDigits.length === 9 && nationalDigits.startsWith('0')) {
+    whatsappDigits = `598${nationalDigits.slice(1)}`;
+  } else if (nationalDigits.length === 8 && nationalDigits.startsWith('9')) {
+    whatsappDigits = `598${nationalDigits}`;
+  } else {
+    whatsappDigits = nationalDigits;
+  }
+
+  return {
+    prefix,
+    number,
+    country,
+    display,
+    whatsappDigits,
+  };
+}
+
 export function getOrderDeliveryDetails(order:Pick<Order,'shipping_method'|'shipping_snapshot'|'customer_snapshot'>) {
   const customer = order.customer_snapshot || {};
   const shipping = order.shipping_snapshot || {};
@@ -117,11 +327,19 @@ export function getOrderDeliveryDetails(order:Pick<Order,'shipping_method'|'ship
   const isInternational = order.shipping_method === 'international_coordination';
   const source = isInternational ? shipping : customer;
   const countryCode = snapshotValue(source,'country','countryCode','country_code');
-  const country = countryCode.toUpperCase() === 'UY' ? 'Uruguay' : countryCode || (!isInternational ? 'Uruguay' : '');
+  const upperCountry = countryCode.toUpperCase();
+  const country = upperCountry === 'UY'
+    ? 'Uruguay'
+    : upperCountry === 'NL'
+      ? 'Holanda'
+      : countryCode || (!isInternational ? 'Uruguay' : '');
+  const rawPhone = snapshotValue(customer, 'phone', 'telephone', 'celular', 'whatsapp');
+  const phoneInfo = formatOrderPhone(rawPhone);
   return {
     isPickup,
     contactName: orderCustomer(customer),
-    phone: snapshotValue(customer,'phone','telephone'),
+    phone: phoneInfo ? phoneInfo.display : rawPhone,
+    phoneInfo,
     email: snapshotValue(customer,'email'),
     address: snapshotValue(source,'address','addressLine1','address_line1'),
     city: snapshotValue(source,'city'),
@@ -1184,7 +1402,28 @@ function OrderDeliverySummary({order,compact=false}:{order:Order;compact?:boolea
       <div>
         <small>Cliente</small>
         <strong>{details.contactName}</strong>
-        {details.phone&&<span>{details.phone}</span>}
+        {details.phoneInfo ? (
+          <div className="order-delivery-phone-row">
+            <span className="order-delivery-phone-text">
+              <span className="order-delivery-phone-badge">{details.phoneInfo.prefix || 'Tel'}</span>
+              <span>{details.phoneInfo.number || details.phone}</span>
+              {details.phoneInfo.country && <small className="order-delivery-phone-country">({details.phoneInfo.country})</small>}
+            </span>
+            {details.phoneInfo.whatsappDigits && (
+              <a
+                href={`https://wa.me/${details.phoneInfo.whatsappDigits}`}
+                target="_blank"
+                rel="noreferrer"
+                className="order-delivery-wa-link"
+                title="Contactar por WhatsApp"
+              >
+                WhatsApp
+              </a>
+            )}
+          </div>
+        ) : details.phone ? (
+          <span>{details.phone}</span>
+        ) : null}
         {details.email&&<span>{details.email}</span>}
       </div>
       <div>
@@ -1219,7 +1458,7 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
     return params.get('q') || params.get('search') || params.get('order') || '';
   });
   const load = useCallback(async() => {
-    const {data,error} = await supabase.from('orders').select('id,order_number,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,total_minor,created_at,customer_snapshot,order_items(id,item_type,title,quantity,requires_review,review_status,immutable_snapshot)').order('created_at',{ascending:false}).limit(100);
+    const {data,error} = await supabase.from('orders').select('id,order_number,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,total_minor,created_at,customer_snapshot,order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot)').order('created_at',{ascending:false}).limit(100);
     if (error) onNotice(`No se pudieron cargar los pedidos: ${error.message}`);
     setOrders((data||[]) as Order[]);
   },[onNotice]);
@@ -1470,7 +1709,41 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
             <OrderDeliverySummary order={detailOrder}/>
             <section className="order-detail-items" aria-labelledby="order-detail-items-title">
               <div className="order-detail-section-heading"><h3 id="order-detail-items-title">Artículos</h3><strong>{money(detailOrder.total_minor)}</strong></div>
-              <ul>{detailOrder.order_items.map(item=>{const options=getCatalogOrderOptionDetails(item,taxonomy);return <li key={item.id}><div className="order-detail-item-copy"><span>{item.title}</span>{options.length>0&&<dl>{options.map(option=><div key={option.attribute}><dt>{option.label}</dt><dd>{option.value}</dd></div>)}</dl>}</div><strong>{item.quantity} ×</strong></li>})}</ul>
+              <ul>{detailOrder.order_items.map(item => {
+                const isCustom = item.item_type === 'design' || Boolean(item.requires_review);
+                const sku = !isCustom ? getItemSku(item) : '';
+                const options = !isCustom ? getCatalogOrderOptionDetails(item, taxonomy) : [];
+                const pricing = getItemPricing(item);
+
+                return (
+                  <li key={item.id}>
+                    <div className="order-detail-item-copy">
+                      <div className="order-detail-item-header">
+                        <span>{item.title}</span>
+                        {isCustom ? (
+                          <span className="order-detail-custom-badge">Personalizado</span>
+                        ) : (
+                          sku ? <span className="order-detail-sku-badge">SKU: {sku}</span> : null
+                        )}
+                      </div>
+                      {options.length > 0 && (
+                        <dl>
+                          {options.map(option => (
+                            <div key={option.attribute}>
+                              <dt>{option.label}</dt>
+                              <dd>{option.value}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      )}
+                    </div>
+                    <div className="order-detail-item-total">
+                      <span className="order-detail-item-amount">{item.quantity} × {money(pricing.unitPriceMinor)}</span>
+                      <strong>{money(pricing.totalMinor)}</strong>
+                    </div>
+                  </li>
+                );
+              })}</ul>
             </section>
             {detailOrder.status==='shipped'&&<section className="order-tracking-detail" aria-label="Seguimiento guardado"><small>Envío registrado</small><strong>{detailOrder.shipping_carrier}</strong><span>{detailOrder.tracking_code}</span></section>}
             <footer>

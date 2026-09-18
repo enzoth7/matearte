@@ -56,4 +56,14 @@ describe("CheckoutForm", () => {
     expect(screen.getByLabelText(/^ciudad$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^dirección$/i)).toBeInTheDocument();
   });
+
+  it("permite seleccionar el país y prefijo del teléfono", async () => {
+    mockCheckoutFetch();
+    render(<CheckoutForm initialCustomer={initialCustomer} />);
+
+    expect(screen.getByLabelText("País y prefijo del teléfono")).toHaveValue("UY");
+    fireEvent.change(screen.getByLabelText("País y prefijo del teléfono"), { target: { value: "IT" } });
+    expect(screen.getByLabelText("País y prefijo del teléfono")).toHaveValue("IT");
+    expect(screen.getByRole("textbox", { name: /teléfono.*(\+39)/i })).toBeInTheDocument();
+  });
 });
