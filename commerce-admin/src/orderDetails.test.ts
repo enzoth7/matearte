@@ -91,19 +91,44 @@ describe('getOrderDeliveryDetails', () => {
     });
   });
 
-  it('resuelve caso Pedido 23: orden con destino internacional (Holanda / NL) y celular de Italia (+39)', () => {
+  it('resuelve caso Pedido 23: orden con destino internacional (Holanda / NL) y celular de Italia (+39 3921475447)', () => {
     const details = getOrderDeliveryDetails({
       shipping_method: 'international_coordination',
       customer_snapshot: {
-        fullName: 'Marco Rossi',
-        phone: '+39 340 1234567',
-        email: 'marco@example.it',
+        fullName: 'Lorenzo Riccio',
+        phone: '+39 3921475447',
+        email: 'loryriccio21@gmail.com',
       },
       shipping_snapshot: {
-        address: 'Keizersgracht 42',
-        city: 'Amsterdam',
-        department: 'North Holland',
-        country: 'Holanda',
+        address: 'Krusplein 430, 3012',
+        city: 'Rotterdam',
+        department: 'Zuid-Holland',
+        country: 'Países Bajos',
+        countryCode: 'NL',
+      },
+    });
+
+    expect(details.country).toBe('Países Bajos');
+    expect(details.phoneInfo).toEqual({
+      prefix: '+39',
+      number: '3921475447',
+      country: 'Italia',
+      display: '+39 3921475447 (Italia)',
+      whatsappDigits: '393921475447',
+    });
+    expect(details.phone).toBe('+39 3921475447 (Italia)');
+    expect(details.methodLabel).toBe('Envío internacional a coordinar');
+  });
+
+  it('resuelve caso Pedido 23 cuando el teléfono se guardó sin signo más (3921475447)', () => {
+    const details = getOrderDeliveryDetails({
+      shipping_method: 'international_coordination',
+      customer_snapshot: {
+        fullName: 'Lorenzo Riccio',
+        phone: '3921475447',
+        email: 'loryriccio21@gmail.com',
+      },
+      shipping_snapshot: {
         countryCode: 'NL',
       },
     });
@@ -111,30 +136,12 @@ describe('getOrderDeliveryDetails', () => {
     expect(details.country).toBe('Holanda');
     expect(details.phoneInfo).toEqual({
       prefix: '+39',
-      number: '340 1234567',
+      number: '3921475447',
       country: 'Italia',
-      display: '+39 340 1234567 (Italia)',
-      whatsappDigits: '393401234567',
+      display: '+39 3921475447 (Italia)',
+      whatsappDigits: '393921475447',
     });
-    expect(details.phone).toBe('+39 340 1234567 (Italia)');
-    expect(details.methodLabel).toBe('Envío internacional a coordinar');
-  });
-
-  it('resuelve caso Pedido 23 cuando shipping_snapshot solo provee countryCode NL', () => {
-    const details = getOrderDeliveryDetails({
-      shipping_method: 'international_coordination',
-      customer_snapshot: {
-        fullName: 'Marco Rossi',
-        phone: '+39 340 1234567',
-      },
-      shipping_snapshot: {
-        countryCode: 'NL',
-      },
-    });
-
-    expect(details.country).toBe('Holanda');
-    expect(details.phoneInfo?.prefix).toBe('+39');
-    expect(details.phoneInfo?.country).toBe('Italia');
+    expect(details.phoneInfo?.whatsappDigits).toBe('393921475447');
   });
 
   it('resuelve caso celular nacional de Uruguay (099 123 456)', () => {

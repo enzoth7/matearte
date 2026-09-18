@@ -253,26 +253,42 @@ export function formatOrderPhone(rawPhone?: unknown): OrderPhoneInfo | null {
     number = normalized;
   } else {
     let matchedCode = false;
-    for (const [codeWithPlus, countryName] of knownEntries) {
-      const codeDigits = codeWithPlus.slice(1);
-      if (normalized.startsWith(codeDigits)) {
-        const rest = normalized.slice(codeDigits.length);
-        const restDigits = rest.replace(/\D/g, '');
-        if (codeDigits.length === 1) {
-          if (/^[\s.-]/.test(rest) || restDigits.length === 10) {
-            prefix = codeWithPlus;
-            country = countryName;
-            number = rest.replace(/^[\s.-]+/, '').trim();
-            matchedCode = true;
-            break;
-          }
-        } else {
-          if (/^[\s.-]/.test(rest) || restDigits.length >= 6) {
-            prefix = codeWithPlus;
-            country = countryName;
-            number = rest.replace(/^[\s.-]+/, '').trim();
-            matchedCode = true;
-            break;
+    const allDigits = normalized.replace(/\D/g, '');
+
+    if (allDigits.length === 10 && allDigits.startsWith('39')) {
+      // Celulares de Italia (10 dígitos arrancando en 39x, ej. Wind Tre 392xxxxxxx)
+      prefix = '+39';
+      country = 'Italia';
+      number = allDigits;
+      matchedCode = true;
+    } else if (allDigits.length === 12 && allDigits.startsWith('393')) {
+      // Formato internacional sin '+' (prefijo 39 + 10 dígitos de celular nacional)
+      prefix = '+39';
+      country = 'Italia';
+      number = allDigits.slice(2);
+      matchedCode = true;
+    } else {
+      for (const [codeWithPlus, countryName] of knownEntries) {
+        const codeDigits = codeWithPlus.slice(1);
+        if (normalized.startsWith(codeDigits)) {
+          const rest = normalized.slice(codeDigits.length);
+          const restDigits = rest.replace(/\D/g, '');
+          if (codeDigits.length === 1) {
+            if (/^[\s.-]/.test(rest) || restDigits.length === 10) {
+              prefix = codeWithPlus;
+              country = countryName;
+              number = rest.replace(/^[\s.-]+/, '').trim();
+              matchedCode = true;
+              break;
+            }
+          } else {
+            if (/^[\s.-]/.test(rest) || (codeDigits !== '39' && restDigits.length >= 8)) {
+              prefix = codeWithPlus;
+              country = countryName;
+              number = rest.replace(/^[\s.-]+/, '').trim();
+              matchedCode = true;
+              break;
+            }
           }
         }
       }
