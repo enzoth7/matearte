@@ -5,11 +5,13 @@ import {
   customerName,
   customerPhone,
   formatFileSize,
+  getPaymentStatusValue,
   getPersonalizedItems,
   orderStatusLabel,
   paymentStatusLabel,
   summarizePersonalization,
   whatsappContactUrl,
+  type PaymentStatusOption,
   type PersonalizedOrder,
   type PrivateAsset,
   type SurfaceSideSummary,
@@ -90,6 +92,7 @@ export function PersonalizedOrders({ onNotice }: { onNotice: (value: string) => 
   const [loading, setLoading] = useState(true);
   const [assetLinks, setAssetLinks] = useState<Record<string, AssetLink>>({});
   const [assetWarning, setAssetWarning] = useState('');
+  const [busyId, setBusyId] = useState('');
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   const load = useCallback(async () => {
@@ -111,6 +114,87 @@ export function PersonalizedOrders({ onNotice }: { onNotice: (value: string) => 
   }, [onNotice]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const updatePaymentStatus = async (order: PersonalizedOrder, nextValue: PaymentStatusOption) => {
+    setBusyId(order.id);
+    setOrders((prev) => prev.map((item) => {
+      if (item.id !== order.id) return item;
+      if (nextValue === 'completed') {
+        return {
+          ...item,
+          paid_at: item.paid_at || new Date().toISOString(),
+          status: ['cancelled', 'manual_review', 'pending_payment'].includes(item.status) ? 'ready_for_production' : item.status,
+        };
+      }
+      if (nextValue === 'cancelled') {
+        return { ...item, status: 'cancelled' };
+      }
+      return {
+        ...item,
+        paid_at: null,
+        status: item.status === 'cancelled' ? 'manual_review' : item.status,
+      };
+    }));
+
+    try {
+      if (nextValue === 'completed') {
+        const orderUpdates: Record<string, unknown> = {
+          paid_at: order.paid_at || new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        if (['cancelled', 'manual_review', 'pending_payment'].includes(order.status)) {
+          orderUpdates.status = 'ready_for_production';
+          orderUpdates.cancelled_at = null;
+        }
+        const { error: ordErr } = await supabase
+          .from('orders')
+          .update(orderUpdates)
+          .eq('id', order.id);
+        if (ordErr) throw ordErr;
+
+        await supabase
+          .from('order_items')
+          .update({ review_status: 'approved' })
+          .eq('order_id', order.id)
+          .eq('review_status', 'pending');
+
+        onNotice(`Pedido #${order.order_number}: marcado como completado.`);
+      } else if (nextValue === 'cancelled') {
+        const { error: ordErr } = await supabase
+          .from('orders')
+          .update({
+            status: 'cancelled',
+            cancelled_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', order.id);
+        if (ordErr) throw ordErr;
+
+        onNotice(`Pedido #${order.order_number}: marcado como cancelado.`);
+      } else {
+        const { error: ordErr } = await supabase
+          .from('orders')
+          .update({
+            paid_at: null,
+            cancelled_at: null,
+            status: 'manual_review',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', order.id);
+        if (ordErr) throw ordErr;
+
+        onNotice(`Pedido #${order.order_number}: marcado como pendiente.`);
+      }
+
+      await load();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al actualizar el estado.';
+      onNotice(`No se pudo actualizar el estado: ${msg}`);
+      await load();
+    } finally {
+      setBusyId('');
+    }
+  };
 
   const selected = orders.find((order) => order.id === selectedId) || null;
   const selectedItems = useMemo(() => selected ? getPersonalizedItems(selected) : [], [selected]);
@@ -175,7 +259,19 @@ export function PersonalizedOrders({ onNotice }: { onNotice: (value: string) => 
                   <td>{readableDate(order.created_at)}</td>
                   <td>{customerName(order.customer_snapshot)}</td>
                   <td>{itemCount} {itemCount === 1 ? 'personalizado' : 'personalizados'}</td>
-                  <td><span className="status-badge">{paymentStatusLabel(order)}</span></td>
+                  <td className="payment-status-cell">
+                    <select
+                      className={`status-select status-select--${getPaymentStatusValue(order)}`}
+                      value={getPaymentStatusValue(order)}
+                      onChange={(e) => void updatePaymentStatus(order, e.target.value as PaymentStatusOption)}
+                      disabled={busyId === order.id}
+                      aria-label={`Cambiar estado de pago del pedido #${order.order_number}`}
+                    >
+                      <option value="pending">Pendiente</option>
+                      <option value="completed">Completado</option>
+                      <option value="cancelled">Cancelado</option>
+                    </select>
+                  </td>
                   <td><span className={`status-badge status-${order.status}`}>{orderStatusLabel(order.status)}</span></td>
                   <td className="numeric"><strong>{money(order.total_minor)}</strong></td>
                   <td className="action-column"><button className="icon-button" type="button" onClick={() => setSelectedId(order.id)} aria-label={`Ver detalle del pedido ${order.order_number}`} title="Ver detalle"><SearchIcon/></button></td>
@@ -201,7 +297,22 @@ export function PersonalizedOrders({ onNotice }: { onNotice: (value: string) => 
             </section>
 
             <div className="order-status-grid">
-              <div><small>Pago</small><strong>{paymentStatusLabel(selected)}</strong></div>
+              <div>
+                <small>Pago</small>
+                <div style={{ marginTop: '0.25rem' }}>
+                  <select
+                    className={`status-select status-select--${getPaymentStatusValue(selected)}`}
+                    value={getPaymentStatusValue(selected)}
+                    onChange={(e) => void updatePaymentStatus(selected, e.target.value as PaymentStatusOption)}
+                    disabled={busyId === selected.id}
+                    aria-label={`Cambiar estado de pago del pedido #${selected.order_number}`}
+                  >
+                    <option value="pending">Pendiente</option>
+                    <option value="completed">Completado</option>
+                    <option value="cancelled">Cancelado</option>
+                  </select>
+                </div>
+              </div>
               <div><small>Producción</small><strong>{orderStatusLabel(selected.status)}</strong></div>
               <div><small>Total del pedido</small><strong>{money(selected.total_minor)}</strong></div>
               <div><small>Contacto</small><strong>{phone || email || 'Sin contacto guardado'}</strong></div>

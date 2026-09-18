@@ -208,6 +208,50 @@ td small { display: block; }
 .status-shipped { border-color: #91b9c8; background: #e4f3f7; color: #174f63; }
 .status-paid_pending_review, .status-manual_review { border-color: #e2bc99; background: #fff0df; color: #814315; }
 .status-cancelled, .status-refunded, .status-payment_failed { border-color: #e5bcb7; background: #fff0ed; color: #8a261e; }
+.payment-status-cell { white-space: nowrap; }
+.status-select {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.85rem;
+  border-radius: 999px;
+  padding: 0.2rem 1.6rem 0.2rem 0.75rem;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 0.65rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.status-select:hover:not(:disabled) { filter: brightness(0.97); }
+.status-select:focus-visible { outline: 2px solid var(--brown); outline-offset: 1px; }
+.status-select:disabled { opacity: 0.6; cursor: wait; }
+.status-select--pending {
+  border: 1px solid #ccd5ce;
+  background-color: #edf1ee;
+  color: #35483d;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2335483d'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E");
+}
+.status-select--completed {
+  border: 1px solid #add0ba;
+  background-color: #e4f3e8;
+  color: #1e5b38;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%231e5b38'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E");
+}
+.status-select--cancelled {
+  border: 1px solid #e5bcb7;
+  background-color: #fff0ed;
+  color: #8a261e;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%238a261e'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E");
+}
+.status-select option { background-color: #fff; color: #142019; font-weight: 600; padding: 0.25rem 0.5rem; }
 .row-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 .row-action-note { margin-top: .35rem; color: var(--muted); line-height: 1.4; }
 .compact-button { min-height: 44px; padding: .35rem .55rem; font-size: .68rem; white-space: nowrap; }

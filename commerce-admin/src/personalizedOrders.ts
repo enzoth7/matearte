@@ -337,11 +337,23 @@ export function orderStatusLabel(status: string): string {
   return labels[status] || humanizeId(status);
 }
 
+export type PaymentStatusOption = 'pending' | 'completed' | 'cancelled';
+
+export function getPaymentStatusValue(order: Pick<PersonalizedOrder, 'paid_at' | 'status'>): PaymentStatusOption {
+  if (order.status === 'cancelled' || order.status === 'refunded' || order.status === 'payment_failed') {
+    return 'cancelled';
+  }
+  if (order.paid_at) {
+    return 'completed';
+  }
+  return 'pending';
+}
+
 export function paymentStatusLabel(order: Pick<PersonalizedOrder, 'paid_at' | 'status'>): string {
   if (order.status === 'refunded') return 'Reembolsado';
   if (order.status === 'cancelled') return 'Cancelado';
   if (order.status === 'payment_failed') return 'Pago fallido';
-  return order.paid_at ? 'Pagado' : 'Pendiente';
+  return order.paid_at ? 'Completado' : 'Pendiente';
 }
 
 export function formatFileSize(bytes: number | null): string {

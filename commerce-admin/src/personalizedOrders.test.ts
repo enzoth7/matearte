@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   collectPrivateAssets,
+  getPaymentStatusValue,
   normalizeWhatsappPhone,
+  paymentStatusLabel,
   summarizePersonalization,
   whatsappContactUrl,
   type PersonalizedOrderItem,
@@ -118,5 +120,28 @@ describe('contacto por WhatsApp', () => {
 
   it('no genera un enlace si el pedido no tiene teléfono', () => {
     expect(whatsappContactUrl({ fullName: 'Ana Pérez' }, 42)).toBe('');
+  });
+});
+
+describe('getPaymentStatusValue y paymentStatusLabel', () => {
+  it('retorna pending para pedidos no pagados ni cancelados', () => {
+    expect(getPaymentStatusValue({ paid_at: null, status: 'manual_review' })).toBe('pending');
+    expect(paymentStatusLabel({ paid_at: null, status: 'manual_review' })).toBe('Pendiente');
+  });
+
+  it('retorna completed para pedidos pagados', () => {
+    expect(getPaymentStatusValue({ paid_at: '2026-09-18T19:00:00Z', status: 'ready_for_production' })).toBe('completed');
+    expect(paymentStatusLabel({ paid_at: '2026-09-18T19:00:00Z', status: 'ready_for_production' })).toBe('Completado');
+  });
+
+  it('retorna cancelled para pedidos cancelados, reembolsados o con pago fallido', () => {
+    expect(getPaymentStatusValue({ paid_at: null, status: 'cancelled' })).toBe('cancelled');
+    expect(paymentStatusLabel({ paid_at: null, status: 'cancelled' })).toBe('Cancelado');
+
+    expect(getPaymentStatusValue({ paid_at: '2026-09-18T19:00:00Z', status: 'cancelled' })).toBe('cancelled');
+    expect(paymentStatusLabel({ paid_at: '2026-09-18T19:00:00Z', status: 'cancelled' })).toBe('Cancelado');
+
+    expect(getPaymentStatusValue({ paid_at: null, status: 'refunded' })).toBe('cancelled');
+    expect(paymentStatusLabel({ paid_at: null, status: 'refunded' })).toBe('Reembolsado');
   });
 });
