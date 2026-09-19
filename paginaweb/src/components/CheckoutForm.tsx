@@ -175,26 +175,7 @@ export function CheckoutForm({
     setForm((current) => ({ ...current, phone: fullPhone }));
     try {
       if (isInternational) {
-        if (internationalMethod === 'whatsapp') {
-          // Original WhatsApp flow
-          const storedKey = sessionStorage.getItem("matearte_international_order_idempotency");
-          const idempotencyKey = storedKey || crypto.randomUUID();
-          sessionStorage.setItem("matearte_international_order_idempotency", idempotencyKey);
-          const response = await fetch("/api/orders/international", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-            body: JSON.stringify({ customer: customerPayload, destination: { ...international, country: countryName(international.country, locale), department: form.department, address: form.address }, locale }),
-          });
-          const text = await response.text();
-          const value = text ? JSON.parse(text) : {};
-          if (!response.ok) throw new Error(value.error || t("prepareMessageFailed"));
-          if (typeof value.whatsappUrl !== "string" || !value.whatsappUrl.startsWith("https://wa.me/")) throw new Error(value.error || t("unsafeWhatsapp"));
-          sessionStorage.removeItem("matearte_international_order_idempotency");
-          window.location.assign(value.whatsappUrl);
-          return;
-        }
-
-        // PayPal flow
+        // PayPal flow (único método internacional)
         const storedKey = sessionStorage.getItem("matearte_paypal_order_idempotency");
         const idempotencyKey = storedKey || crypto.randomUUID();
         sessionStorage.setItem("matearte_paypal_order_idempotency", idempotencyKey);
@@ -446,7 +427,7 @@ export function CheckoutForm({
             <p className="mt-5 text-xs leading-5 text-white/60">{t("serverRecalc")}</p>
           )}
 
-          {/* ── Opciones de pago para el exterior (debajo del resumen) ── */}
+          {/* ── Pago internacional — solo PayPal ── */}
           {isInternational && (
             paypalReady ? (
               <div className="mt-6 border-t border-white/20 pt-6">
@@ -462,46 +443,8 @@ export function CheckoutForm({
                     onError={(msg) => setError(msg)}
                   />
                 </div>
-                <div className="mt-5 flex items-center gap-3 text-xs text-white/50">
-                  <span className="h-px flex-1 bg-white/20" />
-                  <span>{t("orWhatsapp")}</span>
-                  <span className="h-px flex-1 bg-white/20" />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setPaypalReady(false); setInternationalMethod('whatsapp'); }}
-                  className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-white/30 px-4 text-xs font-semibold text-white/80 transition hover:bg-white/10"
-                >
-                  <WhatsappLogo size={16} weight="fill" aria-hidden="true" />
-                  {t("coordinateAction")}
-                </button>
               </div>
-            ) : (
-              <div className="mt-6 border-t border-white/20 pt-5">
-                <p className="eyebrow text-[0.65rem] text-[var(--paper)] opacity-80 before:w-5">{t("internationalPurchase")}</p>
-                <div className="mt-4 grid gap-2.5">
-                  <label className={`relative flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition ${internationalMethod === 'paypal' ? 'border-white/60 bg-white/15' : 'border-white/20 bg-transparent'}`}>
-                    <input type="radio" name="int-method" checked={internationalMethod === 'paypal'} onChange={() => setInternationalMethod('paypal')} className="sr-only" />
-                    {internationalMethod === 'paypal' && <Check size={14} weight="bold" className="absolute top-2.5 right-2.5 opacity-70" aria-hidden="true" />}
-                    <Image
-                      src="/assets/matearte/PayPal.png"
-                      alt=""
-                      width={20}
-                      height={20}
-                      className="shrink-0 object-contain"
-                      aria-hidden="true"
-                    />
-                    <strong className="block text-sm">{t("paypalAction")}</strong>
-                  </label>
-                  <label className={`relative flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition ${internationalMethod === 'whatsapp' ? 'border-white/60 bg-white/15' : 'border-white/20 bg-transparent'}`}>
-                    <input type="radio" name="int-method" checked={internationalMethod === 'whatsapp'} onChange={() => setInternationalMethod('whatsapp')} className="sr-only" />
-                    {internationalMethod === 'whatsapp' && <Check size={14} weight="bold" className="absolute top-2.5 right-2.5 opacity-70" aria-hidden="true" />}
-                    <WhatsappLogo size={20} weight="fill" aria-hidden="true" />
-                    <strong className="block text-sm">{t("coordinateAction")}</strong>
-                  </label>
-                </div>
-              </div>
-            )
+            ) : null
           )}
 
           <div className="grow" />
@@ -523,7 +466,7 @@ export function CheckoutForm({
                   aria-hidden="true"
                 />
               )}
-              {isInternational && internationalMethod === 'paypal' && !busy && (
+              {isInternational && !busy && (
                 <Image
                   src="/assets/matearte/PayPal.png"
                   alt=""
@@ -533,12 +476,8 @@ export function CheckoutForm({
                   aria-hidden="true"
                 />
               )}
-              {busy ? t("preparing") : isInternational ? (internationalMethod === 'paypal' ? t("continueToPaypal") : t("contactUs")) : t("mercadoPagoAction")}
+              {busy ? t("preparing") : isInternational ? t("continueToPaypal") : t("mercadoPagoAction")}
             </button>
-          )}
-
-          {isInternational && !paypalReady && internationalMethod === 'whatsapp' && (
-            <p className="mt-4 text-center text-[0.7rem] leading-5 text-white/60">{t("internationalNotice")}</p>
           )}
         </aside>
       </form>
