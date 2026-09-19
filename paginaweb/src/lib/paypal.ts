@@ -91,7 +91,7 @@ export async function createPayPalOrder(params: {
           experience_context: {
             brand_name: 'MateArte',
             user_action: 'PAY_NOW',
-            shipping_preference: 'SET_PROVIDED_ADDRESS',
+            shipping_preference: 'NO_SHIPPING',
           },
         },
       },
