@@ -21,12 +21,20 @@ const regionsByCountry = new Map<string, CountryRegion[]>(
   ]),
 );
 
+function resolveRegionName(names: Intl.DisplayNames, code: string, locale: Locale): string {
+  if (code === "HK") return "Hong Kong";
+  if (code === "MO") return locale === "pt" ? "Macau" : "Macao";
+  const raw = names.of(code);
+  if (!raw) return code;
+  return raw.replace(/^RAE de /i, "");
+}
+
 export function countryOptionsForLocale(locale: Locale = "es") {
   const names = displayNames(locale);
   const sorter = collator(locale);
   return countries
     .filter((code) => /^[A-Z]{2}$/.test(code))
-    .map((code) => ({ code, name: names.of(code) || code }))
+    .map((code) => ({ code, name: resolveRegionName(names, code, locale) }))
     .filter(({ code, name }) => name !== code)
     .sort((left, right) => sorter.compare(left.name, right.name));
 }
@@ -41,7 +49,7 @@ export function countryPhoneOptionsForLocale(locale: Locale = "es") {
       return {
         code,
         callingCode,
-        name: names.of(code) || code,
+        name: resolveRegionName(names, code, locale),
       };
     })
     .filter(({ name, callingCode }) => callingCode && name)
@@ -52,7 +60,7 @@ export const countryOptions = countryOptionsForLocale("es");
 
 export function countryName(code?: string | null, locale: Locale = "es") {
   if (!code) return "";
-  return displayNames(locale).of(code.toUpperCase()) || code.toUpperCase();
+  return resolveRegionName(displayNames(locale), code.toUpperCase(), locale);
 }
 
 export function countryRegions(code?: string | null) {

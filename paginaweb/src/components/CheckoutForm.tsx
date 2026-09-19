@@ -4,8 +4,11 @@ import { Check, GlobeHemisphereWest, MapPin, WhatsappLogo } from "@phosphor-icon
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { PayPalCheckoutSection } from '@/components/PayPalCheckoutSection';
+import { localizeCanonicalPath } from '@/i18n/paths';
 import { formatMoney } from "@/lib/money";
 import { countryCallingCode, countryOptionsForLocale, countryPhoneOptionsForLocale, countryRegions, countryName, internationalPhoneNumber, localPhoneNumber, parsePhoneNumber } from "@/lib/countries";
+import { getInternationalShippingRate, DEFAULT_INTERNATIONAL_SHIPPING_RATES, type InternationalShippingRow } from "@/lib/international-shipping";
 import type { Locale } from "@/types/catalog";
 
 type Rate = { id: string; name: string; rate_minor: number; is_pickup: boolean; departments: string[] };
@@ -20,11 +23,30 @@ function MoneyValue({ amount, locale, exchangeRates }: { amount: number | null, 
   return <span>{amount === null ? "—" : formatMoney(amount, "UYU", locale, exchangeRates)}</span>;
 }
 
-export function CheckoutForm({ initialCustomer, initialDestination = { international: false, country: "", city: "" }, exchangeRates }: { initialCustomer: CustomerForm; initialDestination?: InitialDestination, exchangeRates?: Record<string, number> }) {
+export function CheckoutForm({
+  initialCustomer,
+  initialDestination = { international: false, country: "", city: "" },
+  exchangeRates,
+  initialPhoneCountryOptions,
+  initialCountryOptions,
+}: {
+  initialCustomer: CustomerForm;
+  initialDestination?: InitialDestination;
+  exchangeRates?: Record<string, number>;
+  initialPhoneCountryOptions?: ReturnType<typeof countryPhoneOptionsForLocale>;
+  initialCountryOptions?: ReturnType<typeof countryOptionsForLocale>;
+}) {
   const locale = useLocale() as Locale;
   const t = useTranslations("checkout");
   const tCart = useTranslations("cart");
-  const phoneCountryOptions = countryPhoneOptionsForLocale(locale);
+  const phoneCountryOptions = useMemo(
+    () => initialPhoneCountryOptions || countryPhoneOptionsForLocale(locale),
+    [initialPhoneCountryOptions, locale]
+  );
+  const destinationCountryOptions = useMemo(
+    () => initialCountryOptions || countryOptionsForLocale(locale),
+    [initialCountryOptions, locale]
+  );
   const [purchaseRegion, setPurchaseRegion] = useState<PurchaseRegion>(initialDestination.international ? "international" : "uruguay");
   const [rates, setRates] = useState<Rate[]>([]);
   const [rateId, setRateId] = useState("");
@@ -38,16 +60,44 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
       : initialCustomer.phone,
   }));
   const [international, setInternational] = useState({ country: initialDestination.country, city: initialDestination.city });
+  const [internationalRates, setInternationalRates] = useState<InternationalShippingRow[]>(DEFAULT_INTERNATIONAL_SHIPPING_RATES);
+  const [cartWeightGrams, setCartWeightGrams] = useState<number>(0);
   const [subtotalMinor, setSubtotalMinor] = useState<number | null>(null);
   const [ratesLoading, setRatesLoading] = useState(true);
   const [ratesError, setRatesError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [paypalReady, setPaypalReady] = useState(false);
+  const [paypalOrderId, setPaypalOrderId] = useState('');
+  const [paypalAmountUsd, setPaypalAmountUsd] = useState('');
+  const [internationalMethod, setInternationalMethod] = useState<'paypal' | 'whatsapp'>('paypal');
   const [error, setError] = useState("");
   const rate = useMemo(() => rates.find((item) => item.id === rateId), [rates, rateId]);
   const isDelivery = Boolean(rate && !rate.is_pickup);
   const isInternational = isDelivery && purchaseRegion === "international";
-  const shippingMinor = rate ? 0 : null;
-  const totalMinor = subtotalMinor === null || shippingMinor === null ? null : subtotalMinor + shippingMinor;
+
+  const internationalShippingCalc = useMemo(() => {
+    if (!isInternational || !international.country) return null;
+    return getInternationalShippingRate(
+      cartWeightGrams,
+      international.country,
+      internationalRates.length ? internationalRates : DEFAULT_INTERNATIONAL_SHIPPING_RATES
+    );
+  }, [isInternational, international.country, cartWeightGrams, internationalRates]);
+
+  const internationalShippingMinor = useMemo(() => {
+    if (!internationalShippingCalc) return null;
+    return Math.round(internationalShippingCalc.rate * 100);
+  }, [internationalShippingCalc]);
+
+  const shippingMinor = isInternational
+    ? internationalShippingMinor
+    : (rate ? 0 : null);
+
+  const totalMinor = subtotalMinor === null
+    ? null
+    : isInternational
+      ? (internationalShippingMinor === null ? null : subtotalMinor + internationalShippingMinor)
+      : (shippingMinor === null ? null : subtotalMinor + shippingMinor);
 
   const loadRates = useCallback(async () => {
     setRatesLoading(true);
@@ -60,6 +110,9 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
       const nextRates = Array.isArray(value.rates) ? value.rates as Rate[] : [];
       if (!nextRates.length) throw new Error(t("noRates"));
       setRates(nextRates);
+      if (Array.isArray(value.internationalRates) && value.internationalRates.length > 0) {
+        setInternationalRates(value.internationalRates as InternationalShippingRow[]);
+      }
       setRateId((current) => nextRates.some((item) => item.id === current) ? current : "");
     } catch (reason) {
       setRates([]);
@@ -76,6 +129,9 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
       const text = await response.text();
       if (!text || !response.ok) return;
       const value = JSON.parse(text);
+      if (typeof value.total_weight_grams === "number") {
+        setCartWeightGrams(value.total_weight_grams);
+      }
       if (!Array.isArray(value.items)) return;
       const items = value.items as CartItem[];
       setSubtotalMinor(items.reduce((total, item) => total + Number(item.unit_price_minor || 0) * Number(item.quantity || 0), 0));
@@ -119,20 +175,46 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
     setForm((current) => ({ ...current, phone: fullPhone }));
     try {
       if (isInternational) {
-        const storedKey = sessionStorage.getItem("matearte_international_order_idempotency");
+        if (internationalMethod === 'whatsapp') {
+          // Original WhatsApp flow
+          const storedKey = sessionStorage.getItem("matearte_international_order_idempotency");
+          const idempotencyKey = storedKey || crypto.randomUUID();
+          sessionStorage.setItem("matearte_international_order_idempotency", idempotencyKey);
+          const response = await fetch("/api/orders/international", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+            body: JSON.stringify({ customer: customerPayload, destination: { ...international, country: countryName(international.country, locale), department: form.department, address: form.address }, locale }),
+          });
+          const text = await response.text();
+          const value = text ? JSON.parse(text) : {};
+          if (!response.ok) throw new Error(value.error || t("prepareMessageFailed"));
+          if (typeof value.whatsappUrl !== "string" || !value.whatsappUrl.startsWith("https://wa.me/")) throw new Error(value.error || t("unsafeWhatsapp"));
+          sessionStorage.removeItem("matearte_international_order_idempotency");
+          window.location.assign(value.whatsappUrl);
+          return;
+        }
+
+        // PayPal flow
+        const storedKey = sessionStorage.getItem("matearte_paypal_order_idempotency");
         const idempotencyKey = storedKey || crypto.randomUUID();
-        sessionStorage.setItem("matearte_international_order_idempotency", idempotencyKey);
-        const response = await fetch("/api/orders/international", {
+        sessionStorage.setItem("matearte_paypal_order_idempotency", idempotencyKey);
+        const response = await fetch("/api/checkout/paypal", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-          body: JSON.stringify({ customer: customerPayload, destination: { ...international, country: countryName(international.country, locale), department: form.department, address: form.address }, locale }),
+          body: JSON.stringify({
+            customer: customerPayload,
+            destination: { ...international, country: countryName(international.country, locale), department: form.department, address: form.address },
+            locale,
+          }),
         });
         const text = await response.text();
         const value = text ? JSON.parse(text) : {};
-        if (!response.ok) throw new Error(value.error || t("prepareMessageFailed"));
-        if (typeof value.whatsappUrl !== "string" || !value.whatsappUrl.startsWith("https://wa.me/")) throw new Error(value.error || t("unsafeWhatsapp"));
-        sessionStorage.removeItem("matearte_international_order_idempotency");
-        window.location.assign(value.whatsappUrl);
+        if (!response.ok) throw new Error(value.error || t("paymentStartFailed"));
+        sessionStorage.removeItem("matearte_paypal_order_idempotency");
+        setPaypalOrderId(value.orderId);
+        setPaypalAmountUsd(value.amountUsd);
+        setPaypalReady(true);
+        setBusy(false);
         return;
       }
 
@@ -198,12 +280,13 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
               <div className="mt-2 flex min-h-12 w-full rounded-lg border border-[#b8a88a]/60 bg-transparent transition focus-within:border-[var(--leather)] focus-within:ring-2 focus-within:ring-[var(--rawhide)]/30">
                 <select
                   aria-label={t("phoneCountryAria")}
+                  suppressHydrationWarning
                   value={phoneCountry}
                   onChange={(event) => updatePhoneCountry(event.target.value)}
                   className="max-w-[42%] shrink-0 rounded-l-lg border-r border-[#b8a88a]/60 bg-transparent px-2.5 text-xs text-[var(--walnut)] outline-none transition sm:max-w-[48%] sm:text-sm"
                 >
                   {phoneCountryOptions.map((c) => (
-                    <option key={c.code} value={c.code} className="bg-[#fffdf8] text-[#17130f]">
+                    <option key={c.code} value={c.code} suppressHydrationWarning className="bg-[#fffdf8] text-[#17130f]">
                       {c.code} ({c.callingCode}) · {c.name}
                     </option>
                   ))}
@@ -302,9 +385,9 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
             <div className="grid gap-5 sm:grid-cols-2">
               <label className="text-sm font-semibold text-[var(--walnut)]">
                 {t("country")}
-                <select name="country-name" autoComplete="country-name" required value={international.country} onChange={(event) => { updateInternational("country", event.target.value); update("department", ""); }} className={fieldClass}>
-                  <option value="">{t("choose")}</option>
-                  {countryOptionsForLocale(locale).map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+                <select name="country-name" autoComplete="country-name" required suppressHydrationWarning value={international.country} onChange={(event) => { updateInternational("country", event.target.value); update("department", ""); }} className={fieldClass}>
+                  <option value="" suppressHydrationWarning>{t("choose")}</option>
+                  {destinationCountryOptions.map((c) => <option key={c.code} value={c.code} suppressHydrationWarning>{c.name}</option>)}
                 </select>
               </label>
               <label className="text-sm font-semibold text-[var(--walnut)]">
@@ -332,56 +415,129 @@ export function CheckoutForm({ initialCustomer, initialDestination = { internati
 
         {/* ── Sidebar derecha — resumen o WhatsApp ── */}
         <aside className="flex flex-col bg-[#908c76] p-7 text-[var(--paper)] sm:p-8 lg:p-10">
-          {!isInternational ? (
-            <>
-              <p className="eyebrow text-[0.65rem] text-[var(--paper)] opacity-80 before:w-5">{tCart("summary")}</p>
-              <dl className="mt-6 grow space-y-3 text-sm">
-                <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-white/75">{tCart("subtotal")}</dt>
-                  <dd className="font-semibold"><MoneyValue amount={subtotalMinor} locale={locale} exchangeRates={exchangeRates} /></dd>
-                </div>
-                <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-white/75">{tCart("shipping")}</dt>
-                  <dd className="font-semibold">{rate?.is_pickup ? t("free") : t("payOnDelivery")}</dd>
-                </div>
-                <div className="border-t border-white/25 pt-4">
-                  <div className="flex items-baseline justify-between gap-4">
-                    <dt className="font-semibold">{tCart("total")}</dt>
-                    <dd className="text-2xl font-bold"><MoneyValue amount={totalMinor} locale={locale} exchangeRates={exchangeRates} /></dd>
-                  </div>
-                </div>
-              </dl>
-              <p className="mt-5 text-xs leading-5 text-white/60">{t("serverRecalc")}</p>
-            </>
-          ) : (
-            <>
-              <WhatsappLogo size={30} weight="fill" className="text-[var(--paper)]" aria-hidden="true" />
-              <p className="eyebrow mt-6 text-[0.65rem] text-[var(--paper)] opacity-80 before:w-5">{t("personalAttention")}</p>
-              <h2 className="display-font mt-4 grow text-2xl leading-tight">{t("coordinateWhatsapp")}</h2>
-              <p className="mt-3 text-sm leading-6 text-white/75">{t("whatsappSummary")}</p>
-            </>
+          {/* ── Resumen de compra (visible siempre) ── */}
+          <p className="eyebrow text-[0.65rem] text-[var(--paper)] opacity-80 before:w-5">{tCart("summary")}</p>
+          <dl className="mt-6 space-y-3 text-sm">
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-white/75">{tCart("subtotal")}</dt>
+              <dd className="font-semibold"><MoneyValue amount={subtotalMinor} locale={locale} exchangeRates={exchangeRates} /></dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-white/75">{tCart("shipping")}</dt>
+              <dd className="font-semibold">
+                {isInternational ? (
+                  internationalShippingMinor !== null ? (
+                    <MoneyValue amount={internationalShippingMinor} locale={locale} exchangeRates={exchangeRates} />
+                  ) : "—"
+                ) : (
+                  rate?.is_pickup ? t("free") : t("payOnDelivery")
+                )}
+              </dd>
+            </div>
+            <div className="border-t border-white/25 pt-4">
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="font-semibold">{tCart("total")}</dt>
+                <dd className="text-2xl font-bold"><MoneyValue amount={totalMinor} locale={locale} exchangeRates={exchangeRates} /></dd>
+              </div>
+            </div>
+          </dl>
+
+          {!isInternational && (
+            <p className="mt-5 text-xs leading-5 text-white/60">{t("serverRecalc")}</p>
           )}
+
+          {/* ── Opciones de pago para el exterior (debajo del resumen) ── */}
+          {isInternational && (
+            paypalReady ? (
+              <div className="mt-6 border-t border-white/20 pt-6">
+                <p className="eyebrow text-[0.65rem] text-[var(--paper)] opacity-80 before:w-5">{t("securePayment")}</p>
+                <p className="mt-3 text-lg font-bold">US$ {paypalAmountUsd}</p>
+                <div className="mt-5">
+                  <PayPalCheckoutSection
+                    orderId={paypalOrderId}
+                    amountUsd={paypalAmountUsd}
+                    onSuccess={() => {
+                      window.location.assign(`${localizeCanonicalPath(`/pedidos/${paypalOrderId}`, locale)}?payment=success`);
+                    }}
+                    onError={(msg) => setError(msg)}
+                  />
+                </div>
+                <div className="mt-5 flex items-center gap-3 text-xs text-white/50">
+                  <span className="h-px flex-1 bg-white/20" />
+                  <span>{t("orWhatsapp")}</span>
+                  <span className="h-px flex-1 bg-white/20" />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setPaypalReady(false); setInternationalMethod('whatsapp'); }}
+                  className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-white/30 px-4 text-xs font-semibold text-white/80 transition hover:bg-white/10"
+                >
+                  <WhatsappLogo size={16} weight="fill" aria-hidden="true" />
+                  {t("coordinateAction")}
+                </button>
+              </div>
+            ) : (
+              <div className="mt-6 border-t border-white/20 pt-5">
+                <p className="eyebrow text-[0.65rem] text-[var(--paper)] opacity-80 before:w-5">{t("internationalPurchase")}</p>
+                <div className="mt-4 grid gap-2.5">
+                  <label className={`relative flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition ${internationalMethod === 'paypal' ? 'border-white/60 bg-white/15' : 'border-white/20 bg-transparent'}`}>
+                    <input type="radio" name="int-method" checked={internationalMethod === 'paypal'} onChange={() => setInternationalMethod('paypal')} className="sr-only" />
+                    {internationalMethod === 'paypal' && <Check size={14} weight="bold" className="absolute top-2.5 right-2.5 opacity-70" aria-hidden="true" />}
+                    <Image
+                      src="/assets/matearte/PayPal.png"
+                      alt=""
+                      width={20}
+                      height={20}
+                      className="shrink-0 object-contain"
+                      aria-hidden="true"
+                    />
+                    <strong className="block text-sm">{t("paypalAction")}</strong>
+                  </label>
+                  <label className={`relative flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition ${internationalMethod === 'whatsapp' ? 'border-white/60 bg-white/15' : 'border-white/20 bg-transparent'}`}>
+                    <input type="radio" name="int-method" checked={internationalMethod === 'whatsapp'} onChange={() => setInternationalMethod('whatsapp')} className="sr-only" />
+                    {internationalMethod === 'whatsapp' && <Check size={14} weight="bold" className="absolute top-2.5 right-2.5 opacity-70" aria-hidden="true" />}
+                    <WhatsappLogo size={20} weight="fill" aria-hidden="true" />
+                    <strong className="block text-sm">{t("coordinateAction")}</strong>
+                  </label>
+                </div>
+              </div>
+            )
+          )}
+
+          <div className="grow" />
 
           {error && <p role="alert" className="mt-5 text-sm font-semibold text-[var(--paper)]">{error}</p>}
 
-          <button
-            disabled={busy || (isInternational ? !internationalReady : !domesticReady)}
-            className="mt-8 flex min-h-13 w-full items-center justify-center gap-2.5 rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-[var(--paper)] transition hover:bg-[#4a2a1c] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {!isInternational && !busy && (
-              <Image
-                src="/assets/matearte/01-marca/mercado-pago.png"
-                alt=""
-                width={28}
-                height={20}
-                className="shrink-0 object-contain"
-                aria-hidden="true"
-              />
-            )}
-            {busy ? t("preparing") : isInternational ? t("contactUs") : t("mercadoPagoAction")}
-          </button>
+          {!paypalReady && (
+            <button
+              disabled={busy || (isInternational ? !internationalReady : !domesticReady)}
+              className="mt-8 flex min-h-13 w-full items-center justify-center gap-2.5 rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-[var(--paper)] transition hover:bg-[#4a2a1c] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {!isInternational && !busy && (
+                <Image
+                  src="/assets/matearte/01-marca/mercado-pago.png"
+                  alt=""
+                  width={28}
+                  height={20}
+                  className="shrink-0 object-contain"
+                  aria-hidden="true"
+                />
+              )}
+              {isInternational && internationalMethod === 'paypal' && !busy && (
+                <Image
+                  src="/assets/matearte/PayPal.png"
+                  alt=""
+                  width={20}
+                  height={20}
+                  className="shrink-0 object-contain"
+                  aria-hidden="true"
+                />
+              )}
+              {busy ? t("preparing") : isInternational ? (internationalMethod === 'paypal' ? t("continueToPaypal") : t("contactUs")) : t("mercadoPagoAction")}
+            </button>
+          )}
 
-          {isInternational && (
+          {isInternational && !paypalReady && internationalMethod === 'whatsapp' && (
             <p className="mt-4 text-center text-[0.7rem] leading-5 text-white/60">{t("internationalNotice")}</p>
           )}
         </aside>

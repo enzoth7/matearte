@@ -448,7 +448,7 @@
     "coordinateAction": "Coordinar por WhatsApp",
     "contactUs": "Contactarte con nosotros",
     "mercadoPagoAction": "Ir a Mercado Pago",
-    "internationalNotice": "El envío y el pago se confirman personalmente antes de producir o despachar.",
+    "internationalNotice": "El pago del envío se coordina por separado.",
     "prepareMessageFailed": "No se pudo preparar el mensaje.",
     "unsafeWhatsapp": "No se pudo abrir WhatsApp de forma segura.",
     "paymentStartFailed": "No se pudo iniciar el pago.",
@@ -457,7 +457,18 @@
     "shippingDelivery": "Envío nacional",
     "pickupAtStore": "Retiro en tienda",
     "homeDelivery": "Envío a domicilio",
-    "payOnDelivery": "Se paga al recibir"
+    "payOnDelivery": "Se paga al recibir",
+    "toCoordinate": "A coordinar",
+    "paypalAction": "Pagar con PayPal",
+    "paypalSubtitle": "PayPal, tarjeta de crédito o débito",
+    "whatsappSubtitle": "Coordinación personal del envío y pago",
+    "continueToPaypal": "Continuar con PayPal",
+    "paypalSummary": "Pagás en dólares (USD). El costo de envío se coordina por separado.",
+    "paypalShippingNote": "Subtotal de productos · Envío a coordinar",
+    "paypalCancelled": "Pago cancelado. Podés intentar de nuevo.",
+    "paypalDeclined": "Medio de pago rechazado. Probá con otro.",
+    "paypalError": "No se pudo procesar el pago. Intentá nuevamente.",
+    "orWhatsapp": "o coordiná por WhatsApp"
   },
   "auth": {
     "openGoogle": "Abriendo Google…",

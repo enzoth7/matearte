@@ -29,10 +29,20 @@ export default async function CheckoutPage() {
   const countryCode = profile?.country_code || "UY";
   const { getExchangeRates } = await import("@/lib/storefront-catalog");
   const exchangeRates = await getExchangeRates();
+  const { countryOptionsForLocale, countryPhoneOptionsForLocale } = await import("@/lib/countries");
+  const phoneCountryOptions = countryPhoneOptionsForLocale(locale);
+  const destinationCountryOptions = countryOptionsForLocale(locale);
+
   return (
     <main id="contenido" className="bg-[var(--cream)] py-8 sm:py-12 lg:py-16">
       <div className="container-shell max-w-[77rem]">
-        <CheckoutForm initialCustomer={initialCustomer} initialDestination={{ international: countryCode !== "UY", country: countryCode === "UY" ? "" : countryCode, city: profile?.city || "" }} exchangeRates={exchangeRates} />
+        <CheckoutForm
+          initialCustomer={initialCustomer}
+          initialDestination={{ international: countryCode !== "UY", country: countryCode === "UY" ? "" : countryCode, city: profile?.city || "" }}
+          exchangeRates={exchangeRates}
+          initialPhoneCountryOptions={phoneCountryOptions}
+          initialCountryOptions={destinationCountryOptions}
+        />
       </div>
     </main>
   );

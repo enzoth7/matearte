@@ -448,7 +448,7 @@
     "coordinateAction": "Coordinate on WhatsApp",
     "contactUs": "Contact us",
     "mercadoPagoAction": "Go to Mercado Pago",
-    "internationalNotice": "Shipping and payment are confirmed personally before production or dispatch.",
+    "internationalNotice": "Shipping payment is coordinated separately.",
     "prepareMessageFailed": "We couldn't prepare the message.",
     "unsafeWhatsapp": "We couldn't open WhatsApp securely.",
     "paymentStartFailed": "We couldn't start the payment.",
@@ -457,7 +457,18 @@
     "shippingDelivery": "Domestic shipping",
     "pickupAtStore": "Store pickup",
     "homeDelivery": "Home delivery",
-    "payOnDelivery": "Paid on delivery"
+    "payOnDelivery": "Paid on delivery",
+    "toCoordinate": "To be arranged",
+    "paypalAction": "Pay with PayPal",
+    "paypalSubtitle": "PayPal, credit or debit card",
+    "whatsappSubtitle": "Personal shipping and payment coordination",
+    "continueToPaypal": "Continue with PayPal",
+    "paypalSummary": "You'll pay in US dollars (USD). Shipping cost is coordinated separately.",
+    "paypalShippingNote": "Product subtotal · Shipping to be arranged",
+    "paypalCancelled": "Payment cancelled. You can try again.",
+    "paypalDeclined": "Payment method declined. Please try another.",
+    "paypalError": "We couldn't process the payment. Please try again.",
+    "orWhatsapp": "or coordinate via WhatsApp"
   },
   "auth": {
     "openGoogle": "Opening Google…",

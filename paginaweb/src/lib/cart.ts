@@ -16,11 +16,20 @@ export async function getOrCreateCart(client: SupabaseClient, userId: string) {
 
 export async function readCart(client: SupabaseClient, userId: string) {
   const cart = await getOrCreateCart(client, userId);
-  const { data: items, error } = await client.from("cart_items").select(`
+  const selectionWithPeso = `
+    id,item_type,variant_id,design_id,quantity,option_values_override,updated_at,
+    variant:commerce_variants(id,sku,name,price_minor,currency,active,option_values,product:commerce_products(id,editorial_slug,name,category,category_code,sale_mode,published,peso,commerce_product_images(storage_path,sort_order,variant_id,option_values))),
+    design:designs(id,title,preview_path,updated_at)
+  `;
+  const legacySelection = `
     id,item_type,variant_id,design_id,quantity,option_values_override,updated_at,
     variant:commerce_variants(id,sku,name,price_minor,currency,active,option_values,product:commerce_products(id,editorial_slug,name,category,category_code,sale_mode,published,commerce_product_images(storage_path,sort_order,variant_id,option_values))),
     design:designs(id,title,preview_path,updated_at)
-  `).eq("cart_id", cart.id).order("created_at");
+  `;
+  let { data: items, error } = await client.from("cart_items").select(selectionWithPeso).eq("cart_id", cart.id).order("created_at");
+  if (error && (error.code === "42703" || /peso/i.test(error.message))) {
+    ({ data: items, error } = await client.from("cart_items").select(legacySelection).eq("cart_id", cart.id).order("created_at"));
+  }
   if (error) throw error;
   return { ...cart, items: items || [] };
 }
@@ -47,15 +56,27 @@ export async function readPricedCart(client: SupabaseClient, userId: string) {
     if (designPrices.size !== new Set(designIds).size) throw new Error("No se pudo verificar el precio de uno de los diseños.");
   }
 
+  const totalWeightGrams = cart.items.reduce((sum, item) => {
+    const variant = item.variant as unknown as { product?: { peso?: number } } | null;
+    const itemPeso = item.item_type === "design" ? 200 : (Number(variant?.product?.peso) || 0);
+    return sum + itemPeso * (Number(item.quantity) || 1);
+  }, 0);
+
   return {
     ...cart,
+    total_weight_grams: totalWeightGrams,
     items: cart.items.map((item) => {
-      const variant = item.variant as unknown as { price_minor?: number; currency?: string } | null;
+      const variant = item.variant as unknown as { price_minor?: number; currency?: string; product?: { peso?: number } } | null;
       const unitPriceMinor = item.item_type === "design"
         ? designPrices.get(String(item.design_id))
         : Number(variant?.price_minor || 0);
       if (!Number.isFinite(unitPriceMinor)) throw new Error("No se pudo verificar el precio de uno de los artículos.");
-      return { ...item, unit_price_minor: unitPriceMinor as number, currency: variant?.currency || "UYU" };
+      return {
+        ...item,
+        unit_price_minor: unitPriceMinor as number,
+        currency: variant?.currency || "UYU",
+        peso: item.item_type === "design" ? 200 : (Number(variant?.product?.peso) || 0),
+      };
     }),
   };
 }
