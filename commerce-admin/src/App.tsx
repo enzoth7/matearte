@@ -4,6 +4,7 @@ import { supabase } from './supabase';
 import { PersonalizedOrders } from './PersonalizedOrdersView';
 import { TaxonomyManager } from './TaxonomyManager';
 import { loadCatalogTaxonomy } from './catalogTaxonomy';
+import { InternationalShipping } from './InternationalShippingView';
 import {
   catalogAttributeLabel,
   catalogCategoryIds,
@@ -26,7 +27,7 @@ import {
   type CatalogValueMap,
 } from '../../shared/catalog-taxonomy';
 
-type Tab = 'catalog' | 'list' | 'orders' | 'personalized' | 'shipping' | 'settings' | 'rates';
+type Tab = 'catalog' | 'list' | 'orders' | 'personalized' | 'shipping' | 'international_shipping' | 'settings' | 'rates';
 
 const VALID_TABS: Record<string, Tab> = {
   catalog: 'catalog',
@@ -40,6 +41,10 @@ const VALID_TABS: Record<string, Tab> = {
   'pedidos-personalizados': 'personalized',
   shipping: 'shipping',
   envios: 'shipping',
+  international_shipping: 'international_shipping',
+  'international-shipping': 'international_shipping',
+  'envios-internacionales': 'international_shipping',
+  'envios_internacionales': 'international_shipping',
   rates: 'rates',
   cotizaciones: 'rates',
   settings: 'settings',
@@ -56,19 +61,47 @@ export function getTabFromUrl(urlPath?: string, search?: string): Tab {
 type ProductImage = { id:string;storage_path:string;original_name:string;alt_text:string;mime_type:string;byte_size:number;sort_order:number;variant_id:string|null;option_values?:unknown };
 type SaleMode = 'standard'|'made_to_order';
 type ProductVariant = {id:string;sku:string;name:string;price_minor:number;active:boolean;color?:string|null;weight_grams?:number|null;option_values?:unknown};
-type Product = { id:string; editorial_slug:string; name:string; category:string; category_code?:string|null; description:string; sale_mode:SaleMode; published:boolean; catalog_filters?:unknown; attributes?:unknown; commerce_variants:ProductVariant[]; commerce_product_images:ProductImage[] };
-type ProductForm = {name:string;category:string;description:string;saleMode:SaleMode;catalogFilters:CatalogAttributes;attributes:CatalogValueMap};
-export type OrderItem = {id:string;item_type:'catalog'|'design';title:string;quantity:number;requires_review:boolean;review_status:string|null;immutable_snapshot:Record<string,unknown>;sku?:string|null;unit_price_minor?:number|null;total_minor?:number|null};
-type Order = { id:string;order_number:number;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;order_items:OrderItem[] };
+type Product = { id:string; editorial_slug:string; name:string; category:string; category_code?:string|null; description:string; sale_mode:SaleMode; published:boolean; peso?:number; catalog_filters?:unknown; attributes?:unknown; commerce_variants:ProductVariant[]; commerce_product_images:ProductImage[] };
+type ProductForm = {name:string;category:string;description:string;saleMode:SaleMode;peso:number;catalogFilters:CatalogAttributes;attributes:CatalogValueMap};
+export type OrderItem = {id:string;item_type:'catalog'|'design';title:string;quantity:number;requires_review:boolean;review_status:string|null;immutable_snapshot:Record<string,unknown>;sku?:string|null;unit_price_minor?:number|null;total_minor?:number|null;source_variant?:{product?:{peso?:number}}};
+export type Order = { id:string;order_number:number;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;peso?:number|null;order_items:OrderItem[] };
 type Rate = {id:string;code:string;name:string;departments:string[];rate_minor:number;is_pickup:boolean;active:boolean};
 const money=(minor:number)=>new Intl.NumberFormat('es-UY',{style:'currency',currency:'UYU',maximumFractionDigits:0}).format(minor/100);
+export const formatWeight = (grams: number) => {
+  if (!grams || grams <= 0) return '0 g';
+  if (grams >= 1000) {
+    const kg = grams / 1000;
+    return `${kg % 1 === 0 ? kg : kg.toFixed(2)} kg`;
+  }
+  return `${grams} g`;
+};
+export const getOrderItemWeight = (item: OrderItem): number => {
+  if (item.item_type === 'design') {
+    return 200;
+  }
+  const snapshot = item.immutable_snapshot as Record<string, unknown> | undefined;
+  const productSnapshot = snapshot?.product as Record<string, unknown> | undefined;
+  if (productSnapshot && typeof productSnapshot.peso === 'number' && productSnapshot.peso > 0) {
+    return productSnapshot.peso;
+  }
+  const joinedVariant = item.source_variant;
+  if (joinedVariant?.product && typeof joinedVariant.product.peso === 'number' && joinedVariant.product.peso > 0) {
+    return joinedVariant.product.peso;
+  }
+  return 0;
+};
+export const getOrderTotalWeight = (order: Order): number => {
+  if (typeof order.peso === 'number' && order.peso > 0) return order.peso;
+  if (!order.order_items || !order.order_items.length) return 0;
+  return order.order_items.reduce((total, item) => total + getOrderItemWeight(item) * (item.quantity || 1), 0);
+};
 const MAX_PRODUCT_IMAGE_BYTES = 10 * 1024 * 1024;
 const PRODUCT_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const productImageUrl = (path:string) => supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
 const fileExtension = (file:File) => file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || (file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg');
 const TEST_ADMIN_USERNAME = (import.meta.env.VITE_COMMERCE_ADMIN_USERNAME || 'user').trim().toLowerCase();
 const TEST_ADMIN_EMAIL = (import.meta.env.VITE_COMMERCE_ADMIN_EMAIL || 'user@matearte.uy').trim().toLowerCase();
-const EMPTY_PRODUCT_FORM = (): ProductForm => ({name:'',category:'mates',description:'',saleMode:'standard',catalogFilters:emptyCatalogAttributes(),attributes:{}});
+const EMPTY_PRODUCT_FORM = (): ProductForm => ({name:'',category:'mates',description:'',saleMode:'standard',peso:0,catalogFilters:emptyCatalogAttributes(),attributes:{}});
 const productSlug = (name:string) => name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,120) || `producto-${Date.now()}`;
 
 type IconName = Tab | 'logout' | 'search' | 'print';
@@ -80,6 +113,7 @@ function Icon({ name }: { name: IconName }) {
     orders: <><path d="M6 3.5h12v17H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></>,
     personalized: <><path d="M12 3 14.2 8.8 20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></>,
     shipping: <><path d="M3 6h11v11H3zM14 10h4l3 3v4h-7z"/><path d="M7 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm10 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/></>,
+    international_shipping: <><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><line x1="2" y1="12" x2="22" y2="12"/></>,
     rates: <><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></>,
     settings: <><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></>,
     logout: <><path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10"/></>,
@@ -473,10 +507,11 @@ export function App(){
     {id:'orders',label:'Pedidos'},
     {id:'personalized',label:'Pedidos personalizados'},
     {id:'shipping',label:'Envíos'},
+    {id:'international_shipping',label:'Envíos internacionales'},
     {id:'rates',label:'Cotizaciones'},
     {id:'settings',label:'Configuración'},
   ];
-  const pageTitle = tab==='catalog'?'Catálogo':tab==='list'?'Lista':tab==='orders'?'Pedidos':tab==='personalized'?'Pedidos personalizados':tab==='shipping'?'Zonas y tarifas':tab==='rates'?'Cotizaciones':'Configuración';
+  const pageTitle = tab==='catalog'?'Catálogo':tab==='list'?'Lista':tab==='orders'?'Pedidos':tab==='personalized'?'Pedidos personalizados':tab==='shipping'?'Zonas y tarifas':tab==='international_shipping'?'Envíos internacionales':tab==='rates'?'Cotizaciones':'Configuración';
   return (
     <div className="shell">
       <a className="skip-link" href="#commerce-content">Saltar al contenido</a>
@@ -490,7 +525,7 @@ export function App(){
      <main id="commerce-content">
        <header className="page-header"><div><h1>{pageTitle}</h1></div><strong>{session.user.email}</strong></header>
        {notice&&<div className="notice" role="status">{notice}</div>}
-       {tab==='catalog'&&<Catalog onNotice={setNotice}/>} {tab==='list'&&<CatalogList onNotice={setNotice}/>} {tab==='orders'&&<Orders session={session} onNotice={setNotice}/>} {tab==='personalized'&&<PersonalizedOrders onNotice={setNotice}/>} {tab==='shipping'&&<Shipping onNotice={setNotice}/>} {tab==='rates'&&<Rates onNotice={setNotice}/>} {tab==='settings'&&<Settings onNotice={setNotice}/>}
+       {tab==='catalog'&&<Catalog onNotice={setNotice}/>} {tab==='list'&&<CatalogList onNotice={setNotice}/>} {tab==='orders'&&<Orders session={session} onNotice={setNotice}/>} {tab==='personalized'&&<PersonalizedOrders onNotice={setNotice}/>} {tab==='shipping'&&<Shipping onNotice={setNotice}/>} {tab==='international_shipping'&&<InternationalShipping onNotice={setNotice}/>} {tab==='rates'&&<Rates onNotice={setNotice}/>} {tab==='settings'&&<Settings onNotice={setNotice}/>}
      </main>
    </div>
  )}
@@ -579,13 +614,13 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
   useEffect(()=>{void loadCatalogTaxonomy(false).then(setTaxonomy)},[]);
 
   const load = useCallback(async(preferredId?:string) => {
-    const selection = 'id,editorial_slug,name,category,category_code,description,sale_mode,published,catalog_filters,attributes,commerce_variants(id,sku,name,price_minor,weight_grams,active,color,option_values),commerce_product_images(id,storage_path,original_name,alt_text,mime_type,byte_size,sort_order,variant_id,option_values)';
+    const selection = 'id,editorial_slug,name,category,category_code,description,sale_mode,published,peso,catalog_filters,attributes,commerce_variants(id,sku,name,price_minor,weight_grams,active,color,option_values),commerce_product_images(id,storage_path,original_name,alt_text,mime_type,byte_size,sort_order,variant_id,option_values)';
     const legacySelection = 'id,editorial_slug,name,category,description,sale_mode,published,catalog_filters,commerce_variants(id,sku,name,price_minor,active,color),commerce_product_images(id,storage_path,original_name,alt_text,mime_type,byte_size,sort_order,variant_id)';
     let {data,error}:{data:unknown;error:{message:string;code?:string}|null} = await supabase
       .from('commerce_products')
       .select(selection)
       .order('name');
-    if (error && (error.code === '42703' || /category_code|attributes|option_values|weight_grams/i.test(error.message))) {
+    if (error && (error.code === '42703' || /category_code|attributes|option_values|weight_grams|peso/i.test(error.message))) {
       ({data,error} = await supabase.from('commerce_products').select(legacySelection).order('name'));
     }
     if (error) {
@@ -618,7 +653,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
     if (!product) return;
     const rawCategory = product.category_code || (product.category === 'kit-matero' ? 'kits-materos' : product.category === 'cuchillo' ? 'cuchillos' : product.category);
     const category = taxonomy.categories.some(item=>item.code===rawCategory) ? rawCategory : '';
-    setProductDetails({name:product.name,category,description:product.description,saleMode:product.sale_mode,catalogFilters:normalizeCatalogAttributes(product.catalog_filters),attributes:normalizeCatalogValueMap(product.attributes)});
+    setProductDetails({name:product.name,category,description:product.description,saleMode:product.sale_mode,peso:product.peso??0,catalogFilters:normalizeCatalogAttributes(product.catalog_filters),attributes:normalizeCatalogValueMap(product.attributes)});
     setEditingVariantId(null);
   },[product,taxonomy.categories]);
 
@@ -633,7 +668,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
 
     setProductBusy('create');
     try {
-      const payload = {name,category,category_code:category,description:newProduct.description.trim(),sale_mode:newProduct.saleMode,catalog_filters:newProduct.catalogFilters,attributes:newProduct.attributes,published:false};
+      const payload = {name,category,category_code:category,description:newProduct.description.trim(),sale_mode:newProduct.saleMode,peso:newProduct.peso??0,catalog_filters:newProduct.catalogFilters,attributes:newProduct.attributes,published:false};
       const baseSlug = productSlug(name);
       let result = await supabase.from('commerce_products').insert({...payload,editorial_slug:baseSlug}).select('id').single();
       if (result.error?.code === '23505') {
@@ -662,7 +697,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
     }
 
     setProductBusy('save');
-    const {error} = await supabase.from('commerce_products').update({name,category,category_code:category,description:productDetails.description.trim(),sale_mode:productDetails.saleMode,catalog_filters:productDetails.catalogFilters,attributes:productDetails.attributes}).eq('id',product.id);
+    const {error} = await supabase.from('commerce_products').update({name,category,category_code:category,description:productDetails.description.trim(),sale_mode:productDetails.saleMode,peso:productDetails.peso??0,catalog_filters:productDetails.catalogFilters,attributes:productDetails.attributes}).eq('id',product.id);
     onNotice(error ? error.message : 'Datos del producto guardados.');
     if (!error) await load(product.id);
     setProductBusy('');
@@ -914,6 +949,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
             <label><span className="field-label">Nombre del producto <span className="field-required" aria-hidden="true">*</span></span><input required autoFocus value={newProduct.name} onChange={event=>setNewProduct({...newProduct,name:event.target.value})} placeholder="Ej.: Imperial clásico marrón"/></label>
             <label><span className="field-label">Categoría <span className="field-required" aria-hidden="true">*</span></span><select required value={newProduct.category} onChange={event=>setNewProduct({...newProduct,category:event.target.value,attributes:{}})}><option value="" disabled>Elegí una categoría</option>{taxonomy.categories.filter(item=>item.active).sort((a,b)=>a.sort_order-b.sort_order).map(category=><option key={category.code} value={category.code}>{category.label_es}</option>)}</select></label>
             <label><span className="field-label">Modalidad</span><select value={newProduct.saleMode} onChange={event=>setNewProduct({...newProduct,saleMode:event.target.value as SaleMode})}><option value="standard">Venta normal</option><option value="made_to_order">Por encargo</option></select></label>
+            <label><span className="field-label">Peso (g)</span><input type="number" min="0" step="1" value={newProduct.peso} onChange={event=>setNewProduct({...newProduct,peso:Math.max(0, parseInt(event.target.value, 10) || 0)})} placeholder="0"/></label>
             <label className="wide-field"><span className="field-label">Descripción</span><textarea value={newProduct.description} onChange={event=>setNewProduct({...newProduct,description:event.target.value})} placeholder="Material y cualquier detalle que lo diferencie."/></label>
           </div>
           <DynamicAttributeFields taxonomy={taxonomy} category={newProduct.category} scope="product" values={newProduct.attributes} onChange={attributes=>setNewProduct({...newProduct,attributes})}/>
@@ -953,6 +989,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
               <label><span className="field-label">Nombre <span className="field-required" aria-hidden="true">*</span></span><input required value={productDetails.name} onChange={event=>setProductDetails({...productDetails,name:event.target.value})}/></label>
               <label><span className="field-label">Categoría <span className="field-required" aria-hidden="true">*</span></span><select required value={productDetails.category} onChange={event=>setProductDetails({...productDetails,category:event.target.value,attributes:{}})}><option value="" disabled>Elegí una categoría</option>{taxonomy.categories.filter(item=>item.active).sort((a,b)=>a.sort_order-b.sort_order).map(category=><option key={category.code} value={category.code}>{category.label_es}</option>)}</select></label>
               <label><span className="field-label">Modalidad</span><select value={productDetails.saleMode} onChange={event=>setProductDetails({...productDetails,saleMode:event.target.value as SaleMode})}><option value="standard">Venta normal</option><option value="made_to_order">Por encargo</option></select></label>
+              <label><span className="field-label">Peso (g)</span><input type="number" min="0" step="1" value={productDetails.peso} onChange={event=>setProductDetails({...productDetails,peso:Math.max(0, parseInt(event.target.value, 10) || 0)})} placeholder="0"/></label>
               <label className="wide-field"><span className="field-label">Descripción</span><textarea value={productDetails.description} onChange={event=>setProductDetails({...productDetails,description:event.target.value})}/></label>
             </div>
             <DynamicAttributeFields taxonomy={taxonomy} category={productDetails.category} scope="product" values={productDetails.attributes} onChange={attributes=>setProductDetails({...productDetails,attributes})}/>
@@ -1474,7 +1511,18 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
     return params.get('q') || params.get('search') || params.get('order') || '';
   });
   const load = useCallback(async() => {
-    const {data,error} = await supabase.from('orders').select('id,order_number,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,total_minor,created_at,customer_snapshot,order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot)').order('created_at',{ascending:false}).limit(100);
+    let {data,error}:{data:unknown;error:{message:string;code?:string}|null} = await supabase
+      .from('orders')
+      .select('id,order_number,status,peso,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,total_minor,created_at,customer_snapshot,order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot,source_variant:commerce_variants(product:commerce_products(peso)))')
+      .order('created_at',{ascending:false})
+      .limit(100);
+    if (error && (error.code === '42703' || /peso|source_variant/i.test(error.message))) {
+      ({data,error} = await supabase
+        .from('orders')
+        .select('id,order_number,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,total_minor,created_at,customer_snapshot,order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot)')
+        .order('created_at',{ascending:false})
+        .limit(100));
+    }
     if (error) onNotice(`No se pudieron cargar los pedidos: ${error.message}`);
     setOrders((data||[]) as Order[]);
   },[onNotice]);
@@ -1683,7 +1731,7 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
         </div>
         <div className="table-scroll">
           <table className="data-table orders-table">
-            <thead><tr><th>Pedido</th><th>Fecha</th><th>Cliente</th><th>Detalle</th><th>Entrega</th><th>Estado</th><th className="numeric">Total</th><th>Acciones</th></tr></thead>
+            <thead><tr><th>Pedido</th><th>Fecha</th><th>Cliente</th><th>Detalle</th><th>Entrega</th><th>Estado</th><th className="numeric">Peso</th><th className="numeric">Total</th><th>Acciones</th></tr></thead>
             <tbody>
               {filteredOrders.map(order => {
                 const destination = order.shipping_method==='international_coordination'
@@ -1697,6 +1745,7 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
                   <td className="order-items-cell">{order.order_items.length?<div className="order-items-summary">{order.order_items.map(item=>{const options=getCatalogOrderOptionDetails(item,taxonomy);return <div key={item.id}><strong>{item.title}</strong>{options.length>0&&<small>{options.map(option=>`${option.label}: ${option.value}`).join(' · ')}</small>}</div>})}</div>:'Sin artículos'}</td>
                   <td><strong>{destination}</strong>{order.status==='shipped'&&<small className="tracking-summary">{order.shipping_carrier} · {order.tracking_code}</small>}</td>
                   <td><span className={`status-badge status-${order.status}`}>{orderStatus(order.status)}</span></td>
+                  <td className="numeric"><span>{formatWeight(getOrderTotalWeight(order))}</span></td>
                   <td className="numeric"><strong>{money(order.total_minor)}</strong></td>
                   <td><div className="row-actions">
                     <button className="compact-button secondary-button" type="button" onClick={()=>openDetails(order)}>Ver detalle</button>
@@ -1706,7 +1755,7 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
                   </div>{order.shipping_method==='pickup'&&['ready_for_fulfillment','ready_for_production'].includes(order.status)&&<small className="row-action-note">Retiro: no requiere envío</small>}</td>
                 </tr>;
               })}
-              {!filteredOrders.length && <tr><td className="empty-table" colSpan={8}>{search ? `No se encontraron pedidos con "${search}".` : 'Todavía no hay pedidos.'}</td></tr>}
+              {!filteredOrders.length && <tr><td className="empty-table" colSpan={9}>{search ? `No se encontraron pedidos con "${search}".` : 'Todavía no hay pedidos.'}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -1724,7 +1773,13 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
             </header>
             <OrderDeliverySummary order={detailOrder}/>
             <section className="order-detail-items" aria-labelledby="order-detail-items-title">
-              <div className="order-detail-section-heading"><h3 id="order-detail-items-title">Artículos</h3><strong>{money(detailOrder.total_minor)}</strong></div>
+              <div className="order-detail-section-heading">
+                <h3 id="order-detail-items-title">Artículos</h3>
+                <div style={{ textAlign: 'right' }}>
+                  <strong>{money(detailOrder.total_minor)}</strong>
+                  <small style={{ display: 'block', color: 'inherit', opacity: 0.8, fontSize: '0.75rem' }}>Peso total: {formatWeight(getOrderTotalWeight(detailOrder))}</small>
+                </div>
+              </div>
               <ul>{detailOrder.order_items.map(item => {
                 const isCustom = item.item_type === 'design' || Boolean(item.requires_review);
                 const sku = !isCustom ? getItemSku(item) : '';
@@ -1740,6 +1795,11 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
                           <span className="order-detail-custom-badge">Personalizado</span>
                         ) : (
                           sku ? <span className="order-detail-sku-badge">SKU: {sku}</span> : null
+                        )}
+                        {getOrderItemWeight(item) > 0 && (
+                          <span className="order-detail-sku-badge" style={{ marginLeft: '0.35rem' }}>
+                            {formatWeight(getOrderItemWeight(item))} c/u
+                          </span>
                         )}
                       </div>
                       {options.length > 0 && (

@@ -6,6 +6,10 @@ import {
   getItemPricing,
   getItemSku,
   getOrderDeliveryDetails,
+  formatWeight,
+  getOrderItemWeight,
+  getOrderTotalWeight,
+  type Order,
   type OrderItem,
 } from './App';
 import { defaultCatalogTaxonomy } from '../../shared/catalog-taxonomy';
@@ -495,6 +499,127 @@ describe('getItemPricing', () => {
       unitPriceMinor: 0,
       totalMinor: 0,
     });
+  });
+});
+
+describe('weight calculations and formatting', () => {
+  it('formatea correctamente los pesos en gramos y kilogramos', () => {
+    expect(formatWeight(0)).toBe('0 g');
+    expect(formatWeight(-10)).toBe('0 g');
+    expect(formatWeight(350)).toBe('350 g');
+    expect(formatWeight(1000)).toBe('1 kg');
+    expect(formatWeight(1500)).toBe('1.50 kg');
+    expect(formatWeight(2350)).toBe('2.35 kg');
+  });
+
+  it('obtiene el peso unitario del producto desde snapshot o relación source_variant', () => {
+    const itemWithSnapshot: OrderItem = {
+      id: 'item-snap',
+      item_type: 'catalog',
+      title: 'Mate Imperial',
+      quantity: 1,
+      requires_review: false,
+      review_status: null,
+      immutable_snapshot: {
+        product: { peso: 420 },
+      },
+    };
+    expect(getOrderItemWeight(itemWithSnapshot)).toBe(420);
+
+    const itemWithVariant: OrderItem = {
+      id: 'item-variant',
+      item_type: 'catalog',
+      title: 'Mate Torpedo',
+      quantity: 2,
+      requires_review: false,
+      review_status: null,
+      immutable_snapshot: {},
+      source_variant: {
+        product: { peso: 380 },
+      },
+    };
+    expect(getOrderItemWeight(itemWithVariant)).toBe(380);
+
+    const itemWithoutWeight: OrderItem = {
+      id: 'item-empty',
+      item_type: 'catalog',
+      title: 'Bombilla',
+      quantity: 1,
+      requires_review: false,
+      review_status: null,
+      immutable_snapshot: {},
+    };
+    expect(getOrderItemWeight(itemWithoutWeight)).toBe(0);
+
+    const itemDesign: OrderItem = {
+      id: 'item-design',
+      item_type: 'design',
+      title: 'Mate Personalizado con Grabado',
+      quantity: 1,
+      requires_review: true,
+      review_status: 'pending',
+      immutable_snapshot: {},
+    };
+    expect(getOrderItemWeight(itemDesign)).toBe(200);
+  });
+
+  it('calcula el peso total de la orden sumando los items multiplicados por su cantidad', () => {
+    const order: Order = {
+      id: 'order-1',
+      order_number: 101,
+      status: 'pending',
+      shipping_method: 'national_shipping',
+      shipping_snapshot: {},
+      shipping_carrier: null,
+      tracking_code: null,
+      shipped_at: null,
+      total_minor: 350000,
+      created_at: new Date().toISOString(),
+      customer_snapshot: {},
+      order_items: [
+        {
+          id: 'item-1',
+          item_type: 'catalog',
+          title: 'Mate Imperial',
+          quantity: 2,
+          requires_review: false,
+          review_status: null,
+          immutable_snapshot: { product: { peso: 400 } },
+        },
+        {
+          id: 'item-2',
+          item_type: 'catalog',
+          title: 'Bombilla Pico de Loro',
+          quantity: 3,
+          requires_review: false,
+          review_status: null,
+          immutable_snapshot: { product: { peso: 50 } },
+        },
+      ],
+    };
+
+    // 2 * 400 + 3 * 50 = 800 + 150 = 950 g
+    expect(getOrderTotalWeight(order)).toBe(950);
+  });
+
+  it('prioriza el peso de la orden si ya fue persistido explícitamente en la orden', () => {
+    const orderWithExplicitWeight: Order = {
+      id: 'order-2',
+      order_number: 102,
+      status: 'pending',
+      shipping_method: 'national_shipping',
+      shipping_snapshot: {},
+      shipping_carrier: null,
+      tracking_code: null,
+      shipped_at: null,
+      total_minor: 350000,
+      created_at: new Date().toISOString(),
+      customer_snapshot: {},
+      peso: 1200,
+      order_items: [],
+    };
+
+    expect(getOrderTotalWeight(orderWithExplicitWeight)).toBe(1200);
   });
 });
 
