@@ -60,7 +60,7 @@ function itemImage(item: OrderItem) {
 function shippingAddress(order: OrderValue, pickup: string, toConfirm: string) {
   if (order.shipping_method === "pickup") return pickup;
 
-  if (order.shipping_method === "international_coordination") {
+  if (order.shipping_method === "international_coordination" || order.shipping_method === "international_shipping") {
     const values = [
       snapshotText(order.shipping_snapshot, "address"),
       snapshotText(order.shipping_snapshot, "city"),
@@ -229,7 +229,7 @@ export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paym
   }
 
   const status = order.status;
-  const isInternational = order.shipping_method === "international_coordination";
+  const isInternational = order.shipping_method === "international_coordination" || order.shipping_method === "international_shipping";
   const isPending = status === "pending_payment";
   const isProblem = ["payment_failed", "cancelled", "refunded"].includes(status);
   const StatusIcon = status === "shipped" ? CheckCircle : isInternational && status === "manual_review" ? WhatsappLogo : isPending ? Clock : isProblem ? WarningCircle : CheckCircle;
