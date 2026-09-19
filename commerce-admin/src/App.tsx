@@ -374,7 +374,7 @@ export function getOrderDeliveryDetails(order:Pick<Order,'shipping_method'|'ship
   const customer = order.customer_snapshot || {};
   const shipping = order.shipping_snapshot || {};
   const isPickup = order.shipping_method === 'pickup';
-  const isInternational = order.shipping_method === 'international_coordination';
+  const isInternational = order.shipping_method === 'international_coordination' || order.shipping_method === 'international_shipping';
   const source = isInternational ? shipping : customer;
   const countryCode = snapshotValue(source,'country','countryCode','country_code');
   const upperCountry = countryCode.toUpperCase();
@@ -385,6 +385,13 @@ export function getOrderDeliveryDetails(order:Pick<Order,'shipping_method'|'ship
       : countryCode || (!isInternational ? 'Uruguay' : '');
   const rawPhone = snapshotValue(customer, 'phone', 'telephone', 'celular', 'whatsapp');
   const phoneInfo = formatOrderPhone(rawPhone);
+  const methodLabel = isPickup
+    ? 'Retiro'
+    : order.shipping_method === 'international_shipping'
+      ? 'Envío internacional (PayPal)'
+      : isInternational
+        ? 'Envío internacional a coordinar'
+        : 'Envío nacional';
   return {
     isPickup,
     contactName: orderCustomer(customer),
@@ -396,7 +403,7 @@ export function getOrderDeliveryDetails(order:Pick<Order,'shipping_method'|'ship
     department: snapshotValue(source,'department','state','province'),
     country,
     zone: snapshotValue(shipping,'name'),
-    methodLabel: isPickup ? 'Retiro' : isInternational ? 'Envío internacional a coordinar' : 'Envío nacional',
+    methodLabel,
   };
 }
 const orderStatus = (status: string) => ({

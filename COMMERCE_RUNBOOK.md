@@ -19,6 +19,10 @@ En `paginaweb` configurar exclusivamente como secretos de backend:
 - `MERCADO_PAGO_WEBHOOK_SECRET`
 - `MERCADO_PAGO_ENV=sandbox` durante las pruebas
 - `MATEARTE_WHATSAPP_NUMBER`, en formato internacional sólo con dígitos, para coordinar compras del exterior
+- `NEXT_PUBLIC_PAYPAL_CLIENT_ID` (público en navegador)
+- `PAYPAL_CLIENT_ID` y `PAYPAL_CLIENT_SECRET` (secretos backend)
+- `PAYPAL_ENV=sandbox` (`production` en producción)
+- `PAYPAL_WEBHOOK_ID` (ID del webhook registrado en PayPal Developer Dashboard)
 
 En Supabase Edge Functions configurar para el correo transaccional:
 
@@ -68,8 +72,11 @@ La autorización del panel comercial depende de `commerce_admin_users`; nunca de
 - El envío nacional no forma parte del importe de Mercado Pago: queda registrado como pago al recibir y su costo es cero dentro del pedido.
 - `POST /api/webhooks/mercado-pago` valida `x-signature`, consulta el pago a Mercado Pago y procesa el evento de manera idempotente.
 - Un personalizado aprobado queda en `paid_pending_review`; solamente el panel administrativo puede aprobar producción o rechazar y reembolsar.
-- Las compras con destino fuera de Uruguay no crean una preferencia de Mercado Pago. Generan un pedido `manual_review` con artículos inmutables, subtotal sin envío y un mensaje de WhatsApp preparado por el backend para coordinar envío y pago.
-- Las solicitudes internacionales esperan la confirmación manual del envío y la forma de pago.
+- Las compras con destino fuera de Uruguay ofrecen dos opciones en el checkout: **PayPal** (pago directo online en USD) y **WhatsApp** (coordinación personalizada manual).
+- Al elegir PayPal: `POST /api/checkout/paypal` valida artículos y crea el pedido con estado `pending_payment` y monto en USD calculado según `commerce_exchange_rates`.
+- Los botones de PayPal se renderizan en la misma página (`PayPalCheckoutSection`) con `@paypal/react-paypal-js`. Al aprobar, `POST /api/paypal/capture-order` captura los fondos y ejecuta la RPC atómica `process_paypal_payment`, registrando el pago en `commerce_payments` con moneda `USD` y pasando el pedido a `paid_pending_review` (si tiene diseño) o `ready_for_fulfillment`.
+- `POST /api/webhooks/paypal` valida la firma criptográfica mediante la API de PayPal y asegura idempotencia frente a cierres anticipados del navegador o eventos posteriores.
+- Si el usuario prefiere WhatsApp, se mantiene el flujo existente de solicitud manual con mensaje precargado.
 
 ## Estado de la matriz sandbox
 
