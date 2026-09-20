@@ -11,8 +11,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function CarritoPage() {
   const t = await getTranslations("cart");
-  const { getExchangeRates } = await import("@/lib/storefront-catalog");
-  const exchangeRates = await getExchangeRates();
+  const { getExchangeRates, getWholesaleDiscountSettings } = await import("@/lib/storefront-catalog");
+  const [exchangeRates, wholesaleSettings] = await Promise.all([getExchangeRates(), getWholesaleDiscountSettings()]);
   return (
     <main id="contenido" className="cart-page pb-24 pt-8 sm:pb-32 sm:pt-12">
       <div className="cart-page-shell container-shell">
@@ -26,7 +26,7 @@ export default async function CarritoPage() {
             </p>
           </header>
           <div className="cart-page-content border-t border-black/10">
-            <CartPanel exchangeRates={exchangeRates} />
+            <CartPanel exchangeRates={exchangeRates} wholesaleSettings={wholesaleSettings} />
           </div>
         </section>
       </div>

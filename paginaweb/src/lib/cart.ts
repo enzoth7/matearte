@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { calculateDesignPriceMinor } from "@/lib/design-pricing";
+import { applyWholesaleMateDiscount, DEFAULT_WHOLESALE_DISCOUNT_SETTINGS, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
 import { normalizeCatalogValueMap, optionSignature, type CatalogValueMap } from "../../../shared/catalog-taxonomy";
 
 export async function getOrCreateCart(client: SupabaseClient, userId: string) {
@@ -40,6 +41,13 @@ export async function readPricedCart(client: SupabaseClient, userId: string) {
     .filter((item) => item.item_type === "design" && item.design_id)
     .map((item) => String(item.design_id));
   const designPrices = new Map<string, number>();
+  const { data: wholesaleData, error: wholesaleError } = await client
+    .from("commerce_settings")
+    .select("wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent")
+    .eq("singleton", true)
+    .single();
+  if (wholesaleError) throw wholesaleError;
+  const wholesaleSettings = (wholesaleData || DEFAULT_WHOLESALE_DISCOUNT_SETTINGS) as WholesaleDiscountSettings;
 
   if (designIds.length) {
     const [{ data: designs, error: designsError }, { data: catalog, error: catalogError }] = await Promise.all([
@@ -62,21 +70,33 @@ export async function readPricedCart(client: SupabaseClient, userId: string) {
     return sum + itemPeso * (Number(item.quantity) || 1);
   }, 0);
 
+  const pricedItems = cart.items.map((item) => {
+    const variant = item.variant as unknown as { price_minor?: number; currency?: string; product?: { peso?: number; category?: string; category_code?: string | null } } | null;
+    const unitPriceMinor = item.item_type === "design"
+      ? designPrices.get(String(item.design_id))
+      : Number(variant?.price_minor || 0);
+    if (!Number.isFinite(unitPriceMinor)) throw new Error("No se pudo verificar el precio de uno de los artículos.");
+    return {
+      ...item,
+      unit_price_minor: unitPriceMinor as number,
+      currency: variant?.currency || "UYU",
+      peso: item.item_type === "design" ? 200 : (Number(variant?.product?.peso) || 0),
+      wholesale_price_line: {
+        itemType: item.item_type,
+        quantity: Number(item.quantity) || 1,
+        unitPriceMinor: unitPriceMinor as number,
+        category: variant?.product?.category_code || variant?.product?.category || null,
+      },
+    };
+  });
+  const adjustedLines = applyWholesaleMateDiscount(pricedItems.map((item) => item.wholesale_price_line), wholesaleSettings);
+
   return {
     ...cart,
     total_weight_grams: totalWeightGrams,
-    items: cart.items.map((item) => {
-      const variant = item.variant as unknown as { price_minor?: number; currency?: string; product?: { peso?: number } } | null;
-      const unitPriceMinor = item.item_type === "design"
-        ? designPrices.get(String(item.design_id))
-        : Number(variant?.price_minor || 0);
-      if (!Number.isFinite(unitPriceMinor)) throw new Error("No se pudo verificar el precio de uno de los artículos.");
-      return {
-        ...item,
-        unit_price_minor: unitPriceMinor as number,
-        currency: variant?.currency || "UYU",
-        peso: item.item_type === "design" ? 200 : (Number(variant?.product?.peso) || 0),
-      };
+    items: pricedItems.map((item,index) => {
+      const { wholesale_price_line: _wholesalePriceLine, ...publicItem } = item;
+      return { ...publicItem, unit_price_minor: adjustedLines[index].unitPriceMinor };
     }),
   };
 }

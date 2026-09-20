@@ -9,6 +9,7 @@ import { isLocale } from "@/i18n/config";
 import { localizeCanonicalPath } from "@/i18n/paths";
 import type { Locale } from "@/types/catalog";
 import { normalizeCatalogValueMap } from "../../../../../shared/catalog-taxonomy";
+import { applyWholesaleMateDiscount, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type PublishedPricingCatalog = { versionId: string; version: number; rules: Record<string, number> };
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
   const { user, client } = await requireUser();
   if (!user) return apiError("Necesitás iniciar sesión.", 401);
   try {
-    const { data: publicSettings } = await client.from("commerce_settings").select("commerce_enabled,mercado_pago_enabled,reservation_minutes").eq("singleton", true).single();
+    const { data: publicSettings } = await client.from("commerce_settings").select("commerce_enabled,mercado_pago_enabled,reservation_minutes,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent").eq("singleton", true).single();
     if (!publicSettings?.commerce_enabled || !publicSettings.mercado_pago_enabled) return apiError("El comercio todavía no está habilitado.", 503);
     const body = await readJson(request);
     const localeValue = typeof body.locale === "string" ? body.locale : null;
@@ -68,8 +69,8 @@ export async function POST(request: Request) {
 
     const requestedKey = request.headers.get("idempotency-key") || "";
     const idempotencyKey = uuid.test(requestedKey) ? requestedKey : randomUUID();
-    const checkoutItems = cart.items.map((item) => {
-      const variant = item.variant as unknown as { price_minor?: number } | null;
+    const checkoutItemsBeforeWholesale = cart.items.map((item) => {
+      const variant = item.variant as unknown as { price_minor?: number; product?: { category?: string; category_code?: string | null } } | null;
       const sourceId = item.item_type === "design" ? item.design_id : item.variant_id;
       const unitPriceMinor = item.item_type === "design"
         ? designPrices[String(item.design_id)]
@@ -80,9 +81,12 @@ export async function POST(request: Request) {
         sourceId: String(sourceId),
         quantity: Number(item.quantity),
         unitPriceMinor,
+        category: variant?.product?.category_code || variant?.product?.category || null,
         ...(item.item_type === "catalog" ? { selectedOptions: normalizeCatalogValueMap(item.option_values_override) } : {}),
       };
     });
+    const adjustedPrices = applyWholesaleMateDiscount(checkoutItemsBeforeWholesale, publicSettings as WholesaleDiscountSettings);
+    const checkoutItems = checkoutItemsBeforeWholesale.map((item,index) => ({ ...item, unitPriceMinor: adjustedPrices[index].unitPriceMinor }));
     const itemsSubtotalMinor = checkoutItems.reduce((total, item) => total + item.unitPriceMinor * item.quantity, 0);
     const paymentFeeMinor = 0;
     const totalMinor = itemsSubtotalMinor;

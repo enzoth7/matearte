@@ -1918,18 +1918,25 @@ type CommerceSettings = {
   paypal_enabled:boolean;
   catalog_price_adjustment_enabled:boolean;
   catalog_price_adjustment_percent:number;
+  wholesale_mate_discount_enabled:boolean;
+  wholesale_mate_quantity_threshold:number;
+  wholesale_mate_discount_percent:number;
 };
 
 function Settings({onNotice}:{onNotice:(v:string)=>void}) {
   const [value,setValue]=useState<CommerceSettings|null>(null);
   const [percent,setPercent]=useState('13.64');
+  const [wholesaleThreshold,setWholesaleThreshold]=useState('30');
+  const [wholesalePercent,setWholesalePercent]=useState('30');
   const [saving,setSaving]=useState(false);
   const load=useCallback(async()=>{
-    const {data,error}=await supabase.from('commerce_settings').select('commerce_enabled,mercado_pago_enabled,paypal_enabled,catalog_price_adjustment_enabled,catalog_price_adjustment_percent').eq('singleton',true).single();
+    const {data,error}=await supabase.from('commerce_settings').select('commerce_enabled,mercado_pago_enabled,paypal_enabled,catalog_price_adjustment_enabled,catalog_price_adjustment_percent,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent').eq('singleton',true).single();
     if(error){onNotice(error.message);return}
     const next=data as CommerceSettings;
     setValue(next);
     setPercent(String(next.catalog_price_adjustment_percent));
+    setWholesaleThreshold(String(next.wholesale_mate_quantity_threshold));
+    setWholesalePercent(String(next.wholesale_mate_discount_percent));
   },[onNotice]);
   useEffect(()=>{void load()},[load]);
 
@@ -1952,6 +1959,18 @@ function Settings({onNotice}:{onNotice:(v:string)=>void}) {
   };
   const exampleBase=200000;
   const exampleFinal=calculateAdjustedCatalogPrice(exampleBase,Number(percent.replace(',','.'))||0,value.catalog_price_adjustment_enabled);
+  const saveWholesale=async(event:React.FormEvent)=>{
+    event.preventDefault();
+    const threshold=Number(wholesaleThreshold);
+    const discount=Number(wholesalePercent.replace(',','.'));
+    if(!Number.isInteger(threshold)||threshold<1||threshold>999){onNotice('Ingresá una cantidad entera entre 1 y 999.');return}
+    if(!Number.isFinite(discount)||discount<0||discount>100){onNotice('Ingresá un descuento entre 0 y 100.');return}
+    const normalizedDiscount=Math.round(discount*100)/100;
+    if(await save({wholesale_mate_quantity_threshold:threshold,wholesale_mate_discount_percent:normalizedDiscount},'Regla de mayoreo guardada.')){
+      setWholesaleThreshold(String(threshold));
+      setWholesalePercent(String(normalizedDiscount));
+    }
+  };
 
   return <>
     <section className="panel settings settings-section">
@@ -1969,6 +1988,15 @@ function Settings({onNotice}:{onNotice:(v:string)=>void}) {
         <label><span className="field-label">Porcentaje de ajuste</span><span className="percent-input"><input type="number" min="0" max="100" step="0.01" value={percent} disabled={saving} onChange={event=>setPercent(event.target.value)}/><span>%</span></span></label>
         <div className="adjustment-example"><span>Ejemplo sobre {money(exampleBase)}</span><strong>{money(exampleFinal)}</strong><small>{value.catalog_price_adjustment_enabled?'Precio final publicado':'El ajuste está desactivado'}</small></div>
         <button type="submit" disabled={saving}>{saving?'Guardando…':'Guardar porcentaje'}</button>
+      </form>
+    </section>
+    <section className="panel settings settings-section">
+      <header className="settings-heading"><p className="eyebrow">Mayoreo</p><h2>Descuento por cantidad de mates</h2><p>La regla se aplica internamente al superar la cantidad indicada, sumando todas las variantes de la categoría mates.</p></header>
+      <label className="toggle adjustment-toggle"><span><strong>Aplicar descuento de mayoreo</strong><small>Al apagarlo, las compras conservan el precio publicado normal.</small></span><input type="checkbox" disabled={saving} checked={value.wholesale_mate_discount_enabled} onChange={event=>void save({wholesale_mate_discount_enabled:event.target.checked},event.target.checked?'Descuento de mayoreo activado.':'Descuento de mayoreo desactivado.')}/></label>
+      <form className="adjustment-form" onSubmit={event=>void saveWholesale(event)}>
+        <label><span className="field-label">Aplicar cuando supere</span><span className="percent-input"><input type="number" min="1" max="999" step="1" value={wholesaleThreshold} disabled={saving} onChange={event=>setWholesaleThreshold(event.target.value)}/><span>mates</span></span></label>
+        <label><span className="field-label">Porcentaje de descuento</span><span className="percent-input"><input type="number" min="0" max="100" step="0.01" value={wholesalePercent} disabled={saving} onChange={event=>setWholesalePercent(event.target.value)}/><span>%</span></span></label>
+        <button type="submit" disabled={saving}>{saving?'Guardando…':'Guardar regla'}</button>
       </form>
     </section>
     <TaxonomyManager onNotice={onNotice}/>

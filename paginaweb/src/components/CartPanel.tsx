@@ -9,6 +9,7 @@ import { Link } from "@/i18n/navigation";
 import type { Locale, Product } from "@/types/catalog";
 import { localCartEntryKey, readLocalCart, removeLocalCartItem, updateLocalCartItemQuantity } from "@/lib/browser-cart";
 import { defaultCatalogTaxonomy, formatVariantLabel, normalizeCatalogValueMap, type CatalogValueMap } from "../../../shared/catalog-taxonomy";
+import { applyWholesaleMateDiscount, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
 
 type RemoteItem = {
   id: string; item_type: "catalog" | "design"; quantity: number;
@@ -111,7 +112,7 @@ function MobileEmptyCart({ showLogin }: { showLogin: boolean }) {
   );
 }
 
-export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, number> }) {
+export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?: Record<string, number>; wholesaleSettings: WholesaleDiscountSettings }) {
   const locale = useLocale() as Locale;
   const t = useTranslations("cart");
 
@@ -166,6 +167,7 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
     optionValues?: CatalogValueMap;
     quantity: number;
     priceMinor: number;
+    category?: string | null;
     imageSrc: string;
   };
 
@@ -203,6 +205,7 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
           optionValues: normalizedOptions,
           quantity,
           priceMinor,
+          category: product.category,
           imageSrc: variantImage?.src || generalImage?.src || product.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.png",
         });
       } else {
@@ -276,6 +279,7 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
               optionValues: normalizedOptions,
               quantity,
               priceMinor: vData.price_minor || 0,
+              category: rawProduct?.category_code || rawProduct?.category || null,
               imageSrc,
             });
           } else {
@@ -309,8 +313,14 @@ export function CartPanel({ exchangeRates }: { exchangeRates?: Record<string, nu
       }
     }
 
-    setLocalItems(resolved);
-  }, [localizedProducts]);
+    const adjusted = applyWholesaleMateDiscount(resolved.map(item=>({
+      itemType:"catalog" as const,
+      quantity:item.quantity,
+      unitPriceMinor:item.priceMinor,
+      category:item.category,
+    })),wholesaleSettings);
+    setLocalItems(resolved.map((item,index)=>({...item,priceMinor:adjusted[index].unitPriceMinor})));
+  }, [localizedProducts,wholesaleSettings]);
 
   useEffect(() => {
     if (!needsLogin) return;

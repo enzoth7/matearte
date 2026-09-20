@@ -9,6 +9,7 @@ import {
   type StorefrontProductRow,
 } from "@/lib/storefront-catalog-core";
 import type { Locale } from "@/types/catalog";
+import { DEFAULT_WHOLESALE_DISCOUNT_SETTINGS, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
 
 const storefrontSelection = `
   id,
@@ -125,5 +126,21 @@ export async function getExchangeRates(): Promise<Record<string, number>> {
   } catch (reason) {
     console.error("[storefront-catalog] No se pudieron cargar las cotizaciones, usando fallbacks.", reason);
     return { USD: 41, BRL: 7.5 };
+  }
+}
+
+export async function getWholesaleDiscountSettings(): Promise<WholesaleDiscountSettings> {
+  try {
+    const client = createPublicSupabase();
+    const { data, error } = await client
+      .from("commerce_settings")
+      .select("wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent")
+      .eq("singleton", true)
+      .single();
+    if (error) throw error;
+    return data as WholesaleDiscountSettings;
+  } catch (reason) {
+    console.error("[storefront-catalog] No se pudo cargar la configuración de mayoreo.", reason);
+    return DEFAULT_WHOLESALE_DISCOUNT_SETTINGS;
   }
 }

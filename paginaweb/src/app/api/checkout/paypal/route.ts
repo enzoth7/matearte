@@ -5,6 +5,7 @@ import { calculateDesignPriceMinor } from "@/lib/design-pricing";
 import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
 import { isLocale } from "@/i18n/config";
 import type { Locale } from "@/types/catalog";
+import { applyWholesaleMateDiscount, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const text = (value: unknown, maximum: number) => typeof value === "string" ? value.trim().slice(0, maximum) : "";
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
   try {
     const { data: settings } = await client
       .from("commerce_settings")
-      .select("commerce_enabled,paypal_enabled")
+      .select("commerce_enabled,paypal_enabled,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent")
       .eq("singleton", true)
       .single();
     if (!settings?.commerce_enabled || !settings?.paypal_enabled) return apiError("PayPal no está habilitado.", 503);
@@ -66,8 +67,8 @@ export async function POST(request: Request) {
     }
 
     // Calculate UYU subtotal and total weight from cart items (server-side recalculation)
-    const checkoutItems = cart.items.map((item) => {
-      const variant = item.variant as unknown as { price_minor?: number; product?: { peso?: number } } | null;
+    const checkoutItemsBeforeWholesale = cart.items.map((item) => {
+      const variant = item.variant as unknown as { price_minor?: number; product?: { peso?: number; category?: string; category_code?: string | null } } | null;
       const unitPriceMinor = item.item_type === "design"
         ? designPrices[String(item.design_id)]
         : Number(variant?.price_minor);
@@ -76,8 +77,12 @@ export async function POST(request: Request) {
         unitPriceMinor,
         quantity: Number(item.quantity) || 1,
         peso: item.item_type === "design" ? 200 : (Number(variant?.product?.peso) || 0),
+        itemType: item.item_type,
+        category: variant?.product?.category_code || variant?.product?.category || null,
       };
     });
+    const adjustedPrices = applyWholesaleMateDiscount(checkoutItemsBeforeWholesale, settings as WholesaleDiscountSettings);
+    const checkoutItems = checkoutItemsBeforeWholesale.map((item,index) => ({ ...item, unitPriceMinor: adjustedPrices[index].unitPriceMinor }));
     const itemsSubtotalMinor = checkoutItems.reduce((total, item) => total + item.unitPriceMinor * item.quantity, 0);
     const totalWeightGrams = checkoutItems.reduce((total, item) => total + item.peso * item.quantity, 0);
 
@@ -113,15 +118,22 @@ export async function POST(request: Request) {
       p_peso: totalWeightGrams,
     });
     if (orderError || !result) throw new Error(orderError?.message || "No se pudo crear la solicitud internacional.");
+    const authoritativeTotalMinor = Number(result.totalMinor);
+    const authoritativeShippingMinor = Number(result.shippingMinor);
+    if (!Number.isSafeInteger(authoritativeTotalMinor) || !Number.isSafeInteger(authoritativeShippingMinor)) {
+      throw new Error("No se pudo verificar el total de la compra.");
+    }
+    const authoritativeItemsSubtotalMinor = authoritativeTotalMinor - authoritativeShippingMinor;
+    const authoritativeAmountUsdMinor = Math.round(authoritativeTotalMinor / usdRate);
 
     return apiOk({
       orderId: String(result.id),
       orderNumber: result.orderNumber,
       checkoutId: idempotencyKey,
-      amountUsd: (amountUsdMinor / 100).toFixed(2),
-      shippingMinor,
-      itemsSubtotalMinor,
-      totalMinor,
+      amountUsd: (authoritativeAmountUsdMinor / 100).toFixed(2),
+      shippingMinor: authoritativeShippingMinor,
+      itemsSubtotalMinor: authoritativeItemsSubtotalMinor,
+      totalMinor: authoritativeTotalMinor,
     }, 201);
   } catch (error) {
     return apiError(error instanceof Error ? error.message : "No se pudo iniciar el pago.", 400);
