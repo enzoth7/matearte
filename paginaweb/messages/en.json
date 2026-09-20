@@ -256,6 +256,7 @@
     "savedLocally": "Saved on this device. It will be merged into your cart when you sign in.",
     "added": "Added to cart.",
     "addFailed": "We couldn't add this item.",
+    "goToCart": "Go to cart →",
     "addRetry": "We couldn't add this item. Please try again.",
     "checking": "Checking price…",
     "unavailableBody": "This piece will be available to purchase only after its SKU, price, delivery and publication details are complete.",

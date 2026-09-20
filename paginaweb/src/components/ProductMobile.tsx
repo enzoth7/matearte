@@ -110,11 +110,11 @@ export function ProductMobile({ product, exchangeRates }: { product: Product; ex
       });
       if (response.status === 401) {
         addLocalCartItem(targetVariantId, 1, selectedOptions);
-        router.push("/carrito");
+        setMessage(t("savedLocally"));
       } else {
         await response.json();
         if (response.ok) {
-          router.push("/carrito");
+          setMessage(t("added"));
         } else {
           setMessage(t("addFailed"));
         }

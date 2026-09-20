@@ -256,6 +256,7 @@
     "savedLocally": "Salvo neste dispositivo. Ao entrar, o item será unido ao seu carrinho.",
     "added": "Adicionado ao carrinho.",
     "addFailed": "Não foi possível adicionar.",
+    "goToCart": "Ir ao carrinho →",
     "addRetry": "Não foi possível adicionar. Tente novamente.",
     "checking": "Consultando preço…",
     "unavailableBody": "A peça ficará disponível para compra somente quando tiver SKU, preço, entrega e publicação completos.",
