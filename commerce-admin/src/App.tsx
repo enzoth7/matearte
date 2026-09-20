@@ -27,7 +27,7 @@ import {
   type CatalogValueMap,
 } from '../../shared/catalog-taxonomy';
 
-type Tab = 'catalog' | 'list' | 'orders' | 'personalized' | 'shipping' | 'international_shipping' | 'settings' | 'rates';
+type Tab = 'catalog' | 'list' | 'orders' | 'personalized' | 'international_shipping' | 'settings' | 'rates';
 
 const VALID_TABS: Record<string, Tab> = {
   catalog: 'catalog',
@@ -39,8 +39,6 @@ const VALID_TABS: Record<string, Tab> = {
   personalized: 'personalized',
   personalizados: 'personalized',
   'pedidos-personalizados': 'personalized',
-  shipping: 'shipping',
-  envios: 'shipping',
   international_shipping: 'international_shipping',
   'international-shipping': 'international_shipping',
   'envios-internacionales': 'international_shipping',
@@ -65,7 +63,6 @@ type Product = { id:string; editorial_slug:string; name:string; category:string;
 type ProductForm = {name:string;category:string;description:string;saleMode:SaleMode;peso:number;catalogFilters:CatalogAttributes;attributes:CatalogValueMap};
 export type OrderItem = {id:string;item_type:'catalog'|'design';title:string;quantity:number;requires_review:boolean;review_status:string|null;immutable_snapshot:Record<string,unknown>;sku?:string|null;unit_price_minor?:number|null;total_minor?:number|null;source_variant?:{product?:{peso?:number}}};
 export type Order = { id:string;order_number:number;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;peso?:number|null;order_items:OrderItem[] };
-type Rate = {id:string;code:string;name:string;departments:string[];rate_minor:number;is_pickup:boolean;active:boolean};
 const money=(minor:number)=>new Intl.NumberFormat('es-UY',{style:'currency',currency:'UYU',maximumFractionDigits:0}).format(minor/100);
 export const formatWeight = (grams: number) => {
   if (!grams || grams <= 0) return '0 g';
@@ -112,7 +109,6 @@ function Icon({ name }: { name: IconName }) {
     list: <><path d="M8 6h12M8 12h12M8 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></>,
     orders: <><path d="M6 3.5h12v17H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></>,
     personalized: <><path d="M12 3 14.2 8.8 20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></>,
-    shipping: <><path d="M3 6h11v11H3zM14 10h4l3 3v4h-7z"/><path d="M7 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm10 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/></>,
     international_shipping: <><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><line x1="2" y1="12" x2="22" y2="12"/></>,
     rates: <><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></>,
     settings: <><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></>,
@@ -513,12 +509,11 @@ export function App(){
     {id:'list',label:'Lista'},
     {id:'orders',label:'Pedidos'},
     {id:'personalized',label:'Pedidos personalizados'},
-    {id:'shipping',label:'Envíos'},
     {id:'international_shipping',label:'Envíos internacionales'},
     {id:'rates',label:'Cotizaciones'},
     {id:'settings',label:'Configuración'},
   ];
-  const pageTitle = tab==='catalog'?'Catálogo':tab==='list'?'Lista':tab==='orders'?'Pedidos':tab==='personalized'?'Pedidos personalizados':tab==='shipping'?'Zonas y tarifas':tab==='international_shipping'?'Envíos internacionales':tab==='rates'?'Cotizaciones':'Configuración';
+  const pageTitle = tab==='catalog'?'Catálogo':tab==='list'?'Lista':tab==='orders'?'Pedidos':tab==='personalized'?'Pedidos personalizados':tab==='international_shipping'?'Envíos internacionales':tab==='rates'?'Cotizaciones':'Configuración';
   return (
     <div className="shell">
       <a className="skip-link" href="#commerce-content">Saltar al contenido</a>
@@ -532,7 +527,7 @@ export function App(){
      <main id="commerce-content">
        <header className="page-header"><div><h1>{pageTitle}</h1></div><strong>{session.user.email}</strong></header>
        {notice&&<div className="notice" role="status">{notice}</div>}
-       {tab==='catalog'&&<Catalog onNotice={setNotice}/>} {tab==='list'&&<CatalogList onNotice={setNotice}/>} {tab==='orders'&&<Orders session={session} onNotice={setNotice}/>} {tab==='personalized'&&<PersonalizedOrders onNotice={setNotice}/>} {tab==='shipping'&&<Shipping onNotice={setNotice}/>} {tab==='international_shipping'&&<InternationalShipping onNotice={setNotice}/>} {tab==='rates'&&<Rates onNotice={setNotice}/>} {tab==='settings'&&<Settings onNotice={setNotice}/>}
+       {tab==='catalog'&&<Catalog onNotice={setNotice}/>} {tab==='list'&&<CatalogList onNotice={setNotice}/>} {tab==='orders'&&<Orders session={session} onNotice={setNotice}/>} {tab==='personalized'&&<PersonalizedOrders onNotice={setNotice}/>} {tab==='international_shipping'&&<InternationalShipping onNotice={setNotice}/>} {tab==='rates'&&<Rates onNotice={setNotice}/>} {tab==='settings'&&<Settings onNotice={setNotice}/>}
      </main>
    </div>
  )}
@@ -1531,7 +1526,11 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
         .limit(100));
     }
     if (error) onNotice(`No se pudieron cargar los pedidos: ${error.message}`);
-    setOrders((data||[]) as Order[]);
+    const confirmedOrders = ((data || []) as Order[]).filter((order) => {
+      const isPayPalCheckout = textValue(order.customer_snapshot.purchaseFlow) === 'international_paypal';
+      return !isPayPalCheckout || !['pending_payment', 'payment_failed', 'cancelled'].includes(order.status);
+    });
+    setOrders(confirmedOrders);
   },[onNotice]);
   useEffect(()=>{void load()},[load]);
   useEffect(()=>{let active=true;void loadCatalogTaxonomy().then(value=>{if(active)setTaxonomy(value)});return()=>{active=false}},[]);
@@ -1908,7 +1907,5 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
     </>
   );
 }
-
-function Shipping({onNotice}:{onNotice:(v:string)=>void}){const[rates,setRates]=useState<Rate[]>([]);const[form,setForm]=useState({code:'',name:'',rate:'',departments:''});const load=useCallback(async()=>{const{data}=await supabase.from('shipping_rates').select('*').order('is_pickup',{ascending:false});setRates((data||[]) as Rate[])},[]);useEffect(()=>{void load()},[load]);return <section className="panel"><table><thead><tr><th>Zona</th><th>Departamentos</th><th>Tarifa</th><th>Estado</th></tr></thead><tbody>{rates.map(r=><tr key={r.id}><td>{r.name}</td><td>{r.is_pickup?'Retiro':r.departments.join(', ')}</td><td>{money(r.rate_minor)}</td><td>{r.active?'Activa':'Inactiva'}</td></tr>)}</tbody></table><form className="form-grid" onSubmit={async e=>{e.preventDefault();const{error}=await supabase.from('shipping_rates').insert({code:form.code,name:form.name,rate_minor:Math.round(Number(form.rate)*100),departments:form.departments.split(',').map(v=>v.trim()).filter(Boolean),is_pickup:false,active:true});onNotice(error?error.message:'Zona creada.');if(!error){setForm({code:'',name:'',rate:'',departments:''});await load()}}}><h4>Nueva zona nacional</h4><label>Código<input required value={form.code} onChange={e=>setForm({...form,code:e.target.value})}/></label><label>Nombre<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label><label>Tarifa UYU<input required type="number" min="0" value={form.rate} onChange={e=>setForm({...form,rate:e.target.value})}/></label><label>Departamentos, separados por coma<input required value={form.departments} onChange={e=>setForm({...form,departments:e.target.value})}/></label><button>Crear zona</button></form></section>}
 
 function Settings({onNotice}:{onNotice:(v:string)=>void}){const[value,setValue]=useState<Record<string,boolean|number>|null>(null);const load=useCallback(async()=>{const{data}=await supabase.from('commerce_settings').select('*').eq('singleton',true).single();setValue(data)},[]);useEffect(()=>{void load()},[load]);if(!value)return <p>Cargando…</p>;const save=async(next:Record<string,boolean|number>)=>{const{error}=await supabase.from('commerce_settings').update(next).eq('singleton',true);onNotice(error?error.message:'Configuración guardada.');if(!error)setValue({...value,...next})};return <><section className="panel settings"><div className="warning"><strong>Salida controlada</strong><p>Mercado Pago y el comercio permanecen apagados hasta cerrar sandbox, credenciales y catálogo. La comisión requiere aprobación legal independiente.</p></div>{[['commerce_enabled','Habilitar comercio'],['mercado_pago_enabled','Habilitar Mercado Pago'],['payment_fee_legal_approval','Aprobación escrita de comisión'],['payment_fee_enabled','Cobrar comisión separada']].map(([key,label])=><label className="toggle" key={key}><span>{label}</span><input type="checkbox" checked={Boolean(value[key])} onChange={e=>void save({[key]:e.target.checked})}/></label>)}</section><TaxonomyManager onNotice={onNotice}/></>}

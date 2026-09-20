@@ -406,7 +406,7 @@
     "summary": "Summary",
     "subtotal": "Subtotal",
     "shipping": "Shipping",
-    "toCalculate": "Paid on delivery",
+    "toCalculate": "To be calculated",
     "total": "Total",
     "continue": "Continue"
   },

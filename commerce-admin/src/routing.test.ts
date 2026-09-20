@@ -7,7 +7,6 @@ describe('getTabFromUrl', () => {
     expect(getTabFromUrl('/personalized')).toBe('personalized');
     expect(getTabFromUrl('/catalog')).toBe('catalog');
     expect(getTabFromUrl('/list')).toBe('list');
-    expect(getTabFromUrl('/shipping')).toBe('shipping');
     expect(getTabFromUrl('/international-shipping')).toBe('international_shipping');
     expect(getTabFromUrl('/international_shipping')).toBe('international_shipping');
     expect(getTabFromUrl('/rates')).toBe('rates');
@@ -20,7 +19,6 @@ describe('getTabFromUrl', () => {
     expect(getTabFromUrl('/pedidos-personalizados')).toBe('personalized');
     expect(getTabFromUrl('/catalogo')).toBe('catalog');
     expect(getTabFromUrl('/lista')).toBe('list');
-    expect(getTabFromUrl('/envios')).toBe('shipping');
     expect(getTabFromUrl('/envios-internacionales')).toBe('international_shipping');
     expect(getTabFromUrl('/envios_internacionales')).toBe('international_shipping');
     expect(getTabFromUrl('/cotizaciones')).toBe('rates');
@@ -42,6 +40,8 @@ describe('getTabFromUrl', () => {
     expect(getTabFromUrl('/')).toBe('catalog');
     expect(getTabFromUrl('')).toBe('catalog');
     expect(getTabFromUrl('/ruta-inexistente')).toBe('catalog');
+    expect(getTabFromUrl('/shipping')).toBe('catalog');
+    expect(getTabFromUrl('/envios')).toBe('catalog');
   });
 });
 

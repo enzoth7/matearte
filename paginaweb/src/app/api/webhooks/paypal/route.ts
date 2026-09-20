@@ -59,9 +59,11 @@ export async function POST(req: Request) {
             p_capture_payload: event,
           });
 
-          if (rpcResult?.order_id) {
-            await dispatchCommerceEmails(rpcResult.order_id);
-          }
+          const orderId = rpcResult && typeof rpcResult === 'object'
+            && 'orderId' in rpcResult && typeof rpcResult.orderId === 'string'
+            ? rpcResult.orderId
+            : null;
+          if (orderId) await dispatchCommerceEmails(orderId);
         }
         break;
       }
@@ -69,7 +71,10 @@ export async function POST(req: Request) {
         const resource = event.resource;
         const paypal_order_id = resource.supplementary_data?.related_ids?.order_id;
         if (paypal_order_id) {
-          await admin.from('orders').update({ status: 'payment_failed' }).eq('paypal_order_id', paypal_order_id);
+          const { error: discardError } = await admin.rpc('discard_unconfirmed_paypal_order', {
+            p_paypal_order_id: paypal_order_id,
+          });
+          if (discardError) throw discardError;
         }
         break;
       }
