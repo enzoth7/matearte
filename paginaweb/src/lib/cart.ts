@@ -96,7 +96,11 @@ export async function readPricedCart(client: SupabaseClient, userId: string) {
     total_weight_grams: totalWeightGrams,
     items: pricedItems.map((item,index) => {
       const { wholesale_price_line: _wholesalePriceLine, ...publicItem } = item;
-      return { ...publicItem, unit_price_minor: adjustedLines[index].unitPriceMinor };
+      return {
+        ...publicItem,
+        base_unit_price_minor: item.unit_price_minor,
+        unit_price_minor: adjustedLines[index].unitPriceMinor,
+      };
     }),
   };
 }

@@ -396,6 +396,7 @@
     "catalogPiece": "Pieza artesanal",
     "unitPrice": "{price} c/u",
     "quantity": "Cantidad",
+    "editQuantity": "Editar cantidad de {item}",
     "removeItem": "Quitar {item} del carrito",
     "decreaseItem": "Restar una unidad de {item}",
     "increaseItem": "Agregar una unidad de {item}",
@@ -408,7 +409,8 @@
     "shipping": "Envío",
     "toCalculate": "A calcular",
     "total": "Total",
-    "continue": "Continuar"
+    "continue": "Continuar",
+    "wholesaleDiscountNotice": "Se ofrece un {discount}% de descuento en más de {threshold} unidades de mate."
   },
   "checkout": {
     "metadataTitle": "Finalizar compra",

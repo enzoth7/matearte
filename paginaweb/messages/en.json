@@ -396,6 +396,7 @@
     "catalogPiece": "Handcrafted piece",
     "unitPrice": "{price} each",
     "quantity": "Quantity",
+    "editQuantity": "Edit quantity of {item}",
     "removeItem": "Remove {item} from cart",
     "decreaseItem": "Remove one {item}",
     "increaseItem": "Add one {item}",
@@ -408,7 +409,8 @@
     "shipping": "Shipping",
     "toCalculate": "To be calculated",
     "total": "Total",
-    "continue": "Continue"
+    "continue": "Continue",
+    "wholesaleDiscountNotice": "A {discount}% discount is offered on more than {threshold} mate units."
   },
   "checkout": {
     "metadataTitle": "Checkout",
