@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { getTabFromUrl } from './App';
+import { calculateAdjustedCatalogPrice, getTabFromUrl } from './App';
+
+describe('calculateAdjustedCatalogPrice', () => {
+  it('aplica el porcentaje sobre el precio base y redondea al peso', () => {
+    expect(calculateAdjustedCatalogPrice(200000, 13.64)).toBe(227300);
+    expect(calculateAdjustedCatalogPrice(500000, 13.64)).toBe(568200);
+  });
+
+  it('restaura exactamente el precio base cuando está desactivado', () => {
+    expect(calculateAdjustedCatalogPrice(200000, 13.64, false)).toBe(200000);
+  });
+});
 
 describe('getTabFromUrl', () => {
   it('resuelve rutas directas de pestañas estándar', () => {

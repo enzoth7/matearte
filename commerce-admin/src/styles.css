@@ -360,6 +360,20 @@ td small { display: block; }
 .warning p { margin: .35rem 0 0; color: var(--muted); line-height: 1.5; }
 .toggle { display: flex; justify-content: space-between; align-items: center; min-height: 3.6rem; border-bottom: 1px solid var(--line-soft); }
 .toggle input { width: 1.25rem; height: 1.25rem; accent-color: var(--green-700); }
+.settings-section + .settings-section { margin-top: 1rem; }
+.settings-heading { margin-bottom: .5rem; }
+.settings-heading h2 { margin: .15rem 0 .35rem; font-family: var(--font-serif); font-size: clamp(1.45rem, 2vw, 2rem); }
+.settings-heading > p:last-child { margin: 0; max-width: 48rem; color: var(--muted); line-height: 1.55; }
+.adjustment-toggle > span { display: grid; gap: .2rem; padding: .8rem 1rem .8rem 0; }
+.adjustment-toggle small { color: var(--muted); font-weight: 400; line-height: 1.4; }
+.adjustment-form { display: grid; grid-template-columns: minmax(12rem, 1fr) minmax(12rem, 1fr) auto; align-items: end; gap: 1rem; padding-top: 1.25rem; }
+.adjustment-form > label { display: grid; gap: .4rem; }
+.percent-input { display: flex; align-items: center; gap: .5rem; }
+.percent-input input { max-width: 10rem; }
+.percent-input > span { font-weight: 700; }
+.adjustment-example { display: grid; gap: .15rem; border-left: 3px solid var(--green-700); padding: .55rem .8rem; }
+.adjustment-example span, .adjustment-example small { color: var(--muted); font-size: .76rem; }
+.adjustment-example strong { font-family: var(--font-serif); font-size: 1.35rem; }
 
 @media (max-width: 1050px) {
   :root { --sidebar-width: 4.75rem; }
@@ -383,6 +397,8 @@ td small { display: block; }
   .catalog-workspace { grid-template-columns: 1fr; }
   .product-fields { grid-template-columns: 1fr; }
   .product-fields .wide-field { grid-column: auto; }
+  .adjustment-form { grid-template-columns: 1fr; align-items: stretch; }
+  .adjustment-form button { width: 100%; }
   .catalog-attribute-group > div { grid-template-columns: 1fr; }
   .catalog-index { position: static; }
   .list { max-height: 18rem; }

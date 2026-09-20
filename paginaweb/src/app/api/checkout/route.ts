@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   const { user, client } = await requireUser();
   if (!user) return apiError("Necesitás iniciar sesión.", 401);
   try {
-    const { data: publicSettings } = await client.from("commerce_settings").select("commerce_enabled,mercado_pago_enabled,payment_fee_enabled,payment_fee_legal_approval,reservation_minutes").eq("singleton", true).single();
+    const { data: publicSettings } = await client.from("commerce_settings").select("commerce_enabled,mercado_pago_enabled,reservation_minutes").eq("singleton", true).single();
     if (!publicSettings?.commerce_enabled || !publicSettings.mercado_pago_enabled) return apiError("El comercio todavía no está habilitado.", 503);
     const body = await readJson(request);
     const localeValue = typeof body.locale === "string" ? body.locale : null;
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     const designPrices: Record<string, number> = {};
     let pricingVersionId: string | null = null;
     let publishedCatalog: PublishedPricingCatalog | null = null;
-    if (designIds.length || (publicSettings.payment_fee_enabled && publicSettings.payment_fee_legal_approval)) {
+    if (designIds.length) {
       const { data: catalog, error: catalogError } = await admin.rpc("get_published_pricing_catalog");
       if (catalogError || !catalog || typeof catalog !== "object") throw new Error("No se pudo verificar el catálogo de precios.");
       publishedCatalog = catalog as unknown as PublishedPricingCatalog;
@@ -84,12 +84,8 @@ export async function POST(request: Request) {
       };
     });
     const itemsSubtotalMinor = checkoutItems.reduce((total, item) => total + item.unitPriceMinor * item.quantity, 0);
-    const feePercent = publicSettings.payment_fee_enabled && publicSettings.payment_fee_legal_approval
-      ? Number(publishedCatalog?.rules?.["commission:mercado_pago"])
-      : 0;
-    if (!Number.isFinite(feePercent) || feePercent < 0) throw new Error("La regla de comisión no está publicada.");
-    const paymentFeeMinor = Math.round(itemsSubtotalMinor * feePercent / 100);
-    const totalMinor = itemsSubtotalMinor + paymentFeeMinor;
+    const paymentFeeMinor = 0;
+    const totalMinor = itemsSubtotalMinor;
     const reservationExpiresAt = new Date(Date.now() + Number(publicSettings.reservation_minutes || 30) * 60_000).toISOString();
     const checkoutPayload = {
       version: 1,
@@ -104,15 +100,12 @@ export async function POST(request: Request) {
     const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN?.trim();
     if (!accessToken) throw new Error("Mercado Pago todavía no tiene credenciales configuradas.");
     const preferenceClient = new Preference(new MercadoPagoConfig({ accessToken, options: { timeout: 8_000 } }));
-    const labels = {
-      es: { order: "Pedido MateArte", fee: "Comisión de Mercado Pago" },
-      en: { order: "MateArte order", fee: "Mercado Pago fee" },
-      pt: { order: "Pedido MateArte", fee: "Tarifa do Mercado Pago" },
+    const label = {
+      es: "Pedido MateArte",
+      en: "MateArte order",
+      pt: "Pedido MateArte",
     }[locale];
-    const mpItems = [
-      { id: `checkout-${idempotencyKey}`, title: labels.order, quantity: 1, unit_price: itemsSubtotalMinor / 100, currency_id: "UYU" },
-      ...(paymentFeeMinor ? [{ id: `fee-${idempotencyKey}`, title: labels.fee, quantity: 1, unit_price: paymentFeeMinor / 100, currency_id: "UYU" }] : []),
-    ];
+    const mpItems = [{ id: `checkout-${idempotencyKey}`, title: label, quantity: 1, unit_price: itemsSubtotalMinor / 100, currency_id: "UYU" }];
     const statusUrl = `${siteUrl()}${localizeCanonicalPath(`/pedidos/${idempotencyKey}`, locale)}`;
     const preference = await preferenceClient.create({
       body: {

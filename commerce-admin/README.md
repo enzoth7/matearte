@@ -43,6 +43,8 @@ VITE_STORE_API_URL=http://localhost:3000
 
 `VITE_STORE_API_URL` apunta al backend del sitio principal; en producción debe ser `https://www.matearteuruguay.com`.
 
+La pestaña Configuración permite habilitar los canales de venta y administrar el ajuste global del catálogo. Cada variante conserva un precio base; al activar o cambiar el porcentaje, Supabase recalcula el precio publicado sin acumular aumentos. Al desactivarlo, se restaura exactamente el precio base.
+
 Los archivos de catálogo usan `product-images`. Las vistas y originales personalizados se leen mediante enlaces firmados desde los buckets privados `design-previews`, `design-assets` y, para compatibilidad, `order-assets`.
 
 Las operaciones privilegiadas, como revisar un personalizado y ejecutar un reembolso, pasan por endpoints del sitio principal. El navegador nunca recibe una `service_role` ni credenciales de Mercado Pago.

@@ -58,12 +58,13 @@ export function getTabFromUrl(urlPath?: string, search?: string): Tab {
 }
 type ProductImage = { id:string;storage_path:string;original_name:string;alt_text:string;mime_type:string;byte_size:number;sort_order:number;variant_id:string|null;option_values?:unknown };
 type SaleMode = 'standard'|'made_to_order';
-type ProductVariant = {id:string;sku:string;name:string;price_minor:number;active:boolean;color?:string|null;weight_grams?:number|null;option_values?:unknown};
+type ProductVariant = {id:string;sku:string;name:string;base_price_minor:number;price_minor:number;active:boolean;color?:string|null;weight_grams?:number|null;option_values?:unknown};
 type Product = { id:string; editorial_slug:string; name:string; category:string; category_code?:string|null; description:string; sale_mode:SaleMode; published:boolean; peso?:number; catalog_filters?:unknown; attributes?:unknown; commerce_variants:ProductVariant[]; commerce_product_images:ProductImage[] };
 type ProductForm = {name:string;category:string;description:string;saleMode:SaleMode;peso:number;catalogFilters:CatalogAttributes;attributes:CatalogValueMap};
 export type OrderItem = {id:string;item_type:'catalog'|'design';title:string;quantity:number;requires_review:boolean;review_status:string|null;immutable_snapshot:Record<string,unknown>;sku?:string|null;unit_price_minor?:number|null;total_minor?:number|null;source_variant?:{product?:{peso?:number}}};
 export type Order = { id:string;order_number:number;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;peso?:number|null;order_items:OrderItem[] };
 const money=(minor:number)=>new Intl.NumberFormat('es-UY',{style:'currency',currency:'UYU',maximumFractionDigits:0}).format(minor/100);
+export const calculateAdjustedCatalogPrice = (baseMinor:number, percent:number, enabled=true) => enabled ? Math.round((baseMinor*(1+percent/100))/100)*100 : baseMinor;
 export const formatWeight = (grams: number) => {
   if (!grams || grams <= 0) return '0 g';
   if (grams >= 1000) {
@@ -616,13 +617,13 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
   useEffect(()=>{void loadCatalogTaxonomy(false).then(setTaxonomy)},[]);
 
   const load = useCallback(async(preferredId?:string) => {
-    const selection = 'id,editorial_slug,name,category,category_code,description,sale_mode,published,peso,catalog_filters,attributes,commerce_variants(id,sku,name,price_minor,weight_grams,active,color,option_values),commerce_product_images(id,storage_path,original_name,alt_text,mime_type,byte_size,sort_order,variant_id,option_values)';
+    const selection = 'id,editorial_slug,name,category,category_code,description,sale_mode,published,peso,catalog_filters,attributes,commerce_variants(id,sku,name,base_price_minor,price_minor,weight_grams,active,color,option_values),commerce_product_images(id,storage_path,original_name,alt_text,mime_type,byte_size,sort_order,variant_id,option_values)';
     const legacySelection = 'id,editorial_slug,name,category,description,sale_mode,published,catalog_filters,commerce_variants(id,sku,name,price_minor,active,color),commerce_product_images(id,storage_path,original_name,alt_text,mime_type,byte_size,sort_order,variant_id)';
     let {data,error}:{data:unknown;error:{message:string;code?:string}|null} = await supabase
       .from('commerce_products')
       .select(selection)
       .order('name');
-    if (error && (error.code === '42703' || /category_code|attributes|option_values|weight_grams|peso/i.test(error.message))) {
+    if (error && (error.code === '42703' || /category_code|attributes|option_values|weight_grams|peso|base_price_minor/i.test(error.message))) {
       ({data,error} = await supabase.from('commerce_products').select(legacySelection).order('name'));
     }
     if (error) {
@@ -855,6 +856,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
       product_id: product.id,
       sku: variant.sku.trim(),
       name: formatVariantLabel(taxonomy,product.category_code||product.category,variant.options),
+      base_price_minor: Math.round(price*100),
       price_minor: Math.round(price*100),
       option_values: variant.options,
       color: typeof variant.options.color==='string'?variant.options.color:null,
@@ -881,7 +883,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
       name: formatVariantLabel(taxonomy,product.category_code||product.category,form.options),
       color: typeof form.options.color==='string'?form.options.color:null,
       option_values: form.options,
-      price_minor: Math.round(Number(form.price) * 100),
+      base_price_minor: Math.round(Number(form.price) * 100),
     }).eq('id', item.id).eq('product_id', product.id);
 
     if (error) {
@@ -1050,7 +1052,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
           <section className="variants-section" aria-labelledby="variants-title">
             <div><h4 id="variants-title">Variantes comprables</h4><p>El SKU y las opciones identifican cada variante. La etiqueta se genera automáticamente.</p></div>
             <div className="table-scroll">
-              <table><thead><tr><th>SKU</th>{variantDefinitions.map(({definition})=><th key={definition.code}>{definition.label_es}</th>)}<th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+              <table><thead><tr><th>SKU</th>{variantDefinitions.map(({definition})=><th key={definition.code}>{definition.label_es}</th>)}<th>Precio base</th><th>Precio publicado</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
                 {product.commerce_variants.map(item => {
                   const itemOptions = normalizeCatalogValueMap(item.option_values);
                   if (!itemOptions.color && item.color) itemOptions.color = item.color;
@@ -1059,11 +1061,12 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
                       <tr key={item.id}>
                         <td>{item.sku}<small>{item.name}</small></td>
                         {variantDefinitions.map(({definition})=><td key={definition.code}>{itemOptions[definition.code]!==undefined?catalogValueLabel(taxonomy,definition.code,itemOptions[definition.code] as CatalogValue):'—'}</td>)}
-                        <td>{money(item.price_minor)}</td>
+                        <td>{money(item.base_price_minor ?? item.price_minor)}</td>
+                        <td><strong>{money(item.price_minor)}</strong></td>
                         <td><span className={`status-badge ${item.active ? 'status-ready_for_production' : 'status-cancelled'}`}>{item.active ? 'Activa' : 'Inactiva'}</span></td>
                         <td>
                           <div className="row-actions">
-                            <button className="compact-button secondary-button" type="button" disabled={Boolean(productBusy)} onClick={() => { setEditingVariantId(item.id); setEditingVariantForm({ sku: item.sku, price: (item.price_minor / 100).toString(), options: itemOptions }); }}>Editar</button>
+                            <button className="compact-button secondary-button" type="button" disabled={Boolean(productBusy)} onClick={() => { setEditingVariantId(item.id); setEditingVariantForm({ sku: item.sku, price: ((item.base_price_minor ?? item.price_minor) / 100).toString(), options: itemOptions }); }}>Editar</button>
                             <button className="compact-button secondary-button" type="button" disabled={Boolean(productBusy)} onClick={()=>void toggleVariant(item)}>{item.active ? 'Desactivar' : 'Activar'}</button>
                             <button className="compact-button danger-button" type="button" disabled={Boolean(productBusy)} onClick={()=>void removeVariant(item)}>Eliminar</button>
                           </div>
@@ -1104,6 +1107,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
                           />
                         </div>
                       </td>
+                      <td><span className="field-help">Se recalcula al guardar</span></td>
                       <td>
                         <span className={`status-badge ${item.active ? 'status-ready_for_production' : 'status-cancelled'}`}>
                           {item.active ? 'Activa' : 'Inactiva'}
@@ -1132,7 +1136,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
                     </tr>
                   );
                 })}
-                {!product.commerce_variants.length&&<tr><td className="empty-table" colSpan={variantDefinitions.length+4}>Este producto todavía no tiene variantes.</td></tr>}
+                {!product.commerce_variants.length&&<tr><td className="empty-table" colSpan={variantDefinitions.length+5}>Este producto todavía no tiene variantes.</td></tr>}
               </tbody></table>
             </div>
           </section>
@@ -1140,7 +1144,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
             <h4>Nueva variante</h4>
             <label><span className="field-label">SKU <span className="field-required" aria-hidden="true">*</span></span><input required value={variant.sku} onChange={e=>setVariant({...variant,sku:e.target.value})}/></label>
             <DynamicAttributeFields taxonomy={taxonomy} category={product.category_code||product.category} scope="variant" values={variant.options} onChange={options=>setVariant({...variant,options})}/>
-            <label><span className="field-label">Precio UYU <span className="field-required" aria-hidden="true">*</span></span><input required type="number" min="1" step="0.01" value={variant.price} onChange={e=>setVariant({...variant,price:e.target.value})}/></label>
+            <label><span className="field-label">Precio base UYU <span className="field-required" aria-hidden="true">*</span></span><input required type="number" min="1" step="0.01" value={variant.price} onChange={e=>setVariant({...variant,price:e.target.value})}/><small className="field-help">El ajuste configurado se aplica automáticamente.</small></label>
             <button disabled={Boolean(productBusy)}>{productBusy === 'variant-create' ? 'Creando…' : 'Crear variante'}</button>
           </form>
         </div>
@@ -1908,4 +1912,65 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
   );
 }
 
-function Settings({onNotice}:{onNotice:(v:string)=>void}){const[value,setValue]=useState<Record<string,boolean|number>|null>(null);const load=useCallback(async()=>{const{data}=await supabase.from('commerce_settings').select('*').eq('singleton',true).single();setValue(data)},[]);useEffect(()=>{void load()},[load]);if(!value)return <p>Cargando…</p>;const save=async(next:Record<string,boolean|number>)=>{const{error}=await supabase.from('commerce_settings').update(next).eq('singleton',true);onNotice(error?error.message:'Configuración guardada.');if(!error)setValue({...value,...next})};return <><section className="panel settings"><div className="warning"><strong>Salida controlada</strong><p>Mercado Pago y el comercio permanecen apagados hasta cerrar sandbox, credenciales y catálogo. La comisión requiere aprobación legal independiente.</p></div>{[['commerce_enabled','Habilitar comercio'],['mercado_pago_enabled','Habilitar Mercado Pago'],['payment_fee_legal_approval','Aprobación escrita de comisión'],['payment_fee_enabled','Cobrar comisión separada']].map(([key,label])=><label className="toggle" key={key}><span>{label}</span><input type="checkbox" checked={Boolean(value[key])} onChange={e=>void save({[key]:e.target.checked})}/></label>)}</section><TaxonomyManager onNotice={onNotice}/></>}
+type CommerceSettings = {
+  commerce_enabled:boolean;
+  mercado_pago_enabled:boolean;
+  paypal_enabled:boolean;
+  catalog_price_adjustment_enabled:boolean;
+  catalog_price_adjustment_percent:number;
+};
+
+function Settings({onNotice}:{onNotice:(v:string)=>void}) {
+  const [value,setValue]=useState<CommerceSettings|null>(null);
+  const [percent,setPercent]=useState('13.64');
+  const [saving,setSaving]=useState(false);
+  const load=useCallback(async()=>{
+    const {data,error}=await supabase.from('commerce_settings').select('commerce_enabled,mercado_pago_enabled,paypal_enabled,catalog_price_adjustment_enabled,catalog_price_adjustment_percent').eq('singleton',true).single();
+    if(error){onNotice(error.message);return}
+    const next=data as CommerceSettings;
+    setValue(next);
+    setPercent(String(next.catalog_price_adjustment_percent));
+  },[onNotice]);
+  useEffect(()=>{void load()},[load]);
+
+  if(!value)return <p>Cargando…</p>;
+
+  const save=async(next:Partial<CommerceSettings>,message='Configuración guardada.')=>{
+    setSaving(true);
+    const {error}=await supabase.from('commerce_settings').update(next).eq('singleton',true);
+    setSaving(false);
+    onNotice(error?error.message:message);
+    if(!error)setValue({...value,...next});
+    return !error;
+  };
+  const saveAdjustment=async(event:React.FormEvent)=>{
+    event.preventDefault();
+    const parsed=Number(percent.replace(',','.'));
+    if(!Number.isFinite(parsed)||parsed<0||parsed>100){onNotice('Ingresá un porcentaje entre 0 y 100.');return}
+    const normalized=Math.round(parsed*100)/100;
+    if(await save({catalog_price_adjustment_percent:normalized},'Ajuste actualizado y precios recalculados.'))setPercent(String(normalized));
+  };
+  const exampleBase=200000;
+  const exampleFinal=calculateAdjustedCatalogPrice(exampleBase,Number(percent.replace(',','.'))||0,value.catalog_price_adjustment_enabled);
+
+  return <>
+    <section className="panel settings settings-section">
+      <header className="settings-heading"><p className="eyebrow">Operación</p><h2>Canales de venta</h2><p>Controles generales para habilitar la tienda y sus proveedores de pago.</p></header>
+      {([
+        ['commerce_enabled','Habilitar comercio'],
+        ['mercado_pago_enabled','Habilitar Mercado Pago'],
+        ['paypal_enabled','Habilitar PayPal'],
+      ] as const).map(([key,label])=><label className="toggle" key={key}><span>{label}</span><input type="checkbox" disabled={saving} checked={value[key]} onChange={event=>void save({[key]:event.target.checked})}/></label>)}
+    </section>
+    <section className="panel settings settings-section">
+      <header className="settings-heading"><p className="eyebrow">Precios</p><h2>Ajuste incorporado al catálogo</h2><p>Se calcula sobre el precio base de cada variante. El cliente ve únicamente el precio final, sin una comisión separada.</p></header>
+      <label className="toggle adjustment-toggle"><span><strong>Aplicar ajuste a los precios</strong><small>Al apagarlo, todos los productos vuelven automáticamente a su precio base.</small></span><input type="checkbox" disabled={saving} checked={value.catalog_price_adjustment_enabled} onChange={event=>void save({catalog_price_adjustment_enabled:event.target.checked},event.target.checked?'Ajuste activado y precios recalculados.':'Ajuste desactivado; se restauraron los precios base.')}/></label>
+      <form className="adjustment-form" onSubmit={event=>void saveAdjustment(event)}>
+        <label><span className="field-label">Porcentaje de ajuste</span><span className="percent-input"><input type="number" min="0" max="100" step="0.01" value={percent} disabled={saving} onChange={event=>setPercent(event.target.value)}/><span>%</span></span></label>
+        <div className="adjustment-example"><span>Ejemplo sobre {money(exampleBase)}</span><strong>{money(exampleFinal)}</strong><small>{value.catalog_price_adjustment_enabled?'Precio final publicado':'El ajuste está desactivado'}</small></div>
+        <button type="submit" disabled={saving}>{saving?'Guardando…':'Guardar porcentaje'}</button>
+      </form>
+    </section>
+    <TaxonomyManager onNotice={onNotice}/>
+  </>;
+}
