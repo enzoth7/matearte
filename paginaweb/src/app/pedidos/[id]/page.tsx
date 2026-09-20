@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import { OrderStatus } from "@/components/OrderStatus";
 import { localizedAlternates } from "@/i18n/metadata";
+import { getExchangeRates } from "@/lib/storefront-catalog";
 import type { Locale } from "@/types/catalog";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -10,7 +11,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function OrderPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ payment?: string }> }) {
-  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const [{ id }, query, exchangeRates] = await Promise.all([params, searchParams, getExchangeRates()]);
   const t = await getTranslations("order");
   return (
     <main id="contenido" className="order-detail-page pb-24 pt-8 sm:pb-32 sm:pt-12">
@@ -20,7 +21,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             <h1 id="order-detail-title">{t("title")}</h1>
             <p>{t("intro")}</p>
           </header>
-          <div className="order-detail-content"><OrderStatus orderId={id} paymentOutcome={query.payment} /></div>
+          <div className="order-detail-content"><OrderStatus orderId={id} paymentOutcome={query.payment} exchangeRates={exchangeRates} /></div>
         </div>
       </div>
     </main>

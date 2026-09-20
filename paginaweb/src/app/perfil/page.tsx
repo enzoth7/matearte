@@ -10,9 +10,10 @@ import { Link } from "@/i18n/navigation";
 import { localizedAlternates } from "@/i18n/metadata";
 import { localizeCanonicalPath } from "@/i18n/paths";
 import { countryName } from "@/lib/countries";
-import { formatMoney } from "@/lib/money";
+import { formatOrderMoney } from "@/lib/order-money";
 import { orderItemImagePath, type OrderItemImageSource } from "@/lib/order-item-image";
 import { isActiveOrder, isConfirmedOrder, orderStatusTone } from "@/lib/order-status";
+import { getExchangeRates } from "@/lib/storefront-catalog";
 import { requireUser } from "@/lib/supabase/server";
 import type { Locale } from "@/types/catalog";
 import { safeStoreRedirect } from "@/lib/auth-redirect";
@@ -43,6 +44,7 @@ type CustomerOrder = {
   tracking_code: string | null;
   total_minor: number;
   currency: string;
+  paypal_amount_usd_minor: number | null;
   created_at: string;
   paid_at: string | null;
   order_items: OrderItem[] | null;
@@ -180,7 +182,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const { user, client } = await requireUser();
   if (!user) return <AccountAccessRequired authError={params.auth} redirect={params.redirect} />;
 
-  const [{ data: profile }, { data, error }] = await Promise.all([
+  const [{ data: profile }, { data, error }, exchangeRates] = await Promise.all([
     client
       .from("customer_profiles")
       .select("full_name,birth_date,country_code,department,city,avatar_path,profile_completed_at")
@@ -189,7 +191,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
     client
       .from("orders")
       .select(`
-        id,order_number,status,shipping_method,shipping_carrier,tracking_code,total_minor,currency,created_at,paid_at,
+        id,order_number,status,shipping_method,shipping_carrier,tracking_code,total_minor,currency,paypal_amount_usd_minor,created_at,paid_at,
         order_items(
           id,item_type,title,quantity,total_minor,source_variant_id,
           variant:commerce_variants(product:commerce_products(commerce_product_images(storage_path,sort_order,variant_id)))
@@ -197,6 +199,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       `)
       .eq("user_id", user.id)
       .order("created_at", { ascending: false }),
+    getExchangeRates(),
   ]);
 
   if (!profile?.profile_completed_at) {
@@ -452,7 +455,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
 
                       <p className="profile-order-total">
                         <span className="sr-only">{order.shipping_method === "international_coordination" ? `${t("subtotalNoShipping")}: ` : `${t("total")}: `}</span>
-                        {formatMoney(order.total_minor)}
+                        {formatOrderMoney(order, order.total_minor, locale, exchangeRates)}
                       </p>
 
                       <Link
@@ -550,7 +553,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                     <div className="profile-orders-mobile-card-footer">
                       <p className="profile-orders-mobile-total">
                         <span>{totalLabel}</span>
-                        <strong>{formatMoney(order.total_minor)}</strong>
+                        <strong>{formatOrderMoney(order, order.total_minor, locale, exchangeRates)}</strong>
                       </p>
                       <Link
                         href={{ pathname: "/pedidos/[id]", params: { id: order.id } }}
@@ -693,7 +696,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                       <div className="flex items-center justify-between gap-5 border-t border-black/10 pt-5 lg:block lg:border-l lg:border-t-0 lg:py-1 lg:pl-7 lg:text-right">
                         <div>
                           <p className="text-[0.68rem] font-semibold tracking-[0.12em] text-black/45 uppercase">{order.shipping_method === "international_coordination" ? t("subtotalNoShipping") : t("total")}</p>
-                          <p className="display-font mt-1 text-3xl font-semibold tabular-nums">{formatMoney(order.total_minor)}</p>
+                          <p className="display-font mt-1 text-3xl font-semibold tabular-nums">{formatOrderMoney(order, order.total_minor, locale, exchangeRates)}</p>
                         </div>
                         <Link href={{ pathname: "/pedidos/[id]", params: { id: order.id } }} className="button-primary mt-0 gap-2 lg:mt-4 lg:w-full" aria-label={t("viewDetailAria", { number: order.order_number })}>
                           {t("viewDetail")} <ArrowRight size={17} aria-hidden="true" />

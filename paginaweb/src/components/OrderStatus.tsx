@@ -7,7 +7,7 @@ import { CheckCircle, Clock, WarningCircle, WhatsappLogo } from "@phosphor-icons
 import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { Link } from "@/i18n/navigation";
 import { localizeCatalogSnapshotTitle } from "@/content/catalog-localization";
-import { formatMoney } from "@/lib/money";
+import { formatOrderMoney } from "@/lib/order-money";
 import type { Locale } from "@/types/catalog";
 
 type Snapshot = Record<string, unknown> | null;
@@ -30,8 +30,12 @@ type OrderValue = {
   tracking_code: string | null;
   shipped_at: string | null;
   customer_snapshot: Snapshot;
+  items_subtotal_minor: number;
+  shipping_minor: number;
+  payment_fee_minor: number;
   total_minor: number;
   currency: string;
+  paypal_amount_usd_minor: number | null;
   created_at: string;
   order_items: OrderItem[];
 };
@@ -96,7 +100,7 @@ function trackingAccessToken(orderId: string) {
   }
 }
 
-export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paymentOutcome?: string }) {
+export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderId: string; paymentOutcome?: string; exchangeRates?: Record<string, number> }) {
   const locale = useLocale() as Locale;
   const t = useTranslations("order");
   const statusLabels: Record<string, string> = {
@@ -241,6 +245,14 @@ export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paym
     ? t("updatesAutomatically")
     : statusDescription;
   const items = order.order_items || [];
+  const money = (amountMinor: number) => formatOrderMoney(order, amountMinor, locale, exchangeRates);
+  const shippingDetail = order.shipping_minor > 0
+    ? money(order.shipping_minor)
+    : order.shipping_method === "pickup"
+      ? t("pickup")
+      : order.shipping_method === "international_coordination"
+        ? t("toConfirm")
+        : t("shippingPayOnDelivery");
   const showTracking = status === "shipped" && Boolean(order.shipping_carrier && order.tracking_code);
   const isTrackingUrl = Boolean(order.tracking_code && (order.tracking_code.startsWith("http://") || order.tracking_code.startsWith("https://")));
 
@@ -266,7 +278,7 @@ export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paym
                     <div className="order-mobile-item-copy">
                       <h2>{copy.name}</h2>
                       <p>{copy.subtitle}</p>
-                      <span>{formatMoney(item.total_minor)}</span>
+                      <span>{money(item.total_minor)}</span>
                     </div>
                   </article>
                 );
@@ -300,7 +312,10 @@ export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paym
             <p>{t("summary")}</p>
           </div>
           <dl className="order-mobile-summary-list">
-            <div><dt>{t("total")}</dt><dd>{formatMoney(order.total_minor)}</dd></div>
+            <div><dt>{t("productsTotal")}</dt><dd>{money(order.items_subtotal_minor)}</dd></div>
+            <div><dt>{t("shippingDetail")}</dt><dd>{shippingDetail}</dd></div>
+            {order.payment_fee_minor > 0 && <div><dt>{t("paymentFee")}</dt><dd>{money(order.payment_fee_minor)}</dd></div>}
+            <div className="order-summary-purchase-total"><dt>{t("purchaseTotal")}</dt><dd>{money(order.total_minor)}</dd></div>
             <div><dt>{t("purchaseDate")}</dt><dd>{date(order.created_at, locale)}</dd></div>
             <div className="order-mobile-summary-tall"><dt>{t("shippingAddress")}</dt><dd>{shippingAddress(order, t("pickup"), t("toConfirm"))}</dd></div>
             {showTracking&&<><div><dt>{t("shippingCarrier")}</dt><dd>{order.shipping_carrier}</dd></div><div><dt>{t("trackingCode")}</dt><dd>{isTrackingUrl ? <a href={order.tracking_code!} target="_blank" rel="noreferrer" className="underline hover:opacity-80">{order.tracking_code}</a> : order.tracking_code}</dd></div></>}
@@ -326,7 +341,7 @@ export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paym
                     <div className="order-desktop-item-copy">
                       <h2>{copy.name}</h2>
                       <p>{copy.subtitle}</p>
-                      <span>{formatMoney(item.total_minor)}</span>
+                      <span>{money(item.total_minor)}</span>
                     </div>
                   </article>
                 );
@@ -357,7 +372,10 @@ export function OrderStatus({ orderId, paymentOutcome }: { orderId: string; paym
             <p>{t("summary")}</p>
           </div>
           <dl className="order-desktop-summary-list">
-            <div><dt>{t("total")}</dt><dd>{formatMoney(order.total_minor)}</dd></div>
+            <div><dt>{t("productsTotal")}</dt><dd>{money(order.items_subtotal_minor)}</dd></div>
+            <div><dt>{t("shippingDetail")}</dt><dd>{shippingDetail}</dd></div>
+            {order.payment_fee_minor > 0 && <div><dt>{t("paymentFee")}</dt><dd>{money(order.payment_fee_minor)}</dd></div>}
+            <div className="order-summary-purchase-total"><dt>{t("purchaseTotal")}</dt><dd>{money(order.total_minor)}</dd></div>
             <div><dt>{t("purchaseDate")}</dt><dd>{date(order.created_at, locale)}</dd></div>
             <div><dt>{t("shippingAddress")}</dt><dd title={shippingAddress(order, t("pickup"), t("toConfirm"))}>{shippingAddress(order, t("pickup"), t("toConfirm"))}</dd></div>
             {showTracking&&<><div><dt>{t("shippingCarrier")}</dt><dd>{order.shipping_carrier}</dd></div><div><dt>{t("trackingCode")}</dt><dd title={order.tracking_code||undefined}>{isTrackingUrl ? <a href={order.tracking_code!} target="_blank" rel="noreferrer" className="underline hover:opacity-80">{order.tracking_code}</a> : order.tracking_code}</dd></div></>}

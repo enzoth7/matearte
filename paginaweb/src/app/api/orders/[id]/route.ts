@@ -6,7 +6,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const accessToken = /^[A-Za-z0-9_-]{43}$/;
 const orderSelection = `
   id,order_number,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,customer_snapshot,
-  items_subtotal_minor,shipping_minor,payment_fee_minor,total_minor,currency,created_at,paid_at,
+  items_subtotal_minor,shipping_minor,payment_fee_minor,total_minor,currency,paypal_amount_usd_minor,created_at,paid_at,
   order_items(
     id,item_type,title,quantity,unit_price_minor,total_minor,requires_review,review_status,source_variant_id,
     variant:commerce_variants(product:commerce_products(commerce_product_images(storage_path,sort_order,variant_id)))
