@@ -30,7 +30,7 @@ export function applyWholesaleMateDiscount<T extends WholesalePriceLine>(
     0,
   );
   const enabled = settings.wholesale_mate_discount_enabled
-    && mateQuantity > settings.wholesale_mate_quantity_threshold
+    && mateQuantity >= settings.wholesale_mate_quantity_threshold
     && settings.wholesale_mate_discount_percent > 0;
 
   if (!enabled) return lines.map((line) => ({ ...line }));

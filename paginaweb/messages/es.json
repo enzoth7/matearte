@@ -407,10 +407,11 @@
     "summary": "Resumen",
     "subtotal": "Subtotal",
     "shipping": "Envío",
+    "wholesaleDiscount": "Descuento {discount}%",
     "toCalculate": "A calcular",
     "total": "Total",
     "continue": "Continuar",
-    "wholesaleDiscountNotice": "Se ofrece un {discount}% de descuento en más de {threshold} unidades de mate."
+    "wholesaleDiscountNotice": "Se ofrece un {discount}% de descuento en {threshold} o más unidades de mate."
   },
   "checkout": {
     "metadataTitle": "Finalizar compra",

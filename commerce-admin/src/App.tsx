@@ -1991,10 +1991,10 @@ function Settings({onNotice}:{onNotice:(v:string)=>void}) {
       </form>
     </section>
     <section className="panel settings settings-section">
-      <header className="settings-heading"><p className="eyebrow">Mayoreo</p><h2>Descuento por cantidad de mates</h2><p>La regla se aplica internamente al superar la cantidad indicada, sumando todas las variantes de la categoría mates.</p></header>
+      <header className="settings-heading"><p className="eyebrow">Mayoreo</p><h2>Descuento por cantidad de mates</h2><p>La regla se aplica internamente al alcanzar la cantidad indicada, sumando todas las variantes de la categoría mates.</p></header>
       <label className="toggle adjustment-toggle"><span><strong>Aplicar descuento de mayoreo</strong><small>Al apagarlo, las compras conservan el precio publicado normal.</small></span><input type="checkbox" disabled={saving} checked={value.wholesale_mate_discount_enabled} onChange={event=>void save({wholesale_mate_discount_enabled:event.target.checked},event.target.checked?'Descuento de mayoreo activado.':'Descuento de mayoreo desactivado.')}/></label>
       <form className="adjustment-form" onSubmit={event=>void saveWholesale(event)}>
-        <label><span className="field-label">Aplicar cuando supere</span><span className="percent-input"><input type="number" min="1" max="999" step="1" value={wholesaleThreshold} disabled={saving} onChange={event=>setWholesaleThreshold(event.target.value)}/><span>mates</span></span></label>
+        <label><span className="field-label">Aplicar desde</span><span className="percent-input"><input type="number" min="1" max="999" step="1" value={wholesaleThreshold} disabled={saving} onChange={event=>setWholesaleThreshold(event.target.value)}/><span>mates</span></span></label>
         <label><span className="field-label">Porcentaje de descuento</span><span className="percent-input"><input type="number" min="0" max="100" step="0.01" value={wholesalePercent} disabled={saving} onChange={event=>setWholesalePercent(event.target.value)}/><span>%</span></span></label>
         <button type="submit" disabled={saving}>{saving?'Guardando…':'Guardar regla'}</button>
       </form>

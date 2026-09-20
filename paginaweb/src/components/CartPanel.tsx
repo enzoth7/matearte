@@ -505,7 +505,9 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
       </>
     );
 
-    const guestSubtotal = localItems.reduce((sum, i) => sum + i.priceMinor * i.quantity, 0);
+    const guestBaseSubtotal = localItems.reduce((sum, item) => sum + item.basePriceMinor * item.quantity, 0);
+    const guestSubtotal = localItems.reduce((sum, item) => sum + item.priceMinor * item.quantity, 0);
+    const guestDiscountMinor = Math.max(0, guestBaseSubtotal - guestSubtotal);
     const guestFormat = (minor: number) => money(minor, "UYU", locale, exchangeRates);
     const showGuestWholesaleNotice = wholesaleSettings.wholesale_mate_discount_enabled
       && wholesaleSettings.wholesale_mate_discount_percent > 0
@@ -559,8 +561,9 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
           <aside className="cart-mobile-summary" aria-label={t("summaryLabel")}>
             <div className="cart-mobile-summary-heading"><span aria-hidden="true" /><p>{t("summary")}</p></div>
             <dl className="cart-mobile-summary-list">
-              <div><dt>{t("subtotal")}</dt><dd>{guestFormat(guestSubtotal)}</dd></div>
+              <div><dt>{t("subtotal")}</dt><dd>{guestFormat(guestBaseSubtotal)}</dd></div>
               <div><dt>{t("shipping")}</dt><dd>{t("toCalculate")}</dd></div>
+              {guestDiscountMinor > 0 && <div className="cart-summary-discount"><dt>{t("wholesaleDiscount", { discount: wholesaleSettings.wholesale_mate_discount_percent })}</dt><dd>− {guestFormat(guestDiscountMinor)}</dd></div>}
             </dl>
             <div className="cart-mobile-summary-divider" aria-hidden="true" />
             <div className="cart-mobile-total"><span>{t("total")}</span><strong>{guestFormat(guestSubtotal)}</strong></div>
@@ -607,8 +610,9 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
           <aside className="cart-desktop-summary" aria-label={t("summaryLabel")}>
             <div className="cart-desktop-summary-heading"><span aria-hidden="true" /><p>{t("summary")}</p></div>
             <dl className="cart-desktop-summary-list">
-              <div><dt>{t("subtotal")}</dt><dd>{guestFormat(guestSubtotal)}</dd></div>
+              <div><dt>{t("subtotal")}</dt><dd>{guestFormat(guestBaseSubtotal)}</dd></div>
               <div><dt>{t("shipping")}</dt><dd>{t("toCalculate")}</dd></div>
+              {guestDiscountMinor > 0 && <div className="cart-summary-discount"><dt>{t("wholesaleDiscount", { discount: wholesaleSettings.wholesale_mate_discount_percent })}</dt><dd>− {guestFormat(guestDiscountMinor)}</dd></div>}
             </dl>
             <div className="cart-desktop-summary-divider" aria-hidden="true" />
             <div className="cart-desktop-total"><span>{t("total")}</span><strong>{guestFormat(guestSubtotal)}</strong></div>
@@ -658,7 +662,9 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
     </div>
     </>
   );
+  const baseSubtotal = cart.items.reduce((sum, item) => sum + (item.base_unit_price_minor ?? item.variant?.price_minor ?? item.unit_price_minor) * item.quantity, 0);
   const subtotal = cart.items.reduce((sum, item) => sum + item.unit_price_minor * item.quantity, 0);
+  const discountMinor = Math.max(0, baseSubtotal - subtotal);
   const showWholesaleNotice = wholesaleSettings.wholesale_mate_discount_enabled
     && wholesaleSettings.wholesale_mate_discount_percent > 0
     && cart.items.some((item) => item.item_type === "catalog" && isWholesaleMateCategory(item.variant?.product.category_code || item.variant?.product.category));
@@ -737,12 +743,18 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
           <dl className="cart-mobile-summary-list">
             <div>
               <dt>{t("subtotal")}</dt>
-              <dd>{format(subtotal)}</dd>
+              <dd>{format(baseSubtotal)}</dd>
             </div>
             <div>
               <dt>{t("shipping")}</dt>
               <dd>{t("toCalculate")}</dd>
             </div>
+            {discountMinor > 0 && (
+              <div className="cart-summary-discount">
+                <dt>{t("wholesaleDiscount", { discount: wholesaleSettings.wholesale_mate_discount_percent })}</dt>
+                <dd>− {format(discountMinor)}</dd>
+              </div>
+            )}
           </dl>
           <div className="cart-mobile-summary-divider" aria-hidden="true" />
           <div className="cart-mobile-total">
@@ -818,12 +830,18 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
           <dl className="cart-desktop-summary-list">
             <div>
               <dt>{t("subtotal")}</dt>
-              <dd>{format(subtotal)}</dd>
+              <dd>{format(baseSubtotal)}</dd>
             </div>
             <div>
               <dt>{t("shipping")}</dt>
               <dd>{t("toCalculate")}</dd>
             </div>
+            {discountMinor > 0 && (
+              <div className="cart-summary-discount">
+                <dt>{t("wholesaleDiscount", { discount: wholesaleSettings.wholesale_mate_discount_percent })}</dt>
+                <dd>− {format(discountMinor)}</dd>
+              </div>
+            )}
           </dl>
           <div className="cart-desktop-summary-divider" aria-hidden="true" />
           <div className="cart-desktop-total">

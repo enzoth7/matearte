@@ -407,10 +407,11 @@
     "summary": "Summary",
     "subtotal": "Subtotal",
     "shipping": "Shipping",
+    "wholesaleDiscount": "{discount}% discount",
     "toCalculate": "To be calculated",
     "total": "Total",
     "continue": "Continue",
-    "wholesaleDiscountNotice": "A {discount}% discount is offered on more than {threshold} mate units."
+    "wholesaleDiscountNotice": "A {discount}% discount is offered on {threshold} or more mate units."
   },
   "checkout": {
     "metadataTitle": "Checkout",

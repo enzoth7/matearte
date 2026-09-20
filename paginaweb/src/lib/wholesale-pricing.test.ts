@@ -9,12 +9,12 @@ const line = (quantity: number, category = "mates", unitPriceMinor = 100_000) =>
 });
 
 describe("applyWholesaleMateDiscount", () => {
-  it("no aplica el descuento con exactamente 30 mates", () => {
-    expect(applyWholesaleMateDiscount([line(30)], DEFAULT_WHOLESALE_DISCOUNT_SETTINGS)[0].unitPriceMinor).toBe(100_000);
+  it("aplica el descuento con exactamente 30 mates", () => {
+    expect(applyWholesaleMateDiscount([line(30)], DEFAULT_WHOLESALE_DISCOUNT_SETTINGS)[0].unitPriceMinor).toBe(70_000);
   });
 
-  it("aplica 30% al superar 30 mates sumando distintas líneas", () => {
-    const result = applyWholesaleMateDiscount([line(20), line(11, "mates", 200_000)], DEFAULT_WHOLESALE_DISCOUNT_SETTINGS);
+  it("aplica 30% al alcanzar 30 mates sumando distintas líneas", () => {
+    const result = applyWholesaleMateDiscount([line(19), line(11, "mates", 200_000)], DEFAULT_WHOLESALE_DISCOUNT_SETTINGS);
     expect(result.map((item) => item.unitPriceMinor)).toEqual([70_000, 140_000]);
   });
 
@@ -31,6 +31,6 @@ describe("applyWholesaleMateDiscount", () => {
     const disabled = { ...DEFAULT_WHOLESALE_DISCOUNT_SETTINGS, wholesale_mate_discount_enabled: false };
     expect(applyWholesaleMateDiscount([line(31)], disabled)[0].unitPriceMinor).toBe(100_000);
     const custom = { ...DEFAULT_WHOLESALE_DISCOUNT_SETTINGS, wholesale_mate_quantity_threshold: 10, wholesale_mate_discount_percent: 12.5 };
-    expect(applyWholesaleMateDiscount([line(11)], custom)[0].unitPriceMinor).toBe(87_500);
+    expect(applyWholesaleMateDiscount([line(10)], custom)[0].unitPriceMinor).toBe(87_500);
   });
 });
