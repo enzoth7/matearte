@@ -1,5 +1,5 @@
 begin;
-select plan(8);
+select plan(9);
 
 insert into auth.users (
   id, instance_id, aud, role, email, encrypted_password,
@@ -56,12 +56,20 @@ select lives_ok(
   'the same checkout key is idempotent'
 );
 
-select throws_ok(
+select lives_ok(
   $$select public.reserve_commerce_discount(
     '10000000-0000-4000-8000-000000000001', 'MATE10', 100000,
     '30000000-0000-4000-8000-000000000002', now() + interval '30 minutes'
   )$$,
-  'P0001', 'discount:in_use', 'parallel checkout attempts are rejected'
+  'the same customer may reserve the code for another checkout'
+);
+
+select is(
+  (select count(*) from public.commerce_discount_usages
+   where discount_id = '20000000-0000-4000-8000-000000000001'
+     and user_id = '10000000-0000-4000-8000-000000000001'),
+  2::bigint,
+  'each checkout keeps a separate usage record for the same customer'
 );
 
 set local role authenticated;
