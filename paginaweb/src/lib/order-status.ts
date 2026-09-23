@@ -1,5 +1,6 @@
 export const orderStatusLabels: Record<string, string> = {
   pending_payment: "Esperando el pago",
+  payment_verification_pending: "Comprobante pendiente de verificación",
   paid_pending_review: "Pago recibido · revisando tu personalizado",
   ready_for_fulfillment: "Preparando tu pedido",
   ready_for_production: "Personalizado aprobado · en producción",
@@ -12,6 +13,7 @@ export const orderStatusLabels: Record<string, string> = {
 
 export const orderStatusDescriptions: Record<string, string> = {
   pending_payment: "Mercado Pago todavía no confirmó el pago.",
+  payment_verification_pending: "Recibimos el comprobante y estamos verificando el ingreso.",
   paid_pending_review: "Recibimos el pago y estamos revisando los detalles del personalizado.",
   ready_for_fulfillment: "El pedido está confirmado y lo estamos preparando.",
   ready_for_production: "El diseño fue aprobado y ya puede pasar a producción.",
@@ -29,7 +31,7 @@ export function orderStatusTone(status: string) {
   if (["payment_failed", "cancelled", "refunded"].includes(status)) {
     return "border-[var(--danger)]/30 bg-[var(--danger)]/8 text-[var(--danger)]";
   }
-  if (status === "pending_payment") {
+  if (["pending_payment", "payment_verification_pending"].includes(status)) {
     return "border-[var(--rawhide)]/60 bg-[var(--rawhide)]/15 text-[var(--walnut)]";
   }
   return "border-[var(--leather)]/35 bg-[var(--leather)]/10 text-[var(--walnut)]";
@@ -40,5 +42,5 @@ export function isConfirmedOrder(status: string) {
 }
 
 export function isActiveOrder(status: string) {
-  return ["pending_payment", "paid_pending_review", "ready_for_fulfillment", "ready_for_production", "shipped", "manual_review"].includes(status);
+  return ["pending_payment", "payment_verification_pending", "paid_pending_review", "ready_for_fulfillment", "ready_for_production", "shipped", "manual_review"].includes(status);
 }

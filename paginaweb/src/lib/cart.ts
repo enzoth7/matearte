@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { calculateDesignPriceMinor } from "@/lib/design-pricing";
-import { applyWholesaleMateDiscount, DEFAULT_WHOLESALE_DISCOUNT_SETTINGS, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
+import { applyWholesaleMateDiscount, DEFAULT_WHOLESALE_DISCOUNT_SETTINGS, isWholesaleMateEligible, wholesaleMateQuantity, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
 import { normalizeCatalogValueMap, optionSignature, type CatalogValueMap } from "../../../shared/catalog-taxonomy";
 
 export async function getOrCreateCart(client: SupabaseClient, userId: string) {
@@ -19,12 +19,12 @@ export async function readCart(client: SupabaseClient, userId: string) {
   const cart = await getOrCreateCart(client, userId);
   const selectionWithPeso = `
     id,item_type,variant_id,design_id,quantity,option_values_override,updated_at,
-    variant:commerce_variants(id,sku,name,price_minor,currency,active,option_values,product:commerce_products(id,editorial_slug,name,category,category_code,sale_mode,published,peso,commerce_product_images(storage_path,sort_order,variant_id,option_values))),
+    variant:commerce_variants(id,sku,name,base_price_minor,price_minor,currency,active,option_values,product:commerce_products(id,editorial_slug,name,category,category_code,sale_mode,published,peso,commerce_product_images(storage_path,sort_order,variant_id,option_values))),
     design:designs(id,title,preview_path,updated_at)
   `;
   const legacySelection = `
     id,item_type,variant_id,design_id,quantity,option_values_override,updated_at,
-    variant:commerce_variants(id,sku,name,price_minor,currency,active,option_values,product:commerce_products(id,editorial_slug,name,category,category_code,sale_mode,published,commerce_product_images(storage_path,sort_order,variant_id,option_values))),
+    variant:commerce_variants(id,sku,name,base_price_minor,price_minor,currency,active,option_values,product:commerce_products(id,editorial_slug,name,category,category_code,sale_mode,published,commerce_product_images(storage_path,sort_order,variant_id,option_values))),
     design:designs(id,title,preview_path,updated_at)
   `;
   let { data: items, error } = await client.from("cart_items").select(selectionWithPeso).eq("cart_id", cart.id).order("created_at");
@@ -71,7 +71,7 @@ export async function readPricedCart(client: SupabaseClient, userId: string) {
   }, 0);
 
   const pricedItems = cart.items.map((item) => {
-    const variant = item.variant as unknown as { price_minor?: number; currency?: string; product?: { peso?: number; category?: string; category_code?: string | null } } | null;
+    const variant = item.variant as unknown as { base_price_minor?: number; price_minor?: number; currency?: string; product?: { peso?: number; category?: string; category_code?: string | null } } | null;
     const unitPriceMinor = item.item_type === "design"
       ? designPrices.get(String(item.design_id))
       : Number(variant?.price_minor || 0);
@@ -85,20 +85,34 @@ export async function readPricedCart(client: SupabaseClient, userId: string) {
         itemType: item.item_type,
         quantity: Number(item.quantity) || 1,
         unitPriceMinor: unitPriceMinor as number,
+        baseUnitPriceMinor: item.item_type === "catalog" ? Number(variant?.base_price_minor ?? unitPriceMinor) : unitPriceMinor as number,
         category: variant?.product?.category_code || variant?.product?.category || null,
       },
     };
   });
   const adjustedLines = applyWholesaleMateDiscount(pricedItems.map((item) => item.wholesale_price_line), wholesaleSettings);
+  const wholesaleLines = pricedItems.map((item) => item.wholesale_price_line);
+  const wholesaleEligible = isWholesaleMateEligible(wholesaleLines, wholesaleSettings);
+  const publishedSubtotalMinor = wholesaleLines.reduce((sum, line) => sum + line.unitPriceMinor * line.quantity, 0);
+  const wholesaleSubtotalMinor = adjustedLines.reduce((sum, line) => sum + line.unitPriceMinor * line.quantity, 0);
 
   return {
     ...cart,
     total_weight_grams: totalWeightGrams,
+    wholesale: {
+      eligible: wholesaleEligible,
+      mate_quantity: wholesaleMateQuantity(wholesaleLines),
+      threshold: wholesaleSettings.wholesale_mate_quantity_threshold,
+      discount_percent: wholesaleSettings.wholesale_mate_discount_percent,
+      savings_minor: Math.max(0, publishedSubtotalMinor - wholesaleSubtotalMinor),
+      checkout_mode: wholesaleEligible ? "bank_transfer" : "standard",
+    },
     items: pricedItems.map((item,index) => {
       const { wholesale_price_line: _wholesalePriceLine, ...publicItem } = item;
       return {
         ...publicItem,
         base_unit_price_minor: item.unit_price_minor,
+        catalog_base_unit_price_minor: item.wholesale_price_line.baseUnitPriceMinor,
         unit_price_minor: adjustedLines[index].unitPriceMinor,
       };
     }),

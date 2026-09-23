@@ -9,6 +9,7 @@ import { whatsappNumber } from "@/lib/supabase/config";
 import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
 import { isLocale } from "@/i18n/config";
 import { formatMoney } from "@/lib/money";
+import { isWholesaleMateEligible, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
 import type { Locale } from "@/types/catalog";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
 
     const { data: settings } = await client
       .from("commerce_settings")
-      .select("commerce_enabled")
+      .select("commerce_enabled,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent")
       .eq("singleton", true)
       .single();
     if (!settings?.commerce_enabled) return apiError("El comercio todavía no está habilitado.", 503);
@@ -48,6 +49,19 @@ export async function POST(request: Request) {
     const admin = createAdminSupabase();
     const cart = await readCart(admin, user.id);
     if (!cart.items.length) return apiError("El carrito está vacío.");
+    const eligibilityLines = cart.items.map((item) => {
+      const variant = item.variant as unknown as { base_price_minor?: number; price_minor?: number; product?: { category?: string; category_code?: string | null } } | null;
+      return {
+        itemType: item.item_type,
+        quantity: Number(item.quantity) || 1,
+        unitPriceMinor: item.item_type === "catalog" ? Number(variant?.price_minor || 0) : 0,
+        baseUnitPriceMinor: item.item_type === "catalog" ? Number(variant?.base_price_minor ?? variant?.price_minor ?? 0) : 0,
+        category: variant?.product?.category_code || variant?.product?.category || null,
+      };
+    });
+    if (isWholesaleMateEligible(eligibilityLines, settings as WholesaleDiscountSettings)) {
+      return apiError("Los pedidos mayoristas se completan únicamente dentro de Uruguay mediante transferencia bancaria.", 409);
+    }
 
     const designIds = cart.items
       .filter((item) => item.item_type === "design")

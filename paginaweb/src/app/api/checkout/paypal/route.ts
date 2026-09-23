@@ -5,7 +5,7 @@ import { calculateDesignPriceMinor } from "@/lib/design-pricing";
 import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
 import { isLocale } from "@/i18n/config";
 import type { Locale } from "@/types/catalog";
-import { applyWholesaleMateDiscount, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
+import { applyWholesaleMateDiscount, isWholesaleMateEligible, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const text = (value: unknown, maximum: number) => typeof value === "string" ? value.trim().slice(0, maximum) : "";
@@ -68,19 +68,23 @@ export async function POST(request: Request) {
 
     // Calculate UYU subtotal and total weight from cart items (server-side recalculation)
     const checkoutItemsBeforeWholesale = cart.items.map((item) => {
-      const variant = item.variant as unknown as { price_minor?: number; product?: { peso?: number; category?: string; category_code?: string | null } } | null;
+      const variant = item.variant as unknown as { base_price_minor?: number; price_minor?: number; product?: { peso?: number; category?: string; category_code?: string | null } } | null;
       const unitPriceMinor = item.item_type === "design"
         ? designPrices[String(item.design_id)]
         : Number(variant?.price_minor);
       if (!Number.isSafeInteger(unitPriceMinor) || unitPriceMinor < 0) throw new Error("No se pudo verificar uno de los artículos.");
       return {
         unitPriceMinor,
+        baseUnitPriceMinor: item.item_type === "catalog" ? Number(variant?.base_price_minor ?? unitPriceMinor) : unitPriceMinor,
         quantity: Number(item.quantity) || 1,
         peso: item.item_type === "design" ? 200 : (Number(variant?.product?.peso) || 0),
         itemType: item.item_type,
         category: variant?.product?.category_code || variant?.product?.category || null,
       };
     });
+    if (isWholesaleMateEligible(checkoutItemsBeforeWholesale, settings as WholesaleDiscountSettings)) {
+      return apiError("Los pedidos mayoristas se completan en Uruguay mediante transferencia bancaria.", 409);
+    }
     const adjustedPrices = applyWholesaleMateDiscount(checkoutItemsBeforeWholesale, settings as WholesaleDiscountSettings);
     const checkoutItems = checkoutItemsBeforeWholesale.map((item,index) => ({ ...item, unitPriceMinor: adjustedPrices[index].unitPriceMinor }));
     const itemsSubtotalMinor = checkoutItems.reduce((total, item) => total + item.unitPriceMinor * item.quantity, 0);

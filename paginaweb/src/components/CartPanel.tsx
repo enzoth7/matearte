@@ -13,9 +13,9 @@ import { applyWholesaleMateDiscount, isWholesaleMateCategory, type WholesaleDisc
 
 type RemoteItem = {
   id: string; item_type: "catalog" | "design"; quantity: number;
-  unit_price_minor: number; base_unit_price_minor?: number; currency: string;
+  unit_price_minor: number; base_unit_price_minor?: number; catalog_base_unit_price_minor?: number; currency: string;
   option_values_override?: CatalogValueMap;
-  variant: null | { id: string; name: string; price_minor: number; currency: string; option_values?: CatalogValueMap; product: { name: string; category?: string; category_code?: string | null; commerce_product_images?: { storage_path: string; sort_order: number; variant_id: string | null; option_values?: CatalogValueMap }[] } };
+  variant: null | { id: string; name: string; base_price_minor?: number; price_minor: number; currency: string; option_values?: CatalogValueMap; product: { name: string; category?: string; category_code?: string | null; commerce_product_images?: { storage_path: string; sort_order: number; variant_id: string | null; option_values?: CatalogValueMap }[] } };
   design: null | { title: string };
 };
 type Cart = { id: string; items: RemoteItem[] };
@@ -25,6 +25,7 @@ function priceRemoteItems(items: RemoteItem[], settings: WholesaleDiscountSettin
     itemType: item.item_type,
     quantity: item.quantity,
     unitPriceMinor: item.base_unit_price_minor ?? item.variant?.price_minor ?? item.unit_price_minor,
+    baseUnitPriceMinor: item.catalog_base_unit_price_minor ?? item.variant?.base_price_minor ?? item.base_unit_price_minor ?? item.unit_price_minor,
     category: item.variant?.product.category_code || item.variant?.product.category || null,
   })), settings);
   return items.map((item, index) => ({ ...item, unit_price_minor: adjusted[index].unitPriceMinor }));
@@ -288,6 +289,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
     optionValues?: CatalogValueMap;
     quantity: number;
     basePriceMinor: number;
+    wholesaleBasePriceMinor: number;
     priceMinor: number;
     category?: string | null;
     imageSrc: string;
@@ -315,6 +317,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
         const localizedName = localizedProducts.find(lp => lp.id === product.id)?.name || product.name;
         const variant = product.variants.find(v => v.id === variantId);
         const priceMinor = variant?.price?.amountMinor ?? (product.filterData.priceUYU ? product.filterData.priceUYU * 100 : 0);
+        const wholesaleBasePriceMinor = variant?.basePrice?.amountMinor ?? priceMinor;
         const variantImage = product.images.find(image => image.variantId === variantId);
         const generalImage = product.images.find(image => !image.variantId);
         const normalizedOptions = normalizeCatalogValueMap(optionValues);
@@ -327,6 +330,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
           optionValues: normalizedOptions,
           quantity,
           basePriceMinor: priceMinor,
+          wholesaleBasePriceMinor,
           priceMinor,
           category: product.category,
           imageSrc: variantImage?.src || generalImage?.src || product.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.png",
@@ -346,6 +350,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
             id,
             name,
             price_minor,
+            base_price_minor,
              option_values,
              commerce_products (
                id,
@@ -402,6 +407,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
               optionValues: normalizedOptions,
               quantity,
               basePriceMinor: vData.price_minor || 0,
+              wholesaleBasePriceMinor: vData.base_price_minor ?? vData.price_minor ?? 0,
               priceMinor: vData.price_minor || 0,
               category: rawProduct?.category_code || rawProduct?.category || null,
               imageSrc,
@@ -415,6 +421,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
               variantId,
               quantity,
               basePriceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
+              wholesaleBasePriceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
               priceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
               imageSrc: fallbackP?.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.png",
             });
@@ -432,6 +439,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
             optionValues,
             quantity,
             basePriceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
+            wholesaleBasePriceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
             priceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
             imageSrc: fallbackP?.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.png",
           });
@@ -443,6 +451,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
       itemType:"catalog" as const,
       quantity:item.quantity,
       unitPriceMinor:item.basePriceMinor,
+      baseUnitPriceMinor:item.wholesaleBasePriceMinor,
       category:item.category,
     })),wholesaleSettings);
     setLocalItems(resolved.map((item,index)=>({...item,priceMinor:adjusted[index].unitPriceMinor})));
@@ -473,6 +482,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
         itemType: "catalog" as const,
         quantity: item.quantity,
         unitPriceMinor: item.basePriceMinor,
+        baseUnitPriceMinor: item.wholesaleBasePriceMinor,
         category: item.category,
       })), wholesaleSettings);
       return next.map((item, index) => ({ ...item, priceMinor: adjusted[index].unitPriceMinor }));

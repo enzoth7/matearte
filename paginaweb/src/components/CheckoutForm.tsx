@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, GlobeHemisphereWest, MapPin, WhatsappLogo } from "@phosphor-icons/react";
+import { Bank, Check, GlobeHemisphereWest, MapPin, UploadSimple } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
@@ -16,8 +16,11 @@ type CustomerForm = { fullName: string; phone: string; department: string; city:
 type InitialDestination = { international: boolean; country: string; city: string };
 type PurchaseRegion = "uruguay" | "international";
 type CartItem = { quantity: number; unit_price_minor: number };
+type WholesaleState = { eligible: boolean; mate_quantity: number; threshold: number; discount_percent: number; savings_minor: number; checkout_mode: string };
+type BankTransferDetails = { account_holder: string; transfer_account: string; cash_deposit_account: string; cash_deposit_label: string };
 
 const departments = ["Artigas", "Canelones", "Cerro Largo", "Colonia", "Durazno", "Flores", "Florida", "Lavalleja", "Maldonado", "Montevideo", "Paysandú", "Río Negro", "Rivera", "Rocha", "Salto", "San José", "Soriano", "Tacuarembó", "Treinta y Tres"];
+const receiptTypes = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
 
 function MoneyValue({ amount, locale, exchangeRates }: { amount: number | null, locale: string, exchangeRates?: Record<string, number> }) {
   return <span>{amount === null ? "—" : formatMoney(amount, "UYU", locale, exchangeRates)}</span>;
@@ -63,17 +66,22 @@ export function CheckoutForm({
   const [internationalRates, setInternationalRates] = useState<InternationalShippingRow[]>(DEFAULT_INTERNATIONAL_SHIPPING_RATES);
   const [cartWeightGrams, setCartWeightGrams] = useState<number>(0);
   const [subtotalMinor, setSubtotalMinor] = useState<number | null>(null);
+  const [wholesale, setWholesale] = useState<WholesaleState | null>(null);
+  const [bankTransfer, setBankTransfer] = useState<BankTransferDetails | null>(null);
+  const [transferConfirmed, setTransferConfirmed] = useState(false);
+  const [receipt, setReceipt] = useState<File | null>(null);
   const [ratesLoading, setRatesLoading] = useState(true);
   const [ratesError, setRatesError] = useState("");
   const [busy, setBusy] = useState(false);
   const [paypalReady, setPaypalReady] = useState(false);
   const [paypalOrderId, setPaypalOrderId] = useState('');
   const [paypalAmountUsd, setPaypalAmountUsd] = useState('');
-  const [internationalMethod, setInternationalMethod] = useState<'paypal' | 'whatsapp'>('paypal');
   const [error, setError] = useState("");
+  const [cartError, setCartError] = useState("");
   const rate = useMemo(() => rates.find((item) => item.id === rateId), [rates, rateId]);
   const isDelivery = Boolean(rate && !rate.is_pickup);
-  const isInternational = isDelivery && purchaseRegion === "international";
+  const isWholesale = Boolean(wholesale?.eligible);
+  const isInternational = !isWholesale && isDelivery && purchaseRegion === "international";
 
   const internationalShippingCalc = useMemo(() => {
     if (!isInternational || !international.country) return null;
@@ -124,21 +132,30 @@ export function CheckoutForm({
   }, [t]);
 
   const loadSubtotal = useCallback(async () => {
+    setCartError("");
     try {
       const response = await fetch("/api/cart", { cache: "no-store" });
       const text = await response.text();
-      if (!text || !response.ok) return;
+      if (!text || !response.ok) throw new Error(tCart("loadFailed"));
       const value = JSON.parse(text);
       if (typeof value.total_weight_grams === "number") {
         setCartWeightGrams(value.total_weight_grams);
       }
       if (!Array.isArray(value.items)) return;
+      const nextWholesale = value.wholesale && typeof value.wholesale === "object" ? value.wholesale as WholesaleState : null;
+      const nextBankTransfer = value.bank_transfer && typeof value.bank_transfer === "object" ? value.bank_transfer as BankTransferDetails : null;
+      setWholesale(nextWholesale);
+      setBankTransfer(nextBankTransfer);
+      if (nextWholesale?.eligible && !nextBankTransfer) setCartError(t("bankTransferUnavailable"));
       const items = value.items as CartItem[];
       setSubtotalMinor(items.reduce((total, item) => total + Number(item.unit_price_minor || 0) * Number(item.quantity || 0), 0));
-    } catch {
+    } catch (reason) {
       setSubtotalMinor(null);
+      setWholesale(null);
+      setBankTransfer(null);
+      setCartError(reason instanceof Error ? reason.message : tCart("loadFailed"));
     }
-  }, []);
+  }, [t, tCart]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -174,6 +191,29 @@ export function CheckoutForm({
     const customerPayload = { ...form, phone: fullPhone };
     setForm((current) => ({ ...current, phone: fullPhone }));
     try {
+      if (isWholesale) {
+        if (!bankTransfer || !cartReady) throw new Error(t("bankTransferUnavailable"));
+        if (!receipt) throw new Error(t("receiptRequired"));
+        const storedKey = sessionStorage.getItem("matearte_bank_transfer_idempotency");
+        const idempotencyKey = storedKey || crypto.randomUUID();
+        sessionStorage.setItem("matearte_bank_transfer_idempotency", idempotencyKey);
+        const payload = new FormData();
+        payload.set("shippingRateId", rateId);
+        payload.set("customer", JSON.stringify(customerPayload));
+        payload.set("locale", locale);
+        payload.set("receipt", receipt);
+        const response = await fetch("/api/checkout/bank-transfer", {
+          method: "POST",
+          headers: { "Idempotency-Key": idempotencyKey },
+          body: payload,
+        });
+        const text = await response.text();
+        const value = text ? JSON.parse(text) : {};
+        if (!response.ok) throw new Error(value.error || t("bankTransferFailed"));
+        sessionStorage.removeItem("matearte_bank_transfer_idempotency");
+        window.location.assign(localizeCanonicalPath(`/pedidos/${value.orderId}`, locale));
+        return;
+      }
       if (isInternational) {
         // PayPal flow (único método internacional)
         const storedKey = sessionStorage.getItem("matearte_paypal_order_idempotency");
@@ -218,6 +258,7 @@ export function CheckoutForm({
 
   const internationalReady = Boolean(rateId) && Boolean(international.country.trim());
   const domesticReady = Boolean(rateId) && !ratesLoading;
+  const cartReady = subtotalMinor !== null && !cartError;
 
   // Campo class — igual al Figma: borde sutil, sin border-radius exagerado
   const fieldClass = "mt-2 min-h-12 w-full rounded-lg border border-[#b8a88a]/60 bg-transparent px-4 text-[15px] text-[var(--walnut)] outline-none transition focus:border-[var(--leather)] focus:ring-2 focus:ring-[var(--rawhide)]/30";
@@ -318,7 +359,7 @@ export function CheckoutForm({
           </fieldset>
 
           {/* El destino sólo aplica al envío a domicilio. */}
-          {isDelivery && <fieldset>
+          {isDelivery && !isWholesale && <fieldset>
             <legend className="sr-only">{t("destinationLegend")}</legend>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className={`relative flex cursor-pointer items-center gap-3 rounded-xl border px-5 py-4 text-left transition focus-within:ring-2 focus-within:ring-[var(--rawhide)]/50 ${purchaseRegion === "uruguay" ? "border-[var(--walnut)] bg-[var(--walnut)] text-[var(--paper)]" : "border-[var(--walnut)]/25 bg-[var(--paper)] text-[var(--walnut)]"}`}>
@@ -343,7 +384,7 @@ export function CheckoutForm({
           </fieldset>}
 
           {/* Campos de dirección — según el destino del envío */}
-          {isDelivery && (purchaseRegion === "uruguay" ? (
+          {isDelivery && (isWholesale || purchaseRegion === "uruguay" ? (
               <div className="grid gap-5 sm:grid-cols-2">
                 <label className="text-sm font-semibold text-[var(--walnut)]">
                   {t("department")}
@@ -424,7 +465,75 @@ export function CheckoutForm({
           </dl>
 
           {!isInternational && (
-            <p className="mt-5 text-xs leading-5 text-white/60">{t("serverRecalc")}</p>
+            <p className="mt-5 text-xs leading-5 text-white/70">{isWholesale ? t("wholesaleServerRecalc") : t("serverRecalc")}</p>
+          )}
+
+          {isWholesale && bankTransfer && (
+            <section className="mt-6 border-t border-white/25 pt-6" aria-labelledby="bank-transfer-title">
+              <div className="flex items-center gap-2">
+                <Bank size={22} aria-hidden="true" />
+                <h2 id="bank-transfer-title" className="text-base font-bold">{t("bankTransferTitle")}</h2>
+              </div>
+              <p className="mt-2 text-xs leading-5 text-white/75">{t("bankTransferBody")}</p>
+              <dl className="mt-4 space-y-3 rounded-xl border border-white/20 bg-black/10 p-4 text-sm">
+                <div><dt className="text-xs text-white/65">{t("accountHolder")}</dt><dd className="mt-1 font-bold">{bankTransfer.account_holder}</dd></div>
+                <div><dt className="text-xs text-white/65">{t("bankTransferAccount")}</dt><dd className="mt-1 font-bold break-words">{bankTransfer.transfer_account}</dd></div>
+                <div><dt className="text-xs text-white/65">{bankTransfer.cash_deposit_label}</dt><dd className="mt-1 font-bold break-words">{bankTransfer.cash_deposit_account}</dd></div>
+              </dl>
+
+              {!transferConfirmed ? (
+                <button
+                  type="button"
+                  disabled={!domesticReady || !bankTransfer || !cartReady}
+                  onClick={() => setTransferConfirmed(true)}
+                  className="mt-5 flex min-h-12 w-full items-center justify-center rounded-xl border border-white/70 px-5 text-sm font-bold transition hover:bg-white/10 focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {t("transferMade")}
+                </button>
+              ) : (
+                <div className="mt-5 rounded-xl border border-white/25 bg-white/10 p-4">
+                  <label htmlFor="bank-transfer-receipt" className="block text-sm font-bold">{t("receiptLabel")}</label>
+                  <p id="bank-transfer-receipt-help" className="mt-1 text-xs leading-5 text-white/70">{t("receiptHelp")}</p>
+                  <label className="mt-3 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-white/70 px-4 text-center text-sm font-semibold transition hover:bg-white/10 focus-within:outline-[3px] focus-within:outline-offset-2 focus-within:outline-[var(--paper)]">
+                    <UploadSimple size={20} aria-hidden="true" />
+                    <span>{receipt ? receipt.name : t("chooseReceipt")}</span>
+                    <input
+                      id="bank-transfer-receipt"
+                      type="file"
+                      name="receipt"
+                      accept="image/jpeg,image/png,image/webp,application/pdf"
+                      aria-describedby="bank-transfer-receipt-help"
+                      className="sr-only"
+                      required
+                      onChange={(event) => {
+                        const next = event.target.files?.[0] || null;
+                        if (next && next.size > 5 * 1024 * 1024) {
+                          setReceipt(null);
+                          setError(t("receiptTooLarge"));
+                          event.currentTarget.value = "";
+                          return;
+                        }
+                        if (next && !receiptTypes.has(next.type)) {
+                          setReceipt(null);
+                          setError(t("receiptInvalidType"));
+                          event.currentTarget.value = "";
+                          return;
+                        }
+                        setError("");
+                        setReceipt(next);
+                      }}
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={busy || !domesticReady || !receipt || !cartReady}
+                    className="mt-4 flex min-h-13 w-full items-center justify-center rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-[var(--paper)] transition hover:bg-[#4a2a1c] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {busy ? t("uploadingReceipt") : t("completeOrder")}
+                  </button>
+                </div>
+              )}
+            </section>
           )}
 
           {/* ── Pago internacional — solo PayPal ── */}
@@ -449,11 +558,12 @@ export function CheckoutForm({
 
           <div className="grow" />
 
+          {cartError && <p role="alert" className="mt-5 rounded-lg border border-white/35 bg-black/15 p-3 text-sm font-semibold text-[var(--paper)]">{cartError}</p>}
           {error && <p role="alert" className="mt-5 text-sm font-semibold text-[var(--paper)]">{error}</p>}
 
-          {!paypalReady && (
+          {!paypalReady && !isWholesale && (
             <button
-              disabled={busy || (isInternational ? !internationalReady : !domesticReady)}
+              disabled={busy || !cartReady || (isInternational ? !internationalReady : !domesticReady)}
               className="mt-8 flex min-h-13 w-full items-center justify-center gap-2.5 rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-[var(--paper)] transition hover:bg-[#4a2a1c] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {!isInternational && !busy && (

@@ -6,6 +6,7 @@ export type StorefrontVariantRow = {
   sku: string;
   name: string;
   price_minor: number;
+  base_price_minor?: number;
   currency: "UYU";
   active: boolean;
   color?: string | null;
@@ -91,6 +92,7 @@ function mapVariants(row: StorefrontProductRow): ProductVariant[] {
       value: variant.sku,
       commerceId: variant.id,
       price: { amountMinor: variant.price_minor, currency: variant.currency },
+      basePrice: { amountMinor: variant.base_price_minor ?? variant.price_minor, currency: variant.currency },
       available: true,
       color: structuredColor || (variant.color as CatalogColorId) || undefined,
       options,

@@ -38,6 +38,7 @@ type OrderValue = {
   paypal_amount_usd_minor: number | null;
   created_at: string;
   order_items: OrderItem[];
+  commerce_bank_transfer_receipts?: Array<{ status: string; rejection_reason: string | null }>;
 };
 
 const date = (value: string, locale: Locale) => new Intl.DateTimeFormat({ es: "es-UY", en: "en", pt: "pt-BR" }[locale], { day: "numeric", month: "long", year: "numeric" }).format(new Date(value));
@@ -104,14 +105,14 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
   const locale = useLocale() as Locale;
   const t = useTranslations("order");
   const statusLabels: Record<string, string> = {
-    pending_payment: t("statuses.pending_payment"), paid_pending_review: t("statuses.paid_pending_review"),
+    pending_payment: t("statuses.pending_payment"), payment_verification_pending: t("statuses.payment_verification_pending"), paid_pending_review: t("statuses.paid_pending_review"),
     ready_for_fulfillment: t("statuses.ready_for_fulfillment"), ready_for_production: t("statuses.ready_for_production"),
     shipped: t("statuses.shipped"),
     payment_failed: t("statuses.payment_failed"), cancelled: t("statuses.cancelled"),
     refunded: t("statuses.refunded"), manual_review: t("statuses.manual_review"),
   };
   const statusDescriptions: Record<string, string> = {
-    pending_payment: t("descriptions.pending_payment"), paid_pending_review: t("descriptions.paid_pending_review"),
+    pending_payment: t("descriptions.pending_payment"), payment_verification_pending: t("descriptions.payment_verification_pending"), paid_pending_review: t("descriptions.paid_pending_review"),
     ready_for_fulfillment: t("descriptions.ready_for_fulfillment"), ready_for_production: t("descriptions.ready_for_production"),
     shipped: t("descriptions.shipped"),
     payment_failed: t("descriptions.payment_failed"), cancelled: t("descriptions.cancelled"),
@@ -159,7 +160,7 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
         }
         setError("");
         setOrder(value as OrderValue);
-        if (!stopped && value.status === "pending_payment") timer = setTimeout(load, 5_000);
+        if (!stopped && ["pending_payment", "payment_verification_pending"].includes(value.status)) timer = setTimeout(load, 5_000);
       } catch {
         setError(t("connectionFailed"));
       }
@@ -234,14 +235,14 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
 
   const status = order.status;
   const isInternational = order.shipping_method === "international_coordination" || order.shipping_method === "international_shipping";
-  const isPending = status === "pending_payment";
+  const isPending = status === "pending_payment" || status === "payment_verification_pending";
   const isProblem = ["payment_failed", "cancelled", "refunded"].includes(status);
   const StatusIcon = status === "shipped" ? CheckCircle : isInternational && status === "manual_review" ? WhatsappLogo : isPending ? Clock : isProblem ? WarningCircle : CheckCircle;
   const statusDescription = isInternational && status === "manual_review"
     ? t("internationalStatus")
     : statusDescriptions[status] || t("processingFallback");
-  const desktopStatusTitle = isPending ? t("processingPayment") : statusLabels[status] || status;
-  const desktopStatusDescription = isPending
+  const desktopStatusTitle = status === "pending_payment" ? t("processingPayment") : statusLabels[status] || status;
+  const desktopStatusDescription = status === "pending_payment"
     ? t("updatesAutomatically")
     : statusDescription;
   const items = order.order_items || [];
@@ -254,6 +255,7 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
         ? t("toConfirm")
         : t("shippingPayOnDelivery");
   const showTracking = status === "shipped" && Boolean(order.shipping_carrier && order.tracking_code);
+  const receiptRejectionReason = order.commerce_bank_transfer_receipts?.find(receipt=>receipt.status==="rejected")?.rejection_reason || "";
   const isTrackingUrl = Boolean(order.tracking_code && (order.tracking_code.startsWith("http://") || order.tracking_code.startsWith("https://")));
 
   return (
@@ -302,6 +304,7 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
             <div className="order-mobile-status-copy">
               <h2>{desktopStatusTitle}</h2>
               <p>{desktopStatusDescription}</p>
+              {receiptRejectionReason&&<p className="mt-2 font-semibold text-[var(--danger)]">{t("receiptRejectionReason",{reason:receiptRejectionReason})}</p>}
             </div>
           </div>
         </div>
@@ -362,6 +365,7 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
             <div>
               <h2 id="order-status-desktop-title">{desktopStatusTitle}</h2>
               <p>{desktopStatusDescription}</p>
+              {receiptRejectionReason&&<p className="mt-2 font-semibold text-[var(--danger)]">{t("receiptRejectionReason",{reason:receiptRejectionReason})}</p>}
             </div>
           </div>
         </div>

@@ -26,6 +26,7 @@ const storefrontSelection = `
     id,
     sku,
     name,
+    base_price_minor,
     price_minor,
     currency,
     active,
@@ -51,7 +52,7 @@ const legacyStorefrontSelection = `
 `;
 
 function missingStructuredCatalogColumn(error: { message?: string; code?: string } | null) {
-  return Boolean(error && (error.code === "42703" || /category_code|attributes|option_values|weight_grams/i.test(error.message ?? "")));
+  return Boolean(error && (error.code === "42703" || /category_code|attributes|option_values|weight_grams|base_price_minor/i.test(error.message ?? "")));
 }
 
 export async function getStorefrontProducts(locale: Locale) {

@@ -73,6 +73,7 @@ export type ProductVariant = {
   value: string;
   commerceId?: string;
   price?: Money;
+  basePrice?: Money;
   available?: boolean;
   color?: CatalogColorId | null;
   options?: CatalogValueMap;

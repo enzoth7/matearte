@@ -62,9 +62,14 @@ type ProductVariant = {id:string;sku:string;name:string;base_price_minor:number;
 type Product = { id:string; editorial_slug:string; name:string; category:string; category_code?:string|null; description:string; sale_mode:SaleMode; published:boolean; peso?:number; catalog_filters?:unknown; attributes?:unknown; commerce_variants:ProductVariant[]; commerce_product_images:ProductImage[] };
 type ProductForm = {name:string;category:string;description:string;saleMode:SaleMode;peso:number;catalogFilters:CatalogAttributes;attributes:CatalogValueMap};
 export type OrderItem = {id:string;item_type:'catalog'|'design';title:string;quantity:number;requires_review:boolean;review_status:string|null;immutable_snapshot:Record<string,unknown>;sku?:string|null;unit_price_minor?:number|null;total_minor?:number|null;source_variant?:{product?:{peso?:number}}};
-export type Order = { id:string;order_number:number;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;peso?:number|null;order_items:OrderItem[] };
+type BankTransferReceipt = {id:string;original_name:string;mime_type:string;byte_size:number;status:'pending'|'approved'|'rejected';rejection_reason:string|null;submitted_at:string;reviewed_at:string|null};
+export type Order = { id:string;order_number:number;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;peso?:number|null;order_items:OrderItem[];commerce_bank_transfer_receipts?:BankTransferReceipt[] };
 const money=(minor:number)=>new Intl.NumberFormat('es-UY',{style:'currency',currency:'UYU',maximumFractionDigits:0}).format(minor/100);
-export const calculateAdjustedCatalogPrice = (baseMinor:number, percent:number, enabled=true) => enabled ? Math.round((baseMinor*(1+percent/100))/100)*100 : baseMinor;
+export const roundCommercialPrice = (minor:number) => {
+  const lowerMultiple = Math.floor(minor / 5000) * 5000;
+  return minor - lowerMultiple < 1000 ? lowerMultiple : lowerMultiple + 5000;
+};
+export const calculateAdjustedCatalogPrice = (baseMinor:number, percent:number, enabled=true) => enabled ? roundCommercialPrice(baseMinor*(1+percent/100)) : baseMinor;
 export const formatWeight = (grams: number) => {
   if (!grams || grams <= 0) return '0 g';
   if (grams >= 1000) {
@@ -405,6 +410,7 @@ export function getOrderDeliveryDetails(order:Pick<Order,'shipping_method'|'ship
 }
 const orderStatus = (status: string) => ({
   pending_payment: 'Pendiente de pago',
+  payment_verification_pending: 'Comprobante por verificar',
   paid_pending_review: 'Requiere revisión',
   ready_for_production: 'En producción',
   ready_for_fulfillment: 'Listo para entregar',
@@ -1510,6 +1516,10 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
   const [customCarrier,setCustomCarrier] = useState('');
   const [trackingCode,setTrackingCode] = useState('');
   const [shipmentError,setShipmentError] = useState('');
+  const [receiptPreview,setReceiptPreview] = useState<{url:string;mimeType:string;name:string}|null>(null);
+  const [receiptLoading,setReceiptLoading] = useState(false);
+  const [receiptError,setReceiptError] = useState('');
+  const [verificationOnly,setVerificationOnly] = useState(false);
   const detailTriggerRef = useRef<HTMLElement|null>(null);
   const [search,setSearch] = useState(() => {
     if (typeof window === 'undefined') return '';
@@ -1519,13 +1529,13 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
   const load = useCallback(async() => {
     let {data,error}:{data:unknown;error:{message:string;code?:string}|null} = await supabase
       .from('orders')
-      .select('id,order_number,status,peso,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,total_minor,created_at,customer_snapshot,order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot,source_variant:commerce_variants(product:commerce_products(peso)))')
+      .select('id,order_number,status,peso,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,total_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot,source_variant:commerce_variants(product:commerce_products(peso)))')
       .order('created_at',{ascending:false})
       .limit(100);
     if (error && (error.code === '42703' || /peso|source_variant/i.test(error.message))) {
       ({data,error} = await supabase
         .from('orders')
-        .select('id,order_number,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,total_minor,created_at,customer_snapshot,order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot)')
+        .select('id,order_number,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,total_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot)')
         .order('created_at',{ascending:false})
         .limit(100));
     }
@@ -1541,8 +1551,9 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
 
   const filteredOrders = useMemo(() => {
     const q = search.trim().toLowerCase().replace(/^#/, '');
-    if (!q) return orders;
     return orders.filter(o => {
+      if (verificationOnly && o.status !== 'payment_verification_pending') return false;
+      if (!q) return true;
       const orderNum = String(o.order_number);
       const customer = orderCustomer(o.customer_snapshot).toLowerCase();
       const email = textValue(o.customer_snapshot.email).toLowerCase();
@@ -1551,7 +1562,8 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
       const id = o.id.toLowerCase();
       return orderNum.includes(q) || customer.includes(q) || email.includes(q) || status.includes(q) || tracking.includes(q) || id.includes(q);
     });
-  }, [orders, search]);
+  }, [orders, search, verificationOnly]);
+  const pendingVerificationCount = orders.filter(order=>order.status==='payment_verification_pending').length;
 
   const review = async(id:string,decision:'approve'|'reject') => {
     const reason = decision === 'reject' ? window.prompt('Indicá el motivo del rechazo y reembolso:')?.trim() || '' : '';
@@ -1571,7 +1583,10 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
           .eq('id', id);
         if (orderError) throw orderError;
 
-        void supabase.functions.invoke('commerce-email', { body: { orderId: id } }).catch(() => {});
+        const approvedOrder = orders.find(order=>order.id===id);
+        if (textValue(approvedOrder?.customer_snapshot.purchaseFlow) !== 'wholesale_bank_transfer') {
+          void supabase.functions.invoke('commerce-email', { body: { orderId: id } }).catch(() => {});
+        }
         onNotice('Pedido aprobado.');
         await load();
       } else {
@@ -1592,6 +1607,62 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
       onNotice(decision === 'approve'
         ? (err instanceof Error ? `No se pudo aprobar el pedido: ${err.message}` : 'No se pudo aprobar el pedido.')
         : (err instanceof Error ? err.message : 'No se pudo conectar con el servicio de pedidos.'));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const loadReceiptPreview = async(order:Order) => {
+    if (!order.commerce_bank_transfer_receipts?.length) return;
+    setReceiptPreview(null);
+    setReceiptError('');
+    setReceiptLoading(true);
+    try {
+      const response = await fetch(`${getStoreApiUrl()}/api/admin/orders/${order.id}/bank-transfer`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const value = await response.json();
+      if (!response.ok) throw new Error(value.error || 'No se pudo abrir el comprobante.');
+      setReceiptPreview({
+        url: String(value.signedUrl),
+        mimeType: String(value.receipt?.mime_type || ''),
+        name: String(value.receipt?.original_name || 'Comprobante'),
+      });
+    } catch (error) {
+      setReceiptError(error instanceof Error ? error.message : 'No se pudo abrir el comprobante.');
+    } finally {
+      setReceiptLoading(false);
+    }
+  };
+
+  const reviewBankTransfer = async(order:Order,decision:'approve'|'reject') => {
+    const reason = decision === 'reject' ? window.prompt('Indicá el motivo del rechazo:')?.trim() || '' : '';
+    if (decision === 'reject' && reason.length < 5) {
+      if (reason) onNotice('El motivo debe tener al menos 5 caracteres.');
+      return;
+    }
+    const confirmation = decision === 'approve'
+      ? '¿Confirmás que la transferencia fue recibida? El pedido quedará pagado y pasará a preparación.'
+      : '¿Confirmás el rechazo? El pedido se cancelará y el cliente deberá crear uno nuevo.';
+    if (!window.confirm(confirmation)) return;
+    setBusy(order.id);
+    try {
+      const response = await fetch(`${getStoreApiUrl()}/api/admin/orders/${order.id}/bank-transfer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({decision,reason}),
+      });
+      const value = await response.json();
+      if (!response.ok) throw new Error(value.error || 'No se pudo revisar el comprobante.');
+      onNotice(decision === 'approve' ? 'Transferencia aprobada; el pedido pasó a preparación.' : 'Comprobante rechazado y pedido cancelado.');
+      setDetailOrder(null);
+      setReceiptPreview(null);
+      await load();
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : 'No se pudo revisar el comprobante.');
     } finally {
       setBusy('');
     }
@@ -1631,7 +1702,7 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
           return false;
         }
 
-        if (isNewShipment) {
+        if (isNewShipment && textValue(order.customer_snapshot.purchaseFlow) !== 'wholesale_bank_transfer') {
           void supabase.functions.invoke('commerce-email', { body: { orderId: order.id } }).catch(() => {});
         }
 
@@ -1690,10 +1761,15 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
   const openDetails = (order:Order) => {
     detailTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setDetailOrder(order);
+    setReceiptPreview(null);
+    setReceiptError('');
+    if (order.commerce_bank_transfer_receipts?.length) void loadReceiptPreview(order);
   };
 
   const closeDetails = () => {
     setDetailOrder(null);
+    setReceiptPreview(null);
+    setReceiptError('');
     window.requestAnimationFrame(()=>detailTriggerRef.current?.focus());
   };
 
@@ -1720,8 +1796,16 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
   return (
     <>
       <section className="data-panel" aria-label="Listado de pedidos">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <div className="orders-toolbar">
           <div className="table-summary"><strong>{filteredOrders.length} {filteredOrders.length === 1 ? 'pedido' : 'pedidos'}</strong><small>{search ? `Filtrado por "${search}"` : 'Últimos 100 registros'}</small></div>
+          <button
+            type="button"
+            className={`verification-filter${verificationOnly?' verification-filter--active':''}`}
+            aria-pressed={verificationOnly}
+            onClick={()=>setVerificationOnly(value=>!value)}
+          >
+            Comprobantes pendientes <span>{pendingVerificationCount}</span>
+          </button>
           <div style={{ position: 'relative', minWidth: '220px', maxWidth: '340px', flex: '1 1 auto' }}>
             <input
               type="search"
@@ -1748,7 +1832,7 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
                   ? [textValue(order.shipping_snapshot.city),textValue(order.shipping_snapshot.country)].filter(Boolean).join(', ') || 'Exterior'
                   : order.shipping_method === 'pickup' ? 'Retiro' : 'Envío';
                 const canShip = order.shipping_method !== 'pickup' && ['ready_for_fulfillment', 'ready_for_production', 'manual_review'].includes(order.status);
-                return <tr key={order.id} id={`order-${order.order_number}`}>
+                return <tr key={order.id} id={`order-${order.order_number}`} className={order.status==='payment_verification_pending'?'bank-transfer-pending-row':undefined}>
                   <td><button type="button" className="order-detail-trigger" onClick={()=>openDetails(order)} aria-label={`Ver detalle del pedido ${order.order_number}`}>#{order.order_number}</button></td>
                   <td>{new Date(order.created_at).toLocaleDateString('es-UY')}</td>
                   <td>{orderCustomer(order.customer_snapshot)}</td>
@@ -1759,6 +1843,7 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
                   <td className="numeric"><strong>{money(order.total_minor)}</strong></td>
                   <td><div className="row-actions">
                     <button className="compact-button secondary-button" type="button" onClick={()=>openDetails(order)}>Ver detalle</button>
+                    {order.status==='payment_verification_pending'&&<button className="compact-button" type="button" onClick={()=>openDetails(order)}>Revisar comprobante</button>}
                     {order.status==='paid_pending_review'&&<><button className="compact-button" disabled={busy===order.id} onClick={()=>void review(order.id,'approve')}>{busy===order.id?'Procesando…':'Aprobar'}</button><button className="compact-button danger" disabled={busy===order.id} onClick={()=>void review(order.id,'reject')}>Rechazar</button></>}
                     {canShip&&<button className="compact-button" disabled={busy===order.id} onClick={()=>openShipment(order)}>Marcar enviado</button>}
                     {order.status==='shipped'&&<><button className="compact-button secondary-button" disabled={busy===order.id} onClick={()=>openShipment(order)}>Editar envío</button><button className="compact-button secondary-button" disabled={busy===order.id} onClick={()=>{if(window.confirm('¿Querés volver este pedido a preparación? El cliente dejará de verlo como enviado.'))void updateFulfillment(order,'restore')}}>{busy===order.id?'Procesando…':order.shipping_method==='international_coordination'?'Volver a revisión':order.order_items.some(item=>item.requires_review)?'Volver a producción':'Volver a preparación'}</button></>}
@@ -1782,6 +1867,22 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
               <p id="order-detail-modal-description">Datos guardados al confirmar la compra. Usá este destino para preparar la entrega.</p>
             </header>
             <OrderDeliverySummary order={detailOrder}/>
+            {detailOrder.commerce_bank_transfer_receipts?.[0]&&<section className="bank-receipt-card" aria-labelledby="bank-receipt-title">
+              <div className="order-detail-section-heading">
+                <div><p className="eyebrow">Transferencia bancaria</p><h3 id="bank-receipt-title">Comprobante de pago</h3></div>
+                <span className={`receipt-status receipt-status--${detailOrder.commerce_bank_transfer_receipts[0].status}`}>{detailOrder.commerce_bank_transfer_receipts[0].status==='pending'?'Pendiente':detailOrder.commerce_bank_transfer_receipts[0].status==='approved'?'Aprobado':'Rechazado'}</span>
+              </div>
+              <p>{detailOrder.commerce_bank_transfer_receipts[0].original_name} · {(detailOrder.commerce_bank_transfer_receipts[0].byte_size/1024/1024).toFixed(2)} MB</p>
+              {receiptLoading&&<div className="receipt-loading" role="status">Cargando comprobante…</div>}
+              {receiptError&&<p className="modal-error" role="alert">{receiptError}</p>}
+              {receiptPreview&&(
+                receiptPreview.mimeType==='application/pdf'
+                  ? <iframe className="receipt-preview receipt-preview--pdf" src={receiptPreview.url} title={`Comprobante ${receiptPreview.name}`}/>
+                  : <img className="receipt-preview receipt-preview--image" src={receiptPreview.url} alt={`Comprobante ${receiptPreview.name}`}/>
+              )}
+              {detailOrder.commerce_bank_transfer_receipts[0].rejection_reason&&<p className="receipt-rejection"><strong>Motivo del rechazo:</strong> {detailOrder.commerce_bank_transfer_receipts[0].rejection_reason}</p>}
+              {!receiptLoading&&<button type="button" className="secondary-button receipt-refresh" onClick={()=>void loadReceiptPreview(detailOrder)}>{receiptPreview?'Renovar acceso':'Abrir comprobante'}</button>}
+            </section>}
             <section className="order-detail-items" aria-labelledby="order-detail-items-title">
               <div className="order-detail-section-heading">
                 <h3 id="order-detail-items-title">Artículos</h3>
@@ -1834,6 +1935,7 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
             {detailOrder.status==='shipped'&&<section className="order-tracking-detail" aria-label="Seguimiento guardado"><small>Envío registrado</small><strong>{detailOrder.shipping_carrier}</strong><span>{detailOrder.tracking_code}</span></section>}
             <footer>
               <button type="button" className="secondary-button" autoFocus onClick={closeDetails}>Cerrar</button>
+              {detailOrder.status==='payment_verification_pending'&&<><button type="button" className="danger-button" disabled={busy===detailOrder.id||!receiptPreview} onClick={()=>void reviewBankTransfer(detailOrder,'reject')}>Rechazar y cancelar</button><button type="button" disabled={busy===detailOrder.id||!receiptPreview} onClick={()=>void reviewBankTransfer(detailOrder,'approve')}>{busy===detailOrder.id?'Procesando…':'Aprobar pago'}</button></>}
               {detailOrder.shipping_method!=='pickup'&&['ready_for_fulfillment','ready_for_production','manual_review'].includes(detailOrder.status)&&<button type="button" onClick={()=>{const order=detailOrder;setDetailOrder(null);openShipment(order)}}>Marcar enviado</button>}
               {detailOrder.status==='shipped'&&<button type="button" onClick={()=>{const order=detailOrder;setDetailOrder(null);openShipment(order)}}>Editar envío</button>}
             </footer>
@@ -1899,7 +2001,11 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
             )}
             <label htmlFor="tracking-code">Código de seguimiento <span aria-hidden="true">*</span></label>
             <input id="tracking-code" required minLength={3} maxLength={160} autoComplete="off" value={trackingCode} onChange={event=>setTrackingCode(event.target.value)} />
-            <p className="field-help">{shipmentOrder.status==='shipped'?'Los cambios se verán en el detalle del pedido del cliente.':'Al confirmar, el pedido cambia a Enviado y el cliente recibe estos datos por correo.'}</p>
+            <p className="field-help">{shipmentOrder.status==='shipped'
+              ? 'Los cambios se verán en el detalle del pedido del cliente.'
+              : textValue(shipmentOrder.customer_snapshot.purchaseFlow)==='wholesale_bank_transfer'
+                ? 'Al confirmar, el pedido cambia a Enviado y el cliente ve estos datos dentro de la web.'
+                : 'Al confirmar, el pedido cambia a Enviado y el cliente recibe estos datos por correo.'}</p>
             {shipmentError&&<p className="modal-error" role="alert">{shipmentError}</p>}
             <footer>
               <button type="button" className="secondary-button" disabled={busy===shipmentOrder.id} onClick={closeShipment}>Cancelar</button>
@@ -1922,18 +2028,31 @@ type CommerceSettings = {
   wholesale_mate_quantity_threshold:number;
   wholesale_mate_discount_percent:number;
 };
+type BankTransferSettings = {
+  account_holder:string;
+  transfer_account:string;
+  cash_deposit_account:string;
+  cash_deposit_label:string;
+};
 
 function Settings({onNotice}:{onNotice:(v:string)=>void}) {
   const [value,setValue]=useState<CommerceSettings|null>(null);
+  const [bank,setBank]=useState<BankTransferSettings|null>(null);
   const [percent,setPercent]=useState('13.64');
   const [wholesaleThreshold,setWholesaleThreshold]=useState('30');
   const [wholesalePercent,setWholesalePercent]=useState('30');
   const [saving,setSaving]=useState(false);
+  const [bankSaving,setBankSaving]=useState(false);
   const load=useCallback(async()=>{
-    const {data,error}=await supabase.from('commerce_settings').select('commerce_enabled,mercado_pago_enabled,paypal_enabled,catalog_price_adjustment_enabled,catalog_price_adjustment_percent,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent').eq('singleton',true).single();
-    if(error){onNotice(error.message);return}
-    const next=data as CommerceSettings;
+    const [settingsResult,bankResult]=await Promise.all([
+      supabase.from('commerce_settings').select('commerce_enabled,mercado_pago_enabled,paypal_enabled,catalog_price_adjustment_enabled,catalog_price_adjustment_percent,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent').eq('singleton',true).single(),
+      supabase.from('commerce_bank_transfer_settings').select('account_holder,transfer_account,cash_deposit_account,cash_deposit_label').eq('singleton',true).single(),
+    ]);
+    if(settingsResult.error){onNotice(settingsResult.error.message);return}
+    if(bankResult.error){onNotice(`No se pudo cargar la cuenta bancaria: ${bankResult.error.message}`);return}
+    const next=settingsResult.data as CommerceSettings;
     setValue(next);
+    setBank(bankResult.data as BankTransferSettings);
     setPercent(String(next.catalog_price_adjustment_percent));
     setWholesaleThreshold(String(next.wholesale_mate_quantity_threshold));
     setWholesalePercent(String(next.wholesale_mate_discount_percent));
@@ -1971,6 +2090,25 @@ function Settings({onNotice}:{onNotice:(v:string)=>void}) {
       setWholesalePercent(String(normalizedDiscount));
     }
   };
+  const saveBank=async(event:React.FormEvent)=>{
+    event.preventDefault();
+    if(!bank)return;
+    const next:BankTransferSettings={
+      account_holder:bank.account_holder.trim(),
+      transfer_account:bank.transfer_account.trim(),
+      cash_deposit_account:bank.cash_deposit_account.trim(),
+      cash_deposit_label:bank.cash_deposit_label.trim(),
+    };
+    if(next.account_holder.length<2||next.transfer_account.length<3||next.cash_deposit_account.length<3||next.cash_deposit_label.length<3){
+      onNotice('Completá todos los datos bancarios.');
+      return;
+    }
+    setBankSaving(true);
+    const {error}=await supabase.from('commerce_bank_transfer_settings').update(next).eq('singleton',true);
+    setBankSaving(false);
+    onNotice(error?error.message:'Datos bancarios guardados.');
+    if(!error)setBank(next);
+  };
 
   return <>
     <section className="panel settings settings-section">
@@ -1999,6 +2137,16 @@ function Settings({onNotice}:{onNotice:(v:string)=>void}) {
         <button type="submit" disabled={saving}>{saving?'Guardando…':'Guardar regla'}</button>
       </form>
     </section>
+    {bank&&<section className="panel settings settings-section">
+      <header className="settings-heading"><p className="eyebrow">Cobro mayorista</p><h2>Datos para transferencia</h2><p>Se muestran solamente en el checkout mayorista. Guardalos acá para no exponerlos en la configuración pública de la tienda.</p></header>
+      <form className="bank-settings-form" onSubmit={event=>void saveBank(event)}>
+        <label><span className="field-label">Titular</span><input required minLength={2} maxLength={120} value={bank.account_holder} disabled={bankSaving} onChange={event=>setBank({...bank,account_holder:event.target.value})}/></label>
+        <label><span className="field-label">Cuenta para transferencias</span><input required minLength={3} maxLength={160} value={bank.transfer_account} disabled={bankSaving} onChange={event=>setBank({...bank,transfer_account:event.target.value})}/></label>
+        <label><span className="field-label">Texto para depósitos</span><input required minLength={3} maxLength={240} value={bank.cash_deposit_label} disabled={bankSaving} onChange={event=>setBank({...bank,cash_deposit_label:event.target.value})}/></label>
+        <label><span className="field-label">Cuenta anterior RedPagos/Abitab</span><input required minLength={3} maxLength={160} value={bank.cash_deposit_account} disabled={bankSaving} onChange={event=>setBank({...bank,cash_deposit_account:event.target.value})}/></label>
+        <button type="submit" disabled={bankSaving}>{bankSaving?'Guardando…':'Guardar datos bancarios'}</button>
+      </form>
+    </section>}
     <TaxonomyManager onNotice={onNotice}/>
   </>;
 }

@@ -9,7 +9,7 @@ import { isLocale } from "@/i18n/config";
 import { localizeCanonicalPath } from "@/i18n/paths";
 import type { Locale } from "@/types/catalog";
 import { normalizeCatalogValueMap } from "../../../../../shared/catalog-taxonomy";
-import { applyWholesaleMateDiscount, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
+import { applyWholesaleMateDiscount, isWholesaleMateEligible, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type PublishedPricingCatalog = { versionId: string; version: number; rules: Record<string, number> };
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     const requestedKey = request.headers.get("idempotency-key") || "";
     const idempotencyKey = uuid.test(requestedKey) ? requestedKey : randomUUID();
     const checkoutItemsBeforeWholesale = cart.items.map((item) => {
-      const variant = item.variant as unknown as { price_minor?: number; product?: { category?: string; category_code?: string | null } } | null;
+      const variant = item.variant as unknown as { base_price_minor?: number; price_minor?: number; product?: { category?: string; category_code?: string | null } } | null;
       const sourceId = item.item_type === "design" ? item.design_id : item.variant_id;
       const unitPriceMinor = item.item_type === "design"
         ? designPrices[String(item.design_id)]
@@ -81,10 +81,14 @@ export async function POST(request: Request) {
         sourceId: String(sourceId),
         quantity: Number(item.quantity),
         unitPriceMinor,
+        baseUnitPriceMinor: item.item_type === "catalog" ? Number(variant?.base_price_minor ?? unitPriceMinor) : unitPriceMinor,
         category: variant?.product?.category_code || variant?.product?.category || null,
         ...(item.item_type === "catalog" ? { selectedOptions: normalizeCatalogValueMap(item.option_values_override) } : {}),
       };
     });
+    if (isWholesaleMateEligible(checkoutItemsBeforeWholesale, publicSettings as WholesaleDiscountSettings)) {
+      return apiError("Este carrito mayorista se completa mediante transferencia bancaria.", 409);
+    }
     const adjustedPrices = applyWholesaleMateDiscount(checkoutItemsBeforeWholesale, publicSettings as WholesaleDiscountSettings);
     const checkoutItems = checkoutItemsBeforeWholesale.map((item,index) => ({ ...item, unitPriceMinor: adjustedPrices[index].unitPriceMinor }));
     const itemsSubtotalMinor = checkoutItems.reduce((total, item) => total + item.unitPriceMinor * item.quantity, 0);

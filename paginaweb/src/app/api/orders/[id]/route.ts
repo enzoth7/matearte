@@ -7,6 +7,7 @@ const accessToken = /^[A-Za-z0-9_-]{43}$/;
 const orderSelection = `
   id,order_number,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,customer_snapshot,
   items_subtotal_minor,shipping_minor,payment_fee_minor,total_minor,currency,paypal_amount_usd_minor,created_at,paid_at,
+  commerce_bank_transfer_receipts(status,rejection_reason),
   order_items(
     id,item_type,title,quantity,unit_price_minor,total_minor,requires_review,review_status,source_variant_id,
     variant:commerce_variants(product:commerce_products(commerce_product_images(storage_path,sort_order,variant_id)))

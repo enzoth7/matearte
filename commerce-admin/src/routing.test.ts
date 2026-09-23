@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { calculateAdjustedCatalogPrice, getTabFromUrl } from './App';
+import { calculateAdjustedCatalogPrice, getTabFromUrl, roundCommercialPrice } from './App';
 
 describe('calculateAdjustedCatalogPrice', () => {
-  it('aplica el porcentaje sobre el precio base y redondea al peso', () => {
-    expect(calculateAdjustedCatalogPrice(200000, 13.64)).toBe(227300);
-    expect(calculateAdjustedCatalogPrice(500000, 13.64)).toBe(568200);
+  it('aplica el porcentaje y redondea hacia arriba a múltiplos de $50', () => {
+    expect(calculateAdjustedCatalogPrice(200000, 13.64)).toBe(230000);
+    expect(calculateAdjustedCatalogPrice(420000, 13.64)).toBe(480000);
+    expect(calculateAdjustedCatalogPrice(500000, 13.64)).toBe(570000);
+  });
+
+  it('redondea hacia abajo cuando faltan menos de $10 para un precio más limpio', () => {
+    expect(calculateAdjustedCatalogPrice(370000, 13.64)).toBe(420000);
+    expect(roundCommercialPrice(480999)).toBe(480000);
+    expect(roundCommercialPrice(481000)).toBe(485000);
   });
 
   it('restaura exactamente el precio base cuando está desactivado', () => {
