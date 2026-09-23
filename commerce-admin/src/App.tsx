@@ -62,8 +62,10 @@ type ProductVariant = {id:string;sku:string;name:string;base_price_minor:number;
 type Product = { id:string; editorial_slug:string; name:string; category:string; category_code?:string|null; description:string; sale_mode:SaleMode; published:boolean; peso?:number; catalog_filters?:unknown; attributes?:unknown; commerce_variants:ProductVariant[]; commerce_product_images:ProductImage[] };
 type ProductForm = {name:string;category:string;description:string;saleMode:SaleMode;peso:number;catalogFilters:CatalogAttributes;attributes:CatalogValueMap};
 export type OrderItem = {id:string;item_type:'catalog'|'design';title:string;quantity:number;requires_review:boolean;review_status:string|null;immutable_snapshot:Record<string,unknown>;sku?:string|null;unit_price_minor?:number|null;total_minor?:number|null;source_variant?:{product?:{peso?:number}}};
-type BankTransferReceipt = {id:string;original_name:string;mime_type:string;byte_size:number;status:'pending'|'approved'|'rejected';rejection_reason:string|null;submitted_at:string;reviewed_at:string|null};
+export type BankTransferReceipt = {id:string;original_name:string;mime_type:string;byte_size:number;status:'pending'|'approved'|'rejected';rejection_reason:string|null;submitted_at:string;reviewed_at:string|null};
 export type Order = { id:string;order_number:number;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;peso?:number|null;order_items:OrderItem[];commerce_bank_transfer_receipts?:BankTransferReceipt[] };
+type SupabaseOrder = Omit<Order,'commerce_bank_transfer_receipts'> & {commerce_bank_transfer_receipts?:BankTransferReceipt[]|BankTransferReceipt|null};
+export const normalizeBankTransferReceipts = (value:SupabaseOrder['commerce_bank_transfer_receipts']):BankTransferReceipt[] => Array.isArray(value) ? value : value ? [value] : [];
 const money=(minor:number)=>new Intl.NumberFormat('es-UY',{style:'currency',currency:'UYU',maximumFractionDigits:0}).format(minor/100);
 export const roundCommercialPrice = (minor:number) => {
   const lowerMultiple = Math.floor(minor / 5000) * 5000;
@@ -1519,7 +1521,6 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
   const [receiptPreview,setReceiptPreview] = useState<{url:string;mimeType:string;name:string}|null>(null);
   const [receiptLoading,setReceiptLoading] = useState(false);
   const [receiptError,setReceiptError] = useState('');
-  const [verificationOnly,setVerificationOnly] = useState(false);
   const detailTriggerRef = useRef<HTMLElement|null>(null);
   const [search,setSearch] = useState(() => {
     if (typeof window === 'undefined') return '';
@@ -1540,7 +1541,11 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
         .limit(100));
     }
     if (error) onNotice(`No se pudieron cargar los pedidos: ${error.message}`);
-    const confirmedOrders = ((data || []) as Order[]).filter((order) => {
+    const normalizedOrders = ((data || []) as SupabaseOrder[]).map((order):Order=>({
+      ...order,
+      commerce_bank_transfer_receipts:normalizeBankTransferReceipts(order.commerce_bank_transfer_receipts),
+    }));
+    const confirmedOrders = normalizedOrders.filter((order) => {
       const isPayPalCheckout = textValue(order.customer_snapshot.purchaseFlow) === 'international_paypal';
       return !isPayPalCheckout || !['pending_payment', 'payment_failed', 'cancelled'].includes(order.status);
     });
@@ -1552,7 +1557,6 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
   const filteredOrders = useMemo(() => {
     const q = search.trim().toLowerCase().replace(/^#/, '');
     return orders.filter(o => {
-      if (verificationOnly && o.status !== 'payment_verification_pending') return false;
       if (!q) return true;
       const orderNum = String(o.order_number);
       const customer = orderCustomer(o.customer_snapshot).toLowerCase();
@@ -1562,8 +1566,7 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
       const id = o.id.toLowerCase();
       return orderNum.includes(q) || customer.includes(q) || email.includes(q) || status.includes(q) || tracking.includes(q) || id.includes(q);
     });
-  }, [orders, search, verificationOnly]);
-  const pendingVerificationCount = orders.filter(order=>order.status==='payment_verification_pending').length;
+  }, [orders, search]);
 
   const review = async(id:string,decision:'approve'|'reject') => {
     const reason = decision === 'reject' ? window.prompt('Indicá el motivo del rechazo y reembolso:')?.trim() || '' : '';
@@ -1798,14 +1801,6 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
       <section className="data-panel" aria-label="Listado de pedidos">
         <div className="orders-toolbar">
           <div className="table-summary"><strong>{filteredOrders.length} {filteredOrders.length === 1 ? 'pedido' : 'pedidos'}</strong><small>{search ? `Filtrado por "${search}"` : 'Últimos 100 registros'}</small></div>
-          <button
-            type="button"
-            className={`verification-filter${verificationOnly?' verification-filter--active':''}`}
-            aria-pressed={verificationOnly}
-            onClick={()=>setVerificationOnly(value=>!value)}
-          >
-            Comprobantes pendientes <span>{pendingVerificationCount}</span>
-          </button>
           <div style={{ position: 'relative', minWidth: '220px', maxWidth: '340px', flex: '1 1 auto' }}>
             <input
               type="search"

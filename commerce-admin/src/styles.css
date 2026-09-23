@@ -195,10 +195,6 @@ td small { display: block; }
 .data-table { min-width: 57rem; }
 .orders-table { min-width: 78rem; }
 .orders-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
-.verification-filter { display: inline-flex; align-items: center; gap: .5rem; min-height: 44px; border: 1px solid #d9ae78; background: #fff8ec; color: #754316; }
-.verification-filter span { display: inline-grid; min-width: 1.6rem; min-height: 1.6rem; place-items: center; border-radius: 999px; background: #8a4c18; color: #fff; font-size: .72rem; }
-.verification-filter--active { background: #8a4c18; color: #fff; }
-.verification-filter--active span { background: #fff; color: #754316; }
 .numeric { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .order-items-cell { max-width: 18rem; color: #4f5c55; }
 .order-items-summary { display: grid; gap: .55rem; }

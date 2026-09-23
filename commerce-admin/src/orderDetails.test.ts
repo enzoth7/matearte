@@ -9,6 +9,7 @@ import {
   formatWeight,
   getOrderItemWeight,
   getOrderTotalWeight,
+  normalizeBankTransferReceipts,
   type Order,
   type OrderItem,
 } from './App';
@@ -188,6 +189,29 @@ describe('getOrderDeliveryDetails', () => {
       whatsappDigits: '5511999999999',
     });
     expect(details.phone).toBe('+55 11 99999-9999 (Brasil)');
+  });
+});
+
+describe('normalizeBankTransferReceipts', () => {
+  const receipt = {
+    id: 'receipt-1',
+    original_name: 'comprobante.png',
+    mime_type: 'image/png',
+    byte_size: 2048,
+    status: 'pending' as const,
+    rejection_reason: null,
+    submitted_at: new Date().toISOString(),
+    reviewed_at: null,
+  };
+
+  it('normaliza la relación uno a uno que devuelve Supabase', () => {
+    expect(normalizeBankTransferReceipts(receipt)).toEqual([receipt]);
+  });
+
+  it('conserva arrays y convierte valores vacíos en una lista vacía', () => {
+    expect(normalizeBankTransferReceipts([receipt])).toEqual([receipt]);
+    expect(normalizeBankTransferReceipts(null)).toEqual([]);
+    expect(normalizeBankTransferReceipts(undefined)).toEqual([]);
   });
 });
 
@@ -622,4 +646,3 @@ describe('weight calculations and formatting', () => {
     expect(getOrderTotalWeight(orderWithExplicitWeight)).toBe(1200);
   });
 });
-
