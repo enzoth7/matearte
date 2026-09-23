@@ -58,8 +58,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         : null,
     };
   });
+  const receiptRelation = data.commerce_bank_transfer_receipts;
+  const bankTransferReceipts = Array.isArray(receiptRelation)
+    ? receiptRelation
+    : receiptRelation
+      ? [receiptRelation]
+      : [];
 
-  return apiOk({ ...data, order_items: orderItems });
+  return apiOk({
+    ...data,
+    commerce_bank_transfer_receipts: bankTransferReceipts,
+    order_items: orderItems,
+  });
 }
 
 export const dynamic = "force-dynamic";

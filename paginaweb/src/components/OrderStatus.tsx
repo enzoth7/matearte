@@ -38,7 +38,10 @@ type OrderValue = {
   paypal_amount_usd_minor: number | null;
   created_at: string;
   order_items: OrderItem[];
-  commerce_bank_transfer_receipts?: Array<{ status: string; rejection_reason: string | null }>;
+  commerce_bank_transfer_receipts?:
+    | Array<{ status: string; rejection_reason: string | null }>
+    | { status: string; rejection_reason: string | null }
+    | null;
 };
 
 const date = (value: string, locale: Locale) => new Intl.DateTimeFormat({ es: "es-UY", en: "en", pt: "pt-BR" }[locale], { day: "numeric", month: "long", year: "numeric" }).format(new Date(value));
@@ -255,7 +258,13 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
         ? t("toConfirm")
         : t("shippingPayOnDelivery");
   const showTracking = status === "shipped" && Boolean(order.shipping_carrier && order.tracking_code);
-  const receiptRejectionReason = order.commerce_bank_transfer_receipts?.find(receipt=>receipt.status==="rejected")?.rejection_reason || "";
+  const receiptRelation = order.commerce_bank_transfer_receipts;
+  const bankTransferReceipts = Array.isArray(receiptRelation)
+    ? receiptRelation
+    : receiptRelation
+      ? [receiptRelation]
+      : [];
+  const receiptRejectionReason = bankTransferReceipts.find(receipt=>receipt.status==="rejected")?.rejection_reason || "";
   const isTrackingUrl = Boolean(order.tracking_code && (order.tracking_code.startsWith("http://") || order.tracking_code.startsWith("https://")));
 
   return (

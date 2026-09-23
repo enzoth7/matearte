@@ -81,15 +81,11 @@ export async function POST(request: Request) {
         .select("commerce_enabled,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent")
         .eq("singleton", true)
         .single(),
-      admin.from("shipping_rates").select("id,is_pickup,departments").eq("id", shippingRateId).eq("active", true).maybeSingle(),
+      admin.from("shipping_rates").select("id,is_pickup").eq("id", shippingRateId).eq("active", true).maybeSingle(),
     ]);
     if (settingsError || !settings?.commerce_enabled) return apiError("El comercio todavía no está habilitado.", 503);
     if (shippingError || !shippingRate) return apiError("La modalidad de entrega no está disponible.");
     if (!shippingRate.is_pickup && (!uruguayDepartments.has(department) || !city || !address)) return apiError("Completá una dirección de entrega válida en Uruguay.");
-    if (!shippingRate.is_pickup && Array.isArray(shippingRate.departments) && shippingRate.departments.length > 0 && !shippingRate.departments.includes(department)) {
-      return apiError("La modalidad elegida no está disponible para ese departamento.");
-    }
-
     const cart = await readCart(admin, user.id);
     if (!cart.items.length) return apiError("El carrito está vacío.");
     const designIds = cart.items.filter((item) => item.item_type === "design").map((item) => item.design_id).filter(Boolean) as string[];
