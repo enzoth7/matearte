@@ -246,36 +246,34 @@ export function findMatchingVariantForColors(
  * If the product has variants with color, uses those colors with priority.
  */
 export function getProductColors(product: Product): CatalogColorId[] {
-  const variants = product.variants ?? [];
-  const variantExplicitColors = variants
-    .map((v) => v.color)
-    .filter((c): c is CatalogColorId => Boolean(c));
-
-  if (variantExplicitColors.length > 0) {
-    const fromVariants = variants
-      .map((v) => v.color ?? getVariantColorId(v))
-      .filter((c): c is CatalogColorId => Boolean(c));
-    return [...new Set(fromVariants)];
-  }
-
-  const explicit = product.filterData.colors ?? [];
-  const fromVariants = variants
+  const allVariants = product.variants ?? [];
+  const availableVariants = allVariants.filter((variant) => variant.available !== false);
+  const fromVariants = availableVariants
     .map((v) => getVariantColorId(v))
     .filter((c): c is CatalogColorId => Boolean(c));
-  return [...new Set([...explicit, ...fromVariants])];
+  if (allVariants.length > 0) return [...new Set(fromVariants)];
+  return [...new Set(product.filterData.colors ?? [])];
 }
 
 export function filterAndSortCatalog<T extends { product: Product }>(entries: T[], filters: CatalogFilters, locale = "es") {
   const filtered = entries.filter(({ product }) => {
     const data = product.filterData;
+    const variantPrices = (product.variants ?? [])
+      .filter((variant) => variant.available !== false && variant.price && variant.price.amountMinor > 0)
+      .map((variant) => variant.price!.amountMinor / 100);
+    const prices = variantPrices.length > 0
+      ? variantPrices
+      : data.priceUYU !== undefined
+        ? [data.priceUYU]
+        : [];
     const categoryParent: Record<string,string> = { botas:"calzado", cintos:"marroquineria", billeteras:"marroquineria", carteras:"marroquineria" };
     const matchesCategory = filters.category === "todas" || product.category === filters.category || categoryParent[product.category] === filters.category;
-    const matchesPrice = filters.prices.length === 0 || (
-      data.priceUYU !== undefined && filters.prices.some((rangeId) => {
+    const matchesPrice = filters.prices.length === 0 || prices.some((price) => (
+      filters.prices.some((rangeId) => {
         const range = priceRangeOptions.find((option) => option.value === rangeId);
-        return Boolean(range && data.priceUYU! >= range.min && data.priceUYU! < range.max);
+        return Boolean(range && price >= range.min && price < range.max);
       })
-    );
+    ));
     const matchesMaterial = filters.materials.length === 0 || data.materials.some((material) => filters.materials.includes(material));
     const matchesProductType = filters.productTypes.length === 0 || getProductTypes(product).some((type) => filters.productTypes.includes(type));
     const productColors = getProductColors(product);

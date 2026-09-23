@@ -113,6 +113,43 @@ describe("catálogo público conectado a Supabase", () => {
     });
   });
 
+  it("combina los filtros heredados con material y tipo de mate estructurados", () => {
+    const product = storefrontProductFromRow(commerceProduct({
+      category: "mates",
+      category_code: "mates",
+      catalog_filters: {
+        materials: ["cuero", "plata"],
+        productTypes: ["criollo"],
+        colors: [],
+      },
+      attributes: {
+        material: "cuero",
+        "tipo-mate": "imperial",
+      },
+    }), baseUrl, "es");
+
+    expect(product.filterData.materials).toEqual(["cuero", "plata"]);
+    expect(product.filterData.productTypes).toEqual(["criollo", "imperial"]);
+  });
+
+  it("clasifica productos que solo tienen los atributos estructurados", () => {
+    const product = storefrontProductFromRow(commerceProduct({
+      category: "mates",
+      catalog_filters: {
+        materials: [],
+        productTypes: [],
+        colors: [],
+      },
+      attributes: {
+        material: "alpaca",
+        "tipo-mate": "torpedo",
+      },
+    }), baseUrl, "es");
+
+    expect(product.filterData.materials).toEqual(["alpaca"]);
+    expect(product.filterData.productTypes).toEqual(["torpedo"]);
+  });
+
   it("actualiza un producto editorial por slug sin perder sus filtros ni su traducción", () => {
     const linked = commerceProduct({
       editorial_slug: editorialProduct.slug,

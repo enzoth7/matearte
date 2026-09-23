@@ -3,9 +3,8 @@ import { apiError, apiOk, readJson } from "@/lib/api";
 import { readCart } from "@/lib/cart";
 import { calculateDesignPriceMinor } from "@/lib/design-pricing";
 import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
-import { isLocale } from "@/i18n/config";
-import type { Locale } from "@/types/catalog";
 import { applyWholesaleMateDiscount, isWholesaleMateEligible, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
+import { discountErrorMessage, discountReasonFromError, normalizeDiscountCode } from "@/lib/discounts";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const text = (value: unknown, maximum: number) => typeof value === "string" ? value.trim().slice(0, maximum) : "";
@@ -23,8 +22,7 @@ export async function POST(request: Request) {
     if (!settings?.commerce_enabled || !settings?.paypal_enabled) return apiError("PayPal no está habilitado.", 503);
 
     const body = await readJson(request);
-    const localeValue = typeof body.locale === "string" ? body.locale : null;
-    const locale: Locale = isLocale(localeValue) ? localeValue : "es";
+    const discountCode = normalizeDiscountCode(body.discountCode);
     const customer = body.customer && typeof body.customer === "object" && !Array.isArray(body.customer)
       ? body.customer as Record<string, unknown>
       : {};
@@ -87,7 +85,6 @@ export async function POST(request: Request) {
     }
     const adjustedPrices = applyWholesaleMateDiscount(checkoutItemsBeforeWholesale, settings as WholesaleDiscountSettings);
     const checkoutItems = checkoutItemsBeforeWholesale.map((item,index) => ({ ...item, unitPriceMinor: adjustedPrices[index].unitPriceMinor }));
-    const itemsSubtotalMinor = checkoutItems.reduce((total, item) => total + item.unitPriceMinor * item.quantity, 0);
     const totalWeightGrams = checkoutItems.reduce((total, item) => total + item.peso * item.quantity, 0);
 
     // Fetch exchange rates and international shipping rates in parallel
@@ -104,9 +101,6 @@ export async function POST(request: Request) {
     const { getInternationalShippingRate } = await import("@/lib/international-shipping");
     const shippingCalc = getInternationalShippingRate(totalWeightGrams, country, intlRates);
     const shippingMinor = shippingCalc ? Math.round(shippingCalc.rate * 100) : 0;
-    const totalMinor = itemsSubtotalMinor + shippingMinor;
-    const amountUsdMinor = Math.round(totalMinor / usdRate);
-
     const requestedKey = request.headers.get("idempotency-key") || "";
     const idempotencyKey = uuid.test(requestedKey) ? requestedKey : randomUUID();
 
@@ -117,9 +111,10 @@ export async function POST(request: Request) {
       p_customer_snapshot: { fullName, phone, email: user.email, pricingVersionId },
       p_destination_snapshot: { country, department, city, address },
       p_idempotency_key: idempotencyKey,
-      p_paypal_amount_usd_minor: amountUsdMinor,
       p_shipping_minor: shippingMinor,
       p_peso: totalWeightGrams,
+      p_discount_code: discountCode || null,
+      p_usd_rate: usdRate,
     });
     if (orderError || !result) throw new Error(orderError?.message || "No se pudo crear la solicitud internacional.");
     const authoritativeTotalMinor = Number(result.totalMinor);
@@ -127,8 +122,14 @@ export async function POST(request: Request) {
     if (!Number.isSafeInteger(authoritativeTotalMinor) || !Number.isSafeInteger(authoritativeShippingMinor)) {
       throw new Error("No se pudo verificar el total de la compra.");
     }
-    const authoritativeItemsSubtotalMinor = authoritativeTotalMinor - authoritativeShippingMinor;
-    const authoritativeAmountUsdMinor = Math.round(authoritativeTotalMinor / usdRate);
+    const authoritativeItemsSubtotalMinor = Number(result.itemsSubtotalMinor);
+    if (!Number.isSafeInteger(authoritativeItemsSubtotalMinor) || authoritativeItemsSubtotalMinor <= 0) {
+      throw new Error("No se pudo verificar el subtotal de la compra.");
+    }
+    const authoritativeAmountUsdMinor = Number(result.paypalAmountUsdMinor);
+    if (!Number.isSafeInteger(authoritativeAmountUsdMinor) || authoritativeAmountUsdMinor <= 0) {
+      throw new Error("No se pudo verificar el total en dólares.");
+    }
 
     return apiOk({
       orderId: String(result.id),
@@ -137,9 +138,14 @@ export async function POST(request: Request) {
       amountUsd: (authoritativeAmountUsdMinor / 100).toFixed(2),
       shippingMinor: authoritativeShippingMinor,
       itemsSubtotalMinor: authoritativeItemsSubtotalMinor,
+      discountMinor: Number(result.discountMinor || 0),
       totalMinor: authoritativeTotalMinor,
     }, 201);
   } catch (error) {
+    const discountReason = discountReasonFromError(error);
+    if (discountReason !== "invalid") {
+      return apiError(discountErrorMessage(discountReason), 422, { reason: discountReason });
+    }
     return apiError(error instanceof Error ? error.message : "No se pudo iniciar el pago.", 400);
   }
 }

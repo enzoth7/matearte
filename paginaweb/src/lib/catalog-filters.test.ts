@@ -42,6 +42,24 @@ describe("filtros del catálogo", () => {
     expect(filterAndSortCatalog(entries, { ...defaults, prices: ["7000-mas"] }).map(({ product }) => product.id)).toEqual(["7000"]);
   });
 
+  it("incluye un producto en cada rango que contenga una variante disponible", () => {
+    const cartera: Product = product("cartera", 4800).product;
+    cartera.variants = [
+      { id: "variante-4800", label: "Negra", value: "NEG", available: true, price: { amountMinor: 480000, currency: "UYU" } },
+      { id: "variante-5150", label: "Dorada", value: "DOR", available: true, price: { amountMinor: 515000, currency: "UYU" } },
+      { id: "variante-inactiva", label: "Premium", value: "PRE", available: false, price: { amountMinor: 750000, currency: "UYU" } },
+    ];
+
+    expect(filterAndSortCatalog([{ product: cartera }], { ...defaults, prices: ["3000-4999"] })).toHaveLength(1);
+    expect(filterAndSortCatalog([{ product: cartera }], { ...defaults, prices: ["5000-6999"] })).toHaveLength(1);
+    expect(filterAndSortCatalog([{ product: cartera }], { ...defaults, prices: ["7000-mas"] })).toHaveLength(0);
+  });
+
+  it("usa el precio editorial cuando no hay variantes con precio", () => {
+    expect(filterAndSortCatalog([product("editorial", 3200)], { ...defaults, prices: ["3000-4999"] })).toHaveLength(1);
+    expect(filterAndSortCatalog([product("editorial", 3200)], { ...defaults, prices: ["5000-6999"] })).toHaveLength(0);
+  });
+
   it("combina grupos con AND y opciones de un mismo grupo con OR", () => {
     const entries: Array<{ product: Product }> = [
       product("imperial-cuero", 4500),
@@ -163,6 +181,21 @@ describe("filtros del catálogo", () => {
     expect(getVariantColorHex(p.variants[0])).toBe("#e8d9bb");
     expect(getVariantColorId(p.variants[1])).toBe("marron");
     expect(getVariantColorHex(p.variants[1])).toBe("#6c4530");
+  });
+
+  it("excluye colores que solo existen en variantes no disponibles", () => {
+    const p: Product = {
+      ...product("matera", 5000).product,
+      filterData: { priceUYU: 5000, materials: ["cuero"], colors: ["negro", "beige"] },
+      variants: [
+        { id: "negra", label: "Negra", value: "NEG", color: "negro", available: true },
+        { id: "beige", label: "Beige", value: "BEI", color: "beige", available: false },
+      ],
+    };
+
+    expect(getProductColors(p)).toEqual(["negro"]);
+    expect(filterAndSortCatalog([{ product: p }], { ...defaults, colors: ["negro"] })).toHaveLength(1);
+    expect(filterAndSortCatalog([{ product: p }], { ...defaults, colors: ["beige"] })).toHaveLength(0);
   });
 
   it("reconoce y procesa correctamente los nuevos colores celeste, azul y beige", () => {

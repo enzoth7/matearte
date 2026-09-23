@@ -33,6 +33,8 @@ type OrderValue = {
   items_subtotal_minor: number;
   shipping_minor: number;
   payment_fee_minor: number;
+  discount_code: string | null;
+  discount_minor: number;
   total_minor: number;
   currency: string;
   paypal_amount_usd_minor: number | null;
@@ -325,6 +327,7 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
           </div>
           <dl className="order-mobile-summary-list">
             <div><dt>{t("productsTotal")}</dt><dd>{money(order.items_subtotal_minor)}</dd></div>
+            {order.discount_minor > 0 && <div><dt>{t("discount")}{order.discount_code ? ` · ${order.discount_code}` : ""}</dt><dd>−{money(order.discount_minor)}</dd></div>}
             <div><dt>{t("shippingDetail")}</dt><dd>{shippingDetail}</dd></div>
             {order.payment_fee_minor > 0 && <div><dt>{t("paymentFee")}</dt><dd>{money(order.payment_fee_minor)}</dd></div>}
             <div className="order-summary-purchase-total"><dt>{t("purchaseTotal")}</dt><dd>{money(order.total_minor)}</dd></div>
@@ -386,6 +389,7 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
           </div>
           <dl className="order-desktop-summary-list">
             <div><dt>{t("productsTotal")}</dt><dd>{money(order.items_subtotal_minor)}</dd></div>
+            {order.discount_minor > 0 && <div><dt>{t("discount")}{order.discount_code ? ` · ${order.discount_code}` : ""}</dt><dd>−{money(order.discount_minor)}</dd></div>}
             <div><dt>{t("shippingDetail")}</dt><dd>{shippingDetail}</dd></div>
             {order.payment_fee_minor > 0 && <div><dt>{t("paymentFee")}</dt><dd>{money(order.payment_fee_minor)}</dd></div>}
             <div className="order-summary-purchase-total"><dt>{t("purchaseTotal")}</dt><dd>{money(order.total_minor)}</dd></div>

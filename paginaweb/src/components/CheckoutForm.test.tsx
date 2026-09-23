@@ -13,6 +13,9 @@ function mockCheckoutFetch(cartPayload: Record<string, unknown> = { items: [{ un
     if (url.includes("/api/cart")) {
       return { ok: true, text: async () => JSON.stringify(cartPayload) };
     }
+    if (url.includes("/api/discounts/validate")) {
+      return { ok: true, text: async () => JSON.stringify({ code: "MATE10", discountType: "percentage", discountValue: 25, discountMinor: 25000, itemsSubtotalMinor: 100000, discountedItemsSubtotalMinor: 75000 }) };
+    }
     return { ok: true, text: async () => JSON.stringify({ rates: [pickupRate, deliveryRate] }) };
   }));
 }
@@ -86,6 +89,20 @@ describe("CheckoutForm", () => {
     fireEvent.change(screen.getByLabelText("País y prefijo del teléfono"), { target: { value: "IT" } });
     expect(screen.getByLabelText("País y prefijo del teléfono")).toHaveValue("IT");
     expect(screen.getByRole("textbox", { name: /teléfono.*(\+39)/i })).toBeInTheDocument();
+  });
+
+  it("despliega, valida y muestra un descuento antes del envío", async () => {
+    mockCheckoutFetch();
+    render(<CheckoutForm initialCustomer={initialCustomer} />);
+
+    fireEvent.click(await screen.findByRole("radio", { name: /retiro en tienda/i }));
+    fireEvent.click(screen.getByRole("button", { name: /tengo un código de descuento/i }));
+    fireEvent.change(screen.getByLabelText(/código de descuento/i), { target: { value: "mate10" } });
+    fireEvent.click(screen.getByRole("button", { name: /^validar$/i }));
+
+    expect(await screen.findByText(/código MATE10 aplicado/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Descuento$/i)).toBeInTheDocument();
+    expect(screen.getByText(/750/)).toBeInTheDocument();
   });
 
   it("reemplaza los pagos online por transferencia cuando el carrito es mayorista", async () => {

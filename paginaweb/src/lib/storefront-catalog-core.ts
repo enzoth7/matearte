@@ -1,5 +1,19 @@
-import type { CatalogColorId, Locale, MediaAsset, Product, ProductVariant } from "@/types/catalog";
-import { canonicalCategoryCode, normalizeCatalogAttributes, normalizeCatalogValueMap } from "../../../shared/catalog-taxonomy";
+import type {
+  CatalogColorId,
+  CatalogMaterialId,
+  CatalogProductTypeId,
+  Locale,
+  MediaAsset,
+  Product,
+  ProductVariant,
+} from "@/types/catalog";
+import {
+  canonicalCategoryCode,
+  catalogMaterialIds,
+  catalogProductTypeIds,
+  normalizeCatalogAttributes,
+  normalizeCatalogValueMap,
+} from "../../../shared/catalog-taxonomy";
 
 export type StorefrontVariantRow = {
   id: string;
@@ -101,6 +115,10 @@ function mapVariants(row: StorefrontProductRow): ProductVariant[] {
     });
 }
 
+function mergeCommercialValues<T extends string>(stored: T[], structured: unknown): T[] {
+  return [...new Set([...stored, ...(typeof structured === "string" ? [structured as T] : [])])];
+}
+
 export function storefrontProductFromRow(
   row: StorefrontProductRow,
   supabaseBaseUrl: string,
@@ -122,6 +140,14 @@ export function storefrontProductFromRow(
   const attributes = normalizeCatalogValueMap(row.attributes);
   const existingProductTypes = existing?.filterData.productTypes
     ?? (existing?.filterData.mateType ? [existing.filterData.mateType] : []);
+  const structuredMaterial = typeof attributes.material === "string" && catalogMaterialIds.includes(attributes.material as CatalogMaterialId)
+    ? attributes.material as CatalogMaterialId
+    : undefined;
+  const structuredProductType = typeof attributes["tipo-mate"] === "string" && catalogProductTypeIds.includes(attributes["tipo-mate"] as CatalogProductTypeId)
+    ? attributes["tipo-mate"] as CatalogProductTypeId
+    : undefined;
+  const commercialMaterials = mergeCommercialValues(storedAttributes.materials, structuredMaterial);
+  const commercialProductTypes = mergeCommercialValues(storedAttributes.productTypes, structuredProductType);
 
   return {
     id: existing?.id ?? row.id,
@@ -134,9 +160,9 @@ export function storefrontProductFromRow(
     description,
     materials: existing?.materials ?? [],
     filterData: {
-      materials: storedAttributes.materials.length > 0 ? storedAttributes.materials : existing?.filterData.materials ?? [],
-      productTypes: storedAttributes.productTypes.length > 0 ? storedAttributes.productTypes : existingProductTypes,
-      colors: variants.length > 0 ? variants.map(variant=>variant.color).filter((color):color is CatalogColorId=>Boolean(color)) : storedAttributes.colors,
+      materials: commercialMaterials.length > 0 ? commercialMaterials : existing?.filterData.materials ?? [],
+      productTypes: commercialProductTypes.length > 0 ? commercialProductTypes : existingProductTypes,
+      colors: [...new Set(variants.map(variant => variant.color).filter((color): color is CatalogColorId => Boolean(color)))],
       shapes: typeof attributes.forma === "string" ? [attributes.forma] : existing?.filterData.shapes ?? [],
       priceUYU: minimumPrice,
     },

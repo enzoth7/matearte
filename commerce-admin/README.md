@@ -13,6 +13,7 @@ Panel comercial de MateArte desplegado en <https://matearte-commerce-admin.verce
 - Vista y descarga de PNG finales por artículo: mate, virola y lados del fleje.
 - Vista y descarga independiente de los archivos originales aportados por el cliente.
 - Zonas, tarifas, cotizaciones y controles de activación del comercio.
+- Códigos de descuento porcentuales o por monto, con vigencia y activación administrables.
 
 Los productos publicados alimentan `/catalogo` y `/producto/[slug]` en la web principal. Una ficha necesita al menos una variante activa con SKU y precio válido para poder venderse.
 

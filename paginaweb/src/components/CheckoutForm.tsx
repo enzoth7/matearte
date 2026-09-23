@@ -18,9 +18,27 @@ type PurchaseRegion = "uruguay" | "international";
 type CartItem = { quantity: number; unit_price_minor: number };
 type WholesaleState = { eligible: boolean; mate_quantity: number; threshold: number; discount_percent: number; savings_minor: number; checkout_mode: string };
 type BankTransferDetails = { account_holder: string; transfer_account: string; cash_deposit_account: string; cash_deposit_label: string };
+type AppliedDiscount = {
+  code: string;
+  discountType: "percentage" | "fixed";
+  discountValue: number;
+  discountMinor: number;
+  itemsSubtotalMinor: number;
+  discountedItemsSubtotalMinor: number;
+};
 
 const departments = ["Artigas", "Canelones", "Cerro Largo", "Colonia", "Durazno", "Flores", "Florida", "Lavalleja", "Maldonado", "Montevideo", "Paysandú", "Río Negro", "Rivera", "Rocha", "Salto", "San José", "Soriano", "Tacuarembó", "Treinta y Tres"];
 const receiptTypes = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+const discountErrorTranslationKeys = {
+  not_found: "discountErrors.not_found",
+  disabled: "discountErrors.disabled",
+  not_started: "discountErrors.not_started",
+  expired: "discountErrors.expired",
+  already_used: "discountErrors.already_used",
+  in_use: "discountErrors.in_use",
+  not_applicable: "discountErrors.not_applicable",
+  invalid: "discountErrors.invalid",
+} as const;
 
 function MoneyValue({ amount, locale, exchangeRates }: { amount: number | null, locale: string, exchangeRates?: Record<string, number> }) {
   return <span>{amount === null ? "—" : formatMoney(amount, "UYU", locale, exchangeRates)}</span>;
@@ -66,6 +84,11 @@ export function CheckoutForm({
   const [internationalRates, setInternationalRates] = useState<InternationalShippingRow[]>(DEFAULT_INTERNATIONAL_SHIPPING_RATES);
   const [cartWeightGrams, setCartWeightGrams] = useState<number>(0);
   const [subtotalMinor, setSubtotalMinor] = useState<number | null>(null);
+  const [discountOpen, setDiscountOpen] = useState(false);
+  const [discountCode, setDiscountCode] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null);
+  const [discountBusy, setDiscountBusy] = useState(false);
+  const [discountError, setDiscountError] = useState("");
   const [wholesale, setWholesale] = useState<WholesaleState | null>(null);
   const [bankTransfer, setBankTransfer] = useState<BankTransferDetails | null>(null);
   const [transferConfirmed, setTransferConfirmed] = useState(false);
@@ -101,11 +124,12 @@ export function CheckoutForm({
     ? internationalShippingMinor
     : (rate ? 0 : null);
 
+  const discountMinor = appliedDiscount?.discountMinor || 0;
   const totalMinor = subtotalMinor === null
     ? null
     : isInternational
-      ? (internationalShippingMinor === null ? null : subtotalMinor + internationalShippingMinor)
-      : (shippingMinor === null ? null : subtotalMinor + shippingMinor);
+      ? (internationalShippingMinor === null ? null : subtotalMinor - discountMinor + internationalShippingMinor)
+      : (shippingMinor === null ? null : subtotalMinor - discountMinor + shippingMinor);
 
   const loadRates = useCallback(async () => {
     setRatesLoading(true);
@@ -183,6 +207,43 @@ export function CheckoutForm({
     setForm((current) => ({ ...current, phone: fullPhone }));
   };
 
+  const validateDiscount = async () => {
+    setDiscountBusy(true);
+    setDiscountError("");
+    try {
+      const response = await fetch("/api/discounts/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: discountCode }),
+      });
+      const text = await response.text();
+      const value = text ? JSON.parse(text) : {};
+      if (!response.ok) {
+        const reason = typeof value?.details?.reason === "string" ? value.details.reason : "invalid";
+        const translationKey = discountErrorTranslationKeys[reason as keyof typeof discountErrorTranslationKeys] || "discountErrors.invalid";
+        throw new Error(t(translationKey));
+      }
+      const next = value as AppliedDiscount;
+      if (!next.code || !Number.isSafeInteger(next.discountMinor) || next.discountMinor <= 0) {
+        throw new Error(t("discountErrors.invalid"));
+      }
+      setDiscountCode(next.code);
+      setAppliedDiscount(next);
+    } catch (reason) {
+      setAppliedDiscount(null);
+      setDiscountError(reason instanceof Error ? reason.message : t("discountErrors.invalid"));
+    } finally {
+      setDiscountBusy(false);
+    }
+  };
+
+  const responseError = (value: Record<string, unknown>, fallback: string) => {
+    const details = value.details && typeof value.details === "object" ? value.details as Record<string, unknown> : null;
+    const reason = typeof details?.reason === "string" ? details.reason : "";
+    const translationKey = discountErrorTranslationKeys[reason as keyof typeof discountErrorTranslationKeys];
+    return translationKey ? t(translationKey) : (typeof value.error === "string" ? value.error : fallback);
+  };
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setBusy(true);
@@ -222,16 +283,16 @@ export function CheckoutForm({
         const response = await fetch("/api/checkout/paypal", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-          body: JSON.stringify({
-            customer: customerPayload,
-            destination: { ...international, country: countryName(international.country, locale), department: form.department, address: form.address },
-            locale,
-          }),
+            body: JSON.stringify({
+              customer: customerPayload,
+              destination: { ...international, country: countryName(international.country, locale), department: form.department, address: form.address },
+              locale,
+              discountCode: appliedDiscount?.code,
+            }),
         });
         const text = await response.text();
         const value = text ? JSON.parse(text) : {};
-        if (!response.ok) throw new Error(value.error || t("paymentStartFailed"));
-        sessionStorage.removeItem("matearte_paypal_order_idempotency");
+        if (!response.ok) throw new Error(responseError(value, t("paymentStartFailed")));
         setPaypalOrderId(value.orderId);
         setPaypalAmountUsd(value.amountUsd);
         setPaypalReady(true);
@@ -244,11 +305,11 @@ export function CheckoutForm({
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-        body: JSON.stringify({ shippingRateId: rateId, customer: customerPayload, locale }),
+        body: JSON.stringify({ shippingRateId: rateId, customer: customerPayload, locale, discountCode: appliedDiscount?.code }),
       });
       const text = await response.text();
       const value = text ? JSON.parse(text) : {};
-      if (!response.ok) throw new Error(value.error || t("paymentStartFailed"));
+      if (!response.ok) throw new Error(responseError(value, t("paymentStartFailed")));
       window.location.assign(value.checkoutUrl);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t("continueFailed"));
@@ -444,6 +505,12 @@ export function CheckoutForm({
               <dt className="text-white/75">{tCart("subtotal")}</dt>
               <dd className="font-semibold"><MoneyValue amount={subtotalMinor} locale={locale} exchangeRates={exchangeRates} /></dd>
             </div>
+            {appliedDiscount && (
+              <div className="flex items-baseline justify-between gap-4" aria-live="polite">
+                <dt className="text-white/75">{t("discount")}</dt>
+                <dd className="font-semibold">−<MoneyValue amount={appliedDiscount.discountMinor} locale={locale} exchangeRates={exchangeRates} /></dd>
+              </div>
+            )}
             <div className="flex items-baseline justify-between gap-4">
               <dt className="text-white/75">{tCart("shipping")}</dt>
               <dd className="font-semibold">
@@ -547,6 +614,7 @@ export function CheckoutForm({
                     orderId={paypalOrderId}
                     amountUsd={paypalAmountUsd}
                     onSuccess={() => {
+                      sessionStorage.removeItem("matearte_paypal_order_idempotency");
                       window.location.assign(`${localizeCanonicalPath(`/pedidos/${paypalOrderId}`, locale)}?payment=success`);
                     }}
                     onError={(msg) => setError(msg)}
@@ -588,6 +656,57 @@ export function CheckoutForm({
               )}
               {busy ? t("preparing") : isInternational ? t("continueToPaypal") : t("mercadoPagoAction")}
             </button>
+          )}
+
+          {!paypalReady && !isWholesale && (
+            <div className="mt-3">
+              <button
+                type="button"
+                aria-expanded={discountOpen}
+                aria-controls="discount-code-panel"
+                onClick={() => setDiscountOpen((current) => !current)}
+                className="flex min-h-12 w-full items-center justify-center rounded-xl border border-white bg-white px-5 text-sm font-bold text-[var(--walnut)] transition hover:bg-[#f7f0e5] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)]"
+              >
+                {t("discountToggle")}
+              </button>
+              {discountOpen && (
+                <div id="discount-code-panel" className="mt-3 rounded-xl border border-white/30 bg-black/10 p-4">
+                  <label htmlFor="discount-code" className="block text-sm font-bold text-[var(--paper)]">
+                    {t("discountCodeLabel")}
+                  </label>
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                    <input
+                      id="discount-code"
+                      name="discount-code"
+                      autoComplete="off"
+                      maxLength={32}
+                      disabled={discountBusy}
+                      value={discountCode}
+                      onChange={(event) => {
+                        setDiscountCode(event.target.value.toUpperCase());
+                        setAppliedDiscount(null);
+                        setDiscountError("");
+                      }}
+                      className="min-h-12 min-w-0 flex-1 rounded-lg border border-white/50 bg-white px-4 text-sm font-semibold uppercase tracking-wide text-[var(--walnut)] outline-none focus:border-[var(--walnut)] focus:ring-2 focus:ring-white/60 disabled:opacity-70"
+                    />
+                    <button
+                      type="button"
+                      disabled={discountBusy || discountCode.trim().length < 4 || !cartReady}
+                      onClick={() => void validateDiscount()}
+                      className="min-h-12 rounded-lg border border-white/70 bg-transparent px-5 text-sm font-bold text-white transition hover:bg-white/10 focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {discountBusy ? t("discountValidating") : t("discountValidate")}
+                    </button>
+                  </div>
+                  <div aria-live="polite" className="mt-2 min-h-5 text-xs leading-5">
+                    {discountError && <p role="alert" className="font-semibold text-white">{discountError}</p>}
+                    {appliedDiscount && !discountError && (
+                      <p className="font-semibold text-white">{t("discountApplied", { code: appliedDiscount.code })}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </aside>
       </form>

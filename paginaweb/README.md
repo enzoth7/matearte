@@ -10,6 +10,7 @@ Sitio público, catálogo y comercio de MateArte, construido con Next.js, TypeSc
 - Registro, login con Google, perfil y consulta de pedidos mediante Supabase Auth.
 - Carrito combinado de productos estándar y diseños personalizados.
 - Checkout nacional con retiro o envío y Mercado Pago.
+- Códigos de descuento de un uso por cliente para Mercado Pago y PayPal.
 - Pedidos internacionales registrados para coordinación por WhatsApp.
 - Recepción segura de diseños desde el visualizador mediante códigos de un solo uso.
 - API para conservar originales subidos por invitados al autenticarse.

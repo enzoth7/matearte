@@ -17,6 +17,26 @@ describe("traducciones públicas", () => {
     expect(messageKeys(pt).sort()).toEqual(canonical);
   });
 
+  it("incluye todos los mensajes del descuento del checkout", () => {
+    for (const messages of [es, en, pt]) {
+      expect(messages.checkout.discountToggle).toBeTruthy();
+      expect(messages.checkout.discountCodeLabel).toBeTruthy();
+      expect(messages.checkout.discountValidate).toBeTruthy();
+      expect(messages.checkout.discountValidating).toBeTruthy();
+      expect(messages.checkout.discountApplied).toContain("{code}");
+      expect(Object.keys(messages.checkout.discountErrors).sort()).toEqual([
+        "already_used",
+        "disabled",
+        "expired",
+        "in_use",
+        "invalid",
+        "not_applicable",
+        "not_found",
+        "not_started",
+      ]);
+    }
+  });
+
   it("incluye una traducción editorial para cada producto", () => {
     const ids = products.map((product) => product.id).sort();
     expect([...catalogTranslationCoverage.en].sort()).toEqual(ids);

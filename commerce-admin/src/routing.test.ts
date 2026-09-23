@@ -28,6 +28,7 @@ describe('getTabFromUrl', () => {
     expect(getTabFromUrl('/international-shipping')).toBe('international_shipping');
     expect(getTabFromUrl('/international_shipping')).toBe('international_shipping');
     expect(getTabFromUrl('/rates')).toBe('rates');
+    expect(getTabFromUrl('/discounts')).toBe('discounts');
     expect(getTabFromUrl('/settings')).toBe('settings');
   });
 
@@ -40,6 +41,7 @@ describe('getTabFromUrl', () => {
     expect(getTabFromUrl('/envios-internacionales')).toBe('international_shipping');
     expect(getTabFromUrl('/envios_internacionales')).toBe('international_shipping');
     expect(getTabFromUrl('/cotizaciones')).toBe('rates');
+    expect(getTabFromUrl('/descuentos')).toBe('discounts');
     expect(getTabFromUrl('/configuracion')).toBe('settings');
   });
 

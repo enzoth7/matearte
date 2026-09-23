@@ -10,6 +10,7 @@ import { localizeCanonicalPath } from "@/i18n/paths";
 import type { Locale } from "@/types/catalog";
 import { normalizeCatalogValueMap } from "../../../../../shared/catalog-taxonomy";
 import { applyWholesaleMateDiscount, isWholesaleMateEligible, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
+import { discountErrorMessage, discountReasonFromError, normalizeDiscountCode, type ValidatedDiscount } from "@/lib/discounts";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type PublishedPricingCatalog = { versionId: string; version: number; rules: Record<string, number> };
@@ -17,10 +18,12 @@ type PublishedPricingCatalog = { versionId: string; version: number; rules: Reco
 export async function POST(request: Request) {
   const { user, client } = await requireUser();
   if (!user) return apiError("Necesitás iniciar sesión.", 401);
+  let reservedCheckoutKey: string | null = null;
   try {
     const { data: publicSettings } = await client.from("commerce_settings").select("commerce_enabled,mercado_pago_enabled,reservation_minutes,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent").eq("singleton", true).single();
     if (!publicSettings?.commerce_enabled || !publicSettings.mercado_pago_enabled) return apiError("El comercio todavía no está habilitado.", 503);
     const body = await readJson(request);
+    const discountCode = normalizeDiscountCode(body.discountCode);
     const localeValue = typeof body.locale === "string" ? body.locale : null;
     const locale: Locale = isLocale(localeValue) ? localeValue : "es";
     if (typeof body.shippingRateId !== "string" || !uuid.test(body.shippingRateId)) return apiError("Elegí una modalidad de entrega.");
@@ -93,16 +96,31 @@ export async function POST(request: Request) {
     const checkoutItems = checkoutItemsBeforeWholesale.map((item,index) => ({ ...item, unitPriceMinor: adjustedPrices[index].unitPriceMinor }));
     const itemsSubtotalMinor = checkoutItems.reduce((total, item) => total + item.unitPriceMinor * item.quantity, 0);
     const paymentFeeMinor = 0;
-    const totalMinor = itemsSubtotalMinor;
     const reservationExpiresAt = new Date(Date.now() + Number(publicSettings.reservation_minutes || 30) * 60_000).toISOString();
+    let discount: ValidatedDiscount | null = null;
+    if (discountCode) {
+      const { data, error: discountError } = await admin.rpc("reserve_commerce_discount", {
+        p_user_id: user.id,
+        p_code: discountCode,
+        p_subtotal_minor: itemsSubtotalMinor,
+        p_checkout_key: idempotencyKey,
+        p_reserved_until: reservationExpiresAt,
+      });
+      if (discountError || !data) throw discountError || new Error("discount:invalid");
+      discount = data as ValidatedDiscount;
+      reservedCheckoutKey = idempotencyKey;
+    }
+    const discountMinor = discount?.discountMinor || 0;
+    const totalMinor = itemsSubtotalMinor - discountMinor;
     const checkoutPayload = {
-      version: 1,
+      version: 2,
       userId: user.id,
       cartId: cart.id,
       shippingRateId: shippingRate.id,
       customer: { fullName, phone, department, city, address, email: user.email, pricingVersionId },
       items: checkoutItems,
       paymentFeeMinor,
+      discountMinor,
     };
 
     const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN?.trim();
@@ -113,7 +131,7 @@ export async function POST(request: Request) {
       en: "MateArte order",
       pt: "Pedido MateArte",
     }[locale];
-    const mpItems = [{ id: `checkout-${idempotencyKey}`, title: label, quantity: 1, unit_price: itemsSubtotalMinor / 100, currency_id: "UYU" }];
+    const mpItems = [{ id: `checkout-${idempotencyKey}`, title: label, quantity: 1, unit_price: totalMinor / 100, currency_id: "UYU" }];
     const statusUrl = `${siteUrl()}${localizeCanonicalPath(`/pedidos/${idempotencyKey}`, locale)}`;
     const preference = await preferenceClient.create({
       body: {
@@ -137,8 +155,18 @@ export async function POST(request: Request) {
     if (!preference.id) throw new Error("Mercado Pago no devolvió una preferencia.");
     const checkoutUrl = process.env.MERCADO_PAGO_ENV === "sandbox" ? preference.sandbox_init_point : preference.init_point;
     if (!checkoutUrl) throw new Error("Mercado Pago no devolvió la URL de pago.");
-    return apiOk({ checkoutId: idempotencyKey, checkoutUrl }, 201);
+    return apiOk({ checkoutId: idempotencyKey, checkoutUrl, discountMinor, totalMinor }, 201);
   } catch (error) {
+    if (reservedCheckoutKey) {
+      await createAdminSupabase().rpc("release_commerce_discount", {
+        p_user_id: user.id,
+        p_checkout_key: reservedCheckoutKey,
+      });
+    }
+    const discountReason = discountReasonFromError(error);
+    if (discountReason !== "invalid") {
+      return apiError(discountErrorMessage(discountReason), 422, { reason: discountReason });
+    }
     return apiError(error instanceof Error ? error.message : "No se pudo iniciar el pago.", 400);
   }
 }

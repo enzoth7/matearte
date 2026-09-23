@@ -8,6 +8,11 @@ export type EmailOrder = {
   order_number: number;
   status: string;
   total_minor: number;
+  items_subtotal_minor: number;
+  shipping_minor: number;
+  payment_fee_minor: number;
+  discount_code: string | null;
+  discount_minor: number;
   currency: string;
   shipping_method: string;
   shipping_snapshot: Record<string, unknown>;
@@ -68,7 +73,16 @@ export function buildCommerceEmail(job: EmailJob, order: EmailOrder, items: Emai
   const orderUrl = `${siteUrl.replace(/\/$/, "")}/pedidos/${order.id}${orderAccessToken ? `#access=${encodeURIComponent(orderAccessToken)}` : ""}`;
   const orderButton = (label: string) => `${button(label, orderUrl)}${accountNotice}`;
   const adminUrl = "https://matearte-commerce-admin.vercel.app/orders";
-  const summary = `${itemsBlock(items)}<p style="font-size:18px"><strong>Total: ${escapeHtml(money(order.total_minor, order.currency))}</strong></p>`;
+  const shippingRow = order.shipping_minor > 0
+    ? `<tr><td>Envío</td><td align="right">${escapeHtml(money(order.shipping_minor, order.currency))}</td></tr>`
+    : "";
+  const feeRow = order.payment_fee_minor > 0
+    ? `<tr><td>Cargos</td><td align="right">${escapeHtml(money(order.payment_fee_minor, order.currency))}</td></tr>`
+    : "";
+  const discountSummary = order.discount_minor > 0
+    ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 18px"><tr><td>Subtotal</td><td align="right">${escapeHtml(money(order.items_subtotal_minor, order.currency))}</td></tr><tr><td>Descuento${order.discount_code ? ` · ${escapeHtml(order.discount_code)}` : ""}</td><td align="right">−${escapeHtml(money(order.discount_minor, order.currency))}</td></tr>${shippingRow}${feeRow}</table>`
+    : "";
+  const summary = `${itemsBlock(items)}${discountSummary}<p style="font-size:18px"><strong>Total: ${escapeHtml(money(order.total_minor, order.currency))}</strong></p>`;
   const rejectionReason = items.find((item) => item.review_reason)?.review_reason;
   const trackingCode = job.payload?.trackingCode;
   const trackingUrl = job.payload?.trackingUrl;

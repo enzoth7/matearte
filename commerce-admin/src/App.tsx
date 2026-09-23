@@ -5,6 +5,7 @@ import { PersonalizedOrders } from './PersonalizedOrdersView';
 import { TaxonomyManager } from './TaxonomyManager';
 import { loadCatalogTaxonomy } from './catalogTaxonomy';
 import { InternationalShipping } from './InternationalShippingView';
+import { Discounts } from './DiscountsView';
 import {
   catalogAttributeLabel,
   catalogCategoryIds,
@@ -27,7 +28,7 @@ import {
   type CatalogValueMap,
 } from '../../shared/catalog-taxonomy';
 
-type Tab = 'catalog' | 'list' | 'orders' | 'personalized' | 'international_shipping' | 'settings' | 'rates';
+type Tab = 'catalog' | 'list' | 'orders' | 'personalized' | 'international_shipping' | 'discounts' | 'settings' | 'rates';
 
 const VALID_TABS: Record<string, Tab> = {
   catalog: 'catalog',
@@ -45,6 +46,8 @@ const VALID_TABS: Record<string, Tab> = {
   'envios_internacionales': 'international_shipping',
   rates: 'rates',
   cotizaciones: 'rates',
+  discounts: 'discounts',
+  descuentos: 'discounts',
   settings: 'settings',
   configuracion: 'settings',
 };
@@ -63,7 +66,7 @@ type Product = { id:string; editorial_slug:string; name:string; category:string;
 type ProductForm = {name:string;category:string;description:string;saleMode:SaleMode;peso:number;catalogFilters:CatalogAttributes;attributes:CatalogValueMap};
 export type OrderItem = {id:string;item_type:'catalog'|'design';title:string;quantity:number;requires_review:boolean;review_status:string|null;immutable_snapshot:Record<string,unknown>;sku?:string|null;unit_price_minor?:number|null;total_minor?:number|null;source_variant?:{product?:{peso?:number}}};
 export type BankTransferReceipt = {id:string;original_name:string;mime_type:string;byte_size:number;status:'pending'|'approved'|'rejected';rejection_reason:string|null;submitted_at:string;reviewed_at:string|null};
-export type Order = { id:string;order_number:number;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;peso?:number|null;order_items:OrderItem[];commerce_bank_transfer_receipts?:BankTransferReceipt[] };
+export type Order = { id:string;order_number:number;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;items_subtotal_minor?:number;shipping_minor?:number;payment_fee_minor?:number;discount_code?:string|null;discount_minor?:number;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;peso?:number|null;order_items:OrderItem[];commerce_bank_transfer_receipts?:BankTransferReceipt[] };
 type SupabaseOrder = Omit<Order,'commerce_bank_transfer_receipts'> & {commerce_bank_transfer_receipts?:BankTransferReceipt[]|BankTransferReceipt|null};
 export const normalizeBankTransferReceipts = (value:SupabaseOrder['commerce_bank_transfer_receipts']):BankTransferReceipt[] => Array.isArray(value) ? value : value ? [value] : [];
 const money=(minor:number)=>new Intl.NumberFormat('es-UY',{style:'currency',currency:'UYU',maximumFractionDigits:0}).format(minor/100);
@@ -119,6 +122,7 @@ function Icon({ name }: { name: IconName }) {
     personalized: <><path d="M12 3 14.2 8.8 20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></>,
     international_shipping: <><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><line x1="2" y1="12" x2="22" y2="12"/></>,
     rates: <><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></>,
+    discounts: <><path d="M20 12 12 20 4 12V4h8z"/><path d="M8.5 8.5h.01"/></>,
     settings: <><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></>,
     logout: <><path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10"/></>,
     search: <><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4 4"/></>,
@@ -520,9 +524,10 @@ export function App(){
     {id:'personalized',label:'Pedidos personalizados'},
     {id:'international_shipping',label:'Envíos internacionales'},
     {id:'rates',label:'Cotizaciones'},
+    {id:'discounts',label:'Descuentos'},
     {id:'settings',label:'Configuración'},
   ];
-  const pageTitle = tab==='catalog'?'Catálogo':tab==='list'?'Lista':tab==='orders'?'Pedidos':tab==='personalized'?'Pedidos personalizados':tab==='international_shipping'?'Envíos internacionales':tab==='rates'?'Cotizaciones':'Configuración';
+  const pageTitle = tab==='catalog'?'Catálogo':tab==='list'?'Lista':tab==='orders'?'Pedidos':tab==='personalized'?'Pedidos personalizados':tab==='international_shipping'?'Envíos internacionales':tab==='rates'?'Cotizaciones':tab==='discounts'?'Descuentos':'Configuración';
   return (
     <div className="shell">
       <a className="skip-link" href="#commerce-content">Saltar al contenido</a>
@@ -536,7 +541,7 @@ export function App(){
      <main id="commerce-content">
        <header className="page-header"><div><h1>{pageTitle}</h1></div><strong>{session.user.email}</strong></header>
        {notice&&<div className="notice" role="status">{notice}</div>}
-       {tab==='catalog'&&<Catalog onNotice={setNotice}/>} {tab==='list'&&<CatalogList onNotice={setNotice}/>} {tab==='orders'&&<Orders session={session} onNotice={setNotice}/>} {tab==='personalized'&&<PersonalizedOrders onNotice={setNotice}/>} {tab==='international_shipping'&&<InternationalShipping onNotice={setNotice}/>} {tab==='rates'&&<Rates onNotice={setNotice}/>} {tab==='settings'&&<Settings onNotice={setNotice}/>}
+       {tab==='catalog'&&<Catalog onNotice={setNotice}/>} {tab==='list'&&<CatalogList onNotice={setNotice}/>} {tab==='orders'&&<Orders session={session} onNotice={setNotice}/>} {tab==='personalized'&&<PersonalizedOrders onNotice={setNotice}/>} {tab==='international_shipping'&&<InternationalShipping onNotice={setNotice}/>} {tab==='rates'&&<Rates onNotice={setNotice}/>} {tab==='discounts'&&<Discounts onNotice={setNotice}/>} {tab==='settings'&&<Settings onNotice={setNotice}/>}
      </main>
    </div>
  )}
@@ -1530,13 +1535,13 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
   const load = useCallback(async() => {
     let {data,error}:{data:unknown;error:{message:string;code?:string}|null} = await supabase
       .from('orders')
-      .select('id,order_number,status,peso,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,total_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot,source_variant:commerce_variants(product:commerce_products(peso)))')
+      .select('id,order_number,status,peso,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,discount_code,discount_minor,total_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot,source_variant:commerce_variants(product:commerce_products(peso)))')
       .order('created_at',{ascending:false})
       .limit(100);
     if (error && (error.code === '42703' || /peso|source_variant/i.test(error.message))) {
       ({data,error} = await supabase
         .from('orders')
-        .select('id,order_number,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,total_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot)')
+        .select('id,order_number,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,discount_code,discount_minor,total_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot)')
         .order('created_at',{ascending:false})
         .limit(100));
     }
@@ -1877,6 +1882,13 @@ function Orders({session,onNotice}:{session:Session;onNotice:(v:string)=>void}) 
               )}
               {detailOrder.commerce_bank_transfer_receipts[0].rejection_reason&&<p className="receipt-rejection"><strong>Motivo del rechazo:</strong> {detailOrder.commerce_bank_transfer_receipts[0].rejection_reason}</p>}
               {!receiptLoading&&<button type="button" className="secondary-button receipt-refresh" onClick={()=>void loadReceiptPreview(detailOrder)}>{receiptPreview?'Renovar acceso':'Abrir comprobante'}</button>}
+            </section>}
+            {Number(detailOrder.discount_minor) > 0&&<section className="order-discount-card" aria-label="Descuento aplicado">
+              <div><span>Subtotal de productos</span><strong>{money(Number(detailOrder.items_subtotal_minor))}</strong></div>
+              <div><span>Descuento · {detailOrder.discount_code}</span><strong>−{money(Number(detailOrder.discount_minor))}</strong></div>
+              {Number(detailOrder.shipping_minor) > 0&&<div><span>Envío</span><strong>{money(Number(detailOrder.shipping_minor))}</strong></div>}
+              {Number(detailOrder.payment_fee_minor) > 0&&<div><span>Cargos</span><strong>{money(Number(detailOrder.payment_fee_minor))}</strong></div>}
+              <div><span>Total cobrado</span><strong>{money(detailOrder.total_minor)}</strong></div>
             </section>}
             <section className="order-detail-items" aria-labelledby="order-detail-items-title">
               <div className="order-detail-section-heading">
