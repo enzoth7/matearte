@@ -6,7 +6,6 @@ import {
   materialOptions,
   productTypeOptions,
   priceRangeOptions,
-  shapeOptions,
   getProductColors,
   type CatalogFilters,
   type PriceRangeId,
@@ -106,7 +105,6 @@ type Props = {
   onMaterialChange: (value: CatalogMaterialId | "") => void;
   onProductTypeChange: (value: CatalogProductTypeId | "") => void;
   onColorChange: (value: CatalogColorId | "") => void;
-  onShapeChange: (value: string) => void;
 };
 
 export function CatalogFilterControlsMobile({
@@ -117,7 +115,6 @@ export function CatalogFilterControlsMobile({
   onMaterialChange,
   onProductTypeChange,
   onColorChange,
-  onShapeChange,
 }: Props) {
   const t = useTranslations("catalog");
   const locale = useLocale();
@@ -160,14 +157,12 @@ export function CatalogFilterControlsMobile({
   const selectedMaterial = filters.materials[0] ?? "";
   const selectedProductType = filters.productTypes[0] ?? "";
   const selectedColor = filters.colors[0] ?? "";
-  const selectedShape = filters.shapes[0] ?? "";
 
   // Strings "todos" hardcodeados para evitar problemas de caché de Turbopack con claves nuevas
   const allPricesLabel = (({ es: "Todos los precios", en: "All prices", pt: "Todos os preços" }) as Record<string, string>)[locale] ?? "Todos los precios";
   const allMaterialsLabel = (({ es: "Todos los materiales", en: "All materials", pt: "Todos os materiais" }) as Record<string, string>)[locale] ?? "Todos los materiales";
   const allTypesLabel = (({ es: "Todos los tipos", en: "All types", pt: "Todos os tipos" }) as Record<string, string>)[locale] ?? "Todos los tipos";
   const allColorsLabel = (({ es: "Todos los colores", en: "All colors", pt: "Todas as cores" }) as Record<string, string>)[locale] ?? "Todos los colores";
-  const allShapesLabel = (({ es: "Todas las formas", en: "All shapes", pt: "Todas as formas" }) as Record<string, string>)[locale] ?? "Todas las formas";
 
   return (
     <div className="catalog-mobile-filter-selects">
@@ -271,7 +266,6 @@ export function CatalogFilterControlsMobile({
           </select>
         </div>
       </div>
-      {products.some(product=>(product.filterData.shapes?.length??0)>0) && <div className="catalog-mobile-filter-select-group"><label className="catalog-mobile-filter-select-label" htmlFor="mfs-shape">{t("shape")}</label><div className="catalog-mobile-filter-select-wrap"><select id="mfs-shape" value={selectedShape} onChange={event=>onShapeChange(event.target.value)}><option value="">{allShapesLabel}</option>{shapeOptions.map(option=><option key={option.value} value={option.value}>{t(option.labelKey)}</option>)}</select></div></div>}
     </div>
   );
 }

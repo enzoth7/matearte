@@ -10,6 +10,7 @@ import { buildWhatsAppUrl } from "@/lib/whatsapp";
 const footerNavigation = [
   { label: "catalog", href: "/catalogo" },
   { label: "custom", href: "/personalizados" },
+  { label: "companies", href: "/empresas" },
   { label: "about", href: "/nosotros" },
   { label: "customers", href: "/clientes" },
   { label: "contact", href: "/contacto" },

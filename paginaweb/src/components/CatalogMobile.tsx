@@ -179,7 +179,6 @@ export function CatalogMobile({ products, exchangeRates }: { products: Product[]
             onMaterialChange={catalogFilters.setMaterial}
             onProductTypeChange={catalogFilters.setProductType}
             onColorChange={catalogFilters.setColor}
-            onShapeChange={catalogFilters.setShape}
           />
         </div>
       </section>

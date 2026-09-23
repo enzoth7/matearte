@@ -95,6 +95,9 @@ export async function POST(request: Request) {
     const adjustedPrices = applyWholesaleMateDiscount(checkoutItemsBeforeWholesale, publicSettings as WholesaleDiscountSettings);
     const checkoutItems = checkoutItemsBeforeWholesale.map((item,index) => ({ ...item, unitPriceMinor: adjustedPrices[index].unitPriceMinor }));
     const itemsSubtotalMinor = checkoutItems.reduce((total, item) => total + item.unitPriceMinor * item.quantity, 0);
+    const designSubtotalMinor = checkoutItems
+      .filter((item) => item.itemType === "design")
+      .reduce((total, item) => total + item.unitPriceMinor * item.quantity, 0);
     const paymentFeeMinor = 0;
     const reservationExpiresAt = new Date(Date.now() + Number(publicSettings.reservation_minutes || 30) * 60_000).toISOString();
     let discount: ValidatedDiscount | null = null;
@@ -102,7 +105,8 @@ export async function POST(request: Request) {
       const { data, error: discountError } = await admin.rpc("reserve_commerce_discount", {
         p_user_id: user.id,
         p_code: discountCode,
-        p_subtotal_minor: itemsSubtotalMinor,
+        p_items_subtotal_minor: itemsSubtotalMinor,
+        p_design_subtotal_minor: designSubtotalMinor,
         p_checkout_key: idempotencyKey,
         p_reserved_until: reservationExpiresAt,
       });

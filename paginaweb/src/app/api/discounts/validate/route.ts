@@ -23,10 +23,14 @@ export async function POST(request: Request) {
       (sum, item) => sum + Number(item.unit_price_minor) * Number(item.quantity),
       0,
     );
+    const designSubtotalMinor = cart.items
+      .filter((item) => item.item_type === "design")
+      .reduce((sum, item) => sum + Number(item.unit_price_minor) * Number(item.quantity), 0);
     const { data, error } = await admin.rpc("validate_commerce_discount", {
       p_user_id: user.id,
       p_code: code,
-      p_subtotal_minor: subtotalMinor,
+      p_items_subtotal_minor: subtotalMinor,
+      p_design_subtotal_minor: designSubtotalMinor,
     });
     if (error || !data) throw error || new Error("discount:invalid");
     return apiOk(data as ValidatedDiscount);

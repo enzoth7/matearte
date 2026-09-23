@@ -163,7 +163,6 @@ export function storefrontProductFromRow(
       materials: commercialMaterials.length > 0 ? commercialMaterials : existing?.filterData.materials ?? [],
       productTypes: commercialProductTypes.length > 0 ? commercialProductTypes : existingProductTypes,
       colors: [...new Set(variants.map(variant => variant.color).filter((color): color is CatalogColorId => Boolean(color)))],
-      shapes: typeof attributes.forma === "string" ? [attributes.forma] : existing?.filterData.shapes ?? [],
       priceUYU: minimumPrice,
     },
     images: mapImages(row, supabaseBaseUrl, existing),

@@ -1,5 +1,15 @@
+export const COMMERCE_EMAIL_EVENT_TYPES = [
+  "customer_order_received",
+  "customer_custom_approved",
+  "customer_order_ready",
+  "customer_order_shipped",
+  "admin_payment_confirmed",
+] as const;
+
+export type CommerceEmailEventType = typeof COMMERCE_EMAIL_EVENT_TYPES[number];
+
 export type EmailJob = {
-  event_type: string;
+  event_type: CommerceEmailEventType;
   payload: Record<string, unknown>;
 };
 
@@ -38,85 +48,145 @@ const money = (minor: number, currency = "UYU") => new Intl.NumberFormat("es-UY"
   style: "currency",
   currency,
   maximumFractionDigits: 0,
-}).format(minor / 100);
+}).format(minor / 100).replaceAll("\u00a0", " ");
 
-const layout = (content: string) => `<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
-<body style="margin:0;background:#f5efe3;color:#24150f;font-family:Arial,sans-serif">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5efe3;padding:28px 12px">
+const normalizedSiteUrl = (siteUrl: string) => siteUrl.replace(/\/$/, "");
+
+const safeHttpUrl = (value: unknown) => {
+  const candidate = String(value || "").trim();
+  if (!candidate) return "";
+  try {
+    const parsed = new URL(candidate);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.toString() : "";
+  } catch {
+    return "";
+  }
+};
+
+const brandHeader = (siteUrl: string) => `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0">
+  <tr>
+    <td align="center" valign="middle" height="116" style="height:116px;border-bottom:1px solid #bfab8c">
+      <table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0">
+        <tr>
+          <td width="56" height="56" style="width:56px;height:56px">
+            <img src="${escapeHtml(normalizedSiteUrl(siteUrl))}/assets/matearte/home-v2/logo.png" width="56" height="56" alt="" style="display:block;width:56px;height:56px;border:0;object-fit:cover">
+          </td>
+          <td valign="middle" style="padding-left:16px;text-align:left">
+            <div style="color:#311c12;font-family:'Newsreader',Georgia,serif;font-size:30px;font-weight:500;line-height:34px;white-space:nowrap">MateArte</div>
+            <div style="color:#79452d;font-family:'Outfit',Arial,sans-serif;font-size:13px;font-weight:600;letter-spacing:2.34px;line-height:16px;text-transform:uppercase;white-space:nowrap">ARTE &amp; TRADICIÓN</div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>`;
+
+const layout = (content: string, siteUrl: string) => `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:wght@500&amp;family=Outfit:wght@400;600&amp;display=swap" rel="stylesheet">
+  <style>@media only screen and (max-width:680px){.email-wrap{padding:12px!important}.email-body{padding:24px!important}.brand-name{font-size:27px!important}.brand-tagline{font-size:11px!important;letter-spacing:1.8px!important}}</style>
+</head>
+<body style="margin:0;background:#f4f4f4;color:#311c12;font-family:'Outfit',Arial,sans-serif">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="email-wrap" style="width:100%;background:#f4f4f4;padding:28px 12px;border-collapse:separate;border-spacing:0">
     <tr><td align="center">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#fffdf8;border:1px solid #ddccb5">
-        <tr><td style="background:#351d13;padding:24px 32px;color:#fff">
-          <div style="font-family:Georgia,serif;font-size:28px;font-weight:bold">MateArte</div>
-          <div style="margin-top:4px;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#e6d2b5">Arte &amp; tradición</div>
-        </td></tr>
-        <tr><td style="padding:34px 32px">${content}</td></tr>
-        <tr><td style="border-top:1px solid #e7dac8;padding:22px 32px;color:#735947;font-size:12px;line-height:1.6">
-          Este es un correo transaccional de MateArte relacionado con tu pedido.
-        </td></tr>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#fffdf8;border:1px solid #bfab8c;border-radius:8px;border-collapse:separate;border-spacing:0;overflow:hidden">
+        <tr><td>${brandHeader(siteUrl)}</td></tr>
+        <tr><td class="email-body" style="padding:32px">${content}</td></tr>
       </table>
     </td></tr>
   </table>
-</body></html>`;
+</body>
+</html>`;
 
-const button = (label: string, url: string) => `<p style="margin:28px 0 6px"><a href="${escapeHtml(url)}" style="display:inline-block;background:#351d13;color:#fff;text-decoration:none;padding:14px 22px;font-weight:bold">${escapeHtml(label)}</a></p>`;
-const accountNotice = `<p style="margin:10px 0 0;color:#735947;font-size:12px;line-height:1.6">Por seguridad, si abrís el enlace en otro dispositivo te pediremos ingresar con la cuenta de Google usada en la compra.</p>`;
+const heading = (title: string) => `<h1 style="margin:0 0 16px;color:#311c12;font-family:'Newsreader',Georgia,serif;font-size:32px;font-weight:500;line-height:1.18">${escapeHtml(title)}</h1>`;
 
-const itemsBlock = (items: EmailOrderItem[]) => `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:22px 0;border-top:1px solid #e7dac8">
-  ${items.map((item) => `<tr><td style="padding:12px 0;border-bottom:1px solid #e7dac8"><strong>${item.item_type === "design" ? "Mate personalizado" : "Producto"}</strong><br>${escapeHtml(item.title)} × ${item.quantity}</td><td align="right" style="padding:12px 0;border-bottom:1px solid #e7dac8">${escapeHtml(money(item.total_minor))}</td></tr>`).join("")}
+const copy = (text: string) => `<div style="margin:0 0 16px;color:#79452d;font-family:'Outfit',Arial,sans-serif;font-size:16px;font-weight:400;line-height:1.35">${text}</div>`;
+
+const summaryRow = (label: string, value: string, options: { strong?: boolean; height?: number } = {}) => `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;height:${options.height ?? 30}px;margin:0 0 16px;border-collapse:separate;border-spacing:0">
+  <tr>
+    <td valign="middle" style="color:#79452d;font-family:'Outfit',Arial,sans-serif;font-size:15px;font-weight:400;line-height:20px">${escapeHtml(label)}</td>
+    <td align="right" valign="middle" style="color:#311c12;font-family:'Outfit',Arial,sans-serif;font-size:16px;font-weight:${options.strong === false ? 400 : 600};line-height:20px;white-space:nowrap">${escapeHtml(value)}</td>
+  </tr>
 </table>`;
 
-const customerName = (order: EmailOrder) => escapeHtml(order.customer_snapshot?.fullName || "");
-const intro = (title: string, order: EmailOrder, text: string) => `<p style="margin:0 0 8px;color:#8a5031;font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase">Pedido #${order.order_number}</p><h1 style="margin:0 0 18px;font-family:Georgia,serif;font-size:34px;line-height:1.15">${escapeHtml(title)}</h1><p style="font-size:16px;line-height:1.7">Hola${customerName(order) ? ` ${customerName(order)}` : ""}, ${text}</p>`;
+const lineItem = (item: EmailOrderItem, currency: string) => `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;height:40px;margin:0 0 16px;border-bottom:1px solid #bfab8c;border-collapse:separate;border-spacing:0">
+  <tr>
+    <td valign="middle" style="padding:0 16px;color:#311c12;font-family:'Outfit',Arial,sans-serif;font-size:15px;font-weight:600;line-height:20px">${escapeHtml(item.title)}${item.quantity > 1 ? ` × ${item.quantity}` : ""}</td>
+    <td align="right" valign="middle" style="padding:0 16px;color:#311c12;font-family:'Outfit',Arial,sans-serif;font-size:15px;font-weight:600;line-height:20px;white-space:nowrap">${escapeHtml(money(item.total_minor, currency))}</td>
+  </tr>
+</table>`;
 
-export function buildCommerceEmail(job: EmailJob, order: EmailOrder, items: EmailOrderItem[], siteUrl: string, orderAccessToken?: string | null) {
-  const orderUrl = `${siteUrl.replace(/\/$/, "")}/pedidos/${order.id}${orderAccessToken ? `#access=${encodeURIComponent(orderAccessToken)}` : ""}`;
-  const orderButton = (label: string) => `${button(label, orderUrl)}${accountNotice}`;
-  const adminUrl = "https://matearte-commerce-admin.vercel.app/orders";
-  const shippingRow = order.shipping_minor > 0
-    ? `<tr><td>Envío</td><td align="right">${escapeHtml(money(order.shipping_minor, order.currency))}</td></tr>`
-    : "";
-  const feeRow = order.payment_fee_minor > 0
-    ? `<tr><td>Cargos</td><td align="right">${escapeHtml(money(order.payment_fee_minor, order.currency))}</td></tr>`
-    : "";
-  const discountSummary = order.discount_minor > 0
-    ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 18px"><tr><td>Subtotal</td><td align="right">${escapeHtml(money(order.items_subtotal_minor, order.currency))}</td></tr><tr><td>Descuento${order.discount_code ? ` · ${escapeHtml(order.discount_code)}` : ""}</td><td align="right">−${escapeHtml(money(order.discount_minor, order.currency))}</td></tr>${shippingRow}${feeRow}</table>`
-    : "";
-  const summary = `${itemsBlock(items)}${discountSummary}<p style="font-size:18px"><strong>Total: ${escapeHtml(money(order.total_minor, order.currency))}</strong></p>`;
-  const rejectionReason = items.find((item) => item.review_reason)?.review_reason;
-  const trackingCode = job.payload?.trackingCode;
-  const trackingUrl = job.payload?.trackingUrl;
-  const shippingCarrier = job.payload?.shippingCarrier;
+const itemsBlock = (items: EmailOrderItem[], currency: string) => items.map((item) => lineItem(item, currency)).join("");
+
+const button = (label: string, url: string) => `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:0;border-collapse:separate;border-spacing:0"><tr><td style="background:#79452d;border-radius:4px"><a href="${escapeHtml(url)}" style="display:inline-block;padding:12px 24px;color:#fffdf8;font-family:'Outfit',Arial,sans-serif;font-size:13px;font-weight:600;letter-spacing:1.04px;line-height:16px;text-decoration:none;text-transform:uppercase;white-space:nowrap">${escapeHtml(label.toUpperCase())}</a></td></tr></table>`;
+
+const customerName = (order: EmailOrder) => String(order.customer_snapshot?.fullName || "").trim();
+
+export function buildCommerceEmail(
+  job: EmailJob,
+  order: EmailOrder,
+  items: EmailOrderItem[],
+  siteUrl: string,
+  orderAccessToken?: string | null,
+  commerceAdminUrl = "https://matearte-commerce-admin.vercel.app/orders",
+) {
+  const orderUrl = `${normalizedSiteUrl(siteUrl)}/pedidos/${order.id}${orderAccessToken ? `#access=${encodeURIComponent(orderAccessToken)}` : ""}`;
+  const adminUrl = safeHttpUrl(commerceAdminUrl) || "https://matearte-commerce-admin.vercel.app/orders";
+  const name = customerName(order);
+  const greetingName = escapeHtml(name || "cliente");
+  const trackingCode = String(job.payload?.trackingCode || "—").trim();
+  const trackingUrl = safeHttpUrl(job.payload?.trackingUrl) || safeHttpUrl(trackingCode);
+  const shippingCarrier = String(job.payload?.shippingCarrier || "—").trim();
+  const orderRow = summaryRow("Pedido", `#${order.order_number}`, { strong: false });
+  const products = itemsBlock(items, order.currency);
+  const totalRow = summaryRow("Total", money(order.total_minor, order.currency));
 
   switch (job.event_type) {
     case "customer_order_received":
-      return { subject: `Recibimos tu pedido #${order.order_number}`, html: layout(`${intro("Recibimos tu pedido", order, `recibimos tu pedido #${order.order_number} y guardamos correctamente todos los detalles.`)}${summary}<p style="font-size:16px;line-height:1.7">Ahora estamos verificando el pago y preparando el próximo paso. Te enviaremos otro correo cuando tengamos novedades.</p>${orderButton("Ver estado del pedido")}<p style="font-size:16px;line-height:1.7">Si necesitás hacer una consulta, respondé este correo.</p><p style="font-size:16px;line-height:1.7">Gracias por elegir MateArte.</p>`) };
-    case "customer_payment_confirmed":
-      return { subject: `Pago confirmado · Pedido #${order.order_number}`, html: layout(`${intro("Pago confirmado", order, "Mercado Pago confirmó tu pago. Ya empezamos a preparar el próximo paso.")}${summary}${orderButton("Seguir mi pedido")}`) };
+      return {
+        subject: `Recibimos tu pedido #${order.order_number}`,
+        html: layout(
+          `${heading("Recibimos tu pedido")}${copy(`Hola ${greetingName}, gracias por elegir MateArte. Ya recibimos tu pedido y te avisaremos cuando confirmemos el pago.`)}${orderRow}${products}${summaryRow("Subtotal", money(order.items_subtotal_minor, order.currency), { height: 24 })}${order.discount_minor > 0 ? summaryRow(`Descuento${order.discount_code ? ` · ${order.discount_code}` : ""}`, `−${money(order.discount_minor, order.currency)}`) : ""}${summaryRow("Envío", money(order.shipping_minor, order.currency))}${order.payment_fee_minor > 0 ? summaryRow("Cargos", money(order.payment_fee_minor, order.currency)) : ""}${totalRow}${button("Ver estado del pedido", orderUrl)}`,
+          siteUrl,
+        ),
+      };
     case "customer_custom_approved":
-      return { subject: `Tu mate personalizado pasó a producción · #${order.order_number}`, html: layout(`${intro("Tu diseño fue aprobado", order, "revisamos el personalizado y ya está listo para entrar en producción.")}${itemsBlock(items)}${orderButton("Ver mi pedido")}`) };
-    case "customer_custom_rejected_refunded":
-      return { subject: `Actualización y reembolso del pedido #${order.order_number}`, html: layout(`${intro("No pudimos producir este diseño", order, "la revisión técnica indicó que no podemos fabricarlo tal como fue solicitado. Iniciamos el reembolso completo.")}${rejectionReason ? `<p style="padding:16px;background:#f8eee5"><strong>Motivo:</strong> ${escapeHtml(rejectionReason)}</p>` : ""}${orderButton("Ver detalle")}`) };
+      return {
+        subject: `Tu mate personalizado pasó a producción · #${order.order_number}`,
+        html: layout(
+          `${heading("Tu personalizado pasó a producción")}${copy("Revisamos tu diseño y está todo pronto. Nuestro equipo ya comenzó a trabajar en tu pieza personalizada.")}${orderRow}${products}${totalRow}${summaryRow("Tiempo estimado", "3 a 5 días hábiles")}${button("Seguir pedido", orderUrl)}`,
+          siteUrl,
+        ),
+      };
     case "customer_order_ready":
-      return { subject: `Tu pedido #${order.order_number} está pronto`, html: layout(`${intro("Tu pedido está pronto", order, order.shipping_method === "pickup" ? "ya podés coordinar el retiro." : "terminamos de prepararlo y pronto saldrá hacia tu dirección.")}${orderButton("Ver mi pedido")}`) };
+      return {
+        subject: `Tu pedido #${order.order_number} está pronto`,
+        html: layout(
+          `${heading("Tu pedido está pronto")}${copy("¡Buenas noticias! Tu pedido ya está preparado. Podés retirarlo en nuestro local o esperar la coordinación de entrega indicada al comprar.")}${orderRow}${summaryRow("Retiro", "25 de Mayo 1734")}${summaryRow("Horario", "Lun a vie · 10 a 18 h")}${button("Ver pedido", orderUrl)}`,
+          siteUrl,
+        ),
+      };
     case "customer_order_shipped":
-      return { subject: `Enviamos tu pedido #${order.order_number}`, html: layout(`${intro("Tu pedido está en camino", order, "el envío ya fue despachado.")}${shippingCarrier ? `<p><strong>Empresa de envío:</strong> ${escapeHtml(shippingCarrier)}</p>` : ""}${trackingCode ? `<p><strong>Código de seguimiento:</strong> ${escapeHtml(trackingCode)}</p>` : ""}${trackingUrl ? button("Seguir envío", String(trackingUrl)) : orderButton("Ver mi pedido")}`) };
-    case "customer_international_received":
-      return { subject: `Solicitud internacional recibida · #${order.order_number}`, html: layout(`${intro("Recibimos tu solicitud internacional", order, "guardamos los artículos y nos comunicaremos para coordinar disponibilidad, envío y forma de pago.")}${summary}${orderButton("Ver solicitud")}`) };
-    case "customer_payment_failed":
-      return { subject: `No pudimos confirmar el pago · Pedido #${order.order_number}`, html: layout(`${intro("El pago no fue aprobado", order, "Mercado Pago no pudo confirmar la operación. Tu pedido todavía no está pagado.")}${orderButton("Ver estado")}`) };
-    case "customer_order_cancelled":
-      return { subject: `Pedido #${order.order_number} cancelado`, html: layout(`${intro("El pedido fue cancelado", order, "registramos la cancelación. Si necesitás ayuda, respondé este correo.")}${orderButton("Ver detalle")}`) };
-    case "customer_order_refunded":
-      return { subject: `Reembolso del pedido #${order.order_number}`, html: layout(`${intro("Pago reembolsado", order, "el reembolso fue registrado. La acreditación final depende de los plazos del medio de pago.")}${orderButton("Ver detalle")}`) };
-    case "admin_order_created":
-      return { subject: `Nuevo pedido MateArte #${order.order_number}`, html: layout(`<h1 style="font-family:Georgia,serif">Nuevo pedido #${order.order_number}</h1>${summary}<p><strong>Cliente:</strong> ${customerName(order) || "Sin nombre"}</p>${button("Abrir pedidos", adminUrl)}`) };
+      return {
+        subject: `Enviamos tu pedido #${order.order_number}`,
+        html: layout(
+          `${heading("Tu pedido ya está en camino")}${copy("Despachamos tu compra y pronto estará contigo. Podés seguir el recorrido con los datos de envío.")}${orderRow}${summaryRow("Transportista", shippingCarrier)}${summaryRow("Seguimiento", trackingCode)}${button("Seguir envío", trackingUrl || orderUrl)}`,
+          siteUrl,
+        ),
+      };
     case "admin_payment_confirmed":
-      return { subject: `Pago confirmado · Pedido #${order.order_number}`, html: layout(`<h1 style="font-family:Georgia,serif">Pago confirmado</h1><p>El pedido #${order.order_number} fue acreditado.</p>${summary}${button("Abrir pedido", adminUrl)}`) };
-    case "admin_custom_review_required":
-      return { subject: `Personalizado pendiente de revisión · #${order.order_number}`, html: layout(`<h1 style="font-family:Georgia,serif">Revisar personalizado</h1><p>El pedido #${order.order_number} está pagado y necesita aprobación antes de producirse.</p>${itemsBlock(items)}${button("Revisar pedido", adminUrl)}`) };
-    case "admin_payment_review_required":
-      return { subject: `Pedido #${order.order_number} requiere revisión manual`, html: layout(`<h1 style="font-family:Georgia,serif">Revisión manual</h1><p>El pago o el estado del pedido #${order.order_number} necesita verificación.</p>${button("Abrir pedidos", adminUrl)}`) };
+      return {
+        subject: `Pago confirmado · Pedido #${order.order_number}`,
+        html: layout(
+          `${heading("Pago confirmado")}${copy(`Hola ${greetingName}! El pago del pedido fue aprobado y comenzaremos a prepararlo.`)}${orderRow}${products}${totalRow}${button("Gestionar pedido", adminUrl)}`,
+          siteUrl,
+        ),
+      };
     default:
       throw new Error(`Tipo de correo no soportado: ${job.event_type}`);
   }

@@ -31,7 +31,7 @@ function product(id: string, priceUYU: number, overrides: Partial<Product["filte
   };
 }
 
-const defaults: CatalogFilters = { category: "todas", prices: [], materials: [], productTypes: [], colors: [], shapes: [], sort: "nombre" };
+const defaults: CatalogFilters = { category: "todas", prices: [], materials: [], productTypes: [], colors: [], sort: "nombre" };
 
 describe("filtros del catálogo", () => {
   it("respeta los límites sin superponer rangos", () => {
@@ -71,10 +71,12 @@ describe("filtros del catálogo", () => {
   });
 
   it("lee, valida y vuelve a escribir parámetros repetibles", () => {
-    const filters = parseCatalogFilters(new URLSearchParams("categoria=billeteras&precio=menos-3000&precio=7000-mas&material=estampado&tipo=torpedo&orden=precio&precio=invalido"));
+    const filters = parseCatalogFilters(new URLSearchParams("categoria=billeteras&precio=menos-3000&precio=7000-mas&material=estampado&tipo=torpedo&orden=precio&precio=invalido&forma=ovalada"));
     expect(filters).toMatchObject({ category: "billeteras", prices: ["menos-3000", "7000-mas"], materials: ["estampado"], productTypes: ["torpedo"], sort: "precio" });
+    expect(filters).not.toHaveProperty("shapes");
     expect(writeCatalogFilters(filters).getAll("precio")).toEqual(["menos-3000", "7000-mas"]);
     expect(writeCatalogFilters(filters).getAll("material")).toEqual(["estampado"]);
+    expect(writeCatalogFilters(filters).has("forma")).toBe(false);
   });
 
   it("reconoce la categoría de mates personalizados", () => {
@@ -234,18 +236,19 @@ describe("filtros del catálogo", () => {
     expect(getVariantColorHex("Cuadrada Roja")).toBe("#a83232");
   });
 
-  it("combina forma ovalada con una variante beige activa", () => {
+  it("conserva la forma como atributo descriptivo sin usarla para filtrar", () => {
     const matera: Product = {
       ...product("matera-ovalada", 3900).product,
       category: "materas",
       attributes: { forma: "ovalada" },
-      filterData: { priceUYU: 3900, materials: ["cuero"], shapes: ["ovalada"] },
+      filterData: { priceUYU: 3900, materials: ["cuero"] },
       variants: [
         { id: "beige-39", label: "Beige · Talle 39", value: "MAT-BEI-39", color: "beige", options: { color: "beige", talle: "39" }, available: true },
         { id: "negra-39", label: "Negro · Talle 39", value: "MAT-NEG-39", color: "negro", options: { color: "negro", talle: "39" }, available: true },
       ],
     };
-    expect(filterAndSortCatalog([{product:matera}], {...defaults,colors:["beige"],shapes:["ovalada"]})).toHaveLength(1);
+    expect(matera.attributes?.forma).toBe("ovalada");
+    expect(filterAndSortCatalog([{product:matera}], {...defaults,colors:["beige"]})).toHaveLength(1);
   });
 
   it("no convierte materiales metálicos en gris o dorado", () => {

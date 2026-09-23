@@ -13,6 +13,7 @@ import type { Locale } from "@/types/catalog";
 const navigation = [
   { label: "catalog", href: "/catalogo" },
   { label: "custom", href: "/personalizados" },
+  { label: "companies", href: "/empresas" },
   { label: "customers", href: "/clientes" },
   { label: "about", href: "/nosotros" },
   { label: "contact", href: "/contacto" },

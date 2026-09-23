@@ -4,6 +4,7 @@ export const localizedPathnames = {
     "/": "/",
     "/catalogo": { es: "/catalogo", en: "/catalog", pt: "/catalogo" },
     "/personalizados": { es: "/personalizados", en: "/custom", pt: "/personalizados" },
+    "/empresas": { es: "/empresas", en: "/corporate-gifts", pt: "/empresas" },
     "/clientes": { es: "/clientes", en: "/customers", pt: "/clientes" },
     "/nosotros": { es: "/nosotros", en: "/about", pt: "/sobre-nos" },
     "/contacto": { es: "/contacto", en: "/contact", pt: "/contato" },

@@ -128,6 +128,57 @@ export function buildPageStructuredData({
   return { "@context": "https://schema.org", "@graph": graph };
 }
 
+export function buildEnterpriseStructuredData(
+  locale: AppLocale,
+  name: string,
+  description: string,
+  homeLabel: string,
+) {
+  const href = "/empresas" as const;
+  const url = localizedAbsoluteUrl(locale, href);
+  const serviceId = `${url}#corporate-gifts-service`;
+
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebPage",
+        "@id": `${url}#webpage`,
+        url,
+        name,
+        description,
+        inLanguage: localeConfig[locale].htmlLang,
+        isPartOf: { "@id": websiteId },
+        mainEntity: { "@id": serviceId },
+        primaryImageOfPage: {
+          "@type": "ImageObject",
+          url: absoluteUrl("/assets/matearte/regalos-empresariales/Grido.jpeg"),
+          width: 3213,
+          height: 5712,
+        },
+      },
+      {
+        "@type": "Service",
+        "@id": serviceId,
+        name,
+        description,
+        serviceType: name,
+        provider: { "@id": organizationId },
+        audience: { "@type": "BusinessAudience" },
+        image: [
+          absoluteUrl("/assets/matearte/regalos-empresariales/Grido.jpeg"),
+          absoluteUrl("/assets/matearte/regalos-empresariales/Publiled1.jpeg"),
+          absoluteUrl("/assets/matearte/regalos-empresariales/Nutex1.jpeg"),
+        ],
+      },
+      breadcrumbNode(locale, [
+        { name: homeLabel, href: "/" },
+        { name, href },
+      ]),
+    ],
+  };
+}
+
 export function buildCatalogStructuredData(
   locale: AppLocale,
   products: Product[],

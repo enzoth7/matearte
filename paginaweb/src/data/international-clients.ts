@@ -37,6 +37,7 @@ export type CustomerTestimonial = {
 
 export const customerTestimonials: readonly CustomerTestimonial[] = [
   { id: "review-01", quote: "Llegaron justo para el partido de Uruguay. Muy buen trabajo; ¡vamo arriba Uruguay!", authorName: "Luis N.", authorTitle: "Australia", sourceLabel: "cliente", countryCode: "AU" },
+  { id: "review-21", quote: "Por fin conseguí la nueva matera especial! Es única en Japón!", authorName: "Mina T.", authorTitle: "Japón", sourceLabel: "cliente", countryCode: "JP" },
   { id: "review-02", quote: "Gran variedad de mates y personalizaciones hermosas. Del 1 al 10, un 10.", authorName: "Yaquelin L.", authorTitle: "Uruguay", sourceLabel: "Google Maps", countryCode: "UY" },
   { id: "review-04", quote: "Me gustaron mucho los mates. El envío internacional funcionó perfecto y la calidad es increíble.", authorName: "Timur A.", authorTitle: "Rusia", sourceLabel: "cliente", countryCode: "RU" },
   { id: "review-03", quote: "Tengo un imperial y un torpedo hechos por ustedes: los dos son excelentes.", authorName: "Fernando P.", authorTitle: "Uruguay", sourceLabel: "Google Maps", countryCode: "UY" },
@@ -60,7 +61,7 @@ export const customerTestimonials: readonly CustomerTestimonial[] = [
 
 export const testimonialRows = [
   { id: "fila-uno", speed: "50s", direction: "left" as const, testimonials: customerTestimonials.slice(0, 10) },
-  { id: "fila-dos", speed: "54s", direction: "right" as const, testimonials: customerTestimonials.slice(10, 20) },
+  { id: "fila-dos", speed: "54s", direction: "right" as const, testimonials: customerTestimonials.slice(10) },
 ] as const;
 
 const destinationNames: Record<Exclude<Locale, "es">, Record<DestinationCode, { name: string; city: string; region: string }>> = {
@@ -94,6 +95,7 @@ const testimonialQuotes: Record<Exclude<Locale, "es">, Record<string, string>> =
     "review-18": "Feel good",
     "review-19": "Perfect for studying.",
     "review-20": "Perfect!",
+    "review-21": "I finally got the new special matera! It's one of a kind in Japan!",
   },
   pt: {
     "review-01": "Chegaram bem a tempo do jogo do Uruguai. Ótimo trabalho; vamos, Uruguai!",
@@ -116,6 +118,7 @@ const testimonialQuotes: Record<Exclude<Locale, "es">, Record<string, string>> =
     "review-18": "Feel good",
     "review-19": "Perfeito para estudar.",
     "review-20": "Perfeitos!",
+    "review-21": "Finalmente consegui a nova matera especial! Ela é única no Japão!",
   },
 };
 
@@ -132,7 +135,7 @@ export function getLocalizedInternationalData(locale: Locale) {
     destinations,
     testimonialRows: [
       { id: "fila-uno", speed: "50s", direction: "left" as const, testimonials: localizedTestimonials.slice(0, 10) },
-      { id: "fila-dos", speed: "54s", direction: "right" as const, testimonials: localizedTestimonials.slice(10, 20) },
+      { id: "fila-dos", speed: "54s", direction: "right" as const, testimonials: localizedTestimonials.slice(10) },
     ],
   };
 }

@@ -32,6 +32,8 @@ type PageMetadataOptions = {
   image?: SocialImage;
   socialTitle?: string;
   socialDescription?: string;
+  keywords?: string[];
+  robots?: Metadata["robots"];
 };
 
 const socialImageAlt: Record<AppLocale, string> = {
@@ -94,6 +96,8 @@ export function localizedPageMetadata(
   return {
     title,
     description,
+    keywords: options.keywords,
+    robots: options.robots,
     alternates: localizedAlternates(locale, href),
     openGraph: localizedOpenGraph(locale, href, socialTitle, socialDescription, image),
     twitter: {

@@ -173,7 +173,6 @@ export function CatalogDesktop({ products, exchangeRates }: { products: Product[
             onMaterialToggle={catalogFilters.toggleMaterial}
             onProductTypeToggle={catalogFilters.toggleProductType}
             onColorToggle={catalogFilters.toggleColor}
-            onShapeToggle={catalogFilters.toggleShape}
             onClear={catalogFilters.clearFilters}
           />
         </div>

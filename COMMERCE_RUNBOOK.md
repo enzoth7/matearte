@@ -29,9 +29,12 @@ En Supabase Edge Functions configurar para el correo transaccional:
 - `RESEND_API_KEY`, creada en Resend y nunca expuesta al navegador
 - `COMMERCE_EMAIL_FROM`, con formato `MateArte <pedidos@dominio-verificado>`
 - `COMMERCE_ADMIN_EMAIL`, uno o más destinatarios internos separados por coma
+- `COMMERCE_ADMIN_URL=https://matearte-commerce-admin.vercel.app/orders`, destino del botón administrativo
 - `MATEARTE_SITE_URL=https://matearte.vercel.app`
 
 La función `commerce-email` procesa la cola privada `commerce_email_outbox`. Los triggers en `orders` agregan eventos idempotentes y el backend intenta enviarlos después de crear el pedido, confirmar el webhook o revisar un personalizado. Si Resend no está configurado o está temporalmente caído, el pedido continúa y el correo permanece en la cola para reintento.
+
+La función `lifecycle-email` crea el beneficio de cumpleaños diez días antes de la fecha guardada en el perfil. Cada cuenta recibe un código anual aleatorio, válido durante treinta días, utilizable una sola vez y únicamente sobre artículos `design` creados en el personalizador. El código queda reservado durante un intento de pago y se consume recién cuando el pago se confirma.
 
 Los ejemplos completos, sin credenciales reales, están en `paginaweb/.env.example`, `visualizador/.env.example` y `commerce-admin/.env.example`.
 

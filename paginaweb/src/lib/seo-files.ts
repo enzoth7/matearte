@@ -60,6 +60,16 @@ export function buildSitemapFile(catalogProducts = products): MetadataRoute.Site
       priority: 0.8,
       images: ["/assets/matearte/personalizados-desktop/hero.png"],
     },
+    {
+      href: "/empresas" as const,
+      changeFrequency: "monthly" as const,
+      priority: 0.8,
+      images: [
+        "/assets/matearte/regalos-empresariales/Grido.jpeg",
+        "/assets/matearte/regalos-empresariales/Publiled1.jpeg",
+        "/assets/matearte/regalos-empresariales/Nutex1.jpeg",
+      ],
+    },
     { href: "/clientes" as const, changeFrequency: "monthly" as const, priority: 0.7, images: [] },
     {
       href: "/nosotros" as const,

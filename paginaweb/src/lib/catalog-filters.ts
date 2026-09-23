@@ -62,11 +62,6 @@ export const colorOptions: ReadonlyArray<{ value: CatalogColorId; labelKey: "bro
   { value: "metalico", labelKey: "metallic", color: "#9b9b95" },
 ];
 
-export const shapeOptions = [
-  { value: "ovalada", labelKey: "oval" },
-  { value: "cuadrada", labelKey: "square" },
-] as const;
-
 export type PriceRangeId = (typeof priceRangeOptions)[number]["value"];
 export type CatalogSort = "editorial" | "nombre" | "precio";
 
@@ -76,7 +71,6 @@ export type CatalogFilters = {
   materials: CatalogMaterialId[];
   productTypes: CatalogProductTypeId[];
   colors: CatalogColorId[];
-  shapes: string[];
   sort: CatalogSort;
 };
 
@@ -85,7 +79,6 @@ const priceIds: ReadonlySet<string> = new Set(priceRangeOptions.map((option) => 
 const materialIds: ReadonlySet<string> = new Set(materialOptions.map((option) => option.value));
 const productTypeIds: ReadonlySet<string> = new Set(productTypeOptions.map((option) => option.value));
 const colorIds: ReadonlySet<string> = new Set(colorOptions.map((option) => option.value));
-const shapeIds: ReadonlySet<string> = new Set(shapeOptions.map((option) => option.value));
 const sortIds = new Set<CatalogSort>(["editorial", "nombre", "precio"]);
 
 function validValues<T extends string>(params: URLSearchParams, key: string, allowed: ReadonlySet<string>) {
@@ -102,7 +95,6 @@ export function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
     materials: validValues<CatalogMaterialId>(params, "material", materialIds),
     productTypes: validValues<CatalogProductTypeId>(params, "tipo", productTypeIds),
     colors: validValues<CatalogColorId>(params, "color", colorIds),
-    shapes: validValues<string>(params, "forma", shapeIds),
     sort: sortIds.has(sortValue as CatalogSort) ? sortValue as CatalogSort : "nombre",
   };
 }
@@ -115,7 +107,6 @@ export function writeCatalogFilters(filters: CatalogFilters) {
   filters.materials.forEach((value) => params.append("material", value));
   filters.productTypes.forEach((value) => params.append("tipo", value));
   filters.colors.forEach((value) => params.append("color", value));
-  filters.shapes.forEach((value) => params.append("forma", value));
   return params;
 }
 
@@ -278,9 +269,7 @@ export function filterAndSortCatalog<T extends { product: Product }>(entries: T[
     const matchesProductType = filters.productTypes.length === 0 || getProductTypes(product).some((type) => filters.productTypes.includes(type));
     const productColors = getProductColors(product);
     const matchesColor = filters.colors.length === 0 || productColors.some((color) => filters.colors.includes(color));
-    const shapes = product.filterData.shapes ?? (typeof product.attributes?.forma === "string" ? [product.attributes.forma] : []);
-    const matchesShape = filters.shapes.length === 0 || shapes.some(shape=>filters.shapes.includes(shape));
-    return matchesCategory && matchesPrice && matchesMaterial && matchesProductType && matchesColor && matchesShape;
+    return matchesCategory && matchesPrice && matchesMaterial && matchesProductType && matchesColor;
   });
 
   if (filters.sort === "precio") return [...filtered].sort((a, b) => (a.product.filterData.priceUYU ?? Number.POSITIVE_INFINITY) - (b.product.filterData.priceUYU ?? Number.POSITIVE_INFINITY));
@@ -307,7 +296,6 @@ export function hasActiveCatalogFilters(filters: CatalogFilters): boolean {
     filters.prices.length > 0 ||
     filters.materials.length > 0 ||
     filters.productTypes.length > 0 ||
-    filters.colors.length > 0 ||
-    filters.shapes.length > 0
+    filters.colors.length > 0
   );
 }

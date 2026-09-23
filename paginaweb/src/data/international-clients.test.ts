@@ -12,8 +12,8 @@ describe("clientes internacionales", () => {
     expect(names).toEqual([...names].sort((left, right) => left.localeCompare(right, "es", { sensitivity: "base" })));
   });
 
-  it("publica las veinte reseñas reales con procedencia identificada", () => {
-    expect(customerTestimonials).toHaveLength(20);
+  it("publica las veintiuna reseñas con procedencia identificada", () => {
+    expect(customerTestimonials).toHaveLength(21);
     expect(customerTestimonials.filter((testimonial) => testimonial.countryCode === "AU")).toHaveLength(1);
     expect(customerTestimonials.filter((testimonial) => testimonial.countryCode === "CL")).toHaveLength(1);
     expect(customerTestimonials.filter((testimonial) => testimonial.countryCode === "RU")).toHaveLength(1);
@@ -23,17 +23,18 @@ describe("clientes internacionales", () => {
     expect(customerTestimonials.filter((testimonial) => testimonial.countryCode === "GB")).toHaveLength(1);
     expect(customerTestimonials.filter((testimonial) => testimonial.countryCode === "IT")).toHaveLength(1);
     expect(customerTestimonials.filter((testimonial) => testimonial.countryCode === "PH")).toHaveLength(1);
+    expect(customerTestimonials.filter((testimonial) => testimonial.countryCode === "JP")).toHaveLength(1);
     expect(customerTestimonials.every((testimonial) => testimonial.sourceLabel.length > 0)).toBe(true);
   });
 
-  it("distribuye las veinte reseñas en dos filas y traduce review-13 y los nuevos testimonios", () => {
+  it("distribuye las veintiuna reseñas en dos filas y traduce los testimonios", () => {
     expect(testimonialRows[0].testimonials).toHaveLength(10);
-    expect(testimonialRows[1].testimonials).toHaveLength(10);
+    expect(testimonialRows[1].testimonials).toHaveLength(11);
 
     for (const locale of ["en", "pt"] as const) {
       const data = getLocalizedInternationalData(locale);
       expect(data.testimonialRows[0].testimonials).toHaveLength(10);
-      expect(data.testimonialRows[1].testimonials).toHaveLength(10);
+      expect(data.testimonialRows[1].testimonials).toHaveLength(11);
       const clReview = data.testimonialRows[1].testimonials.find((t) => t.id === "review-13");
       expect(clReview).toBeDefined();
       expect(clReview?.quote).toBe(locale === "en" ? "A dream!" : "Um sonho!");
@@ -75,6 +76,14 @@ describe("clientes internacionales", () => {
       expect(r20).toBeDefined();
       expect(r20?.quote).toBe(locale === "en" ? "Perfect!" : "Perfeitos!");
       expect(r20?.authorTitle).toBe(locale === "en" ? "Philippines" : "Filipinas");
+
+      const r21 = allTestimonials.find((t) => t.id === "review-21");
+      expect(r21).toBeDefined();
+      expect(r21?.quote).toBe(locale === "en"
+        ? "I finally got the new special matera! It's one of a kind in Japan!"
+        : "Finalmente consegui a nova matera especial! Ela é única no Japão!");
+      expect(r21?.authorName).toBe("Mina T.");
+      expect(r21?.authorTitle).toBe(locale === "en" ? "Japan" : "Japão");
     }
   });
 });

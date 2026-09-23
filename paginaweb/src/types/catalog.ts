@@ -25,7 +25,6 @@ export type CatalogFilterData = {
   /** Kept to preserve existing editorial mate records while they are migrated. */
   mateType?: MateTypeId;
   colors?: CatalogColorId[];
-  shapes?: string[];
 };
 
 export type RightsStatus =

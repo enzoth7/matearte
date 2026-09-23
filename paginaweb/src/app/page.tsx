@@ -84,7 +84,7 @@ export default async function Home() {
                 <Link
                   className="home-category-card"
                   href={category.category === "regalos"
-                    ? { pathname: "/personalizados", hash: "empresas" }
+                    ? "/personalizados"
                     : { pathname: "/catalogo", query: { categoria: category.category } }}
                 >
                   <div className="home-image home-category-image">
