@@ -66,6 +66,7 @@ export type PriceRangeId = (typeof priceRangeOptions)[number]["value"];
 export type CatalogSort = "editorial" | "nombre" | "precio";
 
 export type CatalogFilters = {
+  search: string;
   category: "todas" | CategorySlug;
   prices: PriceRangeId[];
   materials: CatalogMaterialId[];
@@ -90,6 +91,7 @@ export function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
   const categoryValue = rawCategory === "kit-matero" ? "kits-materos" : rawCategory === "cuchillo" ? "cuchillos" : rawCategory;
   const sortValue = params.get("orden") ?? "nombre";
   return {
+    search: (params.get("filter") ?? "").trim(),
     category: categoryIds.has(categoryValue) ? categoryValue as CatalogFilters["category"] : "todas",
     prices: validValues<PriceRangeId>(params, "precio", priceIds),
     materials: validValues<CatalogMaterialId>(params, "material", materialIds),
@@ -101,6 +103,7 @@ export function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
 
 export function writeCatalogFilters(filters: CatalogFilters) {
   const params = new URLSearchParams();
+  if (filters.search) params.set("filter", filters.search.trim());
   if (filters.category !== "todas") params.set("categoria", filters.category);
   if (filters.sort !== "nombre") params.set("orden", filters.sort);
   filters.prices.forEach((value) => params.append("precio", value));
@@ -116,6 +119,13 @@ export function toggleFilterValue<T extends string>(values: T[], value: T) {
 
 function getProductTypes(product: Product) {
   return product.filterData.productTypes ?? (product.filterData.mateType ? [product.filterData.mateType] : []);
+}
+
+function normalizeSearchText(value: string) {
+  return value
+    .toLocaleLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 }
 
 /**
@@ -247,6 +257,7 @@ export function getProductColors(product: Product): CatalogColorId[] {
 }
 
 export function filterAndSortCatalog<T extends { product: Product }>(entries: T[], filters: CatalogFilters, locale = "es") {
+  const searchTerms = normalizeSearchText(filters.search).split(/\s+/).filter(Boolean);
   const filtered = entries.filter(({ product }) => {
     const data = product.filterData;
     const variantPrices = (product.variants ?? [])
@@ -269,7 +280,21 @@ export function filterAndSortCatalog<T extends { product: Product }>(entries: T[
     const matchesProductType = filters.productTypes.length === 0 || getProductTypes(product).some((type) => filters.productTypes.includes(type));
     const productColors = getProductColors(product);
     const matchesColor = filters.colors.length === 0 || productColors.some((color) => filters.colors.includes(color));
-    return matchesCategory && matchesPrice && matchesMaterial && matchesProductType && matchesColor;
+    const searchableText = normalizeSearchText([
+      product.name,
+      product.slug,
+      product.category,
+      product.eyebrow,
+      product.summary,
+      product.description,
+      ...product.materials,
+      ...data.materials,
+      ...getProductTypes(product),
+      ...productColors,
+      ...(product.variants ?? []).map((variant) => variant.label),
+    ].join(" "));
+    const matchesSearch = searchTerms.length === 0 || searchTerms.every((term) => searchableText.includes(term));
+    return matchesSearch && matchesCategory && matchesPrice && matchesMaterial && matchesProductType && matchesColor;
   });
 
   if (filters.sort === "precio") return [...filtered].sort((a, b) => (a.product.filterData.priceUYU ?? Number.POSITIVE_INFINITY) - (b.product.filterData.priceUYU ?? Number.POSITIVE_INFINITY));
@@ -292,6 +317,7 @@ export function formatCatalogPrice(priceUYU?: number, consultLabel = "Consultar"
 
 export function hasActiveCatalogFilters(filters: CatalogFilters): boolean {
   return (
+    filters.search.length > 0 ||
     filters.category !== "todas" ||
     filters.prices.length > 0 ||
     filters.materials.length > 0 ||

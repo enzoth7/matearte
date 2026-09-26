@@ -4,9 +4,10 @@ import { Globe, List, MagnifyingGlass, ShoppingCart, UserCircle, X } from "@phos
 import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
-import { Link } from "@/i18n/navigation";
+import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from "react";
+import { Link, useRouter } from "@/i18n/navigation";
 import { canonicalPathname, localizeCurrentPathname } from "@/i18n/paths";
+import { readLocalCart } from "@/lib/browser-cart";
 import { persistLocalePreference } from "@/lib/locale-preference";
 import type { Locale } from "@/types/catalog";
 
@@ -23,17 +24,21 @@ const localeOptions: Locale[] = ["es", "en", "pt"];
 
 export function Header() {
   const [open, setOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
   const [languageOpen, setLanguageOpen] = useState(false);
   const [fragment, setFragment] = useState("");
   const [session, setSession] = useState<{ authenticated: boolean; user: { name: string } | null; cartCount: number }>({ authenticated: false, user: null, cartCount: 0 });
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations("header");
   const language = useTranslations("language");
   const languageMenuRef = useRef<HTMLDivElement>(null);
   const languageButtonRef = useRef<HTMLButtonElement>(null);
   const headerRef = useRef<HTMLElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const canonical = canonicalPathname(pathname, locale);
 
   useEffect(() => {
@@ -51,6 +56,7 @@ export function Header() {
         if (languageOpen) languageButtonRef.current?.focus();
         setLanguageOpen(false);
         setOpen(false);
+        setSearchOpen(false);
       }
     };
     const closeOnOutsideClick = (event: PointerEvent) => {
@@ -63,6 +69,10 @@ export function Header() {
       document.removeEventListener("pointerdown", closeOnOutsideClick);
     };
   }, [languageOpen]);
+
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
 
   useEffect(() => {
     if (languageOpen) languageMenuRef.current?.querySelector<HTMLAnchorElement>("[role='menuitem']")?.focus();
@@ -85,9 +95,8 @@ export function Header() {
           setSession(value);
         } else {
           try {
-            const { readLocalCart } = require("@/lib/browser-cart");
             const entries = readLocalCart();
-            const count = entries.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0);
+            const count = entries.reduce((sum, item) => sum + (item.quantity || 1), 0);
             setSession({ authenticated: false, user: null, cartCount: count });
           } catch {
             setSession(value);
@@ -101,9 +110,8 @@ export function Header() {
   useEffect(() => {
     const syncGuestCartCount = () => {
       try {
-        const { readLocalCart } = require("@/lib/browser-cart");
         const entries = readLocalCart();
-        const count = entries.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0);
+        const count = entries.reduce((sum, item) => sum + (item.quantity || 1), 0);
         setSession(prev => prev.authenticated ? prev : { ...prev, cartCount: count });
       } catch {}
     };
@@ -113,6 +121,23 @@ export function Header() {
   }, []);
 
   const isActive = (href: string) => canonical === href || canonical.startsWith(`${href}/`);
+
+  const toggleSearch = () => {
+    setOpen(false);
+    if (searchOpen) {
+      setSearchOpen(false);
+      return;
+    }
+    setSearchValue(searchParams.get("filter") ?? "");
+    setSearchOpen(true);
+  };
+
+  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const value = searchValue.trim();
+    router.push({ pathname: "/catalogo", query: value ? { filter: value } : {} });
+    setSearchOpen(false);
+  };
 
   const languageHref = (targetLocale: Locale) => {
     const path = localizeCurrentPathname(pathname, locale, targetLocale);
@@ -151,7 +176,7 @@ export function Header() {
             {navigation.map((item) => <Link key={item.href} href={item.href} className={isActive(item.href) ? "is-active" : undefined} aria-current={canonical !== "/" && isActive(item.href) ? "page" : undefined}>{t(item.label)}</Link>)}
           </nav>
           <nav className="home-header-nav home-header-actions" aria-label={t("actionsNav")}>
-            <Link href="/catalogo" className="home-header-icon" aria-label={t("search")}><MagnifyingGlass size={19} aria-hidden="true" /></Link>
+            <button type="button" className="home-header-icon home-header-search" aria-label={t("search")} aria-expanded={searchOpen} aria-controls="home-catalog-search" onClick={toggleSearch}><MagnifyingGlass size={19} aria-hidden="true" /></button>
             <div className="home-header-language-wrap" ref={languageMenuRef}>
               <button ref={languageButtonRef} type="button" className="home-header-language" aria-label={t("openLanguage", { language: language(locale) })} aria-haspopup="menu" aria-expanded={languageOpen} aria-controls="home-language-menu" onClick={() => setLanguageOpen((value) => !value)}><Globe size={18} aria-hidden="true" /><span>{locale.toUpperCase()}</span></button>
               {languageOpen && (
@@ -163,11 +188,33 @@ export function Header() {
             <Link href="/perfil" className="home-header-icon" aria-label={session.authenticated ? t("openAccount") : t("signIn")}><UserCircle size={20} aria-hidden="true" /></Link>
             <Link href="/carrito" className="home-header-icon home-header-cart" aria-label={session.cartCount ? t("cartCount", { count: session.cartCount }) : t("cart")}><ShoppingCart size={20} aria-hidden="true" />{session.cartCount > 0 && <span>{Math.min(99, session.cartCount)}</span>}</Link>
           </nav>
-          <button type="button" className="home-header-menu" aria-label={open ? t("closeMenu") : t("openMenu")} aria-expanded={open} aria-controls="home-menu-mobile" onClick={() => setOpen((value) => !value)}>
-            {open ? <X size={25} aria-hidden="true" /> : <List size={25} aria-hidden="true" />}
-          </button>
+          <div className="home-header-mobile-actions">
+            <button type="button" className="home-header-mobile-search" aria-label={t("search")} aria-expanded={searchOpen} aria-controls="home-catalog-search" onClick={toggleSearch}><MagnifyingGlass size={23} aria-hidden="true" /></button>
+            <button type="button" className="home-header-menu" aria-label={open ? t("closeMenu") : t("openMenu")} aria-expanded={open} aria-controls="home-menu-mobile" onClick={() => { setSearchOpen(false); setOpen((value) => !value); }}>
+              {open ? <X size={25} aria-hidden="true" /> : <List size={25} aria-hidden="true" />}
+            </button>
+          </div>
         </div>
       </header>
+      {searchOpen && (
+        <div id="home-catalog-search" className="home-catalog-search">
+          <form role="search" onSubmit={submitSearch}>
+            <MagnifyingGlass size={22} aria-hidden="true" />
+            <label className="sr-only" htmlFor="home-catalog-search-input">{t("search")}</label>
+            <input
+              ref={searchInputRef}
+              id="home-catalog-search-input"
+              type="search"
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
+              placeholder={t("searchPlaceholder")}
+              autoComplete="off"
+            />
+            <button type="submit">{t("searchAction")}</button>
+            <button type="button" className="home-catalog-search-close" aria-label={t("closeSearch")} onClick={() => setSearchOpen(false)}><X size={20} aria-hidden="true" /></button>
+          </form>
+        </div>
+      )}
       {open && (
         <div id="home-menu-mobile" className="home-mobile-menu">
           <nav aria-label={t("mobileNav")}>

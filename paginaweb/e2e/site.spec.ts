@@ -301,6 +301,20 @@ test("filtros y detalle de producto son funcionales", async ({ page }) => {
   await expect(page.getByText(/Precio y compra todavía no disponibles/)).toBeVisible();
 });
 
+test("la lupa busca productos y deja un enlace compartible", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Buscar en el catálogo" }).click();
+  const search = page.getByRole("search");
+  await expect(search).toBeVisible();
+  await search.getByRole("searchbox", { name: "Buscar en el catálogo" }).fill("matera");
+  await search.getByRole("button", { name: "Buscar", exact: true }).click();
+
+  await expect(page).toHaveURL(/\/catalogo\?filter=matera$/);
+  const catalog = page.locator((page.viewportSize()?.width ?? 1440) >= 1024 ? ".catalog-desktop-view" : ".catalog-mobile-view");
+  await expect(catalog.getByRole("heading", { name: /Matera/, exact: false }).first()).toBeVisible();
+  await expect(catalog.getByRole("heading", { name: "Mate Imperial", exact: true })).toHaveCount(0);
+});
+
 test("el detalle de producto móvil conserva las medidas del frame de Figma", async ({ page }) => {
   test.skip((page.viewportSize()?.width ?? 1440) >= 1024, "El frame 452:717 corresponde a móvil");
   await page.goto("/producto/mate-imperial-animal-print");

@@ -31,7 +31,7 @@ function product(id: string, priceUYU: number, overrides: Partial<Product["filte
   };
 }
 
-const defaults: CatalogFilters = { category: "todas", prices: [], materials: [], productTypes: [], colors: [], sort: "nombre" };
+const defaults: CatalogFilters = { search: "", category: "todas", prices: [], materials: [], productTypes: [], colors: [], sort: "nombre" };
 
 describe("filtros del catálogo", () => {
   it("respeta los límites sin superponer rangos", () => {
@@ -71,12 +71,25 @@ describe("filtros del catálogo", () => {
   });
 
   it("lee, valida y vuelve a escribir parámetros repetibles", () => {
-    const filters = parseCatalogFilters(new URLSearchParams("categoria=billeteras&precio=menos-3000&precio=7000-mas&material=estampado&tipo=torpedo&orden=precio&precio=invalido&forma=ovalada"));
-    expect(filters).toMatchObject({ category: "billeteras", prices: ["menos-3000", "7000-mas"], materials: ["estampado"], productTypes: ["torpedo"], sort: "precio" });
+    const filters = parseCatalogFilters(new URLSearchParams("filter=matera&categoria=billeteras&precio=menos-3000&precio=7000-mas&material=estampado&tipo=torpedo&orden=precio&precio=invalido&forma=ovalada"));
+    expect(filters).toMatchObject({ search: "matera", category: "billeteras", prices: ["menos-3000", "7000-mas"], materials: ["estampado"], productTypes: ["torpedo"], sort: "precio" });
+    expect(writeCatalogFilters(filters).get("filter")).toBe("matera");
     expect(filters).not.toHaveProperty("shapes");
     expect(writeCatalogFilters(filters).getAll("precio")).toEqual(["menos-3000", "7000-mas"]);
     expect(writeCatalogFilters(filters).getAll("material")).toEqual(["estampado"]);
     expect(writeCatalogFilters(filters).has("forma")).toBe(false);
+  });
+
+  it("busca por texto sin distinguir mayúsculas ni tildes", () => {
+    const matera = product("matera-cuero", 4200).product;
+    matera.name = "Matera Clásica";
+    matera.category = "materas";
+    matera.summary = "Hecha a mano en Paysandú";
+    const termo = product("termo", 3500).product;
+    termo.name = "Termo de acero";
+
+    expect(filterAndSortCatalog([{ product: matera }, { product: termo }], { ...defaults, search: "matera clasica" }).map(({ product }) => product.id)).toEqual(["matera-cuero"]);
+    expect(filterAndSortCatalog([{ product: matera }, { product: termo }], { ...defaults, search: "paysandu" }).map(({ product }) => product.id)).toEqual(["matera-cuero"]);
   });
 
   it("reconoce la categoría de mates personalizados", () => {
