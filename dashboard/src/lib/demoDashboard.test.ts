@@ -13,7 +13,7 @@ describe("demo dashboard", () => {
     });
     const result = await demoRequest<{ data: DashboardData; orderId: string }>("/api/orders", {
       method: "POST",
-      body: JSON.stringify({ customer: "Cliente Demo", items: [{ key: "1", productId: initial.products[0].id, quantity: 2 }] }),
+      body: JSON.stringify({ customer: "Cliente Demo", items: [{ key: "1", productId: initial.products[0].id, quantity: 2, orderType: "normal" }] }),
     });
     const reloaded = await demoRequest<DashboardData>("/api/dashboard");
 
@@ -62,7 +62,7 @@ describe("demo dashboard", () => {
       method: "POST",
       body: JSON.stringify({
         customer: "Cliente Inmutable",
-        items: [{ key: "1", productId: product.id, quantity: 3 }],
+        items: [{ key: "1", productId: product.id, quantity: 3, orderType: "normal" }],
       }),
     });
 
@@ -93,23 +93,24 @@ describe("demo dashboard", () => {
     expect(persistingLine?.totalUyu).toBe(originalPriceUyu * 3);
   });
 
-  it("guarda los pedidos sin costo con importes en cero", async () => {
+  it("guarda líneas con costo y sin costo dentro del mismo pedido", async () => {
     const initial = await demoRequest<DashboardData>("/api/dashboard");
     const result = await demoRequest<{ data: DashboardData; orderId: string }>("/api/orders", {
       method: "POST",
       body: JSON.stringify({
         customer: "Cliente ya pago",
-        orderType: "no_cost",
-        items: [{ key: "1", productId: initial.products[0].id, quantity: 2 }],
+        items: [
+          { key: "1", productId: initial.products[0].id, quantity: 1, orderType: "normal" },
+          { key: "2", productId: initial.products[0].id, quantity: 2, orderType: "no_cost" },
+        ],
       }),
     });
 
-    const line = result.data.production.find((item) => item.orderId === result.orderId);
-    expect(line?.orderType).toBe("no_cost");
-    expect(line?.unitPriceArg).toBe(0);
-    expect(line?.unitPriceUyu).toBe(0);
-    expect(line?.totalArg).toBe(0);
-    expect(line?.totalUyu).toBe(0);
+    const lines = result.data.production.filter((item) => item.orderId === result.orderId);
+    expect(lines).toHaveLength(2);
+    expect(lines[0].orderType).toBe("normal");
+    expect(lines[0].totalArg).toBeGreaterThan(0);
+    expect(lines[1]).toMatchObject({ orderType: "no_cost", unitPriceArg: 0, unitPriceUyu: 0, totalArg: 0, totalUyu: 0 });
   });
 
   it("fusiona clientes reasignando pedidos y combinando notas al renombrar hacia un cliente existente", async () => {
@@ -131,7 +132,7 @@ describe("demo dashboard", () => {
       method: "POST",
       body: JSON.stringify({
         customer: "CLIENTE ORIGEN",
-        items: [{ key: "1", productId: pId, quantity: 5 }],
+        items: [{ key: "1", productId: pId, quantity: 5, orderType: "normal" }],
       }),
     });
 

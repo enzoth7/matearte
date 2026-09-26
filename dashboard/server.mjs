@@ -231,7 +231,7 @@ app.post("/api/orders", async (request, response, next) => {
   try {
     const customer = cleanText(request.body.customer);
     const items = Array.isArray(request.body.items) ? request.body.items : [];
-    const orderType = request.body.orderType === "no_cost" ? "no_cost" : "normal";
+    const legacyOrderType = request.body.orderType === "no_cost" ? "no_cost" : "normal";
     if (!customer || !items.length) return response.status(400).json({ error: "Cliente y artículos son obligatorios." });
 
     const orderId = `PED-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -248,6 +248,7 @@ app.post("/api/orders", async (request, response, next) => {
       const product = productsMap.get(String(item.productId));
       if (!product) throw new Error(`Producto inexistente: ${item.productId}`);
       const quantity = cleanQuantity(item.quantity);
+      const orderType = item.orderType === "no_cost" ? "no_cost" : legacyOrderType;
       const unitPriceArg = orderType === "no_cost" ? 0 : Number(product.price_arg) || 0;
       const unitPriceUyu = orderType === "no_cost" ? 0 : Number(product.price_uyu) || (unitPriceArg * rate);
       const totalArg = unitPriceArg * quantity;

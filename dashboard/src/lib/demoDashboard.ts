@@ -180,7 +180,7 @@ export async function demoRequest<T>(url: string, options?: RequestInit): Promis
     const body = parseBody<{ customer?: string; items?: DraftOrderItem[]; orderType?: OrderType }>(options);
     const customer = cleanText(body.customer);
     const items = Array.isArray(body.items) ? body.items : [];
-    const orderType: OrderType = body.orderType === "no_cost" ? "no_cost" : "normal";
+    const legacyOrderType: OrderType = body.orderType === "no_cost" ? "no_cost" : "normal";
     if (!customer || !items.length) throw new Error("Cliente y artículos son obligatorios.");
     const orderId = `PED-${Math.floor(100000 + Math.random() * 900000)}`;
     const createdAt = new Date().toISOString();
@@ -189,6 +189,7 @@ export async function demoRequest<T>(url: string, options?: RequestInit): Promis
       const product = products.get(String(item.productId));
       if (!product) throw new Error(`Producto inexistente: ${item.productId}`);
       const quantity = cleanQuantity(item.quantity);
+      const orderType: OrderType = item.orderType === "no_cost" ? "no_cost" : legacyOrderType;
       const unitPriceArg = orderType === "no_cost" ? 0 : product.priceArg;
       const unitPriceUyu = orderType === "no_cost" ? 0 : product.priceUyu;
       const exchangeRate = data.exchangeRate;

@@ -72,4 +72,5 @@ export interface DraftOrderItem {
   key: string;
   productId: string;
   quantity: number;
+  orderType: OrderType;
 }

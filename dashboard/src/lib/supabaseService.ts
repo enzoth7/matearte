@@ -3,7 +3,6 @@ import type {
   CustomerProfile,
   DashboardData,
   DraftOrderItem,
-  OrderType,
   Product,
   ProductionItem,
 } from "../types";
@@ -253,7 +252,6 @@ export async function mergeOrUpdateCustomer(
 export async function createOrder(
   customer: string,
   items: DraftOrderItem[],
-  orderType: OrderType = "normal",
 ): Promise<{ data: DashboardData; orderId: string }> {
   const client = getClient();
   const cleanCust = cleanText(customer);
@@ -277,7 +275,7 @@ export async function createOrder(
     const product = productsMap.get(String(item.productId));
     if (!product) throw new Error(`Producto inexistente: ${item.productId}`);
     const quantity = cleanQuantity(item.quantity);
-    const isNoCost = orderType === "no_cost";
+    const isNoCost = item.orderType === "no_cost";
     const unitPriceArg = isNoCost ? 0 : Number(product.price_arg) || 0;
     const unitPriceUyu = isNoCost ? 0 : Number(product.price_uyu) || (unitPriceArg * rate);
     const totalArg = unitPriceArg * quantity;
