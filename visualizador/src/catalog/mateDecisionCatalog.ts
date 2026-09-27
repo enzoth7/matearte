@@ -95,6 +95,8 @@ export interface DecisionTextureOption {
   previewImage?: string;
   shapeId: MateModel;
   capabilities: MateCapabilities;
+  /** Overrides the engraving techniques inherited from the product family. */
+  engravingCapabilities?: EngravingCapabilities;
   colors: DecisionColorOption[];
   metals: DecisionMetalOption[];
   /** El metal forma parte del producto, pero el árbol no muestra una pregunta para elegirlo. */
@@ -312,6 +314,10 @@ export const mateDecisionCatalog: MateFamilyDefinition[] = [
         description: "Cuero clásico en los colores definidos por el árbol.",
         shapeId: "imperial",
         capabilities: { hasRim: true, hasFleje: true },
+        engravingCapabilities: {
+          virolaEngravingTypes: ["bronze-applique", "alpaca-applique"],
+          flejeEngravingTypes: ["bronze-applique", "alpaca-applique"],
+        },
         colors: [colors.natural, colors.negro, colors.marron, colors.animalPrintPremium, colors.marronBlancoPremium, colors.negroBlancoPremium, colors.cueroCrudo],
         metals: [metals.originalImperial],
         skipMetalSelection: true,
@@ -705,6 +711,7 @@ export function getEngravingCapabilities(familyId: MateFamilyId | null, textureI
   const family = getMateFamily(familyId);
   const texture = family?.textures.find((t) => t.id === textureId);
   const base = familyEngravingCapabilities[familyId];
+  if (texture?.engravingCapabilities) return texture.engravingCapabilities;
   // Criollo sub-textures inherit from their shape family for engraving options
   if (familyId === "criollo" && texture) {
     if (texture.shapeId === "imperial") {

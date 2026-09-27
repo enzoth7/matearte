@@ -12,6 +12,7 @@ import {
   EMPTY_MATE_SELECTION,
   engravingTypeOptions,
   getFirstIncompleteStage,
+  getEngravingCapabilities,
   getMateFamily,
   getSelectionFromLegacyVariant,
   mateDecisionCatalog,
@@ -88,6 +89,14 @@ describe("árbol declarativo de mates", () => {
   it("no avanza automáticamente del grabado de virola al grabado del fleje", () => {
     expect(shouldReturnToIncompleteStage("engraving", "fleje-engraving")).toBe(false);
     expect(shouldReturnToIncompleteStage("fleje-engraving", "engraving")).toBe(true);
+  });
+
+  it("oculta el láser únicamente para el Imperial Premium", () => {
+    expect(getEngravingCapabilities("imperial", "imperial-clasico").virolaEngravingTypes).toEqual([
+      "bronze-applique",
+      "alpaca-applique",
+    ]);
+    expect(getEngravingCapabilities("imperial", "cincelado-premium").virolaEngravingTypes).toContain("laser");
   });
 
   it("muestra Virola/Metal solo en las ramas indicadas por los árboles Imperial y Criollo", () => {
