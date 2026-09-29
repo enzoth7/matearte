@@ -245,11 +245,21 @@ export async function demoRequest<T>(url: string, options?: RequestInit): Promis
     const patch = parseBody<ProductionItem>(options);
     const index = data.production.findIndex((item) => item.lineId === lineId);
     if (index < 0) throw new Error("Línea no encontrada.");
-    data.production[index] = { ...data.production[index], ...patch, lineId };
+    const current = { ...data.production[index], ...patch, lineId };
+    const product = data.products.find((item) => item.model === current.model && item.variant === current.variant);
+    const unitPriceArg = current.orderType === "no_cost" ? 0 : current.unitPriceArg ?? product?.priceArg ?? 0;
+    const unitPriceUyu = current.orderType === "no_cost" ? 0 : current.unitPriceUyu ?? product?.priceUyu ?? unitPriceArg * data.exchangeRate;
+    data.production[index] = {
+      ...current,
+      unitPriceArg,
+      unitPriceUyu,
+      totalArg: unitPriceArg * current.quantity,
+      totalUyu: unitPriceUyu * current.quantity,
+    };
     const historyIndex = data.history.findIndex((item) => item.lineId === lineId);
     if (historyIndex >= 0) {
-      const current = data.production[index];
-      data.history[historyIndex] = { ...data.history[historyIndex], orderId: current.orderId, customer: current.customer, model: current.model, variant: current.variant, quantity: current.quantity };
+      const updated = data.production[index];
+      data.history[historyIndex] = { ...data.history[historyIndex], orderId: updated.orderId, customer: updated.customer, model: updated.model, variant: updated.variant, quantity: updated.quantity, unitPriceArg: updated.unitPriceArg, unitPriceUyu: updated.unitPriceUyu, exchangeRate: updated.exchangeRate, totalArg: updated.totalArg, totalUyu: updated.totalUyu };
     }
     return persistDemoData(data) as T;
   }

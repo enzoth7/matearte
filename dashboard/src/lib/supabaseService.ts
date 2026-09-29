@@ -320,6 +320,51 @@ export async function updateProductionLine(
   if (patch.quantity !== undefined) updates.quantity = cleanQuantity(patch.quantity);
   if (patch.status !== undefined) updates.status = patch.status === "En producción" ? "En producción" : "Pendiente";
 
+  // Los precios de una línea son una foto del momento en que se creó el pedido.
+  // Al corregir la cantidad, el total debe cambiar sin reemplazar ese precio pactado.
+  if (patch.quantity !== undefined) {
+    const { data: currentLine, error: currentLineError } = await client
+      .from("order_lines")
+      .select("order_type, unit_price_arg, unit_price_uyu, exchange_rate, model, variant")
+      .eq("line_id", lineId)
+      .single();
+    if (currentLineError) throw currentLineError;
+
+    const quantity = cleanQuantity(patch.quantity);
+    const isNoCost = currentLine.order_type === "no_cost";
+    let unitPriceArg = isNoCost ? 0 : currentLine.unit_price_arg == null ? Number.NaN : Number(currentLine.unit_price_arg);
+    let unitPriceUyu = isNoCost ? 0 : currentLine.unit_price_uyu == null ? Number.NaN : Number(currentLine.unit_price_uyu);
+    let exchangeRate = currentLine.exchange_rate == null ? Number.NaN : Number(currentLine.exchange_rate);
+
+    // Las líneas antiguas no tienen snapshot de precio. Se lo crea al editarlas.
+    if (!isNoCost && (!Number.isFinite(unitPriceArg) || !Number.isFinite(unitPriceUyu))) {
+      const model = cleanText(patch.model ?? currentLine.model);
+      const variant = cleanText(patch.variant ?? currentLine.variant);
+      const { data: products, error: productsError } = await client.from("products").select("price_arg, price_uyu, model, variant");
+      if (productsError) throw productsError;
+      const product = (products ?? []).find((candidate) =>
+        cleanText(candidate.model).localeCompare(model, "es", { sensitivity: "base" }) === 0
+        && cleanText(candidate.variant).localeCompare(variant, "es", { sensitivity: "base" }) === 0,
+      );
+      if (!product) throw new Error("No se encontró el producto para recalcular el total.");
+
+      unitPriceArg = Number(product.price_arg) || 0;
+      unitPriceUyu = Number(product.price_uyu);
+      if (!Number.isFinite(exchangeRate)) {
+        const { data: settings, error: settingsError } = await client.from("settings").select("exchange_rate").eq("id", 1).maybeSingle();
+        if (settingsError) throw settingsError;
+        exchangeRate = Number(settings?.exchange_rate) || 1;
+      }
+      if (!Number.isFinite(unitPriceUyu)) unitPriceUyu = unitPriceArg * exchangeRate;
+    }
+
+    updates.unit_price_arg = unitPriceArg;
+    updates.unit_price_uyu = unitPriceUyu;
+    updates.exchange_rate = Number.isFinite(exchangeRate) ? exchangeRate : 1;
+    updates.total_arg = unitPriceArg * quantity;
+    updates.total_uyu = unitPriceUyu * quantity;
+  }
+
   const { error } = await client.from("order_lines").update(updates).eq("line_id", lineId);
   if (error) throw error;
 
