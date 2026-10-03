@@ -34,6 +34,24 @@ describe("árbol declarativo de mates", () => {
     ]);
   });
 
+  it("ofrece cuero blanco con su fotografía en las cinco ramas disponibles", () => {
+    const whiteBranches = [
+      ["camionero", "alpaca-cincelado-patas"],
+      ["imperial", "cincelado-premium"],
+      ["imperial", "imperial-clasico"],
+      ["imperial", "virola-plata-900"],
+      ["torpedo", "cuero-liso"],
+    ] as const;
+
+    for (const [familyId, textureId] of whiteBranches) {
+      const texture = getMateFamily(familyId)?.textures.find((item) => item.id === textureId);
+      expect(texture?.colors).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: "blanco", label: "Blanco" }),
+      ]));
+      expect(texture?.colorPreviewImages?.blanco).toMatch(/\/blanco\.png$/);
+    }
+  });
+
   it("resuelve todas las combinaciones declaradas sin duplicar productId", () => {
     const productIds = new Set<string>();
     let combinations = 0;

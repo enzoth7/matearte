@@ -72,6 +72,20 @@ describe("reglas canónicas de precios", () => {
     [camionero, imperial, torpedo].forEach((product) => expect(product?.pricingRuleKeys).toContain("leather:raw"));
   });
 
+  it("mantiene el cuero blanco al mismo precio que los colores lisos vecinos", () => {
+    const comparableSelections = [
+      [selection("camionero", "alpaca-cincelado-patas", "natural", "alpaca-comun"), selection("camionero", "alpaca-cincelado-patas", "blanco", "alpaca-comun")],
+      [selection("imperial", "cincelado-premium", "natural", "original-imperial"), selection("imperial", "cincelado-premium", "blanco", "original-imperial")],
+      [selection("imperial", "imperial-clasico", "natural", "original-imperial"), selection("imperial", "imperial-clasico", "blanco", "original-imperial")],
+      [selection("imperial", "virola-plata-900", "natural", "plata-900"), selection("imperial", "virola-plata-900", "blanco", "plata-900")],
+      [selection("torpedo", "cuero-liso", "natural", "alpaca-comun"), selection("torpedo", "cuero-liso", "blanco", "alpaca-comun")],
+    ];
+
+    for (const [neighbor, white] of comparableSelections) {
+      expect(getSelectionPricing(catalog, white)?.totalUYU).toBe(getSelectionPricing(catalog, neighbor)?.totalUYU);
+    }
+  });
+
   it("no usa importes de respaldo cuando falta Supabase o una regla aplicable", () => {
     const selected = selection("torpedo", "cuero-crudo", "cuero-crudo", "alpaca-grande");
     const unavailable = getSelectionPricing(null, selected);
