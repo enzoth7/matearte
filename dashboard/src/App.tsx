@@ -78,6 +78,10 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  if (auth.loading) {
+    return <div className="login-screen"><div className="login-card auth-loading" role="status">Comprobando sesión…</div></div>;
+  }
+
   if (!auth.isAuthenticated) {
     return <LoginView onLogin={auth.login} />;
   }

@@ -20,12 +20,12 @@ describe("useAuth hook", () => {
     expect(result.current.user?.username).toBe("user");
   });
 
-  it("permite iniciar sesión con credenciales correctas (user / 12345678)", () => {
+  it("permite iniciar sesión con credenciales correctas (user / 12345678)", async () => {
     const { result } = renderHook(() => useAuth());
 
     let loginRes: { success: boolean; error?: string } = { success: false };
-    act(() => {
-      loginRes = result.current.login("user", "12345678");
+    await act(async () => {
+      loginRes = await result.current.login("user", "12345678");
     });
 
     expect(loginRes.success).toBe(true);
@@ -34,12 +34,12 @@ describe("useAuth hook", () => {
     expect(localStorage.getItem("matearte_auth")).toBeTruthy();
   });
 
-  it("rechaza credenciales incorrectas", () => {
+  it("rechaza credenciales incorrectas", async () => {
     const { result } = renderHook(() => useAuth());
 
     let loginRes: { success: boolean; error?: string } = { success: false };
-    act(() => {
-      loginRes = result.current.login("user", "wrongpassword");
+    await act(async () => {
+      loginRes = await result.current.login("user", "wrongpassword");
     });
 
     expect(loginRes.success).toBe(false);
@@ -47,14 +47,14 @@ describe("useAuth hook", () => {
     expect(result.current.isAuthenticated).toBe(false);
   });
 
-  it("permite cerrar sesión y limpia el almacenamiento", () => {
+  it("permite cerrar sesión y limpia el almacenamiento", async () => {
     localStorage.setItem("matearte_auth", JSON.stringify({ username: "user" }));
     const { result } = renderHook(() => useAuth());
 
     expect(result.current.isAuthenticated).toBe(true);
 
-    act(() => {
-      result.current.logout();
+    await act(async () => {
+      await result.current.logout();
     });
 
     expect(result.current.isAuthenticated).toBe(false);

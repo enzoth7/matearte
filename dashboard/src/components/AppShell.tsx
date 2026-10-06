@@ -5,14 +5,12 @@ import {
   ChartDonutIcon,
   CubeIcon,
   ListIcon,
-  MapPinIcon,
   PlusCircleIcon,
   ShoppingBagOpenIcon,
   SignOutIcon,
   UserIcon,
   UsersThreeIcon,
 } from "@phosphor-icons/react";
-import { commerceAdminUrl, localSalesUrl } from "../retailApps";
 import type { PanelMode, ViewId } from "../types";
 
 const navigation: Array<{ id: ViewId; label: string; icon: ElementType }> = [
@@ -92,16 +90,10 @@ export function AppShell({
                 <strong>{label}</strong>
               </button>
             )) : (
-              <>
-                <a className="side-nav-item retail-nav-item" href={commerceAdminUrl} title="Ventas web">
-                  <ShoppingBagOpenIcon size={21} aria-hidden="true" />
-                  <strong>Ventas web</strong>
-                </a>
-                <a className="side-nav-item retail-nav-item" href={localSalesUrl} title="Ventas del local">
-                  <MapPinIcon size={21} aria-hidden="true" />
-                  <strong>Ventas del local</strong>
-                </a>
-              </>
+              <a className="side-nav-item retail-nav-item is-active" href="/minorista" aria-current="page" title="Producción minorista">
+                <CubeIcon size={21} weight="fill" aria-hidden="true" />
+                <strong>Producción</strong>
+              </a>
             )}
         </nav>
 

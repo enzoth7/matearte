@@ -67,6 +67,17 @@ type CatalogProduct = {
   commerce_variants: CatalogVariant[]
 }
 
+type CatalogTableRow = {
+  product: CatalogProduct
+  variant: CatalogVariant | null
+}
+
+type CatalogCategory = {
+  code: string
+  label_es: string
+  sort_order: number
+}
+
 type Customer = {
   id: string
   name: string
@@ -105,6 +116,14 @@ const formatMoney = (value: number) =>
   new Intl.NumberFormat('es-UY', { style: 'currency', currency: 'UYU', maximumFractionDigits: 0 }).format(value)
 
 const skuCollator = new Intl.Collator('es', { numeric: true, sensitivity: 'base' })
+
+const productSlug = (name: string) => name
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-|-$/g, '')
+  .slice(0, 120) || `producto-${Date.now()}`
 
 const initials = (name: string) => name.split(' ').filter(Boolean).slice(0, 2).map((word) => word[0]).join('').toUpperCase() || '—'
 
@@ -174,6 +193,7 @@ function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [authReady, setAuthReady] = useState(false)
   const [authorized, setAuthorized] = useState<boolean | null>(null)
+  const [canCreateProducts, setCanCreateProducts] = useState(false)
   const [authorizationError, setAuthorizationError] = useState('')
   const [activePage, setActivePage] = useState<Page>('register')
   const [sales, setSales] = useState(initialSales)
@@ -181,14 +201,24 @@ function App() {
   const [salesError, setSalesError] = useState('')
   const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>('today')
   const [catalog, setCatalog] = useState<CatalogProduct[]>([])
+  const [catalogCategories, setCatalogCategories] = useState<CatalogCategory[]>([])
   const [catalogLoading, setCatalogLoading] = useState(true)
   const [catalogError, setCatalogError] = useState('')
   const [catalogSearch, setCatalogSearch] = useState('')
   const [catalogCategoryFilter, setCatalogCategoryFilter] = useState('')
   const [catalogSort, setCatalogSort] = useState<CatalogSort>('sku')
   const [catalogSortDirection, setCatalogSortDirection] = useState<SortDirection>('asc')
+  const [showNewProduct, setShowNewProduct] = useState(false)
+  const [newProductName, setNewProductName] = useState('')
+  const [newProductCategory, setNewProductCategory] = useState('')
+  const [newProductSku, setNewProductSku] = useState('')
+  const [newProductPrice, setNewProductPrice] = useState('')
+  const [newProductBusy, setNewProductBusy] = useState(false)
+  const [newProductError, setNewProductError] = useState('')
+  const [catalogNotice, setCatalogNotice] = useState('')
   const [saved, setSaved] = useState(false)
   const [search, setSearch] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('')
   const [selectedVariantId, setSelectedVariantId] = useState('')
   const [price, setPrice] = useState('')
   const [quantity, setQuantity] = useState('1')
@@ -226,6 +256,7 @@ function App() {
   useEffect(() => {
     if (!session) {
       setAuthorized(null)
+      setCanCreateProducts(false)
       setAuthorizationError('')
       return
     }
@@ -241,8 +272,10 @@ function App() {
       if (pricingMembership.error && commerceMembership.error) {
         setAuthorizationError('No se pudo comprobar el acceso interno.')
         setAuthorized(false)
+        setCanCreateProducts(false)
         return
       }
+      setCanCreateProducts(Boolean(commerceMembership.data))
       setAuthorized(Boolean(pricingMembership.data || commerceMembership.data))
     }
     void verifyStaff()
@@ -310,34 +343,44 @@ function App() {
   }, [authorized])
 
   useEffect(() => {
+    if (!authorized) return
     let active = true
 
     const loadCatalog = async () => {
       setCatalogLoading(true)
       setCatalogError('')
-      const { data, error } = await supabase
-        .from('commerce_products')
-        .select('id,name,category,category_code,published,commerce_variants(id,sku,name,base_price_minor,active,option_values)')
-        .neq('category', 'sandbox')
-        .order('name')
+      const [productsRequest, categoriesRequest] = await Promise.all([
+        supabase
+          .from('commerce_products')
+          .select('id,name,category,category_code,published,commerce_variants(id,sku,name,base_price_minor,active,option_values)')
+          .neq('category', 'sandbox')
+          .order('name'),
+        supabase
+          .from('commerce_categories')
+          .select('code,label_es,sort_order')
+          .eq('active', true)
+          .order('sort_order')
+          .order('label_es'),
+      ])
 
       if (!active) return
-      if (error) {
+      if (productsRequest.error || categoriesRequest.error) {
         setCatalogError('No se pudo cargar el catálogo.')
         setCatalogLoading(false)
         return
       }
 
-      const nextCatalog = ((data || []) as CatalogProduct[])
+      const nextCatalog = ((productsRequest.data || []) as CatalogProduct[])
         .map((item) => ({ ...item, commerce_variants: [...(item.commerce_variants || [])].sort((a, b) => a.sku.localeCompare(b.sku, undefined, { numeric: true })) }))
         .sort((a, b) => a.name.localeCompare(b.name, 'es'))
       setCatalog(nextCatalog)
+      setCatalogCategories((categoriesRequest.data || []) as CatalogCategory[])
       setCatalogLoading(false)
     }
 
     void loadCatalog()
     return () => { active = false }
-  }, [])
+  }, [authorized])
 
   const filteredSales = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -383,24 +426,40 @@ function App() {
     .flatMap((item) => item.commerce_variants.map((variant) => ({ product: item, variant })))
     .sort((a, b) => skuCollator.compare(a.variant.sku, b.variant.sku)), [catalog])
 
-  const catalogCategories = useMemo(() => Array.from(new Set(catalogRows.map(({ product }) => product.category_code || product.category).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es')), [catalogRows])
+  const catalogTableRows = useMemo<CatalogTableRow[]>(() => catalog.flatMap<CatalogTableRow>((item) => (
+    item.commerce_variants.length
+      ? item.commerce_variants.map((variant) => ({ product: item, variant }))
+      : [{ product: item, variant: null }]
+  )), [catalog])
+
+  const catalogCategoryLabels = useMemo(() => new Map(catalogCategories.map((category) => [category.code, category.label_es])), [catalogCategories])
+
+  const registerCatalogRows = useMemo(() => {
+    if (!selectedCategory) return []
+    return catalogRows.filter(({ product, variant }) => (
+      variant.active && (product.category_code || product.category) === selectedCategory
+    ))
+  }, [catalogRows, selectedCategory])
 
   const filteredCatalogRows = useMemo(() => {
     const query = catalogSearch.trim().toLowerCase()
 
-    return catalogRows.filter(({ product, variant }) => {
+    return catalogTableRows.filter(({ product, variant }) => {
       const category = product.category_code || product.category
-      const matchesSearch = !query || `${product.name} ${variant.name} ${variant.sku} ${category}`.toLowerCase().includes(query)
+      const matchesSearch = !query || `${product.name} ${variant?.name || ''} ${variant?.sku || ''} ${category}`.toLowerCase().includes(query)
       const matchesCategory = !catalogCategoryFilter || category === catalogCategoryFilter
 
       return matchesSearch && matchesCategory
     }).sort((a, b) => {
+      if (!a.variant && !b.variant) return a.product.name.localeCompare(b.product.name, 'es')
+      if (!a.variant) return 1
+      if (!b.variant) return -1
       const comparison = catalogSort === 'sku'
         ? skuCollator.compare(a.variant.sku, b.variant.sku)
         : a.variant.base_price_minor - b.variant.base_price_minor || skuCollator.compare(a.variant.sku, b.variant.sku)
       return catalogSortDirection === 'asc' ? comparison : -comparison
     })
-  }, [catalogRows, catalogSearch, catalogCategoryFilter, catalogSort, catalogSortDirection])
+  }, [catalogTableRows, catalogSearch, catalogCategoryFilter, catalogSort, catalogSortDirection])
 
   const toggleCatalogSort = (column: CatalogSort) => {
     if (catalogSort === column) {
@@ -430,6 +489,7 @@ function App() {
   }
 
   const resetSaleForm = () => {
+    setSelectedCategory('')
     setSelectedVariantId('')
     setPrice('')
     setQuantity('1')
@@ -446,6 +506,12 @@ function App() {
     setSaved(false)
   }
 
+  const chooseCategory = (categoryCode: string) => {
+    setSelectedCategory(categoryCode)
+    setSelectedVariantId('')
+    setPrice('')
+  }
+
   const chooseVariant = (variantId: string) => {
     setSelectedVariantId(variantId)
     const row = catalogRows.find(({ variant }) => variant.id === variantId)
@@ -460,6 +526,104 @@ function App() {
     setPhone(customer.phone)
     setBirthday(customer.birthday)
     setAddingCustomer(false)
+  }
+
+  const closeNewProduct = () => {
+    if (newProductBusy) return
+    setShowNewProduct(false)
+    setNewProductName('')
+    setNewProductCategory('')
+    setNewProductSku('')
+    setNewProductPrice('')
+    setNewProductError('')
+  }
+
+  const createProduct = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const name = newProductName.trim()
+    const category = newProductCategory.trim().toLowerCase()
+    const sku = newProductSku.trim().toUpperCase()
+    const parsedPrice = Number(newProductPrice)
+
+    if (!name || !category || !sku || newProductPrice === '' || !Number.isFinite(parsedPrice) || parsedPrice < 0) {
+      setNewProductError('Completá el nombre, la categoría, el SKU y un precio válido.')
+      return
+    }
+
+    const priceMinor = Math.round(parsedPrice * 100)
+
+    setNewProductBusy(true)
+    setNewProductError('')
+    setCatalogNotice('')
+
+    const payload = {
+      name,
+      editorial_slug: productSlug(name),
+      category,
+      category_code: category,
+      description: '',
+      sale_mode: 'standard',
+      peso: 0,
+      published: false,
+    }
+
+    let result = await supabase
+      .from('commerce_products')
+      .insert(payload)
+      .select('id,name,category,category_code,published')
+      .single()
+
+    if (result.error?.code === '23505') {
+      result = await supabase
+        .from('commerce_products')
+        .insert({ ...payload, editorial_slug: `${payload.editorial_slug}-${crypto.randomUUID().slice(0, 8)}` })
+        .select('id,name,category,category_code,published')
+        .single()
+    }
+
+    if (result.error || !result.data) {
+      setNewProductBusy(false)
+      setNewProductError(result.error?.code === '42501'
+        ? 'Tu usuario no tiene permiso para crear productos.'
+        : 'No se pudo crear el producto. Intentá nuevamente.')
+      return
+    }
+
+    const variantResult = await supabase
+      .from('commerce_variants')
+      .insert({
+        product_id: result.data.id,
+        sku,
+        name: 'Venta local',
+        price_minor: priceMinor,
+        base_price_minor: priceMinor,
+        currency: 'UYU',
+        active: true,
+        option_values: {},
+      })
+      .select('id,sku,name,base_price_minor,active,option_values')
+      .single()
+
+    if (variantResult.error || !variantResult.data) {
+      await supabase.from('commerce_products').delete().eq('id', result.data.id)
+      setNewProductBusy(false)
+      setNewProductError(variantResult.error?.code === '23505'
+        ? 'Ese SKU ya existe. Usá otro código.'
+        : 'No se pudo crear el producto. Intentá nuevamente.')
+      return
+    }
+
+    const createdProduct: CatalogProduct = { ...result.data, commerce_variants: [variantResult.data] }
+    setCatalog((current) => [...current, createdProduct].sort((a, b) => a.name.localeCompare(b.name, 'es')))
+    setCatalogSearch(name)
+    setCatalogCategoryFilter('')
+    setCatalogNotice('Producto disponible para registrar ventas del local. En Commerce Admin quedó sin publicar.')
+    setShowNewProduct(false)
+    setNewProductName('')
+    setNewProductCategory('')
+    setNewProductSku('')
+    setNewProductPrice('')
+    setNewProductBusy(false)
   }
 
   const beginCustomer = () => {
@@ -634,7 +798,8 @@ function App() {
                   <section className="form-section">
                     <div className="section-heading"><strong className="step-number">1</strong><h2>¿Qué compró?</h2></div>
                     <div className="form-grid two-columns">
-                      <label className="wide">Producto y variante<select value={selectedVariantId} onChange={(event) => chooseVariant(event.target.value)} required><option value="">Seleccionar del catálogo</option>{catalogRows.filter(({ variant }) => variant.active).map(({ product: item, variant }) => <option key={variant.id} value={variant.id}>{item.name} · {variant.name} · Cód. {variant.sku}</option>)}</select></label>
+                      <label className="wide">Categoría<select value={selectedCategory} onChange={(event) => chooseCategory(event.target.value)} disabled={catalogLoading} required><option value="">{catalogLoading ? 'Cargando categorías…' : 'Seleccionar categoría'}</option>{catalogCategories.map((category) => <option key={category.code} value={category.code}>{category.label_es}</option>)}</select></label>
+                      <label className="wide">Producto y variante<select value={selectedVariantId} onChange={(event) => chooseVariant(event.target.value)} disabled={!selectedCategory || catalogLoading} required><option value="">{selectedCategory ? 'Seleccionar del catálogo' : 'Elegí una categoría primero'}</option>{registerCatalogRows.map(({ product: item, variant }) => <option key={variant.id} value={variant.id}>{item.name} · {variant.name} · Cód. {variant.sku}</option>)}</select></label>
                       <label className="price-field">Precio unitario<input type="number" min="0" value={price} onChange={(event) => setPrice(event.target.value)} required /></label>
                       <label>Cantidad<input type="number" min="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} required /></label>
                       <label>Forma de pago<select value={payment} onChange={(event) => setPayment(event.target.value)}><option>Efectivo</option><option>Débito</option><option>Crédito</option><option>Transferencia</option></select></label>
@@ -770,18 +935,22 @@ function App() {
 
         {activePage === 'products' && (
           <>
-            <header className="topbar"><h1>Productos</h1></header>
+            <header className="topbar">
+              <h1>Productos</h1>
+              <button className="primary-button" type="button" onClick={() => { setCatalogNotice(''); setShowNewProduct(true) }} disabled={!canCreateProducts} title={canCreateProducts ? undefined : 'Solo los administradores del catálogo pueden agregar productos'}><Plus weight="bold" />Agregar producto</button>
+            </header>
             <section className="panel catalog-panel">
               <div className="catalog-toolbar">
                 <div className="catalog-summary">
                   <strong>{catalog.length} productos</strong>
-                  <small>{filteredCatalogRows.length} variantes listadas</small>
+                  <small>{filteredCatalogRows.filter(({ variant }) => Boolean(variant)).length} variantes listadas</small>
                 </div>
                 <div className="catalog-filters">
                   <label className="search-box catalog-search"><MagnifyingGlass /><small className="sr-only">Buscar por SKU o producto</small><input value={catalogSearch} onChange={(event) => setCatalogSearch(event.target.value)} placeholder="Buscar por SKU o producto" /></label>
-                  <label className="catalog-category-filter"><small className="sr-only">Filtrar por categoría</small><select value={catalogCategoryFilter} onChange={(event) => setCatalogCategoryFilter(event.target.value)}><option value="">Todas las categorías</option>{catalogCategories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
+                  <label className="catalog-category-filter"><small className="sr-only">Filtrar por categoría</small><select value={catalogCategoryFilter} onChange={(event) => setCatalogCategoryFilter(event.target.value)}><option value="">Todas las categorías</option>{catalogCategories.map((category) => <option key={category.code} value={category.code}>{category.label_es}</option>)}</select></label>
                 </div>
               </div>
+              {catalogNotice && <div className="catalog-notice" role="status"><Check weight="bold" />{catalogNotice}</div>}
               {catalogLoading && <div className="catalog-status">Cargando catálogo…</div>}
               {catalogError && <div className="catalog-status catalog-error">{catalogError}</div>}
               {!catalogLoading && !catalogError && (
@@ -793,17 +962,19 @@ function App() {
                         <th>Producto</th>
                         <th>Variante</th>
                         <th>Categoría</th>
+                        <th>Estado</th>
                         <th aria-sort={catalogSort === 'price' ? (catalogSortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}><button className="catalog-sort-button catalog-sort-price" type="button" onClick={() => toggleCatalogSort('price')}>Precio base {sortIcon('price')}</button></th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredCatalogRows.map(({ product: item, variant }) => (
-                        <tr key={variant.id}>
-                          <td><strong>{variant.sku}</strong></td>
+                        <tr key={variant?.id || item.id} className={!variant ? 'catalog-draft-row' : undefined}>
+                          <td><strong>{variant?.sku || '—'}</strong></td>
                           <td>{item.name}</td>
-                          <td>{variant.name}</td>
-                          <td>{item.category_code || item.category}</td>
-                          <td><strong>{formatMoney(variant.base_price_minor / 100)}</strong></td>
+                          <td>{variant?.name || 'Sin variantes'}</td>
+                          <td>{catalogCategoryLabels.get(item.category_code || item.category) || item.category_code || item.category}</td>
+                          <td><small className={`catalog-state ${variant?.active ? 'is-active' : 'is-inactive'}`}>{variant?.active ? 'Activo' : 'Inactivo'}</small></td>
+                          <td><strong>{variant ? formatMoney(variant.base_price_minor / 100) : '—'}</strong></td>
                         </tr>
                       ))}
                     </tbody>
@@ -812,6 +983,34 @@ function App() {
                 </div>
               )}
             </section>
+            {showNewProduct && (
+              <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeNewProduct() }}>
+                <section className="product-modal" role="dialog" aria-modal="true" aria-labelledby="new-product-title">
+                  <div className="product-modal-header">
+                    <div>
+                      <h2 id="new-product-title">Agregar producto</h2>
+                      <div>Se guardará también en Commerce Admin.</div>
+                    </div>
+                    <button className="modal-close" type="button" onClick={closeNewProduct} aria-label="Cerrar">×</button>
+                  </div>
+                  <form onSubmit={(event) => void createProduct(event)}>
+                    <div className="product-modal-fields">
+                      <label>Nombre del producto<input autoFocus maxLength={160} value={newProductName} onChange={(event) => { setNewProductName(event.target.value); setNewProductError('') }} placeholder="Ej.: Mate imperial clásico" required /></label>
+                      <label>Categoría<select value={newProductCategory} onChange={(event) => { setNewProductCategory(event.target.value); setNewProductError('') }} required><option value="">Elegí una categoría</option>{catalogCategories.map((category) => <option key={category.code} value={category.code}>{category.label_es}</option>)}</select></label>
+                      <div className="product-field-row">
+                        <label>SKU<input maxLength={80} value={newProductSku} onChange={(event) => { setNewProductSku(event.target.value); setNewProductError('') }} placeholder="Ej.: 205" required /></label>
+                        <label>Precio base (UYU)<input type="number" min="0" step="0.01" value={newProductPrice} onChange={(event) => { setNewProductPrice(event.target.value); setNewProductError('') }} placeholder="0" required /></label>
+                      </div>
+                    </div>
+                    {newProductError && <div className="product-modal-error" role="alert">{newProductError}</div>}
+                    <div className="product-modal-actions">
+                      <button className="cancel-button" type="button" onClick={closeNewProduct} disabled={newProductBusy}>Cancelar</button>
+                      <button className="primary-button" type="submit" disabled={newProductBusy}>{newProductBusy ? 'Creando…' : 'Crear producto'}</button>
+                    </div>
+                  </form>
+                </section>
+              </div>
+            )}
           </>
         )}
       </main>

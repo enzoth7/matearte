@@ -1,6 +1,11 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+
+vi.mock("./lib/retailProduction", async (importOriginal) => {
+  const original = await importOriginal<typeof import("./lib/retailProduction")>();
+  return { ...original, fetchRetailProduction: vi.fn().mockResolvedValue([]) };
+});
 
 describe("App routing and auth integration", () => {
   beforeEach(() => {
@@ -39,15 +44,10 @@ describe("App routing and auth integration", () => {
       target: { value: "retail" },
     });
     expect(window.location.pathname).toBe("/minorista");
-    expect(screen.getByRole("heading", { name: "Ventas minoristas" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Abrir ventas web/ })).toHaveAttribute(
-      "href",
-      "https://matearte-commerce-admin.vercel.app",
-    );
-    expect(screen.getByRole("link", { name: /Abrir ventas del local/ })).toHaveAttribute(
-      "href",
-      "https://matearte-local.vercel.app",
-    );
+    expect(screen.getByRole("heading", { name: "Producción minorista" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Producción" })).toHaveAttribute("href", "/minorista");
+    expect(screen.queryByText("Abrir ventas web")).not.toBeInTheDocument();
+    expect(screen.queryByText("Abrir ventas del local")).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByRole("combobox", { name: "Panel de trabajo" }), {
       target: { value: "wholesale" },
