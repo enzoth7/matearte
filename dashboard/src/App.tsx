@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { AppShell } from "./components/AppShell";
 import { useAuth } from "./store/useAuth";
 import { useDashboard } from "./store/useDashboard";
-import type { ViewId } from "./types";
+import type { PanelMode, ViewId } from "./types";
 import { CustomersView } from "./views/CustomersView";
 import { HistoryView } from "./views/HistoryView";
 import { LoginView } from "./views/LoginView";
@@ -10,6 +10,7 @@ import { NewOrderView } from "./views/NewOrderView";
 import { OverviewView } from "./views/OverviewView";
 import { ProductionView } from "./views/ProductionView";
 import { ProductsView } from "./views/ProductsView";
+import { RetailPanelView } from "./views/RetailPanelView";
 
 const validViews: ViewId[] = [
   "resumen",
@@ -28,13 +29,20 @@ const viewFromPathname = (): ViewId => {
   return "nuevo";
 };
 
+const panelFromPathname = (): PanelMode =>
+  typeof window !== "undefined" && window.location.pathname === "/minorista"
+    ? "retail"
+    : "wholesale";
+
 export default function App() {
   const auth = useAuth();
   const [activeView, setActiveView] = useState<ViewId>(viewFromPathname);
+  const [panelMode, setPanelMode] = useState<PanelMode>(panelFromPathname);
   const dashboard = useDashboard();
 
   useEffect(() => {
     const handlePopState = () => {
+      setPanelMode(panelFromPathname());
       setActiveView(viewFromPathname());
       void dashboard.refresh();
     };
@@ -59,6 +67,14 @@ export default function App() {
     window.history.pushState(null, "", targetPath);
     setActiveView(view);
     void dashboard.refresh();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const changePanel = (panel: PanelMode) => {
+    if (panel === panelMode) return;
+    const targetPath = panel === "retail" ? "/minorista" : `/${activeView}`;
+    window.history.pushState(null, "", targetPath);
+    setPanelMode(panel);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -112,12 +128,16 @@ export default function App() {
   return (
     <AppShell
       activeView={activeView}
+      panelMode={panelMode}
+      onPanelChange={changePanel}
       onNavigate={navigate}
-      error={dashboard.error}
+      error={panelMode === "wholesale" ? dashboard.error : undefined}
       currentUser={auth.user?.username}
       onLogout={auth.logout}
     >
-      {dashboard.loading ? (
+      {panelMode === "retail" ? (
+        <RetailPanelView />
+      ) : dashboard.loading ? (
         <div className="loading-screen">Cargando datos…</div>
       ) : (
         content

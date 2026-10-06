@@ -1,5 +1,6 @@
 export type ProductionStatus = "Pendiente" | "En producción";
 export type OrderType = "normal" | "no_cost";
+export type PanelMode = "wholesale" | "retail";
 
 export type ViewId = "resumen" | "nuevo" | "clientes" | "produccion" | "historico" | "productos";
 

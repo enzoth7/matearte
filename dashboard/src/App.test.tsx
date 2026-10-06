@@ -32,6 +32,27 @@ describe("App routing and auth integration", () => {
 
     expect(screen.getByText("user")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cerrar sesión" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Panel de trabajo" })).toHaveValue("wholesale");
+
+    // Cambiar al panel minorista y acceder a sus dos canales
+    fireEvent.change(screen.getByRole("combobox", { name: "Panel de trabajo" }), {
+      target: { value: "retail" },
+    });
+    expect(window.location.pathname).toBe("/minorista");
+    expect(screen.getByRole("heading", { name: "Ventas minoristas" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Abrir ventas web/ })).toHaveAttribute(
+      "href",
+      "https://matearte-commerce-admin.vercel.app",
+    );
+    expect(screen.getByRole("link", { name: /Abrir ventas del local/ })).toHaveAttribute(
+      "href",
+      "https://matearte-local.vercel.app",
+    );
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Panel de trabajo" }), {
+      target: { value: "wholesale" },
+    });
+    expect(window.location.pathname).toBe("/nuevo");
 
     // Navegar a Clientes
     fireEvent.click(screen.getByRole("button", { name: "Clientes" }));

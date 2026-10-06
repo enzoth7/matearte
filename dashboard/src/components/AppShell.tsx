@@ -1,15 +1,19 @@
 import type { ElementType, ReactNode } from "react";
 import {
   ArchiveIcon,
+  CaretDownIcon,
   ChartDonutIcon,
   CubeIcon,
   ListIcon,
+  MapPinIcon,
   PlusCircleIcon,
+  ShoppingBagOpenIcon,
   SignOutIcon,
   UserIcon,
   UsersThreeIcon,
 } from "@phosphor-icons/react";
-import type { ViewId } from "../types";
+import { commerceAdminUrl, localSalesUrl } from "../retailApps";
+import type { PanelMode, ViewId } from "../types";
 
 const navigation: Array<{ id: ViewId; label: string; icon: ElementType }> = [
   { id: "nuevo", label: "NUEVO PEDIDO", icon: PlusCircleIcon },
@@ -22,6 +26,8 @@ const navigation: Array<{ id: ViewId; label: string; icon: ElementType }> = [
 
 interface AppShellProps {
   activeView: ViewId;
+  panelMode: PanelMode;
+  onPanelChange: (panel: PanelMode) => void;
   onNavigate: (view: ViewId) => void;
   error?: string;
   currentUser?: string;
@@ -31,12 +37,16 @@ interface AppShellProps {
 
 export function AppShell({
   activeView,
+  panelMode,
+  onPanelChange,
   onNavigate,
   error,
   currentUser,
   onLogout,
   children,
 }: AppShellProps) {
+  const PanelIcon = panelMode === "wholesale" ? CubeIcon : ShoppingBagOpenIcon;
+
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
@@ -50,21 +60,49 @@ export function AppShell({
           <small>Operaciones</small>
         </header>
 
+        <label className="panel-switcher">
+          <span className="panel-switcher-label">Panel</span>
+          <span className="panel-switcher-control" aria-hidden="true">
+            <PanelIcon size={19} weight="duotone" />
+            <strong>{panelMode === "wholesale" ? "Mayorista" : "Minorista"}</strong>
+            <CaretDownIcon size={15} weight="bold" />
+          </span>
+          <select
+            aria-label="Panel de trabajo"
+            value={panelMode}
+            onChange={(event) => onPanelChange(event.target.value as PanelMode)}
+          >
+            <option value="wholesale">Mayorista</option>
+            <option value="retail">Minorista</option>
+          </select>
+        </label>
+
         <nav className="side-menu" aria-label="Navegación principal">
-          {navigation.map(({ id, label, icon: Icon }) => (
-            <button
-              type="button"
-              key={id}
-              className={activeView === id ? "side-nav-item is-active" : "side-nav-item"}
-              aria-current={activeView === id ? "page" : undefined}
-              aria-label={label}
-              title={label}
-              onClick={() => onNavigate(id)}
-            >
-              <Icon size={21} weight={activeView === id ? "fill" : "regular"} aria-hidden="true" />
-              <strong>{label}</strong>
-            </button>
-          ))}
+          {panelMode === "wholesale" ? navigation.map(({ id, label, icon: Icon }) => (
+              <button
+                type="button"
+                key={id}
+                className={activeView === id ? "side-nav-item is-active" : "side-nav-item"}
+                aria-current={activeView === id ? "page" : undefined}
+                aria-label={label}
+                title={label}
+                onClick={() => onNavigate(id)}
+              >
+                <Icon size={21} weight={activeView === id ? "fill" : "regular"} aria-hidden="true" />
+                <strong>{label}</strong>
+              </button>
+            )) : (
+              <>
+                <a className="side-nav-item retail-nav-item" href={commerceAdminUrl} title="Ventas web">
+                  <ShoppingBagOpenIcon size={21} aria-hidden="true" />
+                  <strong>Ventas web</strong>
+                </a>
+                <a className="side-nav-item retail-nav-item" href={localSalesUrl} title="Ventas del local">
+                  <MapPinIcon size={21} aria-hidden="true" />
+                  <strong>Ventas del local</strong>
+                </a>
+              </>
+            )}
         </nav>
 
         <footer className="side-footer">
@@ -89,7 +127,7 @@ export function AppShell({
         </footer>
       </aside>
 
-      <main id="main-content" className={`main-content side-content side-content-${activeView}`}>
+      <main id="main-content" className={`main-content side-content side-content-${panelMode === "retail" ? "minorista" : activeView}`}>
         {error && (
           <p className="global-error" role="alert">
             {error}
