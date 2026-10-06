@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import {
   ArrowRight,
@@ -14,7 +14,6 @@ import {
   Plus,
   Receipt,
   SignOut,
-  UserCircle,
   Users,
 } from '@phosphor-icons/react'
 import { supabase } from './supabase'
@@ -22,11 +21,13 @@ import { supabase } from './supabase'
 type Page = 'register' | 'sales' | 'clients' | 'products'
 type CatalogSort = 'sku' | 'price'
 type SortDirection = 'asc' | 'desc'
+type SalesPeriod = 'today' | 'week' | 'month' | 'quarter'
 
 type Sale = {
   id: string
   time: string
   soldOn: string
+  createdAt: string
   customer: string
   initials: string
   product: string
@@ -77,6 +78,28 @@ type Customer = {
 }
 
 const initialSales: Sale[] = []
+const SalesTrendChart = lazy(() => import('./SalesTrendChart'))
+
+const salesPeriodOptions: Array<{ value: SalesPeriod; label: string }> = [
+  { value: 'today', label: 'Hoy' },
+  { value: 'week', label: 'Última semana' },
+  { value: 'month', label: 'Último mes' },
+  { value: 'quarter', label: 'Últimos 3 meses' },
+]
+
+const toLocalIsoDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
+const startOfSalesPeriod = (period: SalesPeriod, today: Date) => {
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  if (period === 'week') start.setDate(start.getDate() - 6)
+  if (period === 'month' || period === 'quarter') {
+    const monthsBack = period === 'month' ? 1 : 3
+    const targetMonth = new Date(today.getFullYear(), today.getMonth() - monthsBack, 1)
+    const lastDayOfTargetMonth = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0).getDate()
+    start.setFullYear(targetMonth.getFullYear(), targetMonth.getMonth(), Math.min(today.getDate(), lastDayOfTargetMonth))
+  }
+  return toLocalIsoDate(start)
+}
 
 const formatMoney = (value: number) =>
   new Intl.NumberFormat('es-UY', { style: 'currency', currency: 'UYU', maximumFractionDigits: 0 }).format(value)
@@ -99,6 +122,7 @@ const mapSale = (row: StoredSale): Sale => ({
   id: `#${String(row.sale_number).padStart(5, '0')}`,
   time: new Date(row.created_at).toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' }),
   soldOn: row.sold_on,
+  createdAt: row.created_at,
   customer: row.customer_name,
   initials: initials(row.customer_name),
   product: row.local_sale_items.map((item) => `${item.product_name} · ${item.variant_name}${item.quantity > 1 ? ` ×${item.quantity}` : ''}`).join(', '),
@@ -155,6 +179,7 @@ function App() {
   const [sales, setSales] = useState(initialSales)
   const [salesLoading, setSalesLoading] = useState(false)
   const [salesError, setSalesError] = useState('')
+  const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>('today')
   const [catalog, setCatalog] = useState<CatalogProduct[]>([])
   const [catalogLoading, setCatalogLoading] = useState(true)
   const [catalogError, setCatalogError] = useState('')
@@ -252,18 +277,33 @@ function App() {
     const loadSales = async () => {
       setSalesLoading(true)
       setSalesError('')
-      const { data, error } = await supabase
-        .from('local_sales')
-        .select('sale_number,customer_name,sold_on,payment_method,total_minor,created_at,local_sale_items(product_name,variant_name,quantity)')
-        .order('created_at', { ascending: false })
-        .limit(500)
+      const loadedSales: StoredSale[] = []
+      const oldestRequiredDate = startOfSalesPeriod('quarter', today)
+      let offset = 0
+      let loadError = null
+      while (true) {
+        const { data, error } = await supabase
+          .from('local_sales')
+          .select('sale_number,customer_name,sold_on,payment_method,total_minor,created_at,local_sale_items(product_name,variant_name,quantity)')
+          .gte('sold_on', oldestRequiredDate)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + 999)
+        if (error) {
+          loadError = error
+          break
+        }
+        const page = (data || []) as StoredSale[]
+        loadedSales.push(...page)
+        if (page.length < 1000) break
+        offset += 1000
+      }
       if (!active) return
       setSalesLoading(false)
-      if (error) {
+      if (loadError) {
         setSalesError('No se pudo cargar el historial de ventas.')
         return
       }
-      setSales(((data || []) as StoredSale[]).map(mapSale))
+      setSales(loadedSales.map(mapSale))
     }
     void loadSales()
     return () => { active = false }
@@ -305,8 +345,39 @@ function App() {
     return sales.filter((sale) => `${sale.customer} ${sale.product} ${sale.id}`.toLowerCase().includes(query))
   }, [sales, search])
 
-  const todaysSales = useMemo(() => sales.filter((sale) => sale.soldOn === todayIso), [sales, todayIso])
-  const dailyTotal = useMemo(() => todaysSales.reduce((total, sale) => total + sale.amount, 0), [todaysSales])
+  const selectedPeriodLabel = salesPeriodOptions.find((option) => option.value === salesPeriod)?.label || 'Hoy'
+  const periodStartIso = startOfSalesPeriod(salesPeriod, today)
+  const periodSales = useMemo(() => sales.filter((sale) => sale.soldOn >= periodStartIso && sale.soldOn <= todayIso), [sales, periodStartIso, todayIso])
+  const periodTotal = useMemo(() => periodSales.reduce((total, sale) => total + sale.amount, 0), [periodSales])
+
+  const salesTrend = useMemo(() => {
+    if (salesPeriod === 'today') {
+      const totalsByHour = new Map<number, number>()
+      periodSales.forEach((sale) => {
+        const hour = new Date(sale.createdAt).getHours()
+        totalsByHour.set(hour, (totalsByHour.get(hour) || 0) + sale.amount)
+      })
+      return Array.from({ length: today.getHours() + 1 }, (_, hour) => ({
+        label: `${String(hour).padStart(2, '0')}:00`,
+        amount: totalsByHour.get(hour) || 0,
+      }))
+    }
+
+    const totalsByDate = new Map<string, number>()
+    periodSales.forEach((sale) => totalsByDate.set(sale.soldOn, (totalsByDate.get(sale.soldOn) || 0) + sale.amount))
+    const points: Array<{ label: string; amount: number }> = []
+    const cursor = new Date(`${periodStartIso}T12:00:00`)
+    const end = new Date(`${todayIso}T12:00:00`)
+    while (cursor <= end) {
+      const isoDate = toLocalIsoDate(cursor)
+      points.push({
+        label: new Intl.DateTimeFormat('es-UY', { day: '2-digit', month: '2-digit' }).format(cursor),
+        amount: totalsByDate.get(isoDate) || 0,
+      })
+      cursor.setDate(cursor.getDate() + 1)
+    }
+    return points
+  }, [periodSales, periodStartIso, salesPeriod, today, todayIso])
 
   const catalogRows = useMemo(() => catalog
     .flatMap((item) => item.commerce_variants.map((variant) => ({ product: item, variant })))
@@ -471,6 +542,7 @@ function App() {
       id: `#${String(savedSale.sale_number).padStart(5, '0')}`,
       time: createdAt.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' }),
       soldOn: saleDate,
+      createdAt: savedSale.created_at,
       customer: name,
       initials: initials(name),
       product: productName,
@@ -617,11 +689,24 @@ function App() {
               </div>
             </header>
 
-            <section className="metrics" aria-label="Resumen de ventas de hoy">
-              <article className="metric-card metric-featured"><div className="metric-icon"><ChartLineUp weight="bold" /></div><div><small className="metric-label">Total vendido hoy</small><strong>{formatMoney(dailyTotal)}</strong></div></article>
-              <article className="metric-card"><div className="metric-icon"><Receipt /></div><div><small className="metric-label">Ventas de hoy</small><strong>{todaysSales.length}</strong></div></article>
-              <article className="metric-card"><div className="metric-icon"><UserCircle /></div><div><small className="metric-label">Clientes registrados</small><strong>{customers.length}</strong></div></article>
-              <article className="metric-card"><div className="metric-icon"><Bag /></div><div><small className="metric-label">Ticket promedio hoy</small><strong>{formatMoney(todaysSales.length ? dailyTotal / todaysSales.length : 0)}</strong></div></article>
+            <section className="sales-period-toolbar" aria-label="Período del resumen">
+              <div><strong>Resumen de ventas</strong><small>{selectedPeriodLabel}</small></div>
+              <label>Período<select value={salesPeriod} onChange={(event) => setSalesPeriod(event.target.value as SalesPeriod)}>{salesPeriodOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+            </section>
+
+            <section className="metrics" aria-label={`Resumen de ventas: ${selectedPeriodLabel}`}>
+              <article className="metric-card metric-featured"><div className="metric-icon"><ChartLineUp weight="bold" /></div><div><small className="metric-label">Total vendido</small><strong>{formatMoney(periodTotal)}</strong></div></article>
+              <article className="metric-card"><div className="metric-icon"><Receipt /></div><div><small className="metric-label">Ventas</small><strong>{periodSales.length}</strong></div></article>
+              <article className="metric-card"><div className="metric-icon"><Bag /></div><div><small className="metric-label">Ticket promedio</small><strong>{formatMoney(periodSales.length ? periodTotal / periodSales.length : 0)}</strong></div></article>
+            </section>
+
+            <section className="panel sales-trend-panel" aria-labelledby="sales-trend-title">
+              <div className="sales-trend-heading"><div><h2 id="sales-trend-title">Evolución de ventas</h2><small>Total vendido · {selectedPeriodLabel}</small></div></div>
+              {periodSales.length === 0 ? <div className="chart-empty">No hay ventas registradas en este período.</div> : (
+                <Suspense fallback={<div className="chart-empty" aria-live="polite">Preparando gráfico…</div>}>
+                  <SalesTrendChart data={salesTrend} period={salesPeriod} periodLabel={selectedPeriodLabel} />
+                </Suspense>
+              )}
             </section>
 
             <section className="content-grid">
