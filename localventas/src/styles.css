@@ -96,7 +96,7 @@ main { min-height: 100vh; margin-left: 244px; padding: 34px clamp(28px, 4vw, 62p
 .metric-featured .metric-label { color: #b9cbbf; }
 .metric-featured strong { color: white; }
 
-.content-grid { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 18px; align-items: start; margin-top: 18px; }
+.content-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; margin-top: 18px; }
 .panel { min-width: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--paper); box-shadow: var(--shadow); }
 .panel-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 22px 24px 16px; }
 .panel h2 { color: var(--green-950); font-size: 1.05rem; letter-spacing: -.02em; }
@@ -130,13 +130,6 @@ main { min-height: 100vh; margin-left: 244px; padding: 34px clamp(28px, 4vw, 62p
 .link-button svg { width: 15px; height: 15px; }
 .empty-search { padding: 36px; color: var(--muted); text-align: center; font-size: .82rem; }
 
-.right-column { display: grid; gap: 18px; }
-.birthday-panel { padding: 20px; }
-.panel-title-row { display: flex; align-items: flex-start; gap: 11px; }
-.small-icon { width: 36px; height: 36px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 9px; background: #f4e9df; color: var(--terracotta-dark); }
-.small-icon svg { width: 19px; height: 19px; }
-.empty-birthdays { margin: 17px 0 5px; border-block: 1px solid var(--border-soft); padding: 22px 0; color: var(--muted); font-size: .74rem; }
-.birthday-panel > .link-button { margin-top: 2px; }
 .register-topbar { min-height: 46px; }
 .register-form { margin-top: 28px; overflow: hidden; }
 .register-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -236,7 +229,6 @@ main { min-height: 100vh; margin-left: 244px; padding: 34px clamp(28px, 4vw, 62p
 @media (max-width: 1180px) {
   .metrics { grid-template-columns: repeat(2, 1fr); }
   .content-grid { grid-template-columns: 1fr; }
-  .right-column { grid-template-columns: repeat(2, 1fr); }
   .register-form-grid { grid-template-columns: 1fr; }
   .form-section + .form-section { border-top: 1px solid var(--border-soft); border-left: 0; }
 }
@@ -273,7 +265,6 @@ main { min-height: 100vh; margin-left: 244px; padding: 34px clamp(28px, 4vw, 62p
   .catalog-search, .catalog-category-filter select { width: 100%; min-width: 0; }
   .sales-table th:nth-child(3), .sales-table td:nth-child(3), .sales-table th:nth-child(4), .sales-table td:nth-child(4) { display: none; }
   .sales-table th:first-child, .sales-table td:first-child { padding-left: 17px; }
-  .right-column { grid-template-columns: 1fr; }
   .two-columns { grid-template-columns: 1fr; }
   .wide { grid-column: auto; }
   .toggle-row, .client-fields, .customer-search-area, .customer-form-error, .purchase-date-field { margin-left: 0; }

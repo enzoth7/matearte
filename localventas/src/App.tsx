@@ -9,7 +9,6 @@ import {
   CaretUp,
   ChartLineUp,
   Check,
-  Gift,
   MagnifyingGlass,
   Package,
   Plus,
@@ -619,10 +618,10 @@ function App() {
             </header>
 
             <section className="metrics" aria-label="Resumen de ventas de hoy">
-              <article className="metric-card metric-featured"><div className="metric-icon"><ChartLineUp weight="bold" /></div><div><small className="metric-label">Total vendido</small><strong>{formatMoney(dailyTotal)}</strong></div></article>
-              <article className="metric-card"><div className="metric-icon"><Receipt /></div><div><small className="metric-label">Ventas</small><strong>{todaysSales.length}</strong></div></article>
+              <article className="metric-card metric-featured"><div className="metric-icon"><ChartLineUp weight="bold" /></div><div><small className="metric-label">Total vendido hoy</small><strong>{formatMoney(dailyTotal)}</strong></div></article>
+              <article className="metric-card"><div className="metric-icon"><Receipt /></div><div><small className="metric-label">Ventas de hoy</small><strong>{todaysSales.length}</strong></div></article>
               <article className="metric-card"><div className="metric-icon"><UserCircle /></div><div><small className="metric-label">Clientes registrados</small><strong>{customers.length}</strong></div></article>
-              <article className="metric-card"><div className="metric-icon"><Bag /></div><div><small className="metric-label">Ticket promedio</small><strong>{formatMoney(todaysSales.length ? dailyTotal / todaysSales.length : 0)}</strong></div></article>
+              <article className="metric-card"><div className="metric-icon"><Bag /></div><div><small className="metric-label">Ticket promedio hoy</small><strong>{formatMoney(todaysSales.length ? dailyTotal / todaysSales.length : 0)}</strong></div></article>
             </section>
 
             <section className="content-grid">
@@ -653,13 +652,6 @@ function App() {
                 </div>
               </article>
 
-              <aside className="right-column">
-                <article className="panel birthday-panel">
-                  <div className="panel-title-row"><div className="small-icon"><Gift /></div><h2>Próximos cumpleaños</h2></div>
-                  <div className="empty-birthdays">No hay cumpleaños registrados.</div>
-                  <button className="link-button" type="button" onClick={() => changePage('clients')}>Ver clientes <ArrowRight /></button>
-                </article>
-              </aside>
             </section>
           </>
         )}
