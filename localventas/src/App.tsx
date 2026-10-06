@@ -27,11 +27,26 @@ type SortDirection = 'asc' | 'desc'
 type Sale = {
   id: string
   time: string
+  soldOn: string
   customer: string
   initials: string
   product: string
   amount: number
   payment: string
+}
+
+type StoredSale = {
+  sale_number: number
+  customer_name: string
+  sold_on: string
+  payment_method: string
+  total_minor: number
+  created_at: string
+  local_sale_items: Array<{
+    product_name: string
+    variant_name: string
+    quantity: number
+  }>
 }
 
 type CatalogVariant = {
@@ -81,6 +96,17 @@ const mapCustomer = (row: { id: string; full_name: string; email: string | null;
   lastPurchaseDate: row.last_purchase_date || '',
 })
 
+const mapSale = (row: StoredSale): Sale => ({
+  id: `#${String(row.sale_number).padStart(5, '0')}`,
+  time: new Date(row.created_at).toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' }),
+  soldOn: row.sold_on,
+  customer: row.customer_name,
+  initials: initials(row.customer_name),
+  product: row.local_sale_items.map((item) => `${item.product_name} · ${item.variant_name}${item.quantity > 1 ? ` ×${item.quantity}` : ''}`).join(', '),
+  amount: row.total_minor / 100,
+  payment: row.payment_method,
+})
+
 function StaffLogin({ onSession }: { onSession: (session: Session) => void }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -128,7 +154,8 @@ function App() {
   const [authorizationError, setAuthorizationError] = useState('')
   const [activePage, setActivePage] = useState<Page>('register')
   const [sales, setSales] = useState(initialSales)
-  const [dailyTotal, setDailyTotal] = useState(0)
+  const [salesLoading, setSalesLoading] = useState(false)
+  const [salesError, setSalesError] = useState('')
   const [catalog, setCatalog] = useState<CatalogProduct[]>([])
   const [catalogLoading, setCatalogLoading] = useState(true)
   const [catalogError, setCatalogError] = useState('')
@@ -221,6 +248,29 @@ function App() {
   }, [authorized])
 
   useEffect(() => {
+    if (!authorized) return
+    let active = true
+    const loadSales = async () => {
+      setSalesLoading(true)
+      setSalesError('')
+      const { data, error } = await supabase
+        .from('local_sales')
+        .select('sale_number,customer_name,sold_on,payment_method,total_minor,created_at,local_sale_items(product_name,variant_name,quantity)')
+        .order('created_at', { ascending: false })
+        .limit(500)
+      if (!active) return
+      setSalesLoading(false)
+      if (error) {
+        setSalesError('No se pudo cargar el historial de ventas.')
+        return
+      }
+      setSales(((data || []) as StoredSale[]).map(mapSale))
+    }
+    void loadSales()
+    return () => { active = false }
+  }, [authorized])
+
+  useEffect(() => {
     let active = true
 
     const loadCatalog = async () => {
@@ -255,6 +305,9 @@ function App() {
     if (!query) return sales
     return sales.filter((sale) => `${sale.customer} ${sale.product} ${sale.id}`.toLowerCase().includes(query))
   }, [sales, search])
+
+  const todaysSales = useMemo(() => sales.filter((sale) => sale.soldOn === todayIso), [sales, todayIso])
+  const dailyTotal = useMemo(() => todaysSales.reduce((total, sale) => total + sale.amount, 0), [todaysSales])
 
   const catalogRows = useMemo(() => catalog
     .flatMap((item) => item.commerce_variants.map((variant) => ({ product: item, variant })))
@@ -363,8 +416,8 @@ function App() {
           email: email.trim() || null,
           phone: phone.trim() || null,
           birth_date: birthday || null,
-          first_purchase_date: purchaseDate || todayIso,
-          last_purchase_date: purchaseDate || todayIso,
+          first_purchase_date: null,
+          last_purchase_date: null,
         })
         .select('id,full_name,email,phone,birth_date,first_purchase_date,last_purchase_date')
         .single()
@@ -383,38 +436,42 @@ function App() {
       setSelectedCustomerId(savedCustomer.id)
       setCustomerSearch(savedCustomer.name)
       setAddingCustomer(false)
-    } else if (customerForSale) {
-      const saleDate = purchaseDate || todayIso
-      const customerChanges: { first_purchase_date?: string; last_purchase_date?: string } = {}
-      if (!customerForSale.firstPurchaseDate || saleDate < customerForSale.firstPurchaseDate) customerChanges.first_purchase_date = saleDate
-      if (!customerForSale.lastPurchaseDate || saleDate > customerForSale.lastPurchaseDate) customerChanges.last_purchase_date = saleDate
-
-      if (Object.keys(customerChanges).length) {
-        const { error } = await supabase.from('local_sales_customers').update(customerChanges).eq('id', customerForSale.id)
-        if (error) {
-          setCustomerError('No se pudo actualizar la fecha de compra del cliente. Intentá de nuevo.')
-          setSaving(false)
-          return
-        }
-        setCustomers((current) => current.map((customer) => customer.id === customerForSale?.id
-          ? {
-              ...customer,
-              firstPurchaseDate: customerChanges.first_purchase_date || customer.firstPurchaseDate,
-              lastPurchaseDate: customerChanges.last_purchase_date || customer.lastPurchaseDate,
-            }
-          : customer))
-      }
     }
 
     const parsedPrice = Number(price) || 0
     const parsedQuantity = Number(quantity) || 1
-    const amount = parsedPrice * parsedQuantity
-    const now = new Date()
+    const unitPriceMinor = Math.round(parsedPrice * 100)
+    const amount = unitPriceMinor * parsedQuantity / 100
+    const saleDate = purchaseDate || todayIso
+    if (!selectedCatalogRow) {
+      setCustomerError('Seleccioná un producto del catálogo.')
+      setSaving(false)
+      return
+    }
+
+    const { data: saleResult, error: saleError } = await supabase.rpc('create_local_sale', {
+      p_customer_id: customerForSale?.id || null,
+      p_sold_on: saleDate,
+      p_payment_method: payment,
+      p_variant_id: selectedCatalogRow.variant.id,
+      p_quantity: parsedQuantity,
+      p_unit_price_minor: unitPriceMinor,
+    })
+
+    if (saleError) {
+      setCustomerError('No se pudo guardar la venta. Revisá los datos e intentá de nuevo.')
+      setSaving(false)
+      return
+    }
+
+    const savedSale = saleResult as { sale_number: number; created_at: string }
+    const createdAt = new Date(savedSale.created_at)
     const name = customerForSale?.name || 'Cliente sin registrar'
     const productName = selectedCatalogRow ? `${selectedCatalogRow.product.name} · ${selectedCatalogRow.variant.name}` : 'Producto sin seleccionar'
     const newSale: Sale = {
-      id: `#${String(sales.length + 1).padStart(5, '0')}`,
-      time: now.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' }),
+      id: `#${String(savedSale.sale_number).padStart(5, '0')}`,
+      time: createdAt.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' }),
+      soldOn: saleDate,
       customer: name,
       initials: initials(name),
       product: productName,
@@ -422,7 +479,15 @@ function App() {
       payment,
     }
     setSales((current) => [newSale, ...current])
-    setDailyTotal((current) => current + amount)
+    if (customerForSale) {
+      setCustomers((current) => current.map((customer) => customer.id === customerForSale?.id
+        ? {
+            ...customer,
+            firstPurchaseDate: !customer.firstPurchaseDate || saleDate < customer.firstPurchaseDate ? saleDate : customer.firstPurchaseDate,
+            lastPurchaseDate: !customer.lastPurchaseDate || saleDate > customer.lastPurchaseDate ? saleDate : customer.lastPurchaseDate,
+          }
+        : customer))
+    }
     setSaving(false)
     setSaved(true)
   }
@@ -555,9 +620,9 @@ function App() {
 
             <section className="metrics" aria-label="Resumen de ventas de hoy">
               <article className="metric-card metric-featured"><div className="metric-icon"><ChartLineUp weight="bold" /></div><div><small className="metric-label">Total vendido</small><strong>{formatMoney(dailyTotal)}</strong></div></article>
-              <article className="metric-card"><div className="metric-icon"><Receipt /></div><div><small className="metric-label">Ventas</small><strong>{sales.length}</strong></div></article>
+              <article className="metric-card"><div className="metric-icon"><Receipt /></div><div><small className="metric-label">Ventas</small><strong>{todaysSales.length}</strong></div></article>
               <article className="metric-card"><div className="metric-icon"><UserCircle /></div><div><small className="metric-label">Clientes registrados</small><strong>{customers.length}</strong></div></article>
-              <article className="metric-card"><div className="metric-icon"><Bag /></div><div><small className="metric-label">Ticket promedio</small><strong>{formatMoney(sales.length ? dailyTotal / sales.length : 0)}</strong></div></article>
+              <article className="metric-card"><div className="metric-icon"><Bag /></div><div><small className="metric-label">Ticket promedio</small><strong>{formatMoney(todaysSales.length ? dailyTotal / todaysSales.length : 0)}</strong></div></article>
             </section>
 
             <section className="content-grid">
@@ -567,6 +632,8 @@ function App() {
                   <label className="search-box"><MagnifyingGlass /><small className="sr-only">Buscar venta</small><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar cliente o producto" /></label>
                 </div>
                 <div className="sales-table-wrap">
+                  {salesLoading && <div className="empty-search" aria-live="polite">Cargando ventas…</div>}
+                  {salesError && <div className="empty-search catalog-error" role="alert">{salesError}</div>}
                   <table className="sales-table">
                     <thead><tr><th>Hora</th><th>Cliente</th><th>Producto</th><th>Pago</th><th>Total</th><th><small className="sr-only">Abrir</small></th></tr></thead>
                     <tbody>
@@ -582,7 +649,7 @@ function App() {
                       ))}
                     </tbody>
                   </table>
-                  {filteredSales.length === 0 && <div className="empty-search">Todavía no hay ventas registradas.</div>}
+                  {!salesLoading && !salesError && filteredSales.length === 0 && <div className="empty-search">Todavía no hay ventas registradas.</div>}
                 </div>
               </article>
 

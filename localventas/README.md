@@ -11,9 +11,9 @@ npm run dev
 
 ## Datos
 
-Los clientes se guardan en `public.local_sales_customers` de Supabase. El acceso requiere una cuenta activa en `admin_users` o `commerce_admin_users`.
+Los clientes se guardan en `public.local_sales_customers`. Las ventas se guardan en `public.local_sales` y sus productos en `public.local_sale_items`.
 
-Las ventas y los totales todavía se mantienen únicamente durante la sesión del navegador; la persistencia del historial de ventas corresponde a la siguiente etapa.
+El registro se realiza de forma atómica mediante `public.create_local_sale`, y el acceso requiere una cuenta activa en `admin_users` o `commerce_admin_users`.
 
 ## Vercel
 
