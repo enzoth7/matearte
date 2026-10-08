@@ -238,6 +238,15 @@ function App() {
   const [newProductPrice, setNewProductPrice] = useState('')
   const [newProductBusy, setNewProductBusy] = useState(false)
   const [newProductError, setNewProductError] = useState('')
+  const [editingCatalogRow, setEditingCatalogRow] = useState<CatalogTableRow | null>(null)
+  const [editProductName, setEditProductName] = useState('')
+  const [editProductCategory, setEditProductCategory] = useState('')
+  const [editProductSku, setEditProductSku] = useState('')
+  const [editVariantName, setEditVariantName] = useState('')
+  const [editProductPrice, setEditProductPrice] = useState('')
+  const [editProductActive, setEditProductActive] = useState(true)
+  const [editProductBusy, setEditProductBusy] = useState(false)
+  const [editProductError, setEditProductError] = useState('')
   const [catalogNotice, setCatalogNotice] = useState('')
   const [saved, setSaved] = useState(false)
   const [search, setSearch] = useState('')
@@ -747,6 +756,84 @@ function App() {
     setNewProductBusy(false)
   }
 
+  const beginEditProduct = (row: CatalogTableRow) => {
+    setEditingCatalogRow(row)
+    setEditProductName(row.product.name)
+    setEditProductCategory(row.product.category_code || row.product.category)
+    setEditProductSku(row.variant?.sku || '')
+    setEditVariantName(row.variant?.name || '')
+    setEditProductPrice(row.variant ? String(row.variant.base_price_minor / 100) : '')
+    setEditProductActive(row.variant?.active ?? false)
+    setEditProductError('')
+    setCatalogNotice('')
+  }
+
+  const closeEditProduct = () => {
+    if (editProductBusy) return
+    setEditingCatalogRow(null)
+    setEditProductError('')
+  }
+
+  const saveProductChanges = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!editingCatalogRow) return
+
+    const name = editProductName.trim()
+    const category = editProductCategory.trim().toLowerCase()
+    const sku = editProductSku.trim().toUpperCase()
+    const variantName = editVariantName.trim()
+    const parsedPrice = Number(editProductPrice)
+    const hasVariant = Boolean(editingCatalogRow.variant)
+
+    if (!name || !category || name.length > 160) {
+      setEditProductError('Completá el nombre y la categoría del producto.')
+      return
+    }
+    if (hasVariant && (!sku || !variantName || editProductPrice === '' || !Number.isFinite(parsedPrice) || parsedPrice < 0)) {
+      setEditProductError('Completá el SKU, la variante y un precio válido.')
+      return
+    }
+
+    setEditProductBusy(true)
+    setEditProductError('')
+
+    const { error } = await supabase.rpc('update_local_catalog_item', {
+      p_product_id: editingCatalogRow.product.id,
+      p_variant_id: editingCatalogRow.variant?.id || null,
+      p_name: name,
+      p_category_code: category,
+      p_sku: hasVariant ? sku : null,
+      p_variant_name: hasVariant ? variantName : null,
+      p_base_price_minor: hasVariant ? Math.round(parsedPrice * 100) : null,
+      p_active: hasVariant ? editProductActive : null,
+    })
+
+    setEditProductBusy(false)
+    if (error) {
+      setEditProductError(error.code === '23505'
+        ? 'Ese SKU ya existe. Usá otro código.'
+        : error.code === '42501'
+          ? 'Tu usuario no tiene permiso para editar productos.'
+          : 'No se pudieron guardar los cambios. Revisá los datos e intentá nuevamente.')
+      return
+    }
+
+    const variantId = editingCatalogRow.variant?.id
+    setCatalog((current) => current.map((product) => product.id === editingCatalogRow.product.id
+      ? {
+          ...product,
+          name,
+          category,
+          category_code: category,
+          commerce_variants: product.commerce_variants.map((variant) => variant.id === variantId
+            ? { ...variant, sku, name: variantName, base_price_minor: Math.round(parsedPrice * 100), active: editProductActive }
+            : variant),
+        }
+      : product).sort((a, b) => a.name.localeCompare(b.name, 'es')))
+    setEditingCatalogRow(null)
+    setCatalogNotice('Producto actualizado correctamente.')
+  }
+
   const beginCustomer = () => {
     setSelectedCustomerId('')
     setCustomerName(customerSearch.trim())
@@ -1242,6 +1329,7 @@ function App() {
                         <th>Categoría</th>
                         <th>Estado</th>
                         <th aria-sort={catalogSort === 'price' ? (catalogSortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}><button className="catalog-sort-button catalog-sort-price" type="button" onClick={() => toggleCatalogSort('price')}>Precio base {sortIcon('price')}</button></th>
+                        <th><span className="sr-only">Acciones</span></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1253,6 +1341,7 @@ function App() {
                           <td>{catalogCategoryLabels.get(item.category_code || item.category) || item.category_code || item.category}</td>
                           <td><small className={`catalog-state ${variant?.active ? 'is-active' : 'is-inactive'}`}>{variant?.active ? 'Activo' : 'Inactivo'}</small></td>
                           <td><strong>{variant ? formatMoney(variant.base_price_minor / 100) : '—'}</strong></td>
+                          <td><button className="catalog-edit-button" type="button" onClick={() => beginEditProduct({ product: item, variant })} disabled={!canCreateProducts} aria-label={`Editar ${item.name}`} title={canCreateProducts ? `Editar ${item.name}` : 'Solo los administradores del catálogo pueden editar productos'}><PencilSimple weight="bold" /></button></td>
                         </tr>
                       ))}
                     </tbody>
@@ -1284,6 +1373,38 @@ function App() {
                     <div className="product-modal-actions">
                       <button className="cancel-button" type="button" onClick={closeNewProduct} disabled={newProductBusy}>Cancelar</button>
                       <button className="primary-button" type="submit" disabled={newProductBusy}>{newProductBusy ? 'Creando…' : 'Crear producto'}</button>
+                    </div>
+                  </form>
+                </section>
+              </div>
+            )}
+            {editingCatalogRow && (
+              <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditProduct() }}>
+                <section className="product-modal" role="dialog" aria-modal="true" aria-labelledby="edit-product-title">
+                  <div className="product-modal-header">
+                    <div>
+                      <h2 id="edit-product-title">Editar producto</h2>
+                      <div>Los cambios se aplicarán también en Commerce Admin.</div>
+                    </div>
+                    <button className="modal-close" type="button" onClick={closeEditProduct} aria-label="Cerrar">×</button>
+                  </div>
+                  <form onSubmit={(event) => void saveProductChanges(event)}>
+                    <div className="product-modal-fields">
+                      <label>Nombre del producto<input autoFocus maxLength={160} value={editProductName} onChange={(event) => { setEditProductName(event.target.value); setEditProductError('') }} required /></label>
+                      <label>Categoría<select value={editProductCategory} onChange={(event) => { setEditProductCategory(event.target.value); setEditProductError('') }} required><option value="">Elegí una categoría</option>{catalogCategories.map((category) => <option key={category.code} value={category.code}>{category.label_es}</option>)}</select></label>
+                      <div className="product-field-row">
+                        <label>SKU<input maxLength={80} value={editProductSku} onChange={(event) => { setEditProductSku(event.target.value); setEditProductError('') }} disabled={!editingCatalogRow.variant} required={Boolean(editingCatalogRow.variant)} /></label>
+                        <label>Variante<input maxLength={120} value={editVariantName} onChange={(event) => { setEditVariantName(event.target.value); setEditProductError('') }} disabled={!editingCatalogRow.variant} required={Boolean(editingCatalogRow.variant)} /></label>
+                      </div>
+                      <div className="product-field-row">
+                        <label>Precio base (UYU)<input type="number" inputMode="decimal" min="0" step="0.01" value={editProductPrice} onChange={(event) => { setEditProductPrice(event.target.value); setEditProductError('') }} disabled={!editingCatalogRow.variant} required={Boolean(editingCatalogRow.variant)} /></label>
+                        <label>Estado<select value={editProductActive ? 'active' : 'inactive'} onChange={(event) => { setEditProductActive(event.target.value === 'active'); setEditProductError('') }} disabled={!editingCatalogRow.variant}><option value="active">Activo</option><option value="inactive">Inactivo</option></select></label>
+                      </div>
+                    </div>
+                    {editProductError && <div className="product-modal-error" role="alert">{editProductError}</div>}
+                    <div className="product-modal-actions">
+                      <button className="cancel-button" type="button" onClick={closeEditProduct} disabled={editProductBusy}>Cancelar</button>
+                      <button className="primary-button" type="submit" disabled={editProductBusy}>{editProductBusy ? 'Guardando…' : 'Guardar cambios'}</button>
                     </div>
                   </form>
                 </section>

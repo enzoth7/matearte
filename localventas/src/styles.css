@@ -277,8 +277,14 @@ main { min-height: 100vh; margin-left: 244px; padding: 34px 24px 54px; }
 .catalog-table td { border-bottom: 1px solid var(--border-soft); color: #425047; padding: 13px 16px; font-size: .76rem; vertical-align: top; }
 .catalog-table td:first-child { width: 90px; color: var(--green-800); font-variant-numeric: tabular-nums; }
 .catalog-table td:nth-child(2) { width: 32%; color: var(--ink); }
-.catalog-table td:last-child { width: 130px; color: var(--green-950); text-align: right; white-space: nowrap; }
-.catalog-table th:last-child { text-align: right; }
+.catalog-table td:nth-last-child(2) { width: 130px; color: var(--green-950); text-align: right; white-space: nowrap; }
+.catalog-table th:nth-last-child(2) { text-align: right; }
+.catalog-table th:last-child, .catalog-table td:last-child { width: 64px; padding-inline: 8px 16px; text-align: right; }
+.catalog-edit-button { width: 36px; height: 36px; display: inline-grid; place-items: center; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--green-700); cursor: pointer; }
+.catalog-edit-button:hover { border-color: #c9dbcf; background: var(--green-050); color: var(--green-950); }
+.catalog-edit-button:focus-visible { outline: 2px solid var(--green-700); outline-offset: 2px; }
+.catalog-edit-button:disabled { cursor: not-allowed; opacity: .38; }
+.catalog-edit-button svg { width: 18px; height: 18px; }
 .catalog-status { padding: 42px 24px; color: var(--muted); text-align: center; font-size: .8rem; }
 .catalog-error { color: #8a342d; }
 .catalog-notice { display: flex; align-items: center; gap: 9px; border-bottom: 1px solid #c9dfd1; background: #eaf6ee; color: var(--green-800); padding: 12px 22px; font-size: .74rem; font-weight: 700; }
@@ -374,6 +380,8 @@ main { min-height: 100vh; margin-left: 244px; padding: 34px 24px 54px; }
   .total-row.has-deposit > div + div { padding-left: 14px; }
   .success-actions { width: 100%; display: grid; }
   .catalog-table th:nth-child(4), .catalog-table td:nth-child(4) { display: none; }
+  .catalog-table th:last-child, .catalog-table td:last-child { width: 52px; padding-inline: 4px 8px; }
+  .catalog-edit-button { width: 44px; height: 44px; }
   .clients-table th:nth-child(3), .clients-table td:nth-child(3) { display: none; }
   .clients-table-wrap { overflow-x: hidden; }
   .clients-table { table-layout: fixed; }
