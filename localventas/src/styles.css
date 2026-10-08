@@ -170,6 +170,27 @@ main { min-height: 100vh; margin-left: 244px; padding: 34px 24px 54px; }
 .register-product-results > div { color: var(--muted); padding: 14px 13px; font-size: .72rem; }
 .price-field input { padding-left: 28px; }
 .price-field::after { content: '$'; position: absolute; bottom: 13px; left: 12px; color: #738078; font-weight: 500; }
+.price-field:has(.field-help)::after { bottom: 34px; }
+.field-help { color: var(--muted); font-size: .65rem; font-weight: 500; line-height: 1.4; }
+.add-sale-item-button { min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--green-800); border-radius: 8px; background: var(--green-800); color: white; font-size: .75rem; font-weight: 800; }
+.add-sale-item-button:hover { background: var(--green-900); }
+.add-sale-item-button svg { width: 17px; height: 17px; }
+.sale-items-error { margin-top: 13px; border-radius: 8px; background: #fff0ed; color: #8a342d; padding: 10px 12px; font-size: .7rem; font-weight: 700; }
+.sale-items { margin-top: 22px; border-top: 1px solid var(--border-soft); padding-top: 17px; }
+.sale-items-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.sale-items-heading strong { color: var(--green-950); font-size: .78rem; }
+.sale-items-heading small { color: var(--muted); font-size: .67rem; }
+.sale-item-card { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(74px, 96px) 72px 44px; align-items: end; gap: 8px; border: 1px solid var(--border-soft); border-radius: 9px; background: #fff; padding: 11px; }
+.sale-item-card + .sale-item-card { margin-top: 8px; }
+.sale-item-description { min-width: 0; display: grid; align-self: center; gap: 3px; }
+.sale-item-description strong { overflow: hidden; color: var(--ink); font-size: .71rem; text-overflow: ellipsis; white-space: nowrap; }
+.sale-item-description small { overflow: hidden; color: var(--muted); font-size: .64rem; text-overflow: ellipsis; white-space: nowrap; }
+.sale-item-card label { display: grid; gap: 5px; color: var(--muted); font-size: .61rem; font-weight: 700; }
+.sale-item-card input { width: 100%; height: 38px; border: 1px solid #cdd1cc; border-radius: 7px; background: white; color: var(--ink); padding: 0 8px; font-size: .7rem; font-variant-numeric: tabular-nums; }
+.sale-item-card input:focus { border-color: var(--green-700); outline: 2px solid rgba(28, 91, 65, .12); }
+.remove-sale-item { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid #efd4cf; border-radius: 8px; background: #fff8f6; color: #a44539; }
+.remove-sale-item:hover { background: #ffede9; color: #7f2f27; }
+.remove-sale-item svg { width: 17px; height: 17px; }
 .wide { grid-column: 1 / -1; }
 .toggle-row { min-height: 44px; display: flex; align-items: center; gap: 10px; margin: 18px 0 0 36px; color: #445248; cursor: pointer; font-size: .72rem; font-weight: 700; }
 .toggle-row input { position: absolute; opacity: 0; }
@@ -197,10 +218,15 @@ main { min-height: 100vh; margin-left: 244px; padding: 34px 24px 54px; }
 .customer-form-error { margin: 12px 0 0 36px; }
 .purchase-date-field { display: grid; gap: 7px; margin: 15px 0 0 36px; color: #435047; font-size: .7rem; font-weight: 700; }
 .purchase-date-field input { width: 100%; height: 44px; border: 1px solid #cdd1cc; border-radius: 8px; background: white; color: var(--ink); padding: 0 12px; }
+.sale-payment-fields { margin-left: 36px; }
 .total-row { display: flex; align-items: center; justify-content: space-between; margin-top: 22px; border-radius: 9px; background: var(--green-050); padding: 15px 17px; color: var(--green-950); font-size: .78rem; font-weight: 700; }
+.total-row > div { display: grid; gap: 4px; }
+.total-row.has-deposit { display: grid; width: min(520px, 100%); grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.total-row.has-deposit > div + div { border-left: 1px solid #c9dbcf; padding-left: 24px; }
 .total-row strong { font-size: 1.25rem; }
 .register-form-footer { display: flex; align-items: center; justify-content: flex-end; gap: 14px; border-top: 1px solid var(--border-soft); background: #faf9f5; padding: 20px 30px; }
 .register-form-footer .total-row { width: min(330px, 100%); margin: 0 auto 0 0; }
+.register-form-footer .total-row.has-deposit { width: min(520px, 100%); }
 .save-sale-button { min-width: 190px; }
 .cancel-button { min-height: 46px; border: 1px solid var(--border); border-radius: 8px; background: white; color: #58655d; padding: 0 18px; font-weight: 700; }
 .cancel-button:hover { background: #f3f1eb; }
@@ -278,7 +304,7 @@ main { min-height: 100vh; margin-left: 244px; padding: 34px 24px 54px; }
 .product-modal-error { margin-top: 14px; border-radius: 8px; background: #fff0ed; color: #8a342d; padding: 11px 13px; font-size: .72rem; font-weight: 700; }
 .product-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
 
-@media (max-width: 1180px) {
+@media (max-width: 1240px) {
   .content-grid { grid-template-columns: 1fr; }
   .register-form-grid { grid-template-columns: 1fr; }
   .form-section + .form-section { border-top: 1px solid var(--border-soft); border-left: 0; }
@@ -334,10 +360,18 @@ main { min-height: 100vh; margin-left: 244px; padding: 34px 24px 54px; }
   .sale-product-mobile { display: inline; white-space: nowrap; }
   .two-columns { grid-template-columns: 1fr; }
   .wide { grid-column: auto; }
-  .toggle-row, .client-fields, .customer-search-area, .customer-form-error, .purchase-date-field { margin-left: 0; }
+  .toggle-row, .client-fields, .customer-search-area, .customer-form-error, .purchase-date-field, .sale-payment-fields { margin-left: 0; }
   .form-section { padding: 24px 20px; }
+  .sale-item-card { grid-template-columns: minmax(0, 1fr) minmax(82px, .7fr) 44px; align-items: end; padding: 13px; }
+  .sale-item-description { grid-column: 1 / -1; }
+  .sale-item-description strong, .sale-item-description small { overflow: visible; text-overflow: clip; white-space: normal; }
+  .sale-item-card label:first-of-type { grid-column: 1; }
+  .sale-item-card label:nth-of-type(2) { grid-column: 2; }
+  .remove-sale-item { grid-column: 3; grid-row: 2; align-self: end; }
   .register-form-footer { display: grid; padding: 18px 20px; }
   .register-form-footer .total-row, .save-sale-button { width: 100%; }
+  .total-row.has-deposit { gap: 14px; }
+  .total-row.has-deposit > div + div { padding-left: 14px; }
   .success-actions { width: 100%; display: grid; }
   .catalog-table th:nth-child(4), .catalog-table td:nth-child(4) { display: none; }
   .clients-table th:nth-child(3), .clients-table td:nth-child(3) { display: none; }

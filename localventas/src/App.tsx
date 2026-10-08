@@ -14,6 +14,7 @@ import {
   Plus,
   Receipt,
   SignOut,
+  Trash,
   Users,
 } from '@phosphor-icons/react'
 import { supabase } from './supabase'
@@ -70,6 +71,16 @@ type CatalogProduct = {
 type CatalogTableRow = {
   product: CatalogProduct
   variant: CatalogVariant | null
+}
+
+type SaleLine = {
+  id: string
+  variantId: string
+  sku: string
+  productName: string
+  variantName: string
+  quantity: number
+  unitPriceMinor: number
 }
 
 type CatalogCategory = {
@@ -235,6 +246,9 @@ function App() {
   const [price, setPrice] = useState('')
   const [quantity, setQuantity] = useState('1')
   const [payment, setPayment] = useState('Efectivo')
+  const [saleItems, setSaleItems] = useState<SaleLine[]>([])
+  const [depositAmount, setDepositAmount] = useState('')
+  const [itemsError, setItemsError] = useState('')
   const [customers, setCustomers] = useState<Customer[]>([])
   const [customersLoading, setCustomersLoading] = useState(false)
   const [customerError, setCustomerError] = useState('')
@@ -510,6 +524,8 @@ function App() {
   }, [customerSearch, customers])
 
   const selectedCatalogRow = catalogRows.find(({ variant }) => variant.id === selectedVariantId)
+  const itemsTotalMinor = useMemo(() => saleItems.reduce((total, item) => total + item.unitPriceMinor * item.quantity, 0), [saleItems])
+  const depositMinor = Math.round((Number(depositAmount) || 0) * 100)
 
   const changePage = (page: Page) => {
     setActivePage(page)
@@ -524,6 +540,9 @@ function App() {
     setShowRegisterProductResults(false)
     setQuantity('1')
     setPayment('Efectivo')
+    setSaleItems([])
+    setDepositAmount('')
+    setItemsError('')
     setCustomerSearch('')
     setSelectedCustomerId('')
     setAddingCustomer(false)
@@ -547,26 +566,77 @@ function App() {
   const chooseVariant = (variantId: string) => {
     setSelectedVariantId(variantId)
     const row = catalogRows.find(({ variant }) => variant.id === variantId)
-    setPrice(row && payment !== 'Seña' ? String(row.variant.base_price_minor / 100) : '')
+    setPrice(row ? String(row.variant.base_price_minor / 100) : '')
     setRegisterProductSearch(row ? `${row.variant.sku} · ${row.product.name}` : '')
     setShowRegisterProductResults(false)
+    setItemsError('')
   }
 
   const chooseSearchedProduct = (row: { product: CatalogProduct; variant: CatalogVariant }) => {
     setSelectedCategory(row.product.category_code || row.product.category)
     setSelectedVariantId(row.variant.id)
-    setPrice(payment === 'Seña' ? '' : String(row.variant.base_price_minor / 100))
+    setPrice(String(row.variant.base_price_minor / 100))
     setRegisterProductSearch(`${row.variant.sku} · ${row.product.name}`)
     setShowRegisterProductResults(false)
+    setItemsError('')
   }
 
   const choosePayment = (nextPayment: string) => {
     setPayment(nextPayment)
-    if (nextPayment === 'Seña') {
-      setPrice('')
+    if (nextPayment !== 'Seña') setDepositAmount('')
+    setCustomerError('')
+  }
+
+  const addSaleItem = () => {
+    const parsedPrice = Number(price)
+    const parsedQuantity = Number(quantity)
+    if (!selectedCatalogRow) {
+      setItemsError('Seleccioná un producto para agregarlo a la venta.')
       return
     }
-    setPrice(selectedCatalogRow ? String(selectedCatalogRow.variant.base_price_minor / 100) : '')
+    if (price === '' || !Number.isFinite(parsedPrice) || parsedPrice < 0 || parsedPrice > 10000000) {
+      setItemsError('Ingresá un precio válido.')
+      return
+    }
+    if (!Number.isInteger(parsedQuantity) || parsedQuantity < 1 || parsedQuantity > 1000) {
+      setItemsError('La cantidad debe ser un número entre 1 y 1000.')
+      return
+    }
+
+    const unitPriceMinor = Math.round(parsedPrice * 100)
+    setSaleItems((current) => {
+      const existing = current.find((item) => item.variantId === selectedCatalogRow.variant.id && item.unitPriceMinor === unitPriceMinor)
+      if (existing) {
+        return current.map((item) => item.id === existing.id
+          ? { ...item, quantity: Math.min(1000, item.quantity + parsedQuantity) }
+          : item)
+      }
+      return [...current, {
+        id: crypto.randomUUID(),
+        variantId: selectedCatalogRow.variant.id,
+        sku: selectedCatalogRow.variant.sku,
+        productName: selectedCatalogRow.product.name,
+        variantName: selectedCatalogRow.variant.name,
+        quantity: parsedQuantity,
+        unitPriceMinor,
+      }]
+    })
+    setSelectedVariantId('')
+    setRegisterProductSearch('')
+    setPrice('')
+    setQuantity('1')
+    setShowRegisterProductResults(false)
+    setItemsError('')
+  }
+
+  const updateSaleItem = (id: string, changes: Partial<Pick<SaleLine, 'quantity' | 'unitPriceMinor'>>) => {
+    setSaleItems((current) => current.map((item) => item.id === id ? { ...item, ...changes } : item))
+    setItemsError('')
+  }
+
+  const removeSaleItem = (id: string) => {
+    setSaleItems((current) => current.filter((item) => item.id !== id))
+    setItemsError('')
   }
 
   const chooseCustomer = (customer: Customer) => {
@@ -744,6 +814,23 @@ function App() {
     event.preventDefault()
     setSaving(true)
     setCustomerError('')
+    setItemsError('')
+
+    if (!saleItems.length) {
+      setItemsError('Agregá al menos un producto a la venta.')
+      setSaving(false)
+      return
+    }
+    if (saleItems.some((item) => item.quantity < 1 || item.quantity > 1000 || item.unitPriceMinor < 0 || item.unitPriceMinor > 1000000000)) {
+      setItemsError('Revisá el precio y la cantidad de los productos agregados.')
+      setSaving(false)
+      return
+    }
+    if (payment === 'Seña' && (depositAmount === '' || !Number.isFinite(Number(depositAmount)) || depositMinor < 0 || depositMinor > 1000000000)) {
+      setCustomerError('Ingresá el monto cobrado como seña.')
+      setSaving(false)
+      return
+    }
 
     let customerForSale = customers.find((customer) => customer.id === selectedCustomerId)
 
@@ -777,24 +864,18 @@ function App() {
       setAddingCustomer(false)
     }
 
-    const parsedPrice = Number(price) || 0
-    const parsedQuantity = Number(quantity) || 1
-    const unitPriceMinor = Math.round(parsedPrice * 100)
-    const amount = unitPriceMinor * parsedQuantity / 100
     const saleDate = purchaseDate || todayIso
-    if (!selectedCatalogRow) {
-      setCustomerError('Seleccioná un producto del catálogo.')
-      setSaving(false)
-      return
-    }
-
-    const { data: saleResult, error: saleError } = await supabase.rpc('create_local_sale', {
+    const chargedTotalMinor = payment === 'Seña' ? depositMinor : itemsTotalMinor
+    const { data: saleResult, error: saleError } = await supabase.rpc('create_local_sale_with_items', {
       p_customer_id: customerForSale?.id || null,
       p_sold_on: saleDate,
       p_payment_method: payment,
-      p_variant_id: selectedCatalogRow.variant.id,
-      p_quantity: parsedQuantity,
-      p_unit_price_minor: unitPriceMinor,
+      p_items: saleItems.map((item) => ({
+        variant_id: item.variantId,
+        quantity: item.quantity,
+        unit_price_minor: item.unitPriceMinor,
+      })),
+      p_deposit_minor: payment === 'Seña' ? depositMinor : null,
     })
 
     if (saleError) {
@@ -806,7 +887,9 @@ function App() {
     const savedSale = saleResult as { sale_number: number; created_at: string }
     const createdAt = new Date(savedSale.created_at)
     const name = customerForSale?.name || 'Cliente sin registrar'
-    const productName = selectedCatalogRow ? `${selectedCatalogRow.product.name} · ${selectedCatalogRow.variant.name}` : 'Producto sin seleccionar'
+    const productName = saleItems
+      .map((item) => `${item.productName} · ${item.variantName}${item.quantity > 1 ? ` ×${item.quantity}` : ''}`)
+      .join(', ')
     const newSale: Sale = {
       id: `#${String(savedSale.sale_number).padStart(5, '0')}`,
       time: createdAt.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' }),
@@ -815,7 +898,7 @@ function App() {
       customer: name,
       initials: initials(name),
       product: productName,
-      amount,
+      amount: chargedTotalMinor / 100,
       payment,
     }
     setSales((current) => [newSale, ...current])
@@ -935,11 +1018,23 @@ function App() {
                           </div>
                         )}
                       </div>
-                      <label className="wide">Categoría<select value={selectedCategory} onChange={(event) => chooseCategory(event.target.value)} disabled={catalogLoading} required><option value="">{catalogLoading ? 'Cargando categorías…' : 'Seleccionar categoría'}</option>{catalogCategories.map((category) => <option key={category.code} value={category.code}>{category.label_es}</option>)}</select></label>
-                      <label className="wide">Producto y variante<select value={selectedVariantId} onChange={(event) => chooseVariant(event.target.value)} disabled={!selectedCategory || catalogLoading} required><option value="">{selectedCategory ? 'Seleccionar del catálogo' : 'Elegí una categoría primero'}</option>{registerCatalogRows.map(({ product: item, variant }) => <option key={variant.id} value={variant.id}>{variant.sku} · {item.name} · {variant.name}</option>)}</select></label>
-                      <label className="price-field">{payment === 'Seña' ? 'Monto de la seña' : 'Precio unitario'}<input type="number" min="0" value={price} onChange={(event) => setPrice(event.target.value)} placeholder={payment === 'Seña' ? 'Ingresá el monto' : undefined} required /></label>
-                      <label>Cantidad<input type="number" min="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} required /></label>
-                      <label>Forma de pago<select value={payment} onChange={(event) => choosePayment(event.target.value)}><option>Efectivo</option><option>Débito</option><option>Crédito</option><option>Transferencia</option><option>Seña</option></select></label>
+                      <label className="wide">Categoría<select value={selectedCategory} onChange={(event) => chooseCategory(event.target.value)} disabled={catalogLoading}><option value="">{catalogLoading ? 'Cargando categorías…' : 'Seleccionar categoría'}</option>{catalogCategories.map((category) => <option key={category.code} value={category.code}>{category.label_es}</option>)}</select></label>
+                      <label className="wide">Producto y variante<select value={selectedVariantId} onChange={(event) => chooseVariant(event.target.value)} disabled={!selectedCategory || catalogLoading}><option value="">{selectedCategory ? 'Seleccionar del catálogo' : 'Elegí una categoría primero'}</option>{registerCatalogRows.map(({ product: item, variant }) => <option key={variant.id} value={variant.id}>{variant.sku} · {item.name} · {variant.name}</option>)}</select></label>
+                      <label className="price-field">Precio unitario<input type="number" min="0" max="10000000" inputMode="decimal" value={price} onChange={(event) => { setPrice(event.target.value); setItemsError('') }} /></label>
+                      <label>Cantidad<input type="number" min="1" max="1000" inputMode="numeric" value={quantity} onChange={(event) => { setQuantity(event.target.value); setItemsError('') }} /></label>
+                      <button className="add-sale-item-button wide" type="button" onClick={addSaleItem}><Plus weight="bold" />Agregar producto</button>
+                    </div>
+                    {itemsError && <div className="sale-items-error" role="alert">{itemsError}</div>}
+                    <div className="sale-items" aria-live="polite">
+                      <div className="sale-items-heading"><strong>Productos de la venta</strong><small>{saleItems.length ? `${saleItems.length} ${saleItems.length === 1 ? 'producto' : 'productos'}` : 'Todavía no agregaste productos'}</small></div>
+                      {saleItems.map((item) => (
+                        <article className="sale-item-card" key={item.id}>
+                          <div className="sale-item-description"><strong>{item.sku} · {item.productName}</strong><small>{item.variantName}</small></div>
+                          <label>Precio<input type="number" min="0" max="10000000" inputMode="decimal" value={item.unitPriceMinor / 100} onChange={(event) => updateSaleItem(item.id, { unitPriceMinor: Math.min(1000000000, Math.max(0, Math.round((Number(event.target.value) || 0) * 100))) })} /></label>
+                          <label>Cantidad<input type="number" min="1" max="1000" inputMode="numeric" value={item.quantity} onChange={(event) => updateSaleItem(item.id, { quantity: Math.min(1000, Math.max(1, Math.trunc(Number(event.target.value) || 1))) })} /></label>
+                          <button className="remove-sale-item" type="button" onClick={() => removeSaleItem(item.id)} aria-label={`Eliminar ${item.productName}`}><Trash /></button>
+                        </article>
+                      ))}
                     </div>
                   </section>
 
@@ -961,6 +1056,10 @@ function App() {
                     </div>
                     {customerError && <div className="customer-form-error" role="alert">{customerError}</div>}
                     <label className="purchase-date-field">Fecha de compra<input type="date" max={todayIso} value={purchaseDate} onChange={(event) => setPurchaseDate(event.target.value)} /></label>
+                    <div className="sale-payment-fields form-grid">
+                      <label>Forma de pago<select value={payment} onChange={(event) => choosePayment(event.target.value)}><option>Efectivo</option><option>Débito</option><option>Crédito</option><option>Transferencia</option><option>Seña</option></select></label>
+                      {payment === 'Seña' && <label className="price-field">Seña cobrada<input type="number" min="0" max="10000000" inputMode="decimal" value={depositAmount} onChange={(event) => { setDepositAmount(event.target.value); setCustomerError('') }} placeholder="Ingresá el monto" required /><small className="field-help">El valor completo de los productos queda registrado por separado.</small></label>}
+                    </div>
                     {addingCustomer && (
                       <div className="form-grid two-columns client-fields">
                         <label className="wide">Nombre y apellido<input value={customerName} onChange={(event) => setCustomerName(event.target.value)} required /></label>
@@ -973,8 +1072,11 @@ function App() {
                 </div>
 
                 <footer className="register-form-footer">
-                  <section className="total-row"><small>Total de la venta</small><strong>{formatMoney((Number(price) || 0) * (Number(quantity) || 1))}</strong></section>
-                  <button className="primary-button save-sale-button" type="submit" disabled={saving}><Check weight="bold" />{saving ? 'Guardando…' : 'Guardar venta'}</button>
+                  <section className={`total-row ${payment === 'Seña' ? 'has-deposit' : ''}`}>
+                    <div><small>{payment === 'Seña' ? 'Valor de los productos' : 'Total de la venta'}</small><strong>{formatMoney(itemsTotalMinor / 100)}</strong></div>
+                    {payment === 'Seña' && <div><small>Seña cobrada</small><strong>{formatMoney(depositMinor / 100)}</strong></div>}
+                  </section>
+                  <button className="primary-button save-sale-button" type="submit" disabled={saving || !saleItems.length}><Check weight="bold" />{saving ? 'Guardando…' : 'Guardar venta'}</button>
                 </footer>
               </form>
             )}
