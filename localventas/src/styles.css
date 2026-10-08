@@ -379,8 +379,16 @@ main { min-height: 100vh; margin-left: 244px; padding: 34px 24px 54px; }
   .total-row.has-deposit { gap: 14px; }
   .total-row.has-deposit > div + div { padding-left: 14px; }
   .success-actions { width: 100%; display: grid; }
-  .catalog-table th:nth-child(4), .catalog-table td:nth-child(4) { display: none; }
-  .catalog-table th:last-child, .catalog-table td:last-child { width: 52px; padding-inline: 4px 8px; }
+  .catalog-table-wrap { overflow-x: hidden; }
+  .catalog-table { table-layout: fixed; }
+  .catalog-table th, .catalog-table td { padding-inline: 8px; overflow-wrap: anywhere; }
+  .catalog-table th:nth-child(3), .catalog-table td:nth-child(3),
+  .catalog-table th:nth-child(4), .catalog-table td:nth-child(4),
+  .catalog-table th:nth-child(5), .catalog-table td:nth-child(5) { display: none; }
+  .catalog-table th:first-child, .catalog-table td:first-child { width: 19%; padding-inline: 12px 4px; }
+  .catalog-table th:nth-child(2), .catalog-table td:nth-child(2) { width: 39%; }
+  .catalog-table th:nth-child(6), .catalog-table td:nth-child(6) { width: 28%; }
+  .catalog-table th:last-child, .catalog-table td:last-child { width: 14%; padding-inline: 0 4px; }
   .catalog-edit-button { width: 44px; height: 44px; }
   .clients-table th:nth-child(3), .clients-table td:nth-child(3) { display: none; }
   .clients-table-wrap { overflow-x: hidden; }
