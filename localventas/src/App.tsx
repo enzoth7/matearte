@@ -122,6 +122,11 @@ const formatShortDate = (value: string) => {
 
 const skuCollator = new Intl.Collator('es', { numeric: true, sensitivity: 'base' })
 
+const normalizeSearchText = (value: string) => value
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+
 const productSlug = (name: string) => name
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
@@ -210,6 +215,8 @@ function App() {
   const [catalogLoading, setCatalogLoading] = useState(true)
   const [catalogError, setCatalogError] = useState('')
   const [catalogSearch, setCatalogSearch] = useState('')
+  const [registerProductSearch, setRegisterProductSearch] = useState('')
+  const [showRegisterProductResults, setShowRegisterProductResults] = useState(false)
   const [catalogCategoryFilter, setCatalogCategoryFilter] = useState('')
   const [catalogSort, setCatalogSort] = useState<CatalogSort>('sku')
   const [catalogSortDirection, setCatalogSortDirection] = useState<SortDirection>('asc')
@@ -453,6 +460,15 @@ function App() {
     ))
   }, [catalogRows, selectedCategory])
 
+  const registerProductMatches = useMemo(() => {
+    const query = normalizeSearchText(registerProductSearch.trim())
+    if (!query) return []
+    return catalogRows.filter(({ product, variant }) => (
+      variant.active
+      && normalizeSearchText(`${variant.sku} ${product.name} ${variant.name}`).includes(query)
+    )).slice(0, 8)
+  }, [catalogRows, registerProductSearch])
+
   const filteredCatalogRows = useMemo(() => {
     const query = catalogSearch.trim().toLowerCase()
 
@@ -504,6 +520,8 @@ function App() {
     setSelectedCategory('')
     setSelectedVariantId('')
     setPrice('')
+    setRegisterProductSearch('')
+    setShowRegisterProductResults(false)
     setQuantity('1')
     setPayment('Efectivo')
     setCustomerSearch('')
@@ -522,12 +540,33 @@ function App() {
     setSelectedCategory(categoryCode)
     setSelectedVariantId('')
     setPrice('')
+    setRegisterProductSearch('')
+    setShowRegisterProductResults(false)
   }
 
   const chooseVariant = (variantId: string) => {
     setSelectedVariantId(variantId)
     const row = catalogRows.find(({ variant }) => variant.id === variantId)
-    setPrice(row ? String(row.variant.base_price_minor / 100) : '')
+    setPrice(row && payment !== 'Seña' ? String(row.variant.base_price_minor / 100) : '')
+    setRegisterProductSearch(row ? `${row.variant.sku} · ${row.product.name}` : '')
+    setShowRegisterProductResults(false)
+  }
+
+  const chooseSearchedProduct = (row: { product: CatalogProduct; variant: CatalogVariant }) => {
+    setSelectedCategory(row.product.category_code || row.product.category)
+    setSelectedVariantId(row.variant.id)
+    setPrice(payment === 'Seña' ? '' : String(row.variant.base_price_minor / 100))
+    setRegisterProductSearch(`${row.variant.sku} · ${row.product.name}`)
+    setShowRegisterProductResults(false)
+  }
+
+  const choosePayment = (nextPayment: string) => {
+    setPayment(nextPayment)
+    if (nextPayment === 'Seña') {
+      setPrice('')
+      return
+    }
+    setPrice(selectedCatalogRow ? String(selectedCatalogRow.variant.base_price_minor / 100) : '')
   }
 
   const chooseCustomer = (customer: Customer) => {
@@ -864,11 +903,43 @@ function App() {
                   <section className="form-section">
                     <div className="section-heading"><strong className="step-number">1</strong><h2>¿Qué compró?</h2></div>
                     <div className="form-grid two-columns">
+                      <div className="register-product-search wide">
+                        <label>Buscar producto
+                          <div className="register-product-search-input">
+                            <MagnifyingGlass />
+                            <input
+                              value={registerProductSearch}
+                              onFocus={() => { if (registerProductSearch.trim()) setShowRegisterProductResults(true) }}
+                              onChange={(event) => {
+                                setRegisterProductSearch(event.target.value)
+                                setShowRegisterProductResults(Boolean(event.target.value.trim()))
+                                setSelectedCategory('')
+                                setSelectedVariantId('')
+                                setPrice('')
+                              }}
+                              onKeyDown={(event) => { if (event.key === 'Escape') setShowRegisterProductResults(false) }}
+                              placeholder="Escribí el nombre o código"
+                              autoComplete="off"
+                            />
+                          </div>
+                        </label>
+                        {showRegisterProductResults && registerProductSearch.trim() && (
+                          <div className="register-product-results">
+                            {registerProductMatches.map((row) => (
+                              <button key={row.variant.id} type="button" onClick={() => chooseSearchedProduct(row)}>
+                                <strong>{row.variant.sku} · {row.product.name}</strong>
+                                <small>{row.variant.name}</small>
+                              </button>
+                            ))}
+                            {!registerProductMatches.length && <div>No se encontraron productos activos.</div>}
+                          </div>
+                        )}
+                      </div>
                       <label className="wide">Categoría<select value={selectedCategory} onChange={(event) => chooseCategory(event.target.value)} disabled={catalogLoading} required><option value="">{catalogLoading ? 'Cargando categorías…' : 'Seleccionar categoría'}</option>{catalogCategories.map((category) => <option key={category.code} value={category.code}>{category.label_es}</option>)}</select></label>
-                      <label className="wide">Producto y variante<select value={selectedVariantId} onChange={(event) => chooseVariant(event.target.value)} disabled={!selectedCategory || catalogLoading} required><option value="">{selectedCategory ? 'Seleccionar del catálogo' : 'Elegí una categoría primero'}</option>{registerCatalogRows.map(({ product: item, variant }) => <option key={variant.id} value={variant.id}>{item.name} · {variant.name} · Cód. {variant.sku}</option>)}</select></label>
-                      <label className="price-field">Precio unitario<input type="number" min="0" value={price} onChange={(event) => setPrice(event.target.value)} required /></label>
+                      <label className="wide">Producto y variante<select value={selectedVariantId} onChange={(event) => chooseVariant(event.target.value)} disabled={!selectedCategory || catalogLoading} required><option value="">{selectedCategory ? 'Seleccionar del catálogo' : 'Elegí una categoría primero'}</option>{registerCatalogRows.map(({ product: item, variant }) => <option key={variant.id} value={variant.id}>{variant.sku} · {item.name} · {variant.name}</option>)}</select></label>
+                      <label className="price-field">{payment === 'Seña' ? 'Monto de la seña' : 'Precio unitario'}<input type="number" min="0" value={price} onChange={(event) => setPrice(event.target.value)} placeholder={payment === 'Seña' ? 'Ingresá el monto' : undefined} required /></label>
                       <label>Cantidad<input type="number" min="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} required /></label>
-                      <label>Forma de pago<select value={payment} onChange={(event) => setPayment(event.target.value)}><option>Efectivo</option><option>Débito</option><option>Crédito</option><option>Transferencia</option></select></label>
+                      <label>Forma de pago<select value={payment} onChange={(event) => choosePayment(event.target.value)}><option>Efectivo</option><option>Débito</option><option>Crédito</option><option>Transferencia</option><option>Seña</option></select></label>
                     </div>
                   </section>
 
