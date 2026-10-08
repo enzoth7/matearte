@@ -1,7 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import {
-  ArrowRight,
   ArrowsDownUp,
   Bag,
   CalendarBlank,
@@ -11,6 +10,7 @@ import {
   Check,
   MagnifyingGlass,
   Package,
+  PencilSimple,
   Plus,
   Receipt,
   SignOut,
@@ -114,6 +114,11 @@ const startOfSalesPeriod = (period: SalesPeriod, today: Date) => {
 
 const formatMoney = (value: number) =>
   new Intl.NumberFormat('es-UY', { style: 'currency', currency: 'UYU', maximumFractionDigits: 0 }).format(value)
+
+const formatShortDate = (value: string) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  return match ? `${match[3]}/${match[2]}/${match[1].slice(-2)}` : value
+}
 
 const skuCollator = new Intl.Collator('es', { numeric: true, sensitivity: 'base' })
 
@@ -235,6 +240,13 @@ function App() {
   const [phone, setPhone] = useState('')
   const [birthday, setBirthday] = useState('')
   const [purchaseDate, setPurchaseDate] = useState(todayIso)
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
+  const [editCustomerName, setEditCustomerName] = useState('')
+  const [editCustomerEmail, setEditCustomerEmail] = useState('')
+  const [editCustomerPhone, setEditCustomerPhone] = useState('')
+  const [editCustomerBirthday, setEditCustomerBirthday] = useState('')
+  const [editCustomerBusy, setEditCustomerBusy] = useState(false)
+  const [editCustomerError, setEditCustomerError] = useState('')
 
   useEffect(() => {
     let active = true
@@ -635,6 +647,60 @@ function App() {
     setAddingCustomer(true)
   }
 
+  const beginEditCustomer = (customer: Customer) => {
+    setEditingCustomer(customer)
+    setEditCustomerName(customer.name)
+    setEditCustomerEmail(customer.email)
+    setEditCustomerPhone(customer.phone)
+    setEditCustomerBirthday(customer.birthday)
+    setEditCustomerError('')
+  }
+
+  const closeEditCustomer = () => {
+    if (editCustomerBusy) return
+    setEditingCustomer(null)
+    setEditCustomerError('')
+  }
+
+  const saveCustomerChanges = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!editingCustomer) return
+
+    const name = editCustomerName.trim()
+    if (!name) {
+      setEditCustomerError('Ingresá el nombre del cliente.')
+      return
+    }
+
+    setEditCustomerBusy(true)
+    setEditCustomerError('')
+    const { data, error } = await supabase
+      .from('local_sales_customers')
+      .update({
+        full_name: name,
+        email: editCustomerEmail.trim() || null,
+        phone: editCustomerPhone.trim() || null,
+        birth_date: editCustomerBirthday || null,
+      })
+      .eq('id', editingCustomer.id)
+      .select('id,full_name,email,phone,birth_date,first_purchase_date,last_purchase_date')
+      .single()
+
+    setEditCustomerBusy(false)
+    if (error) {
+      setEditCustomerError(error.code === '23505'
+        ? 'Ya existe otro cliente con ese correo.'
+        : 'No se pudieron guardar los cambios. Intentá nuevamente.')
+      return
+    }
+
+    const updatedCustomer = mapCustomer(data)
+    setCustomers((current) => current
+      .map((customer) => customer.id === updatedCustomer.id ? updatedCustomer : customer)
+      .sort((a, b) => a.name.localeCompare(b.name, 'es')))
+    setEditingCustomer(null)
+  }
+
   const handleSave = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSaving(true)
@@ -884,16 +950,20 @@ function App() {
                   {salesLoading && <div className="empty-search" aria-live="polite">Cargando ventas…</div>}
                   {salesError && <div className="empty-search catalog-error" role="alert">{salesError}</div>}
                   <table className="sales-table">
-                    <thead><tr><th>Hora</th><th>Cliente</th><th>Producto</th><th>Pago</th><th>Total</th><th><small className="sr-only">Abrir</small></th></tr></thead>
+                    <thead><tr><th>ID</th><th>Fecha</th><th>Hora</th><th>Producto</th><th>Cliente</th><th>Medio de pago</th><th>Total</th></tr></thead>
                     <tbody>
                       {filteredSales.map((sale) => (
                         <tr key={sale.id}>
-                          <td><strong>{sale.time}</strong><small>{sale.id}</small></td>
+                          <td><strong>{sale.id}</strong></td>
+                          <td>{formatShortDate(sale.soldOn)}</td>
+                          <td><strong>{sale.time}</strong></td>
+                          <td className="sale-product-cell" title={sale.product}>
+                            <span className="sale-product-desktop">{sale.product}</span>
+                            <span className="sale-product-mobile" aria-hidden="true">{`${sale.product.slice(0, 5)}${sale.product.length > 5 ? '...' : ''}`}</span>
+                          </td>
                           <td><div className="customer-cell"><small className="customer-avatar">{sale.initials}</small><strong>{sale.customer}</strong></div></td>
-                          <td>{sale.product}</td>
                           <td><small className="payment-pill">{sale.payment}</small></td>
                           <td><strong>{formatMoney(sale.amount)}</strong></td>
-                          <td><button className="row-action" type="button" aria-label={`Ver venta ${sale.id}`}><ArrowRight /></button></td>
                         </tr>
                       ))}
                     </tbody>
@@ -917,19 +987,54 @@ function App() {
               {!customersLoading && !customerError && customers.length > 0 && (
                 <div className="clients-table-wrap">
                   <table className="clients-table">
-                    <thead><tr><th>Nombre</th><th>Contacto</th><th>Cumpleaños</th><th>Última compra</th></tr></thead>
+                    <thead><tr><th>Nombre</th><th>Contacto</th><th>Cumpleaños</th><th>Última compra</th><th><span className="sr-only">Acciones</span></th></tr></thead>
                     <tbody>{customers.map((customer) => (
                       <tr key={customer.id}>
                         <td><strong>{customer.name}</strong></td>
-                        <td><div>{customer.email || 'Sin email'}</div><small>{customer.phone || 'Sin teléfono'}</small></td>
+                        <td>
+                          <div className="client-email" title={customer.email || undefined}>
+                            <span className="client-email-desktop">{customer.email || 'Sin email'}</span>
+                            <span className="client-email-mobile" aria-hidden="true">{customer.email ? `${customer.email.slice(0, 7)}${customer.email.length > 7 ? '...' : ''}` : 'Sin email'}</span>
+                          </div>
+                          <small>{customer.phone || 'Sin teléfono'}</small>
+                        </td>
                         <td>{customer.birthday || '—'}</td>
                         <td>{customer.lastPurchaseDate || '—'}</td>
+                        <td><button className="client-edit-button" type="button" onClick={() => beginEditCustomer(customer)} aria-label={`Editar datos de ${customer.name}`} title="Editar datos"><PencilSimple weight="bold" /></button></td>
                       </tr>
                     ))}</tbody>
                   </table>
                 </div>
               )}
             </section>
+            {editingCustomer && (
+              <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditCustomer() }}>
+                <section className="product-modal" role="dialog" aria-modal="true" aria-labelledby="edit-customer-title">
+                  <div className="product-modal-header">
+                    <div>
+                      <h2 id="edit-customer-title">Editar datos</h2>
+                      <div>Actualizá la información del cliente.</div>
+                    </div>
+                    <button className="modal-close" type="button" onClick={closeEditCustomer} aria-label="Cerrar">×</button>
+                  </div>
+                  <form onSubmit={(event) => void saveCustomerChanges(event)}>
+                    <div className="product-modal-fields">
+                      <label>Nombre y apellido<input autoFocus maxLength={120} value={editCustomerName} onChange={(event) => { setEditCustomerName(event.target.value); setEditCustomerError('') }} required /></label>
+                      <div className="product-field-row">
+                        <label>Email<input type="email" maxLength={320} value={editCustomerEmail} onChange={(event) => { setEditCustomerEmail(event.target.value); setEditCustomerError('') }} placeholder="Opcional" /></label>
+                        <label>Teléfono<input type="tel" maxLength={40} value={editCustomerPhone} onChange={(event) => { setEditCustomerPhone(event.target.value); setEditCustomerError('') }} placeholder="Opcional" /></label>
+                      </div>
+                      <label>Cumpleaños<input type="date" min="1900-01-01" max={todayIso} value={editCustomerBirthday} onChange={(event) => { setEditCustomerBirthday(event.target.value); setEditCustomerError('') }} /></label>
+                    </div>
+                    {editCustomerError && <div className="product-modal-error" role="alert">{editCustomerError}</div>}
+                    <div className="product-modal-actions">
+                      <button className="cancel-button" type="button" onClick={closeEditCustomer} disabled={editCustomerBusy}>Cancelar</button>
+                      <button className="primary-button" type="submit" disabled={editCustomerBusy}>{editCustomerBusy ? 'Guardando…' : 'Guardar cambios'}</button>
+                    </div>
+                  </form>
+                </section>
+              </div>
+            )}
           </>
         )}
 
