@@ -45,7 +45,15 @@ export function ProductGallery({ images }: { images: MediaAsset[] }) {
       >
         {images.map((image) => (
           <div key={image.src} className="relative aspect-[4/5] w-full shrink-0 snap-start">
-            <Image src={image.src} alt={image.alt} fill sizes="(max-width: 1024px) 100vw, 60vw" className="object-cover" priority={image === images[0]} />
+            <Image
+              src={image.src}
+              alt={image.alt}
+              fill
+              sizes="(max-width: 1024px) 100vw, 60vw"
+              className="object-cover"
+              priority={image === images[0]}
+              unoptimized={image.source === "supabase"}
+            />
           </div>
         ))}
       </div>
@@ -67,7 +75,7 @@ export function ProductGallery({ images }: { images: MediaAsset[] }) {
               }}
               aria-label={`Ver imagen ${i + 1}`}
             >
-              <Image src={image.src} alt={image.alt} fill sizes="64px" className="object-cover" />
+              <Image src={image.src} alt={image.alt} fill sizes="64px" className="object-cover" unoptimized={image.source === "supabase"} />
             </button>
           ))}
         </div></>

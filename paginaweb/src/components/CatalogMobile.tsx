@@ -11,6 +11,7 @@ import type { CatalogColorId, Product } from "@/types/catalog";
 import { Link } from "@/i18n/navigation";
 import { ProductCardSwatches } from "@/components/catalog/ProductCardSwatches";
 import { useProductCardVariant } from "@/components/catalog/useProductCardVariant";
+import { catalogCoverStyle } from "@/lib/catalog-cover";
 
 const assetRoot = "/assets/matearte/catalog-mobile";
 
@@ -70,6 +71,9 @@ function CatalogMobileCard({
     ? `${assetRoot}/${presentation}`
     : (defaultImage?.src ?? "");
   const imageAlt = variantImage?.alt || defaultImage?.alt || product.name;
+  const coverStyle = catalogCoverStyle((variantImage ?? defaultImage)?.optionValues);
+  const emphasizeProductImage = product.slug.includes("estribo-imperial")
+    || product.name.toLocaleLowerCase().includes("estribo imperial");
 
   return (
     <article className="catalog-mobile-product-card">
@@ -81,6 +85,8 @@ function CatalogMobileCard({
               alt={imageAlt}
               fill
               sizes="(max-width: 390px) 42vw, 163px"
+              className={emphasizeProductImage ? "catalog-mobile-product-image-estribo" : undefined}
+              style={coverStyle}
               priority={index < 2}
             />
           ) : null}

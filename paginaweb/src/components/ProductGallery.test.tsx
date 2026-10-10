@@ -13,4 +13,13 @@ describe("ProductGallery", () => {
     expect(screen.getByRole("button", { name: /imagen anterior/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /imagen siguiente/i })).toBeInTheDocument();
   });
+
+  it("sirve directamente las imágenes de Supabase para evitar timeouts del optimizador", () => {
+    const source = "https://agdkljuulwjwjasftcce.supabase.co/storage/v1/object/public/product-images/producto/frente.png";
+    render(<ProductGallery images={[
+      { src: source, alt: "Foto subida", width: 1024, height: 1536, source: "supabase", sourceUrl: source, rightsStatus: "brand-public" },
+    ]} />);
+
+    expect(screen.getByRole("img", { name: "Foto subida" })).toHaveAttribute("src", source);
+  });
 });

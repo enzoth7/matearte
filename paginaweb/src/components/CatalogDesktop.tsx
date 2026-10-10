@@ -12,6 +12,7 @@ import type { CatalogColorId, Product } from "@/types/catalog";
 import { Link } from "@/i18n/navigation";
 import { ProductCardSwatches } from "@/components/catalog/ProductCardSwatches";
 import { useProductCardVariant } from "@/components/catalog/useProductCardVariant";
+import { catalogCoverStyle } from "@/lib/catalog-cover";
 
 const assetRoot = "/assets/matearte/catalog-desktop";
 
@@ -77,7 +78,10 @@ function CatalogDesktopCard({
     ? `${assetRoot}/${presentation!.image}`
     : (defaultImage?.src ?? "");
   const imageAlt = variantImage?.alt || defaultImage?.alt || product.name;
+  const coverStyle = catalogCoverStyle((variantImage ?? defaultImage)?.optionValues);
   const showBackground = isEditorialFallback && Boolean(presentation?.background);
+  const emphasizeProductImage = product.slug.includes("estribo-imperial")
+    || product.name.toLocaleLowerCase().includes("estribo imperial");
 
   return (
     <article className="catalog-product-card">
@@ -99,7 +103,8 @@ function CatalogDesktopCard({
               alt={imageAlt}
               fill
               sizes="(max-width: 1200px) 28vw, 290px"
-              className={`catalog-product-image ${presentation?.imageClass ?? ""}`}
+              className={`catalog-product-image ${presentation?.imageClass ?? ""} ${emphasizeProductImage ? "catalog-product-image-estribo" : ""}`}
+              style={coverStyle}
               priority={index < 3}
             />
           ) : null}

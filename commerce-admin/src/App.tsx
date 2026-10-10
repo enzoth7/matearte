@@ -6,6 +6,7 @@ import { TaxonomyManager } from './TaxonomyManager';
 import { loadCatalogTaxonomy } from './catalogTaxonomy';
 import { InternationalShipping } from './InternationalShippingView';
 import { Discounts } from './DiscountsView';
+import { ProductCoverEditor, type ProductCoverCrop } from './ProductCoverEditor';
 import {
   catalogAttributeLabel,
   catalogCategoryIds,
@@ -107,6 +108,21 @@ const MAX_PRODUCT_IMAGE_BYTES = 10 * 1024 * 1024;
 const PRODUCT_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const productImageUrl = (path:string) => supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
 const fileExtension = (file:File) => file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || (file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg');
+const productCoverCrop = (image:ProductImage):ProductCoverCrop => {
+  const values = normalizeCatalogValueMap(image.option_values);
+  return {
+    x: typeof values.cover_x === 'number' ? values.cover_x : 0,
+    y: typeof values.cover_y === 'number' ? values.cover_y : 0,
+    zoom: typeof values.cover_zoom === 'number' ? values.cover_zoom : 1,
+  };
+};
+const productCoverStyle = (image:ProductImage) => {
+  const crop = productCoverCrop(image);
+  return {
+    objectPosition:`${50-crop.x}% ${50-crop.y}%`,
+    transform:`scale(${crop.zoom})`,
+  };
+};
 const TEST_ADMIN_USERNAME = (import.meta.env.VITE_COMMERCE_ADMIN_USERNAME || 'user').trim().toLowerCase();
 const TEST_ADMIN_EMAIL = (import.meta.env.VITE_COMMERCE_ADMIN_EMAIL || 'user@matearte.uy').trim().toLowerCase();
 const EMPTY_PRODUCT_FORM = (): ProductForm => ({name:'',category:'mates',description:'',saleMode:'standard',peso:0,catalogFilters:emptyCatalogAttributes(),attributes:{}});
@@ -619,6 +635,7 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
   const [search,setSearch] = useState('');
   const [imageBusy,setImageBusy] = useState('');
   const [imageTargets,setImageTargets] = useState<Record<string,string>>({});
+  const [coverEditorImage,setCoverEditorImage] = useState<ProductImage|null>(null);
   const [productBusy,setProductBusy] = useState('');
   const [showNewProduct,setShowNewProduct] = useState(false);
   const [newProduct,setNewProduct] = useState<ProductForm>(EMPTY_PRODUCT_FORM);
@@ -759,13 +776,14 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
 
     setImageBusy('upload');
     let uploaded = 0;
+    let newPrincipalImage:ProductImage|null = null;
     try {
       for (const [index,file] of files.entries()) {
         const path = `${product.id}/${crypto.randomUUID()}.${fileExtension(file)}`;
         const {error:uploadError} = await supabase.storage.from('product-images').upload(path,file,{cacheControl:'31536000',contentType:file.type,upsert:false});
         if (uploadError) throw uploadError;
 
-        const {error:rowError} = await supabase.from('commerce_product_images').insert({
+        const {data:row,error:rowError} = await supabase.from('commerce_product_images').insert({
           product_id:product.id,
           storage_path:path,
           original_name:file.name.slice(0,240),
@@ -773,15 +791,17 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
           mime_type:file.type,
           byte_size:file.size,
           sort_order:images.length + index,
-        });
+        }).select('id,storage_path,original_name,alt_text,mime_type,byte_size,sort_order,variant_id,option_values').single();
         if (rowError) {
           await supabase.storage.from('product-images').remove([path]);
           throw rowError;
         }
+        if (row && images.length + index === 0) newPrincipalImage = row as ProductImage;
         uploaded += 1;
       }
       onNotice(uploaded === 1 ? 'Imagen subida.' : `${uploaded} imágenes subidas.`);
-      await load();
+      await load(product.id);
+      if (newPrincipalImage) setCoverEditorImage(newPrincipalImage);
     } catch (reason) {
       const message = reason && typeof reason === 'object' && 'message' in reason ? String(reason.message) : 'No se pudieron subir las imágenes.';
       onNotice(uploaded ? `${uploaded} imágenes se guardaron. La siguiente falló: ${message}` : message);
@@ -809,9 +829,30 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
   const linkImageColor = async(image:ProductImage, color:string) => {
     if (!product) return;
     setImageBusy(image.id);
-    const {error} = await supabase.from('commerce_product_images').update({option_values:color?{color}:{},variant_id:null}).eq('id', image.id);
+    const optionValues = normalizeCatalogValueMap(image.option_values);
+    if (color) optionValues.color = color;
+    else delete optionValues.color;
+    const {error} = await supabase.from('commerce_product_images').update({option_values:optionValues,variant_id:null}).eq('id', image.id);
     onNotice(error ? error.message : color ? 'Color enlazado a la foto.' : 'Foto marcada como general.');
     if (!error) await load(product.id);
+    setImageBusy('');
+  };
+
+  const saveCoverCrop = async(crop:ProductCoverCrop) => {
+    if (!product || !coverEditorImage) return;
+    setImageBusy(coverEditorImage.id);
+    const optionValues = {
+      ...normalizeCatalogValueMap(coverEditorImage.option_values),
+      cover_x:Math.round(crop.x*100)/100,
+      cover_y:Math.round(crop.y*100)/100,
+      cover_zoom:Math.round(crop.zoom*100)/100,
+    };
+    const {error} = await supabase.from('commerce_product_images').update({option_values:optionValues}).eq('id',coverEditorImage.id).eq('product_id',product.id);
+    onNotice(error ? error.message : 'Portada ajustada.');
+    if (!error) {
+      setCoverEditorImage(null);
+      await load(product.id);
+    }
     setImageBusy('');
   };
 
@@ -1030,10 +1071,11 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
               <div className="image-gallery">
                 {images.map((image,index) => (
                   <figure className="product-image" key={image.id}>
-                    <img src={productImageUrl(image.storage_path)} alt={image.alt_text || `Foto de ${product.name}`} loading="lazy" />
+                    <div className="product-image-preview"><img src={productImageUrl(image.storage_path)} alt={image.alt_text || `Foto de ${product.name}`} loading="lazy" style={index===0?productCoverStyle(image):undefined}/></div>
                     <figcaption>
                       <div className="image-meta"><strong>{index === 0 ? 'Principal' : `Imagen ${index + 1}`}</strong><span title={image.original_name}>{image.original_name}</span></div>
                       <div className="image-card-actions">
+                        {index === 0 && <button className="image-cover" type="button" disabled={Boolean(imageBusy)} onClick={()=>setCoverEditorImage(image)}>Ajustar portada</button>}
                         {imageColors.length > 0 && (
                           <select className="image-variant-select" value={String(normalizeCatalogValueMap(image.option_values).color || '')} disabled={Boolean(imageBusy)} onChange={event=>void linkImageColor(image, event.target.value)} aria-label={`Color para ${image.original_name}`}>
                             <option value="">General (todos los colores)</option>
@@ -1061,6 +1103,18 @@ function Catalog({onNotice}:{onNotice:(v:string)=>void}) {
               </div>
             )}
           </section>
+
+          {coverEditorImage && (
+            <ProductCoverEditor
+              key={coverEditorImage.id}
+              imageUrl={productImageUrl(coverEditorImage.storage_path)}
+              imageAlt={coverEditorImage.alt_text || `Foto de ${product.name}`}
+              initialCrop={productCoverCrop(coverEditorImage)}
+              busy={imageBusy === coverEditorImage.id}
+              onCancel={()=>setCoverEditorImage(null)}
+              onSave={crop=>void saveCoverCrop(crop)}
+            />
+          )}
 
           <section className="variants-section" aria-labelledby="variants-title">
             <div><h4 id="variants-title">Variantes comprables</h4><p>El SKU y las opciones identifican cada variante. La etiqueta se genera automáticamente.</p></div>
