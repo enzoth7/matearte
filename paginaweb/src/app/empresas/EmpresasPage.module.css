@@ -184,6 +184,8 @@
   height: auto;
   max-height: none;
   object-fit: contain;
+  filter: grayscale(1) brightness(1.2);
+  opacity: 0.75;
 }
 
 .logo[data-logo="nicolini"] { width: 315px; height: 91px; }
@@ -191,6 +193,7 @@
 .logo[data-logo="grupo-bidart"] { width: 239px; height: 72px; }
 .logo[data-logo="publiled"] { width: 72px; height: 72px; }
 .logo[data-logo="nutex"] { width: 203px; height: 73px; }
+.logo[data-logo="nutex"] img { filter: grayscale(1) brightness(1.7); }
 .logo[data-logo="ponsse"] { width: 230px; height: 70px; }
 .logo[data-logo="ponsse"] img { position: absolute; top: -114%; left: -0.6%; width: 101.2%; }
 .logo[data-logo="grido"] { width: 140px; height: 96px; }
