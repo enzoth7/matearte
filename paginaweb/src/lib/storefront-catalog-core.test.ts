@@ -141,6 +141,7 @@ describe("catálogo público conectado a Supabase", () => {
         colors: [],
       },
       attributes: {
+        coleccion: "uruguay",
         material: "alpaca",
         "tipo-mate": "torpedo",
       },
@@ -148,6 +149,7 @@ describe("catálogo público conectado a Supabase", () => {
 
     expect(product.filterData.materials).toEqual(["alpaca"]);
     expect(product.filterData.productTypes).toEqual(["torpedo"]);
+    expect(product.filterData.collection).toBe("uruguay");
   });
 
   it("actualiza un producto editorial por slug sin perder sus filtros ni su traducción", () => {

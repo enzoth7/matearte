@@ -181,6 +181,7 @@ export function CatalogMobile({ products, exchangeRates }: { products: Product[]
             products={products}
             filters={filters}
             onCategoryChange={catalogFilters.setCategory}
+            onCollectionChange={catalogFilters.setCollection}
             onPriceChange={catalogFilters.setPrice}
             onMaterialChange={catalogFilters.setMaterial}
             onProductTypeChange={catalogFilters.setProductType}

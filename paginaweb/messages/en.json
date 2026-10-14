@@ -179,6 +179,8 @@
     "customAction": "Create mine",
     "customAlt": "A custom mate held in one hand",
     "categories": "Categories",
+    "collections": "Collections",
+    "allCollections": "All collections",
     "all": "All",
     "mates": "Mates",
     "customMates": "Custom Mates",

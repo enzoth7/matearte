@@ -31,7 +31,7 @@ function product(id: string, priceUYU: number, overrides: Partial<Product["filte
   };
 }
 
-const defaults: CatalogFilters = { search: "", category: "todas", prices: [], materials: [], productTypes: [], colors: [], sort: "nombre" };
+const defaults: CatalogFilters = { search: "", category: "todas", collections: [], prices: [], materials: [], productTypes: [], colors: [], sort: "nombre" };
 
 describe("filtros del catálogo", () => {
   it("respeta los límites sin superponer rangos", () => {
@@ -71,13 +71,29 @@ describe("filtros del catálogo", () => {
   });
 
   it("lee, valida y vuelve a escribir parámetros repetibles", () => {
-    const filters = parseCatalogFilters(new URLSearchParams("filter=matera&categoria=billeteras&precio=menos-3000&precio=7000-mas&material=estampado&tipo=torpedo&orden=precio&precio=invalido&forma=ovalada"));
-    expect(filters).toMatchObject({ search: "matera", category: "billeteras", prices: ["menos-3000", "7000-mas"], materials: ["estampado"], productTypes: ["torpedo"], sort: "precio" });
+    const filters = parseCatalogFilters(new URLSearchParams("filter=matera&categoria=billeteras&coleccion=estribo&coleccion=alfonsina&coleccion=invalida&precio=menos-3000&precio=7000-mas&material=estampado&tipo=torpedo&orden=precio&precio=invalido&forma=ovalada"));
+    expect(filters).toMatchObject({ search: "matera", category: "billeteras", collections: ["estribo", "alfonsina"], prices: ["menos-3000", "7000-mas"], materials: ["estampado"], productTypes: ["torpedo"], sort: "precio" });
     expect(writeCatalogFilters(filters).get("filter")).toBe("matera");
     expect(filters).not.toHaveProperty("shapes");
     expect(writeCatalogFilters(filters).getAll("precio")).toEqual(["menos-3000", "7000-mas"]);
     expect(writeCatalogFilters(filters).getAll("material")).toEqual(["estampado"]);
+    expect(writeCatalogFilters(filters).getAll("coleccion")).toEqual(["estribo", "alfonsina"]);
     expect(writeCatalogFilters(filters).has("forma")).toBe(false);
+  });
+
+  it("filtra por colección y combina varias colecciones con OR", () => {
+    const estribo = product("mate-estribo", 4500).product;
+    estribo.filterData.collection = "estribo";
+    const uruguay = product("mate-uruguay", 4800).product;
+    uruguay.filterData.collection = "uruguay";
+    const sinColeccion = product("mate-clasico", 3900).product;
+
+    const visible = filterAndSortCatalog(
+      [{ product: estribo }, { product: uruguay }, { product: sinColeccion }],
+      { ...defaults, collections: ["estribo", "alfonsina"] },
+    );
+
+    expect(visible.map(({ product }) => product.id)).toEqual(["mate-estribo"]);
   });
 
   it("busca por texto sin distinguir mayúsculas ni tildes", () => {
@@ -234,6 +250,7 @@ describe("filtros del catálogo", () => {
   it("determina correctamente si existen filtros activos", () => {
     expect(hasActiveCatalogFilters(defaults)).toBe(false);
     expect(hasActiveCatalogFilters({ ...defaults, category: "mates" })).toBe(true);
+    expect(hasActiveCatalogFilters({ ...defaults, collections: ["uruguay"] })).toBe(true);
     expect(hasActiveCatalogFilters({ ...defaults, prices: ["menos-3000"] })).toBe(true);
     expect(hasActiveCatalogFilters({ ...defaults, materials: ["cuero"] })).toBe(true);
     expect(hasActiveCatalogFilters({ ...defaults, productTypes: ["imperial"] })).toBe(true);

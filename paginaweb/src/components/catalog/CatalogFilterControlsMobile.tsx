@@ -2,6 +2,7 @@
 
 import {
   categoryOptions,
+  collectionOptions,
   colorOptions,
   materialOptions,
   productTypeOptions,
@@ -11,7 +12,7 @@ import {
   type PriceRangeId,
 } from "@/lib/catalog-filters";
 import { useLocale, useTranslations } from "next-intl";
-import type { CatalogColorId, CatalogMaterialId, CatalogProductTypeId, Product } from "@/types/catalog";
+import type { CatalogCollectionId, CatalogColorId, CatalogMaterialId, CatalogProductTypeId, Product } from "@/types/catalog";
 
 const COLOR_FALLBACKS: Record<string, Record<string, string>> = {
   es: {
@@ -101,6 +102,7 @@ type Props = {
   products: Product[];
   filters: CatalogFilters;
   onCategoryChange: (value: CatalogFilters["category"]) => void;
+  onCollectionChange: (value: CatalogCollectionId | "") => void;
   onPriceChange: (value: PriceRangeId | "") => void;
   onMaterialChange: (value: CatalogMaterialId | "") => void;
   onProductTypeChange: (value: CatalogProductTypeId | "") => void;
@@ -111,6 +113,7 @@ export function CatalogFilterControlsMobile({
   products,
   filters,
   onCategoryChange,
+  onCollectionChange,
   onPriceChange,
   onMaterialChange,
   onProductTypeChange,
@@ -154,12 +157,14 @@ export function CatalogFilterControlsMobile({
   const availableColors = new Set(products.flatMap((product) => getProductColors(product)));
 
   const selectedPrice = filters.prices[0] ?? "";
+  const selectedCollection = filters.collections[0] ?? "";
   const selectedMaterial = filters.materials[0] ?? "";
   const selectedProductType = filters.productTypes[0] ?? "";
   const selectedColor = filters.colors[0] ?? "";
 
   // Strings "todos" hardcodeados para evitar problemas de caché de Turbopack con claves nuevas
   const allPricesLabel = (({ es: "Todos los precios", en: "All prices", pt: "Todos os preços" }) as Record<string, string>)[locale] ?? "Todos los precios";
+  const allCollectionsLabel = (({ es: "Todas las colecciones", en: "All collections", pt: "Todas as coleções" }) as Record<string, string>)[locale] ?? "Todas las colecciones";
   const allMaterialsLabel = (({ es: "Todos los materiales", en: "All materials", pt: "Todos os materiais" }) as Record<string, string>)[locale] ?? "Todos los materiales";
   const allTypesLabel = (({ es: "Todos los tipos", en: "All types", pt: "Todos os tipos" }) as Record<string, string>)[locale] ?? "Todos los tipos";
   const allColorsLabel = (({ es: "Todos los colores", en: "All colors", pt: "Todas as cores" }) as Record<string, string>)[locale] ?? "Todos los colores";
@@ -180,6 +185,24 @@ export function CatalogFilterControlsMobile({
               <option key={option.value} value={option.value}>
                 {getCategoryLabel(option.labelKey)}
               </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="catalog-mobile-filter-select-group">
+        <label className="catalog-mobile-filter-select-label" htmlFor="mfs-collection">
+          {t("collections")}
+        </label>
+        <div className="catalog-mobile-filter-select-wrap">
+          <select
+            id="mfs-collection"
+            value={selectedCollection}
+            onChange={(e) => onCollectionChange(e.target.value as CatalogCollectionId | "")}
+          >
+            <option value="">{allCollectionsLabel}</option>
+            {collectionOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
         </div>

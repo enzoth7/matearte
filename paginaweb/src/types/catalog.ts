@@ -1,6 +1,7 @@
 import type {
   CatalogCategoryId as SharedCatalogCategoryId,
   CatalogColorId as SharedCatalogColorId,
+  CatalogCollectionId as SharedCatalogCollectionId,
   CatalogMaterialId as SharedCatalogMaterialId,
   CatalogProductTypeId as SharedCatalogProductTypeId,
 } from "../../../shared/catalog-taxonomy";
@@ -14,11 +15,13 @@ export type CategorySlug = SharedCatalogCategoryId;
 export type CatalogMaterialId = SharedCatalogMaterialId;
 export type CatalogProductTypeId = SharedCatalogProductTypeId;
 export type CatalogColorId = SharedCatalogColorId;
+export type CatalogCollectionId = SharedCatalogCollectionId;
 /** @deprecated Use CatalogProductTypeId for new data. */
 export type MateTypeId = Extract<CatalogProductTypeId, "imperial" | "camionero" | "criollo" | "torpedo">;
 
 export type CatalogFilterData = {
   priceUYU?: number;
+  collection?: CatalogCollectionId;
   materials: CatalogMaterialId[];
   /** Product models/styles. Values may be combined for a product. */
   productTypes?: CatalogProductTypeId[];

@@ -1,5 +1,6 @@
 import type {
   CatalogColorId,
+  CatalogCollectionId,
   CatalogMaterialId,
   CatalogProductTypeId,
   CategorySlug,
@@ -62,12 +63,19 @@ export const colorOptions: ReadonlyArray<{ value: CatalogColorId; labelKey: "bro
   { value: "metalico", labelKey: "metallic", color: "#9b9b95" },
 ];
 
+export const collectionOptions: ReadonlyArray<{ value: CatalogCollectionId; label: string }> = [
+  { value: "estribo", label: "Estribo" },
+  { value: "uruguay", label: "Uruguay" },
+  { value: "alfonsina", label: "Alfonsina" },
+];
+
 export type PriceRangeId = (typeof priceRangeOptions)[number]["value"];
 export type CatalogSort = "editorial" | "nombre" | "precio";
 
 export type CatalogFilters = {
   search: string;
   category: "todas" | CategorySlug;
+  collections: CatalogCollectionId[];
   prices: PriceRangeId[];
   materials: CatalogMaterialId[];
   productTypes: CatalogProductTypeId[];
@@ -80,6 +88,7 @@ const priceIds: ReadonlySet<string> = new Set(priceRangeOptions.map((option) => 
 const materialIds: ReadonlySet<string> = new Set(materialOptions.map((option) => option.value));
 const productTypeIds: ReadonlySet<string> = new Set(productTypeOptions.map((option) => option.value));
 const colorIds: ReadonlySet<string> = new Set(colorOptions.map((option) => option.value));
+const collectionIds: ReadonlySet<string> = new Set(collectionOptions.map((option) => option.value));
 const sortIds = new Set<CatalogSort>(["editorial", "nombre", "precio"]);
 
 function validValues<T extends string>(params: URLSearchParams, key: string, allowed: ReadonlySet<string>) {
@@ -93,6 +102,7 @@ export function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
   return {
     search: (params.get("filter") ?? "").trim(),
     category: categoryIds.has(categoryValue) ? categoryValue as CatalogFilters["category"] : "todas",
+    collections: validValues<CatalogCollectionId>(params, "coleccion", collectionIds),
     prices: validValues<PriceRangeId>(params, "precio", priceIds),
     materials: validValues<CatalogMaterialId>(params, "material", materialIds),
     productTypes: validValues<CatalogProductTypeId>(params, "tipo", productTypeIds),
@@ -105,6 +115,7 @@ export function writeCatalogFilters(filters: CatalogFilters) {
   const params = new URLSearchParams();
   if (filters.search) params.set("filter", filters.search.trim());
   if (filters.category !== "todas") params.set("categoria", filters.category);
+  filters.collections.forEach((value) => params.append("coleccion", value));
   if (filters.sort !== "nombre") params.set("orden", filters.sort);
   filters.prices.forEach((value) => params.append("precio", value));
   filters.materials.forEach((value) => params.append("material", value));
@@ -270,6 +281,7 @@ export function filterAndSortCatalog<T extends { product: Product }>(entries: T[
         : [];
     const categoryParent: Record<string,string> = { botas:"calzado", cintos:"marroquineria", billeteras:"marroquineria", carteras:"marroquineria" };
     const matchesCategory = filters.category === "todas" || product.category === filters.category || categoryParent[product.category] === filters.category;
+    const matchesCollection = filters.collections.length === 0 || Boolean(data.collection && filters.collections.includes(data.collection));
     const matchesPrice = filters.prices.length === 0 || prices.some((price) => (
       filters.prices.some((rangeId) => {
         const range = priceRangeOptions.find((option) => option.value === rangeId);
@@ -291,10 +303,11 @@ export function filterAndSortCatalog<T extends { product: Product }>(entries: T[
       ...data.materials,
       ...getProductTypes(product),
       ...productColors,
+      data.collection ?? "",
       ...(product.variants ?? []).map((variant) => variant.label),
     ].join(" "));
     const matchesSearch = searchTerms.length === 0 || searchTerms.every((term) => searchableText.includes(term));
-    return matchesSearch && matchesCategory && matchesPrice && matchesMaterial && matchesProductType && matchesColor;
+    return matchesSearch && matchesCategory && matchesCollection && matchesPrice && matchesMaterial && matchesProductType && matchesColor;
   });
 
   if (filters.sort === "precio") return [...filtered].sort((a, b) => (a.product.filterData.priceUYU ?? Number.POSITIVE_INFINITY) - (b.product.filterData.priceUYU ?? Number.POSITIVE_INFINITY));
@@ -319,6 +332,7 @@ export function hasActiveCatalogFilters(filters: CatalogFilters): boolean {
   return (
     filters.search.length > 0 ||
     filters.category !== "todas" ||
+    filters.collections.length > 0 ||
     filters.prices.length > 0 ||
     filters.materials.length > 0 ||
     filters.productTypes.length > 0 ||

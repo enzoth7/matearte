@@ -11,7 +11,7 @@ import {
   type CatalogSort,
   type PriceRangeId,
 } from "@/lib/catalog-filters";
-import type { CatalogColorId, CatalogMaterialId, CatalogProductTypeId } from "@/types/catalog";
+import type { CatalogCollectionId, CatalogColorId, CatalogMaterialId, CatalogProductTypeId } from "@/types/catalog";
 
 export function useCatalogFilters() {
   const router = useRouter();
@@ -36,6 +36,7 @@ export function useCatalogFilters() {
   return {
     filters,
     setCategory: (category: CatalogFilters["category"]) => commit({ ...filters, category }),
+    toggleCollection: (value: CatalogCollectionId) => commit({ ...filters, collections: toggleFilterValue(filters.collections, value) }),
     setSort: (sort: CatalogSort) => commit({ ...filters, sort }),
     togglePrice: (value: PriceRangeId) => commit({ ...filters, prices: toggleFilterValue(filters.prices, value) }),
     toggleMaterial: (value: CatalogMaterialId) => commit({ ...filters, materials: toggleFilterValue(filters.materials, value) }),
@@ -45,6 +46,7 @@ export function useCatalogFilters() {
     setMaterial: (value: CatalogMaterialId | "") => commit({ ...filters, materials: value ? [value] : [] }),
     setProductType: (value: CatalogProductTypeId | "") => commit({ ...filters, productTypes: value ? [value] : [] }),
     setColor: (value: CatalogColorId | "") => commit({ ...filters, colors: value ? [value] : [] }),
-    clearFilters: () => commit({ ...filters, search: "", category: "todas", prices: [], materials: [], productTypes: [], colors: [] }),
+    setCollection: (value: CatalogCollectionId | "") => commit({ ...filters, collections: value ? [value] : [] }),
+    clearFilters: () => commit({ ...filters, search: "", category: "todas", collections: [], prices: [], materials: [], productTypes: [], colors: [] }),
   };
 }

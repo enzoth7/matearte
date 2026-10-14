@@ -2,6 +2,7 @@
 
 import {
   categoryOptions,
+  collectionOptions,
   colorOptions,
   materialOptions,
   productTypeOptions,
@@ -11,7 +12,7 @@ import {
   type PriceRangeId,
 } from "@/lib/catalog-filters";
 import { useLocale, useTranslations } from "next-intl";
-import type { CatalogColorId, CatalogMaterialId, CatalogProductTypeId, Product } from "@/types/catalog";
+import type { CatalogCollectionId, CatalogColorId, CatalogMaterialId, CatalogProductTypeId, Product } from "@/types/catalog";
 
 const COLOR_FALLBACKS: Record<string, Record<string, string>> = {
   es: {
@@ -154,6 +155,7 @@ type Props = {
   products: Product[];
   filters: CatalogFilters;
   onCategoryChange: (value: CatalogFilters["category"]) => void;
+  onCollectionToggle: (value: CatalogCollectionId) => void;
   onPriceToggle: (value: PriceRangeId) => void;
   onMaterialToggle: (value: CatalogMaterialId) => void;
   onProductTypeToggle: (value: CatalogProductTypeId) => void;
@@ -167,6 +169,7 @@ export function CatalogFilterControls({
   products,
   filters,
   onCategoryChange,
+  onCollectionToggle,
   onPriceToggle,
   onMaterialToggle,
   onProductTypeToggle,
@@ -238,6 +241,19 @@ export function CatalogFilterControls({
               />
               <span className={mobile ? "catalog-mobile-checkbox" : "catalog-checkbox"} aria-hidden="true" />
               <span>{getCategoryLabel(option.labelKey)}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset className={`${groupClass} catalog-collection-filter`}>
+        <legend>{t("collections")}</legend>
+        <div className={listClass}>
+          {collectionOptions.map((option) => (
+            <label key={option.value} className={rowClass}>
+              <input type="checkbox" checked={filters.collections.includes(option.value)} onChange={() => onCollectionToggle(option.value)} />
+              <span className={mobile ? "catalog-mobile-checkbox" : "catalog-checkbox"} aria-hidden="true" />
+              <span>{option.label}</span>
             </label>
           ))}
         </div>

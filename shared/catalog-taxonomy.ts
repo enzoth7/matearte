@@ -6,11 +6,13 @@ export const catalogCategoryIds = [
 export const catalogMaterialIds = ["cuero", "plata", "alpaca", "acero-inoxidable", "otros-metales", "madera", "estampado"] as const;
 export const catalogProductTypeIds = ["imperial", "camionero", "criollo", "torpedo"] as const;
 export const catalogColorIds = ["marron", "negro", "natural", "cuero-crudo", "rojo", "blanco", "rosado", "gris", "dorado", "celeste", "azul", "beige", "metalico"] as const;
+export const catalogCollectionIds = ["estribo", "uruguay", "alfonsina"] as const;
 
 export type CatalogCategoryId = (typeof catalogCategoryIds)[number];
 export type CatalogMaterialId = (typeof catalogMaterialIds)[number];
 export type CatalogProductTypeId = (typeof catalogProductTypeIds)[number];
 export type CatalogColorId = (typeof catalogColorIds)[number];
+export type CatalogCollectionId = (typeof catalogCollectionIds)[number];
 export type CatalogValue = string | number | boolean;
 export type CatalogValueMap = Record<string, CatalogValue>;
 export type CatalogAttributeDataType = "enum" | "number" | "boolean" | "text";
@@ -108,6 +110,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     category("mates-personalizados", "Mates Personalizados", null, 100), category("termos", "Termos", null, 110),
   ],
   attributes: [
+    attribute("coleccion", "Colección", "enum", "select"),
     attribute("tipo-mate", "Modelo de mate", "enum", "select"), attribute("material", "Material", "enum", "select"),
     attribute("forma", "Forma", "enum", "select"), attribute("tamano", "Tamaño", "enum", "select"), attribute("acabado", "Acabado", "text", "text"),
     attribute("color", "Color", "enum", "swatch"), attribute("talle", "Talle", "enum", "buttons"), attribute("capacidad-ml", "Capacidad", "number", "number", "ml"),
@@ -123,6 +126,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     attribute("largo-cinto-cm", "Largo del cinto", "number", "number", "cm"),
   ],
   options: [
+    ...catalogCollectionIds.map((code, index) => option("coleccion", code, ({ estribo: "Estribo", uruguay: "Uruguay", alfonsina: "Alfonsina" } as Record<string, string>)[code], (index + 1) * 10)),
     ...catalogProductTypeIds.map((code, index) => option("tipo-mate", code, ({ imperial: "Imperial", camionero: "Camionero", criollo: "Criollo", torpedo: "Torpedo" } as Record<string, string>)[code], index * 10)),
     ...catalogMaterialIds.map((code, index) => option("material", code, labels.material[code], index * 10)),
     option("forma", "ovalada", "Ovalada", 10), option("forma", "cuadrada", "Cuadrada", 20),
@@ -142,6 +146,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     ...["cuero-crudo|Cuero crudo", "suela|Suela", "metal|Metal", "combinada|Combinada"].map((item, index) => { const [code, label] = item.split("|"); return option("material-vaina", code, label, index * 10); }),
   ],
   rules: [
+    ...catalogCategoryIds.map(code => rule(code,"coleccion","product",5)),
     rule("mates","tipo-mate","product",10), rule("mates","material","product",20), rule("mates","acabado","product",30), rule("mates","color","variant",100), rule("mates","tamano","variant",110),
     rule("mates-personalizados","tipo-mate","product",10), rule("mates-personalizados","material","product",20), rule("mates-personalizados","acabado","product",30), rule("mates-personalizados","color","variant",100), rule("mates-personalizados","tamano","variant",110),
     rule("bombillas","tipo-bombilla","product",10,true), rule("bombillas","diametro-cano-mm","product",20), rule("bombillas","largo-mm","product",30,false,false), rule("bombillas","material-cuerpo","product",40), rule("bombillas","forma-pico","product",50), rule("bombillas","material-pico","product",60), rule("bombillas","decoracion","product",70), rule("bombillas","color","variant",100),

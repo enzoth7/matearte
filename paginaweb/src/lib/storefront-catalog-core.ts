@@ -8,6 +8,7 @@ import type {
   ProductVariant,
 } from "@/types/catalog";
 import {
+  catalogCollectionIds,
   canonicalCategoryCode,
   catalogMaterialIds,
   catalogProductTypeIds,
@@ -146,6 +147,9 @@ export function storefrontProductFromRow(
   const structuredProductType = typeof attributes["tipo-mate"] === "string" && catalogProductTypeIds.includes(attributes["tipo-mate"] as CatalogProductTypeId)
     ? attributes["tipo-mate"] as CatalogProductTypeId
     : undefined;
+  const structuredCollection = typeof attributes.coleccion === "string" && catalogCollectionIds.includes(attributes.coleccion as (typeof catalogCollectionIds)[number])
+    ? attributes.coleccion as (typeof catalogCollectionIds)[number]
+    : undefined;
   const commercialMaterials = mergeCommercialValues(storedAttributes.materials, structuredMaterial);
   const commercialProductTypes = mergeCommercialValues(storedAttributes.productTypes, structuredProductType);
 
@@ -160,6 +164,7 @@ export function storefrontProductFromRow(
     description,
     materials: existing?.materials ?? [],
     filterData: {
+      collection: structuredCollection ?? existing?.filterData.collection,
       materials: commercialMaterials.length > 0 ? commercialMaterials : existing?.filterData.materials ?? [],
       productTypes: commercialProductTypes.length > 0 ? commercialProductTypes : existingProductTypes,
       colors: [...new Set(variants.map(variant => variant.color).filter((color): color is CatalogColorId => Boolean(color)))],
