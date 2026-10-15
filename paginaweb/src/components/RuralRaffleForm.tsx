@@ -122,7 +122,6 @@ export function RuralRaffleForm({ countries, initialCities }: { countries: { cod
           {cityOptions.map((name) => <option key={name} value={name}>{name}</option>)}
         </select>
         {cityError && <button className={styles.cityRetry} type="button" onClick={() => { setCityError(false); setLoadingCities(true); setRetryCities((value) => value + 1); }}>No pudimos cargar las ciudades. Reintentar</button>}
-        <span className={styles.cityHint}>Ciudades: <a href="https://www.geonames.org/" target="_blank" rel="noopener noreferrer">GeoNames</a> (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>).</span>
       </div>
 
       <div className={styles.field}>
