@@ -8,6 +8,7 @@ export const localizedPathnames = {
     "/clientes": { es: "/clientes", en: "/customers", pt: "/clientes" },
     "/nosotros": { es: "/nosotros", en: "/about", pt: "/sobre-nos" },
     "/contacto": { es: "/contacto", en: "/contact", pt: "/contato" },
+    "/rural": "/rural",
     "/carrito": { es: "/carrito", en: "/cart", pt: "/carrinho" },
     "/checkout": { es: "/checkout", en: "/checkout", pt: "/finalizar-compra" },
     "/perfil": { es: "/perfil", en: "/account", pt: "/perfil" },

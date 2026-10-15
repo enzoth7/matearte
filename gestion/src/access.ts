@@ -1,0 +1,112 @@
+import { areas, paths, resolvePath } from "./navigation";
+import type { Customer, Order, SalesChannel, State } from "./data";
+
+export const accessUserIds = ["t1", "t2", "t3"] as const;
+export type AccessUserId = (typeof accessUserIds)[number];
+
+const withAreas = (areaIds: string[]) =>
+  paths.filter((path) => areaIds.includes(path.split("/")[1]));
+
+export function defaultAccess(): Record<string, string[]> {
+  return {
+    t1: [...paths],
+    t2: [
+      "/inicio/resumen",
+      "/comercial/pedidos", "/comercial/registrar",
+      "/clientes/base", "/clientes/segmentos",
+    ],
+    t3: [
+      "/inicio/resumen", "/inicio/alertas",
+      "/comercial/pedidos", "/comercial/registrar",
+      "/clientes/base", "/clientes/segmentos",
+      "/productos/catalogo", "/productos/ajustes",
+      ...withAreas(["produccion", "inventario", "entregas"]),
+    ],
+  };
+}
+
+export function lockedForRichard(path: string): boolean {
+  return path === "/administracion/usuarios" || path.startsWith("/finanzas/");
+}
+
+export function accessUserId(s: State): AccessUserId {
+  if (accessUserIds.some((id) => id === s.activeUserId)) return s.activeUserId as AccessUserId;
+  const employee = s.employees.find((person) => person.name === s.user);
+  return accessUserIds.find((id) => id === employee?.id) ?? "t2";
+}
+
+export function canAccess(s: State, path: string): boolean {
+  const normalized = path.split("?")[0];
+  if (!resolvePath(normalized)) return false;
+  const userId = accessUserId(s);
+  if (userId === "t1") return true;
+  if (lockedForRichard(normalized)) return false;
+  return (s.access?.[userId] ?? defaultAccess()[userId]).includes(normalized);
+}
+
+export function visibleAreas(s: State) {
+  return areas
+    .map((area) => ({
+      ...area,
+      pages: area.pages.filter(([slug]) => canAccess(s, `/${area.id}/${slug}`)),
+    }))
+    .filter((area) => area.pages.length > 0);
+}
+
+export function firstVisiblePath(s: State): string {
+  const area = visibleAreas(s)[0];
+  return area ? `/${area.id}/${area.pages[0][0]}` : "/inicio/resumen";
+}
+
+export function setAreaAccess(
+  s: State,
+  userId: Exclude<AccessUserId, "t1">,
+  areaId: string,
+  enabled: boolean,
+): State {
+  const area = areas.find((entry) => entry.id === areaId);
+  if (!area) return s;
+  const current = new Set(s.access?.[userId] ?? defaultAccess()[userId]);
+  for (const [slug] of area.pages) {
+    const path = `/${area.id}/${slug}`;
+    if (lockedForRichard(path)) continue;
+    if (enabled) current.add(path);
+    else current.delete(path);
+  }
+  return { ...s, access: { ...s.access, [userId]: [...current] } };
+}
+
+export function setPageAccess(
+  s: State,
+  userId: Exclude<AccessUserId, "t1">,
+  path: string,
+  enabled: boolean,
+): State {
+  if (!resolvePath(path) || lockedForRichard(path)) return s;
+  const current = new Set(s.access?.[userId] ?? defaultAccess()[userId]);
+  if (enabled) current.add(path);
+  else current.delete(path);
+  return { ...s, access: { ...s.access, [userId]: [...current] } };
+}
+
+export function allowedSalesChannels(s: State): SalesChannel[] {
+  const userId = accessUserId(s);
+  return userId === "t2" ? ["Local"] : userId === "t3" ? ["Mayorista"] : ["Web", "Local", "Mayorista", "Instagram", "Facebook", "WhatsApp"];
+}
+
+export function visibleOrders(s: State, production = false): Order[] {
+  const userId = accessUserId(s);
+  if (userId === "t1" || (userId === "t3" && production)) return s.orders;
+  const channels = allowedSalesChannels(s);
+  return s.orders.filter((order) => channels.includes(order.channel));
+}
+
+export function visibleCustomers(s: State): Customer[] {
+  const userId = accessUserId(s);
+  if (userId === "t1") return s.customers;
+  const allowedOrderIds = new Set(s.orders.filter((order) =>
+    userId === "t2" ? order.channel === "Local" || order.channel === "Web" : order.channel === "Mayorista",
+  ).map((order) => order.customerId));
+  return s.customers.filter((customer) => allowedOrderIds.has(customer.id) ||
+    (userId === "t2" ? customer.segment !== "Mayorista" : customer.segment === "Mayorista"));
+}

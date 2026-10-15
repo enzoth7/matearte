@@ -3,6 +3,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 import { HomeHero } from "@/components/home/HomeHero";
 import { HomeFeaturedProducts } from "@/components/home/HomeFeaturedProducts";
+import { StorefrontAnnouncement } from "@/components/StorefrontAnnouncement";
 import { JsonLd } from "@/components/JsonLd";
 import { Link } from "@/i18n/navigation";
 import { buildSiteStructuredData } from "@/lib/seo";
@@ -33,6 +34,7 @@ export default async function Home() {
   const metadata = await getTranslations("metadata");
   return (
     <main id="contenido" className="home-page">
+      <StorefrontAnnouncement />
       <JsonLd data={buildSiteStructuredData(locale, metadata("description"))} />
       <HomeHero />
 

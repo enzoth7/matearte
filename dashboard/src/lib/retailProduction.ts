@@ -24,6 +24,7 @@ export interface RetailProductionItem {
 type WebOrderRow = {
   id: string;
   order_number: number;
+  reference_code?: string | null;
   status: string;
   created_at: string;
   customer_snapshot: Record<string, unknown> | null;
@@ -38,6 +39,7 @@ type WebOrderRow = {
 type LocalSaleRow = {
   id: string;
   sale_number: number;
+  reference_code?: string | null;
   customer_name: string;
   sold_on: string;
   created_at: string;
@@ -65,7 +67,7 @@ export function mapRetailProduction(webOrders: WebOrderRow[], localSales: LocalS
     id: `web-${item.id}`,
     sourceItemId: item.id,
     source: "Web" as const,
-    reference: `#${order.order_number}`,
+    reference: order.reference_code || `#${order.order_number}`,
     createdAt: order.created_at,
     customer: webCustomerName(order.customer_snapshot),
     product: cleanText(item.title) || "Producto sin detalle",
@@ -77,7 +79,7 @@ export function mapRetailProduction(webOrders: WebOrderRow[], localSales: LocalS
     id: `local-${item.id}`,
     sourceItemId: item.id,
     source: "Local" as const,
-    reference: `#${String(sale.sale_number).padStart(5, "0")}`,
+    reference: sale.reference_code || `#${String(sale.sale_number).padStart(5, "0")}`,
     createdAt: sale.created_at || `${sale.sold_on}T12:00:00`,
     customer: cleanText(sale.customer_name) || "Cliente sin registrar",
     product: [cleanText(item.product_name), cleanText(item.variant_name)].filter(Boolean).join(" · ") || "Producto sin detalle",
@@ -94,13 +96,14 @@ export async function fetchRetailProduction(): Promise<RetailProductionItem[]> {
   const [webRequest, localRequest] = await Promise.all([
     supabase
       .from("orders")
-      .select("id,order_number,status,created_at,customer_snapshot,order_items(id,title,quantity,production_status)")
+      .select("id,order_number,reference_code,status,created_at,customer_snapshot,order_items(id,title,quantity,production_status)")
       .in("status", ["paid_pending_review", "ready_for_production", "ready_for_fulfillment", "manual_review"])
       .order("created_at", { ascending: false })
       .limit(100),
     supabase
       .from("local_sales")
-      .select("id,sale_number,customer_name,sold_on,created_at,local_sale_items(id,product_name,variant_name,quantity,production_status)")
+      .select("id,sale_number,reference_code,customer_name,sold_on,created_at,local_sale_items(id,product_name,variant_name,quantity,production_status)")
+      .eq("channel", "Local")
       .order("created_at", { ascending: false })
       .limit(100),
   ]);

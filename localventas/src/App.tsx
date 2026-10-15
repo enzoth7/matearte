@@ -38,6 +38,7 @@ type Sale = {
 
 type StoredSale = {
   sale_number: number
+  reference_code: string | null
   customer_name: string
   sold_on: string
   payment_method: string
@@ -159,7 +160,7 @@ const mapCustomer = (row: { id: string; full_name: string; email: string | null;
 })
 
 const mapSale = (row: StoredSale): Sale => ({
-  id: `#${String(row.sale_number).padStart(5, '0')}`,
+  id: row.reference_code || `#${String(row.sale_number).padStart(5, '0')}`,
   time: new Date(row.created_at).toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' }),
   soldOn: row.sold_on,
   createdAt: row.created_at,
@@ -359,7 +360,8 @@ function App() {
       while (true) {
         const { data, error } = await supabase
           .from('local_sales')
-          .select('sale_number,customer_name,sold_on,payment_method,total_minor,created_at,local_sale_items(product_name,variant_name,quantity)')
+          .select('sale_number,reference_code,customer_name,sold_on,payment_method,total_minor,created_at,local_sale_items(product_name,variant_name,quantity)')
+          .eq('channel', 'Local')
           .gte('sold_on', oldestRequiredDate)
           .order('created_at', { ascending: false })
           .range(offset, offset + 999)
@@ -971,14 +973,15 @@ function App() {
       return
     }
 
-    const savedSale = saleResult as { sale_number: number; created_at: string }
+    const savedSale = saleResult as { id: string; sale_number: number; created_at: string }
+    const { data: savedReference } = await supabase.from('local_sales').select('reference_code').eq('id', savedSale.id).single()
     const createdAt = new Date(savedSale.created_at)
     const name = customerForSale?.name || 'Cliente sin registrar'
     const productName = saleItems
       .map((item) => `${item.productName} · ${item.variantName}${item.quantity > 1 ? ` ×${item.quantity}` : ''}`)
       .join(', ')
     const newSale: Sale = {
-      id: `#${String(savedSale.sale_number).padStart(5, '0')}`,
+      id: savedReference?.reference_code || `#${String(savedSale.sale_number).padStart(5, '0')}`,
       time: createdAt.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' }),
       soldOn: saleDate,
       createdAt: savedSale.created_at,

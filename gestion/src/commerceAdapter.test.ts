@@ -1,0 +1,148 @@
+import { describe, expect, it } from "vitest";
+import { adaptCommerce, commerceDate } from "./commerceAdapter";
+import { commerceFixture } from "./testing/commerce";
+import { total, balance, orderName } from "./data";
+import { overviewScope } from "./overview";
+import { buildFinanceProjection } from "./financeProjection";
+import { buildRevenueForecast } from "./revenueForecast";
+import { readAllPages } from "./useCommerce";
+
+describe("integración de commerce en el estado compartido", () => {
+  it("muestra referencias nuevas por canal y conserva los números anteriores", () => {
+    const fixture = commerceFixture();
+    expect(orderName(adaptCommerce(fixture).orders[0])).toBe("#9001");
+    fixture.orders[0].reference_code = "#W001";
+    expect(orderName(adaptCommerce(fixture).orders[0])).toBe("#W001");
+    fixture.orders[0].customer_snapshot.purchaseFlow = "wholesale_bank_transfer";
+    fixture.orders[0].reference_code = "#M001";
+    expect(orderName(adaptCommerce(fixture).orders[0])).toBe("#M001");
+    fixture.localSales = [{ id: "social-1", sale_number: 20, reference_code: "#R001", channel: "Instagram", customer_id: null, customer_name: "Cliente", sold_on: "2026-10-14", payment_method: "Efectivo", total_minor: 10000, currency: "UYU", created_at: "2026-10-14T12:00:00Z", local_sale_items: [] }];
+    const social = adaptCommerce(fixture).orders.find((order) => order.id === "social-1")!;
+    expect(social.channel).toBe("Instagram");
+    expect(orderName(social)).toBe("#R001");
+  });
+  it("mantiene todos los artículos, importes y relaciones de un pedido", () => {
+    const state = adaptCommerce(commerceFixture()); const order = state.orders[0];
+    expect(order.items).toHaveLength(2); expect(order.quantity).toBe(3);
+    expect(total(order)).toBe(4101); expect(order.items![0].unitPrice).toBe(1000.5);
+    expect(order.items!.reduce((sum, item) => sum + item.amount, 0) - order.discountAmount! + order.shippingAmount! + order.feeAmount!).toBe(total(order));
+    expect(balance(state, order)).toBe(0); expect(state.payments[0].orderId).toBe(order.id);
+    expect(state.customers[0].id).toBe(order.customerId); expect(order.production).toBe("Pendiente");
+    expect(overviewScope(state, "14d", "2026-10-13").orders.reduce((sum, order) => sum + order.quantity, 0)).toBe(3);
+  });
+  it("usa el precio base del catálogo en Local y no inventa descuentos mayoristas desactivados", () => {
+    const state = adaptCommerce(commerceFixture());
+    expect(state.products[0].availableChannels).toEqual(["Local", "Web"]);
+    expect(state.products[0].prices.Local).toBe(1000.5);
+    expect(state.products[0].prices.Web).toBe(1000.5);
+    expect(state.expenses).toEqual([]); expect(state.hours).toEqual([]); expect(state.draft).toEqual({});
+    expect(state.records["comercial/descuentos"][0].valor).toBe(150);
+    expect(buildRevenueForecast(state, { asOf: "2026-10-13" }).months).toEqual([]);
+    expect(buildFinanceProjection(state, { asOf: "2026-10-13" }).slice(1).every((month) => month.estimatedIncome === 0)).toBe(true);
+  });
+  it("calcula el precio mayorista por variante solo para mates y con la regla activa", () => {
+    const fixture = commerceFixture();
+    fixture.reference.settings.wholesale_mate_discount_enabled = true;
+    fixture.reference.settings.wholesale_mate_quantity_threshold = 30;
+    fixture.reference.settings.wholesale_mate_discount_percent = 30;
+    fixture.products[0].commerce_variants[0].base_price_minor = 88000;
+    const [mate] = adaptCommerce(fixture).products;
+    expect(mate.prices.Local).toBe(880);
+    expect(mate.prices.Web).toBe(1000.5);
+    expect(mate.prices.Mayorista).toBe(700.35);
+    expect(mate.wholesaleThreshold).toBe(30);
+    fixture.products[0].category = "bombillas";
+    expect(adaptCommerce(fixture).products[0].availableChannels).toEqual(["Local", "Web"]);
+  });
+  it("elige la imagen vinculada a cada variante y evita mostrar la foto de otro color", () => {
+    const fixture = commerceFixture();
+    fixture.products[0].commerce_variants[0].option_values = {color:"negro"};
+    fixture.products[0].commerce_variants[1].option_values = {color:"blanco"};
+    fixture.products[0].commerce_product_images = [
+      {id:"general",storage_path:"general.png",alt_text:"",sort_order:0,variant_id:null,option_values:{}},
+      {id:"negra",storage_path:"negra.png",alt_text:"",sort_order:1,variant_id:null,option_values:{color:"negro",cover_zoom:1.3}},
+      {id:"blanca",storage_path:"blanca.png",alt_text:"",sort_order:2,variant_id:"variant-2",option_values:{}},
+    ];
+    const products = adaptCommerce(fixture,path=>`/${path}`).products;
+    expect(products.map(product=>product.imageUrl)).toEqual(["/negra.png","/blanca.png"]);
+    expect(products[0].imageCrop?.zoom).toBe(1.3);
+    fixture.products[0].commerce_product_images = fixture.products[0].commerce_product_images.filter(image=>image.id!=="blanca");
+    expect(adaptCommerce(fixture,path=>`/${path}`).products[1].imageUrl).toBe("/general.png");
+    fixture.products[0].commerce_product_images = fixture.products[0].commerce_product_images.filter(image=>image.id!=="general");
+    expect(adaptCommerce(fixture).products[1].imageUrl).toBeUndefined();
+  });
+  it("consolida pedidos del mismo cliente y excluye cancelados de ventas", () => {
+    const fixture = commerceFixture();
+    fixture.orders.push({ ...fixture.orders[0], id: "order-2", order_number: 9002, status: "cancelled", paid_at: null });
+    const state = adaptCommerce(fixture);
+    expect(state.customers).toHaveLength(1); expect(state.orders).toHaveLength(2);
+    expect(overviewScope(state, "14d", "2026-10-13").orders).toHaveLength(1);
+    expect(balance(state, state.orders[1])).toBe(0);
+  });
+  it("incorpora ventas y clientes del local sin duplicar los clientes web", () => {
+    const fixture = commerceFixture();
+    fixture.localCustomers = [
+      { id: "local-1", full_name: "Cliente de prueba", email: "TEST@example.invalid", phone: "099111222", city: "Paysandú", country: "Uruguay", birth_date: "1993-04-05", first_purchase_date: "2026-10-10", last_purchase_date: "2026-10-13", source_user_id: null, notes: "Prefiere retiro" },
+      { id: "local-2", full_name: "Cliente solo local", email: null, phone: "099333444", city: "Paysandú", country: "Uruguay", birth_date: null, first_purchase_date: "2026-10-13", last_purchase_date: "2026-10-13", source_user_id: null, notes: "" },
+    ];
+    fixture.localSales = [
+      { id: "sale-1", sale_number: 19, customer_id: "local-1", customer_name: "Cliente de prueba", sold_on: "2026-10-13", payment_method: "Transferencia", total_minor: 410000, currency: "UYU", created_at: "2026-10-13T14:00:00Z", local_sale_items: [
+        { id: "local-item-1", variant_id: "variant-1", sku: "SKU-1", product_name: "Mate de catálogo", variant_name: "Cuero negro", quantity: 1, unit_price_minor: 4100000, line_total_minor: 4100000 },
+      ] },
+      { id: "sale-2", sale_number: 20, customer_id: "local-2", customer_name: "Cliente solo local", sold_on: "2026-10-13", payment_method: "Seña", total_minor: 10000, currency: "UYU", created_at: "2026-10-13T15:00:00Z", local_sale_items: [
+        { id: "local-item-2", variant_id: "variant-2", sku: "SKU-2", product_name: "Mate de catálogo", variant_name: "Cuero marrón", quantity: 2, unit_price_minor: 50000, line_total_minor: 100000 },
+      ] },
+    ];
+    const state = adaptCommerce(fixture);
+    expect(state.customers).toHaveLength(2);
+    expect(state.customers.find(customer => customer.id === "customer-1")).toMatchObject({ localCustomerId: "local-1", phone: "099111222", notes: "Prefiere retiro" });
+    expect(state.orders.filter(order => order.channel === "Local")).toHaveLength(2);
+    const regular = state.orders.find(order => order.id === "sale-1")!;
+    expect(regular.customerId).toBe("customer-1");
+    expect(total(regular)).toBe(4100);
+    expect(balance(state, regular)).toBe(0);
+    expect(regular.localItemsAmount).toBe(41000);
+    const deposit = state.orders.find(order => order.id === "sale-2")!;
+    expect(deposit.customerId).toBe("local:local-2");
+    expect(total(deposit)).toBe(1000);
+    expect(balance(state, deposit)).toBe(900);
+    expect(state.payments.find(payment => payment.orderId === deposit.id)?.amount).toBe(100);
+    expect(overviewScope(state, "14d", "2026-10-13").orders.reduce((sum, order) => sum + order.quantity, 0)).toBe(6);
+  });
+  it("incorpora participantes del sorteo a clientes con su canal e interés", () => {
+    const fixture = commerceFixture();
+    fixture.ruralRaffleEntries = [{ id: "raffle-1", email: "sorteo@example.com", phone: "+59899123456", product_interest: "carteras", created_at: "2026-10-15T12:00:00Z" }];
+    const raffleCustomer = adaptCommerce(fixture).customers.find((customer) => customer.raffleEntryId === "raffle-1");
+    expect(raffleCustomer).toMatchObject({
+      name: "Participante del sorteo",
+      email: "sorteo@example.com",
+      phone: "+59899123456",
+      sourceChannels: ["Sorteo"],
+      notes: "Interés del sorteo: Carteras",
+    });
+  });
+  it("muestra cumpleaños real asociado sin inventar fechas para los demás", () => {
+    const fixture = commerceFixture();
+    fixture.customerBirthdays = [{ source_user_id: "customer-1", email: "test@example.invalid", birth_date: "1993-04-05" }];
+    const customer = adaptCommerce(fixture).customers[0];
+    expect(customer.birthDate).toBe("1993-04-05");
+    fixture.customerBirthdays = [];
+    expect(adaptCommerce(fixture).customers[0].birthDate).toBe("");
+    fixture.customerProfiles = [{ user_id: "customer-1", birth_date: "1990-01-02", city: "Montevideo", country_code: "UY" }];
+    expect(adaptCommerce(fixture).customers[0].birthDate).toBe("1990-01-02");
+  });
+  it("respeta paid_at sin fabricar una transacción de pago", () => {
+    const fixture = commerceFixture(); fixture.payments = [];
+    const state = adaptCommerce(fixture);
+    expect(state.payments).toEqual([]); expect(balance(state, state.orders[0])).toBe(0);
+  });
+  it("no suma monedas distintas como si fueran pesos", () => {
+    const fixture = commerceFixture(); fixture.orders[0].currency = "USD";
+    expect(() => adaptCommerce(fixture)).toThrow("conversión");
+  });
+  it("interpreta fechas en Uruguay", () => expect(commerceDate("2026-10-13T01:00:00Z")).toBe("2026-10-12"));
+  it("lee todas las páginas y detecta lecturas incompletas", async () => {
+    expect(await readAllPages(async (page) => ({ rows: page < 2 ? [page] : [], count: 2 }))).toEqual([0, 1]);
+    await expect(readAllPages(async () => ({ rows: [], count: 1 }))).rejects.toThrow("incompleta");
+  });
+});

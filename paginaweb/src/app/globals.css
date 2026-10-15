@@ -9614,6 +9614,9 @@ input:checked + .catalog-mobile-checkbox::after {
 .whatsapp-fab:active {
   transform: scale(0.97);
 }
+body:has(.rural-campaign-page) .whatsapp-fab {
+  display: none;
+}
 @media (max-width: 639px) {
   .whatsapp-fab {
     right: 14px;
@@ -9856,3 +9859,64 @@ input:checked + .catalog-mobile-checkbox::after {
   .home-catalog-search form > button[type="submit"] { padding-inline: 13px; }
   .home-catalog-search-close { display: none; }
 }
+/* Scheduled storefront announcement */
+.storefront-announcement-backdrop {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  background: rgb(23 20 18 / 72%);
+  padding: clamp(16px, 3vw, 32px);
+  overscroll-behavior: contain;
+}
+
+.storefront-announcement {
+  display: grid;
+  width: min(100%, 610px);
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 28px 90px rgb(0 0 0 / 34%);
+}
+
+.storefront-announcement-image {
+  min-height: 0;
+  overflow: auto;
+  background: #f4f1ec;
+}
+
+.storefront-announcement-image img {
+  display: block;
+  width: 100%;
+  max-height: calc(100dvh - 120px);
+  object-fit: contain;
+}
+
+.storefront-announcement button {
+  min-height: 56px;
+  border: 0;
+  border-top: 1px solid #ded9d2;
+  background: #fff;
+  color: #171412;
+  font: 700 1rem/1 var(--font-outfit), sans-serif;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.storefront-announcement button:hover { background: #171412; color: #fff; }
+.storefront-announcement button:focus-visible { outline: 3px solid #d78a4e; outline-offset: -5px; }
+
+@media (max-width: 520px) {
+  .storefront-announcement-backdrop { align-items: center; padding: 12px; }
+  .storefront-announcement { max-height: calc(100dvh - 24px); border-radius: 14px; }
+  .storefront-announcement-image img { max-height: calc(100dvh - 92px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .storefront-announcement button { transition: none; }
+}
+

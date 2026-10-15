@@ -1,0 +1,44 @@
+{
+  "fileKey": "zSMPODT092tZAa8czGWLZ8",
+  "pageId": "840:17",
+  "rootId": "847:17",
+  "componentIds": {
+    "header": "848:21",
+    "cta": "848:28",
+    "lineItem": "848:34",
+    "summaryRow": "848:43"
+  },
+  "logoId": "857:191",
+  "sectionIds": {
+    "components": "847:22",
+    "customer": "847:27",
+    "admin": "847:32",
+    "lifecycle": "847:37"
+  },
+  "templateCounts": {
+    "customer": 4,
+    "admin": 1,
+    "lifecycle": 2,
+    "total": 7
+  },
+  "removedEventTypes": [
+    "admin_payment_review_required",
+    "admin_custom_review_required",
+    "admin_order_created",
+    "customer_order_cancelled",
+    "customer_payment_failed",
+    "customer_order_refunded",
+    "customer_international_received",
+    "customer_custom_rejected_refunded",
+    "customer_payment_confirmed"
+  ],
+  "validation": {
+    "emailWidth": 640,
+    "missingFonts": 0,
+    "forbiddenTextMatches": 0,
+    "footerTextNodes": 0,
+    "templatesWithLogo": 7,
+    "visualStyle": "minimal-monochrome",
+    "status": "complete"
+  }
+}
