@@ -35,7 +35,7 @@ export function parseRuralRaffleEntry(formData: FormData) {
   const email = String(formData.get("email") || "").trim().toLowerCase().slice(0, 320);
   const phone = normalizeUruguayPhone(String(formData.get("phone") || ""));
   const city = String(formData.get("city") || "").trim().replace(/\s+/g, " ");
-  const country = String(formData.get("country") || "").trim().replace(/\s+/g, " ");
+  const countryCode = String(formData.get("countryCode") || "").trim().toUpperCase();
   const birthDate = String(formData.get("birthDate") || "");
   const parsedBirthDate = /^\d{4}-\d{2}-\d{2}$/.test(birthDate) ? new Date(`${birthDate}T00:00:00Z`) : null;
   const validBirthDate = parsedBirthDate
@@ -51,7 +51,7 @@ export function parseRuralRaffleEntry(formData: FormData) {
   if (
     fullName.length < 2 || fullName.length > 120
     || city.length < 1 || city.length > 120
-    || country.length < 1 || country.length > 120
+    || !/^[A-Z]{2}$/.test(countryCode)
     || !validBirthDate
     || !emailPattern.test(email)
     || !phone
@@ -67,7 +67,7 @@ export function parseRuralRaffleEntry(formData: FormData) {
       email,
       phone,
       city,
-      country,
+      countryCode,
       birthDate,
       productInterest: productInterest as RuralProductInterest,
       marketingOptIn,

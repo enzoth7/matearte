@@ -22,7 +22,7 @@ describe("parseRuralRaffleEntry", () => {
     data.set("email", " Persona@Example.com ");
     data.set("phone", "099 123 456");
     data.set("city", " Paysandú ");
-    data.set("country", " Uruguay ");
+    data.set("countryCode", " uy ");
     data.set("birthDate", "1995-04-12");
     data.set("productInterest", "mates");
     data.set("privacyConsent", "on");
@@ -34,7 +34,7 @@ describe("parseRuralRaffleEntry", () => {
         email: "persona@example.com",
         phone: "+59899123456",
         city: "Paysandú",
-        country: "Uruguay",
+        countryCode: "UY",
         birthDate: "1995-04-12",
         productInterest: "mates",
         marketingOptIn: false,
@@ -57,7 +57,7 @@ describe("parseRuralRaffleEntry", () => {
     data.set("email", "persona@example.com");
     data.set("phone", "099 123 456");
     data.set("city", "Paysandú");
-    data.set("country", "Uruguay");
+    data.set("countryCode", "UY");
     data.set("birthDate", "1995-04-12");
     data.set("productInterest", "botas");
     data.set("privacyConsent", "on");
@@ -73,7 +73,7 @@ describe("parseRuralRaffleEntry", () => {
     data.set("email", "ana@example.com");
     data.set("phone", "099 123 456");
     data.set("city", "Paysandú");
-    data.set("country", "Uruguay");
+    data.set("countryCode", "UY");
     data.set("birthDate", "2026-02-30");
     data.set("productInterest", "mates");
     data.set("privacyConsent", "on");

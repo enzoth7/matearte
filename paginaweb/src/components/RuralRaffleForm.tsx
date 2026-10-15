@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle } from "@phosphor-icons/react";
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { enterRuralRaffle } from "@/app/actions/rural-raffle";
 import { initialRuralRaffleState } from "@/lib/rural-raffle";
 import styles from "@/app/rural/RuralPage.module.css";
@@ -18,9 +18,41 @@ const productOptions = [
   ["otros-articulos-cuero", "Otros artículos en cuero"],
 ] as const;
 
-export function RuralRaffleForm() {
+export function RuralRaffleForm({ countries, initialCities }: { countries: { code: string; name: string }[]; initialCities: string[] }) {
   const [state, formAction, pending] = useActionState(enterRuralRaffle, initialRuralRaffleState);
   const formRef = useRef<HTMLFormElement>(null);
+  const [countryCode, setCountryCode] = useState("UY");
+  const [city, setCity] = useState("Paysandú");
+  const [cityQuery, setCityQuery] = useState("");
+  const [cityOptions, setCityOptions] = useState(initialCities);
+  const [moreCities, setMoreCities] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [cityError, setCityError] = useState(false);
+  const [retryCities, setRetryCities] = useState(0);
+
+  useEffect(() => {
+    if (countryCode === "UY") return;
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/rural/cities?country=${encodeURIComponent(countryCode)}&q=${encodeURIComponent(cityQuery)}`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error("No se pudieron cargar las ciudades.");
+        const result = await response.json() as { cities: string[]; truncated: boolean };
+        setCityOptions(result.cities);
+        setMoreCities(result.truncated);
+        setCityError(false);
+      } catch {
+        if (!controller.signal.aborted) setCityError(true);
+      } finally {
+        if (!controller.signal.aborted) setLoadingCities(false);
+      }
+    }, 180);
+
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [countryCode, cityQuery, initialCities, retryCities]);
 
   useEffect(() => {
     if (state.status === "success") formRef.current?.reset();
@@ -61,15 +93,36 @@ export function RuralRaffleForm() {
         <input id="rural-phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="099 123 456" required />
       </div>
 
-      <div className={styles.fieldRow}>
-        <div className={styles.field}>
-          <label htmlFor="rural-city">Ciudad</label>
-          <input id="rural-city" name="city" type="text" autoComplete="address-level2" maxLength={120} placeholder="Tu ciudad" required />
-        </div>
-        <div className={styles.field}>
-          <label htmlFor="rural-country">País</label>
-          <input id="rural-country" name="country" type="text" autoComplete="country-name" maxLength={120} defaultValue="Uruguay" required />
-        </div>
+      <div className={styles.field}>
+        <label htmlFor="rural-country">País</label>
+        <select id="rural-country" name="countryCode" value={countryCode} onChange={(event) => {
+          const nextCountry = event.target.value;
+          setCountryCode(nextCountry);
+          setCity(nextCountry === "UY" ? "Paysandú" : "");
+          setCityQuery("");
+          setCityOptions(nextCountry === "UY" ? initialCities : []);
+          setMoreCities(false);
+          setLoadingCities(nextCountry !== "UY");
+          setCityError(false);
+        }} required>
+          {countries.map(({ code, name }) => <option key={code} value={code}>{name}</option>)}
+        </select>
+      </div>
+
+      <div className={styles.field}>
+        <label htmlFor="rural-city">Ciudad</label>
+        {(moreCities || cityQuery) && <input type="search" aria-label="Buscar ciudad" placeholder="Buscar ciudad" value={cityQuery} onChange={(event) => {
+          setCityQuery(event.target.value);
+          setCity("");
+          setCityOptions([]);
+          setLoadingCities(true);
+        }} />}
+        <select id="rural-city" name="city" value={city} onChange={(event) => setCity(event.target.value)} disabled={loadingCities || cityError} required>
+          <option value="" disabled>{loadingCities ? "Cargando ciudades…" : cityOptions.length ? "Elegí una ciudad" : "No hay ciudades disponibles"}</option>
+          {cityOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+        </select>
+        {cityError && <button className={styles.cityRetry} type="button" onClick={() => { setCityError(false); setLoadingCities(true); setRetryCities((value) => value + 1); }}>No pudimos cargar las ciudades. Reintentar</button>}
+        <span className={styles.cityHint}>Ciudades: <a href="https://www.geonames.org/" target="_blank" rel="noopener noreferrer">GeoNames</a> (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>).</span>
       </div>
 
       <div className={styles.field}>

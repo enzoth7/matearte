@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { RuralRaffleForm } from "@/components/RuralRaffleForm";
+import { ruralCityOptions, ruralCountryOptions } from "@/lib/rural-locations";
 import styles from "./RuralPage.module.css";
 
 export const metadata: Metadata = {
@@ -30,7 +31,7 @@ export default function RuralPage() {
         <div className={styles.content}>
           <h1><em>Ya estás cerca.</em></h1>
           <p className={styles.lead}>Dejanos tus datos y contanos qué productos te interesan. Completás el formulario en menos de un minuto.</p>
-          <RuralRaffleForm />
+          <RuralRaffleForm countries={ruralCountryOptions} initialCities={ruralCityOptions("UY", "", 500).cities} />
         </div>
       </section>
     </main>

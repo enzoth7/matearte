@@ -6,6 +6,7 @@ import {
   type RuralRaffleState,
 } from "@/lib/rural-raffle";
 import { createAdminSupabase } from "@/lib/supabase/server";
+import { resolveRuralLocation } from "@/lib/rural-locations";
 
 export async function enterRuralRaffle(
   _previousState: RuralRaffleState,
@@ -16,9 +17,11 @@ export async function enterRuralRaffle(
 
   const parsed = parseRuralRaffleEntry(formData);
   if (!parsed.ok) return { status: parsed.reason };
+  const location = resolveRuralLocation(parsed.value.countryCode, parsed.value.city);
+  if (!location) return { status: "invalid" };
 
   const now = new Date().toISOString();
-  const { fullName, email, phone, city, country, birthDate, productInterest, marketingOptIn } = parsed.value;
+  const { fullName, email, phone, birthDate, productInterest, marketingOptIn } = parsed.value;
 
   try {
     const supabase = createAdminSupabase();
@@ -27,8 +30,8 @@ export async function enterRuralRaffle(
       full_name: fullName,
       email,
       phone,
-      city,
-      country,
+      city: location.city,
+      country: location.country,
       birth_date: birthDate,
       product_interest: productInterest,
       privacy_consent_at: now,
