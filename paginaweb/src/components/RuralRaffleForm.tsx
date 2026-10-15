@@ -39,13 +39,18 @@ export function RuralRaffleForm() {
   const feedback = state.status === "consent-required"
     ? "Necesitamos tu autorización para registrar la participación."
     : state.status === "invalid"
-      ? "Revisá el email, el celular y el producto seleccionado."
+      ? "Revisá los datos personales y el producto seleccionado."
       : state.status === "error"
         ? "No pudimos guardar tus datos. Esperá un momento e intentá nuevamente."
         : "";
 
   return (
     <form ref={formRef} action={formAction} className={styles.form} noValidate>
+      <div className={styles.field}>
+        <label htmlFor="rural-full-name">Nombre y apellido</label>
+        <input id="rural-full-name" name="fullName" type="text" autoComplete="name" maxLength={120} placeholder="Tu nombre y apellido" required />
+      </div>
+
       <div className={styles.field}>
         <label htmlFor="rural-email">Email</label>
         <input id="rural-email" name="email" type="email" inputMode="email" autoComplete="email" placeholder="tu@email.com" required />
@@ -54,6 +59,22 @@ export function RuralRaffleForm() {
       <div className={styles.field}>
         <label htmlFor="rural-phone">Celular</label>
         <input id="rural-phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="099 123 456" required />
+      </div>
+
+      <div className={styles.fieldRow}>
+        <div className={styles.field}>
+          <label htmlFor="rural-city">Ciudad</label>
+          <input id="rural-city" name="city" type="text" autoComplete="address-level2" maxLength={120} placeholder="Tu ciudad" required />
+        </div>
+        <div className={styles.field}>
+          <label htmlFor="rural-country">País</label>
+          <input id="rural-country" name="country" type="text" autoComplete="country-name" maxLength={120} defaultValue="Uruguay" required />
+        </div>
+      </div>
+
+      <div className={styles.field}>
+        <label htmlFor="rural-birth-date">Fecha de cumpleaños</label>
+        <input id="rural-birth-date" name="birthDate" type="date" autoComplete="bday" min="1900-01-01" required />
       </div>
 
       <div className={styles.field}>

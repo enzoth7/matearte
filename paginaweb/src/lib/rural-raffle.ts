@@ -31,15 +31,29 @@ export function normalizeUruguayPhone(value: string) {
 }
 
 export function parseRuralRaffleEntry(formData: FormData) {
+  const fullName = String(formData.get("fullName") || "").trim().replace(/\s+/g, " ");
   const email = String(formData.get("email") || "").trim().toLowerCase().slice(0, 320);
   const phone = normalizeUruguayPhone(String(formData.get("phone") || ""));
+  const city = String(formData.get("city") || "").trim().replace(/\s+/g, " ");
+  const country = String(formData.get("country") || "").trim().replace(/\s+/g, " ");
+  const birthDate = String(formData.get("birthDate") || "");
+  const parsedBirthDate = /^\d{4}-\d{2}-\d{2}$/.test(birthDate) ? new Date(`${birthDate}T00:00:00Z`) : null;
+  const validBirthDate = parsedBirthDate
+    && !Number.isNaN(parsedBirthDate.getTime())
+    && parsedBirthDate.toISOString().slice(0, 10) === birthDate
+    && birthDate >= "1900-01-01"
+    && birthDate <= new Date().toISOString().slice(0, 10);
   const productInterest = String(formData.get("productInterest") || "");
   const privacyConsent = formData.get("privacyConsent") === "on";
   const marketingOptIn = formData.get("marketingOptIn") === "on";
 
   if (!privacyConsent) return { ok: false as const, reason: "consent-required" as const };
   if (
-    !emailPattern.test(email)
+    fullName.length < 2 || fullName.length > 120
+    || city.length < 1 || city.length > 120
+    || country.length < 1 || country.length > 120
+    || !validBirthDate
+    || !emailPattern.test(email)
     || !phone
     || !ruralProductInterests.includes(productInterest as RuralProductInterest)
   ) {
@@ -49,8 +63,12 @@ export function parseRuralRaffleEntry(formData: FormData) {
   return {
     ok: true as const,
     value: {
+      fullName,
       email,
       phone,
+      city,
+      country,
+      birthDate,
       productInterest: productInterest as RuralProductInterest,
       marketingOptIn,
     },

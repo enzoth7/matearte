@@ -111,12 +111,16 @@ describe("integración de commerce en el estado compartido", () => {
   });
   it("incorpora participantes del sorteo a clientes con su canal e interés", () => {
     const fixture = commerceFixture();
-    fixture.ruralRaffleEntries = [{ id: "raffle-1", email: "sorteo@example.com", phone: "+59899123456", product_interest: "carteras", created_at: "2026-10-15T12:00:00Z" }];
+    fixture.ruralRaffleEntries = [{ id: "raffle-1", full_name: "Ana Pérez", email: "sorteo@example.com", phone: "+59899123456", city: "Paysandú", country: "Uruguay", birth_date: "1995-04-12", product_interest: "carteras", created_at: "2026-10-15T12:00:00Z" }];
     const raffleCustomer = adaptCommerce(fixture).customers.find((customer) => customer.raffleEntryId === "raffle-1");
     expect(raffleCustomer).toMatchObject({
-      name: "Participante del sorteo",
+      name: "Ana Pérez",
       email: "sorteo@example.com",
       phone: "+59899123456",
+      city: "Paysandú",
+      country: "Uruguay",
+      birthDate: "1995-04-12",
+      raffleProductInterest: "carteras",
       sourceChannels: ["Sorteo"],
       notes: "Interés del sorteo: Carteras",
     });

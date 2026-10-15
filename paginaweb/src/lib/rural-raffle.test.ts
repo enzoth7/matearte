@@ -18,16 +18,24 @@ describe("normalizeUruguayPhone", () => {
 describe("parseRuralRaffleEntry", () => {
   it("returns a clean valid entry", () => {
     const data = new FormData();
+    data.set("fullName", " Ana   Pérez ");
     data.set("email", " Persona@Example.com ");
     data.set("phone", "099 123 456");
+    data.set("city", " Paysandú ");
+    data.set("country", " Uruguay ");
+    data.set("birthDate", "1995-04-12");
     data.set("productInterest", "mates");
     data.set("privacyConsent", "on");
 
     expect(parseRuralRaffleEntry(data)).toEqual({
       ok: true,
       value: {
+        fullName: "Ana Pérez",
         email: "persona@example.com",
         phone: "+59899123456",
+        city: "Paysandú",
+        country: "Uruguay",
+        birthDate: "1995-04-12",
         productInterest: "mates",
         marketingOptIn: false,
       },
@@ -45,13 +53,33 @@ describe("parseRuralRaffleEntry", () => {
 
   it("accepts the new leather-product choices and rejects removed ones", () => {
     const data = new FormData();
+    data.set("fullName", "Ana Pérez");
     data.set("email", "persona@example.com");
     data.set("phone", "099 123 456");
+    data.set("city", "Paysandú");
+    data.set("country", "Uruguay");
+    data.set("birthDate", "1995-04-12");
     data.set("productInterest", "botas");
     data.set("privacyConsent", "on");
     expect(parseRuralRaffleEntry(data)).toMatchObject({ ok: true, value: { productInterest: "botas" } });
 
     data.set("productInterest", "regalos-empresariales");
+    expect(parseRuralRaffleEntry(data)).toEqual({ ok: false, reason: "invalid" });
+  });
+
+  it("rejects missing personal details and impossible birthdays", () => {
+    const data = new FormData();
+    data.set("fullName", "Ana Pérez");
+    data.set("email", "ana@example.com");
+    data.set("phone", "099 123 456");
+    data.set("city", "Paysandú");
+    data.set("country", "Uruguay");
+    data.set("birthDate", "2026-02-30");
+    data.set("productInterest", "mates");
+    data.set("privacyConsent", "on");
+    expect(parseRuralRaffleEntry(data)).toEqual({ ok: false, reason: "invalid" });
+    data.set("birthDate", "1995-04-12");
+    data.delete("fullName");
     expect(parseRuralRaffleEntry(data)).toEqual({ ok: false, reason: "invalid" });
   });
 });

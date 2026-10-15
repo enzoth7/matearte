@@ -16,7 +16,7 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
     commerce_international_shipping_rates: fixture.reference.shippingRates, commerce_exchange_rates: fixture.reference.exchangeRates,
     commerce_attribute_definitions: [], commerce_attribute_options: [], commerce_category_attributes: [], commerce_bank_transfer_settings: { account_holder: 'Titular', transfer_account: '111', cash_deposit_account: '222', cash_deposit_label: 'Depósito' },
     commerce_categories: fixture.reference.categories, commerce_settings: fixture.reference.settings, shipping_rates: fixture.nationalRates,
-    local_sales_customers: [], local_sales: [],
+    local_sales_customers: [], local_sales: [], rural_raffle_entries: [],
     site_announcements: [],
     products: [], customers: [], order_lines: [], settings: { id: 1, exchange_rate: 0.027 },
   };

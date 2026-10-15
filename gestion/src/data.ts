@@ -35,6 +35,7 @@ export type Customer = {
   notes?: string;
   sourceChannels?: SalesChannel[];
   raffleEntryId?: string;
+  raffleProductInterest?: string;
   name: string;
   email: string;
   phone: string;

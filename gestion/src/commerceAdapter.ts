@@ -8,7 +8,7 @@ export type CommercePayment = { id: string; order_id: string; provider: string; 
 export type NationalRate = { id: string; name: string; rate_minor: number; is_pickup: boolean; active: boolean; departments: string[] };
 export type LocalCustomerBirth = { source_user_id: string | null; email: string | null; birth_date: string | null };
 export type WebCustomerProfile = { user_id: string; birth_date: string | null; city: string | null; country_code: string | null };
-export type RuralRaffleEntry = { id: string; email: string; phone: string; product_interest: string; created_at: string };
+export type RuralRaffleEntry = { id: string; full_name: string | null; email: string; phone: string; city: string | null; country: string | null; birth_date: string | null; product_interest: string; created_at: string };
 export type CommerceSnapshot = {
   products: CommerceProduct[]; orders: CommerceOrder[]; payments: CommercePayment[];
   reference: CommerceReference; nationalRates: NationalRate[]; customerBirthdays?: LocalCustomerBirth[]; customerProfiles?: WebCustomerProfile[];
@@ -154,7 +154,11 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
     const email = source.email.trim().toLowerCase();
     const existing = [...customers.values()].find((customer) => customer.email.trim().toLowerCase() === email);
     if (existing) {
-      existing.phone = source.phone || existing.phone;
+      existing.raffleEntryId = source.id;
+      existing.phone ||= source.phone;
+      existing.city ||= source.city || "";
+      existing.country ||= source.country || "";
+      existing.birthDate ||= source.birth_date || "";
       existing.sourceChannels = [...new Set<SalesChannel>([...(existing.sourceChannels || []), "Sorteo"])];
       if (!existing.notes) existing.notes = `Interés del sorteo: ${ruralInterestLabel[source.product_interest] || source.product_interest}`;
       continue;
@@ -162,11 +166,13 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
     customers.set(`sorteo:${source.id}`, {
       id: `sorteo:${source.id}`,
       raffleEntryId: source.id,
-      name: "Participante del sorteo",
+      raffleProductInterest: source.product_interest,
+      name: source.full_name || "Participante del sorteo",
       email,
       phone: source.phone,
-      city: "",
-      country: "",
+      birthDate: source.birth_date || "",
+      city: source.city || "",
+      country: source.country || "",
       segment: "Minorista",
       notes: `Interés del sorteo: ${ruralInterestLabel[source.product_interest] || source.product_interest}`,
       sourceChannels: ["Sorteo"],

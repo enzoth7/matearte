@@ -1,5 +1,6 @@
 import { CustomerContactEditor } from "./commerce/CustomerContactEditor";
 import { LocalCustomerEditor } from "./LocalCustomerEditor";
+import { RuralRaffleCustomerEditor } from "./RuralRaffleCustomerEditor";
 import { LocalSaleRegister } from "./LocalSaleRegister";
 import { WholesaleRegister, WholesaleCustomerEditor, WholesaleOrderModal, WholesaleProduction } from "./WholesaleScreens";
 import { exportWholesalePdf } from "./wholesaleExports";
@@ -923,7 +924,7 @@ export function Customers({
           },
           ... ([{
             label: "Acciones",
-            render: (c: Customer) => !c.raffleEntryId && (
+            render: (c: Customer) => (
               <button className="secondary compact" onClick={() => setEdit(c)}>
                 Editar
               </button>
@@ -936,7 +937,7 @@ export function Customers({
           title={edit === "new" ? "Nuevo cliente" : "Editar cliente"}
           onClose={() => setEdit(null)}
         >
-          {(edit === "new" && newKind === "wholesale") || (edit !== "new" && !!edit.wholesaleName) ? <WholesaleCustomerEditor customer={edit === "new" ? undefined : edit} onSaved={() => { setEdit(null); setSelected(null); notify(edit === "new" ? "Cliente mayorista creado" : "Cliente mayorista actualizado"); void refresh?.(); }} /> : s.source === "commerce" && (edit === "new" || edit.localCustomerId) ? <LocalCustomerEditor customer={edit === "new" ? undefined : edit} onSaved={() => { setEdit(null); setSelected(null); notify(edit === "new" ? "Cliente creado" : "Cliente actualizado"); void refresh?.(); }} /> : s.source === "commerce" && edit !== "new" ? <CustomerContactEditor customer={edit} orderIds={orders.filter(order => order.customerId === edit.id && order.source !== "local").map(order => order.id)} onSaved={() => { setEdit(null); setSelected(null); notify("Contacto actualizado"); void refresh?.(); }} /> : <Form
+          {(edit === "new" && newKind === "wholesale") || (edit !== "new" && !!edit.wholesaleName) ? <WholesaleCustomerEditor customer={edit === "new" ? undefined : edit} onSaved={() => { setEdit(null); setSelected(null); notify(edit === "new" ? "Cliente mayorista creado" : "Cliente mayorista actualizado"); void refresh?.(); }} /> : s.source === "commerce" && edit !== "new" && edit.raffleEntryId && edit.id === `sorteo:${edit.raffleEntryId}` ? <RuralRaffleCustomerEditor customer={edit} onSaved={() => { setEdit(null); setSelected(null); notify("Participante actualizado"); void refresh?.(); }} /> : s.source === "commerce" && (edit === "new" || edit.localCustomerId) ? <LocalCustomerEditor customer={edit === "new" ? undefined : edit} onSaved={() => { setEdit(null); setSelected(null); notify(edit === "new" ? "Cliente creado" : "Cliente actualizado"); void refresh?.(); }} /> : s.source === "commerce" && edit !== "new" ? <CustomerContactEditor customer={edit} orderIds={orders.filter(order => order.customerId === edit.id && order.source !== "local").map(order => order.id)} onSaved={() => { setEdit(null); setSelected(null); notify("Contacto actualizado"); void refresh?.(); }} /> : <Form
             fields={fields}
             initial={edit === "new" ? { country: "Uruguay", segment: userId === "t3" ? "Mayorista" : "Minorista" } : { ...edit, country: edit.country || countryForCity(edit.city) }}
             onSave={(v) => {

@@ -100,7 +100,7 @@ export function useCommerce() {
         }),
         readAllPages<RuralRaffleEntry>(async (page) => {
           const { data, count, error } = await client.from("rural_raffle_entries")
-            .select("id,email,phone,product_interest,created_at", { count: "exact" })
+            .select("id,full_name,email,phone,city,country,birth_date,product_interest,created_at", { count: "exact" })
             .order("created_at", { ascending: false }).range(page * 100, page * 100 + 99);
           if (error) throw error;
           return { rows: (data || []) as RuralRaffleEntry[], count: count ?? 0 };

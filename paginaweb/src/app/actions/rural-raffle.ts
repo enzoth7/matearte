@@ -18,14 +18,18 @@ export async function enterRuralRaffle(
   if (!parsed.ok) return { status: parsed.reason };
 
   const now = new Date().toISOString();
-  const { email, phone, productInterest, marketingOptIn } = parsed.value;
+  const { fullName, email, phone, city, country, birthDate, productInterest, marketingOptIn } = parsed.value;
 
   try {
     const supabase = createAdminSupabase();
     const { error } = await supabase.from("rural_raffle_entries").upsert({
       campaign: RURAL_CAMPAIGN,
+      full_name: fullName,
       email,
       phone,
+      city,
+      country,
+      birth_date: birthDate,
       product_interest: productInterest,
       privacy_consent_at: now,
       marketing_opt_in: marketingOptIn,

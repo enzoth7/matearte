@@ -19,6 +19,26 @@ test("canales y columnas de clientes tienen identidad y datos separados", async 
   await expect(page.getByRole("cell", { name: "05/04/1993" })).toBeVisible();
   await expect(page.getByRole("link", { name: "test@example.invalid" })).toHaveAttribute("href", "mailto:test@example.invalid");
 });
+test("un participante del sorteo muestra sus datos y se puede editar", async ({ page }) => {
+  const { tables, writes } = await mockCommerce(page, { writable: true });
+  tables.rural_raffle_entries.push({
+    id: "raffle-1", full_name: "Ana Pérez", email: "ana@example.invalid", phone: "+59899123456",
+    city: "Paysandú", country: "Uruguay", birth_date: "1995-04-12", product_interest: "carteras",
+    created_at: "2026-10-15T12:00:00Z",
+  });
+  await page.goto("/clientes/base");
+  const row = page.getByRole("row").filter({ hasText: "Ana Pérez" });
+  await expect(row).toContainText("Paysandú");
+  await expect(row).toContainText("12/04/1995");
+  await expect(row.locator(".badge.channel-sorteo")).toHaveText("Sorteo");
+  await row.getByRole("button", { name: "Editar" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Nombre y apellido").fill("Ana García");
+  await dialog.getByLabel("Ciudad").fill("Montevideo");
+  await dialog.getByRole("button", { name: "Guardar cambios" }).click();
+  await expect.poll(() => writes.find((write) => write.table === "rural_raffle_entries" && write.method === "PATCH")?.body.full_name).toBe("Ana García");
+  await expect(page.getByRole("row").filter({ hasText: "Ana García" })).toContainText("Montevideo");
+});
 test("pedido real integrado en ventas, cliente, producción y cobros", async ({ page }) => {
   await page.goto("/comercial/pedidos");
   await expect(page.locator("table thead th").first()).toHaveText("Pedido");
