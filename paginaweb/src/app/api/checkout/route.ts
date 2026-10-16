@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   if (!user) return apiError("Necesitás iniciar sesión.", 401);
   let reservedCheckoutKey: string | null = null;
   try {
-    const { data: publicSettings } = await client.from("commerce_settings").select("commerce_enabled,mercado_pago_enabled,reservation_minutes,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent").eq("singleton", true).single();
+    const { data: publicSettings } = await client.from("commerce_settings").select("commerce_enabled,mercado_pago_enabled,reservation_minutes,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories").eq("singleton", true).single();
     if (!publicSettings?.commerce_enabled || !publicSettings.mercado_pago_enabled) return apiError("El comercio todavía no está habilitado.", 503);
     const body = await readJson(request);
     const discountCode = normalizeDiscountCode(body.discountCode);

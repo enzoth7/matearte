@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   try {
     const { data: settings } = await client
       .from("commerce_settings")
-      .select("commerce_enabled,paypal_enabled,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent")
+      .select("commerce_enabled,paypal_enabled,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories")
       .eq("singleton", true)
       .single();
     if (!settings?.commerce_enabled || !settings?.paypal_enabled) return apiError("PayPal no está habilitado.", 503);

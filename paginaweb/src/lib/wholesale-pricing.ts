@@ -2,6 +2,7 @@ export type WholesaleDiscountSettings = {
   wholesale_mate_discount_enabled: boolean;
   wholesale_mate_quantity_threshold: number;
   wholesale_mate_discount_percent: number;
+  wholesale_discount_categories: string[];
 };
 
 export type WholesalePriceLine = {
@@ -16,10 +17,16 @@ export const DEFAULT_WHOLESALE_DISCOUNT_SETTINGS: WholesaleDiscountSettings = {
   wholesale_mate_discount_enabled: true,
   wholesale_mate_quantity_threshold: 30,
   wholesale_mate_discount_percent: 30,
+  wholesale_discount_categories: ["mates"],
 };
 
 export function isWholesaleMateCategory(category?: string | null) {
   return String(category || "").trim().toLowerCase() === "mates";
+}
+
+export function isWholesaleDiscountCategory(category: string | null | undefined, settings: WholesaleDiscountSettings) {
+  const normalized = String(category || "").trim().toLowerCase();
+  return (settings.wholesale_discount_categories || ["mates"]).some((code) => code.trim().toLowerCase() === normalized);
 }
 
 export function wholesaleMateQuantity(lines: WholesalePriceLine[]) {
@@ -45,7 +52,7 @@ export function applyWholesaleMateDiscount<T extends WholesalePriceLine>(
   const multiplier = 1 - settings.wholesale_mate_discount_percent / 100;
   return lines.map((line) => ({
     ...line,
-    unitPriceMinor: line.itemType === "catalog" && isWholesaleMateCategory(line.category)
+    unitPriceMinor: line.itemType === "catalog" && isWholesaleDiscountCategory(line.category, settings)
       ? Math.max(0, Math.round((line.baseUnitPriceMinor ?? line.unitPriceMinor) * multiplier))
       : line.unitPriceMinor,
   }));

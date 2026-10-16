@@ -32,6 +32,21 @@ describe("applyWholesaleMateDiscount", () => {
     expect(result.map((item) => item.unitPriceMinor)).toEqual([70_000, 113_640, 300_000]);
   });
 
+  it("descuenta bombillas y bombillones cuando hay 30 mates y la categoría está seleccionada", () => {
+    const settings = { ...DEFAULT_WHOLESALE_DISCOUNT_SETTINGS, wholesale_discount_categories: ["mates", "bombillas"] };
+    const result = applyWholesaleMateDiscount([
+      line(30),
+      line(2, "bombillas", 56_820, 50_000),
+      line(1, "termos", 113_640, 100_000),
+    ], settings);
+    expect(result.map((item) => item.unitPriceMinor)).toEqual([70_000, 35_000, 113_640]);
+  });
+
+  it("30 bombillas solas no alcanzan el mínimo de mates", () => {
+    const settings = { ...DEFAULT_WHOLESALE_DISCOUNT_SETTINGS, wholesale_discount_categories: ["mates", "bombillas"] };
+    expect(applyWholesaleMateDiscount([line(30, "bombillas")], settings)[0].unitPriceMinor).toBe(113_640);
+  });
+
   it("respeta el interruptor y los valores editables", () => {
     const disabled = { ...DEFAULT_WHOLESALE_DISCOUNT_SETTINGS, wholesale_mate_discount_enabled: false };
     expect(applyWholesaleMateDiscount([line(31)], disabled)[0].unitPriceMinor).toBe(113_640);

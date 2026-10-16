@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
     const { data: settings } = await client
       .from("commerce_settings")
-      .select("commerce_enabled,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent")
+      .select("commerce_enabled,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories")
       .eq("singleton", true)
       .single();
     if (!settings?.commerce_enabled) return apiError("El comercio todavía no está habilitado.", 503);

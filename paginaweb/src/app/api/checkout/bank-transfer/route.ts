@@ -78,7 +78,7 @@ export async function POST(request: Request) {
 
     const [{ data: settings, error: settingsError }, { data: shippingRate, error: shippingError }] = await Promise.all([
       admin.from("commerce_settings")
-        .select("commerce_enabled,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent")
+        .select("commerce_enabled,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories")
         .eq("singleton", true)
         .single(),
       admin.from("shipping_rates").select("id,is_pickup").eq("id", shippingRateId).eq("active", true).maybeSingle(),

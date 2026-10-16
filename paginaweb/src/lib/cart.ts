@@ -43,7 +43,7 @@ export async function readPricedCart(client: SupabaseClient, userId: string) {
   const designPrices = new Map<string, number>();
   const { data: wholesaleData, error: wholesaleError } = await client
     .from("commerce_settings")
-    .select("wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent")
+    .select("wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories")
     .eq("singleton", true)
     .single();
   if (wholesaleError) throw wholesaleError;

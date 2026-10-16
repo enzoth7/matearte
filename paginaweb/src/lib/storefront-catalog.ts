@@ -135,7 +135,7 @@ export async function getWholesaleDiscountSettings(): Promise<WholesaleDiscountS
     const client = createPublicSupabase();
     const { data, error } = await client
       .from("commerce_settings")
-      .select("wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent")
+      .select("wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories")
       .eq("singleton", true)
       .single();
     if (error) throw error;
