@@ -120,9 +120,10 @@ main { min-height: 100vh; margin-left: 244px; padding: 34px 24px 54px; }
 .sales-table th:nth-child(2) { width: 118px; }
 .sales-table th:nth-child(3) { width: 118px; }
 .sales-table th:nth-child(4) { width: 14%; }
-.sales-table th:nth-child(5) { width: 20%; }
-.sales-table th:nth-child(6) { width: 142px; }
-.sales-table th:nth-child(7) { width: 112px; }
+.sales-table th:nth-child(5) { width: 18%; }
+.sales-table th:nth-child(6) { width: 92px; }
+.sales-table th:nth-child(7) { width: 132px; }
+.sales-table th:nth-child(8) { width: 112px; }
 .sales-table th { border-block: 1px solid var(--border-soft); background: #faf9f5; color: #7b857f; padding: 10px 14px; font-size: .62rem; letter-spacing: .06em; text-align: left; text-transform: uppercase; }
 .sales-table th:first-child, .sales-table td:first-child { padding-left: 24px; }
 .sales-table th:last-child, .sales-table td:last-child { padding-right: 20px; text-align: right; white-space: nowrap; }
@@ -357,11 +358,12 @@ main { min-height: 100vh; margin-left: 244px; padding: 34px 24px 54px; }
   .modal-backdrop { align-items: end; padding: 12px; }
   .product-modal { border-radius: 14px 14px 8px 8px; }
   .product-modal-header, .product-modal form { padding-inline: 19px; }
-  .sales-table th:nth-child(1), .sales-table td:nth-child(1), .sales-table th:nth-child(3), .sales-table td:nth-child(3), .sales-table th:nth-child(6), .sales-table td:nth-child(6) { display: none; }
-  .sales-table th:nth-child(2), .sales-table td:nth-child(2) { width: 23%; padding-left: 17px; white-space: nowrap; }
+  .sales-table th:nth-child(1), .sales-table td:nth-child(1), .sales-table th:nth-child(3), .sales-table td:nth-child(3), .sales-table th:nth-child(7), .sales-table td:nth-child(7) { display: none; }
+  .sales-table th:nth-child(2), .sales-table td:nth-child(2) { width: 20%; padding-left: 17px; white-space: nowrap; }
   .sales-table th:nth-child(4), .sales-table td:nth-child(4) { width: 20%; }
-  .sales-table th:nth-child(5), .sales-table td:nth-child(5) { width: 34%; }
-  .sales-table th:nth-child(7), .sales-table td:nth-child(7) { width: 23%; }
+  .sales-table th:nth-child(5), .sales-table td:nth-child(5) { width: 27%; }
+  .sales-table th:nth-child(6), .sales-table td:nth-child(6) { width: 14%; }
+  .sales-table th:nth-child(8), .sales-table td:nth-child(8) { width: 19%; }
   .sale-product-desktop { display: none; }
   .sale-product-mobile { display: inline; white-space: nowrap; }
   .two-columns { grid-template-columns: 1fr; }

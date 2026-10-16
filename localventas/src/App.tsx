@@ -35,6 +35,7 @@ type Sale = {
   product: string
   amount: number
   payment: string
+  channel: string
 }
 
 type StoredSale = {
@@ -43,6 +44,7 @@ type StoredSale = {
   customer_name: string
   sold_on: string
   payment_method: string
+  channel?: string | null
   total_minor: number
   created_at: string
   local_sale_items: Array<{
@@ -172,6 +174,7 @@ const mapSale = (row: StoredSale): Sale => ({
   product: row.local_sale_items.map((item) => `${item.product_name} · ${item.variant_name}${item.quantity > 1 ? ` ×${item.quantity}` : ''}`).join(', '),
   amount: row.total_minor / 100,
   payment: row.payment_method,
+  channel: row.channel?.trim() || '-',
 })
 
 function StaffLogin({ onSession }: { onSession: (session: Session) => void }) {
@@ -364,7 +367,7 @@ function App() {
       while (true) {
         const { data, error } = await supabase
           .from('local_sales')
-          .select('sale_number,reference_code,customer_name,sold_on,payment_method,total_minor,created_at,local_sale_items(product_name,variant_name,quantity)')
+          .select('sale_number,reference_code,customer_name,sold_on,payment_method,channel,total_minor,created_at,local_sale_items(product_name,variant_name,quantity)')
           .in('channel', saleChannels)
           .gte('sold_on', oldestRequiredDate)
           .order('created_at', { ascending: false })
@@ -433,7 +436,7 @@ function App() {
   const filteredSales = useMemo(() => {
     const query = search.trim().toLowerCase()
     if (!query) return sales
-    return sales.filter((sale) => `${sale.customer} ${sale.product} ${sale.id}`.toLowerCase().includes(query))
+    return sales.filter((sale) => `${sale.customer} ${sale.product} ${sale.channel} ${sale.id}`.toLowerCase().includes(query))
   }, [sales, search])
 
   const selectedPeriodLabel = salesPeriodOptions.find((option) => option.value === salesPeriod)?.label || 'Hoy'
@@ -996,6 +999,7 @@ function App() {
       product: productName,
       amount: chargedTotalMinor / 100,
       payment,
+      channel: saleChannel,
     }
     setSales((current) => [newSale, ...current])
     if (customerForSale) {
@@ -1220,7 +1224,7 @@ function App() {
                   {salesLoading && <div className="empty-search" aria-live="polite">Cargando ventas…</div>}
                   {salesError && <div className="empty-search catalog-error" role="alert">{salesError}</div>}
                   <table className="sales-table">
-                    <thead><tr><th>ID</th><th>Fecha</th><th>Hora</th><th>Producto</th><th>Cliente</th><th>Medio de pago</th><th>Total</th></tr></thead>
+                    <thead><tr><th>ID</th><th>Fecha</th><th>Hora</th><th>Producto</th><th>Cliente</th><th>Canal</th><th>Medio de pago</th><th>Total</th></tr></thead>
                     <tbody>
                       {filteredSales.map((sale) => (
                         <tr key={sale.id}>
@@ -1232,6 +1236,7 @@ function App() {
                             <span className="sale-product-mobile" aria-hidden="true">{`${sale.product.slice(0, 5)}${sale.product.length > 5 ? '...' : ''}`}</span>
                           </td>
                           <td><div className="customer-cell"><small className="customer-avatar">{sale.initials}</small><strong>{sale.customer}</strong></div></td>
+                          <td>{sale.channel}</td>
                           <td><small className="payment-pill">{sale.payment}</small></td>
                           <td><strong>{formatMoney(sale.amount)}</strong></td>
                         </tr>
