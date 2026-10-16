@@ -23,6 +23,7 @@ type Page = 'register' | 'sales' | 'clients' | 'products'
 type CatalogSort = 'sku' | 'price'
 type SortDirection = 'asc' | 'desc'
 type SalesPeriod = 'today' | 'week' | 'month' | 'quarter'
+type SaleChannel = 'Local' | 'Feria' | 'WhatsApp' | 'Facebook' | 'Instagram'
 
 type Sale = {
   id: string
@@ -109,6 +110,8 @@ const salesPeriodOptions: Array<{ value: SalesPeriod; label: string }> = [
   { value: 'month', label: 'Último mes' },
   { value: 'quarter', label: 'Últimos 3 meses' },
 ]
+
+const saleChannels: SaleChannel[] = ['Local', 'Feria', 'WhatsApp', 'Facebook', 'Instagram']
 
 const toLocalIsoDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 
@@ -256,6 +259,7 @@ function App() {
   const [price, setPrice] = useState('')
   const [quantity, setQuantity] = useState('1')
   const [payment, setPayment] = useState('Efectivo')
+  const [saleChannel, setSaleChannel] = useState<SaleChannel>('Local')
   const [saleItems, setSaleItems] = useState<SaleLine[]>([])
   const [depositAmount, setDepositAmount] = useState('')
   const [itemsError, setItemsError] = useState('')
@@ -361,7 +365,7 @@ function App() {
         const { data, error } = await supabase
           .from('local_sales')
           .select('sale_number,reference_code,customer_name,sold_on,payment_method,total_minor,created_at,local_sale_items(product_name,variant_name,quantity)')
-          .eq('channel', 'Local')
+          .in('channel', saleChannels)
           .gte('sold_on', oldestRequiredDate)
           .order('created_at', { ascending: false })
           .range(offset, offset + 999)
@@ -551,6 +555,7 @@ function App() {
     setShowRegisterProductResults(false)
     setQuantity('1')
     setPayment('Efectivo')
+    setSaleChannel('Local')
     setSaleItems([])
     setDepositAmount('')
     setItemsError('')
@@ -955,7 +960,7 @@ function App() {
 
     const saleDate = purchaseDate || todayIso
     const chargedTotalMinor = payment === 'Seña' ? depositMinor : itemsTotalMinor
-    const { data: saleResult, error: saleError } = await supabase.rpc('create_local_sale_with_items', {
+    const { data: saleResult, error: saleError } = await supabase.rpc('create_channel_sale_with_items', {
       p_customer_id: customerForSale?.id || null,
       p_sold_on: saleDate,
       p_payment_method: payment,
@@ -965,6 +970,7 @@ function App() {
         unit_price_minor: item.unitPriceMinor,
       })),
       p_deposit_minor: payment === 'Seña' ? depositMinor : null,
+      p_channel: saleChannel,
     })
 
     if (saleError) {
@@ -1147,6 +1153,7 @@ function App() {
                     {customerError && <div className="customer-form-error" role="alert">{customerError}</div>}
                     <label className="purchase-date-field">Fecha de compra<input type="date" max={todayIso} value={purchaseDate} onChange={(event) => setPurchaseDate(event.target.value)} /></label>
                     <div className="sale-payment-fields form-grid">
+                      <label>Canal de venta<select value={saleChannel} onChange={(event) => setSaleChannel(event.target.value as SaleChannel)}>{saleChannels.map((channel) => <option key={channel} value={channel}>{channel}</option>)}</select></label>
                       <label>Forma de pago<select value={payment} onChange={(event) => choosePayment(event.target.value)}><option>Efectivo</option><option>Débito</option><option>Crédito</option><option>Transferencia</option><option>Seña</option></select></label>
                       {payment === 'Seña' && <label className="price-field">Seña cobrada<input type="number" min="0" max="10000000" inputMode="decimal" value={depositAmount} onChange={(event) => { setDepositAmount(event.target.value); setCustomerError('') }} placeholder="Ingresá el monto" required /><small className="field-help">El valor completo de los productos queda registrado por separado.</small></label>}
                     </div>
