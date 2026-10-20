@@ -32,3 +32,17 @@ export function shouldCompleteProfileInVisualizer(
     && pendingAuthAction !== null
     && PROFILE_REQUIRED_ACTIONS.has(pendingAuthAction);
 }
+
+export function shouldLeaveAccessAfterAuthentication({
+  step,
+  handoffPending,
+  pendingAuthAction,
+  authenticated,
+}: {
+  step: string;
+  handoffPending: boolean;
+  pendingAuthAction: string | null;
+  authenticated: boolean;
+}) {
+  return step === "access" && !handoffPending && !pendingAuthAction && authenticated;
+}

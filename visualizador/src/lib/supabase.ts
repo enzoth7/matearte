@@ -329,7 +329,6 @@ export async function consumeMainSiteHandoff(code: string) {
   if (!/^[A-Za-z0-9_-]{43}$/.test(code)) throw new Error('El enlace para abrir tus diseños no es válido.');
   if (!isSupabaseConfigured) throw new Error('Supabase no está configurado.');
 
-  await supabase.auth.signOut({ scope: 'local' });
   const response = await fetch(`${SUPABASE_URL}/functions/v1/auth-handoff`, {
     method: 'POST',
     headers: {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { signInWithGoogle } from '../lib/supabase';
 
-export function WelcomeStep() {
+export function WelcomeStep({ onBack }: { onBack?: () => void }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -14,6 +14,7 @@ export function WelcomeStep() {
       if (authError) throw authError;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'No se pudo continuar con Google.');
+    } finally {
       setLoading(false);
     }
   };
@@ -48,6 +49,7 @@ export function WelcomeStep() {
               <img src="/google-logo.png" alt="" aria-hidden="true" width="35" height="35" />
               <span>{loading ? 'Conectando…' : 'Continuar con Google'}</span>
             </button>
+            {onBack && <button type="button" className="access-back-button" onClick={onBack}>Volver al visualizador</button>}
             <small>Tu cuenta se crea automáticamente si todavía no existe.</small>
           </section>
 

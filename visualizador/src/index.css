@@ -3831,6 +3831,25 @@ button,
   object-fit: contain;
 }
 
+.access-card--google .access-back-button {
+  align-self: center;
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--cuero);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.access-card--google .access-back-button:focus-visible {
+  outline: 2px solid var(--cuero);
+  outline-offset: 2px;
+}
+
 .access-card--google small {
   display: block;
   margin-top: 9px;

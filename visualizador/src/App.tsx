@@ -50,7 +50,7 @@ import { calculateOrderPricing, countChargeableCharacters, formatUYU, getCustomi
 import { createDefaultFlejeCustomization, normalizeFlejeCustomization, type CustomImageAsset, type EditableElement, type FlejeCustomization, type FlejeSide, type MateConfiguration } from "./types/customizer";
 import { loadGuestDraft, loadGuestDraftIdentity, saveGuestDraft, saveGuestDraftIdentity, syncDesignAssets } from "./services/guestDraftStorage";
 import { saveDesignPreviews } from "./services/designPreviews";
-import { shouldCompleteProfileInVisualizer } from "./lib/authRedirect";
+import { shouldCompleteProfileInVisualizer, shouldLeaveAccessAfterAuthentication } from "./lib/authRedirect";
 
 type CustomizationPhase = "mate" | "virola" | "fleje";
 type PreviewView = "mate" | "virola" | "fleje";
@@ -320,10 +320,11 @@ function VisualizerApp() {
   };
 
   const [wizardStep, setWizardStepState] = useState<WizardStep>(() => getStepFromPath(location.pathname));
-  const [incomingHandoffCode] = useState(() => new URLSearchParams(window.location.search).get("handoff") || "");
+  const [incomingHandoffCode, setIncomingHandoffCode] = useState(() => new URLSearchParams(window.location.search).get("handoff") || "");
   const [handoffPending, setHandoffPending] = useState(Boolean(incomingHandoffCode));
   const [handoffUserId, setHandoffUserId] = useState("");
   const [handoffError, setHandoffError] = useState("");
+  const handoffRequestRef = useRef<Promise<string> | null>(null);
   const [pendingAuthAction, setPendingAuthAction] = useState<PendingAuthAction | null>(() => {
     const saved = sessionStorage.getItem("matearte_pending_auth_action");
     return saved as PendingAuthAction | null;
@@ -375,15 +376,21 @@ function VisualizerApp() {
   useEffect(() => {
     if (!incomingHandoffCode) return;
     let active = true;
-    void consumeMainSiteHandoff(incomingHandoffCode)
+    handoffRequestRef.current ??= consumeMainSiteHandoff(incomingHandoffCode);
+    void handoffRequestRef.current
       .then((userId) => {
-        if (active) setHandoffUserId(userId);
+        if (!active) return;
+        setIncomingHandoffCode("");
+        setHandoffUserId(userId);
       })
       .catch((reason) => {
         if (!active) return;
+        setIncomingHandoffCode("");
         window.history.replaceState(null, '', '/access');
         setHandoffError(reason instanceof Error ? reason.message : 'No pudimos conectar tu cuenta.');
         setHandoffPending(false);
+        sessionStorage.setItem("matearte_pending_auth_action", "profile");
+        setPendingAuthAction("profile");
         changeStep('access');
       });
     return () => { active = false; };
@@ -412,7 +419,8 @@ function VisualizerApp() {
 
       if (session?.user) {
         const email = session.user.email || "";
-        const { data: profile } = await getUserProfileFromSupabase(session.user.id, session.access_token);
+        const { data: profile } = await getUserProfileFromSupabase(session.user.id, session.access_token)
+          .catch(() => ({ data: null }));
         if (!active || currentSyncVersion !== syncVersion) return;
         let cachedProfile: Partial<UserData> = {};
         try {
@@ -422,7 +430,9 @@ function VisualizerApp() {
           localStorage.removeItem("matearte_user");
         }
         const name = profile?.full_name || cachedProfile.name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split("@")[0] || "Cliente MateArte";
-        const signedAvatar = profile?.avatar_path ? await createProfileAvatarSignedUrl(profile.avatar_path) : null;
+        const signedAvatar = profile?.avatar_path
+          ? await createProfileAvatarSignedUrl(profile.avatar_path).catch(() => null)
+          : null;
         if (!active || currentSyncVersion !== syncVersion) return;
         const userObj: UserData = {
           id: session.user.id,
@@ -888,6 +898,16 @@ function VisualizerApp() {
   }, [pendingAuthAction, userData]);
 
   useEffect(() => {
+    if (!shouldLeaveAccessAfterAuthentication({
+      step: wizardStep,
+      handoffPending,
+      pendingAuthAction,
+      authenticated: Boolean(userData?.id && !userData.isGuest),
+    })) return;
+    changeStep("profile");
+  }, [changeStep, handoffPending, pendingAuthAction, userData, wizardStep]);
+
+  useEffect(() => {
     if (!handoffPending || !handoffUserId || userData?.id !== handoffUserId) return;
     window.history.replaceState(null, '', '/profile');
     setHandoffPending(false);
@@ -1117,8 +1137,13 @@ function VisualizerApp() {
 
         {wizardStep === "access" && (
           <>
-            {handoffError && <p role="alert" className="mx-auto mt-6 max-w-xl border border-red-300 bg-red-50 px-5 py-4 text-sm font-semibold text-red-800">{handoffError} Volvé a ingresar desde MateArte.</p>}
-            <WelcomeStep />
+            {handoffError && <p role="alert" className="mx-auto mt-6 max-w-xl border border-red-300 bg-red-50 px-5 py-4 text-sm font-semibold text-red-800">{handoffError} Podés continuar con Google o volver al visualizador.</p>}
+            <WelcomeStep onBack={() => {
+              sessionStorage.removeItem("matearte_pending_auth_action");
+              setPendingAuthAction(null);
+              setHandoffError("");
+              changeStep(getFirstIncompleteStage(selection) === null ? "summary" : "welcome");
+            }} />
           </>
         )}
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getMisroutedStoreAuthCallbackUrl, shouldCompleteProfileInVisualizer } from "./authRedirect";
+import { getMisroutedStoreAuthCallbackUrl, shouldCompleteProfileInVisualizer, shouldLeaveAccessAfterAuthentication } from "./authRedirect";
 
 describe("getMisroutedStoreAuthCallbackUrl", () => {
   it("reenvía a la tienda un código OAuth que cayó en la raíz del visualizador", () => {
@@ -44,5 +44,17 @@ describe("shouldCompleteProfileInVisualizer", () => {
   it("no pide completar un perfil que ya está completo", () => {
     expect(shouldCompleteProfileInVisualizer(true, "main-profile")).toBe(false);
     expect(shouldCompleteProfileInVisualizer(true, "profile")).toBe(false);
+  });
+});
+
+describe("shouldLeaveAccessAfterAuthentication", () => {
+  it("sale de Google si la sesión se recuperó y no hay otra acción pendiente", () => {
+    expect(shouldLeaveAccessAfterAuthentication({ step: "access", handoffPending: false, pendingAuthAction: null, authenticated: true })).toBe(true);
+  });
+
+  it("espera la validación de un enlace o una acción de acceso pendiente", () => {
+    expect(shouldLeaveAccessAfterAuthentication({ step: "access", handoffPending: true, pendingAuthAction: null, authenticated: true })).toBe(false);
+    expect(shouldLeaveAccessAfterAuthentication({ step: "access", handoffPending: false, pendingAuthAction: "checkout", authenticated: true })).toBe(false);
+    expect(shouldLeaveAccessAfterAuthentication({ step: "access", handoffPending: false, pendingAuthAction: null, authenticated: false })).toBe(false);
   });
 });
