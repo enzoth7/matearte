@@ -2849,6 +2849,99 @@ button,
   text-align: center;
 }
 
+.profile-design-tile__open {
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.profile-design-tile__open:focus-visible {
+  outline: 3px solid var(--cuero);
+  outline-offset: 4px;
+}
+
+.profile-design-tile__open > strong {
+  margin-top: 14px;
+  font-size: 17px;
+}
+
+.profile-design-tile__hint {
+  margin-top: 12px;
+  color: var(--cuero);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.brand-modal > .saved-design-details {
+  width: min(720px, 100%);
+  max-height: min(90dvh, 900px);
+  box-sizing: border-box;
+  overflow-y: auto;
+  border-radius: 16px;
+}
+
+.saved-design-details h2 {
+  margin-bottom: 4px;
+}
+
+.saved-design-details h3 {
+  margin: 24px 0 10px;
+  font-size: 18px;
+}
+
+.saved-design-details__code {
+  margin: 0;
+  color: var(--salvia);
+  font-size: 14px;
+}
+
+.saved-design-details__specs,
+.saved-design-details__prices {
+  margin: 0;
+}
+
+.saved-design-details__specs > div,
+.saved-design-details__prices > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--arena);
+}
+
+.saved-design-details__specs dt,
+.saved-design-details__prices dt {
+  flex: 1;
+}
+
+.saved-design-details__specs dd,
+.saved-design-details__prices dd {
+  max-width: 60%;
+  margin: 0;
+  font-weight: 650;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.saved-design-details__total {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.saved-design-details__notice {
+  padding: 12px;
+  background: var(--arena);
+}
+
 .profile-design-tile__delete {
   position: absolute;
   top: 7px;
@@ -6923,6 +7016,19 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   letter-spacing: .025em;
   text-transform: none;
   white-space: nowrap;
+}
+
+.summary-checkout .summary-profile {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 12px;
+  border-color: var(--cacao);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--cacao);
+  font-size: 14px;
+  font-weight: 650;
+  text-transform: none;
 }
 
 .summary-checkout .brand-button--muted {

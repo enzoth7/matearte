@@ -3,9 +3,10 @@ import type { UserData, SavedDesignItem } from "../types/user";
 import { deleteDesign, duplicateDesign, getUserDesigns, uploadProfileAvatar } from "../lib/supabase";
 import { countryName, countryOptions } from "../lib/countries";
 import { mateVariants } from "../catalog/mateCatalog";
-import { formatUYU, getSelectionPricing } from "../catalog/pricingCatalog";
+import { formatUYU } from "../catalog/pricingCatalog";
 import { getSelectionFromLegacyVariant, resolveMateSelection } from "../catalog/mateDecisionCatalog";
 import { usePricing } from "../context/PricingContext";
+import { getSavedDesignPrice, SavedDesignDetails } from "./SavedDesignDetails";
 
 const URUGUAY_DEPARTMENTS = [
   "Artigas", "Canelones", "Cerro Largo", "Colonia", "Durazno", "Flores", "Florida",
@@ -72,7 +73,23 @@ function DesignTile({ design, draft = false, onLoad, onCheckout, onDelete, onDup
   const selection = resolveMateSelection(config.selection)
     ? config.selection
     : getSelectionFromLegacyVariant(config.variantId, config.size);
-  const price = selection ? getSelectionPricing(pricingCatalog, selection) : null;
+  const price = selection ? getSavedDesignPrice(design, pricingCatalog) : null;
+
+  if (!draft) {
+    return (
+      <article className="profile-design-tile">
+        <button type="button" className="profile-design-tile__open" onClick={onLoad} aria-label={`Ver detalle de ${design.title || "pedido"}`}>
+          <span className="profile-design-tile__preview">
+            {config.skuId === null ? <span>Imagen pendiente</span> : <img className="mate-product-photo" src={variant.image} alt="" loading="lazy" />}
+          </span>
+          <strong>{price !== null && price > 0 ? formatUYU(price) : "Precio no disponible"}</strong>
+          <span className="profile-design-tile__type">{design.title}</span>
+          <time dateTime={design.updated_at}>Última modificación: {new Date(design.updated_at).toLocaleDateString("es-UY")}</time>
+          <span className="profile-design-tile__hint">Ver detalle</span>
+        </button>
+      </article>
+    );
+  }
 
   return (
     <article className={`profile-design-tile ${draft ? "is-draft" : ""}`}>
@@ -97,7 +114,7 @@ function DesignTile({ design, draft = false, onLoad, onCheckout, onDelete, onDup
       >
         {config.skuId === null ? <span>Imagen pendiente</span> : <img className="mate-product-photo" src={variant.image} alt="" loading="lazy" />}
       </button>
-      <strong>{price && price.totalUYU > 0 ? formatUYU(price.totalUYU) : "Precio no disponible"}</strong>
+      <strong>{price !== null && price > 0 ? formatUYU(price) : "Precio no disponible"}</strong>
       <span className="profile-design-tile__type">{design.title}</span>
       <time dateTime={design.updated_at}>Última modificación: {new Date(design.updated_at).toLocaleDateString("es-UY")}</time>
       {draft && (
@@ -135,6 +152,8 @@ export function ProfileStep({
   const [formError, setFormError] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [selectedDraft, setSelectedDraft] = useState<SavedDesignItem | null>(null);
+  const [selectedSavedDesign, setSelectedSavedDesign] = useState<SavedDesignItem | null>(null);
+  const { catalog: pricingCatalog } = usePricing();
   const [isSubmittingDraft, setIsSubmittingDraft] = useState(false);
   const [activeTab, setActiveTab] = useState<"drafts" | "orders">("drafts");
 
@@ -324,7 +343,7 @@ export function ProfileStep({
                 <p className="profile-empty">Todavía no tenés pedidos.</p>
               ) : (
                 <div className="profile-grid">
-                  {savedDesigns.map((design) => <DesignTile key={design.id} design={design} onLoad={() => onLoadDesign(design)} />)}
+                  {savedDesigns.map((design) => <DesignTile key={design.id} design={design} onLoad={() => setSelectedSavedDesign(design)} />)}
                 </div>
               )}
             </div>
@@ -347,6 +366,15 @@ export function ProfileStep({
             </div>
           </div>
         </div>
+      )}
+
+      {selectedSavedDesign && (
+        <SavedDesignDetails
+          design={selectedSavedDesign}
+          catalog={pricingCatalog}
+          onClose={() => setSelectedSavedDesign(null)}
+          onUseAsBase={() => { setSelectedSavedDesign(null); onLoadDesign(selectedSavedDesign); }}
+        />
       )}
 
       {isEditModalOpen && (

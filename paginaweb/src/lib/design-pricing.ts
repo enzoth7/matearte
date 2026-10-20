@@ -9,17 +9,17 @@ const chargeable = (value: string) => value.match(/[\p{L}\p{N}]/gu)?.length || 0
 function selectionIsAllowed(selection: Json) {
   const family = text(selection.familyId), texture = text(selection.textureId), color = text(selection.colorId), metal = text(selection.metalId), size = text(selection.sizeId);
   if (!["chico", "medio", "grande"].includes(size)) return false;
-  if (family === "camionero") return texture === "alpaca-cincelado-patas" && ["natural", "cuero-crudo", "marron", "negro"].includes(color) && metal === "alpaca-comun";
+  if (family === "camionero") return texture === "alpaca-cincelado-patas" && ["natural", "blanco", "cuero-crudo", "marron", "negro"].includes(color) && metal === "alpaca-comun";
   if (family === "imperial") {
-    if (["cincelado-premium", "imperial-clasico"].includes(texture)) return ["natural", "negro", "marron", "animal-print-premium", "marron-blanco-premium", "negro-blanco-premium", "cuero-crudo"].includes(color) && metal === "original-imperial";
-    return texture === "virola-plata-900" && ["cuero-crudo", "negro", "marron", "natural", "print", "criollo"].includes(color) && metal === "plata-900";
+    if (["cincelado-premium", "imperial-clasico"].includes(texture)) return ["natural", "blanco", "negro", "marron", "animal-print-premium", "marron-blanco-premium", "negro-blanco-premium", "cuero-crudo"].includes(color) && metal === "original-imperial";
+    return texture === "virola-plata-900" && ["cuero-crudo", "negro", "marron", "natural", "blanco", "print", "criollo"].includes(color) && metal === "plata-900";
   }
   if (family === "torpedo") {
-    const colors: Record<string, string[]> = { "cuero-liso": ["natural", "negro", "marron"], "cuero-estampado": ["marron"], "cuero-crudo": ["cuero-crudo"], "print-pelos": ["marron-blanco", "negro-blanco", "animal-print"] };
+    const colors: Record<string, string[]> = { "cuero-liso": ["natural", "blanco", "negro", "marron"], "cuero-estampado": ["natural", "negro", "marron"], "cuero-crudo": ["cuero-crudo"], "print-pelos": ["marron-blanco", "negro-blanco", "animal-print"] };
     return Boolean(colors[texture]?.includes(color)) && ["alpaca-bronce", "alpaca-comun", "alpaca-grande"].includes(metal);
   }
   if (family === "criollo") {
-    if (!['torpedo-criollo-posa-mate', 'imperial-criollo-posa-mate', 'camionero-criollo-posa-mate'].includes(texture) || !['vaqueta', 'cuero-crudo-criollo'].includes(color)) return false;
+    if (!['torpedo-criollo-posa-mate', 'imperial-criollo-posa-mate', 'camionero-criollo-posa-mate'].includes(texture) || !['vaqueta', 'cuero-crudo-criollo', 'negro'].includes(color)) return false;
     if (texture === 'torpedo-criollo-posa-mate') return ['alpaca-grande-criollo', 'alpaca-grande-lacre-torpedo'].includes(metal);
     if (texture === 'imperial-criollo-posa-mate') return ['alpaca-grande-criollo', 'alpaca-grande-lacre-imperial'].includes(metal);
     return metal === 'original-camionero';
@@ -36,8 +36,8 @@ function selectionRuleKeys(selection: Json) {
   if (texture === "cuero-estampado") keys.push("leather:stamped");
   else if (color === "cuero-crudo") keys.push("leather:raw");
   else if (color === "cuero-crudo-criollo") keys.push("leather:raw-posa-mate");
-  else if (color === "vaqueta") keys.push("leather:vaqueta");
-  else if (texture === "print-pelos" || color.includes("print")) keys.push("leather:print-pelos");
+  else if (color === "vaqueta" || (family === "criollo" && color === "negro")) keys.push("leather:vaqueta");
+  else if (texture === "print-pelos" || color.includes("print") || ["marron-blanco-premium", "negro-blanco-premium"].includes(color)) keys.push("leather:print-pelos");
   if (["alpaca-bronce", "alpaca-grande", "plata-900"].includes(metal)) keys.push(`metal:${metal}`);
   if (metal.includes("alpaca-grande-lacre")) keys.push(`metal:criollo:${texture}:alpaca-grande-lacre`);
   return keys;

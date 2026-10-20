@@ -1717,6 +1717,7 @@ function VisualizerApp() {
             flejeConfig={flejeConfig}
             previewRef={previewContainerRef}
             onEditDesign={() => changeStep("customizer")}
+            onGoToProfile={() => requireAuthentication("profile")}
             onEditContact={() => requireAuthentication("edit-contact")}
             onProceedToCheckout={() => requireAuthentication("checkout")}
             onSaveDraft={() => requireAuthentication("save-summary")}
