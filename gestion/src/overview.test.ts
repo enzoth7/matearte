@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { total } from "./data";
 import { seedFixture as seed } from "./testing/fixture";
-import { overviewRange, overviewScope } from "./overview";
+import { overviewRange, overviewScope, salesByCustomerType } from "./overview";
 
 describe("períodos del resumen", () => {
   it("usa límites inclusivos y deja fuera movimientos futuros", () => {
@@ -27,5 +27,21 @@ describe("períodos del resumen", () => {
       .toBe(sixMonths.orders.reduce((sum, order) => sum + total(order), 0));
     expect(sixMonths.trend.reduce((sum, point) => sum + point.egresos, 0))
       .toBe(sixMonths.expenses.filter((expense) => expense.paid).reduce((sum, expense) => sum + expense.amount, 0));
+  });
+
+  it("compara ventas minoristas y mayoristas por importe y cantidad", () => {
+    const state = seed();
+    const minorista = state.customers.find(customer => customer.segment !== "Mayorista")!;
+    const mayorista = state.customers.find(customer => customer.segment === "Mayorista")!;
+    const orders = [
+      { ...state.orders[0], id: "retail", customerId: minorista.id, source: "local" as const, totalAmount: 1200 },
+      { ...state.orders[0], id: "wholesale", customerId: mayorista.id, totalAmount: 4800 },
+      { ...state.orders[0], id: "wholesale-source", customerId: minorista.id, source: "wholesale" as const, totalAmount: 2000 },
+    ];
+
+    expect(salesByCustomerType(state, orders)).toEqual([
+      { type: "Minorista", total: 1200, orders: 1 },
+      { type: "Mayorista", total: 6800, orders: 2 },
+    ]);
   });
 });

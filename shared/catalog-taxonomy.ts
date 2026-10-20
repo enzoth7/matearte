@@ -1,7 +1,7 @@
 /** Stable storage/query contracts shared by Commerce Admin and the storefront. */
 export const catalogCategoryIds = [
   "billeteras", "bombillas", "botas", "carteras", "cintos", "cuchillos",
-  "kits-materos", "materas", "mates", "mates-personalizados", "termos",
+  "kits-materos", "materas", "mates", "personalizados", "servicios", "termos",
 ] as const;
 export const catalogMaterialIds = ["cuero", "plata", "alpaca", "acero-inoxidable", "otros-metales", "madera", "estampado"] as const;
 export const catalogProductTypeIds = ["imperial", "camionero", "criollo", "torpedo"] as const;
@@ -51,7 +51,7 @@ export function normalizeCatalogValueMap(value: unknown): CatalogValueMap {
   return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, CatalogValue] => ["string", "number", "boolean"].includes(typeof entry[1])));
 }
 export function canonicalCategoryCode(value: string) {
-  return ({ bombillones: "bombillas", "kit-matero": "kits-materos", cuchillo: "cuchillos", calzado: "botas", marroquineria: "cintos" } as Record<string, string>)[value] ?? value;
+  return ({ bombillones: "bombillas", "kit-matero": "kits-materos", cuchillo: "cuchillos", calzado: "botas", marroquineria: "cintos", "mates-personalizados": "personalizados", "materas-personalizadas": "personalizados" } as Record<string, string>)[value] ?? value;
 }
 export function taxonomyRulesForCategory(taxonomy: CatalogTaxonomy, categoryCode: string, scope?: CatalogAttributeScope) {
   const lineage: string[] = [];
@@ -65,7 +65,19 @@ export function taxonomyRulesForCategory(taxonomy: CatalogTaxonomy, categoryCode
   taxonomy.rules.filter(rule => lineage.includes(rule.category_code) && (!scope || rule.scope === scope))
     .sort((a, b) => lineage.indexOf(a.category_code) - lineage.indexOf(b.category_code))
     .forEach(rule => byAttribute.set(`${rule.scope}:${rule.attribute_code}`, rule));
-  return [...byAttribute.values()].sort((a, b) => a.sort_order - b.sort_order || a.attribute_code.localeCompare(b.attribute_code));
+  return [...byAttribute.values()]
+    .filter(rule => rule.scope !== "variant" || rule.attribute_code === "color")
+    .sort((a, b) => a.sort_order - b.sort_order || a.attribute_code.localeCompare(b.attribute_code));
+}
+export function taxonomyRulesForProduct(taxonomy: CatalogTaxonomy, categoryCode: string, values: CatalogValueMap, scope: CatalogAttributeScope) {
+  const base = taxonomyRulesForCategory(taxonomy, categoryCode, scope);
+  if (canonicalCategoryCode(categoryCode) !== "personalizados" || scope !== "product") return base;
+  const subtype = values["tipo-personalizado"];
+  if (subtype !== "mate" && subtype !== "matera") return base.filter(rule => rule.attribute_code !== "diseno-matera");
+  const extra = taxonomyRulesForCategory(taxonomy, subtype === "mate" ? "mates" : "materas", scope)
+    .filter(rule => rule.attribute_code !== "coleccion" && (subtype !== "mate" || rule.attribute_code !== "material"));
+  const materaDesign = subtype === "matera" ? base.filter(rule => rule.attribute_code === "diseno-matera") : [];
+  return [...base.filter(rule => rule.attribute_code !== "diseno-matera"), ...extra, ...materaDesign].sort((a, b) => a.sort_order - b.sort_order || a.attribute_code.localeCompare(b.attribute_code));
 }
 export function taxonomyOptionsFor(taxonomy: CatalogTaxonomy, attributeCode: string) {
   return taxonomy.options.filter(option => option.attribute_code === attributeCode && option.active)
@@ -88,6 +100,10 @@ export function formatVariantLabel(taxonomy: CatalogTaxonomy, categoryCode: stri
     });
   return labels.join(" · ") || "Única";
 }
+export function colorOnlyVariantValues(optionValues: CatalogValueMap): CatalogValueMap {
+  const color = optionValues.color;
+  return color === undefined || color === "" ? {} : { color };
+}
 export function optionSignature(values: CatalogValueMap) {
   return JSON.stringify(Object.fromEntries(Object.entries(values).filter(([, value]) => value !== "").sort(([a], [b]) => a.localeCompare(b))));
 }
@@ -107,11 +123,11 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     category("billeteras", "Billeteras", null, 10), category("bombillas", "Bombillas", null, 20), category("botas", "Botas", null, 30),
     category("carteras", "Carteras", null, 40), category("cintos", "Cintos", null, 50), category("cuchillos", "Cuchillos", null, 60),
     category("kits-materos", "Kits materos", null, 70), category("materas", "Materas", null, 80), category("mates", "Mates", null, 90),
-    category("mates-personalizados", "Mates Personalizados", null, 100), category("termos", "Termos", null, 110),
+    category("personalizados", "Personalizados", null, 100), category("servicios", "Servicios", null, 105), category("termos", "Termos", null, 110),
   ],
   attributes: [
-    attribute("coleccion", "Colección", "enum", "select"),
-    attribute("tipo-mate", "Modelo de mate", "enum", "select"), attribute("material", "Material", "enum", "select"),
+    attribute("coleccion", "Colección", "enum", "select"), attribute("tipo-personalizado", "Tipo", "enum", "select"), attribute("diseno-matera", "Diseño de la matera", "enum", "select"),
+    attribute("tipo-mate", "Modelo de mate", "enum", "select"), attribute("material-mate", "Material del mate", "enum", "select"), attribute("tipo-virola", "Tipo de virola", "enum", "select"), attribute("tipo-cuero", "Tipo de cuero", "enum", "select"), attribute("posamate", "Posamate", "enum", "select"), attribute("material", "Material exterior", "enum", "select"),
     attribute("forma", "Forma", "enum", "select"), attribute("tamano", "Tamaño", "enum", "select"), attribute("acabado", "Acabado", "text", "text"),
     attribute("color", "Color", "enum", "swatch"), attribute("talle", "Talle", "enum", "buttons"), attribute("capacidad-ml", "Capacidad", "number", "number", "ml"),
     attribute("tipo-bombilla", "Tipo de bombilla", "enum", "select"), attribute("diametro-cano-mm", "Diámetro del caño", "number", "number", "mm"),
@@ -127,14 +143,20 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
   ],
   options: [
     ...catalogCollectionIds.map((code, index) => option("coleccion", code, ({ estribo: "Estribo", uruguay: "Uruguay", alfonsina: "Alfonsina" } as Record<string, string>)[code], (index + 1) * 10)),
+    option("tipo-personalizado", "mate", "Mate", 10), option("tipo-personalizado", "matera", "Matera", 20),
+    option("diseno-matera", "logo", "Logo", 10), option("diseno-matera", "texto", "Texto", 20), option("diseno-matera", "logo-y-texto", "Logo y texto", 30),
     ...catalogProductTypeIds.map((code, index) => option("tipo-mate", code, ({ imperial: "Imperial", camionero: "Camionero", criollo: "Criollo", torpedo: "Torpedo" } as Record<string, string>)[code], index * 10)),
+    ...["calabaza|Calabaza", "ceramica|Cerámica", "cuero|Cuero", "madera|Madera", "acero-inoxidable|Acero inoxidable"].map((item, index) => { const [code, label] = item.split("|"); return option("material-mate", code, label, (index + 1) * 10); }),
+    ...["acero-liso|Acero Liso", "alpaca-grande-cincelada|Alpaca Grande Cincelada", "alpaca-y-bronce|Alpaca y Bronce", "alpaca-cincelada|Alpaca Cincelada", "imperial|Imperial", "alpaca|Alpaca", "alpaca-comun|Alpaca Común", "alpaca-grande-lisa|Alpaca Grande Lisa", "acero|Acero"].map((item, index) => { const [code, label] = item.split("|"); return option("tipo-virola", code, label, (index + 1) * 10); }),
+    ...["liso|Liso", "crudo|Crudo", "estampado|Estampado", "croco|Croco", "pelos|Pelos"].map((item, index) => { const [code, label] = item.split("|"); return option("tipo-cuero", code, label, (index + 1) * 10); }),
+    option("posamate", "sin-posamate", "Sin posamate", 10), option("posamate", "con-posamate", "Con posamate", 20),
     ...catalogMaterialIds.map((code, index) => option("material", code, labels.material[code], index * 10)),
     option("forma", "ovalada", "Ovalada", 10), option("forma", "cuadrada", "Cuadrada", 20),
     option("tamano", "todos", "Todos los tamaños", 5), option("tamano", "chico", "Chico", 10), option("tamano", "mediano", "Mediano", 20), option("tamano", "grande", "Grande", 30),
     ...catalogColorIds.map((code, index) => option("color", code, labels.color[code], index * 10, labels.swatch[code])),
     option("talle", "todos", "Todos los talles", 5), ...Array.from({ length: 13 }, (_, index) => option("talle", String(index + 34), String(index + 34), (index + 1) * 10)),
     option("genero", "hombre", "Hombre", 10), option("genero", "mujer", "Mujer", 20), option("genero", "unisex", "Unisex", 30),
-    option("tipo-bombilla", "clasica", "Clásica", 10), option("tipo-bombilla", "bombillon", "Bombillón", 20), option("tipo-bombilla", "apaga", "Apaga", 30),
+    option("tipo-bombilla", "clasica", "Clásica", 10), option("tipo-bombilla", "bombillon", "Bombillón", 20),
     option("forma-pico", "pico-loro", "Pico loro", 10), option("material-cuerpo", "alpaca", "Alpaca", 10), option("material-cuerpo", "bronce", "Bronce", 20), option("material-cuerpo", "acero-inoxidable", "Acero inoxidable", 30),
     option("material-pico", "alpaca", "Alpaca", 10), option("material-pico", "bronce", "Bronce", 20),
     option("decoracion", "con-aros", "Con aros", 10), option("decoracion", "cincelada", "Cincelada", 20), option("decoracion", "con-aplique", "Con aplique", 30),
@@ -146,15 +168,15 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     ...["cuero-crudo|Cuero crudo", "suela|Suela", "metal|Metal", "combinada|Combinada"].map((item, index) => { const [code, label] = item.split("|"); return option("material-vaina", code, label, index * 10); }),
   ],
   rules: [
-    ...catalogCategoryIds.map(code => rule(code,"coleccion","product",5)),
-    rule("mates","tipo-mate","product",10), rule("mates","material","product",20), rule("mates","acabado","product",30), rule("mates","color","variant",100), rule("mates","tamano","variant",110),
-    rule("mates-personalizados","tipo-mate","product",10), rule("mates-personalizados","material","product",20), rule("mates-personalizados","acabado","product",30), rule("mates-personalizados","color","variant",100), rule("mates-personalizados","tamano","variant",110),
+    ...catalogCategoryIds.filter(code => code !== "servicios").map(code => rule(code,"coleccion","product",5)),
+    rule("mates","tipo-mate","product",10), rule("mates","material-mate","product",15,true), rule("mates","tipo-virola","product",16,true), rule("mates","tipo-cuero","product",17,true), rule("mates","posamate","product",18,true), rule("mates","material","product",20), rule("mates","tamano","product",25), rule("mates","acabado","product",30), rule("mates","color","variant",100),
+    rule("personalizados","tipo-personalizado","product",1,true), rule("personalizados","diseno-matera","product",30,true), rule("personalizados","color","variant",100),
     rule("bombillas","tipo-bombilla","product",10,true), rule("bombillas","diametro-cano-mm","product",20), rule("bombillas","largo-mm","product",30,false,false), rule("bombillas","material-cuerpo","product",40), rule("bombillas","forma-pico","product",50), rule("bombillas","material-pico","product",60), rule("bombillas","decoracion","product",70), rule("bombillas","color","variant",100),
-    rule("termos","material","product",10), rule("termos","acabado","product",20), rule("termos","color","variant",100,true), rule("termos","capacidad-ml","variant",110),
+    rule("termos","material","product",10), rule("termos","acabado","product",20), rule("termos","capacidad-ml","product",30), rule("termos","color","variant",100,true),
     rule("materas","forma","product",10,true), rule("materas","material","product",20), rule("materas","acabado","product",40), rule("materas","color","variant",100,true),
     rule("kits-materos","material","product",10), rule("kits-materos","color","variant",100),
     rule("cuchillos","tipo-cuchillo","product",10,true), rule("cuchillos","largo-hoja-mm","product",20,true), rule("cuchillos","ancho-hoja-mm","product",30,false,false), rule("cuchillos","configuracion-filo","product",40,true), rule("cuchillos","tiene-gavilan","product",50), rule("cuchillos","forma-gavilan","product",60), rule("cuchillos","material-hoja","product",70), rule("cuchillos","material-cabo","product",80), rule("cuchillos","material-vaina","product",90), rule("cuchillos","acabado","product",100),
-    rule("botas","material","product",10), rule("botas","genero","product",20), rule("botas","color","variant",100,true), rule("botas","talle","variant",110,true),
+    rule("botas","material","product",10), rule("botas","genero","product",20), rule("botas","talle","product",30,true), rule("botas","color","variant",100,true),
     rule("cintos","material","product",10), rule("cintos","largo-cinto-cm","product",20), rule("cintos","acabado","product",30), rule("cintos","color","variant",100,true),
     rule("billeteras","material","product",10), rule("billeteras","acabado","product",30), rule("billeteras","color","variant",100,true),
     rule("carteras","material","product",10), rule("carteras","acabado","product",30), rule("carteras","color","variant",100,true),

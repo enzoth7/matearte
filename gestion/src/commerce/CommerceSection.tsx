@@ -10,8 +10,8 @@ import { Announcements } from './Announcements';
 export function CommerceSection({ path, notify, commerce }: PageProps & { path: string }) {
   const [shipping, setShipping] = useState('Tarifas y simulador');
   return <div className="commerce-tools">
-    {path === 'comercial/descuentos' && <Discounts onNotice={notify} />}
-    {path === 'comercial/avisos' && <Announcements onNotice={notify} />}
+    {path === 'marketing/descuentos' && <Discounts onNotice={notify} />}
+    {path === 'marketing/avisos' && <Announcements onNotice={notify} />}
     {path === 'productos/categorias' && <TaxonomyManager onNotice={notify} />}
     {path === 'productos/ajustes' && <Settings onNotice={notify} section="pricing" />}
     {path === 'finanzas/monedas' && <Rates onNotice={notify} wholesaleRate={commerce?.wholesale?.exchangeRate} />}

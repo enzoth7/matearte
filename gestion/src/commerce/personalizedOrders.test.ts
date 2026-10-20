@@ -80,6 +80,17 @@ describe('summarizePersonalization', () => {
     expect(summary.fleje.personalized).toBe(false);
     expect(summary.fleje.finish).toBe('Liso (sin personalizar)');
   });
+
+  it('presenta el logo y la ubicación de una matera registrada en el local', () => {
+    const summary = summarizePersonalization(item({
+      localPersonalization: {
+        kind: 'matera', techniqueLabel: 'Láser', contentLabel: 'Logo', placementLabel: 'Frente y tapa', logoName: 'marca.svg',
+      },
+      configuration: { selectionLabels: { family: 'Matera personalizada', color: 'Marrón', texture: 'Cuero' }, capabilities: { hasFleje: false }, rim: {} },
+    }));
+    expect(summary.kind).toBe('matera');
+    expect(summary.matera).toMatchObject({ technique: 'Láser', content: 'Logo', placement: 'Frente y tapa', logo: 'marca.svg' });
+  });
 });
 
 describe('archivos privados', () => {

@@ -1,17 +1,161 @@
-import { useMemo, useState, type FormEvent } from "react";
-import { Plus, Trash } from "@phosphor-icons/react";
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { FileArrowUp, MagnifyingGlass, PencilSimple, Plus, Trash, UserPlus } from "@phosphor-icons/react";
 import type { PageProps } from "./pages";
 import { money, today, type Customer, type Product } from "./data";
 import { allowedSalesChannels } from "./access";
 import { commerceSource } from "./commerceSource";
+import { countryOptions } from "./location";
+import { customerDepartments } from "./customerLocation";
+import {
+  buildLocalPersonalizationSnapshot,
+  createPersonalizationDraft,
+  personalizationKind,
+  productHasFleje,
+  validatePersonalization,
+  type LocalPersonalizationDraft,
+  type PersonalizationKind,
+  type StoredPersonalizationAsset,
+} from "./localPersonalization";
+import { calculateLocalPersonalizationPrice, parsePublishedLocalPricing, type PublishedLocalPricing } from "./localPersonalizationPricing";
 
-type SaleLine = { product: Product; quantity: number; unitPriceMinor: number };
+type SaleLine = { id: string; product: Product; quantity: number; unitPriceMinor: number; priceEntered?: boolean; personalization?: LocalPersonalizationDraft };
 const cents = (value: string) => Math.round(Number(value.replace(",", ".")) * 100);
+const categoryKey = (product: Product) => product.categoryCode || product.family;
+const isService = (product: Product) => categoryKey(product) === "servicios";
+const hasVariableServicePrice = (product: Product) => isService(product) && product.prices.Local === 0;
+const normalizeSearch = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
+const visibleVariant = (value: string) => value.split(/\s*[·|]\s*/)
+  .filter((part) => !["tamano todos los tamanos", "todos los tamanos"].includes(normalizeSearch(part.trim())))
+  .join(" · ").trim();
+const customizableKind = (product: Product): PersonalizationKind | null => {
+  const category = normalizeSearch(categoryKey(product));
+  if (category === "mates") return "mate";
+  if (category === "materas") return "matera";
+  if (category.startsWith("bombill")) return "bombilla";
+  return personalizationKind(product);
+};
+const contentUsesText = (value: LocalPersonalizationDraft["rimContent"]) => value === "text" || value === "text-logo";
+const contentUsesLogo = (value: LocalPersonalizationDraft["rimContent"]) => value === "logo" || value === "text-logo";
+const techniqueOptions = [
+  ["none", "Sin personalizar"],
+  ["laser", "Grabado láser"],
+  ["bronze-applique", "Aplique de bronce"],
+  ["alpaca-applique", "Aplique de alpaca"],
+] as const;
+const contentOptions = [["text", "Texto"], ["logo", "Logo o imagen"], ["text-logo", "Texto y logo"]] as const;
+const rimFinishOptions = [["none", "Lisa, sin terminación"], ["finish-1", "Laureles"], ["frame-1", "Sol"], ["frame-5", "Azteca"], ["frame-25", "Hojas"], ["applique-finish-espirales", "Espirales"], ["applique-finish-triangulos", "Triángulos"], ["applique-finish-escamas", "Escamas"], ["applique-finish-coronas", "Coronas"]] as const;
+const flejeFinishOptions = [["none", "Liso, sin terminación"], ["pattern-1", "Laurel"], ["frame-25", "Azteca"], ["frame-26", "Sol"], ["frame-27", "Abstracta"], ["frame-28", "Griego"], ["frame-29", "Floral"], ["frame-30", "Guarda pampa"]] as const;
+const uploadTypes = new Set(["image/png", "image/jpeg", "image/svg+xml", "application/pdf"]);
+
+function PersonalizationFields({ line, index, update, reportError, pricing, pricingLoading }: {
+  line: SaleLine;
+  index: number;
+  update: (changes: Partial<LocalPersonalizationDraft>) => void;
+  reportError: (message: string) => void;
+  pricing: PublishedLocalPricing | null;
+  pricingLoading: boolean;
+}) {
+  const draft = line.personalization!;
+  const quote = calculateLocalPersonalizationPrice(draft, pricing);
+  const needsMateLogo = draft.kind === "mate" && ((draft.rimTechnique !== "none" && contentUsesLogo(draft.rimContent)) || (draft.flejeTechnique !== "none" && contentUsesLogo(draft.flejeContent)));
+  const needsMateraLogo = draft.kind === "matera" && contentUsesLogo(draft.materaContent);
+  const needsBombillaLogo = draft.kind === "bombilla" && contentUsesLogo(draft.bombillaContent);
+  const onFile = (field: "rimLogoFile" | "flejeLogoFile" | "materaLogoFile" | "bombillaLogoFile") => (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    if (file && (!uploadTypes.has(file.type) || file.size > 10 * 1024 * 1024)) {
+      event.target.value = "";
+      update({ [field]: null });
+      reportError("El archivo debe ser PNG, JPG, SVG o PDF y pesar hasta 10 MB.");
+      return;
+    }
+    update({ [field]: file });
+    reportError("");
+  };
+
+  return <article className="local-personalization-card">
+    <header className="local-personalization-card-heading">
+      <div><small>Diseño de {draft.kind} {index + 1}</small><h3>{line.product.name}</h3></div>
+      {line.quantity > 1 && <strong>Se aplica a {line.quantity} unidades</strong>}
+    </header>
+
+    {draft.kind === "mate" ? <div className="local-personalization-body">
+      <section className="local-personalization-surface">
+        <div className="local-personalization-surface-title"><strong>Virola</strong><small>Elegí técnica, contenido y terminación</small></div>
+        <div className="local-personalization-fields">
+          <label>Técnica<select aria-label={`Técnica de virola de ${line.product.name}`} value={draft.rimTechnique} onChange={(event) => update({ rimTechnique: event.target.value as LocalPersonalizationDraft["rimTechnique"] })}>{techniqueOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          {draft.rimTechnique !== "none" && <>
+            <label>Contenido<select aria-label={`Contenido de virola de ${line.product.name}`} value={draft.rimContent} onChange={(event) => update({ rimContent: event.target.value as LocalPersonalizationDraft["rimContent"] })}>{contentOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label>Terminación<select aria-label={`Terminación de virola de ${line.product.name}`} value={draft.rimFinish} onChange={(event) => update({ rimFinish: event.target.value })}>{rimFinishOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            {contentUsesText(draft.rimContent) && <label className="local-personalization-text">Texto de la virola<input aria-label={`Texto de virola de ${line.product.name}`} value={draft.rimText} onChange={(event) => update({ rimText: event.target.value.toLocaleUpperCase("es").slice(0, 40) })} maxLength={40} placeholder="Texto exacto a grabar" required /></label>}
+          </>}
+        </div>
+      </section>
+
+      {productHasFleje(line.product) && <section className="local-personalization-surface">
+        <div className="local-personalization-surface-title"><strong>Fleje</strong><small>El frente y el dorso se registran por separado</small></div>
+        <div className="local-personalization-fields">
+            <label>Técnica<select aria-label={`Técnica de fleje de ${line.product.name}`} value={draft.flejeTechnique} onChange={(event) => update({ flejeTechnique: event.target.value as LocalPersonalizationDraft["flejeTechnique"] })}>{techniqueOptions.filter(([value]) => value !== "laser").map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          {draft.flejeTechnique !== "none" && <>
+            <label>Contenido<select aria-label={`Contenido de fleje de ${line.product.name}`} value={draft.flejeContent} onChange={(event) => update({ flejeContent: event.target.value as LocalPersonalizationDraft["flejeContent"] })}>{contentOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label>Terminación<select aria-label={`Terminación de fleje de ${line.product.name}`} value={draft.flejeFinish} onChange={(event) => update({ flejeFinish: event.target.value })}>{flejeFinishOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            {contentUsesText(draft.flejeContent) && <>
+              <label>Texto del frente<input aria-label={`Texto del frente del fleje de ${line.product.name}`} value={draft.flejeFrontText} onChange={(event) => update({ flejeFrontText: event.target.value.toLocaleUpperCase("es").slice(0, 40) })} maxLength={40} placeholder="Frente" /></label>
+              <label>Texto del dorso<input aria-label={`Texto del dorso del fleje de ${line.product.name}`} value={draft.flejeBackText} onChange={(event) => update({ flejeBackText: event.target.value.toLocaleUpperCase("es").slice(0, 40) })} maxLength={40} placeholder="Dorso" /></label>
+            </>}
+          </>}
+        </div>
+      </section>}
+
+      {needsMateLogo && <div className="local-personalization-uploads">
+        {draft.rimTechnique !== "none" && contentUsesLogo(draft.rimContent) && <label className="local-personalization-upload"><span><FileArrowUp size={21} /><span><strong>Logo de la virola</strong><small>PNG, JPG, SVG o PDF · hasta 10 MB</small></span></span><input aria-label={`Logo de virola de ${line.product.name}`} type="file" accept="image/png,image/jpeg,image/svg+xml,application/pdf" onChange={onFile("rimLogoFile")} /><b>{draft.rimLogoFile?.name || "Seleccionar archivo"}</b></label>}
+        {draft.flejeTechnique !== "none" && contentUsesLogo(draft.flejeContent) && <label className="local-personalization-upload"><span><FileArrowUp size={21} /><span><strong>Logo del fleje</strong><small>Puede ser distinto al de la virola</small></span></span><input aria-label={`Logo de fleje de ${line.product.name}`} type="file" accept="image/png,image/jpeg,image/svg+xml,application/pdf" onChange={onFile("flejeLogoFile")} /><b>{draft.flejeLogoFile?.name || "Seleccionar archivo"}</b></label>}
+      </div>}
+    </div> : draft.kind === "matera" ? <div className="local-personalization-body">
+      <section className="local-personalization-surface">
+        <div className="local-personalization-surface-title"><strong>Diseño de la matera</strong><small>El logo es la opción habitual; también podés registrar texto</small></div>
+        <div className="local-personalization-fields">
+          <label>Técnica<select aria-label={`Técnica de ${line.product.name}`} value={draft.materaTechnique} onChange={(event) => update({ materaTechnique: event.target.value as LocalPersonalizationDraft["materaTechnique"] })}>{techniqueOptions.slice(1).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label>Contenido<select aria-label={`Contenido de ${line.product.name}`} value={draft.materaContent} onChange={(event) => update({ materaContent: event.target.value as LocalPersonalizationDraft["materaContent"] })}>{contentOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label>Ubicación<select aria-label={`Ubicación de ${line.product.name}`} value={draft.materaPlacement} onChange={(event) => update({ materaPlacement: event.target.value as LocalPersonalizationDraft["materaPlacement"] })}><option value="front">Frente</option><option value="lid">Tapa</option><option value="front-lid">Frente y tapa</option></select></label>
+          {contentUsesText(draft.materaContent) && <label className="local-personalization-text">Texto<input aria-label={`Texto de ${line.product.name}`} value={draft.materaText} onChange={(event) => update({ materaText: event.target.value.toLocaleUpperCase("es").slice(0, 60) })} maxLength={60} placeholder="Texto exacto a grabar" required /></label>}
+        </div>
+      </section>
+      {needsMateraLogo && <label className="local-personalization-upload"><span><FileArrowUp size={21} /><span><strong>Logo original</strong><small>PNG, JPG, SVG o PDF · hasta 10 MB</small></span></span><input aria-label={`Logo de ${line.product.name}`} type="file" accept="image/png,image/jpeg,image/svg+xml,application/pdf" onChange={onFile("materaLogoFile")} /><b>{draft.materaLogoFile?.name || "Seleccionar archivo"}</b></label>}
+    </div> : <div className="local-personalization-body">
+      <section className="local-personalization-surface">
+        <div className="local-personalization-surface-title"><strong>Diseño de la bombilla</strong><small>Indicá exactamente qué se graba o aplica</small></div>
+        <div className="local-personalization-fields">
+          <label>Técnica<select aria-label={`Técnica de ${line.product.name}`} value={draft.bombillaTechnique} onChange={(event) => update({ bombillaTechnique: event.target.value as LocalPersonalizationDraft["bombillaTechnique"] })}>{techniqueOptions.slice(1).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label>Contenido<select aria-label={`Contenido de ${line.product.name}`} value={draft.bombillaContent} onChange={(event) => update({ bombillaContent: event.target.value as LocalPersonalizationDraft["bombillaContent"] })}>{contentOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label>Ubicación<input aria-label={`Ubicación de ${line.product.name}`} value={draft.bombillaPlacement} onChange={(event) => update({ bombillaPlacement: event.target.value.slice(0, 80) })} maxLength={80} placeholder="Ej.: cuerpo o boquilla" required /></label>
+          {contentUsesText(draft.bombillaContent) && <label className="local-personalization-text">Texto exacto<input aria-label={`Texto de ${line.product.name}`} value={draft.bombillaText} onChange={(event) => update({ bombillaText: event.target.value.toLocaleUpperCase("es").slice(0, 60) })} maxLength={60} required /></label>}
+        </div>
+      </section>
+      {needsBombillaLogo && <label className="local-personalization-upload"><span><FileArrowUp size={21} /><span><strong>Logo o imagen</strong><small>PNG, JPG, SVG o PDF · hasta 10 MB</small></span></span><input aria-label={`Logo de ${line.product.name}`} type="file" accept="image/png,image/jpeg,image/svg+xml,application/pdf" onChange={onFile("bombillaLogoFile")} /><b>{draft.bombillaLogoFile?.name || "Seleccionar archivo"}</b></label>}
+    </div>}
+    <div className="local-personalization-price" aria-label={`Precio de ${line.product.name}`}>
+      <div><span>Precio del artículo</span><strong>{money(line.unitPriceMinor / 100)}</strong></div>
+      {quote.items.map((item) => <div key={item.ruleKey}><span>{item.label} · {item.quantity} × {money(item.unitPriceMinor / 100)}</span><strong>{money(item.totalMinor / 100)}</strong></div>)}
+      <div className="local-personalization-price-total"><span>Total unitario</span><strong>{pricing && !quote.missingRuleKeys.length ? money((line.unitPriceMinor + quote.extrasMinor) / 100) : pricingLoading ? "Cargando precios…" : "Precio no disponible"}</strong></div>
+      {!!quote.missingRuleKeys.length && !pricingLoading && <small>Falta publicar un precio de personalización en Productos → Personalizador.</small>}
+    </div>
+    <label className="local-personalization-instructions">Indicaciones para el taller<textarea aria-label={`Indicaciones para ${line.product.name}`} value={draft.instructions} onChange={(event) => update({ instructions: event.target.value.slice(0, 1000) })} maxLength={1000} rows={3} placeholder="Ubicación precisa, tipografía, medidas u otro detalle acordado con el cliente" /></label>
+  </article>;
+}
 
 export function LocalSaleRegister({ s, refresh, go }: PageProps) {
+  const [articleTab, setArticleTab] = useState<"articles" | "custom">("articles");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [lines, setLines] = useState<SaleLine[]>([]);
+  const [customKind, setCustomKind] = useState<PersonalizationKind | "">("");
+  const [customSearch, setCustomSearch] = useState("");
+  const [customModel, setCustomModel] = useState("");
+  const [customProductId, setCustomProductId] = useState("");
+  const [pricing, setPricing] = useState<PublishedLocalPricing | null>(null);
+  const [pricingLoading, setPricingLoading] = useState(false);
+  const [pricingError, setPricingError] = useState("");
+  const [pricingRefresh, setPricingRefresh] = useState(0);
   const [customerId, setCustomerId] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [newCustomer, setNewCustomer] = useState(false);
@@ -21,122 +165,296 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
   const [birthDate, setBirthDate] = useState("");
   const [date, setDate] = useState(today);
   const [payment, setPayment] = useState("Efectivo");
-  const [channel, setChannel] = useState<"Local" | "Instagram" | "Facebook" | "WhatsApp">("Local");
+  const [channel, setChannel] = useState<"Local" | "Feria" | "Instagram" | "Facebook" | "WhatsApp">("Local");
   const [selectedProductId, setSelectedProductId] = useState("");
   const [city, setCity] = useState("Paysandú");
   const [country, setCountry] = useState("Uruguay");
+  const [department, setDepartment] = useState("Paysandú");
   const [deposit, setDeposit] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  useEffect(() => {
+    if (articleTab !== "custom") return;
+    let active = true;
+    setPricingLoading(true);
+    setPricingError("");
+    void (async () => {
+      if (!commerceSource) throw new Error("No hay conexión con los precios del Personalizador.");
+      const { data, error: loadError } = await commerceSource.rpc("get_published_pricing_catalog");
+      if (loadError) throw loadError;
+      return parsePublishedLocalPricing(data);
+    })().then((result) => { if (active) setPricing(result); })
+      .catch(() => { if (active) { setPricing(null); setPricingError("No se pudieron cargar los precios publicados del Personalizador."); } })
+      .finally(() => { if (active) setPricingLoading(false); });
+    return () => { active = false; };
+  }, [articleTab, pricingRefresh]);
   const customers = s.customers;
-  const categories = useMemo(() => [...new Set(s.products.filter((product) => product.active && product.availableChannels?.includes("Local")).map((product) => product.family))].sort((a, b) => a.localeCompare(b, "es")), [s.products]);
-  const customerMatches = useMemo(() => customers.filter((customer) => !customerSearch.trim() ||
-    `${customer.name} ${customer.email || ""} ${customer.phone || ""}`.toLocaleLowerCase().includes(customerSearch.trim().toLocaleLowerCase()) || customer.id === customerId), [customers, customerSearch, customerId]);
+  const selectedCustomer = customers.find((customer) => customer.id === customerId);
+  const sellable = (product: Product) => product.active && !product.wholesaleProductId && product.availableChannels?.includes("Local") && (channel === "Local" || !isService(product));
+  const categories = useMemo(() => {
+    const values = new Map<string, string>();
+    for (const product of s.products.filter(sellable)) values.set(categoryKey(product), product.family);
+    return [...values].map(([code, label]) => ({ code, label })).sort((a, b) => a.label.localeCompare(b.label, "es"));
+  }, [s.products, channel]);
+  const customerMatches = useMemo(() => {
+    const query = normalizeSearch(customerSearch.trim());
+    if (!query) return [];
+    return customers.filter((customer) => normalizeSearch(`${customer.name} ${customer.email || ""} ${customer.phone || ""} ${(customer.agendaAdditionalPhones || []).join(" ")}`).includes(query)).slice(0, 30);
+  }, [customers, customerSearch]);
   const matches = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase();
-    if (!query && !category) return [];
-    return s.products.filter((product) => product.active && product.availableChannels?.includes("Local") &&
-      (!category || product.family === category) && (!query || `${product.name} ${product.sku} ${product.variant}`.toLocaleLowerCase().includes(query))).slice(0, 12);
-  }, [s.products, search, category]);
-  const categoryProducts = useMemo(() => s.products.filter((product) => product.active && product.availableChannels?.includes("Local") && product.family === category)
-    .sort((a, b) => `${a.name} ${a.variant}`.localeCompare(`${b.name} ${b.variant}`, "es")), [s.products, category]);
-  const itemsMinor = lines.reduce((sum, line) => sum + line.quantity * line.unitPriceMinor, 0);
+    const query = normalizeSearch(search.trim());
+    if (!query) return [];
+    return s.products.filter((product) => sellable(product) &&
+      (!category || categoryKey(product) === category) && (!query || normalizeSearch(`${product.name} ${product.sku} ${product.variant}`).includes(query))).slice(0, 12);
+  }, [s.products, search, category, channel]);
+  const categoryProducts = useMemo(() => s.products.filter((product) => sellable(product) && categoryKey(product) === category)
+    .sort((a, b) => `${a.name} ${a.variant}`.localeCompare(`${b.name} ${b.variant}`, "es")), [s.products, category, channel]);
+  const customProducts = useMemo(() => s.products.filter((product) => sellable(product) && customizableKind(product) === customKind)
+    .sort((a, b) => `${a.name} ${a.variant}`.localeCompare(`${b.name} ${b.variant}`, "es")), [s.products, customKind, channel]);
+  const customSearchResults = useMemo(() => {
+    const query = normalizeSearch(customSearch.trim());
+    return query ? customProducts.filter((product) => normalizeSearch(`${product.name} ${product.variant} ${product.sku}`).includes(query)).slice(0, 12) : [];
+  }, [customProducts, customSearch]);
+  const customModels = useMemo(() => {
+    const query = normalizeSearch(customSearch.trim());
+    return [...new Set(customProducts.filter((product) => !query || normalizeSearch(`${product.name} ${product.variant} ${product.sku}`).includes(query)).map((product) => product.name))];
+  }, [customProducts, customSearch]);
+  const customVariants = useMemo(() => {
+    const query = normalizeSearch(customSearch.trim());
+    return customProducts.filter((product) => product.name === customModel && (!query || normalizeSearch(product.name).includes(query) || normalizeSearch(`${product.variant} ${product.sku}`).includes(query)));
+  }, [customProducts, customModel, customSearch]);
+  const articleLines = lines.filter((line) => !line.personalization);
+  const unitPriceMinor = (line: SaleLine) => line.unitPriceMinor + (line.personalization ? calculateLocalPersonalizationPrice(line.personalization, pricing).extrasMinor : 0);
+  const itemsMinor = lines.reduce((sum, line) => sum + line.quantity * unitPriceMinor(line), 0);
   const depositMinor = cents(deposit);
+  const personalizedLines = lines.filter((line) => line.personalization);
+  const linePriceReady = (line: SaleLine) => !line.personalization || (Boolean(pricing) && !pricingLoading && !calculateLocalPersonalizationPrice(line.personalization, pricing).missingRuleKeys.length);
+  const customPricesReady = lines.every(linePriceReady);
+  const updatePersonalization = (lineId: string, changes: Partial<LocalPersonalizationDraft>) => setLines((current) => current.map((line) => line.id === lineId && line.personalization
+    ? { ...line, personalization: { ...line.personalization, ...changes } }
+    : line));
   const add = (product: Product) => {
+    if (isService(product) && channel !== "Local") { setError("Los servicios solo se registran como ventas de Local."); return; }
     setLines((current) => {
-      const existing = current.find((line) => line.product.id === product.id);
-      return existing ? current.map((line) => line.product.id === product.id ? { ...line, quantity: line.quantity + 1 } : line)
-        : [...current, { product, quantity: 1, unitPriceMinor: Math.round(product.prices.Local * 100) }];
+      const existing = current.find((line) => line.product.id === product.id && !line.personalization);
+      return existing ? current.map((line) => line.id === existing.id ? { ...line, quantity: line.quantity + 1 } : line)
+        : [...current, { id: crypto.randomUUID(), product, quantity: 1, unitPriceMinor: Math.round(product.prices.Local * 100), priceEntered: !hasVariableServicePrice(product) }];
     });
     setSearch(""); setError("");
+  };
+  const addCustom = () => {
+    const product = customVariants.find((entry) => entry.id === customProductId);
+    if (!product || !customKind) return;
+    setLines((current) => [...current, { id: crypto.randomUUID(), product, quantity: 1, unitPriceMinor: Math.round(product.prices.Local * 100), priceEntered: true, personalization: createPersonalizationDraft(customKind) }]);
+    setCustomSearch(""); setCustomModel(""); setCustomProductId(""); setError("");
   };
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!commerceSource) return;
+    const source = commerceSource;
     if (!lines.length) { setError("Agregá al menos un producto."); return; }
+    if (channel !== "Local" && lines.some((line) => isService(line.product))) { setError("Los servicios solo se registran como ventas de Local."); return; }
+    if (lines.some((line) => hasVariableServicePrice(line.product) && (!line.priceEntered || line.unitPriceMinor <= 0))) { setError("Ingresá el precio acordado para cada servicio con precio a definir."); return; }
     if (lines.length > 100 || lines.some((line) => !Number.isInteger(line.quantity) || line.quantity < 1 || line.quantity > 1000 || !Number.isInteger(line.unitPriceMinor) || line.unitPriceMinor < 0 || line.unitPriceMinor > 1000000000)) {
       setError("Revisá cantidades y precios."); return;
     }
     if (!date || date > today) { setError("Revisá la fecha de venta."); return; }
+    for (const line of personalizedLines) {
+      const personalizationError = validatePersonalization(line.personalization!, line.product);
+      if (personalizationError) { setArticleTab("custom"); setError(personalizationError); return; }
+      const quote = calculateLocalPersonalizationPrice(line.personalization!, pricing);
+      if (!pricing || quote.missingRuleKeys.length) { setArticleTab("custom"); setError("No se puede guardar el artículo personalizado sin sus precios publicados. Revisá Productos → Personalizador y actualizá los precios."); return; }
+    }
     if (payment === "Seña" && (!Number.isInteger(depositMinor) || depositMinor < 0 || depositMinor > itemsMinor)) {
       setError("La seña debe estar entre cero y el valor de los artículos."); return;
     }
     if (newCustomer && !name.trim()) { setError("Ingresá el nombre del cliente."); return; }
     setBusy(true); setError("");
+    const uploadedPaths: string[] = [];
     try {
       const selectedCustomer = customers.find((customer) => customer.id === customerId);
       let selectedCustomerId = selectedCustomer?.localCustomerId || null;
       if (newCustomer || (selectedCustomer && !selectedCustomer.localCustomerId)) {
         const sourceCustomer: Customer | undefined = newCustomer ? undefined : selectedCustomer;
-        const sourceUserId = sourceCustomer && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sourceCustomer.id) ? sourceCustomer.id : null;
-        const { data, error } = await commerceSource.from("local_sales_customers").insert({
-          full_name: sourceCustomer?.name || name.trim(), email: sourceCustomer?.email || email.trim() || null,
-          phone: sourceCustomer?.phone || phone.trim() || null,
-          city: sourceCustomer?.city || city.trim() || null,
-          country: sourceCustomer?.country || country.trim() || null,
-          birth_date: sourceCustomer?.birthDate || birthDate || null,
-          source_user_id: sourceUserId,
-        }).select("id").single();
-        if (error) throw new Error(error.code === "23505" ? "Ese cliente ya existe en el local. Actualizá los datos y volvé a seleccionarlo." : "No se pudo guardar el cliente.");
-        selectedCustomerId = data.id;
+        if (sourceCustomer) {
+          const linked = await commerceSource.from("local_sales_customers").select("id").eq("linked_customer_id", sourceCustomer.id).maybeSingle();
+          if (linked.error) throw new Error("No se pudo verificar el vínculo del cliente.");
+          selectedCustomerId = linked.data?.id || null;
+        }
+        if (!selectedCustomerId) {
+          const { data, error } = await commerceSource.from("local_sales_customers").insert({
+            full_name: sourceCustomer?.name || name.trim(), email: sourceCustomer?.email || email.trim() || null,
+            phone: sourceCustomer?.phone || phone.trim() || null,
+            city: sourceCustomer?.city || city.trim() || null,
+            country: sourceCustomer?.country || country.trim() || null,
+            department: sourceCustomer ? sourceCustomer.department || null : department || null,
+            birth_date: sourceCustomer?.birthDate || birthDate || null,
+            linked_customer_id: sourceCustomer?.id || null,
+            origin_channel: sourceCustomer?.originChannel || channel,
+            customer_type: sourceCustomer?.segment === "Mayorista" ? "Mayorista" : "Minorista",
+          }).select("id").single();
+          if (error) {
+            if (error.code === "23505" && sourceCustomer) {
+              const linked = await commerceSource.from("local_sales_customers").select("id").eq("linked_customer_id", sourceCustomer.id).maybeSingle();
+              if (!linked.error) selectedCustomerId = linked.data?.id || null;
+            }
+            if (!selectedCustomerId) throw new Error(error.code === "23505" ? "Ya existe un cliente con esos datos. Actualizá la lista y volvé a seleccionarlo." : "No se pudo guardar el cliente.");
+          } else selectedCustomerId = data.id;
+        }
       }
-      const { data, error } = await commerceSource.rpc(channel === "Local" ? "create_local_sale_with_items" : "create_channel_sale_with_items", {
+      const { data: authData, error: authError } = personalizedLines.length ? await commerceSource.auth.getUser() : { data: { user: null }, error: null };
+      if (authError || (personalizedLines.length && !authData.user)) throw new Error("No se pudo validar la sesión para adjuntar los diseños.");
+      const items = [];
+      for (const line of lines) {
+        const assets: { rim?: StoredPersonalizationAsset; fleje?: StoredPersonalizationAsset; matera?: StoredPersonalizationAsset; bombilla?: StoredPersonalizationAsset } = {};
+        const upload = async (file: File, role: keyof typeof assets) => {
+          const safeName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "archivo";
+          const path = `local-sales/${authData.user!.id}/${crypto.randomUUID()}/${role}-${safeName}`;
+          const { error: uploadError } = await source.storage.from("order-assets").upload(path, file, { contentType: file.type, cacheControl: "3600", upsert: false });
+          if (uploadError) throw new Error(`No se pudo subir ${file.name}.`);
+          uploadedPaths.push(path);
+          assets[role] = { bucket_id: "order-assets", object_path: path, original_name: file.name, mime_type: file.type, byte_size: file.size };
+        };
+        if (line.personalization?.rimLogoFile) await upload(line.personalization.rimLogoFile, "rim");
+        if (line.personalization?.flejeLogoFile) await upload(line.personalization.flejeLogoFile, "fleje");
+        if (line.personalization?.materaLogoFile) await upload(line.personalization.materaLogoFile, "matera");
+        if (line.personalization?.bombillaLogoFile) await upload(line.personalization.bombillaLogoFile, "bombilla");
+        items.push({
+          variant_id: line.product.id,
+          quantity: line.quantity,
+          unit_price_minor: unitPriceMinor(line),
+          customization: line.personalization ? {
+            ...buildLocalPersonalizationSnapshot(line.personalization, line.product, assets),
+            ...(pricing ? { localPricing: { source: "published-personalizer", versionId: pricing.versionId, version: pricing.version, baseUnitPriceMinor: line.unitPriceMinor, extrasUnitPriceMinor: calculateLocalPersonalizationPrice(line.personalization, pricing).extrasMinor, items: calculateLocalPersonalizationPrice(line.personalization, pricing).items } } : {}),
+          } : null,
+        });
+      }
+      const { data, error } = await commerceSource.rpc("gestion_create_local_sale_with_items", {
         p_customer_id: selectedCustomerId, p_sold_on: date, p_payment_method: payment,
-        p_items: lines.map((line) => ({ variant_id: line.product.id, quantity: line.quantity, unit_price_minor: line.unitPriceMinor })),
+        p_items: items,
         p_deposit_minor: payment === "Seña" ? depositMinor : null,
-        ...(channel === "Local" ? {} : { p_channel: channel }),
+        p_channel: channel,
       });
       if (error) throw new Error("No se pudo guardar la venta. Revisá los datos e intentá nuevamente.");
-      await refresh?.();
+      await refresh?.().catch(() => undefined);
       go(`/comercial/pedidos?pedido=${encodeURIComponent(String((data as { id: string }).id))}`);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo guardar la venta."); }
+    } catch (cause) {
+      if (uploadedPaths.length) await commerceSource.storage.from("order-assets").remove(uploadedPaths);
+      setError(cause instanceof Error ? cause.message : "No se pudo guardar la venta.");
+    }
     finally { setBusy(false); }
   }
+  const renderLine = (line: SaleLine) => <div className="local-sale-line" key={line.id}>
+    <div><strong>{line.product.name}</strong><small>{[line.product.sku, visibleVariant(line.product.variant)].filter(Boolean).join(" · ")}</small></div>
+    {line.personalization ? <label>Precio unitario<input type="text" value={linePriceReady(line) ? money(unitPriceMinor(line) / 100) : ""} placeholder="Esperando tarifa" readOnly aria-label={`Precio unitario de ${line.product.name}`} /></label>
+      : <label>{hasVariableServicePrice(line.product) ? "Precio acordado" : "Precio"}<input type="number" min={hasVariableServicePrice(line.product) ? "0.01" : "0"} max="10000000" step="0.01" required={hasVariableServicePrice(line.product)} placeholder={hasVariableServicePrice(line.product) ? "Ingresar precio" : undefined} value={hasVariableServicePrice(line.product) && !line.priceEntered ? "" : line.unitPriceMinor / 100} onChange={(event) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, unitPriceMinor: cents(event.target.value), priceEntered: event.target.value !== "" } : item))} /></label>}
+    <label>Cantidad<input type="number" min="1" max="1000" step="1" value={line.quantity} onChange={(event) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity: Number(event.target.value) } : item))} /></label>
+    <strong>{linePriceReady(line) ? money(line.quantity * unitPriceMinor(line) / 100) : "—"}</strong>
+    <button type="button" className="local-sale-remove" aria-label={`Quitar ${line.product.name}`} onClick={() => setLines((current) => current.filter((item) => item.id !== line.id))}><Trash size={18} /></button>
+  </div>;
   return <form className="local-sale-register" onSubmit={(event) => void save(event)}>
-    <section className="local-sale-section">
-      <h2>Artículos</h2>
-      <div className="local-sale-search"><label>Familia<select value={category} onChange={(event) => { setCategory(event.target.value); setSelectedProductId(""); }}><option value="">Todas</option>{categories.map((name) => <option key={name}>{name}</option>)}</select></label>
+    <div className="local-sale-main">
+    <section className="local-sale-section local-sale-product-section">
+      <div className="local-sale-tabs" role="tablist" aria-label="Secciones de artículos">
+        <button type="button" role="tab" id="local-tab-articles" aria-controls="local-panel-articles" aria-selected={articleTab === "articles"} className={articleTab === "articles" ? "active" : ""} onClick={() => setArticleTab("articles")}>Artículos{articleLines.length ? <span>{articleLines.length}</span> : null}</button>
+        <button type="button" role="tab" id="local-tab-custom" aria-controls="local-panel-custom" aria-selected={articleTab === "custom"} className={articleTab === "custom" ? "active" : ""} onClick={() => setArticleTab("custom")}>Personalizados{personalizedLines.length ? <span>{personalizedLines.length}</span> : null}</button>
+      </div>
+      {articleTab === "articles" ? <div id="local-panel-articles" role="tabpanel" aria-labelledby="local-tab-articles" className="local-sale-tab-panel">
+      <div className="local-sale-search"><label>Categoría<select value={category} onChange={(event) => { setCategory(event.target.value); setSelectedProductId(""); }}><option value="">Todas</option>{categories.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
         <label>Buscar producto<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre, variante o SKU" /></label></div>
-      {category && <div className="local-sale-picker"><label>Producto y variante<select value={selectedProductId} onChange={(event) => setSelectedProductId(event.target.value)}><option value="">Seleccionar del catálogo</option>{categoryProducts.map((product) => <option key={product.id} value={product.id}>{product.sku} · {product.name} · {product.variant}</option>)}</select></label><button type="button" className="secondary" disabled={!selectedProductId} onClick={() => { const selected = categoryProducts.find((product) => product.id === selectedProductId); if (selected) add(selected); setSelectedProductId(""); }}>Agregar producto</button></div>}
-      {(search.trim() || category) && <div className="local-sale-results">{matches.map((product) => <button type="button" key={product.id} onClick={() => add(product)}>
-        <strong>{product.sku} · {product.name}</strong><small>{product.variant} · {money(product.prices.Local)}</small>
+      {category && <div className="local-sale-picker"><label>Producto y variante<select value={selectedProductId} onChange={(event) => setSelectedProductId(event.target.value)}><option value="">Seleccionar del catálogo</option>{categoryProducts.map((product) => <option key={product.id} value={product.id}>{product.sku} · {product.name}{isService(product) || !visibleVariant(product.variant) ? "" : ` · ${visibleVariant(product.variant)}`}</option>)}</select></label><button type="button" className="secondary" disabled={!selectedProductId} onClick={() => { const selected = categoryProducts.find((product) => product.id === selectedProductId); if (selected) add(selected); setSelectedProductId(""); }}>Agregar producto</button></div>}
+      {search.trim() && <div className="local-sale-results">{matches.map((product) => <button type="button" key={product.id} onClick={() => add(product)}>
+        <strong>{product.sku} · {product.name}</strong><small>{hasVariableServicePrice(product) ? "Precio a definir en la venta" : [visibleVariant(product.variant), money(product.prices.Local)].filter(Boolean).join(" · ")}</small>
       </button>)}{!matches.length && <div className="empty">No hay variantes activas con esa búsqueda.</div>}</div>}
-      {!!lines.length && <div className="local-sale-lines">{lines.map((line) => <div className="local-sale-line" key={line.product.id}>
-        <div><strong>{line.product.name}</strong><small>{line.product.sku} · {line.product.variant}</small></div>
-        <label>Precio<input type="number" min="0" max="10000000" step="0.01" value={line.unitPriceMinor / 100} onChange={(event) => setLines((current) => current.map((item) => item.product.id === line.product.id ? { ...item, unitPriceMinor: cents(event.target.value) } : item))} /></label>
-        <label>Cantidad<input type="number" min="1" max="1000" step="1" value={line.quantity} onChange={(event) => setLines((current) => current.map((item) => item.product.id === line.product.id ? { ...item, quantity: Number(event.target.value) } : item))} /></label>
-        <strong>{money(line.quantity * line.unitPriceMinor / 100)}</strong>
-        <button type="button" className="local-sale-remove" aria-label={`Quitar ${line.product.name}`} onClick={() => setLines((current) => current.filter((item) => item.product.id !== line.product.id))}><Trash size={18} /></button>
-      </div>)}</div>}
+      {!!articleLines.length && <div className="local-sale-lines">{articleLines.map(renderLine)}</div>}
+      </div> : <div id="local-panel-custom" role="tabpanel" aria-labelledby="local-tab-custom" className="local-sale-tab-panel">
+        <p className="local-sale-custom-intro">Elegí un artículo de base y registrá el diseño acordado con el cliente. No depende de los modelos fijos de Personalizados.</p>
+        <div className="local-sale-custom-picker">
+          <label>Tipo de artículo<select value={customKind} onChange={(event) => { setCustomKind(event.target.value as PersonalizationKind | ""); setCustomSearch(""); setCustomModel(""); setCustomProductId(""); }}><option value="">Elegir tipo</option><option value="mate">Mate</option><option value="matera">Matera</option><option value="bombilla">Bombilla</option></select></label>
+          <label>Buscar personalizado<span className="local-sale-custom-search"><MagnifyingGlass size={19} aria-hidden="true" /><input type="search" value={customSearch} disabled={!customKind} onChange={(event) => { setCustomSearch(event.target.value); setCustomModel(""); setCustomProductId(""); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); const first = customSearchResults[0]; if (first) { setCustomModel(first.name); setCustomProductId(first.id); } } }} placeholder="Modelo, variante o SKU" /></span></label>
+          <label>Modelo<select value={customModel} disabled={!customKind} onChange={(event) => { setCustomSearch(""); setCustomModel(event.target.value); setCustomProductId(""); }}><option value="">Elegir modelo</option>{customModels.map((model) => <option key={model} value={model}>{model}</option>)}</select></label>
+          <label>Variante<select value={customProductId} disabled={!customModel} onChange={(event) => setCustomProductId(event.target.value)}><option value="">Elegir variante</option>{customVariants.map((product) => <option key={product.id} value={product.id}>{[visibleVariant(product.variant), product.sku].filter(Boolean).join(" · ")}</option>)}</select></label>
+          <button type="button" className="secondary" disabled={!customProductId} onClick={addCustom}><Plus size={17} />Agregar personalizado</button>
+        </div>
+        {customSearch.trim() && !customProductId && !!customProducts.length && <div className="local-sale-results local-sale-custom-results" role="region" aria-label="Resultados de personalizados">
+          {customSearchResults.map((product) => <button type="button" key={product.id} onClick={() => { setCustomModel(product.name); setCustomProductId(product.id); }}>
+            <strong>{product.sku} · {product.name}</strong><small>{[visibleVariant(product.variant), money(product.prices.Local)].filter(Boolean).join(" · ")}</small>
+          </button>)}
+          {!customSearchResults.length && <div className="empty">No encontramos artículos con esa búsqueda.</div>}
+        </div>}
+        {customKind && !customProducts.length && <p className="local-sale-custom-empty">No hay {customKind === "mate" ? "mates" : customKind === "matera" ? "materas" : "bombillas"} activos para venta local en el catálogo.</p>}
+        {!!personalizedLines.length && <>
+          {pricingError && <p className="local-sale-custom-empty" role="alert">{pricingError} <button type="button" onClick={() => setPricingRefresh((value) => value + 1)}>Reintentar</button></p>}
+          <div className="local-sale-lines">{personalizedLines.map(renderLine)}</div>
+          <div className="local-personalization-list">{personalizedLines.map((line, index) => <PersonalizationFields key={line.id} line={line} index={index} update={(changes) => updatePersonalization(line.id, changes)} reportError={setError} pricing={pricing} pricingLoading={pricingLoading} />)}</div>
+        </>}
+      </div>}
     </section>
-    <section className="local-sale-section">
-      <h2>Cliente y cobro</h2>
-      <div className="local-sale-fields">
-        <label>Canal de venta<select value={channel} onChange={(event) => setChannel(event.target.value as typeof channel)}>{(["Local", "Instagram", "Facebook", "WhatsApp"] as const).filter((option) => option === "Local" || allowedSalesChannels(s).includes(option)).map((option) => <option key={option}>{option}</option>)}</select></label>
-        <label>Buscar cliente<input value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Nombre, mail o celular" /></label>
-        <label>Cliente<select value={newCustomer ? "new" : customerId} onChange={(event) => { setNewCustomer(event.target.value === "new"); setCustomerId(event.target.value === "new" ? "" : event.target.value); }}>
-          <option value="">Sin registrar</option>
-          {customerMatches.map((customer) => <option value={customer.id} key={customer.id}>{customer.name}{customer.localCustomerId ? "" : " · Web"}</option>)}
-          <option value="new">Agregar cliente</option>
-        </select></label>
-        <label>Fecha<input type="date" max={today} value={date} onChange={(event) => setDate(event.target.value)} required /></label>
+    <section className="local-sale-section local-sale-client-section">
+      <h2>Cliente</h2>
+      <div className="local-sale-client-layout">
+        <div className="local-sale-client-search-pane">
+          <label className="local-sale-customer-search">Buscar cliente
+            <span><MagnifyingGlass size={20} aria-hidden="true" /><input value={customerSearch} onChange={(event) => { setCustomerSearch(event.target.value); setCustomerId(""); setNewCustomer(false); }} placeholder="Nombre, mail o celular" /></span>
+          </label>
+          {customerSearch.trim() && !selectedCustomer && !newCustomer && <div className="local-sale-customer-results" aria-label="Coincidencias de clientes">
+            {customerMatches.map((customer) => <button type="button" key={customer.id} onClick={() => { setCustomerId(customer.id); setCustomerSearch(customer.name); setNewCustomer(false); }}>
+              <strong>{customer.name}</strong><small>{customer.email || customer.phone || "Sin datos de contacto"}</small>
+            </button>)}
+            {!customerMatches.length && <div className="local-sale-customer-empty">No encontramos coincidencias. Podés agregar un cliente nuevo.</div>}
+          </div>}
+          <button className="primary local-sale-new-customer" type="button" onClick={() => { setCustomerId(""); setNewCustomer(true); if (!name) setName(customerSearch.trim()); }}><UserPlus size={19} />Agregar nuevo cliente</button>
+        </div>
+
+        <div className="local-sale-customer-panel" aria-live="polite">
+          {newCustomer ? <>
+            <div className="local-sale-customer-panel-heading"><div><small>Nuevo cliente</small><h3>Datos para registrarlo</h3></div></div>
+            <div className="local-sale-customer-form">
+              <label>Nombre<input value={name} onChange={(event) => setName(event.target.value)} maxLength={120} required /></label>
+              <label>Mail<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} maxLength={320} /></label>
+              <label>Celular<input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} maxLength={40} /></label>
+              <label>Fecha de nacimiento<input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} max={today} /></label>
+              <label>Ciudad<input value={city} onChange={(event) => setCity(event.target.value)} maxLength={120} /></label>
+              <label>País<select aria-label="País" value={country} onChange={(event) => { const next = event.target.value; setCountry(next); setDepartment(next === "Uruguay" ? "Paysandú" : ""); setCity((current) => current === "Paysandú" && next !== "Uruguay" ? "" : !current && next === "Uruguay" ? "Paysandú" : current); }}>{countryOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
+              <label>Departamento o provincia<select aria-label="Departamento o provincia" value={department} onChange={(event) => setDepartment(event.target.value)}><option value="">Sin especificar</option>{customerDepartments(country).map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
+            </div>
+          </> : selectedCustomer ? <>
+            <div className="local-sale-customer-panel-heading"><div><small>Cliente registrado</small><h3>{selectedCustomer.name}</h3></div><button type="button" className="secondary customer-edit-button" aria-label={`Editar ${selectedCustomer.name}`} title={`Editar ${selectedCustomer.name}`} onClick={() => go(`/clientes/base?editar=${encodeURIComponent(selectedCustomer.id)}`)}><PencilSimple size={20} aria-hidden="true" /></button></div>
+            <dl className="local-sale-customer-details">
+              <div><dt>Mail</dt><dd>{selectedCustomer.email || "-"}</dd></div>
+              <div><dt>Celular</dt><dd>{selectedCustomer.phone || "-"}</dd></div>
+              <div><dt>Fecha de nacimiento</dt><dd>{selectedCustomer.birthDate || "-"}</dd></div>
+              <div><dt>Ciudad</dt><dd>{selectedCustomer.city || "-"}</dd></div>
+              <div><dt>País</dt><dd>{selectedCustomer.country || "-"}</dd></div>
+              <div><dt>Departamento o provincia</dt><dd>{selectedCustomer.department || "-"}</dd></div>
+            </dl>
+          </> : <div className="local-sale-customer-placeholder"><UserPlus size={28} /><strong>Seleccioná un cliente</strong><span>Buscalo por nombre, mail o celular; sus datos aparecerán en este panel.</span></div>}
+        </div>
+      </div>
+    </section>
+
+    <section className="local-sale-section local-sale-payment-section">
+      <h2>Datos de la venta</h2>
+      <div className="local-sale-payment-fields">
+        <label>Fecha de venta<input type="date" max={today} value={date} onChange={(event) => setDate(event.target.value)} required /></label>
+        <label>Canal de venta<select value={channel} onChange={(event) => { const next = event.target.value as typeof channel; if(next !== "Local" && lines.some((line) => isService(line.product))) { setError("Quitá los servicios antes de cambiar el canal de venta."); return; } setChannel(next); setCategory(""); setSelectedProductId(""); setError(""); }}>{(["Local", "Feria", "Instagram", "Facebook", "WhatsApp"] as const).filter((option) => option === "Local" || allowedSalesChannels(s).includes(option)).map((option) => <option key={option}>{option}</option>)}</select></label>
         <label>Medio de pago<select value={payment} onChange={(event) => setPayment(event.target.value)}>{["Efectivo", "Débito", "Crédito", "Transferencia", "Seña"].map((method) => <option key={method}>{method}</option>)}</select></label>
         {payment === "Seña" && <label>Seña cobrada<input type="number" min="0" max="10000000" step="0.01" value={deposit} onChange={(event) => setDeposit(event.target.value)} required /></label>}
       </div>
-      {newCustomer && <div className="local-sale-fields">
-        <label>Nombre<input value={name} onChange={(event) => setName(event.target.value)} maxLength={120} required /></label>
-        <label>Mail<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} maxLength={320} /></label>
-        <label>Celular<input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} maxLength={40} /></label>
-        <label>Fecha de nacimiento<input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} max={today} /></label>
-        <label>Ciudad<input value={city} onChange={(event) => setCity(event.target.value)} maxLength={120} /></label>
-        <label>País<input value={country} onChange={(event) => setCountry(event.target.value)} maxLength={120} /></label>
-      </div>}
     </section>
     <footer className="local-sale-footer">
-      <div><small>Artículos</small><strong>{money(itemsMinor / 100)}</strong></div>
+      <div><small>Artículos</small><strong>{customPricesReady ? money(itemsMinor / 100) : "Pendiente de precios"}</strong></div>
       {payment === "Seña" && <div><small>Seña cobrada</small><strong>{money(Number.isFinite(depositMinor) ? depositMinor / 100 : 0)}</strong></div>}
       {error && <div className="error" role="alert">{error}</div>}
-      <button className="primary" disabled={busy || !lines.length}><Plus size={18} />{busy ? "Guardando…" : "Guardar venta"}</button>
+      <button className="primary" disabled={busy || !lines.length || !customPricesReady}><Plus size={18} />{busy ? "Guardando…" : "Guardar venta"}</button>
     </footer>
+    </div>
+    <aside className="local-sale-photo-panel" aria-label="Fotos de los artículos de la venta">
+      <h2>Vista de la venta</h2>
+      {!lines.length ? <p className="local-sale-photo-empty">Las fotos de los artículos que agregues aparecerán acá.</p> : <div className="local-sale-photo-list">{lines.map((line) => <article key={line.id} className="local-sale-photo-item">
+        <div className="local-sale-photo-frame">{line.product.imageUrl ? <img src={line.product.imageUrl} alt={`Foto de ${line.product.name}`} style={{ objectPosition: `${50 + (line.product.imageCrop?.x || 0) * 50}% ${50 + (line.product.imageCrop?.y || 0) * 50}%`, transform: `scale(${line.product.imageCrop?.zoom || 1})` }} /> : <span>Sin foto</span>}</div>
+        <div><strong>{line.product.name}</strong>{visibleVariant(line.product.variant) && <small>{visibleVariant(line.product.variant)}</small>}<small>{line.quantity} {line.quantity === 1 ? "unidad" : "unidades"}{line.personalization ? " · Personalizado" : ""}</small></div>
+      </article>)}</div>}
+    </aside>
   </form>;
 }

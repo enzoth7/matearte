@@ -1,9 +1,12 @@
 import { CommerceSection } from "./commerce/CommerceSection";
+import { MarketingSection } from "./MarketingSection";
+import { SorteoView } from "./SorteoView";
 import "./commerce/operations.css";
 import { useCallback, useEffect, useState } from "react";
 import {
   House,
   Handshake,
+  Megaphone,
   UsersThree,
   Package,
   Hammer,
@@ -27,17 +30,18 @@ import { Overview, Orders, Register, Customers, type PageProps } from "./pages";
 import {
   CollectionPage,
   Products,
-  Pricing,
   Inventory,
   Finance,
 } from "./modules";
 import { People, Permissions } from "./people";
 import { CommerceLogin, useCommerce } from "./useCommerce";
+import { VisualizerConfiguratorView } from "./commerce/VisualizerConfiguratorView";
 import { CommerceShipping } from "./CommerceShipping";
 import { Card, Table, Badge, Modal } from "./ui";
 const icons = [
   House,
   Handshake,
+  Megaphone,
   UsersThree,
   Package,
   Hammer,
@@ -49,8 +53,13 @@ const icons = [
 ];
 const retiredRoutes: Record<string, string> = {
   "/administracion/comercio": "/comercial/pedidos",
+  "/comercial/registrar": "/comercial/registrar-min",
   "/productos/precios": "/productos/catalogo?vista=lista",
   "/productos/publicacion": "/productos/catalogo?vista=lista",
+  "/produccion/configurador-visualizador": "/productos/personalizador",
+  "/comercial/avisos": "/marketing/avisos",
+  "/comercial/descuentos": "/marketing/descuentos",
+  "/marketing/metricas": "/marketing/contactos",
 };
 const currentRoute = () => retiredRoutes[location.pathname] || (location.pathname === "/" ? "/inicio/resumen" : location.pathname + location.search);
 function Content(
@@ -73,7 +82,9 @@ function Content(
     );
   const [area, page] = path.split("/").filter(Boolean);
   const key = `${area}/${page}`;
-  if (["comercial/descuentos", "comercial/avisos", "productos/categorias", "productos/ajustes", "administracion/canales", "finanzas/monedas", "entregas/tarifas"].includes(key)) return <CommerceSection {...props} path={key} />;
+  if (["marketing/descuentos", "marketing/avisos", "productos/categorias", "productos/ajustes", "administracion/canales", "finanzas/monedas", "entregas/tarifas"].includes(key)) return <CommerceSection {...props} path={key} />;
+  if (key === "marketing/sorteo") return <SorteoView />;
+  if (area === "marketing") return <MarketingSection page={page} notify={props.notify} />;
   if (collections[key]) return <CollectionPage {...props} path={key} />;
   if (key === "inicio/resumen") return <Overview {...props} />;
   if (key === "inicio/alertas")
@@ -108,15 +119,12 @@ function Content(
         ))}
       </section>
     );
-  if (key === "comercial/registrar") return <Register {...props} />;
+  if (key === "comercial/registrar-min") return <Register {...props} kind="minorista" />;
+  if (key === "comercial/registrar-may") return <Register {...props} kind="mayorista" />;
   if (key === "comercial/pedidos") return <Orders {...props} />;
   if (area === "clientes") return <Customers {...props} mode={page} />;
-  if (area === "productos")
-    return page === "personalizador" ? (
-      <Pricing {...props} />
-    ) : (
-      <Products {...props} mode={page} />
-    );
+  if (key === "productos/personalizador") return <div className="commerce-tools"><VisualizerConfiguratorView /></div>;
+  if (area === "productos") return <Products {...props} mode={page} />;
   if (area === "produccion")
     return (
       <Orders
@@ -395,7 +403,7 @@ export default function App() {
             </div>
           </div>
         </header>
-        <main id="main">
+        <main id="main" className={path === "/clientes/base" ? "customers-page" : undefined}>
           
           {storageError && (
             <div className="error" role="alert">
@@ -409,12 +417,14 @@ export default function App() {
               
             </div>
           )}
-          <div className="source-status">
+          {s.activeUserId !== "t5" && <div className="source-status">
             <small>{live.loadedAt ? `Actualizado ${live.loadedAt.toLocaleTimeString("es-UY", { hour: "2-digit", minute: "2-digit" })}` : "Leyendo datos del comercio…"}</small>
             <button className="text-button" disabled={live.loading} onClick={() => void live.refresh()}>{live.loading ? "Actualizando…" : "Actualizar"}</button>
-          </div>
+          </div>}
           {live.error && <div className="error" role="alert">{live.error}</div>}
-          {live.snapshot ? <Content key={`${path}:${revision}`} {...props} path={path} /> : <div className="empty" role="status">{live.error ? "Los datos no se pudieron cargar." : "Cargando datos…"}</div>}
+          {live.snapshot || path === "/productos/personalizador" || path.startsWith("/marketing/")
+            ? <Content key={`${path}:${revision}`} {...props} path={path} />
+            : <div className="empty" role="status">{live.error ? "Los datos no se pudieron cargar." : "Cargando datos…"}</div>}
           
         </main>
       </div>

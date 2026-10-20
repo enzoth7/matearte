@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { mockCommerce } from './commerce-fixture';
 
-test('programa un aviso con imagen y fechas desde Comercial', async ({ page }) => {
+test('programa un aviso con imagen y fechas desde Marketing', async ({ page }) => {
   const { writes } = await mockCommerce(page, { writable: true });
-  await page.goto('/comercial/avisos');
+  await page.goto('/marketing/avisos');
 
   await expect(page.getByRole('heading', { name: 'Avisos', exact: true })).toBeVisible();
   await page.getByLabel('Imagen del aviso').setInputFiles({

@@ -13,6 +13,7 @@
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
     "@supabase/supabase-js": "2.112.4",
+    "country-region-data": "4.1.0",
     "flag-icons": "^7.5.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",

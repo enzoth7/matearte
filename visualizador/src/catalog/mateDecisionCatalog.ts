@@ -74,6 +74,7 @@ export interface DecisionColorOption {
   label: string;
   swatch: string;
   status?: CatalogOptionStatus;
+  enabled?: boolean;
   pricingRuleKeys?: string[];
 }
 
@@ -84,6 +85,7 @@ export interface DecisionMetalOption {
   /** Asset del material/virola aislado. Nunca debe apuntar a la foto del mate. */
   previewImage?: string;
   status?: CatalogOptionStatus;
+  enabled?: boolean;
   pricingRuleKeys?: string[];
 }
 
@@ -110,6 +112,7 @@ export interface DecisionTextureOption {
   legacyVariantByMetal?: Record<string, string>;
   legacyVariantByCombination?: Record<string, string>;
   status?: CatalogOptionStatus;
+  enabled?: boolean;
   pricingRuleKeys?: string[];
 }
 
@@ -117,6 +120,8 @@ export interface MateFamilyDefinition {
   id: MateFamilyId;
   label: string;
   description: string;
+  previewImage?: string;
+  enabled?: boolean;
   representativeVariantId: string;
   textures: DecisionTextureOption[];
   pricingRuleKeys: string[];
@@ -501,6 +506,7 @@ export const engravingTypeOptions: Array<{
   image: string;
   flejeImage?: string;
   torpedoImage?: string;
+  enabled?: boolean;
 }> = [
   {
     id: "laser",
@@ -544,6 +550,10 @@ export function getMateFamily(familyId: MateFamilyId | null | undefined) {
 
 export function getSelectedTexture(selection: Partial<MateSelection>) {
   return getMateFamily(selection.familyId)?.textures.find((item) => item.id === selection.textureId);
+}
+
+export function getSelectionPreviewImage(selection: Partial<MateSelection>): string | undefined {
+  return selection.colorId ? getSelectedTexture(selection)?.colorPreviewImages?.[selection.colorId] : undefined;
 }
 
 export function usesTorpedoVirolaEngravingAssets(selection: Partial<MateSelection>) {
@@ -613,7 +623,7 @@ export function resolveMateSelection(selection: Partial<MateSelection>): Resolve
   const metal = textureOption.metals.find((item) => item.id === effectiveSelection.metalId)!;
   const mappedLegacyVariantId = getLegacyVariantId(textureOption, color.id, metal.id);
   const productId = [family.id, textureOption.id, color.id, metal.id, effectiveSelection.sizeId].join("--");
-  const status: CatalogOptionStatus = mappedLegacyVariantId && textureOption.status !== "pending" && color.status !== "pending" && metal.status !== "pending"
+  const status: CatalogOptionStatus = mappedLegacyVariantId && family.enabled !== false && textureOption.enabled !== false && color.enabled !== false && metal.enabled !== false && textureOption.status !== "pending" && color.status !== "pending" && metal.status !== "pending"
     ? "ready"
     : "pending";
   const skuId = status === "ready" ? mappedLegacyVariantId : null;
@@ -727,21 +737,25 @@ export function getEngravingCapabilities(familyId: MateFamilyId | null, textureI
   const family = getMateFamily(familyId);
   const texture = family?.textures.find((t) => t.id === textureId);
   const base = familyEngravingCapabilities[familyId];
-  if (texture?.engravingCapabilities) return texture.engravingCapabilities;
+  const available = (values: EngravingCapabilities): EngravingCapabilities => ({
+    virolaEngravingTypes: values.virolaEngravingTypes.filter((id) => engravingTypeOptions.find((option) => option.id === id)?.enabled !== false),
+    flejeEngravingTypes: values.flejeEngravingTypes.filter((id) => engravingTypeOptions.find((option) => option.id === id)?.enabled !== false),
+  });
+  if (texture?.engravingCapabilities) return available(texture.engravingCapabilities);
   // Criollo sub-textures inherit from their shape family for engraving options
   if (familyId === "criollo" && texture) {
     if (texture.shapeId === "imperial") {
-      return {
+      return available({
         virolaEngravingTypes: ["laser", "bronze-applique", "alpaca-applique"],
         flejeEngravingTypes: texture.capabilities.hasFleje ? ["bronze-applique", "alpaca-applique"] : [],
-      };
+      });
     }
     if (texture.shapeId === "camionero") {
-      return {
+      return available({
         virolaEngravingTypes: ["laser", "bronze-applique", "alpaca-applique"],
         flejeEngravingTypes: [],
-      };
+      });
     }
   }
-  return base;
+  return available(base);
 }

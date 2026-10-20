@@ -2,14 +2,24 @@ import { CustomerContactEditor } from "./commerce/CustomerContactEditor";
 import { LocalCustomerEditor } from "./LocalCustomerEditor";
 import { RuralRaffleCustomerEditor } from "./RuralRaffleCustomerEditor";
 import { LocalSaleRegister } from "./LocalSaleRegister";
-import { WholesaleRegister, WholesaleCustomerEditor, WholesaleOrderModal, WholesaleProduction } from "./WholesaleScreens";
+import { WholesaleRegister, WholesaleCustomerEditor, WholesaleProduction, WholesaleSummary } from "./WholesaleScreens";
 import { exportWholesalePdf } from "./wholesaleExports";
+import { summarizeWholesaleCustomer } from "./wholesaleAdapter";
+import { latestCustomerPurchase } from "./customerPurchase";
+import { customerDisplayChannel, customerOriginLabel, customerOriginOptions } from "./customerChannel";
+import { joinCustomerPhone, splitCustomerPhone } from "./customerPhone";
+import { OrderContactPhone } from "./OrderContactPhone";
+import { exportCustomersXlsx } from "./customerExports";
+import { compactOrderItemName, orderItemColor, orderItemDetailRows } from "./orderItemPresentation";
+import { orderCategoryLabels, orderShippingStatus } from "./orderListPresentation";
+import { OrderDetailItems, type OrderDetailRow } from "./OrderDetailItems";
 import { PersonalizedOrders } from "./commerce/PersonalizedOrdersView";
+import { naturalCaseName, withoutPersonalizedMateItems } from "./productionPresentation";
 import type { Session } from "@supabase/supabase-js";
-import { Orders as CommerceOrderDetails } from "./commerce/Operations";
+import { Orders as CommerceOrderDetails, formatWeight } from "./commerce/Operations";
 import type { CommerceSnapshot } from "./commerceAdapter";
 import { ChartTooltip } from "./ui";
-import { useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AreaChart,
   Area,
@@ -22,7 +32,7 @@ import {
   Bar,
   Cell,
 } from "recharts";
-import { Check, Package, Warning, Leaf, Plus } from "@phosphor-icons/react";
+import { Package, Plus, PencilSimple, CaretDown, FileXls, FunnelX, MagnifyingGlass } from "@phosphor-icons/react";
 import {
   type State,
   type Order,
@@ -38,15 +48,14 @@ import {
   paid,
   balance,
   id,
-  today,
   addOrder,
   publishPrices,
 } from "./data";
 import { areas } from "./navigation";
 import { collections, type Field } from "./collections";
-import { overviewPeriods, overviewScope, type OverviewPeriod } from "./overview";
-import { accessUserId, allowedSalesChannels, canAccess, visibleCustomers, visibleOrders } from "./access";
-import { countryForCity, countryOptions, LocationLabel } from "./location";
+import { overviewPeriods, overviewScope, salesByCustomerType, type OverviewPeriod } from "./overview";
+import { accessUserId, allowedSalesChannels, canAccess, firstRegistrationPath, visibleCustomers, visibleOrders } from "./access";
+import { countryDisplayName, countryForCity, countryOptions, LocationLabel } from "./location";
 import {
   Card,
   Stats,
@@ -59,7 +68,7 @@ import {
 } from "./ui";
 export type PageProps = {
   session?: Session | null;
-  refresh?: () => Promise<void>;
+  refresh?: (forceFullCustomers?: boolean) => Promise<void>;
   commerce?: CommerceSnapshot | null;
   s: State;
   update: (recipe: (s: State) => State, message: string) => void;
@@ -74,6 +83,7 @@ const orderDate = (date: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(date)
     ? `${date.slice(8, 10)}/${date.slice(5, 7)}/${date.slice(0, 4)}`
     : "—";
+const customerSearchText = (customer: Customer) => `${customer.name} ${customer.companyName || ""} ${customer.email} ${customer.phone} ${(customer.agendaAdditionalPhones || []).join(" ")} ${customer.birthDate || ""} ${customer.city} ${customer.country || countryForCity(customer.city)}`;
 const paymentStatus = (s: State, o: Order) =>
   o.status === "cancelled" ? "Cancelado" : o.status === "refunded" ? "Reembolsado" : o.status === "payment_failed" ? "Pago fallido" : o.status === "payment_verification_pending" ? "Comprobante por verificar" : balance(s, o) === 0
     ? "Pagado"
@@ -81,6 +91,7 @@ const paymentStatus = (s: State, o: Order) =>
       ? "Pago parcial"
       : "Pendiente";
 export function Overview({ s, go }: PageProps) {
+  const registrationPath = firstRegistrationPath(s);
   const [period, setPeriod] = useState<OverviewPeriod>(() => {
     try {
       const saved = localStorage.getItem("matearte-overview-period");
@@ -105,7 +116,9 @@ export function Overview({ s, go }: PageProps) {
     ? visibleOrders(s, true).filter((order) => order.source !== "local" && isSale(order) && order.date >= start && order.date <= end)
     : [];
   const pending = productionOrders.filter((o) => o.production !== "Terminado");
-  const channelData = (canSeeFinance ? (["Web", "Local", "Mayorista", "Instagram", "Facebook", "WhatsApp"] as SalesChannel[]) : allowedSalesChannels(s)).map(
+  const customerTypeData = salesByCustomerType(s, orders);
+  const customerTypeTotal = customerTypeData.reduce((sum, item) => sum + item.total, 0);
+  const channelData = (canSeeFinance ? (["Web", "Local", "Feria", "Instagram", "Facebook", "WhatsApp"] as SalesChannel[]) : allowedSalesChannels(s)).map(
     (name) => ({
       name,
       total: orders
@@ -113,7 +126,7 @@ export function Overview({ s, go }: PageProps) {
         .reduce((a, o) => a + total(o), 0),
     }),
   );
-  const channelColors: Record<SalesChannel, string> = { Web: "#236b91", Mayorista: "#245f3f", Local: "#794c32", Instagram: "#d83280", Facebook: "#2459a6", WhatsApp: "#28b765", Sorteo: "#a87800" };
+  const channelColors: Record<SalesChannel, string> = { Web: "#236b91", Local: "#794c32", Feria: "#936735", Instagram: "#d83280", Facebook: "#2459a6", WhatsApp: "#28b765" };
   return (
     <>
       <div className="welcome">
@@ -137,9 +150,9 @@ export function Overview({ s, go }: PageProps) {
               <option key={value} value={value}>{label}</option>
             ))}
           </select>
-          {canAccess(s, "/comercial/registrar") && <button
+          {registrationPath && <button
             className="secondary"
-            onClick={() => go("/comercial/registrar")}
+            onClick={() => go(registrationPath)}
           >
             <Plus />
             Registrar venta
@@ -290,20 +303,24 @@ export function Overview({ s, go }: PageProps) {
           ))}
         </Card>
       </div>
-      {(canAccess(s, "/inicio/alertas") || canSeeProduction) && <div className="overview-bottom">
-        {canAccess(s, "/inicio/alertas") && <Card
-          title="Pendientes"
-          action={
-            <button
-              className="text-button"
-              onClick={() => go("/inicio/alertas")}
-            >
-              Ver todo 
-            </button>
-          }
+      <div className={`overview-bottom ${canSeeProduction ? "" : "overview-bottom-single"}`}>
+        <Card
+          title="Ventas por tipo de cliente"
+          action={canAccess(s, "/comercial/pedidos") ? <button className="text-button" onClick={() => go("/comercial/pedidos")}>Ver ventas</button> : undefined}
         >
-          <AlertList s={s} orders={orders} expenses={expenses} go={go} />
-        </Card>}
+          <div className="customer-type-sales" aria-label="Comparación de ventas minoristas y mayoristas">
+            {customerTypeData.map(item => {
+              const share = customerTypeTotal > 0 ? Math.round(item.total / customerTypeTotal * 100) : 0;
+              return <div className={`customer-type-sale customer-type-${item.type.toLowerCase()}`} key={item.type}>
+                <div className="customer-type-sale-heading">
+                  <div><strong>{item.type}</strong><small>{item.orders} {item.orders === 1 ? "venta" : "ventas"} · {share}% del total</small></div>
+                  <b>{money(item.total)}</b>
+                </div>
+                <div className="customer-type-track" aria-hidden="true"><span style={{ width: `${share}%` }} /></div>
+              </div>;
+            })}
+          </div>
+        </Card>
         {canSeeProduction && <section className="dark-card workshop-card">
           <div className="workshop-heading">
             <h2>El taller</h2>
@@ -336,7 +353,7 @@ export function Overview({ s, go }: PageProps) {
             Ver producción
           </button>
         </section>}
-      </div>}
+      </div>
       <OrderTable
         s={s}
         orders={[...orders]
@@ -348,57 +365,6 @@ export function Overview({ s, go }: PageProps) {
     </>
   );
 }
-function AlertList({ s, orders, expenses, go }: { s: State; orders: Order[]; expenses: State["expenses"]; go: PageProps["go"] }) {
-  const productIds = new Set(orders.map((order) => order.productId));
-  const items = [
-    {
-      label: "Stock bajo mínimo en productos del período",
-      value: s.products.filter((p) => productIds.has(p.id) && p.stock < p.min).length,
-      tone: "red",
-      desc: "Revisar necesidades de reposici\u00F3n",
-      path: "/inventario/reposicion",
-    },
-    {
-      label: "Dise\u00F1os para revisar",
-      value: orders.filter((o) => o.design && !o.approved).length,
-      tone: "yellow",
-      desc: "Aprobaciones antes de producir",
-      path: "/produccion/resumen",
-    },
-    {
-      label: "Cobros pendientes",
-      value: orders.filter((o) => balance(s, o) > 0).length,
-      tone: "yellow",
-      desc:
-        money(orders.reduce((a, o) => a + balance(s, o), 0)) + " por cobrar",
-      path: "/finanzas/por-cobrar",
-    },
-    {
-      label: "Pagos pendientes",
-      value: expenses.filter((e) => !e.paid).length,
-      tone: "yellow",
-      desc: "Compromisos registrados",
-      path: "/finanzas/por-pagar",
-    },
-  ];
-  return (
-    <div className="alert-list">
-      {items.filter((item) => item.value > 0 && canAccess(s, item.path)).map((i) => (
-        <button className={`tone-${i.tone}`} key={i.path} onClick={() => go(i.path)}>
-          <div className="alert-icon">
-            <Warning size={20} />
-          </div>
-          <div>
-            <strong>{i.label}</strong>
-          </div>
-          <b>{i.value}</b>
-          
-        </button>
-      ))}
-      {items.every((item) => item.value === 0 || !canAccess(s, item.path)) && <div className="empty">Sin pendientes en este período</div>}
-    </div>
-  );
-}
 function OrderTable({
   s,
   orders,
@@ -407,6 +373,8 @@ function OrderTable({
   open,
   mode = "pedidos",
   showAmounts = true,
+  searchQuery,
+  onSearchQueryChange,
 }: {
   s: State;
   orders: Order[];
@@ -415,43 +383,34 @@ function OrderTable({
   open?: (o: Order) => void;
   mode?: string;
   showAmounts?: boolean;
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
 }) {
+  const productionMode = ["mayorista", "mayorista-web", "minorista", "historico", "resumen-produccion"].includes(mode);
+  const itemSearchText = (item: OrderLine) => [
+    compactOrderItemName(item),
+    item.title,
+    ...orderItemDetailRows(item).flatMap((detail) => [detail.label, detail.value]),
+  ].join(" ");
   return (
     <Table
+      className={mode === "pedidos" ? "sales-orders-table" : undefined}
+      showSearch={searchQuery === undefined}
+      searchQuery={searchQuery}
+      onSearchQueryChange={onSearchQueryChange}
       title={title}
       rows={orders}
       searchText={(o) =>
-        `${orderName(o)} ${customer(s, o).name} ${o.items?.map((item) => item.title).join(" ") || product(s, o).name} ${o.channel}`
+        `${orderName(o)} ${customer(s, o).name} ${o.items?.map(itemSearchText).join(" ") || product(s, o).name} ${o.channel}`
       }
       columns={[
-        {
-          label: "Pedido",
-          render: (o) => (
-            <button
-              className="text-button"
-              onClick={() =>
-                open ? open(o) : go(`/comercial/pedidos?pedido=${o.id}`)
-              }
-            >
-              {orderName(o)}
-              
-            </button>
-          ),
-        },
+        { label: "Pedido", render: (o) => <strong>{orderName(o)}</strong> },
         { label: "Fecha", render: (o) => orderDate(o.date) },
         {
           label: "Cliente",
-          render: (o) => (
-            <div className="person">
-              <div>
-                <strong>{customer(s, o).name}</strong>
-                <small>
-                  {o.items ? o.items.map((item) => `${item.title} × ${item.quantity}`).join(" · ") : `${product(s, o).name} · ${o.quantity} u.`}
-                </small>
-              </div>
-            </div>
-          ),
+          render: (o) => <strong>{productionMode ? naturalCaseName(customer(s, o).name) : customer(s, o).name}</strong>,
         },
+        { label: "Productos", render: (o) => orderCategoryLabels(o, s.products) },
         { label: "Canal", render: (o) => <Badge>{o.channel}</Badge> },
         ...(showAmounts ? [
           { label: "Total", render: (o: Order) => <strong>{money(total(o))}</strong> },
@@ -460,6 +419,10 @@ function OrderTable({
         {
           label: "Producci\u00F3n",
           render: (o) => o.source === "local" ? "—" : <Badge>{o.production}</Badge>,
+        },
+        {
+          label: "Envío",
+          render: (o) => <Badge>{orderShippingStatus(o, paymentStatus(s, o) === "Pagado")}</Badge>,
         },
         ...(["pendientes", "retiros", "envios"].includes(mode)
           ? [
@@ -491,39 +454,129 @@ function OrderTable({
           : ["mayorista", "minorista", "resumen-produccion"].includes(mode)
                 ? [{ label: "Fecha objetivo", render: (o: Order) => o.due || "Sin fecha" }]
                 : []),
+        {
+          label: "Detalles",
+          render: (o) => (
+            <button
+              type="button"
+              className="secondary order-details-button"
+              aria-label={`Ver detalle del pedido ${orderName(o)}`}
+              title="Ver detalle"
+              onClick={() => open ? open(o) : go(`/comercial/pedidos?pedido=${o.id}`)}
+            >
+              <Plus size={18} weight="bold" aria-hidden="true" />
+            </button>
+          ),
+        },
       ]}
     />
   );
 }
+
+function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order: Order; props: PageProps; showAmounts: boolean; onClose: () => void }) {
+  const { s, go } = props;
+  const items = order.items || [];
+  const shipping = orderShippingStatus(order, paymentStatus(s, order) === "Pagado");
+  const contact = s.customers.find((entry) => entry.id === order.customerId);
+  const phone = contact?.phone?.trim() || "";
+  const country = contact?.country || (contact?.city ? countryForCity(contact.city) : "") || (/^0?9\d{7}$/.test(phone.replace(/\D/g, "")) ? "Uruguay" : "");
+  const phoneParts = splitCustomerPhone(phone, country);
+  const whatsappDigits = phoneParts.prefix ? joinCustomerPhone(phoneParts.prefix, phoneParts.number).replace(/\D/g, "") : "";
+  const hasContactOrDelivery = Boolean(phone || contact?.email || contact?.address || contact?.city || order.method === "Envío");
+  const wholesaleLines = order.source === "wholesale"
+    ? props.commerce?.wholesale?.lines.filter((line) => items.some((item) => item.wholesaleLineId === line.line_id)) || []
+    : [];
+  const detailRows: OrderDetailRow[] = items.length ? items.map((item) => {
+    const details = orderItemDetailRows(item);
+    const size = details.find((detail) => ["tamaño", "tamano", "talle"].includes(detail.label.toLocaleLowerCase("es")))?.value;
+    const extra = details.filter((detail) => !["sku", "color", "variante", "tamaño", "tamano", "talle"].includes(detail.label.toLocaleLowerCase("es")));
+    return {
+      id: item.id,
+      name: compactOrderItemName(item), sku: item.sku, color: orderItemColor(item), size,
+      weight: item.weightGrams && item.weightGrams > 0 ? formatWeight(item.weightGrams) : undefined,
+      quantity: item.quantity, amount: showAmounts ? money(item.amount) : undefined,
+      extra: extra.map((detail) => `${detail.label}: ${detail.value}`).join(" · "),
+    };
+  }) : [{ id: order.id, name: product(s, order).name, quantity: order.quantity, amount: showAmounts ? money(total(order)) : undefined }];
+  return <Modal title="Detalle del pedido" className="order-detail-modal unified-order-modal" onClose={onClose}>
+    <section className="unified-order-identity" aria-label="Identificación del pedido">
+      <div className="unified-order-reference"><small>Pedido</small><strong>{orderName(order)}</strong></div>
+      <div className="unified-order-identity-fact"><small>Fecha</small><strong>{orderDate(order.date)}</strong></div>
+      <div className="unified-order-identity-fact"><small>Canal</small><Badge>{order.channel}</Badge></div>
+      <div className="unified-order-identity-fact"><small>Envío</small><Badge>{shipping}</Badge></div>
+    </section>
+    <section className="unified-order-overview" aria-label="Resumen del pedido">
+      <h3>Resumen</h3>
+      <div className="unified-order-facts">
+        <div><small>Cliente</small><strong>{naturalCaseName(customer(s, order).name)}</strong></div>
+        <div><small>Productos</small><strong>{orderCategoryLabels(order, s.products)}</strong></div>
+        {showAmounts && <div><small>Pago</small><strong>{paymentStatus(s, order)}</strong><span>{order.paymentMethod === "Seña" ? "Saldo de la seña" : "Saldo pendiente"}: {money(balance(s, order))}</span></div>}
+        <div><small>Producción</small><strong>{order.source === "local" ? "No aplica" : order.production}</strong></div>
+      </div>
+    </section>
+    {hasContactOrDelivery && <section className="unified-order-contact order-delivery-summary" aria-label="Entrega y contacto">
+      <div className="order-delivery-summary__heading"><div><small>Entrega</small><strong>{order.method === "Envío" ? "Envío" : order.method === "Retiro" ? "Retiro en el local" : "Venta en el local"}</strong></div></div>
+      <div className="order-delivery-grid">
+        <div><small>Cliente</small><strong>{naturalCaseName(contact?.name || order.customerName || "Cliente sin nombre")}</strong>
+          {phone && <OrderContactPhone prefix={phoneParts.prefix} number={phoneParts.number} country={country} whatsappDigits={whatsappDigits} />}
+          {contact?.email && <div className="unified-order-contact-line">{contact.email}</div>}
+        </div>
+        {order.method === "Envío" && <div><small>Enviar a</small><strong>{contact?.address || "Dirección no registrada"}</strong><div className="unified-order-contact-line">{[contact?.city, contact?.department, country].filter(Boolean).join(", ")}</div></div>}
+      </div>
+    </section>}
+    <OrderDetailItems rows={detailRows} />
+    {showAmounts && <section className="order-breakdown unified-order-breakdown" aria-label="Totales del pedido">
+      {(!!order.discountAmount || !!order.shippingAmount || !!order.feeAmount) && <div className="line-item"><div>Subtotal</div><strong>{money(items.length ? items.reduce((sum, item) => sum + item.amount, 0) : total(order))}</strong></div>}
+      {!!order.discountAmount && <div className="line-item"><div>Descuento</div><strong>{money(-order.discountAmount)}</strong></div>}
+      {!!order.shippingAmount && <div className="line-item"><div>Envío</div><strong>{money(order.shippingAmount)}</strong></div>}
+      {!!order.feeAmount && <div className="line-item"><div>Cargo por pago</div><strong>{money(order.feeAmount)}</strong></div>}
+      <div className="line-item"><div>Total</div><strong>{money(total(order))}</strong></div>
+    </section>}
+    {order.method === "Envío" && (order.carrier || order.tracking) && <section className="order-tracking-detail" aria-label="Seguimiento guardado"><small>Envío registrado</small><strong>{order.carrier || "Sin transportista"}</strong><span>{order.tracking || "Sin código"}</span></section>}
+    <div className="form-actions unified-order-actions">
+      <button className="unified-order-action" onClick={onClose}>Cerrar</button>
+      {s.customers.some((entry) => entry.id === order.customerId) && <button className="unified-order-action" onClick={() => go(`/clientes/base?cliente=${order.customerId}`)}>Ver ficha del cliente</button>}
+      {order.source === "wholesale" && wholesaleLines.length > 0 && props.commerce?.wholesale && <button className="unified-order-action" onClick={() => exportWholesalePdf(orderName(order), wholesaleLines, props.commerce!.wholesale!)}>Descargar PDF</button>}
+      {order.source === "wholesale" && <button className="unified-order-action unified-order-action--primary" onClick={() => go("/produccion/mayorista")}>Gestionar producción</button>}
+    </div>
+  </Modal>;
+}
+
 export function Orders(
   props: PageProps & {
     mode?: string;
   },
 ) {
-  const { s, update, go, mode = "pedidos" } = props;
+  const { s, go, mode = "pedidos" } = props;
+  const registrationPath = firstRegistrationPath(s);
   const [selected, setSelected] = useState<string | null>(
     new URLSearchParams(location.search).get("pedido"),
   );
   const [channel, setChannel] = useState("Todos");
+  const [orderSearch, setOrderSearch] = useState("");
   const [group, setGroup] = useState("Pedidos");
-  const [personalized, setPersonalized] = useState(false);
   if (mode === "mayorista") return <><WholesaleProduction props={props} /><section className="wholesale-web-orders"><h2>Pedidos mayoristas de la web</h2><Orders {...props} mode="mayorista-web" /></section></>;
+  if (mode === "personalizados") return <div className="commerce-tools"><PersonalizedOrders onNotice={props.notify} state={s} /></div>;
   const productionView = ["mayorista-web", "minorista", "historico", "resumen-produccion"].includes(mode);
   const showAmounts = !productionView || canAccess(s, "/finanzas/resumen");
-  const availableOrders = visibleOrders(s, productionView).filter((order) => !productionView || (order.source !== "local" && isSale(order)));
+  const availableOrders = visibleOrders(s, productionView)
+    .filter((order) => !productionView || (order.source !== "local" && isSale(order)))
+    .flatMap((order) => {
+      if (!productionView) return [order];
+      const regularOrder = withoutPersonalizedMateItems(order, s.products);
+      return regularOrder ? [regularOrder] : [];
+    });
   const o = availableOrders.find((x) => x.id === selected);
   let rows = availableOrders.filter(
     (o) => channel === "Todos" || o.channel === channel,
   );
   if (mode === "mayorista")
-    rows = rows.filter(
-      (o) => o.channel === "Mayorista" && o.production !== "Terminado",
-    );
+    rows = rows.filter((o) => o.source === "wholesale" && o.production !== "Terminado");
   if (mode === "mayorista-web")
-    rows = rows.filter((o) => o.channel === "Mayorista" && o.source !== "wholesale" && o.production !== "Terminado");
+    rows = rows.filter((o) => o.source !== "wholesale" && s.customers.some((customer) => customer.id === o.customerId && customer.segment === "Mayorista") && o.production !== "Terminado");
   if (mode === "minorista")
     rows = rows.filter(
-      (o) => o.channel !== "Mayorista" && o.production !== "Terminado",
+      (o) => o.source !== "wholesale" && !s.customers.some((customer) => customer.id === o.customerId && customer.segment === "Mayorista") && o.production !== "Terminado",
     );
   if (mode === "historico")
     rows = rows.filter((o) => o.source !== "wholesale" && o.production === "Terminado");
@@ -538,16 +591,6 @@ export function Orders(
   if (mode === "retiros") rows = rows.filter((o) => o.source !== "local" && isSale(o) && o.method === "Retiro");
   if (mode === "envios") rows = rows.filter((o) => o.source !== "local" && isSale(o) && o.method === "Env\u00EDo");
   if (mode === "por-cobrar") rows = rows.filter((o) => balance(s, o) > 0);
-  const change = (patch: Partial<Order>) => {
-    if (o)
-      update(
-        (s) => ({
-          ...s,
-          orders: s.orders.map((x) => (x.id === o.id ? { ...x, ...patch } : x)),
-        }),
-        "Pedido actualizado",
-      );
-  };
   const groupedItems = rows.flatMap<Order & { item: OrderLine | null }>((order) => order.items?.map((item) => ({ ...order, productId: item.productId, quantity: item.quantity, item })) || [{ ...order, item: null }]);
   const groups = Object.entries(
     groupedItems.reduce(
@@ -567,9 +610,9 @@ export function Orders(
       {} as Record<string, number>,
     ),
   ).map(([name, quantity]) => ({ id: name, name, quantity }));
-  if (personalized) return <><div className="toolbar"><button className="secondary" onClick={() => setPersonalized(false)}>Volver a pedidos</button></div><div className="commerce-tools"><PersonalizedOrders onNotice={props.notify} /></div></>;
   return (
     <>
+      {mode === "resumen-produccion" && <WholesaleSummary props={props} />}
       <Stats
         items={[
           { label: "Pedidos en esta vista", value: rows.length },
@@ -590,13 +633,12 @@ export function Orders(
           }] : []),
         ]}
       />
-      <div className="toolbar">
-        {productionView && <button className="secondary" onClick={() => setPersonalized(true)}>Personalizaciones y archivos</button>}
+      <div className={`toolbar${mode === "pedidos" ? " orders-page-toolbar" : ""}`}>
         <div className="tabs">
-          {["Todos", ...(productionView ? ["Web", "Local", "Mayorista"] : allowedSalesChannels(s))].map((c) => (
+          {["Todos", ...(productionView ? ["Web", "Local", "WhatsApp", "Instagram", "Facebook", "Feria"] : allowedSalesChannels(s))].map((c) => (
             <button
               key={c}
-              className={`${channel === c ? "active" : ""} ${c === "Web" ? "channel-web" : c === "Mayorista" ? "channel-mayorista" : c === "Local" ? "channel-local" : c === "Instagram" ? "channel-instagram" : c === "Facebook" ? "channel-facebook" : c === "WhatsApp" ? "channel-whatsapp" : ""}`}
+              className={`${channel === c ? "active" : ""} ${c === "Web" ? "channel-web" : c === "Local" ? "channel-local" : c === "Instagram" ? "channel-instagram" : c === "Facebook" ? "channel-facebook" : c === "WhatsApp" ? "channel-whatsapp" : ""}`}
               onClick={() => setChannel(c)}
             >
               {c}
@@ -604,19 +646,23 @@ export function Orders(
           ))}
         </div>
         <div className="table-actions">
+          {mode === "pedidos" && <label className="search order-toolbar-search">
+            <MagnifyingGlass size={18} aria-hidden="true" />
+            <input type="search" aria-label="Buscar pedidos" placeholder="Buscar pedidos…" value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} />
+          </label>}
           <Export
             rows={rows.map((o) => ({
               pedido: orderName(o),
               fecha: orderDate(o.date),
               cliente: customer(s, o).name,
-              producto: o.items?.map((item) => item.title).join(" · ") || product(s, o).name,
+              productos: orderCategoryLabels(o, s.products),
               cantidad: o.quantity,
               ...(showAmounts ? { total: total(o), saldo: balance(s, o) } : {}),
               produccion: o.source === "local" ? "" : o.production,
               entrega: o.source === "local" ? "" : o.delivery,
             }))}
           />
-          {canAccess(s, "/comercial/registrar") && <AddButton onClick={() => go("/comercial/registrar")}>
+          {registrationPath && <AddButton onClick={() => go(registrationPath)}>
             Nuevo pedido
           </AddButton>}
         </div>
@@ -650,6 +696,8 @@ export function Orders(
           go={go}
           mode={mode}
           showAmounts={showAmounts}
+          searchQuery={mode === "pedidos" ? orderSearch : undefined}
+          onSearchQueryChange={mode === "pedidos" ? setOrderSearch : undefined}
           title={
             mode === "pedidos"
               ? undefined
@@ -665,158 +713,13 @@ export function Orders(
         />
       )}
       {mode === "historico" && <WholesaleProduction props={props} history />}
-      {o?.source === "local" && <Modal title={orderName(o)} onClose={() => setSelected(null)}>
-        <div className="detail-banner"><div><small>{o.date} · {o.paymentMethod}</small><h3>{customer(s, o).name}</h3></div><strong>{money(total(o))}</strong></div>
-        <Table rows={o.items || []} searchText={(item) => `${item.title} ${item.sku} ${item.variant}`} columns={[
-          { label: "SKU", render: (item) => item.sku },
-          { label: "Artículo", render: (item) => item.title },
-          { label: "Variante", render: (item) => item.variant },
-          { label: "Cantidad", render: (item) => item.quantity },
-          { label: "Unitario", render: (item) => money(item.unitPrice) },
-          { label: "Importe", render: (item) => money(item.amount) },
-        ]} />
-        <div className="order-breakdown">
-          {o.localItemsAmount !== total(o) && <div className="line-item"><div>Valor de artículos</div><strong>{money(o.localItemsAmount || 0)}</strong></div>}
-          <div className="line-item"><div>Cobrado</div><strong>{money(paid(s, o))}</strong></div>
-          {o.paymentMethod === "Seña" && balance(s, o) > 0 && <div className="line-item"><div>Saldo de la seña</div><strong>{money(balance(s, o))}</strong></div>}
-          {o.paymentMethod !== "Seña" && o.localItemsAmount !== total(o) && <div className="data-note">El valor de los artículos difiere del total registrado.</div>}
-        </div>
-        {s.customers.some((entry) => entry.id === o.customerId) && <div className="form-actions"><button className="text-button" onClick={() => go(`/clientes/base?cliente=${o.customerId}`)}>Ver cliente</button></div>}
-      </Modal>}
-      {o?.source === "wholesale" ? <WholesaleOrderModal order={o} props={props} onClose={() => setSelected(null)} /> : o && o.source !== "local" && props.session ? <div className="commerce-tools order-tools"><CommerceOrderDetails key={o.id} session={props.session} onNotice={props.notify} orderId={o.id} onCustomer={() => go(`/clientes/base?cliente=${o.customerId}`)} onClose={() => { setSelected(null); void props.refresh?.(); }} /></div> : o && o.source !== "local" && (
-        <Modal title={`Pedido ${orderName(o)}`} onClose={() => setSelected(null)}>
-          <div className="detail-banner">
-            <div>
-              <small>
-                {product(s, o).name} · {o.quantity} unidades
-              </small>
-              <h3>{customer(s, o).name}</h3>
-              
-            </div>
-            {showAmounts && <strong>{money(total(o))}</strong>}
-          </div>
-          <div className="detail-grid">
-            {showAmounts && <div>
-              <small>Pago</small>
-              <Badge>{paymentStatus(s, o)}</Badge>
-              <div className="balance">Saldo {money(balance(s, o))}</div>
-              {s.source !== "commerce" && balance(s, o) > 0 && (
-                <button
-                  className="secondary"
-                  onClick={() =>
-                    update(
-                      (s) => ({
-                        ...s,
-                        payments: [
-                          ...s.payments,
-                          {
-                            id: id(),
-                            orderId: o.id,
-                            amount: balance(s, o),
-                            date: today,
-                            method: "Transferencia",
-                          },
-                        ],
-                      }),
-                      "Cobro registrado",
-                    )
-                  }
-                >
-                  Registrar cobro del saldo
-                </button>
-              )}
-            </div>}
-            <label>
-              Producción
-              <select
-                disabled={s.source === "commerce"}
-                value={o.production}
-                onChange={(e) =>
-                  change({ production: e.target.value as Order["production"] })
-                }
-              >
-                {["Pendiente", "En producci\u00F3n", "Terminado"].map((v) => (
-                  <option key={v}>{v}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Entrega · {o.method}
-              <select
-                disabled={s.source === "commerce"}
-                value={o.delivery}
-                onChange={(e) =>
-                  change({ delivery: e.target.value as Order["delivery"] })
-                }
-              >
-                {["Pendiente", "Enviado", "Entregado"].map((v) => (
-                  <option key={v}>{v}</option>
-                ))}
-              </select>
-            </label>
-            {o.method === "Env\u00EDo" && (
-              <>
-                <label>
-                  Transportista
-                  <input
-                    readOnly={s.source === "commerce"}
-                    defaultValue={o.carrier || ""}
-                    placeholder="Ej.: DAC"
-                    onBlur={(e) => {
-                      if (e.target.value !== (o.carrier || ""))
-                        change({ carrier: e.target.value });
-                    }}
-                  />
-                </label>
-                <label>
-                  Código de seguimiento
-                  <input
-                    readOnly={s.source === "commerce"}
-                    defaultValue={o.tracking || ""}
-                    placeholder="Código del envío"
-                    onBlur={(e) => {
-                      if (e.target.value !== (o.tracking || ""))
-                        change({ tracking: e.target.value });
-                    }}
-                  />
-                </label>
-              </>
-            )}
-            <div>
-              <small>Fecha de entrega</small>
-              <strong>{o.due || "Sin fecha"}</strong>
-            </div>
-          </div>
-          {o.items && <Table rows={o.items} searchText={(item) => `${item.title} ${item.sku}`} columns={[
-            { label: "Artículo", render: (item) => <div>{item.title}<small>{item.sku}</small></div> },
-            { label: "Cantidad", render: (item) => item.quantity },
-            ...(showAmounts ? [{ label: "Unitario", render: (item: NonNullable<Order["items"]>[number]) => money(item.unitPrice) }, { label: "Importe", render: (item: NonNullable<Order["items"]>[number]) => money(item.amount) }] : []),
-            { label: "Revisión", render: (item) => item.reviewStatus === "approved" ? "Aprobado" : item.reviewStatus === "pending" ? "Pendiente" : item.reviewStatus === "rejected" ? "Rechazado" : "No requiere" },
-          ]} />}
-          {showAmounts && o.items && <div className="order-breakdown">
-            <div className="line-item"><div>Artículos</div><strong>{money(o.items.reduce((sum, item) => sum + item.amount, 0))}</strong></div>
-            <div className="line-item"><div>Descuento</div><strong>{money(-(o.discountAmount || 0))}</strong></div>
-            <div className="line-item"><div>Envío</div><strong>{money(o.shippingAmount || 0)}</strong></div>
-            <div className="line-item"><div>Cargo por pago</div><strong>{money(o.feeAmount || 0)}</strong></div>
-            <div className="line-item"><div>Total del pedido</div><strong>{money(total(o))}</strong></div>
-          </div>}
-          <div className="form-actions">
-            <button
-              className="text-button"
-              onClick={() => go(`/clientes/base?cliente=${o.customerId}`)}
-            >
-              Ver ficha del cliente 
-            </button>
-          </div>
-        </Modal>
-      )}
+      {o && (o.source === "local" || o.source === "wholesale" || !props.session) && <UnifiedOrderDetailModal order={o} props={props} showAmounts={showAmounts} onClose={() => setSelected(null)} />}
+      {o && o.source !== "local" && o.source !== "wholesale" && props.session && <div className="commerce-tools order-tools"><CommerceOrderDetails key={o.id} session={props.session} onNotice={props.notify} orderId={o.id} onCustomer={() => go(`/clientes/base?cliente=${o.customerId}`)} onClose={() => { setSelected(null); void props.refresh?.(); }} /></div>}
     </>
   );
 }
-export function Register(props: PageProps) {
-  const channels = allowedSalesChannels(props.s);
-  const [kind, setKind] = useState<"Local" | "Mayorista">(channels.includes("Local") ? "Local" : "Mayorista");
-  return <>{channels.includes("Local") && channels.includes("Mayorista") && <div className="tabs inner-tabs"><button className={kind === "Local" ? "active" : ""} onClick={() => setKind("Local")}>Venta local</button><button className={kind === "Mayorista" ? "active" : ""} onClick={() => setKind("Mayorista")}>Pedido mayorista</button></div>}{kind === "Local" ? <LocalSaleRegister {...props} /> : <WholesaleRegister {...props} />}</>;
+export function Register(props: PageProps & { kind: "minorista" | "mayorista" }) {
+  return props.kind === "minorista" ? <LocalSaleRegister {...props} /> : <WholesaleRegister {...props} />;
 }
 export function Customers({
   refresh, notify, commerce,
@@ -828,17 +731,113 @@ export function Customers({
   mode: string;
 }) {
   const [edit, setEdit] = useState<Customer | "new" | null>(null);
+  const requestedEditId = new URLSearchParams(location.search).get("editar");
+  const handledEditId = useRef<string | null>(null);
   const [newKind, setNewKind] = useState<"local" | "wholesale">("local");
   const [selected, setSelected] = useState<string | null>(
     new URLSearchParams(location.search).get("cliente"),
   );
+  const [historyView, setHistoryView] = useState<"products" | "orders">("products");
+  const [customerSort, setCustomerSort] = useState<"latestPurchase" | "name">("latestPurchase");
+  const [customerSortDirection, setCustomerSortDirection] = useState<"desc" | "asc">("desc");
+  const [channelFilter, setChannelFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [countryFilter, setCountryFilter] = useState("");
+  const [customerQuery, setCustomerQuery] = useState("");
   const customers = visibleCustomers(s);
+  useEffect(() => {
+    if (!requestedEditId || handledEditId.current === requestedEditId) return;
+    const customer = customers.find((entry) => entry.id === requestedEditId);
+    if (customer) { handledEditId.current = requestedEditId; setEdit(customer); }
+  }, [requestedEditId, customers]);
+  const availableCountries = useMemo(() => [...new Set(customers.map((customer) => countryDisplayName(customer.country || "")).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" })), [customers]);
   const orders = visibleOrders(s);
-  const customerChannels = (customer: Customer) => [...new Set([
-    ...orders.filter((order) => order.customerId === customer.id).map((order) => order.channel),
-    ...(customer.sourceChannels || []),
-  ])];
+  const ordersByCustomer = useMemo(() => {
+    const grouped = new Map<string, Order[]>();
+    for (const order of orders) grouped.set(order.customerId, [...(grouped.get(order.customerId) || []), order]);
+    return grouped;
+  }, [orders]);
+  const purchaseByCustomer = useMemo(() => new Map(customers.map((entry) => [entry.id, latestCustomerPurchase(entry, ordersByCustomer.get(entry.id) || [], s.products)])), [customers, ordersByCustomer, s.products]);
+  const customerTableSearchText = (entry: Customer) => `${customerSearchText(entry)} ${purchaseByCustomer.get(entry.id)?.category || ""}`;
+  const channelByCustomer = useMemo(() => new Map(customers.map((customer) => [
+    customer.id, customerDisplayChannel(customer, ordersByCustomer.get(customer.id) || []),
+  ])), [customers, ordersByCustomer]);
   const c = customers.find((c) => c.id === selected);
+  const customerMetrics = useMemo(() => new Map<string, ReturnType<typeof summarizeWholesaleCustomer>>(customers.map((entry) => {
+    if (entry.wholesaleName) return [entry.id, summarizeWholesaleCustomer(orders, entry.id)];
+    const customerOrders = ordersByCustomer.get(entry.id) || [];
+    return [entry.id, {
+      rows: [],
+      currentOrders: customerOrders.filter((order) => order.production !== "Terminado").length,
+      totalOrders: customerOrders.length,
+      totalUnits: customerOrders.reduce((sum, order) => sum + order.quantity, 0),
+      latestPurchase: purchaseByCustomer.get(entry.id)?.date || null,
+    }];
+  })), [customers, orders, ordersByCustomer, purchaseByCustomer]);
+  const sortedCustomers = useMemo(() => [...customers].sort((a, b) => {
+    const aDate = customerMetrics.get(a.id)?.latestPurchase || "";
+    const bDate = customerMetrics.get(b.id)?.latestPurchase || "";
+    if (customerSort === "latestPurchase" && !!aDate !== !!bDate) return aDate ? -1 : 1;
+    let comparison = customerSort === "latestPurchase"
+      ? aDate.localeCompare(bDate)
+      : a.name.localeCompare(b.name, "es", { sensitivity: "base" });
+    if (!comparison) comparison = a.name.localeCompare(b.name, "es", { sensitivity: "base" });
+    return customerSortDirection === "desc" ? -comparison : comparison;
+  }), [customerMetrics, customerSort, customerSortDirection, customers]);
+  const selectedFilterCustomers = useMemo(() => sortedCustomers.filter((entry) => {
+    if (channelFilter && channelByCustomer.get(entry.id) !== channelFilter) return false;
+    if (typeFilter && (entry.segment === "Mayorista" ? "Mayorista" : "Minorista") !== typeFilter) return false;
+    if (countryFilter && countryDisplayName(entry.country || "") !== countryFilter) return false;
+    return true;
+  }), [sortedCustomers, channelFilter, channelByCustomer, typeFilter, countryFilter]);
+  const filteredCustomers = useMemo(() => {
+    const normalizedQuery = customerQuery.trim().toLocaleLowerCase("es");
+    return normalizedQuery
+      ? selectedFilterCustomers.filter((entry) => customerTableSearchText(entry).toLocaleLowerCase("es").includes(normalizedQuery))
+      : selectedFilterCustomers;
+  }, [customerQuery, purchaseByCustomer, selectedFilterCustomers]);
+  const filteredCustomerIds = useMemo(() => new Set(filteredCustomers.map((entry) => entry.id)), [filteredCustomers]);
+  const filteredCustomerOrders = useMemo(() => orders.filter((order) => filteredCustomerIds.has(order.customerId)), [filteredCustomerIds, orders]);
+  const customerExportRows = useMemo(() => filteredCustomers.map((entry) => {
+    const phone = splitCustomerPhone(entry.phone, entry.country);
+    const latestPurchase = purchaseByCustomer.get(entry.id);
+    return {
+      Nombre: entry.name,
+      Empresa: entry.companyName || "",
+      Mail: entry.email || "",
+      Prefijo: phone.prefix || "",
+      Celular: phone.number || "",
+      "Otros celulares": (entry.agendaAdditionalPhones || []).join(" · "),
+      "Fecha de nacimiento": entry.birthDate && /^\d{4}-\d{2}-\d{2}$/.test(entry.birthDate) ? `${entry.birthDate.slice(8, 10)}/${entry.birthDate.slice(5, 7)}/${entry.birthDate.slice(0, 4)}` : "",
+      Ciudad: entry.city || "",
+      País: countryDisplayName(entry.country || countryForCity(entry.city)),
+      Origen: customerOriginLabel(channelByCustomer.get(entry.id) || ""),
+      Tipo: entry.segment === "Mayorista" ? "Mayorista" : "Minorista",
+      "Última compra": customerMetrics.get(entry.id)?.latestPurchase ? orderDate(customerMetrics.get(entry.id)?.latestPurchase || "") : "",
+      "Última categoría comprada": latestPurchase?.category || "",
+      "Total pedidos": customerMetrics.get(entry.id)?.totalOrders || 0,
+    };
+  }), [channelByCustomer, customerMetrics, filteredCustomers, purchaseByCustomer]);
+  const hasCustomerFilters = Boolean(channelFilter || typeFilter || countryFilter || customerQuery.trim());
+  const clearCustomerFilters = () => {
+    setChannelFilter("");
+    setTypeFilter("");
+    setCountryFilter("");
+    setCustomerQuery("");
+  };
+  const sortHeader = (label: string, field: typeof customerSort, ascending: string, descending: string) => (
+    <span className="customer-sort-heading">
+      <span>{label}</span>
+      <span className="customer-sort-arrows">
+        <button type="button" aria-label={ascending} title={ascending} aria-pressed={customerSort === field && customerSortDirection === "asc"} onClick={() => { setCustomerSort(field); setCustomerSortDirection("asc"); }}>↑</button>
+        <button type="button" aria-label={descending} title={descending} aria-pressed={customerSort === field && customerSortDirection === "desc"} onClick={() => { setCustomerSort(field); setCustomerSortDirection("desc"); }}>↓</button>
+      </span>
+    </span>
+  );
+  const channelHeader = <span className="customer-filter-heading"><select aria-label="Filtrar por canal de origen" value={channelFilter} onChange={(event) => setChannelFilter(event.target.value)}><option value="">Origen</option>{customerOriginOptions.map((channel) => <option key={channel} value={channel}>{customerOriginLabel(channel)}</option>)}</select><CaretDown size={12} aria-hidden="true" /></span>;
+  const typeHeader = <span className="customer-filter-heading"><select aria-label="Filtrar por tipo de cliente" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="">Tipo</option><option value="Minorista">Minorista</option><option value="Mayorista">Mayorista</option></select><CaretDown size={12} aria-hidden="true" /></span>;
+  const countryHeader = <span className="customer-filter-heading"><select aria-label="Filtrar por país" title={countryFilter || "Filtrar por país"} value={countryFilter} onChange={(event) => setCountryFilter(event.target.value)}><option value="">País</option>{availableCountries.map((country) => <option key={country} value={country}>{country}</option>)}</select><CaretDown size={12} aria-hidden="true" /></span>;
+  const selectedWholesaleHistory = c?.wholesaleName ? customerMetrics.get(c.id) : undefined;
   const userId = accessUserId(s);
   const fields: Field[] = [
     { key: "name", label: "Nombre" },
@@ -848,85 +847,72 @@ export function Customers({
     { key: "country", label: "País", options: countryOptions },
     {
       key: "segment",
-      label: "Segmento",
-      options: userId === "t3" ? ["Mayorista"] : userId === "t2" ? ["Minorista", "Empresas"] : ["Minorista", "Mayorista", "Empresas"],
+      label: "Tipo de cliente",
+      options: userId === "t3" ? ["Mayorista"] : userId === "t2" ? ["Minorista"] : ["Minorista", "Mayorista"],
     },
   ];
-  if (mode === "segmentos")
-    return (
-      <div className="three-grid">
-        {(userId === "t3" ? ["Mayorista"] : userId === "t2" ? ["Minorista", "Empresas"] : ["Minorista", "Mayorista", "Empresas"]).map((seg) => {
-          const clients = customers.filter((c) => c.segment === seg);
-          return (
-            <Card key={seg} title={seg}>
-              <div className="big-number">
-                {money(
-                  orders
-                    .filter((o) => isSale(o) && clients.some((c) => c.id === o.customerId))
-                    .reduce((a, o) => a + total(o), 0),
-                )}
-              </div>
-              
-              {clients.map((c) => (
-                <button
-                  key={c.id}
-                  className="list-link"
-                  onClick={() => go(`/clientes/base?cliente=${c.id}`)}
-                >
-                  {c.name}
-                  
-                </button>
-              ))}
-            </Card>
-          );
-        })}
-      </div>
-    );
   return (
     <>
       <Stats
         items={[
-          { label: "Clientes en esta vista", value: customers.length },
-          { label: "Con pedidos", value: new Set(orders.filter((order) => customers.some((entry) => entry.id === order.customerId)).map((order) => order.customerId)).size },
+          { label: "Clientes en esta vista", value: filteredCustomers.length },
+          { label: "Con pedidos", value: new Set(filteredCustomerOrders.map((order) => order.customerId)).size },
           {
             label: "Clientes con saldo",
             value: new Set(
-              orders
-                .filter((o) => balance(s, o) > 0 && customers.some((entry) => entry.id === o.customerId))
+              filteredCustomerOrders
+                .filter((o) => balance(s, o) > 0)
                 .map((o) => o.customerId),
             ).size,
           },
         ]}
       />
+      <div className="customers-mobile-filters">
+        {sortHeader("Cliente", "name", "Ordenar clientes de A a Z", "Ordenar clientes de Z a A")}
+        {sortHeader("Última compra", "latestPurchase", "Ordenar última compra de más antigua a más nueva", "Ordenar última compra de más nueva a más antigua")}
+        {countryHeader}
+        {channelHeader}
+        {typeHeader}
+      </div>
       <div className="customers-table"><Table
-        rows={customers}
-        searchText={(c) => `${c.name} ${c.email} ${c.phone} ${c.birthDate || ""} ${c.city} ${c.country || countryForCity(c.city)}`}
-        action={<div className="table-actions">{allowedSalesChannels(s).includes("Local") && <AddButton onClick={() => { setNewKind("local"); setEdit("new"); }}>Nuevo cliente</AddButton>}{allowedSalesChannels(s).includes("Mayorista") && <AddButton onClick={() => { setNewKind("wholesale"); setEdit("new"); }}>Nuevo mayorista</AddButton>}</div>}
+        rows={selectedFilterCustomers}
+        pageSize={75}
+        searchText={customerTableSearchText}
+        searchQuery={customerQuery}
+        onSearchQueryChange={setCustomerQuery}
+        action={<div className="table-actions customers-table-actions">
+          <button type="button" className="secondary customers-export-button" disabled={!filteredCustomers.length} onClick={() => void exportCustomersXlsx(customerExportRows).catch((error) => notify(error instanceof Error ? `No se pudo exportar: ${error.message}` : "No se pudo exportar el Excel."))}><FileXls size={19} aria-hidden="true" />Exportar Excel</button>
+          <button type="button" className="secondary customers-clear-filters" aria-label="Quitar filtros" title="Quitar filtros" disabled={!hasCustomerFilters} onClick={clearCustomerFilters}><FunnelX size={19} aria-hidden="true" /></button>
+          {userId !== "t3" && <AddButton onClick={() => { setNewKind("local"); setEdit("new"); }}>Nuevo cliente</AddButton>}{userId !== "t2" && <AddButton onClick={() => { setNewKind("wholesale"); setEdit("new"); }}>Nuevo mayorista</AddButton>}
+        </div>}
         columns={[
           {
             label: "Cliente",
+            header: sortHeader("Cliente", "name", "Ordenar clientes de A a Z", "Ordenar clientes de Z a A"),
             render: (c) => (
-              <button className="text-button" onClick={() => setSelected(c.id)}>
-                {c.name}
+              <button className="text-button" aria-label={`Ver ficha de ${c.name}`} onClick={() => { setHistoryView("products"); setSelected(c.id); }}>
+                {c.companyName && c.companyName.localeCompare(c.name, "es", { sensitivity: "base" }) === 0 ? "—" : c.name}
                 
               </button>
             ),
           },
+          { label: "Empresa", render: (c) => c.companyName ? <span title={c.companyName}>{c.companyName}</span> : "—" },
           { label: "Mail", render: (c) => c.email ? <a href={`mailto:${c.email}`} className="customer-contact-link">{c.email}</a> : "—" },
-          { label: "Celular", render: (c) => c.phone ? <a href={`tel:${c.phone.replace(/[^\d+]/g, "")}`} className="customer-contact-link">{c.phone}</a> : "—" },
+          { label: "Prefijo", render: (c) => splitCustomerPhone(c.phone, c.country).prefix || "—" },
+          { label: "Celular", render: (c) => c.phone ? <a href={`tel:${c.phone.replace(/[^\d+]/g, "")}`} className="customer-contact-link">{splitCustomerPhone(c.phone, c.country).number}</a> : "—" },
           { label: "Fecha de nacimiento", render: (c) => c.birthDate && /^\d{4}-\d{2}-\d{2}$/.test(c.birthDate) ? `${c.birthDate.slice(8, 10)}/${c.birthDate.slice(5, 7)}/${c.birthDate.slice(0, 4)}` : "—" },
           { label: "Ciudad", render: (c) => c.city || "—" },
-          { label: "País", render: (c) => c.country ? <LocationLabel place={c.country} /> : "—" },
-          { label: "Canal", render: (c) => customerChannels(c).length ? <div className="customer-channels">{customerChannels(c).map((channel) => <Badge key={channel}>{channel}</Badge>)}</div> : "—" },
-          {
-            label: "Pedidos",
-            render: (c) => orders.filter((o) => o.customerId === c.id).length,
-          },
+          { label: "País", header: countryHeader, render: (c) => c.country ? <LocationLabel place={c.country} /> : "—" },
+          { label: "Origen", header: channelHeader, render: (c) => { const channel = channelByCustomer.get(c.id); return channel ? <Badge>{customerOriginLabel(channel)}</Badge> : "—"; } },
+          { label: "Tipo", header: typeHeader, render: (c) => c.segment === "Mayorista" ? "Mayorista" : "Minorista" },
+          { label: "Última compra", header: sortHeader("Última compra", "latestPurchase", "Ordenar última compra de más antigua a más nueva", "Ordenar última compra de más nueva a más antigua"), render: (c) => orderDate(customerMetrics.get(c.id)?.latestPurchase || "") },
+          { label: "Última categoría comprada", render: (c) => purchaseByCustomer.get(c.id)?.category || "—" },
+          { label: "Total pedidos", render: (c) => customerMetrics.get(c.id)?.totalOrders || 0 },
           ... ([{
             label: "Acciones",
             render: (c: Customer) => (
-              <button className="secondary compact" onClick={() => setEdit(c)}>
-                Editar
+              <button type="button" className="secondary customer-edit-button" aria-label={`Editar ${c.name}`} title={`Editar ${c.name}`} onClick={() => setEdit(c)}>
+                <PencilSimple size={18} aria-hidden="true" />
               </button>
             ),
           }]),
@@ -937,7 +923,7 @@ export function Customers({
           title={edit === "new" ? "Nuevo cliente" : "Editar cliente"}
           onClose={() => setEdit(null)}
         >
-          {(edit === "new" && newKind === "wholesale") || (edit !== "new" && !!edit.wholesaleName) ? <WholesaleCustomerEditor customer={edit === "new" ? undefined : edit} onSaved={() => { setEdit(null); setSelected(null); notify(edit === "new" ? "Cliente mayorista creado" : "Cliente mayorista actualizado"); void refresh?.(); }} /> : s.source === "commerce" && edit !== "new" && edit.raffleEntryId && edit.id === `sorteo:${edit.raffleEntryId}` ? <RuralRaffleCustomerEditor customer={edit} onSaved={() => { setEdit(null); setSelected(null); notify("Participante actualizado"); void refresh?.(); }} /> : s.source === "commerce" && (edit === "new" || edit.localCustomerId) ? <LocalCustomerEditor customer={edit === "new" ? undefined : edit} onSaved={() => { setEdit(null); setSelected(null); notify(edit === "new" ? "Cliente creado" : "Cliente actualizado"); void refresh?.(); }} /> : s.source === "commerce" && edit !== "new" ? <CustomerContactEditor customer={edit} orderIds={orders.filter(order => order.customerId === edit.id && order.source !== "local").map(order => order.id)} onSaved={() => { setEdit(null); setSelected(null); notify("Contacto actualizado"); void refresh?.(); }} /> : <Form
+          {(edit === "new" && newKind === "wholesale") || (edit !== "new" && !!edit.wholesaleName) ? <WholesaleCustomerEditor customer={edit === "new" ? undefined : edit} onSaved={() => { setEdit(null); setSelected(null); notify(edit === "new" ? "Cliente mayorista creado" : "Cliente mayorista actualizado"); void refresh?.(); }} onDeleted={() => { setEdit(null); setSelected(null); notify("Cliente mayorista eliminado"); void refresh?.(true); }} /> : s.source === "commerce" && edit !== "new" && edit.raffleEntryId && edit.id === `sorteo:${edit.raffleEntryId}` ? <RuralRaffleCustomerEditor customer={edit} orderCount={orders.filter(order => order.customerId === edit.id).length} onSaved={() => { setEdit(null); setSelected(null); notify("Participante actualizado"); void refresh?.(); }} onDeleted={() => { setEdit(null); setSelected(null); notify("Participante eliminado"); void refresh?.(true); }} /> : s.source === "commerce" && (edit === "new" || edit.localCustomerId) ? <LocalCustomerEditor customer={edit === "new" ? undefined : edit} orderCount={edit === "new" ? 0 : orders.filter(order => order.customerId === edit.id).length} webOrderIds={edit === "new" ? [] : orders.filter(order => order.customerId === edit.id && order.source !== "local" && order.source !== "wholesale").map(order => order.id)} onSaved={() => { setEdit(null); setSelected(null); notify(edit === "new" ? "Cliente creado" : "Cliente actualizado"); void refresh?.(); }} onDeleted={() => { setEdit(null); setSelected(null); notify("Cliente eliminado"); void refresh?.(true); }} /> : s.source === "commerce" && edit !== "new" ? <CustomerContactEditor customer={edit} orderIds={orders.filter(order => order.customerId === edit.id && order.source !== "local").map(order => order.id)} onSaved={() => { setEdit(null); setSelected(null); notify("Contacto actualizado"); void refresh?.(); }} onDeleted={() => { setEdit(null); setSelected(null); notify("Contacto eliminado"); void refresh?.(true); }} /> : <Form
             fields={fields}
             initial={edit === "new" ? { country: "Uruguay", segment: userId === "t3" ? "Mayorista" : "Minorista" } : { ...edit, country: edit.country || countryForCity(edit.city) }}
             onSave={(v) => {
@@ -961,6 +947,7 @@ export function Customers({
       {c && (
         <Modal title={c.name} onClose={() => setSelected(null)}>
           {c.localCustomerId && <div className="customer-local-facts">
+            {!!c.agendaAdditionalPhones?.length && <div className="wide"><small>Otros celulares</small><strong>{c.agendaAdditionalPhones.join(" · ")}</strong></div>}
             {c.firstPurchaseDate && <div><small>Primera compra en el local</small><strong>{c.firstPurchaseDate}</strong></div>}
             {c.lastPurchaseDate && <div><small>Última compra en el local</small><strong>{c.lastPurchaseDate}</strong></div>}
             {c.notes && <div className="wide"><small>Notas</small><div>{c.notes}</div></div>}
@@ -986,12 +973,22 @@ export function Customers({
               },
             ]}
           />
-          <OrderTable
+          {c.wholesaleName && selectedWholesaleHistory && <div className="tabs inner-tabs customer-history-tabs" role="tablist" aria-label="Vista del histórico mayorista"><button role="tab" aria-selected={historyView === "products"} className={historyView === "products" ? "active" : ""} onClick={() => setHistoryView("products")}>Por tipo de mate</button><button role="tab" aria-selected={historyView === "orders"} className={historyView === "orders" ? "active" : ""} onClick={() => setHistoryView("orders")}>Por pedido</button></div>}
+          {c.wholesaleName && selectedWholesaleHistory && historyView === "products" ? <Table
+            title="Histórico por tipo de mate"
+            rows={selectedWholesaleHistory.rows}
+            searchText={(row) => row.model}
+            columns={[
+              { label: "Tipo de mate", render: (row) => row.model },
+              { label: "Pedidos", render: (row) => row.orders },
+              { label: "Unidades", render: (row) => row.units },
+            ]}
+          /> : <OrderTable
             s={s}
             orders={orders.filter((o) => o.customerId === c.id)}
             go={go}
             title="Historial compartido"
-          />
+          />}
           {c.wholesaleName && commerce?.wholesale && <div className="form-actions"><button className="secondary" onClick={() => void exportWholesalePdf(`Historial · ${c.name}`, commerce.wholesale!.lines.filter((line) => line.customer === c.wholesaleName), commerce.wholesale!)}>PDF historial</button><button className="secondary" onClick={() => void exportWholesalePdf(`Pendientes · ${c.name}`, commerce.wholesale!.lines.filter((line) => line.customer === c.wholesaleName && line.status !== "Completado"), commerce.wholesale!)}>PDF pendientes</button></div>}
         </Modal>
       )}

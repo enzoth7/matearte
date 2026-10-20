@@ -1,19 +1,23 @@
-import { seed, type State, type Product, type Customer, type Order, type OrderLine, type SalesChannel } from "./data";
+import { seed, type State, type Product, type Customer, type Order, type OrderLine, type SalesChannel, type CustomerSourceChannel } from "./data";
 import { commerceCustomerName, visibleInCommerceAdmin, type CommerceOrder, type CommerceProduct, type CommerceReference } from "./commerceSource";
 import { imageForVariant } from "./catalogImages";
 import type { LocalCustomer, LocalSale } from "./localSource";
 import type { WholesaleSnapshot } from "./wholesaleSource";
+import { formatContactName } from "../../shared/contactName";
+import { countryDisplayName } from "./location";
 
 export type CommercePayment = { id: string; order_id: string; provider: string; status: string; amount_minor: number; currency: string; approved_at: string | null; created_at: string };
 export type NationalRate = { id: string; name: string; rate_minor: number; is_pickup: boolean; active: boolean; departments: string[] };
 export type LocalCustomerBirth = { source_user_id: string | null; email: string | null; birth_date: string | null };
-export type WebCustomerProfile = { user_id: string; birth_date: string | null; city: string | null; country_code: string | null };
-export type RuralRaffleEntry = { id: string; full_name: string | null; email: string; phone: string; city: string | null; country: string | null; birth_date: string | null; product_interest: string; created_at: string };
+export type WebCustomerProfile = { user_id: string; birth_date: string | null; city: string | null; country_code: string | null; company?: string | null; address_line1?: string | null; department?: string | null; postal_code?: string | null };
+export type RuralRaffleEntry = { id: string; full_name: string | null; company_name?: string | null; address?: string | null; notes?: string | null; email: string; phone: string; city: string | null; country: string | null; department?: string | null; postal_code?: string | null; additional_phones?: string[]; inferred_category?: string | null; birth_date: string | null; product_interest: string; origin_channel?: CustomerSourceChannel; customer_type?: "Minorista" | "Mayorista"; created_at: string };
+export type WebLead = { source_kind: "account" | "newsletter"; source_id: string; full_name: string | null; email: string; phone: string | null; city: string | null; country_code: string | null; birth_date: string | null; company: string | null; origin_channel: CustomerSourceChannel; customer_type: "Minorista" | "Mayorista"; created_at: string; address?: string | null; department?: string | null; postal_code?: string | null; notes?: string | null; additional_phones?: string[]; inferred_category?: string | null; product_interest?: string | null };
 export type CommerceSnapshot = {
   products: CommerceProduct[]; orders: CommerceOrder[]; payments: CommercePayment[];
   reference: CommerceReference; nationalRates: NationalRate[]; customerBirthdays?: LocalCustomerBirth[]; customerProfiles?: WebCustomerProfile[];
   localCustomers?: LocalCustomer[]; localSales?: LocalSale[];
   ruralRaffleEntries?: RuralRaffleEntry[];
+  webLeads?: WebLead[];
   wholesale?: WholesaleSnapshot;
 };
 const text = (source: Record<string, unknown> | undefined, ...keys: string[]) => {
@@ -36,7 +40,7 @@ const ruralInterestLabel: Record<string, string> = {
   bombillas: "Bombillas",
   materas: "Materas",
   termos: "Termos",
-  personalizados: "Productos personalizados",
+  personalizados: "Personalizados",
   botas: "Botas",
   carteras: "Carteras",
   "otros-articulos-cuero": "Otros artículos en cuero",
@@ -48,27 +52,33 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
   const birthByEmail = new Map(snapshot.customerBirthdays?.filter((row) => row.email && row.birth_date).map((row) => [row.email!.trim().toLowerCase(), row.birth_date!]) || []);
   const webProfiles = new Map(snapshot.customerProfiles?.map((profile) => [profile.user_id, profile]) || []);
   const products: Product[] = snapshot.products.flatMap((product) => {
-    const category = snapshot.reference.categories.find((entry) => entry.code === product.category)?.label_es ?? product.category;
+    const categoryCode = product.category_code || product.category;
+    const category = snapshot.reference.categories.find((entry) => entry.code === categoryCode)?.label_es ?? categoryCode;
+    const wholesaleCategory = (snapshot.reference.settings.wholesale_discount_categories || ["mates"]).includes(categoryCode.toLowerCase());
     // Un producto sin variantes sigue existiendo en el catálogo, sin precio inventado.
     const variants = product.commerce_variants.length ? product.commerce_variants : [null];
     return variants.map((variant) => {
       const cover = imageForVariant(product.commerce_product_images, variant);
       return ({
       id: variant?.id ?? product.id, sourceProductId: product.id,
+      weightGrams: Number(variant?.weight_grams) > 0 ? Number(variant?.weight_grams) : Number(product.peso) || 0,
       name: product.name, sku: variant?.sku ?? "", variant: variant?.name ?? "Sin variantes",
-      family: category, rim: text(variant?.option_values, "virola", "rim"), leather: text(variant?.option_values, "cuero", "leather"),
+      options: variant ? { ...(variant.option_values || {}), ...(variant.color && !variant.option_values?.color ? { color: variant.color } : {}) } : undefined,
+      categoryCode, family: category, personalizationType: product.attributes?.["tipo-personalizado"] === "matera" ? "matera" : product.attributes?.["tipo-personalizado"] === "mate" ? "mate" : undefined, rim: variant?.rim_type || text(variant?.option_values, "virola", "rim"), leather: variant?.leather_type || text(variant?.option_values, "cuero", "leather"),
       imageUrl: cover ? imageUrl(cover.storage_path) : undefined,
       imageCrop: cover ? { x: Number(cover.option_values?.cover_x) || 0, y: Number(cover.option_values?.cover_y) || 0, zoom: Number(cover.option_values?.cover_zoom) || 1 } : undefined,
       cost: 0, stock: 0, min: 0,
+      priceArg: variant?.wholesale_price_arg == null ? undefined : Number(variant.wholesale_price_arg),
       prices: {
         Local: variant ? Number(variant.base_price_minor) / 100 : 0,
         Web: variant ? Number(variant.price_minor) / 100 : 0,
-        Mayorista: variant && product.category.toLowerCase() === "mates" && snapshot.reference.settings.wholesale_mate_discount_enabled
-          ? Math.round(Number(variant.price_minor) * (1 - Number(snapshot.reference.settings.wholesale_mate_discount_percent) / 100)) / 100
+        Mayorista: variant?.legacy_product_id ? Number(variant.base_price_minor) / 100
+          : variant && wholesaleCategory && snapshot.reference.settings.wholesale_mate_discount_enabled
+          ? Math.round(Number(variant.base_price_minor) * (1 - Number(snapshot.reference.settings.wholesale_mate_discount_percent) / 100)) / 100
           : 0,
       },
-      availableChannels: variant ? ["Local", "Web", ...(product.category.toLowerCase() === "mates" && snapshot.reference.settings.wholesale_mate_discount_enabled ? ["Mayorista" as const] : [])] : [],
-      wholesaleThreshold: variant && product.category.toLowerCase() === "mates" && snapshot.reference.settings.wholesale_mate_discount_enabled
+      availableChannels: variant ? [...(variant.available_local === false ? [] : ["Local" as const]), ...(variant.available_web === false ? [] : ["Web" as const]), ...(variant.available_wholesale === true ? ["Mayorista" as const] : [])] : [],
+      wholesaleThreshold: variant && categoryCode.toLowerCase() === "mates" && snapshot.reference.settings.wholesale_mate_discount_enabled
         ? snapshot.reference.settings.wholesale_mate_quantity_threshold : undefined,
       active: variant?.active ?? false, published: product.published,
       });
@@ -88,25 +98,39 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
     const wholesale = contact.purchaseFlow === "wholesale_bank_transfer";
     const previous = customers.get(customerId);
     if (!previous) customers.set(customerId, {
-      id: customerId, name: commerceCustomerName(contact), email,
+      id: customerId, name: formatContactName(commerceCustomerName(contact)), email,
       phone: text(contact, "phone", "telephone", "celular", "whatsapp"),
       birthDate,
-      city: text(destination, "city") || webProfile?.city || "",
-      country: countryName(text(destination, "country", "countryCode", "country_code") || webProfile?.country_code || (!international ? "UY" : "")),
+      companyName: webProfile?.company || text(contact, "company") || undefined,
+      address: webProfile?.address_line1 || text(contact, "address") || undefined,
+      department: webProfile?.department || text(contact, "department") || undefined,
+      postalCode: webProfile?.postal_code || text(contact, "postalCode") || undefined,
+      notes: text(contact, "notes") || undefined,
+      agendaAdditionalPhones: Array.isArray(contact.additionalPhones) ? contact.additionalPhones.filter((phone): phone is string => typeof phone === "string") : [],
+      agendaInferredCategory: text(contact, "inferredCategory") || undefined,
+      raffleProductInterest: text(contact, "productInterest") || undefined,
+      city: webProfile?.city || text(contact, "city") || text(destination, "city"),
+      country: countryName(webProfile?.country_code || text(contact, "country", "countryCode", "country_code") || text(destination, "country", "countryCode", "country_code") || (!international ? "UY" : "")),
       segment: wholesale ? "Mayorista" : "Minorista",
+      originChannel: "Web", createdAt: source.created_at,
     });
     else { if (wholesale) previous.segment = "Mayorista"; if (!previous.birthDate && birthDate) previous.birthDate = birthDate; }
     const items: OrderLine[] = source.order_items.map((item) => {
       const catalog = products.find((product) => product.id === item.source_variant_id);
       const historical = object(item.immutable_snapshot);
       const variant = object(historical.variant);
+      const historicalProduct = object(historical.product);
+      const selectedOptions = object(historical.selectedOptions ?? historical.optionValues ?? historical.option_values_override);
+      const options = { ...(text(variant, "color") ? { color: text(variant, "color") } : {}), ...object(variant.option_values), ...selectedOptions };
       return {
         id: item.id, productId: item.source_variant_id ?? item.id, title: item.title,
+        productName: catalog?.name || text(historicalProduct, "name"), options: Object.keys(options).length ? options : catalog?.options,
+        weightGrams: Number(historicalProduct.peso) > 0 ? Number(historicalProduct.peso) : catalog?.weightGrams,
         sku: item.sku || text(variant, "sku"), quantity: item.quantity,
         unitPrice: Number(item.unit_price_minor) / 100, amount: Number(item.total_minor) / 100,
         family: catalog?.family || text(object(historical.product), "category") || "Sin categoría",
         variant: catalog?.variant || text(variant, "name"), rim: catalog?.rim || "Sin especificar", leather: catalog?.leather || "Sin especificar",
-        productionStatus: item.production_status || "", reviewStatus: item.review_status,
+        productionStatus: item.production_status || "", reviewStatus: item.review_status, orderType: item.item_type,
       };
     });
     const production = items.length > 0 && items.every((item) => item.productionStatus === "completed") ? "Terminado"
@@ -116,7 +140,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       customerId, productId: items[0]?.productId ?? source.id, quantity: items.reduce((sum, item) => sum + item.quantity, 0), unitPrice: 0,
       items, totalAmount: Number(source.total_minor) / 100, shippingAmount: Number(source.shipping_minor) / 100,
       discountAmount: Number(source.discount_minor) / 100, feeAmount: Number(source.payment_fee_minor) / 100,
-      channel: wholesale ? "Mayorista" : "Web", date: commerceDate(source.created_at), due: "",
+      channel: "Web", date: commerceDate(source.created_at), due: "",
       production, delivery: source.status === "shipped" ? "Enviado" : "Pendiente", method: source.shipping_method === "pickup" ? "Retiro" : "Envío",
       design: source.order_items.some((item) => item.requires_review),
       approved: source.order_items.filter((item) => item.requires_review).every((item) => item.review_status === "approved"),
@@ -124,59 +148,147 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
     };
   });
   const orderIds = new Set(orders.map((order) => order.id));
+  for (const lead of snapshot.webLeads || []) {
+    const email = lead.email.trim().toLowerCase();
+    const profile = lead.source_kind === "account" ? webProfiles.get(lead.source_id) : undefined;
+    const existing = customers.get(lead.source_kind === "account" ? lead.source_id : `email:${email}`)
+      || [...customers.values()].find((customer) => customer.email.trim().toLowerCase() === email);
+    if (existing) {
+      if (lead.source_kind === "account" || !existing.webLeadKind) {
+        existing.webLeadKind = lead.source_kind;
+        existing.webLeadId = lead.source_id;
+      }
+      if (!existing.createdAt || lead.created_at < existing.createdAt) {
+        existing.originChannel = lead.origin_channel;
+        existing.createdAt = lead.created_at;
+      }
+      if (lead.origin_channel === "Suscripción con desc." && existing.originChannel === "Web") {
+        existing.originChannel = lead.origin_channel;
+      }
+      existing.name ||= formatContactName(lead.full_name || "") || email;
+      existing.phone ||= lead.phone || "";
+      existing.city ||= lead.city || "";
+      existing.country ||= countryName(lead.country_code || "");
+      existing.birthDate ||= lead.birth_date || "";
+      existing.companyName ||= lead.company || undefined;
+      existing.address ||= profile?.address_line1 || lead.address || undefined;
+      existing.department ||= profile?.department || lead.department || undefined;
+      existing.postalCode ||= profile?.postal_code || lead.postal_code || undefined;
+      existing.notes ||= lead.notes || undefined;
+      if (!existing.agendaAdditionalPhones?.length) existing.agendaAdditionalPhones = lead.additional_phones || [];
+      existing.agendaInferredCategory ||= lead.inferred_category || undefined;
+      existing.raffleProductInterest ||= lead.product_interest || undefined;
+      if (lead.customer_type === "Mayorista") existing.segment = "Mayorista";
+    } else customers.set(lead.source_kind === "account" ? lead.source_id : `email:${email}`, {
+      id: lead.source_kind === "account" ? lead.source_id : `email:${email}`,
+      name: formatContactName(lead.full_name || "") || email, email, phone: lead.phone || "",
+      city: lead.city || "", country: countryName(lead.country_code || ""),
+      birthDate: lead.birth_date || "", companyName: lead.company || undefined,
+      address: profile?.address_line1 || lead.address || undefined, department: profile?.department || lead.department || undefined,
+      postalCode: profile?.postal_code || lead.postal_code || undefined,
+      notes: lead.notes || undefined, agendaAdditionalPhones: lead.additional_phones || [],
+      agendaInferredCategory: lead.inferred_category || undefined,
+      raffleProductInterest: lead.product_interest || undefined,
+      segment: lead.customer_type, originChannel: lead.origin_channel, createdAt: lead.created_at,
+      webLeadKind: lead.source_kind, webLeadId: lead.source_id,
+    });
+  }
   const localCustomerIds = new Map<string, string>();
+  const customerByEmail = new Map([...customers.values()].filter((customer) => customer.email).map((customer) => [customer.email.trim().toLowerCase(), customer]));
   for (const source of snapshot.localCustomers || []) {
     const email = source.email?.trim() || "";
     const emailKey = email ? `email:${email.toLowerCase()}` : "";
-    const existing = (source.source_user_id && customers.get(source.source_user_id)) || (emailKey && customers.get(emailKey)) ||
-      [...customers.values()].find((customer) => email && customer.email.toLowerCase() === email.toLowerCase());
-    const canonicalId = existing?.id || source.source_user_id || emailKey || `local:${source.id}`;
+    const existing = (source.linked_customer_id && customers.get(source.linked_customer_id)) || (source.source_user_id && customers.get(source.source_user_id)) || (emailKey && customers.get(emailKey)) ||
+      (email ? customerByEmail.get(email.toLowerCase()) : undefined);
+    const canonicalId = existing?.id || source.linked_customer_id || source.source_user_id || emailKey || `local:${source.id}`;
     localCustomerIds.set(source.id, canonicalId);
     if (existing) {
+      const linkedCopy = !!source.linked_customer_id;
+      if (linkedCopy || source.origin_channel === "Agenda" || (!existing.createdAt || (source.created_at && source.created_at < existing.createdAt))) {
+        existing.originChannel = source.origin_channel || (source.agenda_import_key ? "Agenda" : "Local");
+        existing.createdAt = source.created_at || existing.createdAt;
+      }
       existing.localCustomerId = source.id;
-      existing.name = source.full_name || existing.name;
-      existing.email = email || existing.email;
-      existing.phone = source.phone || existing.phone;
-      existing.city = source.city || existing.city;
-      existing.country = source.country || existing.country;
-      existing.birthDate = source.birth_date || existing.birthDate;
+      if (!linkedCopy) existing.name = source.full_name ? formatContactName(source.full_name) : existing.name;
+      if (!linkedCopy || !existing.companyName) existing.companyName = source.company_name || undefined;
+      existing.address = linkedCopy ? existing.address || source.address || undefined : source.address || existing.address;
+      existing.email = linkedCopy ? existing.email || email : email || existing.email;
+      if (existing.email) customerByEmail.set(existing.email.trim().toLowerCase(), existing);
+      existing.phone = linkedCopy ? existing.phone || source.phone || "" : source.phone || existing.phone;
+      existing.city = linkedCopy ? existing.city || source.city || "" : source.city || existing.city;
+      existing.country = linkedCopy ? existing.country || countryDisplayName(source.country || "") : source.country ? countryDisplayName(source.country) : existing.country;
+      existing.birthDate = linkedCopy ? existing.birthDate || source.birth_date || "" : source.birth_date || existing.birthDate;
       existing.firstPurchaseDate = source.first_purchase_date || "";
       existing.lastPurchaseDate = source.last_purchase_date || "";
       existing.notes = source.notes || "";
-    } else customers.set(canonicalId, {
-      id: canonicalId, localCustomerId: source.id, name: source.full_name, email,
-      phone: source.phone || "", birthDate: source.birth_date || "",
-      firstPurchaseDate: source.first_purchase_date || "", lastPurchaseDate: source.last_purchase_date || "",
-      notes: source.notes || "", city: source.city || "", country: source.country || "", segment: "Minorista",
-    });
+      existing.department = source.department || existing.department;
+      existing.postalCode = source.postal_code || existing.postalCode;
+      existing.raffleProductInterest = source.product_interest || existing.raffleProductInterest;
+      existing.agendaInferredCategory = source.agenda_inferred_category || undefined;
+      existing.agendaAdditionalPhones = source.agenda_additional_phones || [];
+      if (source.agenda_import_key) existing.sourceChannels = [...new Set([...(existing.sourceChannels || []), "Agenda" as const])];
+      if (linkedCopy && source.customer_type) existing.segment = source.customer_type;
+      else if (source.customer_type === "Mayorista") existing.segment = "Mayorista";
+    } else {
+      const contact: Customer = {
+        id: canonicalId, localCustomerId: source.id, name: formatContactName(source.full_name), companyName: source.company_name || undefined, email,
+        phone: source.phone || "", birthDate: source.birth_date || "", address: source.address || undefined,
+        firstPurchaseDate: source.first_purchase_date || "", lastPurchaseDate: source.last_purchase_date || "",
+        notes: source.notes || "", city: source.city || "", country: countryDisplayName(source.country || ""),
+        department: source.department || undefined, postalCode: source.postal_code || undefined,
+        raffleProductInterest: source.product_interest || undefined,
+        agendaInferredCategory: source.agenda_inferred_category || undefined,
+        agendaAdditionalPhones: source.agenda_additional_phones || [],
+        sourceChannels: source.agenda_import_key ? ["Agenda"] : [],
+        originChannel: source.origin_channel || (source.agenda_import_key ? "Agenda" : "Local"),
+        createdAt: source.created_at, segment: source.customer_type || "Minorista",
+      };
+      customers.set(canonicalId, contact);
+      if (email) customerByEmail.set(email.toLowerCase(), contact);
+    }
   }
   for (const source of snapshot.ruralRaffleEntries || []) {
     const email = source.email.trim().toLowerCase();
-    const existing = [...customers.values()].find((customer) => customer.email.trim().toLowerCase() === email);
+    const existing = customers.get(`sorteo:${source.id}`) || (email ? customerByEmail.get(email) : undefined);
     if (existing) {
       existing.raffleEntryId = source.id;
+      existing.raffleProductInterest = source.product_interest;
+      existing.companyName ||= source.company_name || undefined;
+      existing.address ||= source.address || undefined;
       existing.phone ||= source.phone;
       existing.city ||= source.city || "";
-      existing.country ||= source.country || "";
+      existing.country ||= countryDisplayName(source.country || "");
       existing.birthDate ||= source.birth_date || "";
-      existing.sourceChannels = [...new Set<SalesChannel>([...(existing.sourceChannels || []), "Sorteo"])];
+      existing.department ||= source.department || undefined;
+      existing.postalCode ||= source.postal_code || undefined;
+      existing.agendaAdditionalPhones ||= source.additional_phones || [];
+      existing.agendaInferredCategory ||= source.inferred_category || undefined;
+      existing.sourceChannels = [...new Set<CustomerSourceChannel>([...(existing.sourceChannels || []), "Sorteo"])];
+      if (!existing.createdAt || source.created_at < existing.createdAt) { existing.originChannel = "Sorteo"; existing.createdAt = source.created_at; }
       if (!existing.notes) existing.notes = `Interés del sorteo: ${ruralInterestLabel[source.product_interest] || source.product_interest}`;
       continue;
     }
-    customers.set(`sorteo:${source.id}`, {
+    const contact: Customer = {
       id: `sorteo:${source.id}`,
       raffleEntryId: source.id,
       raffleProductInterest: source.product_interest,
-      name: source.full_name || "Participante del sorteo",
+      companyName: source.company_name || undefined,
+      address: source.address || undefined,
+      name: formatContactName(source.full_name || "Participante del sorteo"),
       email,
       phone: source.phone,
       birthDate: source.birth_date || "",
       city: source.city || "",
-      country: source.country || "",
-      segment: "Minorista",
-      notes: `Interés del sorteo: ${ruralInterestLabel[source.product_interest] || source.product_interest}`,
+      country: countryDisplayName(source.country || ""),
+      department: source.department || undefined, postalCode: source.postal_code || undefined,
+      agendaAdditionalPhones: source.additional_phones || [], agendaInferredCategory: source.inferred_category || undefined,
+      segment: source.customer_type || "Minorista",
+      notes: source.notes || `Interés del sorteo: ${ruralInterestLabel[source.product_interest] || source.product_interest}`,
       sourceChannels: ["Sorteo"],
-    });
+      originChannel: source.origin_channel || "Sorteo", createdAt: source.created_at,
+    };
+    customers.set(contact.id, contact);
+    if (email) customerByEmail.set(email, contact);
   }
   const localOrders: Order[] = (snapshot.localSales || []).map((source) => {
     if (source.currency !== "UYU") throw new Error(`La venta local #${source.sale_number} requiere conversión de ${source.currency}.`);
@@ -184,10 +296,12 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       const catalog = products.find((product) => product.id === item.variant_id);
       return {
         id: item.id, productId: item.variant_id || item.id, title: item.product_name,
+        productName: item.product_name, options: catalog?.options, personalization: item.customization || undefined,
+        weightGrams: catalog?.weightGrams,
         sku: item.sku, quantity: item.quantity, unitPrice: Number(item.unit_price_minor) / 100,
         amount: Number(item.line_total_minor) / 100, family: catalog?.family || "",
         variant: item.variant_name, rim: catalog?.rim || "", leather: catalog?.leather || "",
-        productionStatus: "", reviewStatus: null,
+        productionStatus: "", reviewStatus: null, orderType: item.customization ? "local_design" : undefined,
       };
     });
     const charged = Number(source.total_minor) / 100;
@@ -199,7 +313,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       quantity: items.reduce((sum, item) => sum + item.quantity, 0), unitPrice: 0,
       items, totalAmount: source.payment_method === "Seña" ? Math.max(charged, itemsAmount) : charged,
       localItemsAmount: itemsAmount, paymentMethod: source.payment_method,
-      channel: source.channel && ["Instagram", "Facebook", "WhatsApp"].includes(source.channel) ? source.channel : "Local", date: source.sold_on, due: "", production: "No aplica", delivery: "No aplica", method: "No aplica",
+      channel: source.channel && ["Feria", "Instagram", "Facebook", "WhatsApp"].includes(source.channel) ? source.channel : "Local", date: source.sold_on, due: "", production: "No aplica", delivery: "No aplica", method: "No aplica",
       design: false, approved: true,
     };
   });
@@ -214,7 +328,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
     }))),
     records: {
       monedas: snapshot.reference.exchangeRates.map((rate) => ({ id: rate.currency_code, moneda: rate.currency_code, valor: Number(rate.rate_to_uyu) })),
-      "comercial/descuentos": snapshot.reference.discounts.map((discount) => ({ id: discount.id, codigo: discount.code, tipo: discount.discount_type === "percentage" ? "Porcentaje" : "Monto UYU", valor: discount.discount_type === "percentage" ? Number(discount.value) : Number(discount.value) / 100, desde: discount.valid_from, fecha: discount.valid_until, estado: discount.enabled ? "Activo" : "Pausado" })),
+      "marketing/descuentos": snapshot.reference.discounts.map((discount) => ({ id: discount.id, codigo: discount.code, tipo: discount.discount_type === "percentage" ? "Porcentaje" : "Monto UYU", valor: discount.discount_type === "percentage" ? Number(discount.value) : Number(discount.value) / 100, desde: discount.valid_from, fecha: discount.valid_until, estado: discount.enabled ? "Activo" : "Pausado" })),
       "productos/categorias": snapshot.reference.categories.map((category) => ({ id: category.code, nombre: category.label_es, atributos: "", variantes: "", estado: category.active ? "Activa" : "Inactiva" })),
       "administracion/canales": [
         { id: "commerce_enabled", nombre: "Comercio web", tipo: "Canal", detalle: "", estado: snapshot.reference.settings.commerce_enabled ? "Habilitado" : "Deshabilitado" },

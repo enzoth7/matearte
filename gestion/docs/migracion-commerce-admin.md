@@ -22,7 +22,7 @@ Los dos paneles consultan y actualizan las mismas tablas y los mismos archivos d
 | Comprobantes | Detalle del pedido | Abrir imagen/PDF con acceso firmado, renovar enlace, aprobar transferencia o rechazar con motivo y confirmación usando el servicio existente |
 | Revisión de diseño | Detalle del pedido | Aprobar; rechazo y devolución mediante el endpoint original, con motivo; no implementa un proveedor de pagos nuevo |
 | Personalizados | Producción → Personalizaciones y archivos | Ficha por pedido, virola y fleje, vistas previas, originales privados, descarga con enlace firmado, contacto y control manual de estado como en el origen |
-| Descuentos | Comercial → Descuentos y promociones | Crear/editar, generar código, porcentaje o monto fijo, fechas, habilitar/deshabilitar |
+| Descuentos | Marketing → Descuentos y promociones | Crear/editar, generar código, porcentaje o monto fijo, fechas, habilitar/deshabilitar |
 | Cotizaciones | Finanzas → Monedas y cotizaciones | Editar USD/BRL con validación; no inventa cotización si falta una fila |
 | Tarifario internacional | Entregas → Tarifas y simulador | Editar por peso/zona, guardar, descartar, copiar tabla y simular; no restablece tarifas inventadas si la base falla |
 | Ajuste de precios / mayoristas | Productos → Precios → Ajustes y mayoristas | Ajuste sobre precio base; cantidad mínima, descuento y activación mayorista |

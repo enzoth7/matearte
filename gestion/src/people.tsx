@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { CountryFlag, LocationLabel } from "./location";
+import { commerceSource } from "./commerceSource";
 import type { PageProps } from "./pages";
 import { areas } from "./navigation";
 import { accessUserIds, canAccess, defaultAccess, lockedForRichard, setAreaAccess, setPageAccess, type AccessUserId } from "./access";
@@ -299,10 +300,167 @@ export function People({
   );
 }
 export function Permissions({ s, update }: PageProps) {
+  const [tab, setTab] = useState<"users" | "permissions">("users");
+  return (
+    <div className="access-page">
+      <div className="tabs inner-tabs access-tabs" role="tablist" aria-label="Administración de usuarios">
+        <button role="tab" aria-selected={tab === "users"} className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}>Usuarios</button>
+        <button role="tab" aria-selected={tab === "permissions"} className={tab === "permissions" ? "active" : ""} onClick={() => setTab("permissions")}>Permisos</button>
+      </div>
+      {tab === "users" ? <AccessUsers s={s} /> : <AccessPermissions s={s} update={update} />}
+    </div>
+  );
+}
+
+type ManagedAccessUser = {
+  accessUserId: AccessUserId;
+  username: string;
+  configured: boolean;
+  allowedPaths?: string[] | null;
+};
+
+function AccessUsers({ s }: Pick<PageProps, "s">) {
+  const [selectedId, setSelectedId] = useState<AccessUserId>("t1");
+  const [users, setUsers] = useState<ManagedAccessUser[]>([]);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [status, setStatus] = useState<"loading" | "ready" | "saving">("loading");
+  const [message, setMessage] = useState("");
+  const people = accessUserIds.map((userId) => s.employees.find((employee) => employee.id === userId)!).filter(Boolean);
+  const selected = people.find((person) => person.id === selectedId)!;
+  const configured = users.find((user) => user.accessUserId === selectedId)?.configured ?? false;
+  const marketingPages = areas.find((area) => area.id === "marketing")?.pages ?? [];
+  const marketingAccess = users.find((user) => user.accessUserId === "t5")?.allowedPaths ?? s.access?.t5 ?? defaultAccess().t5;
+  const enabledMarketingPages = marketingPages.filter(([slug]) => marketingAccess.includes(`/marketing/${slug}`));
+
+  useEffect(() => {
+    let cancelled = false;
+    void commerceSource?.functions.invoke("gestion-users", { body: { action: "list" } }).then(({ data, error }) => {
+      if (cancelled) return;
+      if (error || !Array.isArray(data?.users)) {
+        setMessage("No se pudieron cargar los usuarios de ingreso.");
+      } else {
+        setUsers(data.users);
+      }
+      setStatus("ready");
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const user = users.find((entry) => entry.accessUserId === selectedId);
+    setUsername(user?.username ?? "");
+    setPassword("");
+    setConfirmation("");
+  }, [selectedId, users]);
+
+  async function saveUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const cleanUsername = username.trim().toLowerCase();
+    if (!/^[a-z0-9._-]{3,64}$/.test(cleanUsername)) {
+      setMessage("El usuario debe tener entre 3 y 64 caracteres y usar solo letras, números, punto, guión o guion bajo.");
+      return;
+    }
+    if ((!configured || password) && password.length < 8) {
+      setMessage("La contraseña debe tener al menos 8 caracteres.");
+      return;
+    }
+    if (password !== confirmation) {
+      setMessage("Las contraseñas no coinciden.");
+      return;
+    }
+    setStatus("saving"); setMessage("");
+    const { data, error } = await commerceSource!.functions.invoke("gestion-users", {
+      body: { action: "save", accessUserId: selectedId, displayName: selected.name, username: cleanUsername, password: password || undefined },
+    });
+    if (error || !data?.user) {
+      setMessage(data?.error || "No se pudo guardar el usuario de ingreso.");
+    } else {
+      setUsers((current) => [...current.filter((entry) => entry.accessUserId !== selectedId), data.user]);
+      setMessage("Usuario de ingreso guardado.");
+      setPassword(""); setConfirmation("");
+    }
+    setStatus("ready");
+  }
+
+  return (
+    <div className="access-layout access-users-layout">
+      <nav className="access-people" aria-label="Usuarios de ingreso">
+        {people.map((person) => {
+          const isConfigured = users.some((entry) => entry.accessUserId === person.id && entry.configured);
+          return <button key={person.id} className={selectedId === person.id ? "selected" : ""} aria-current={selectedId === person.id ? "true" : undefined} onClick={() => { setSelectedId(person.id as AccessUserId); setMessage(""); }}>
+            <strong>{person.name}</strong>
+            <small>{person.id === "t5" ? "Marketing · " : ""}{isConfigured ? "Usuario configurado" : "Pendiente de configurar"}</small>
+          </button>;
+        })}
+      </nav>
+      <section className="access-main access-user-card" aria-labelledby="access-user-title">
+        <div className="access-heading">
+          <div><h2 id="access-user-title">{selected.name}</h2><p>{selectedId === "t5" ? "Usuario del área Marketing. Sus pantallas se configuran en Permisos." : "Datos que usará para ingresar a Gestión."}</p></div>
+          <span className={`access-user-status ${configured ? "configured" : "pending"}`}>{configured ? "Configurado" : "Sin configurar"}</span>
+        </div>
+        {status === "loading" ? <div role="status">Cargando usuario…</div> : (
+          <form className="access-user-form" onSubmit={(event) => void saveUser(event)}>
+            <label>Usuario de ingreso<input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required /></label>
+            <label>{configured ? "Nueva contraseña" : "Contraseña"}<input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="new-password" required={!configured} minLength={8} /></label>
+            <label>Confirmar contraseña<input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} type="password" autoComplete="new-password" required={!configured || Boolean(password)} minLength={8} /></label>
+            {configured && <small className="access-user-help">Dejá la contraseña vacía si querés conservar la actual.</small>}
+            {message && <div className={message.endsWith("guardado.") ? "success" : "error"} role="status">{message}</div>}
+            <button className="primary" type="submit" disabled={status === "saving"}>{status === "saving" ? "Guardando…" : "Guardar usuario"}</button>
+          </form>
+        )}
+        {selectedId === "t5" && status !== "loading" && <div className="access-user-scope">
+          <strong>Acceso a Marketing</strong>
+          <p>{enabledMarketingPages.length ? enabledMarketingPages.map(([, label]) => label).join(" · ") : "No tiene pantallas habilitadas."}</p>
+        </div>}
+      </section>
+    </div>
+  );
+}
+
+function AccessPermissions({ s, update }: Pick<PageProps, "s" | "update">) {
   const [selectedId, setSelectedId] = useState<AccessUserId>("t2");
+  const [status, setStatus] = useState<"loading" | "ready" | "saving">("loading");
+  const [message, setMessage] = useState("");
   const people = accessUserIds.map((userId) => s.employees.find((employee) => employee.id === userId)!);
   const selected = s.employees.find((employee) => employee.id === selectedId)!;
   const selectedAccess = selectedId === "t1" ? null : new Set(s.access?.[selectedId] ?? defaultAccess()[selectedId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void commerceSource?.functions.invoke("gestion-users", { body: { action: "list" } }).then(({ data, error }) => {
+      if (cancelled) return;
+      if (error || !Array.isArray(data?.users)) {
+        setMessage("No se pudieron cargar los permisos guardados.");
+      } else {
+        const persisted = Object.fromEntries(data.users
+          .filter((user: ManagedAccessUser) => user.accessUserId !== "t1" && Array.isArray(user.allowedPaths))
+          .map((user: ManagedAccessUser) => [user.accessUserId, user.allowedPaths]));
+        update((current) => ({ ...current, access: { ...current.access, ...persisted } }), "");
+      }
+      setStatus("ready");
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  async function savePermissions(next: ReturnType<typeof setPageAccess>, userId: Exclude<AccessUserId, "t1">) {
+    const previousPaths = s.access?.[userId] ?? defaultAccess()[userId];
+    const allowedPaths = next.access?.[userId] ?? [];
+    update(() => next, "Guardando acceso…");
+    setStatus("saving"); setMessage("");
+    const { data, error } = await commerceSource!.functions.invoke("gestion-users", {
+      body: { action: "savePermissions", accessUserId: userId, allowedPaths },
+    });
+    if (error || !Array.isArray(data?.allowedPaths)) {
+      update((current) => ({ ...current, access: { ...current.access, [userId]: previousPaths } }), "No se pudo guardar el acceso");
+      setMessage(data?.error || "No se pudieron guardar los permisos.");
+    } else {
+      update((current) => ({ ...current, access: { ...current.access, [userId]: data.allowedPaths } }), "Permisos guardados");
+      setMessage("Permisos guardados en la base de datos.");
+    }
+    setStatus("ready");
+  }
   return (
     <div className="access-layout">
       <nav className="access-people" aria-label="Usuarios con acceso">
@@ -323,9 +481,11 @@ export function Permissions({ s, update }: PageProps) {
           <h2>{selected.name}</h2>
           <div>{selectedId === "t1" ? "Acceso completo a todas las secciones" : "Secciones visibles para este usuario"}</div>
         </div>
+        {status === "loading" && <div role="status">Cargando permisos…</div>}
+        {message && <div className={message.startsWith("Permisos guardados") ? "success" : "error"} role="status">{message}</div>}
         <div className="access-areas">
-          {areas.map((area) => {
-            const eligible = area.pages.filter(([slug]) => selectedId === "t1" || !lockedForRichard(`/${area.id}/${slug}`));
+          {areas.filter((area) => selectedId !== "t5" || area.id === "marketing").map((area) => {
+            const eligible = area.pages.filter(([slug]) => selectedId === "t1" || (!lockedForRichard(`/${area.id}/${slug}`) && (selectedId !== "t5" || area.id === "marketing")));
             const granted = eligible.filter(([slug]) => selectedId === "t1" || selectedAccess?.has(`/${area.id}/${slug}`));
             const allGranted = eligible.length > 0 && granted.length === eligible.length;
             return (
@@ -335,10 +495,10 @@ export function Permissions({ s, update }: PageProps) {
                     type="checkbox"
                     aria-label={`Mostrar toda el área ${area.name} a ${selected.name}`}
                     checked={allGranted}
-                    disabled={selectedId === "t1" || eligible.length === 0}
-                    onChange={(event) => update(
-                      (current) => setAreaAccess(current, selectedId as "t2" | "t3", area.id, event.target.checked),
-                      "Acceso actualizado",
+                    disabled={selectedId === "t1" || eligible.length === 0 || status !== "ready"}
+                    onChange={(event) => void savePermissions(
+                      setAreaAccess(s, selectedId as Exclude<AccessUserId, "t1">, area.id, event.target.checked),
+                      selectedId as Exclude<AccessUserId, "t1">,
                     )}
                   />
                   <strong>{area.name}</strong>
@@ -347,17 +507,17 @@ export function Permissions({ s, update }: PageProps) {
                 <div className="access-pages">
                   {area.pages.map(([slug, title]) => {
                     const path = `/${area.id}/${slug}`;
-                    const locked = selectedId !== "t1" && lockedForRichard(path);
+                    const locked = selectedId !== "t1" && (lockedForRichard(path) || (selectedId === "t5" && area.id !== "marketing"));
                     return (
                       <label key={path} className={locked ? "access-locked" : ""}>
                         <input
                           type="checkbox"
                           aria-label={`Mostrar ${title} a ${selected.name}`}
                           checked={selectedId === "t1" || (!locked && canAccess({ ...s, user: selected.name, activeUserId: selectedId }, path))}
-                          disabled={selectedId === "t1" || locked}
-                          onChange={(event) => update(
-                            (current) => setPageAccess(current, selectedId as "t2" | "t3", path, event.target.checked),
-                            "Acceso actualizado",
+                          disabled={selectedId === "t1" || locked || status !== "ready"}
+                          onChange={(event) => void savePermissions(
+                            setPageAccess(s, selectedId as Exclude<AccessUserId, "t1">, path, event.target.checked),
+                            selectedId as Exclude<AccessUserId, "t1">,
                           )}
                         />
                         <div>{title}</div>

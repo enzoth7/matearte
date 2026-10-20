@@ -41,7 +41,7 @@ export function seedFixture(): State {
     ["Martín Acosta", "Maldonado", "Minorista", "Uruguay"],
     ["Sur Concept Store", "Madrid", "Mayorista", "España"],
     ["Ana Rodríguez", "Colonia", "Minorista", "Uruguay"],
-    ["Estancia La Clara", "Rocha", "Empresas", "Uruguay"],
+    ["Estancia La Clara", "Rocha", "Minorista", "Uruguay"],
   ].map((v, i) => ({
     id: `c${i + 1}`,
     name: v[0],
@@ -53,14 +53,15 @@ export function seedFixture(): State {
   }));
   const orders: Order[] = Array.from({ length: 12 }, (_, i) => ({
     id: `MA-${1041 + i}`,
-    customerId: `c${(i % 6) + 1}`,
+    customerId: i % 3 === 1 ? "c2" : `c${(i % 6) + 1}`,
+    source: i % 3 === 1 ? "wholesale" : undefined,
     productId: `p${(i % 6) + 1}`,
     quantity: i % 3 === 1 ? 12 : i % 3 === 2 ? 2 : 1,
     unitPrice:
       products[i % 6].prices[
         i % 3 === 1 ? "Mayorista" : i % 3 === 2 ? "Local" : "Web"
       ],
-    channel: i % 3 === 1 ? "Mayorista" : i % 3 === 2 ? "Local" : "Web",
+    channel: i % 3 === 1 ? "WhatsApp" : i % 3 === 2 ? "Local" : "Web",
     date: `2026-10-${String(i + 1).padStart(2, "0")}`,
     due: `2026-10-${14 + (i % 7)}`,
     production: i < 4 ? "Terminado" : i < 8 ? "En producción" : "Pendiente",
@@ -78,7 +79,8 @@ export function seedFixture(): State {
       productId: "p1",
       quantity,
       unitPrice: products[0].prices.Mayorista,
-      channel: "Mayorista",
+      source: "wholesale",
+      channel: "WhatsApp",
       date: `${month}-15`,
       due: `${month}-20`,
       production: "Terminado",

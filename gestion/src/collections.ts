@@ -47,7 +47,7 @@ export const collections: Record<string, Collection> = {
     ],
     ["Nueva", "En conversación", "Convertida"],
   ),
-  "comercial/descuentos": make(
+  "marketing/descuentos": make(
     "Condiciones comerciales y promociones.",
     "Crear descuento",
     [

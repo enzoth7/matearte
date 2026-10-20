@@ -17,9 +17,16 @@ const countries = flagCountries
 
 const codes = new Map<string, string>();
 countries.forEach((country) => {
+  codes.set(country.code, country.code);
   codes.set(normalize(country.name), country.code);
   codes.set(normalize(country.englishName), country.code);
 });
+const namesByCode = new Map(countries.map((country) => [country.code, country.name]));
+
+export function countryDisplayName(value: string) {
+  const trimmed = value.trim();
+  return /^[a-z]{2}$/i.test(trimmed) ? namesByCode.get(trimmed.toLowerCase()) || trimmed : trimmed;
+}
 
 const cityCountries: Record<string, string> = {
   montevideo: "Uruguay",
@@ -52,11 +59,11 @@ export function CountryFlag({ place, country }: { place: string; country?: strin
 }
 
 export function LocationLabel({ place, country }: { place: string; country?: string }) {
-  return <div className="location-label"><CountryFlag place={place} country={country} />{place}</div>;
+  return <div className="location-label"><CountryFlag place={place} country={country} />{countryDisplayName(place)}</div>;
 }
 
 export function CountrySelect({ name, initial }: { name: string; initial: string }) {
-  const [country, setCountry] = useState(initial);
+  const [country, setCountry] = useState(() => countryDisplayName(initial));
   return (
     <div className="country-select">
       <CountryFlag place={country} />

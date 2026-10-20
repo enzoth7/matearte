@@ -1,8 +1,9 @@
 import { wholesaleLineValue } from "./wholesaleAdapter";
 import type { WholesaleLine, WholesaleSnapshot } from "./wholesaleSource";
 
+export type WholesaleCurrency = "UYU" | "ARS";
 const normalized = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("es");
-const rowsFor = (lines: WholesaleLine[], snapshot: WholesaleSnapshot) => lines.map((line) => {
+const rowsFor = (lines: WholesaleLine[], snapshot: WholesaleSnapshot, currency?: WholesaleCurrency) => lines.map((line): Record<string, string | number> => {
   const product = snapshot.products.find((item) => normalized(item.model) === normalized(line.model) && normalized(item.variant) === normalized(line.variant));
   const value = wholesaleLineValue(line, product, snapshot.exchangeRate);
   return {
@@ -15,9 +16,7 @@ const rowsFor = (lines: WholesaleLine[], snapshot: WholesaleSnapshot) => lines.m
     Cantidad: Number(line.quantity),
     Estado: line.status,
     Tipo: line.order_type === "no_cost" ? "Sin costo" : "Normal",
-    "Unitario ARS": value.unitArg,
-    "Total ARS": value.arg,
-    "Total UYU": value.uyu,
+    ...(currency ? { [`Unitario ${currency}`]: currency === "ARS" ? value.unitArg : value.unitUyu, [`Total ${currency}`]: currency === "ARS" ? value.arg : value.uyu } : { "Unitario ARS": value.unitArg, "Total ARS": value.arg, "Total UYU": value.uyu }),
     Creado: line.created_at?.slice(0, 10) || "",
     Completado: line.completed_at?.slice(0, 10) || "",
   };
@@ -29,16 +28,16 @@ function download(blob: Blob, name: string) {
   anchor.href = url; anchor.download = name; document.body.append(anchor); anchor.click(); anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-export function exportWholesaleCsv(lines: WholesaleLine[], snapshot: WholesaleSnapshot) {
-  const rows = rowsFor(lines, snapshot);
+export function exportWholesaleCsv(lines: WholesaleLine[], snapshot: WholesaleSnapshot, currency?: WholesaleCurrency) {
+  const rows = rowsFor(lines, snapshot, currency);
   const headings = Object.keys(rows[0] || {});
   const escape = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
   const content = [headings.join(","), ...rows.map((row) => headings.map((key) => escape(row[key as keyof typeof row])).join(","))].join("\r\n");
   download(new Blob([`\uFEFF${content}`], { type: "text/csv;charset=utf-8" }), filename("mayorista", "csv"));
 }
-export async function exportWholesaleXlsx(lines: WholesaleLine[], snapshot: WholesaleSnapshot) {
+export async function exportWholesaleXlsx(lines: WholesaleLine[], snapshot: WholesaleSnapshot, currency?: WholesaleCurrency) {
   const { default: writeXlsxFile } = await import("write-excel-file/browser");
-  const rows = rowsFor(lines, snapshot);
+  const rows = rowsFor(lines, snapshot, currency);
   const headings = Object.keys(rows[0] || {});
   const data = [
     headings.map((value) => ({ value, fontWeight: "bold" as const, textColor: "#ffffff", backgroundColor: "#263a2c" })),
@@ -50,10 +49,11 @@ export async function exportWholesaleXlsx(lines: WholesaleLine[], snapshot: Whol
   const blob = await writeXlsxFile(data, { sheet: "Producción", stickyRowsCount: 1, columns: headings.map((key) => ({ width: Math.max(15, key.length + 4) })) }).toBlob();
   download(blob, filename("produccion-mayorista", "xlsx"));
 }
-export async function exportWholesalePdf(title: string, lines: WholesaleLine[], snapshot: WholesaleSnapshot) {
+export async function exportWholesalePdf(title: string, lines: WholesaleLine[], snapshot: WholesaleSnapshot, currency?: WholesaleCurrency) {
   const [{ jsPDF }, { default: autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
   const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-  const rows = rowsFor(lines, snapshot);
+  const rows = rowsFor(lines, snapshot, currency);
+  const currencies: WholesaleCurrency[] = currency ? [currency] : ["ARS", "UYU"];
   pdf.setFillColor(38, 58, 44); pdf.rect(0, 0, 297, 28, "F");
   pdf.setTextColor(255, 255, 255); pdf.setFontSize(17); pdf.text("MateArte", 14, 12);
   pdf.setFontSize(11); pdf.text(title, 14, 21);
@@ -61,8 +61,8 @@ export async function exportWholesalePdf(title: string, lines: WholesaleLine[], 
   pdf.text(`Generado: ${new Date().toLocaleDateString("es-UY")}  |  ${lines.length} líneas`, 14, 35);
   autoTable(pdf, {
     startY: 40,
-    head: [["Pedido", "Cliente", "Modelo", "Variante", "Cant.", "Estado", "ARS", "UYU"]],
-    body: rows.map((row) => [row.Pedido, row.Cliente, row.Modelo, row.Variante, row.Cantidad, row.Estado, row["Total ARS"].toLocaleString("es-UY"), row["Total UYU"].toLocaleString("es-UY")]),
+    head: [["Pedido", "Cliente", "Modelo", "Variante", "Cant.", "Estado", ...currencies]],
+    body: rows.map((row) => [row.Pedido, row.Cliente, row.Modelo, row.Variante, row.Cantidad, row.Estado, ...currencies.map((code) => Number(row[`Total ${code}`]).toLocaleString("es-UY"))]),
     styles: { fontSize: 8, cellPadding: 2.3, overflow: "linebreak" },
     headStyles: { fillColor: [38, 58, 44] },
     columnStyles: { 0: { cellWidth: 33 }, 1: { cellWidth: 43 }, 2: { cellWidth: 38 }, 3: { cellWidth: 38 }, 4: { halign: "right", cellWidth: 18 }, 6: { halign: "right", cellWidth: 27 }, 7: { halign: "right", cellWidth: 27 } },
