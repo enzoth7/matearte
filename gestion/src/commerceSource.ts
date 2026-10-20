@@ -17,6 +17,13 @@ export type CommerceVariant = {
   price_minor: number;
   base_price_minor: number;
   active: boolean;
+  available_local?: boolean;
+  available_web?: boolean;
+  available_wholesale?: boolean;
+  wholesale_price_arg?: number | null;
+  legacy_product_id?: string | null;
+  rim_type?: string;
+  leather_type?: string;
   weight_grams: number | null;
   color?: string | null;
   option_values?: Record<string, unknown>;
@@ -34,6 +41,7 @@ export type CommerceProduct = {
   name: string;
   editorial_slug: string;
   category: string;
+  category_code?: string | null;
   published: boolean;
   sale_mode: string;
   peso: number;
@@ -108,6 +116,7 @@ export type CommerceSettings = {
   wholesale_mate_discount_enabled: boolean;
   wholesale_mate_quantity_threshold: number;
   wholesale_mate_discount_percent: number;
+  wholesale_discount_categories: string[];
 };
 export type CommerceReference = {
   discounts: CommerceDiscount[];
@@ -142,9 +151,15 @@ export function commercePesos(amount: number): string {
 
 export async function readCommerceProducts(client: SupabaseClient, page: number) {
   const start = page * commercePageSize;
-  const { data, count, error } = await client.from("commerce_products")
-    .select("id,name,editorial_slug,category,published,sale_mode,peso,updated_at,attributes,commerce_variants(id,sku,name,price_minor,base_price_minor,active,weight_grams,color,option_values),commerce_product_images(id,storage_path,alt_text,sort_order,variant_id,option_values)", { count: "exact" })
+  let result: { data: unknown[] | null; count: number | null; error: { code?: string; message: string } | null } = await client.from("commerce_products")
+    .select("id,name,editorial_slug,category,category_code,published,sale_mode,peso,updated_at,attributes,commerce_variants(id,sku,name,price_minor,base_price_minor,active,available_local,available_web,available_wholesale,wholesale_price_arg,legacy_product_id,rim_type,leather_type,weight_grams,color,option_values),commerce_product_images(id,storage_path,alt_text,sort_order,variant_id,option_values)", { count: "exact" })
     .order("name").order("id").range(start, start + commercePageSize - 1);
+  if (result.error?.code === "42703" && /available_wholesale|wholesale_price_arg|legacy_product_id/i.test(result.error.message)) {
+    result = await client.from("commerce_products")
+      .select("id,name,editorial_slug,category,category_code,published,sale_mode,peso,updated_at,attributes,commerce_variants(id,sku,name,price_minor,base_price_minor,active,available_local,available_web,rim_type,leather_type,weight_grams,color,option_values),commerce_product_images(id,storage_path,alt_text,sort_order,variant_id,option_values)", { count: "exact" })
+      .order("name").order("id").range(start, start + commercePageSize - 1);
+  }
+  const { data, count, error } = result;
   if (error) throw error;
   return { rows: (data || []) as CommerceProduct[], count: count ?? 0 };
 }
@@ -164,7 +179,7 @@ export async function readCommerceReference(client: SupabaseClient): Promise<Com
     client.from("commerce_international_shipping_rates").select("row_order,weight_label,weight_min_g,weight_max_g,argentina,suramerica,estados_unidos,resto_america,espana,resto_europa,resto_mundo").order("row_order"),
     client.from("commerce_exchange_rates").select("currency_code,rate_to_uyu,updated_at").order("currency_code"),
     client.from("commerce_categories").select("code,label_es,active").order("sort_order"),
-    client.from("commerce_settings").select("commerce_enabled,mercado_pago_enabled,paypal_enabled,catalog_price_adjustment_enabled,catalog_price_adjustment_percent,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent").eq("singleton", true).single(),
+    client.from("commerce_settings").select("commerce_enabled,mercado_pago_enabled,paypal_enabled,catalog_price_adjustment_enabled,catalog_price_adjustment_percent,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories").eq("singleton", true).single(),
   ]);
   for (const result of [discounts, shippingRates, exchangeRates, categories, settings]) {
     if (result.error) throw result.error;

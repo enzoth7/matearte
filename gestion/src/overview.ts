@@ -9,6 +9,22 @@ export const overviewPeriods = [
 ] as const;
 
 export type OverviewPeriod = (typeof overviewPeriods)[number][0];
+export type CustomerTypeSale = { type: "Minorista" | "Mayorista"; total: number; orders: number };
+
+export function salesByCustomerType(state: Pick<State, "customers">, orders: Order[]): CustomerTypeSale[] {
+  const wholesaleCustomerIds = new Set(
+    state.customers.filter(customer => customer.segment === "Mayorista").map(customer => customer.id),
+  );
+  const isWholesale = (order: Order) => order.source === "wholesale" || wholesaleCustomerIds.has(order.customerId);
+  return (["Minorista", "Mayorista"] as const).map(type => {
+    const matching = orders.filter(order => isWholesale(order) === (type === "Mayorista"));
+    return {
+      type,
+      total: matching.reduce((sum, order) => sum + total(order), 0),
+      orders: matching.length,
+    };
+  });
+}
 
 export function montevideoToday() {
   const parts = new Intl.DateTimeFormat("en-US", {

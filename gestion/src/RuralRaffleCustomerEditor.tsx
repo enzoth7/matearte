@@ -1,17 +1,9 @@
 import { useState, type FormEvent } from "react";
 import type { Customer } from "./data";
 import { commerceSource } from "./commerceSource";
-
-const productOptions = [
-  ["mates", "Mates"],
-  ["bombillas", "Bombillas"],
-  ["materas", "Materas"],
-  ["termos", "Termos"],
-  ["personalizados", "Productos personalizados"],
-  ["botas", "Botas"],
-  ["carteras", "Carteras"],
-  ["otros-articulos-cuero", "Otros artículos en cuero"],
-] as const;
+import { Trash } from "@phosphor-icons/react";
+import { deleteUnlinkedCustomer } from "./deleteCustomer";
+import { CustomerFormFields, readCustomerForm, customerInterestOptions } from "./CustomerFormFields";
 
 function normalizePhone(value: string) {
   const digits = value.replace(/\D/g, "");
@@ -22,53 +14,39 @@ function normalizePhone(value: string) {
   return null;
 }
 
-export function RuralRaffleCustomerEditor({ customer, onSaved }: { customer: Customer; onSaved: () => void }) {
+export function RuralRaffleCustomerEditor({ customer, onSaved, onDeleted, orderCount = 0 }: { customer: Customer; onSaved: () => void; onDeleted: () => void; orderCount?: number }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-
+  async function remove() {
+    if (busy) return;
+    setBusy(true); setError("");
+    try { if (await deleteUnlinkedCustomer(customer, orderCount)) onDeleted(); }
+    catch (failure) { setError(failure instanceof Error ? failure.message : "No se pudo eliminar el contacto."); }
+    finally { setBusy(false); }
+  }
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!commerceSource || !customer.raffleEntryId) return;
-
-    const form = new FormData(event.currentTarget);
-    const fullName = String(form.get("name") || "").trim().replace(/\s+/g, " ");
-    const email = String(form.get("email") || "").trim().toLowerCase();
-    const phone = normalizePhone(String(form.get("phone") || ""));
-    const city = String(form.get("city") || "").trim().replace(/\s+/g, " ");
-    const country = String(form.get("country") || "").trim().replace(/\s+/g, " ");
-    const birthDate = String(form.get("birthDate") || "");
-    const productInterest = String(form.get("productInterest") || "");
-    if (fullName.length < 2 || !phone || !city || !country || !birthDate || !productOptions.some(([value]) => value === productInterest)) {
-      setError("Completá nombre, celular, ciudad, país, cumpleaños y producto de interés.");
-      return;
-    }
-
-    setBusy(true);
-    setError("");
+    const form = readCustomerForm(event.currentTarget);
+    const fullName = form.name.trim().replace(/\s+/g, " ");
+    const email = form.email.trim().toLowerCase();
+    const phone = normalizePhone(form.phone);
+    if (fullName.length < 2 || !phone || !customerInterestOptions.includes(form.productInterest)) { setError("Completá nombre, celular y producto de interés."); return; }
+    setBusy(true); setError("");
     const { error: saveError } = await commerceSource.from("rural_raffle_entries")
-      .update({ full_name: fullName, email, phone, city, country, birth_date: birthDate, product_interest: productInterest })
+      .update({ full_name: fullName, company_name: form.company || null, address: form.address || null, notes: form.notes || null,
+        email, phone, city: form.city || null, country: form.country || null, department: form.department || null,
+        postal_code: form.postalCode || null, birth_date: form.birthDate || null, product_interest: form.productInterest,
+        additional_phones: form.additionalPhones, inferred_category: form.inferredCategory || null,
+        origin_channel: form.originChannel, customer_type: form.customerType })
       .eq("id", customer.raffleEntryId).select("id").single();
     setBusy(false);
-    if (saveError) {
-      setError(saveError.code === "23505" ? "Ya existe una inscripción con ese correo." : "No se pudieron guardar los cambios.");
-      return;
-    }
+    if (saveError) { setError(saveError.code === "23505" ? "Ya existe una inscripción con ese correo." : saveError.message); return; }
     onSaved();
   }
-
   return <form onSubmit={(event) => void save(event)}>
-    <div className="form-grid">
-      <label>Nombre y apellido<input name="name" required minLength={2} maxLength={120} autoComplete="name" defaultValue={customer.name === "Participante del sorteo" ? "" : customer.name} /></label>
-      <label>Mail<input name="email" type="email" required maxLength={320} autoComplete="email" defaultValue={customer.email} /></label>
-      <label>Celular<input name="phone" type="tel" required autoComplete="tel" defaultValue={customer.phone} /></label>
-      <label>Ciudad<input name="city" required maxLength={120} autoComplete="address-level2" defaultValue={customer.city} /></label>
-      <label>País<input name="country" required maxLength={120} autoComplete="country-name" defaultValue={customer.country} /></label>
-      <label>Fecha de cumpleaños<input name="birthDate" type="date" required min="1900-01-01" defaultValue={customer.birthDate || ""} /></label>
-      <label className="wide">Producto de interés<select name="productInterest" required defaultValue={customer.raffleProductInterest || ""}>
-        {productOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-      </select></label>
-    </div>
+    <CustomerFormFields customer={{ ...customer, name: customer.name === "Participante del sorteo" ? "" : customer.name }} defaultOrigin="Sorteo" emailRequired phoneRequired nameRequired />
     {error && <div className="error" role="alert">{error}</div>}
-    <div className="form-actions"><button className="primary" disabled={busy}>{busy ? "Guardando…" : "Guardar cambios"}</button></div>
+    <div className="wholesale-customer-actions"><button className="wholesale-customer-delete" type="button" aria-label={`Eliminar ${customer.name}`} title={`Eliminar ${customer.name}`} disabled={busy} onClick={() => void remove()}><Trash size={20} aria-hidden="true" /></button><button className="primary" disabled={busy}>{busy ? "Procesando…" : "Guardar cambios"}</button></div>
   </form>;
 }

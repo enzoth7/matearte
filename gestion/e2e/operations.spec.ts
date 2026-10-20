@@ -37,7 +37,7 @@ test('el catálogo se reacomoda en dos paneles y conserva cambios sin guardar', 
 
 test('materiales múltiples, cierre de ficha y nueva variante alineada', async ({page}) => {
   const {fixture,tables} = await mockCommerce(page,{writable:true});
-  fixture.products[0].attributes = {acabado:'valor anterior'};
+  fixture.products[0].attributes = {acabado:'valor anterior','material-mate':'calabaza','tipo-virola':'acero','tipo-cuero':'liso',posamate:'sin-posamate'};
   tables.commerce_attribute_definitions = defaultCatalogTaxonomy.attributes;
   tables.commerce_attribute_options = defaultCatalogTaxonomy.options;
   tables.commerce_category_attributes = defaultCatalogTaxonomy.rules;
@@ -63,6 +63,10 @@ test('materiales múltiples, cierre de ficha y nueva variante alineada', async (
   await expect(page.locator('.catalog-split-view')).toHaveCount(0);
   await page.getByRole('button',{name:'Nuevo producto'}).click();
   await page.getByRole('textbox',{name:'Nombre del producto'}).fill('Mate de dos materiales');
+  await page.locator('.new-product-panel').getByRole('combobox',{name:'Material del mate'}).selectOption('calabaza');
+  await page.locator('.new-product-panel').getByRole('combobox',{name:'Tipo de virola'}).selectOption('acero');
+  await page.locator('.new-product-panel').getByRole('combobox',{name:'Tipo de cuero'}).selectOption('liso');
+  await page.locator('.new-product-panel').getByRole('combobox',{name:'Posamate'}).selectOption('sin-posamate');
   const newMaterials = page.locator('.new-product-panel').getByRole('group',{name:'Materiales'});
   await newMaterials.getByRole('checkbox',{name:'Cuero'}).check();
   await newMaterials.getByRole('checkbox',{name:'Plata'}).check();
@@ -97,7 +101,7 @@ test('editar producto y precio persiste en las pantallas existentes', async ({pa
   await form.getByRole('button',{name:'Guardar cambios',exact:true}).click();
   await expect.poll(()=>fixture.products[0].name).toBe('Mate actualizado');
   const row = page.locator('.variants-section tbody tr').first();
-  await row.getByRole('button',{name:'Editar',exact:true}).click();
+  await expect(row.getByRole('button',{name:'Guardar',exact:true})).toBeVisible();
   await row.getByLabel('Precio',{exact:true}).fill('1750.25');
   await row.getByRole('button',{name:'Guardar',exact:true}).click();
   await expect.poll(()=>fixture.products[0].commerce_variants[0].base_price_minor).toBe(175025);
@@ -105,6 +109,20 @@ test('editar producto y precio persiste en las pantallas existentes', async ({pa
   await expect(page.locator('.product-card').first()).toContainText('Mate actualizado');
   await page.reload();
   await expect(page.locator('.product-card').first()).toContainText('Mate actualizado');
+});
+
+test('la disponibilidad Web se guarda por variante sin cambiar el precio', async ({page}) => {
+  const {fixture} = await mockCommerce(page, {writable:true});
+  const originalPrice = fixture.products[0].commerce_variants[0].price_minor;
+  await page.goto('/productos/catalogo');
+  await page.locator('.product-card').first().click();
+  const row = page.locator('.variants-section tbody tr').first();
+  await expect(row.getByRole('button',{name:'Guardar',exact:true})).toBeVisible();
+  const channels = page.locator('.catalog-variant-details').first();
+  await channels.getByRole('checkbox',{name:'Web'}).uncheck();
+  await row.getByRole('button',{name:'Guardar',exact:true}).click();
+  await expect.poll(()=>fixture.products[0].commerce_variants[0].available_web).toBe(false);
+  expect(fixture.products[0].commerce_variants[0].price_minor).toBe(originalPrice);
 });
 
 test('subir varias imágenes y guardar encuadre conserva la galería', async ({page}) => {
@@ -125,19 +143,50 @@ test('subir varias imágenes y guardar encuadre conserva la galería', async ({p
 test('edición de cliente comparte el contacto con ventas',async({page})=>{
   const {fixture}=await mockCommerce(page,{writable:true});
   await page.goto('/clientes/base');
-  await page.getByRole('button',{name:'Editar',exact:true}).click();
-  await page.getByLabel('Nombre',{exact:true}).fill('Contacto corregido');
+  await page.getByRole('button',{name:/Editar Cliente de Prueba/i}).click();
+  await page.getByLabel('Nombre completo',{exact:true}).fill('Contacto corregido');
   await page.getByRole('button',{name:'Guardar contacto'}).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect.poll(()=>fixture.orders[0].customer_snapshot.fullName).toBe('Contacto corregido');
   await page.goto('/comercial/pedidos');
-  await expect(page.getByText('Contacto corregido',{exact:true})).toBeVisible();
+  await expect(page.getByText('Contacto Corregido',{exact:true})).toBeVisible();
+});
+
+test('un contacto Web con pedidos muestra sus datos y bloquea el borrado', async ({ page }) => {
+  const { fixture, writes } = await mockCommerce(page, { writable: true });
+  await page.goto('/clientes/base');
+  await page.getByRole('button', { name: /Editar Cliente de Prueba/i }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByLabel('Fecha de nacimiento')).toHaveValue('1993-04-05');
+  await expect(dialog.getByLabel('Ciudad', { exact: true })).toHaveValue('Montevideo');
+  await expect(dialog.getByLabel('País')).toHaveValue('Uruguay');
+  await expect(dialog.getByLabel('Dirección', { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: /Eliminar Cliente de Prueba/i }).click();
+  await expect(dialog.getByRole('alert')).toContainText('pedido vinculado');
+  expect(writes.filter((write) => write.table === 'gestion_delete_unlinked_contact')).toHaveLength(0);
+  expect(fixture.orders).toHaveLength(1);
+});
+
+test('una ficha Local vinculada a Web conserva ambos historiales al intentar borrarla', async ({ page }) => {
+  const { tables, writes } = await mockCommerce(page, { writable: true });
+  tables.local_sales_customers.push({ id: 'local-web', full_name: 'Cliente Combinado', company_name: 'Panz', address: 'Calle 2',
+    email: 'test@example.invalid', phone: '+59899123456', city: 'Montevideo', country: 'Uruguay', birth_date: '1993-04-05',
+    first_purchase_date: null, last_purchase_date: null, source_user_id: 'customer-1', notes: 'Nota local',
+    agenda_import_key: null, agenda_additional_phones: [], agenda_inferred_category: null, updated_at: '2026-10-15T12:00:00Z' });
+  await page.goto('/clientes/base');
+  await page.getByRole('button', { name: 'Editar Cliente Combinado' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByLabel('Dirección')).toHaveValue('Calle 2');
+  await dialog.getByRole('button', { name: 'Eliminar Cliente Combinado' }).click();
+  await expect(dialog.getByRole('alert')).toContainText('pedido vinculado');
+  expect(writes.filter((write) => write.table === 'gestion_delete_unlinked_contact')).toHaveLength(0);
+  expect(tables.local_sales_customers).toHaveLength(1);
 });
 
 test('seguimiento de pedido se guarda en Entregas y conserva el importe',async({page})=>{
   const {fixture}=await mockCommerce(page,{writable:true});
   await page.goto('/entregas/envios');
-  await page.getByRole('button',{name:'#9001',exact:true}).click();
+  await page.getByRole('row').filter({hasText:'#9001'}).getByRole('button',{name:'Ver detalle del pedido #9001'}).click();
   await page.getByRole('button',{name:'Marcar enviado',exact:true}).click();
   await page.getByLabel('Empresa de envío').selectOption({label:'Otra empresa (escribir nombre)…'});
   await page.getByLabel('Nombre de la empresa').fill('Transportista');
@@ -146,7 +195,7 @@ test('seguimiento de pedido se guarda en Entregas y conserva el importe',async({
   await expect.poll(()=>fixture.orders[0].tracking_code).toBe('TRACK-9001');
   expect(fixture.orders[0].total_minor).toBe(410100);
   await page.reload();
-  await page.getByRole('button',{name:'#9001',exact:true}).click();
+  await page.getByRole('row').filter({hasText:'#9001'}).getByRole('button',{name:'Ver detalle del pedido #9001'}).click();
   await expect(page.getByRole('dialog').getByText('TRACK-9001',{exact:true})).toBeVisible();
 });
 
@@ -157,7 +206,7 @@ test('cotizaciones, descuentos y tarifas guardan valores y unidades correctos',a
   await usd.getByRole('spinbutton').fill('41.5');
   await usd.getByRole('button',{name:'Guardar'}).click();
   await expect.poll(()=>fixture.reference.exchangeRates[0].rate_to_uyu).toBe(41.5);
-  await page.goto('/comercial/descuentos');
+  await page.goto('/marketing/descuentos');
   await page.getByLabel('Código',{exact:true}).fill('NUEVO15');
   await page.getByLabel('Tipo',{exact:true}).selectOption('percentage');
   await page.getByLabel('Porcentaje',{exact:true}).fill('15');
@@ -176,8 +225,8 @@ test('cotizaciones, descuentos y tarifas guardan valores y unidades correctos',a
 test('un guardado rechazado no cierra el formulario ni anuncia éxito',async({page})=>{
   const {fixture}=await mockCommerce(page,{writable:true,failWrite:'gestion_update_customer_contact'});
   await page.goto('/clientes/base');
-  await page.getByRole('button',{name:'Editar',exact:true}).click();
-  await page.getByLabel('Nombre',{exact:true}).fill('Cambio rechazado');
+  await page.getByRole('button',{name:/Editar Cliente de Prueba/i}).click();
+  await page.getByLabel('Nombre completo',{exact:true}).fill('Cambio rechazado');
   await page.getByRole('button',{name:'Guardar contacto'}).click();
   await expect(page.getByRole('alert')).toHaveText('Guardado rechazado');
   await expect(page.getByRole('dialog')).toBeVisible();
@@ -224,8 +273,7 @@ test('personalizaciones abre los archivos privados y sus descargas',async({page}
   fixture.orders[0].order_items[0].item_type='design';
   fixture.orders[0].order_items[0].requires_review=true;
   fixture.orders[0].order_items[0].immutable_snapshot={assets:[{bucket_id:'design-assets',object_path:'customer/design/logo.png',original_name:'logo.png',mime_type:'image/png',byte_size:128}]};
-  await page.goto('/produccion/resumen');
-  await page.getByRole('button',{name:'Personalizaciones y archivos'}).click();
+  await page.goto('/produccion/personalizados');
   await page.getByRole('button',{name:'Ver detalle del pedido #9001'}).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('link',{name:'Descargar original'})).toBeVisible();
@@ -235,7 +283,7 @@ test('personalizaciones abre los archivos privados y sus descargas',async({page}
 test('editores utilizables en móvil y sin desbordamiento del documento',async({page})=>{
   await mockCommerce(page);
   await page.setViewportSize({width:390,height:844});
-  for(const path of ['/comercial/descuentos','/productos/categorias','/finanzas/monedas','/administracion/canales','/productos/catalogo']) {
+  for(const path of ['/marketing/descuentos','/productos/categorias','/finanzas/monedas','/administracion/canales','/productos/catalogo']) {
     await page.goto(path);
     await expect(page.getByRole('button',{name:'Actualizar',exact:true})).toBeVisible();
     await expect(page.locator('main')).not.toContainText('Cargando datos…');

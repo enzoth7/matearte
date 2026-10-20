@@ -2,7 +2,8 @@ import { defaultAccess } from "./access";
 import { paths } from "./navigation";
 
 export type Channel = "Local" | "Web" | "Mayorista";
-export type SalesChannel = Channel | "Instagram" | "Facebook" | "WhatsApp" | "Sorteo";
+export type SalesChannel = "Local" | "Web" | "Feria" | "Instagram" | "Facebook" | "WhatsApp";
+export type CustomerSourceChannel = SalesChannel | "Agenda" | "Sorteo" | "Suscripción" | "Suscripción con desc.";
 export type Product = {
   id: string;
   sourceProductId?: string;
@@ -10,13 +11,17 @@ export type Product = {
   priceArg?: number;
   imageUrl?: string;
   imageCrop?: { x: number; y: number; zoom: number };
+  weightGrams?: number;
   active?: boolean;
   availableChannels?: Channel[];
   wholesaleThreshold?: number;
   name: string;
   sku: string;
+  categoryCode?: string;
+  personalizationType?: "mate" | "matera";
   family: string;
   variant: string;
+  options?: Record<string, unknown>;
   rim: string;
   leather: string;
   cost: number;
@@ -29,11 +34,20 @@ export type Customer = {
   id: string;
   localCustomerId?: string;
   wholesaleName?: string;
+  companyName?: string;
   address?: string;
+  department?: string;
+  postalCode?: string;
   firstPurchaseDate?: string;
   lastPurchaseDate?: string;
   notes?: string;
-  sourceChannels?: SalesChannel[];
+  sourceChannels?: CustomerSourceChannel[];
+  originChannel?: CustomerSourceChannel;
+  createdAt?: string;
+  webLeadKind?: "account" | "newsletter";
+  webLeadId?: string;
+  agendaInferredCategory?: string;
+  agendaAdditionalPhones?: string[];
   raffleEntryId?: string;
   raffleProductInterest?: string;
   name: string;
@@ -46,6 +60,9 @@ export type Customer = {
 };
 export type OrderLine = {
   id: string; productId: string; title: string; sku: string; quantity: number;
+  productName?: string; options?: Record<string, unknown>;
+  weightGrams?: number;
+  personalization?: Record<string, unknown>;
   unitPrice: number; amount: number; family: string; variant: string; rim: string; leather: string;
   productionStatus: string; reviewStatus: string | null;
   wholesaleLineId?: string; orderType?: string; priceArg?: number;
@@ -223,7 +240,9 @@ export function loadState(): State {
     const access = Object.fromEntries(Object.entries(defaultAccess()).map(([userId, defaults]) => {
       const saved = stored?.[userId];
       if (!Array.isArray(saved)) return [userId, defaults];
-      const updated = saved.map((path) => path === "/productos/precios" ? "/productos/ajustes" : path)
+      const updated = saved.flatMap((path) => path === "/comercial/registrar"
+        ? userId === "t3" ? ["/comercial/registrar-may"] : ["/comercial/registrar-min"]
+        : [path === "/productos/precios" ? "/productos/ajustes" : path === "/produccion/configurador-visualizador" ? "/productos/personalizador" : path])
         .filter((path): path is string => typeof path === "string" && paths.some((item) => item === path));
       return [userId, [...new Set(updated)]];
     }));

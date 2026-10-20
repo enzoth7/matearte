@@ -19,6 +19,7 @@ export function CollectionPage({ s, path }: PageProps & { path: string }) {
 }
 
 const price = (product: Product, channel: "Local" | "Web" | "Mayorista") => product.availableChannels?.includes(channel) ? money(product.prices[channel]) : "—";
+const primaryPrice = (product: Product) => price(product, product.availableChannels?.includes("Web") ? "Web" : product.availableChannels?.includes("Local") ? "Local" : "Mayorista");
 function ProductThumbnail({ product }: { product: Product }) {
   return <div className="product-photo-frame">{product.imageUrl
     ? <img className="product-photo" src={product.imageUrl} alt="" loading="lazy" style={product.imageCrop ? { transform: `translate(${product.imageCrop.x}%, ${product.imageCrop.y}%) scale(${product.imageCrop.zoom})` } : undefined} />
@@ -35,7 +36,8 @@ export function Products({ s, mode, notify, refresh, commerce }: PageProps & { m
   const [search, setSearch] = useState("");
   const [view, setView] = useState(() => new URLSearchParams(location.search).get("vista") === "lista" ? "Lista" : "Tarjetas");
   const [listOrder, setListOrder] = useState("sku-asc");
-  const rows = s.products.filter((product) => (filter === "Todos" || product.family === filter) && `${product.name} ${product.sku} ${product.variant}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+  const sectionProducts = s.products.filter((product) => mode === "servicios" ? product.categoryCode === "servicios" : product.categoryCode !== "servicios");
+  const rows = sectionProducts.filter((product) => (filter === "Todos" || product.family === filter) && `${product.name} ${product.sku} ${product.variant}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
   const listRows = [...rows].sort((a, b) => {
     const bySku = a.sku.localeCompare(b.sku, "es", { numeric: true });
     const byPrice = a.prices.Local - b.prices.Local || bySku;
@@ -54,50 +56,52 @@ export function Products({ s, mode, notify, refresh, commerce }: PageProps & { m
       else if (mode === "catalogo") requestAnimationFrame(() => document.querySelector(".catalog-split-view")?.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }));
     }
   };
-  const wholesaleSelection = selectedId === "wholesale-new" || selectedId?.startsWith("wholesale:");
-  const editor = selectedId && <div className="commerce-tools catalog-editor">{wholesaleSelection && commerce?.wholesale ? <WholesaleProductEditor key={selectedId} product={commerce.wholesale.products.find((entry) => `wholesale:${entry.id}` === selectedId)} snapshot={commerce.wholesale} onSaved={() => { notify("Producto mayorista guardado"); selectProduct(null); void refresh?.(); }} onClose={() => selectProduct(null)} /> : <Catalog onNotice={notify} embedded={mode === "catalogo"} initialProductId={selectedId === "new" ? undefined : selectedId} startNew={selectedId === "new"} onDirtyChange={setEditorDirty} onCancelNew={() => selectProduct(null)} onClose={() => selectProduct(null)} onCatalogChange={refresh} onCreated={(id) => { setEditorDirty(false); setSelectedId(id); history.replaceState(null, "", `${location.pathname}?producto=${encodeURIComponent(id)}`); void refresh?.(); }} />}</div>;
+  const legacyProduct = selectedId?.startsWith("wholesale:") ? commerce?.wholesale?.products.find(entry => `wholesale:${entry.id}` === selectedId) : undefined;
+  const resolvedSelectedId = legacyProduct?.commerce_product_id || selectedId;
+  const wholesaleSelection = Boolean(legacyProduct && !legacyProduct.commerce_product_id);
+  const editor = selectedId && <div className="commerce-tools catalog-editor">{wholesaleSelection && commerce?.wholesale ? <WholesaleProductEditor key={selectedId} product={legacyProduct} snapshot={commerce.wholesale} onSaved={(id) => { notify("Producto guardado"); void (async () => { await refresh?.(); const next = `wholesale:${id}`; setSelectedId(next); history.replaceState(null, "", `${location.pathname}?producto=${encodeURIComponent(next)}`); })(); }} onRefresh={refresh} onNotice={notify} onDirtyChange={setEditorDirty} onClose={() => selectProduct(null)} /> : <Catalog onNotice={notify} embedded={mode === "catalogo" || mode === "servicios"} fixedCategory={mode === "servicios" ? "servicios" : undefined} initialProductId={resolvedSelectedId === "new" ? undefined : resolvedSelectedId || undefined} initialVariantId={selectedCardId} startNew={selectedId === "new"} onDirtyChange={setEditorDirty} onCancelNew={() => selectProduct(null)} onClose={() => selectProduct(null)} onCatalogChange={refresh} onCreated={(id) => { setEditorDirty(false); setSelectedId(id); history.replaceState(null, "", `${location.pathname}?producto=${encodeURIComponent(id)}`); void refresh?.(); }} />}</div>;
   if (selectedId && mode !== "catalogo") return <><div className="toolbar"><button className="secondary" onClick={() => selectProduct(null)}>Volver al catálogo</button></div>{editor}</>;
   return <>
     {!selectedId && <Stats items={[
-      { label: "Productos en catálogo", value: new Set(s.products.map((p) => p.sourceProductId || p.id)).size },
-      { label: "Publicados en web", value: new Set(s.products.filter((p) => p.published).map((p) => p.sourceProductId || p.id)).size },
-      { label: "Variantes activas", value: s.products.filter((p) => p.active).length },
+      { label: mode === "servicios" ? "Servicios" : "Productos en catálogo", value: new Set(sectionProducts.map((p) => p.sourceProductId || p.id)).size },
+      { label: "Disponibles en web", value: new Set(sectionProducts.filter((p) => p.availableChannels?.includes("Web")).map((p) => p.sourceProductId || p.id)).size },
+      { label: "Artículos activos", value: sectionProducts.filter((p) => p.active).length },
     ]} />}
     <div className={`toolbar ${selectedId ? "catalog-toolbar-open" : ""}`}>
-      {!selectedId && <div className="table-actions"><button className="primary" onClick={() => selectProduct("new")}>Nuevo producto web</button><button className="secondary" onClick={() => selectProduct("wholesale-new")}>Nuevo mayorista</button></div>}
+      {!selectedId && <div className="table-actions"><button className="primary" onClick={() => selectProduct("new")}>Nuevo producto</button></div>}
       <div className="table-actions">
-        <label className="inline-label">Familia<select value={filter} onChange={(e) => setFilter(e.target.value)}>{["Todos", ...new Set(s.products.map((p) => p.family))].map((family) => <option key={family}>{family}</option>)}</select></label>
+        <label className="inline-label">Familia<select value={filter} onChange={(e) => setFilter(e.target.value)}>{["Todos", ...new Set(sectionProducts.map((p) => p.family))].map((family) => <option key={family}>{family}</option>)}</select></label>
         {mode === "catalogo" && !selectedId && <div className="tabs">{["Tarjetas", "Lista"].map((item) => <button key={item} className={item === view ? "active" : ""} onClick={() => setView(item)}>{item}</button>)}</div>}
       </div>
       <input aria-label="Buscar productos" placeholder="Buscar producto, variante o SKU" value={search} onChange={(e) => setSearch(e.target.value)} />
     </div>
-    {mode === "catalogo" && selectedId && <div className="catalog-split-view"><aside className="catalog-product-rail" aria-label="Productos del catálogo"><div className="catalog-rail-heading"><strong>Productos</strong><small>{rows.length} variantes</small></div><div className="product-grid catalog-rail-grid">{rows.map((product) => <button className={`product-card ${activeCardId === product.id ? "selected" : ""}`} key={product.id} onClick={() => selectProduct(product.wholesaleProductId ? product.id : product.sourceProductId || product.id, product.id)} aria-pressed={activeCardId === product.id}>
+    {mode === "catalogo" && selectedId && <div className="catalog-split-view"><aside className="catalog-product-rail" aria-label="Productos del catálogo"><div className="catalog-rail-heading"><strong>Productos</strong><small>{rows.length} artículos</small></div><div className="product-grid catalog-rail-grid">{rows.map((product) => <button className={`product-card ${activeCardId === product.id ? "selected" : ""}`} key={product.id} onClick={() => selectProduct(product.wholesaleProductId ? product.id : product.sourceProductId || product.id, product.id)} aria-pressed={activeCardId === product.id}>
       <ProductThumbnail product={product} />
-      <div className="product-info"><small>{product.variant}</small><h3>{product.name}</h3><div><strong>{price(product, product.wholesaleProductId ? "Mayorista" : "Web")}</strong><Badge>{product.wholesaleProductId ? "Mayorista" : product.published ? "Publicado" : "Oculto"}</Badge></div></div>
+      <div className="product-info">{!product.wholesaleProductId && product.variant !== "Sin color" && <small>{product.variant}</small>}<h3>{product.name}</h3><div><strong>{primaryPrice(product)}</strong></div></div>
     </button>)}</div>{!rows.length && <div className="empty">No hay productos con este filtro.</div>}</aside><div className="catalog-editor-column">{editor}</div></div>}
     {mode === "catalogo" && !selectedId && view === "Tarjetas" ? <div className="product-grid">{rows.map((product) => <button className="product-card" key={product.id} onClick={() => selectProduct(product.wholesaleProductId ? product.id : product.sourceProductId || product.id, product.id)}>
       <ProductThumbnail product={product} />
-      <div className="product-info"><small>{product.variant}</small><h3>{product.name}</h3><div><strong>{price(product, product.wholesaleProductId ? "Mayorista" : "Web")}</strong><Badge>{product.wholesaleProductId ? "Mayorista" : product.published ? "Publicado" : "Oculto"}</Badge></div></div>
+      <div className="product-info">{!product.wholesaleProductId && product.variant !== "Sin color" && <small>{product.variant}</small>}<h3>{product.name}</h3><div><strong>{primaryPrice(product)}</strong></div></div>
     </button>)}</div> : !selectedId && <section className="catalog-general-list">
       <header className="catalog-print-heading"><strong>MateArte</strong><div>Catálogo de productos · {new Date().toLocaleDateString("es-UY")}</div></header>
-      <Table rows={listRows} searchText={(p) => `${p.name} ${p.sku} ${p.variant} ${p.family}`} showSearch={false} action={<><label className="catalog-sort">Ordenar<select value={listOrder} onChange={(event) => setListOrder(event.target.value)}><option value="sku-asc">SKU ascendente</option><option value="sku-desc">SKU descendente</option><option value="precio-asc">Precio local ascendente</option><option value="precio-desc">Precio local descendente</option></select></label><button className="secondary catalog-print-button" onClick={() => window.print()}>Imprimir lista</button></>} columns={[
+      <Table rows={listRows} searchText={(p) => `${p.name} ${p.sku} ${p.variant} ${p.family}`} showSearch={false} action={<><label className="catalog-sort">Ordenar<select value={listOrder} onChange={(event) => setListOrder(event.target.value)}><option value="sku-asc">SKU ascendente</option><option value="sku-desc">SKU descendente</option><option value="precio-asc">Precio local ascendente</option><option value="precio-desc">Precio local descendente</option></select></label><button className="secondary catalog-print-button" onClick={() => window.print()}>Imprimir lista</button></>} columns={mode === "servicios" ? [
+      { label: "SKU", render: (p) => p.sku || "—" },
+      { label: "Servicio", render: (p) => <button className="text-button" onClick={() => selectProduct(p.sourceProductId || p.id, p.id)}>{p.name}</button> },
+      { label: "Precio local", render: (p) => p.prices.Local > 0 ? money(p.prices.Local) : "A definir en la venta" },
+      ] : [
       { label: "SKU", render: (p) => p.sku || "—" },
       { label: "Producto", render: (p) => <button className="text-button" onClick={() => selectProduct(p.wholesaleProductId ? p.id : p.sourceProductId || p.id, p.id)}>{p.name}</button> },
-      { label: "Variante", render: (p) => p.variant },
+      { label: "Variante", render: (p) => p.wholesaleProductId ? "—" : p.variant },
       { label: "Categoría", render: (p) => p.family },
       { label: "Local", render: (p) => price(p, "Local") },
       { label: "Web", headerClassName: "channel-web-text", render: (p) => price(p, "Web") },
       { label: "Mayorista", render: (p) => price(p, "Mayorista") },
-      { label: "ARS", render: (p) => p.wholesaleProductId ? new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 }).format(p.priceArg || 0) : "—" },
-      { label: "Publicado", render: (p) => <Badge>{p.wholesaleProductId ? "Mayorista" : p.published ? "Publicado" : "Oculto"}</Badge> },
+      { label: "ARS", render: (p) => p.availableChannels?.includes("Mayorista") && p.priceArg ? new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 }).format(p.priceArg) : "—" },
       ]} />
-      {s.products.find((p) => p.wholesaleThreshold) && <div className="catalog-wholesale-note">Mayorista desde {s.products.find((p) => p.wholesaleThreshold)?.wholesaleThreshold} mates.</div>}
+      {mode !== "servicios" && s.products.find((p) => p.wholesaleThreshold) && <div className="catalog-wholesale-note">Mayorista desde {s.products.find((p) => p.wholesaleThreshold)?.wholesaleThreshold} artículos.</div>}
     </section>}
 
   </>;
-}
-export function Pricing(_props: PageProps) {
-  return <Card title="Precios del personalizador"><div>La conexión con el administrador del visualizador todavía está pendiente.</div></Card>;
 }
 export function Inventory(_props: PageProps & { mode: string }) {
   return <Card title="Inventario"><div>Commerce Admin no registra existencias físicas ni movimientos de stock. Esta sección se completará al conectar el sistema de inventario.</div></Card>;

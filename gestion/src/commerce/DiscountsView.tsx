@@ -10,6 +10,7 @@ export type CommerceDiscount = {
   valid_from: string;
   valid_until: string;
   enabled: boolean;
+  welcome_only: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -22,6 +23,7 @@ type DiscountForm = {
   validFrom: string;
   validUntil: string;
   enabled: boolean;
+  welcomeOnly: boolean;
 };
 
 const montevideoDate = () => new Intl.DateTimeFormat('en-CA', {
@@ -36,7 +38,7 @@ const plusDays = (date: string, days: number) => {
 
 const emptyForm = (): DiscountForm => {
   const today = montevideoDate();
-  return { id: '', code: '', discountType: 'percentage', value: '', validFrom: today, validUntil: plusDays(today, 30), enabled: true };
+  return { id: '', code: '', discountType: 'percentage', value: '', validFrom: today, validUntil: plusDays(today, 30), enabled: true, welcomeOnly: false };
 };
 
 export const normalizeAdminDiscountCode = (value: string) => value
@@ -59,6 +61,12 @@ const displayValue = (discount: CommerceDiscount) => discount.discount_type === 
   ? `${Number(discount.value).toLocaleString('es-UY')}%`
   : new Intl.NumberFormat('es-UY', { style: 'currency', currency: 'UYU', maximumFractionDigits: 0 }).format(Number(discount.value) / 100);
 
+const discountCategory = (discount: CommerceDiscount) => {
+  if (discount.code.startsWith('CUMPLE-')) return 'birthday';
+  if (discount.welcome_only || discount.valid_until >= plusDays(discount.valid_from, 365)) return 'fixed';
+  return 'occasional';
+};
+
 export function Discounts({ onNotice }: { onNotice: (value: string) => void }) {
   const [discounts, setDiscounts] = useState<CommerceDiscount[]>([]);
   const [form, setForm] = useState<DiscountForm>(() => emptyForm());
@@ -70,7 +78,7 @@ export function Discounts({ onNotice }: { onNotice: (value: string) => void }) {
     setLoading(true);
     const { data, error: loadError } = await supabase
       .from('commerce_discounts')
-      .select('id,code,discount_type,value,valid_from,valid_until,enabled,created_at,updated_at')
+      .select('id,code,discount_type,value,valid_from,valid_until,enabled,welcome_only,created_at,updated_at')
       .order('created_at', { ascending: false });
     if (loadError) setError(loadError.message);
     else { setDiscounts((data || []) as CommerceDiscount[]); setError(''); }
@@ -80,6 +88,11 @@ export function Discounts({ onNotice }: { onNotice: (value: string) => void }) {
   useEffect(() => { void load(); }, [load]);
 
   const selected = useMemo(() => discounts.find(item => item.id === form.id) || null, [discounts, form.id]);
+  const discountSections = [
+    { id: 'fixed', title: 'Descuentos fijos' },
+    { id: 'occasional', title: 'Descuentos ocasionales' },
+    { id: 'birthday', title: 'Descuentos de cumple' },
+  ].map(section => ({ ...section, items: discounts.filter(discount => discountCategory(discount) === section.id) }));
   const edit = (discount: CommerceDiscount) => setForm({
     id: discount.id,
     code: discount.code,
@@ -88,6 +101,7 @@ export function Discounts({ onNotice }: { onNotice: (value: string) => void }) {
     validFrom: discount.valid_from,
     validUntil: discount.valid_until,
     enabled: discount.enabled,
+    welcomeOnly: Boolean(discount.welcome_only),
   });
 
   const save = async (event: React.FormEvent) => {
@@ -111,6 +125,11 @@ export function Discounts({ onNotice }: { onNotice: (value: string) => void }) {
       setSaving(false);
       return;
     }
+    if (form.welcomeOnly && (form.discountType !== 'percentage' || enteredValue !== 10)) {
+      setError('El beneficio de primera compra debe ser del 10%.');
+      setSaving(false);
+      return;
+    }
     const payload = {
       code,
       discount_type: form.discountType,
@@ -118,6 +137,7 @@ export function Discounts({ onNotice }: { onNotice: (value: string) => void }) {
       valid_from: form.validFrom,
       valid_until: form.validUntil,
       enabled: form.enabled,
+      welcome_only: form.welcomeOnly,
     };
     const result = form.id
       ? await supabase.from('commerce_discounts').update(payload).eq('id', form.id)
@@ -164,24 +184,27 @@ export function Discounts({ onNotice }: { onNotice: (value: string) => void }) {
             <label><div>Válido hasta</div><input aria-label="Válido hasta" required type="date" value={form.validUntil} onChange={event => setForm(current => ({ ...current, validUntil: event.target.value }))}/></label>
           </div>
           <label className="discount-enabled"><input type="checkbox" checked={form.enabled} onChange={event => setForm(current => ({ ...current, enabled: event.target.checked }))}/><div>Habilitado para nuevos pagos</div></label>
+          <label className="discount-enabled"><input type="checkbox" checked={form.welcomeOnly} onChange={event => setForm(current => ({ ...current, welcomeOnly: event.target.checked }))}/><div>Solo primera compra con suscripción confirmada</div></label>
           {error && <div className="error" role="alert">{error}</div>}
           <button type="submit" disabled={saving}>{saving ? 'Guardando…' : selected ? 'Guardar cambios' : 'Crear descuento'}</button>
         </form>
       </section>
 
-      <section className="data-panel discount-list-panel" aria-labelledby="discount-list-title">
-        <div className="data-panel-header"><div><h2 id="discount-list-title">Descuentos creados</h2></div><div>{discounts.length}</div></div>
-        {loading ? <div className="loading-inline">Cargando descuentos…</div> : discounts.length ? (
-          <div className="table-wrap"><table className="data-table discount-table"><thead><tr><th>Código</th><th>Beneficio</th><th>Vigencia</th><th>Estado</th><th><div className="sr-only">Acciones</div></th></tr></thead><tbody>
-            {discounts.map(discount => <tr key={discount.id}>
-              <td><button type="button" className="discount-code-button" onClick={() => edit(discount)}>{discount.code}</button></td>
-              <td>{displayValue(discount)}</td>
-              <td>{discount.valid_from} — {discount.valid_until}</td>
-              <td><div className={`discount-status discount-status-${discountStatus(discount).toLowerCase()}`}>{discountStatus(discount)}</div></td>
-              <td className="action-column"><button type="button" className="secondary-button" onClick={() => void toggle(discount)}>{discount.enabled ? 'Deshabilitar' : 'Habilitar'}</button></td>
-            </tr>)}
-          </tbody></table></div>
-        ) : <div className="empty-state">Todavía no hay códigos de descuento.</div>}
+      <section className="discount-list-panel" aria-label="Descuentos creados">
+        {loading ? <div className="loading-inline">Cargando descuentos…</div> : discountSections.map(section => (
+          <section className="discount-group" key={section.id} aria-labelledby={`discount-group-${section.id}`}>
+            <div className="discount-group-heading"><h2 id={`discount-group-${section.id}`}>{section.title}</h2><strong aria-label={`${section.items.length} descuentos`}>{section.items.length}</strong></div>
+            {section.items.length ? <div className="table-wrap"><table className="data-table discount-table"><thead><tr><th>Código</th><th>Beneficio</th><th>Vigencia</th><th>Estado</th><th><div className="sr-only">Acciones</div></th></tr></thead><tbody>
+              {section.items.map(discount => <tr key={discount.id}>
+                <td><button type="button" className="discount-code-button" onClick={() => edit(discount)}>{discount.code}</button></td>
+                <td>{displayValue(discount)}{discount.welcome_only ? ' · primera compra' : ''}</td>
+                <td>{discount.valid_from} — {discount.valid_until}</td>
+                <td><div className={`discount-status discount-status-${discountStatus(discount).toLowerCase()}`}>{discountStatus(discount)}</div></td>
+                <td className="action-column"><button type="button" className="secondary-button" onClick={() => void toggle(discount)}>{discount.enabled ? 'Deshabilitar' : 'Habilitar'}</button></td>
+              </tr>)}
+            </tbody></table></div> : <div className="discount-group-empty">Sin descuentos en esta categoría.</div>}
+          </section>
+        ))}
       </section>
     </div>
   );

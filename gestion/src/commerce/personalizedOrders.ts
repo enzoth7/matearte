@@ -1,8 +1,12 @@
+import { formatContactName } from "../../../shared/contactName";
+import { naturalCaseName } from "../productionPresentation";
+
 export type JsonRecord = Record<string, unknown>;
 
 export type PersonalizedOrderItem = {
   id: string;
   item_type: string;
+  source_variant_id?: string | null;
   title: string;
   quantity: number;
   total_minor: number;
@@ -14,6 +18,7 @@ export type PersonalizedOrderItem = {
 
 export type PersonalizedOrder = {
   id: string;
+  source?: 'web' | 'local';
   order_number: number;
   reference_code?: string | null;
   status: string;
@@ -41,6 +46,8 @@ export type SurfaceSideSummary = {
 };
 
 export type PersonalizationSummary = {
+  kind: 'mate' | 'matera' | 'bombilla';
+  instructions: string;
   mate: {
     model: string;
     size: string;
@@ -62,6 +69,13 @@ export type PersonalizationSummary = {
     front: SurfaceSideSummary;
     back: SurfaceSideSummary;
     personalized: boolean;
+  };
+  matera: {
+    technique: string;
+    content: string;
+    placement: string;
+    text: string;
+    logo: string;
   };
   previews: PrivateAsset[];
   uploads: PrivateAsset[];
@@ -102,6 +116,10 @@ const friendlyIds: Record<string, string> = {
   'frame-28': 'Griego',
   'frame-29': 'Floral',
   'frame-30': 'Guarda pampa',
+  'applique-finish-espirales': 'Espirales',
+  'applique-finish-triangulos': 'Triángulos',
+  'applique-finish-escamas': 'Escamas',
+  'applique-finish-coronas': 'Coronas',
 };
 
 export function humanizeId(value: unknown, fallback = 'No especificado'): string {
@@ -243,6 +261,9 @@ export function collectPrivateAssets(snapshotValue: unknown): PrivateAsset[] {
 
 export function summarizePersonalization(item: PersonalizedOrderItem): PersonalizationSummary {
   const snapshot = asRecord(item.immutable_snapshot);
+  const localPersonalization = asRecord(snapshot.localPersonalization);
+  const localKind = asString(localPersonalization.kind);
+  const kind = localKind === 'matera' || localKind === 'bombilla' ? localKind : 'mate';
   const configuration = asRecord(snapshot.configuration);
   const labels = asRecord(configuration.selectionLabels);
   const rim = asRecord(configuration.rim);
@@ -265,6 +286,8 @@ export function summarizePersonalization(item: PersonalizedOrderItem): Personali
 
   const files = collectPrivateAssets(snapshot);
   return {
+    kind,
+    instructions: asString(localPersonalization.instructions),
     mate: {
       model: asString(labels.family) || humanizeId(configuration.modelId) || item.title,
       size: asString(labels.size) || humanizeId(configuration.size),
@@ -287,6 +310,13 @@ export function summarizePersonalization(item: PersonalizedOrderItem): Personali
       back,
       personalized: flejeAvailable && (flejeFinishActive || Boolean(front.text) || front.images.length > 0 || Boolean(back.text) || back.images.length > 0),
     },
+    matera: {
+      technique: asString(localPersonalization.techniqueLabel) || humanizeId(localPersonalization.technique),
+      content: asString(localPersonalization.contentLabel) || humanizeId(localPersonalization.content),
+      placement: asString(localPersonalization.placementLabel) || humanizeId(localPersonalization.placement),
+      text: asString(localPersonalization.text),
+      logo: asString(localPersonalization.logoName),
+    },
     previews: files.filter((file) => file.kind === 'preview'),
     uploads: files.filter((file) => file.kind === 'upload'),
     files,
@@ -294,12 +324,13 @@ export function summarizePersonalization(item: PersonalizedOrderItem): Personali
 }
 
 export function getPersonalizedItems(order: PersonalizedOrder): PersonalizedOrderItem[] {
-  return (order.order_items || []).filter((item) => item.requires_review || item.item_type === 'design');
+  return (order.order_items || []).filter((item) => item.requires_review || item.item_type === 'design' || item.item_type === 'local_design');
 }
 
 export function customerName(snapshotValue: unknown): string {
   const snapshot = asRecord(snapshotValue);
-  return asString(snapshot.fullName) || asString(snapshot.name) || 'Cliente sin nombre';
+  const name = asString(snapshot.fullName) || asString(snapshot.name);
+  return name ? naturalCaseName(formatContactName(name)) : 'Cliente sin nombre';
 }
 
 export function customerPhone(snapshotValue: unknown): string {
@@ -321,7 +352,7 @@ export function whatsappContactUrl(snapshotValue: unknown, orderNumber: number |
   if (!phone) return '';
   const firstName = customerName(snapshotValue).split(/\s+/)[0];
   const reference = String(orderNumber).startsWith('#') ? String(orderNumber) : `#${orderNumber}`;
-  const message = `Hola ${firstName}, te escribimos de MateArte por tu pedido ${reference}. Necesitamos confirmar un detalle de tu mate personalizado. ¿Podés ayudarnos con la virola o el fleje?`;
+  const message = `Hola ${firstName}, te escribimos de MateArte por tu pedido ${reference}. Necesitamos confirmar un detalle de tu diseño de mate. ¿Podés ayudarnos con la virola o el fleje?`;
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 }
 
@@ -335,6 +366,7 @@ export function orderStatusLabel(status: string): string {
     cancelled: 'Cancelado',
     refunded: 'Reembolsado',
     manual_review: 'Revisión manual',
+    local_sale: 'Venta local',
   };
   return labels[status] || humanizeId(status);
 }

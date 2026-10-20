@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { CountrySelect } from "./location";
+import { customerOriginClass } from "./customerChannel";
 import {
   MagnifyingGlass,
   Plus,
@@ -29,7 +30,7 @@ export function ChartTooltip({
     </div>
   );
 }
-export type SignalTone = "green" | "yellow" | "red";
+export type SignalTone = "green" | "yellow" | "red" | "blue";
 export function Badge({
   children,
   tone,
@@ -38,7 +39,7 @@ export function Badge({
   tone?: SignalTone;
 }) {
   const s = String(children);
-  const channelClass = s === "Web" ? "channel-web" : s === "Mayorista" ? "channel-mayorista" : s === "Local" ? "channel-local" : s === "Instagram" ? "channel-instagram" : s === "Facebook" ? "channel-facebook" : s === "WhatsApp" ? "channel-whatsapp" : s === "Sorteo" ? "channel-sorteo" : "";
+  const channelClass = s === "Mayorista" ? "channel-mayorista" : customerOriginClass(s);
   const inferredTone = /Pagado|Terminado|Entregado|Activo|Activa|Habilitado|Aprobado|Resuelto|Recibida|Publicado/.test(s)
     ? "green"
     : /Vencido|Atrasado|Bloqueado|Rechazado|Cancelado|Sin stock/.test(s)
@@ -110,12 +111,15 @@ export function Modal({
   title,
   children,
   onClose,
+  className,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
+  className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const headingId = useId();
   useEffect(() => {
     const prev = document.activeElement as HTMLElement;
     ref.current?.showModal();
@@ -126,13 +130,15 @@ export function Modal({
   return (
     <dialog
       ref={ref}
+      className={className}
+      aria-labelledby={headingId}
       onCancel={onClose}
       onClick={(e) => {
         if (e.target === ref.current) onClose();
       }}
     >
       <div className="modal-head">
-        <h2>{title}</h2>
+        <h2 id={headingId}>{title}</h2>
         <button className="icon-button" onClick={onClose} aria-label="Cerrar">
           <X size={22} />
         </button>
@@ -214,7 +220,9 @@ export function Form({
 }
 export type Column<T> = {
   label: string;
+  header?: ReactNode;
   headerClassName?: string;
+  sortDirection?: "ascending" | "descending" | "none";
   render: (r: T) => ReactNode;
 };
 export function Table<
@@ -228,6 +236,10 @@ export function Table<
   title,
   action,
   showSearch = true,
+  className,
+  pageSize,
+  searchQuery,
+  onSearchQueryChange,
 }: {
   rows: T[];
   columns: Column<T>[];
@@ -235,13 +247,27 @@ export function Table<
   title?: string;
   action?: ReactNode;
   showSearch?: boolean;
+  className?: string;
+  pageSize?: number;
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
 }) {
-  const [query, setQuery] = useState("");
+  const [internalQuery, setInternalQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const query = searchQuery ?? internalQuery;
+  const updateQuery = (value: string) => {
+    if (onSearchQueryChange) onSearchQueryChange(value);
+    else setInternalQuery(value);
+    setPage(1);
+  };
   const shown = rows.filter((r) =>
     searchText(r).toLowerCase().includes(query.toLowerCase()),
   );
+  const pageCount = pageSize ? Math.max(1, Math.ceil(shown.length / pageSize)) : 1;
+  const actualPage = Math.min(page, pageCount);
+  const displayed = pageSize ? shown.slice((actualPage - 1) * pageSize, actualPage * pageSize) : shown;
   return (
-    <section className="card table-card">
+    <section className={`card table-card${className ? ` ${className}` : ""}`}>
       <div className={`table-tools ${title ? "" : "no-title"}`}>
         {title && <h2>{title}</h2>}
         <div className="table-actions">
@@ -251,7 +277,7 @@ export function Table<
               aria-label="Buscar en la tabla"
               placeholder="Buscar…"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => updateQuery(e.target.value)}
             />
           </label>}
           {action}
@@ -262,12 +288,12 @@ export function Table<
           <thead>
             <tr>
               {columns.map((c) => (
-                <th key={c.label} className={c.headerClassName}>{c.label}</th>
+                <th key={c.label} className={c.headerClassName} aria-sort={c.sortDirection}>{c.header || c.label}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {shown.map((r) => (
+            {displayed.map((r) => (
               <tr key={r.id}>
                 {columns.map((c) => (
                   <td key={c.label} data-label={c.label}>{c.render(r)}</td>
@@ -282,6 +308,11 @@ export function Table<
           </div>
         )}
       </div>
+      {pageSize && shown.length > pageSize && <nav className="table-pagination" aria-label="Páginas de la tabla">
+        <span>{shown.length.toLocaleString("es-UY")} registros · Página {actualPage} de {pageCount}</span>
+        <button className="secondary compact" type="button" disabled={actualPage <= 1} onClick={() => setPage(actualPage - 1)}>Anterior</button>
+        <button className="secondary compact" type="button" disabled={actualPage >= pageCount} onClick={() => setPage(actualPage + 1)}>Siguiente</button>
+      </nav>}
       
     </section>
   );

@@ -23,18 +23,39 @@ describe("estado sin registros ficticios", () => {
     } finally { vi.unstubAllGlobals(); }
   });
   it("conserva permisos guardados al mover Precios a Ajustes y mayoristas", () => {
-    const storage = new Map([[storageKey, JSON.stringify({ access: { t3: ["/productos/precios", "/productos/catalogo", "/productos/publicacion"] } })]]);
+    const storage = new Map([[storageKey, JSON.stringify({ access: {
+      t2: ["/comercial/registrar"],
+      t3: ["/productos/precios", "/productos/catalogo", "/productos/publicacion", "/comercial/registrar"],
+    } })]]);
     vi.stubGlobal("localStorage", { getItem: (key: string) => storage.get(key), removeItem: (key: string) => storage.delete(key) });
     try {
-      expect(loadState().access?.t3).toEqual(["/productos/ajustes", "/productos/catalogo"]);
+      const access = loadState().access;
+      expect(access?.t2).toEqual(["/comercial/registrar-min"]);
+      expect(access?.t3).toEqual(["/productos/ajustes", "/productos/catalogo", "/comercial/registrar-may"]);
+    } finally { vi.unstubAllGlobals(); }
+  });
+  it("traslada el permiso local del configurador a Productos", () => {
+    const storage = new Map([[storageKey, JSON.stringify({ access: {
+      t3: ["/produccion/personalizados", "/produccion/configurador-visualizador"],
+    } })]]);
+    vi.stubGlobal("localStorage", { getItem: (key: string) => storage.get(key), removeItem: (key: string) => storage.delete(key) });
+    try {
+      expect(loadState().access?.t3).toEqual(["/produccion/personalizados", "/productos/personalizador"]);
     } finally { vi.unstubAllGlobals(); }
   });
   it("mantiene las rutas vigentes sin las páginas duplicadas", () => {
-    expect(new Set(paths).size).toBe(42);
+    expect(new Set(paths).size).toBe(48);
     paths.forEach((path) => expect(resolvePath(path)).not.toBeNull());
     expect(resolvePath("/administracion/comercio")).toBeNull();
     expect(resolvePath("/productos/ajustes")).not.toBeNull();
     expect(resolvePath("/productos/precios")).toBeNull();
     expect(resolvePath("/productos/publicacion")).toBeNull();
+    expect(resolvePath("/comercial/registrar-min")).not.toBeNull();
+    expect(resolvePath("/comercial/registrar-may")).not.toBeNull();
+    expect(resolvePath("/comercial/registrar")).toBeNull();
+    expect(resolvePath("/clientes/segmentos")).toBeNull();
+    expect(resolvePath("/produccion/personalizados")?.page[1]).toBe("Pedidos personalizados");
+    expect(resolvePath("/productos/personalizador")?.page[1]).toBe("Configurador Visualizador");
+    expect(resolvePath("/produccion/configurador-visualizador")).toBeNull();
   });
 });

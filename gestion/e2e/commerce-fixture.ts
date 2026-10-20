@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { commerceFixture } from "../src/testing/commerce";
-export async function mockCommerce(page: Page, options: { denied?: boolean; failure?: boolean; authenticated?: boolean; writable?: boolean; failWrite?: string } = {}) {
+export async function mockCommerce(page: Page, options: { denied?: boolean; failure?: boolean; authenticated?: boolean; writable?: boolean; failWrite?: string; needsSetup?: boolean; accessUserId?: "t1" | "t2" | "t3"; allowedPaths?: string[] | null } = {}) {
   const fixture = commerceFixture();
   const user = { id: "admin-test", aud: "authenticated", role: "authenticated", email: "test@example.invalid", app_metadata: {}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z" };
   const session = { access_token: "header.payload.signature", refresh_token: "test-only", token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user };
@@ -9,16 +9,27 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
     if (authenticated) localStorage.setItem("matearte-gestion-commerce-auth", JSON.stringify(session));
   }, { session, authenticated: options.authenticated !== false });
   const writes: { table: string; method: string; body: any }[] = [];
-  Object.assign(fixture.products[0], { description: "Cuero y alpaca", category_code: "mates", attributes: {}, catalog_filters: {}, sale_mode: "standard" });
+  Object.assign(fixture.products[0], { description: "Cuero y alpaca", category_code: "mates", attributes: { "material-mate": "calabaza", "tipo-virola": "acero", "tipo-cuero": "liso", posamate: "sin-posamate" }, catalog_filters: {}, sale_mode: "standard" });
+  fixture.products[0].commerce_variants.forEach((variant) => Object.assign(variant, {
+    rim_type: variant.rim_type || "Acero",
+    leather_type: variant.leather_type || "Liso",
+  }));
+  const accessUserId = options.accessUserId ?? "t1";
+  const permissionStore: Record<string, string[] | null> = {
+    t1: null,
+    t2: ['/inicio/resumen', '/comercial/pedidos', '/comercial/registrar-min', '/clientes/base'],
+    t3: ['/comercial/pedidos', '/comercial/registrar-may', '/clientes/base', '/productos/catalogo', '/productos/ajustes'],
+  };
+  if (options.allowedPaths !== undefined) permissionStore[accessUserId] = options.allowedPaths;
   const tables: Record<string, any> = {
-    commerce_admin_users: options.denied ? null : { user_id: user.id }, commerce_products: fixture.products,
+    commerce_admin_users: options.denied ? null : { user_id: user.id, display_name: accessUserId === 't1' ? 'Richard Ortiz' : accessUserId === 't2' ? 'Florencia Costa' : 'Florencia Pizzorno', access_user_id: accessUserId, allowed_paths: permissionStore[accessUserId] }, commerce_products: fixture.products,
     orders: fixture.orders, commerce_payments: fixture.payments, commerce_discounts: fixture.reference.discounts,
     commerce_international_shipping_rates: fixture.reference.shippingRates, commerce_exchange_rates: fixture.reference.exchangeRates,
     commerce_attribute_definitions: [], commerce_attribute_options: [], commerce_category_attributes: [], commerce_bank_transfer_settings: { account_holder: 'Titular', transfer_account: '111', cash_deposit_account: '222', cash_deposit_label: 'Depósito' },
     commerce_categories: fixture.reference.categories, commerce_settings: fixture.reference.settings, shipping_rates: fixture.nationalRates,
     local_sales_customers: [], local_sales: [], rural_raffle_entries: [],
-    site_announcements: [],
-    products: [], customers: [], order_lines: [], settings: { id: 1, exchange_rate: 0.027 },
+    site_announcements: [], web_leads: [],
+    products: [], wholesale_product_images: [], customers: [], order_lines: [], settings: { id: 1, exchange_rate: 0.027 },
   };
   await page.route("https://*.supabase.co/**", async (route) => {
     const url = new URL(route.request().url());
@@ -28,24 +39,66 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
     if (options.failure && table === "orders") return route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Lectura interrumpida" }) });
     const method = route.request().method();
     const respond = (data: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
-    if (table === 'gestion_customer_profile_details') return respond([{ user_id: 'customer-1', birth_date: '1993-04-05', city: 'Montevideo', country_code: 'UY' }]);
+    if (url.pathname.endsWith('/functions/v1/gestion-users')) {
+      const body = route.request().postDataJSON() || {};
+      writes.push({ table: 'gestion-users', method, body });
+      if (body.action === 'status') return respond({ needsSetup: Boolean(options.needsSetup) });
+      if (body.action === 'bootstrap') return respond({ username: body.username }, 201);
+      if (body.action === 'list') return respond({ users: [
+        { accessUserId: 't1', username: 'richard', configured: true, allowedPaths: permissionStore.t1 },
+        { accessUserId: 't2', username: 'florencia.costa', configured: true, allowedPaths: permissionStore.t2 },
+        { accessUserId: 't3', username: 'florencia.pizzorno', configured: true, allowedPaths: permissionStore.t3 },
+      ] });
+      if (body.action === 'savePermissions') {
+        permissionStore[body.accessUserId] = body.allowedPaths;
+        return respond({ accessUserId: body.accessUserId, allowedPaths: body.allowedPaths });
+      }
+      return respond({ user: { accessUserId: body.accessUserId, username: body.username, configured: true } });
+    }
+    if (table === 'gestion_customer_profile_details' || table === 'gestion_customer_profile_details_full') return respond([{ user_id: 'customer-1', birth_date: '1993-04-05', city: 'Montevideo', country_code: 'UY', company: null, address_line1: null, department: null, postal_code: null }]);
+    if (table === 'gestion_web_leads') return respond(tables.web_leads);
+    if (table === 'get_published_pricing_catalog') return respond({ versionId: 'pricing-test', version: 7, publishedAt: '2026-10-20T12:00:00Z', rules: {
+      'customization:laser:rim_text': 120, 'customization:laser:rim_image': 300,
+      'customization:bronze-applique:rim_text': 25, 'customization:bronze-applique:rim_image': 350,
+      'customization:alpaca-applique:rim_text': 30, 'customization:alpaca-applique:rim_image': 400,
+      'customization:bronze-applique:fleje_text': 15, 'customization:bronze-applique:fleje_image': 450,
+      'customization:alpaca-applique:fleje_text': 20, 'customization:alpaca-applique:fleje_image': 500,
+    } });
     if (url.pathname.startsWith('/storage/v1/object/public/')) return route.fulfill({status:200,contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/X1cAAAAASUVORK5CYII=', 'base64')});
-    if (method !== 'GET') {
+    if (method !== 'GET' && method !== 'HEAD') {
       if (!options.writable) throw Error('No se permiten escrituras en esta prueba');
       const body = route.request().headers()['content-type']?.includes('json') ? route.request().postDataJSON() : {};
       writes.push({ table, method, body });
-      if (options.failWrite === table) return respond({message:'Guardado rechazado'},403);
+      if (options.failWrite === table || (options.failWrite === 'gestion_update_customer_contact' && table === 'gestion_update_customer_all')) return respond({message:'Guardado rechazado'},403);
       if (url.pathname.startsWith('/storage/v1/object/sign/')) return respond({ signedURL: '/object/public/product-images/test.png' });
       if (url.pathname.startsWith('/storage/v1/')) return respond({Key:url.pathname,Id:'stored'});
       if (url.pathname.startsWith('/functions/')) return respond({success:true});
-      if (table === 'gestion_update_customer_contact') {
-        for (const order of fixture.orders.filter(o => body.order_ids.includes(o.id))) Object.assign(order.customer_snapshot,{fullName:body.contact.name,email:body.contact.email,phone:body.contact.phone});
+      if (table === 'gestion_update_customer_contact' || table === 'gestion_update_customer_all') {
+        for (const order of fixture.orders.filter(o => body.order_ids.includes(o.id))) Object.assign(order.customer_snapshot,{fullName:body.contact.name,email:body.contact.email,phone:body.contact.phone,...body.contact});
         return respond(body.order_ids.length);
       }
-      if (table === 'create_local_sale_with_items' || table === 'create_channel_sale_with_items') {
+      if (table === 'gestion_update_web_lead') {
+        const lead = tables.web_leads.find((entry: any) => entry.source_id === body.p_source_id && entry.source_kind === body.p_source_kind);
+        if (lead) Object.assign(lead, { full_name: body.p_contact.name, origin_channel: body.p_contact.originChannel, customer_type: body.p_contact.customerType });
+        return respond(!!lead);
+      }
+      if (table === 'gestion_delete_unpurchased_web_lead') {
+        const before = tables.web_leads.length;
+        tables.web_leads = tables.web_leads.filter((entry: any) => entry.source_id !== body.p_source_id || entry.source_kind !== body.p_source_kind);
+        return respond(tables.web_leads.length === before - 1);
+      }
+      if (table === 'gestion_delete_unlinked_contact') {
+        const local = tables.local_sales_customers.find((entry: any) => entry.id === body.p_local_id);
+        const raffle = tables.rural_raffle_entries.find((entry: any) => entry.id === body.p_raffle_id);
+        if (local && tables.local_sales.some((sale: any) => sale.customer_id === local.id)) return respond({ message: 'Tiene ventas vinculadas' }, 400);
+        tables.local_sales_customers = tables.local_sales_customers.filter((entry: any) => entry.id !== body.p_local_id);
+        tables.rural_raffle_entries = tables.rural_raffle_entries.filter((entry: any) => entry.id !== body.p_raffle_id);
+        return respond(Number(!!local) + Number(!!raffle));
+      }
+      if (table === 'create_local_sale_with_items' || table === 'create_channel_sale_with_items' || table === 'gestion_create_local_sale_with_items') {
         const saleNumber = tables.local_sales.length + 19;
-        const channel = table === 'create_channel_sale_with_items' ? body.p_channel : 'Local';
-        const prefix = channel === 'Local' ? 'L' : 'R';
+        const channel = table === 'create_local_sale_with_items' ? 'Local' : body.p_channel;
+        const prefix = channel === 'Local' ? 'L' : channel === 'Feria' ? 'F' : 'R';
         const referenceNumber = tables.local_sales.filter((sale: any) => sale.reference_code?.startsWith(`#${prefix}`)).length + 1;
         const customer = tables.local_sales_customers.find((entry: any) => entry.id === body.p_customer_id);
         const items = body.p_items.map((item: any, index: number) => {
@@ -53,7 +106,7 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
           const variant = product.commerce_variants.find((entry) => entry.id === item.variant_id)!;
           return { id: `sale-item-${saleNumber}-${index}`, variant_id: item.variant_id, sku: variant.sku,
             product_name: product.name, variant_name: variant.name, quantity: item.quantity,
-            unit_price_minor: item.unit_price_minor, line_total_minor: item.unit_price_minor * item.quantity };
+            unit_price_minor: item.unit_price_minor, line_total_minor: item.unit_price_minor * item.quantity, customization: item.customization || null };
         });
         const itemsTotal = items.reduce((sum: number, item: any) => sum + item.line_total_minor, 0);
         const charged = body.p_payment_method === 'Seña' ? body.p_deposit_minor : itemsTotal;
@@ -74,8 +127,13 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
         : table === 'order_items' ? fixture.orders.flatMap(o=>o.order_items)
         : Array.isArray(tables[table]) ? tables[table] : [tables[table]];
       const id = url.searchParams.get('id')?.replace('eq.','');
-      let matched = entries.filter(row => row && (!id || String(row.id) === id));
+      const fullName = url.searchParams.get('full_name')?.replace('eq.','');
+      let matched = entries.filter(row => row && (!id || String(row.id) === id) && (!fullName || String(row.full_name) === fullName));
       if (method === 'PATCH') matched.forEach(row => Object.assign(row,body));
+      if (method === 'DELETE' && Array.isArray(tables[table])) matched.forEach(row => {
+        const index = tables[table].indexOf(row);
+        if (index >= 0) tables[table].splice(index, 1);
+      });
       if (method === 'POST') {
         const values = Array.isArray(body) ? body : [body];
         matched = values.map(value => {
@@ -94,8 +152,24 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
     }
     let data = tables[table];
     if (data === undefined) throw Error(`Lectura no prevista: ${table}`);
+    const ids = url.searchParams.get('id')?.match(/^in\.\((.*)\)$/)?.[1].split(',').map((value) => value.replace(/^"|"$/g, ''));
     const id = url.searchParams.get('id')?.replace('eq.','');
-    if (Array.isArray(data) && id) data = data.filter((row: any) => row.id === id);
+    if (Array.isArray(data) && id && !ids) data = data.filter((row: any) => row.id === id);
+    if (Array.isArray(data) && ids) data = data.filter((row: any) => ids.includes(String(row.id)));
+    const customerName = url.searchParams.get('customer')?.replace('eq.','');
+    if (Array.isArray(data) && customerName) data = data.filter((row: any) => row.customer === customerName);
+    if (method === 'HEAD') return route.fulfill({ status: 200, headers: { 'Content-Range': `0-0/${Array.isArray(data) ? data.length : 0}`, 'Access-Control-Expose-Headers': 'Content-Range' }, body: '' });
+    if (table === 'local_sales_customers' && Array.isArray(data)) {
+      const linkedCustomerId = url.searchParams.get('linked_customer_id')?.replace('eq.', '');
+      if (linkedCustomerId) data = data.filter((row: any) => row.linked_customer_id === linkedCustomerId);
+      const updatedAfter = url.searchParams.get('updated_at')?.replace('gt.', '');
+      if (updatedAfter) data = data.filter((row: any) => row.updated_at && row.updated_at > updatedAfter);
+      const count = data.length;
+      const offset = Number(url.searchParams.get('offset') || 0);
+      const limit = Number(url.searchParams.get('limit') || count);
+      data = data.slice(offset, offset + limit);
+      return route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json', 'Content-Range': `${offset}-${Math.max(offset, offset + data.length - 1)}/${count}`, 'Access-Control-Expose-Headers': 'Content-Range' }, body: JSON.stringify(data) });
+    }
     await route.fulfill({ status: 200, headers: { "Content-Type": "application/json", "Content-Range": Array.isArray(data) ? `0-${Math.max(0,data.length - 1)}/${data.length}` : "0-0/1" }, body: JSON.stringify(data) });
   });
   return { fixture, writes, tables };

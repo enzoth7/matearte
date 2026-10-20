@@ -1,7 +1,7 @@
 import { areas, paths, resolvePath } from "./navigation";
 import type { Customer, Order, SalesChannel, State } from "./data";
 
-export const accessUserIds = ["t1", "t2", "t3"] as const;
+export const accessUserIds = ["t1", "t2", "t3", "t5"] as const;
 export type AccessUserId = (typeof accessUserIds)[number];
 
 const withAreas = (areaIds: string[]) =>
@@ -12,16 +12,17 @@ export function defaultAccess(): Record<string, string[]> {
     t1: [...paths],
     t2: [
       "/inicio/resumen",
-      "/comercial/pedidos", "/comercial/registrar",
-      "/clientes/base", "/clientes/segmentos",
+      "/comercial/pedidos", "/comercial/registrar-min",
+      "/clientes/base",
     ],
     t3: [
       "/inicio/resumen", "/inicio/alertas",
-      "/comercial/pedidos", "/comercial/registrar",
-      "/clientes/base", "/clientes/segmentos",
-      "/productos/catalogo", "/productos/ajustes",
+      "/comercial/pedidos", "/comercial/registrar-may",
+      "/clientes/base",
+      "/productos/catalogo", "/productos/servicios", "/productos/ajustes", "/productos/personalizador",
       ...withAreas(["produccion", "inventario", "entregas"]),
     ],
+    t5: withAreas(["marketing"]),
   };
 }
 
@@ -42,6 +43,12 @@ export function canAccess(s: State, path: string): boolean {
   if (userId === "t1") return true;
   if (lockedForRichard(normalized)) return false;
   return (s.access?.[userId] ?? defaultAccess()[userId]).includes(normalized);
+}
+
+export function firstRegistrationPath(s: State): string | null {
+  if (canAccess(s, "/comercial/registrar-min")) return "/comercial/registrar-min";
+  if (canAccess(s, "/comercial/registrar-may")) return "/comercial/registrar-may";
+  return null;
 }
 
 export function visibleAreas(s: State) {
@@ -66,6 +73,7 @@ export function setAreaAccess(
 ): State {
   const area = areas.find((entry) => entry.id === areaId);
   if (!area) return s;
+  if (userId === "t5" && areaId !== "marketing") return s;
   const current = new Set(s.access?.[userId] ?? defaultAccess()[userId]);
   for (const [slug] of area.pages) {
     const path = `/${area.id}/${slug}`;
@@ -82,7 +90,7 @@ export function setPageAccess(
   path: string,
   enabled: boolean,
 ): State {
-  if (!resolvePath(path) || lockedForRichard(path)) return s;
+  if (!resolvePath(path) || lockedForRichard(path) || (userId === "t5" && !path.startsWith("/marketing/"))) return s;
   const current = new Set(s.access?.[userId] ?? defaultAccess()[userId]);
   if (enabled) current.add(path);
   else current.delete(path);
@@ -91,22 +99,22 @@ export function setPageAccess(
 
 export function allowedSalesChannels(s: State): SalesChannel[] {
   const userId = accessUserId(s);
-  return userId === "t2" ? ["Local"] : userId === "t3" ? ["Mayorista"] : ["Web", "Local", "Mayorista", "Instagram", "Facebook", "WhatsApp"];
+  return userId === "t2" ? ["Local", "Feria"] : ["Web", "Local", "Feria", "Instagram", "Facebook", "WhatsApp"];
 }
 
 export function visibleOrders(s: State, production = false): Order[] {
   const userId = accessUserId(s);
+  if (userId === "t5") return [];
   if (userId === "t1" || (userId === "t3" && production)) return s.orders;
+  const wholesaleCustomers = new Set(s.customers.filter((customer) => customer.segment === "Mayorista").map((customer) => customer.id));
+  if (userId === "t3") return s.orders.filter((order) => order.source === "wholesale" || (order.channel === "Web" && wholesaleCustomers.has(order.customerId)));
   const channels = allowedSalesChannels(s);
-  return s.orders.filter((order) => channels.includes(order.channel));
+  return s.orders.filter((order) => channels.includes(order.channel) && !wholesaleCustomers.has(order.customerId) && order.source !== "wholesale");
 }
 
 export function visibleCustomers(s: State): Customer[] {
   const userId = accessUserId(s);
+  if (userId === "t5") return [];
   if (userId === "t1") return s.customers;
-  const allowedOrderIds = new Set(s.orders.filter((order) =>
-    userId === "t2" ? order.channel === "Local" || order.channel === "Web" : order.channel === "Mayorista",
-  ).map((order) => order.customerId));
-  return s.customers.filter((customer) => allowedOrderIds.has(customer.id) ||
-    (userId === "t2" ? customer.segment !== "Mayorista" : customer.segment === "Mayorista"));
+  return s.customers.filter((customer) => userId === "t2" ? customer.segment !== "Mayorista" : customer.segment === "Mayorista");
 }

@@ -8,6 +8,35 @@ import { buildRevenueForecast } from "./revenueForecast";
 import { readAllPages } from "./useCommerce";
 
 describe("integración de commerce en el estado compartido", () => {
+  it("incluye cuentas y suscriptores Web sin compras, sin duplicarlos por correo", () => {
+    const fixture = commerceFixture();
+    fixture.orders = [];
+    fixture.customerProfiles = [{ user_id: "user-1", birth_date: null, city: "Paysandú", country_code: "UY", address_line1: "Artigas 100", department: "Paysandú", postal_code: "60000" }];
+    fixture.webLeads = [
+      { source_kind: "newsletter", source_id: "lead-1", full_name: "Ana", email: "ana@example.com", phone: null, city: null, country_code: null, birth_date: null, company: null, origin_channel: "Web", customer_type: "Minorista", created_at: "2026-10-01T12:00:00Z" },
+      { source_kind: "account", source_id: "user-1", full_name: "Ana Pérez", email: "ana@example.com", phone: "099123456", city: "Paysandú", country_code: "UY", birth_date: null, company: null, origin_channel: "Web", customer_type: "Minorista", created_at: "2026-10-02T12:00:00Z" },
+    ];
+    const state = adaptCommerce(fixture);
+    expect(state.customers).toHaveLength(1);
+    expect(state.customers[0]).toMatchObject({ originChannel: "Web", webLeadKind: "account", webLeadId: "user-1", phone: "099123456", address: "Artigas 100", postalCode: "60000" });
+  });
+  it("conserva el origen de la suscripción con descuento cuando la cuenta ya existía", () => {
+    const fixture = commerceFixture();
+    fixture.orders = [];
+    fixture.webLeads = [
+      { source_kind: "account", source_id: "user-1", full_name: "Ana", email: "ana@example.com", phone: null, city: null, country_code: null, birth_date: null, company: null, origin_channel: "Web", customer_type: "Minorista", created_at: "2026-10-01T12:00:00Z" },
+      { source_kind: "newsletter", source_id: "lead-1", full_name: "Ana", email: "ana@example.com", phone: null, city: null, country_code: null, birth_date: null, company: null, origin_channel: "Suscripción con desc.", customer_type: "Minorista", created_at: "2026-10-02T12:00:00Z" },
+    ];
+    const state = adaptCommerce(fixture);
+    expect(state.customers).toHaveLength(1);
+    expect(state.customers[0].originChannel).toBe("Suscripción con desc.");
+  });
+  it("mantiene Agenda como primer origen cuando el contacto compra después", () => {
+    const fixture = commerceFixture();
+    fixture.localCustomers = [{ id: "agenda-1", full_name: "Contacto antiguo", email: "old@example.com", phone: "099123456", city: null, country: null, birth_date: null, first_purchase_date: null, last_purchase_date: null, source_user_id: null, notes: "", agenda_import_key: "legacy-1", origin_channel: "Agenda" }];
+    const state = adaptCommerce(fixture);
+    expect(state.customers.find((customer) => customer.localCustomerId === "agenda-1")?.originChannel).toBe("Agenda");
+  });
   it("muestra referencias nuevas por canal y conserva los números anteriores", () => {
     const fixture = commerceFixture();
     expect(orderName(adaptCommerce(fixture).orders[0])).toBe("#9001");
@@ -16,6 +45,8 @@ describe("integración de commerce en el estado compartido", () => {
     fixture.orders[0].customer_snapshot.purchaseFlow = "wholesale_bank_transfer";
     fixture.orders[0].reference_code = "#M001";
     expect(orderName(adaptCommerce(fixture).orders[0])).toBe("#M001");
+    expect(adaptCommerce(fixture).orders[0].channel).toBe("Web");
+    expect(adaptCommerce(fixture).customers[0].segment).toBe("Mayorista");
     fixture.localSales = [{ id: "social-1", sale_number: 20, reference_code: "#R001", channel: "Instagram", customer_id: null, customer_name: "Cliente", sold_on: "2026-10-14", payment_method: "Efectivo", total_minor: 10000, currency: "UYU", created_at: "2026-10-14T12:00:00Z", local_sale_items: [] }];
     const social = adaptCommerce(fixture).orders.find((order) => order.id === "social-1")!;
     expect(social.channel).toBe("Instagram");
@@ -36,11 +67,19 @@ describe("integración de commerce en el estado compartido", () => {
     expect(state.products[0].prices.Local).toBe(1000.5);
     expect(state.products[0].prices.Web).toBe(1000.5);
     expect(state.expenses).toEqual([]); expect(state.hours).toEqual([]); expect(state.draft).toEqual({});
-    expect(state.records["comercial/descuentos"][0].valor).toBe(150);
+    expect(state.records["marketing/descuentos"][0].valor).toBe(150);
     expect(buildRevenueForecast(state, { asOf: "2026-10-13" }).months).toEqual([]);
     expect(buildFinanceProjection(state, { asOf: "2026-10-13" }).slice(1).every((month) => month.estimatedIncome === 0)).toBe(true);
   });
-  it("calcula el precio mayorista por variante solo para mates y con la regla activa", () => {
+  it("clasifica y filtra productos con el código real de categoría", () => {
+    const fixture = commerceFixture();
+    fixture.products[0].category = "categoría-legada";
+    fixture.products[0].category_code = "mates";
+    const [product] = adaptCommerce(fixture).products;
+    expect(product.categoryCode).toBe("mates");
+    expect(product.family).toBe("Mates");
+  });
+  it("calcula el precio mayorista desde el precio base para las categorías seleccionadas", () => {
     const fixture = commerceFixture();
     fixture.reference.settings.wholesale_mate_discount_enabled = true;
     fixture.reference.settings.wholesale_mate_quantity_threshold = 30;
@@ -49,10 +88,26 @@ describe("integración de commerce en el estado compartido", () => {
     const [mate] = adaptCommerce(fixture).products;
     expect(mate.prices.Local).toBe(880);
     expect(mate.prices.Web).toBe(1000.5);
-    expect(mate.prices.Mayorista).toBe(700.35);
+    expect(mate.prices.Mayorista).toBe(616);
     expect(mate.wholesaleThreshold).toBe(30);
     fixture.products[0].category = "bombillas";
     expect(adaptCommerce(fixture).products[0].availableChannels).toEqual(["Local", "Web"]);
+    fixture.reference.settings.wholesale_discount_categories = ["mates", "bombillas"];
+    expect(adaptCommerce(fixture).products[0].prices.Mayorista).toBe(616);
+    expect(adaptCommerce(fixture).products[0].availableChannels).toEqual(["Local", "Web"]);
+  });
+  it("conserva el precio ARS de un artículo mayorista migrado sin volver a descontarlo", () => {
+    const fixture = commerceFixture();
+    fixture.reference.settings.wholesale_mate_discount_enabled = true;
+    fixture.reference.settings.wholesale_mate_discount_percent = 30;
+    Object.assign(fixture.products[0].commerce_variants[0], {
+      legacy_product_id: "45", wholesale_price_arg: 10500,
+      available_local: false, available_web: false, available_wholesale: true,
+    });
+    const [product] = adaptCommerce(fixture).products;
+    expect(product.priceArg).toBe(10500);
+    expect(product.prices.Mayorista).toBe(1000.5);
+    expect(product.availableChannels).toEqual(["Mayorista"]);
   });
   it("elige la imagen vinculada a cada variante y evita mostrar la foto de otro color", () => {
     const fixture = commerceFixture();
@@ -96,6 +151,7 @@ describe("integración de commerce en el estado compartido", () => {
     const state = adaptCommerce(fixture);
     expect(state.customers).toHaveLength(2);
     expect(state.customers.find(customer => customer.id === "customer-1")).toMatchObject({ localCustomerId: "local-1", phone: "099111222", notes: "Prefiere retiro" });
+    expect(state.customers.find(customer => customer.id === "customer-1")?.originChannel).toBe("Web");
     expect(state.orders.filter(order => order.channel === "Local")).toHaveLength(2);
     const regular = state.orders.find(order => order.id === "sale-1")!;
     expect(regular.customerId).toBe("customer-1");
@@ -124,6 +180,14 @@ describe("integración de commerce en el estado compartido", () => {
       sourceChannels: ["Sorteo"],
       notes: "Interés del sorteo: Carteras",
     });
+  });
+  it("incorpora la agenda sin inventar pedidos y conserva otros celulares", () => {
+    const fixture = commerceFixture();
+    fixture.localCustomers = [{ id: "agenda-1", full_name: "Ana Imperial", company_name: "Panz", email: null, phone: "+59899123456", city: null, country: "Uruguay", birth_date: null, first_purchase_date: null, last_purchase_date: null, source_user_id: null, notes: "", agenda_import_key: "key", agenda_additional_phones: ["+59899234567"], agenda_inferred_category: "Mates" }];
+    const state = adaptCommerce(fixture);
+    const contact = state.customers.find((entry) => entry.localCustomerId === "agenda-1")!;
+    expect(contact).toMatchObject({ companyName: "Panz", sourceChannels: ["Agenda"], agendaInferredCategory: "Mates", agendaAdditionalPhones: ["+59899234567"], lastPurchaseDate: "" });
+    expect(state.orders.some((order) => order.customerId === contact.id)).toBe(false);
   });
   it("muestra cumpleaños real asociado sin inventar fechas para los demás", () => {
     const fixture = commerceFixture();
