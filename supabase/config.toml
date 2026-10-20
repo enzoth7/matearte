@@ -3,6 +3,16 @@ enabled = true
 verify_jwt = true
 entrypoint = "./functions/auth-handoff/index.ts"
 
+[functions.gestion-users]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/gestion-users/index.ts"
+
+[functions.marketing-workspace]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/marketing-workspace/index.ts"
+
 [functions.commerce-email]
 enabled = true
 verify_jwt = false
