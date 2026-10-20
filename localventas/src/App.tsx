@@ -18,6 +18,7 @@ import {
   Users,
 } from '@phosphor-icons/react'
 import { supabase } from './supabase'
+import { formatContactName } from '../../shared/contactName'
 
 type Page = 'register' | 'sales' | 'clients' | 'products'
 type CatalogSort = 'sku' | 'price'
@@ -60,6 +61,7 @@ type CatalogVariant = {
   name: string
   base_price_minor: number
   active: boolean
+  available_local?: boolean
   option_values?: Record<string, unknown>
 }
 
@@ -98,6 +100,7 @@ type Customer = {
   name: string
   email: string
   phone: string
+  additionalPhones?: string[]
   birthday: string
   firstPurchaseDate: string
   lastPurchaseDate: string
@@ -154,11 +157,12 @@ const productSlug = (name: string) => name
 
 const initials = (name: string) => name.split(' ').filter(Boolean).slice(0, 2).map((word) => word[0]).join('').toUpperCase() || '—'
 
-const mapCustomer = (row: { id: string; full_name: string; email: string | null; phone: string | null; birth_date: string | null; first_purchase_date: string | null; last_purchase_date: string | null }): Customer => ({
+const mapCustomer = (row: { id: string; full_name: string; email: string | null; phone: string | null; agenda_additional_phones?: string[] | null; birth_date: string | null; first_purchase_date: string | null; last_purchase_date: string | null }): Customer => ({
   id: row.id,
-  name: row.full_name,
+  name: formatContactName(row.full_name),
   email: row.email || '',
   phone: row.phone || '',
+  additionalPhones: row.agenda_additional_phones || [],
   birthday: row.birth_date || '',
   firstPurchaseDate: row.first_purchase_date || '',
   lastPurchaseDate: row.last_purchase_date || '',
@@ -271,6 +275,7 @@ function App() {
   const [customerError, setCustomerError] = useState('')
   const [saving, setSaving] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
+  const [customerPage, setCustomerPage] = useState(1)
   const [selectedCustomerId, setSelectedCustomerId] = useState('')
   const [addingCustomer, setAddingCustomer] = useState(false)
   const [customerName, setCustomerName] = useState('')
@@ -338,20 +343,31 @@ function App() {
     const loadCustomers = async () => {
       setCustomersLoading(true)
       setCustomerError('')
-      const { data, error } = await supabase
-        .from('local_sales_customers')
-        .select('id,full_name,email,phone,birth_date,first_purchase_date,last_purchase_date')
-        .order('full_name')
+      const rows: Array<{ id: string; full_name: string; email: string | null; phone: string | null; agenda_additional_phones: string[] | null; birth_date: string | null; first_purchase_date: string | null; last_purchase_date: string | null }> = []
+      let loadError = null
+      for (let offset = 0; ; offset += 500) {
+        const { data, error } = await supabase
+          .from('local_sales_customers')
+          .select('id,full_name,email,phone,agenda_additional_phones,birth_date,first_purchase_date,last_purchase_date')
+          .order('id')
+          .range(offset, offset + 499)
+        if (error) { loadError = error; break }
+        rows.push(...(data || []))
+        if (!data || data.length < 500) break
+      }
       if (!active) return
       setCustomersLoading(false)
-      if (error) {
+      if (loadError) {
         setCustomerError('No se pudo cargar la base de clientes.')
         return
       }
-      setCustomers((data || []).map(mapCustomer))
+      setCustomers(rows.map(mapCustomer).sort((a, b) => a.name.localeCompare(b.name, 'es')))
     }
     void loadCustomers()
-    return () => { active = false }
+    const onFocus = () => void loadCustomers()
+    window.addEventListener('focus', onFocus)
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void loadCustomers() }, 60_000)
+    return () => { active = false; window.removeEventListener('focus', onFocus); window.clearInterval(timer) }
   }, [authorized])
 
   useEffect(() => {
@@ -403,7 +419,7 @@ function App() {
       const [productsRequest, categoriesRequest] = await Promise.all([
         supabase
           .from('commerce_products')
-          .select('id,name,category,category_code,published,commerce_variants(id,sku,name,base_price_minor,active,option_values)')
+          .select('id,name,category,category_code,published,commerce_variants(id,sku,name,base_price_minor,active,available_local,option_values)')
           .neq('category', 'sandbox')
           .order('name'),
         supabase
@@ -488,18 +504,18 @@ function App() {
   const registerCatalogRows = useMemo(() => {
     if (!selectedCategory) return []
     return catalogRows.filter(({ product, variant }) => (
-      variant.active && (product.category_code || product.category) === selectedCategory
+      variant.active && variant.available_local !== false && (product.category_code || product.category) === selectedCategory
     ))
-  }, [catalogRows, selectedCategory])
+  }, [catalogRows, selectedCategory, saleChannel])
 
   const registerProductMatches = useMemo(() => {
     const query = normalizeSearchText(registerProductSearch.trim())
     if (!query) return []
     return catalogRows.filter(({ product, variant }) => (
-      variant.active
+      variant.active && variant.available_local !== false
       && normalizeSearchText(`${variant.sku} ${product.name} ${variant.name}`).includes(query)
     )).slice(0, 8)
-  }, [catalogRows, registerProductSearch])
+  }, [catalogRows, registerProductSearch, saleChannel])
 
   const filteredCatalogRows = useMemo(() => {
     const query = catalogSearch.trim().toLowerCase()
@@ -538,7 +554,7 @@ function App() {
   const customerMatches = useMemo(() => {
     const query = customerSearch.trim().toLowerCase()
     if (!query) return []
-    return customers.filter((customer) => `${customer.name} ${customer.email} ${customer.phone}`.toLowerCase().includes(query))
+    return customers.filter((customer) => `${customer.name} ${customer.email} ${customer.phone} ${(customer.additionalPhones || []).join(' ')}`.toLowerCase().includes(query)).slice(0, 30)
   }, [customerSearch, customers])
 
   const selectedCatalogRow = catalogRows.find(({ variant }) => variant.id === selectedVariantId)
@@ -872,7 +888,7 @@ function App() {
     event.preventDefault()
     if (!editingCustomer) return
 
-    const name = editCustomerName.trim()
+    const name = formatContactName(editCustomerName)
     if (!name) {
       setEditCustomerError('Ingresá el nombre del cliente.')
       return
@@ -889,7 +905,7 @@ function App() {
         birth_date: editCustomerBirthday || null,
       })
       .eq('id', editingCustomer.id)
-      .select('id,full_name,email,phone,birth_date,first_purchase_date,last_purchase_date')
+      .select('id,full_name,email,phone,agenda_additional_phones,birth_date,first_purchase_date,last_purchase_date')
       .single()
 
     setEditCustomerBusy(false)
@@ -935,14 +951,16 @@ function App() {
       const { data, error } = await supabase
         .from('local_sales_customers')
         .insert({
-          full_name: customerName.trim(),
+          full_name: formatContactName(customerName),
           email: email.trim() || null,
           phone: phone.trim() || null,
           birth_date: birthday || null,
           first_purchase_date: null,
           last_purchase_date: null,
+          origin_channel: saleChannel,
+          customer_type: 'Minorista',
         })
-        .select('id,full_name,email,phone,birth_date,first_purchase_date,last_purchase_date')
+        .select('id,full_name,email,phone,agenda_additional_phones,birth_date,first_purchase_date,last_purchase_date')
         .single()
 
       if (error) {
@@ -1263,7 +1281,7 @@ function App() {
                 <div className="clients-table-wrap">
                   <table className="clients-table">
                     <thead><tr><th>Nombre</th><th>Contacto</th><th>Cumpleaños</th><th>Última compra</th><th><span className="sr-only">Acciones</span></th></tr></thead>
-                    <tbody>{customers.map((customer) => (
+                    <tbody>{customers.slice((customerPage - 1) * 100, customerPage * 100).map((customer) => (
                       <tr key={customer.id}>
                         <td><strong>{customer.name}</strong></td>
                         <td>
@@ -1279,6 +1297,7 @@ function App() {
                       </tr>
                     ))}</tbody>
                   </table>
+                  {customers.length > 100 && <nav className="clients-pagination" aria-label="Páginas de clientes"><span>Página {customerPage} de {Math.ceil(customers.length / 100)}</span><button type="button" disabled={customerPage <= 1} onClick={() => setCustomerPage((page) => page - 1)}>Anterior</button><button type="button" disabled={customerPage >= Math.ceil(customers.length / 100)} onClick={() => setCustomerPage((page) => page + 1)}>Siguiente</button></nav>}
                 </div>
               )}
             </section>
