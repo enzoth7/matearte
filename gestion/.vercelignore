@@ -1,0 +1,14 @@
+.git
+.github
+/Informacion
+/auditoria-movil-2026-08-24
+
+/dashboard
+/supabase
+**/node_modules
+**/.next
+**/dist
+**/test-results
+**/artifacts
+*.mp4
+*.pdf
