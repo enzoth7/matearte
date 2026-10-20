@@ -28,6 +28,13 @@ describe("última compra del contacto de agenda", () => {
     expect(latestCustomerPurchase(customer, [{ ...order, items: [{ family: "Criollo" }] } as Order]).category).toBe("Mates");
     expect(latestCustomerPurchase(customer, [{ ...order, items: [{ family: "Mate Imperial Fleje Pampa" }] } as Order]).category).toBe("Mates");
   });
+  it("registra una compra de diseño web como Personalizados", () => {
+    const personalizedOrder = {
+      ...order,
+      items: [{ productId: "design-1", family: "Sin categoría", title: "Mate Camionero", orderType: "design" }],
+    } as Order;
+    expect(latestCustomerPurchase(customer, [personalizedOrder]).category).toBe("Personalizados");
+  });
   it("unifica las categorías históricas de personalizados", () => {
     expect(purchaseCategoryLabel("posa-mates")).toBe("Posa mates");
     expect(purchaseCategoryLabel("personalizados", "Mate a medida")).toBe("Personalizados");

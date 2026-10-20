@@ -13,6 +13,7 @@ export type PersonalizedOrderItem = {
   requires_review: boolean;
   review_status: string | null;
   review_reason: string | null;
+  production_status?: string | null;
   immutable_snapshot: JsonRecord;
 };
 
@@ -25,6 +26,7 @@ export type PersonalizedOrder = {
   total_minor: number;
   created_at: string;
   paid_at: string | null;
+  payment_label?: 'Pago parcial';
   customer_snapshot: JsonRecord;
   order_items: PersonalizedOrderItem[];
 };
@@ -383,11 +385,19 @@ export function getPaymentStatusValue(order: Pick<PersonalizedOrder, 'paid_at' |
   return 'pending';
 }
 
-export function paymentStatusLabel(order: Pick<PersonalizedOrder, 'paid_at' | 'status'>): string {
+export function paymentStatusLabel(order: Pick<PersonalizedOrder, 'paid_at' | 'status' | 'payment_label'>): string {
   if (order.status === 'refunded') return 'Reembolsado';
   if (order.status === 'cancelled') return 'Cancelado';
   if (order.status === 'payment_failed') return 'Pago fallido';
-  return order.paid_at ? 'Completado' : 'Pendiente';
+  if (order.paid_at) return 'Pagado';
+  return order.payment_label || 'Pendiente';
+}
+
+export function personalizedProductionStatus(order: PersonalizedOrder): 'Pendiente' | 'En producción' | 'Terminado' {
+  const items = getPersonalizedItems(order);
+  if (items.length && items.every((item) => ['completed', 'Completado', 'Terminado'].includes(item.production_status || ''))) return 'Terminado';
+  if (items.some((item) => ['in_production', 'En producción'].includes(item.production_status || ''))) return 'En producción';
+  return 'Pendiente';
 }
 
 export function formatFileSize(bytes: number | null): string {

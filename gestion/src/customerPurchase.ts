@@ -1,5 +1,5 @@
 import { canonicalCategoryCode, defaultCatalogTaxonomy } from "../../shared/catalog-taxonomy";
-import { isSale, type Customer, type Order, type Product } from "./data";
+import { isSale, type Customer, type Order, type OrderLine, type Product } from "./data";
 
 const normalized = (value: string) => value
   .normalize("NFD")
@@ -40,6 +40,11 @@ export function purchaseCategoryLabel(value: string | null | undefined, productN
   )?.label_es || source;
 }
 
+export function purchaseLineCategoryLabel(item: OrderLine, product?: Product) {
+  if (item.orderType === "design" || item.orderType === "local_design" || item.personalization) return "Personalizados";
+  return purchaseCategoryLabel(product?.categoryCode || product?.family || item.family, product?.name || item.productName || item.title);
+}
+
 export function latestCustomerPurchase(customer: Customer, orders: Order[], products: Product[] = []) {
   const latest = orders.filter(isSale).sort((a, b) => b.date.localeCompare(a.date))[0];
   if (!latest) {
@@ -49,7 +54,7 @@ export function latestCustomerPurchase(customer: Customer, orders: Order[], prod
   const productsById = new Map(products.map((product) => [product.id, product]));
   const category = [...new Set((latest.items || []).map((item) => {
     const product = productsById.get(item.productId);
-    return purchaseCategoryLabel(product?.categoryCode || product?.family || item.family, product?.name || item.productName || item.title);
+    return purchaseLineCategoryLabel(item, product);
   }).filter(Boolean))].join(", ");
   return { date: latest.date, category, inferred: false };
 }

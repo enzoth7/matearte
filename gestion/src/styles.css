@@ -2291,15 +2291,6 @@ details.org-node {
   margin-top: 3px;
   font-size: 11px;
 }
-.access-user-scope {
-  margin-top: 20px;
-  padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface-warm);
-}
-.access-user-scope strong { font-size: 14px; }
-.access-user-scope p { margin: 6px 0 0; font-size: 13px; line-height: 1.5; }
 .access-heading {
   display: flex;
   align-items: baseline;

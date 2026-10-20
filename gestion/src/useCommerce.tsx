@@ -96,10 +96,11 @@ export function useCommerce() {
     return () => { cancelled = true; };
   }, [session?.user.id]);
 
+  const betianaHasOperationalAccess = (state.access?.t5 ?? []).some((path) => !path.startsWith("/marketing/"));
   const refresh = useCallback(async (forceFullCustomers = false) => {
     const client = commerceSource;
     if (!client || access !== "ready") return;
-    if (state.activeUserId === "t5") return;
+    if (state.activeUserId === "t5" && !betianaHasOperationalAccess) return;
     if (busyRef.current) { if (forceFullCustomers) pendingFullRefresh.current = true; return; }
     const requestEpoch = epoch.current;
     if (forceFullCustomers) localCustomerCache.current = null;
@@ -175,7 +176,7 @@ export function useCommerce() {
         }
       }
     }
-  }, [access, session?.user.id, state.activeUserId]);
+  }, [access, session?.user.id, state.activeUserId, betianaHasOperationalAccess]);
 
   useEffect(() => {
     if (access !== "ready") return;

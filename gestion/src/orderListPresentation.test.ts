@@ -32,6 +32,23 @@ describe("presentación resumida de ventas y pedidos", () => {
       .toBe("Posa mates, Personalizados");
   });
 
+  it("muestra Personalizados para un diseño web sin variante de catálogo", () => {
+    const personalizedOrder = {
+      ...order,
+      items: [{ productId: "design-1", family: "Sin categoría", title: "Mate Camionero", orderType: "design" }],
+    } as Order;
+    expect(orderCategoryLabels(personalizedOrder, [])).toBe("Personalizados");
+  });
+
+  it("mantiene Personalizados en un diseño local aunque el artículo base sea un mate", () => {
+    const personalizedOrder = {
+      ...order,
+      items: [{ productId: "mate-1", family: "Mates", title: "Mate Criollo", orderType: "local_design" }],
+    } as Order;
+    const products = [{ id: "mate-1", categoryCode: "mates", family: "Mates" }] as Product[];
+    expect(orderCategoryLabels(personalizedOrder, products)).toBe("Personalizados");
+  });
+
   it("solo muestra Enviado con producción terminada, entrega registrada y pago acreditado", () => {
     expect(orderShippingStatus(order, true)).toBe("Enviado");
     expect(orderShippingStatus({ ...order, production: "En producción" }, true)).toBe("No enviado");

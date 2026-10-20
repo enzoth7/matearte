@@ -61,6 +61,15 @@ describe("integración de commerce en el estado compartido", () => {
     expect(state.customers[0].id).toBe(order.customerId); expect(order.production).toBe("Pendiente");
     expect(overviewScope(state, "14d", "2026-10-13").orders.reduce((sum, order) => sum + order.quantity, 0)).toBe(3);
   });
+  it("clasifica un diseño web sin variante de catálogo como Personalizados", () => {
+    const fixture = commerceFixture();
+    fixture.orders[0].order_items = [{
+      ...fixture.orders[0].order_items[0],
+      id: "design-1", item_type: "design", source_variant_id: null, title: "Mate Camionero personalizado",
+    }];
+    const item = adaptCommerce(fixture).orders[0].items?.[0];
+    expect(item).toMatchObject({ family: "Personalizados", orderType: "design" });
+  });
   it("usa el precio base del catálogo en Local y no inventa descuentos mayoristas desactivados", () => {
     const state = adaptCommerce(commerceFixture());
     expect(state.products[0].availableChannels).toEqual(["Local", "Web"]);

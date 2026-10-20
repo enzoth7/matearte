@@ -330,9 +330,6 @@ function AccessUsers({ s }: Pick<PageProps, "s">) {
   const people = accessUserIds.map((userId) => s.employees.find((employee) => employee.id === userId)!).filter(Boolean);
   const selected = people.find((person) => person.id === selectedId)!;
   const configured = users.find((user) => user.accessUserId === selectedId)?.configured ?? false;
-  const marketingPages = areas.find((area) => area.id === "marketing")?.pages ?? [];
-  const marketingAccess = users.find((user) => user.accessUserId === "t5")?.allowedPaths ?? s.access?.t5 ?? defaultAccess().t5;
-  const enabledMarketingPages = marketingPages.filter(([slug]) => marketingAccess.includes(`/marketing/${slug}`));
 
   useEffect(() => {
     let cancelled = false;
@@ -391,13 +388,13 @@ function AccessUsers({ s }: Pick<PageProps, "s">) {
           const isConfigured = users.some((entry) => entry.accessUserId === person.id && entry.configured);
           return <button key={person.id} className={selectedId === person.id ? "selected" : ""} aria-current={selectedId === person.id ? "true" : undefined} onClick={() => { setSelectedId(person.id as AccessUserId); setMessage(""); }}>
             <strong>{person.name}</strong>
-            <small>{person.id === "t5" ? "Marketing · " : ""}{isConfigured ? "Usuario configurado" : "Pendiente de configurar"}</small>
+            <small>{isConfigured ? "Usuario configurado" : "Pendiente de configurar"}</small>
           </button>;
         })}
       </nav>
       <section className="access-main access-user-card" aria-labelledby="access-user-title">
         <div className="access-heading">
-          <div><h2 id="access-user-title">{selected.name}</h2><p>{selectedId === "t5" ? "Usuario del área Marketing. Sus pantallas se configuran en Permisos." : "Datos que usará para ingresar a Gestión."}</p></div>
+          <div><h2 id="access-user-title">{selected.name}</h2><p>Datos que usará para ingresar a Gestión. Sus pantallas se configuran en Permisos.</p></div>
           <span className={`access-user-status ${configured ? "configured" : "pending"}`}>{configured ? "Configurado" : "Sin configurar"}</span>
         </div>
         {status === "loading" ? <div role="status">Cargando usuario…</div> : (
@@ -410,10 +407,6 @@ function AccessUsers({ s }: Pick<PageProps, "s">) {
             <button className="primary" type="submit" disabled={status === "saving"}>{status === "saving" ? "Guardando…" : "Guardar usuario"}</button>
           </form>
         )}
-        {selectedId === "t5" && status !== "loading" && <div className="access-user-scope">
-          <strong>Acceso a Marketing</strong>
-          <p>{enabledMarketingPages.length ? enabledMarketingPages.map(([, label]) => label).join(" · ") : "No tiene pantallas habilitadas."}</p>
-        </div>}
       </section>
     </div>
   );
@@ -484,8 +477,8 @@ function AccessPermissions({ s, update }: Pick<PageProps, "s" | "update">) {
         {status === "loading" && <div role="status">Cargando permisos…</div>}
         {message && <div className={message.startsWith("Permisos guardados") ? "success" : "error"} role="status">{message}</div>}
         <div className="access-areas">
-          {areas.filter((area) => selectedId !== "t5" || area.id === "marketing").map((area) => {
-            const eligible = area.pages.filter(([slug]) => selectedId === "t1" || (!lockedForRichard(`/${area.id}/${slug}`) && (selectedId !== "t5" || area.id === "marketing")));
+          {areas.map((area) => {
+            const eligible = area.pages.filter(([slug]) => selectedId === "t1" || !lockedForRichard(`/${area.id}/${slug}`));
             const granted = eligible.filter(([slug]) => selectedId === "t1" || selectedAccess?.has(`/${area.id}/${slug}`));
             const allGranted = eligible.length > 0 && granted.length === eligible.length;
             return (
@@ -507,7 +500,7 @@ function AccessPermissions({ s, update }: Pick<PageProps, "s" | "update">) {
                 <div className="access-pages">
                   {area.pages.map(([slug, title]) => {
                     const path = `/${area.id}/${slug}`;
-                    const locked = selectedId !== "t1" && (lockedForRichard(path) || (selectedId === "t5" && area.id !== "marketing"));
+                    const locked = selectedId !== "t1" && lockedForRichard(path);
                     return (
                       <label key={path} className={locked ? "access-locked" : ""}>
                         <input

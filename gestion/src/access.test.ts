@@ -3,7 +3,7 @@ import { allowedSalesChannels, canAccess, defaultAccess, setAreaAccess, setPageA
 import { seedFixture as seed } from "./testing/fixture";
 
 describe("visibilidad de los tres perfiles", () => {
-  it("ubica Marketing aparte y limita el perfil de Betiana", () => {
+  it("mantiene Marketing como acceso inicial de Betiana y permite configurarle otras secciones", () => {
     const s = { ...seed(), activeUserId: "t5", user: "Betiana" };
     expect(canAccess(s, "/marketing/campanas")).toBe(true);
     expect(canAccess(s, "/marketing/avisos")).toBe(true);
@@ -11,7 +11,17 @@ describe("visibilidad de los tres perfiles", () => {
     expect(canAccess(s, "/comercial/avisos")).toBe(false);
     expect(canAccess(s, "/comercial/pedidos")).toBe(false);
     expect(canAccess(s, "/finanzas/resumen")).toBe(false);
-    expect(setPageAccess(s, "t5", "/comercial/pedidos", true)).toBe(s);
+    expect(visibleOrders(s)).toEqual([]);
+    expect(visibleCustomers(s)).toEqual([]);
+    const withOrders = setPageAccess(s, "t5", "/comercial/pedidos", true);
+    expect(canAccess(withOrders, "/comercial/pedidos")).toBe(true);
+    expect(canAccess(withOrders, "/comercial/registrar-min")).toBe(false);
+    expect(visibleOrders(withOrders)).toEqual(s.orders);
+    expect(visibleCustomers(withOrders)).toEqual(s.customers);
+    const withProducts = setAreaAccess(s, "t5", "productos", true);
+    expect(canAccess(withProducts, "/productos/catalogo")).toBe(true);
+    expect(canAccess(withProducts, "/productos/personalizador")).toBe(true);
+    expect(canAccess(setPageAccess(s, "t5", "/finanzas/resumen", true), "/finanzas/resumen")).toBe(false);
   });
   it("deja toda la gestión a Richard y reserva Finanzas y Usuarios para él", () => {
     const richard = seed();

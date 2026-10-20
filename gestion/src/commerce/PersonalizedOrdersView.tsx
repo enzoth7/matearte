@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Plus } from '@phosphor-icons/react';
 import { supabase } from './supabase';
-import { balance, orderName, type State } from '../data';
+import { balance, orderName, paid, type State } from '../data';
+import { Badge } from '../ui';
 import { compactOrderItemName } from '../orderItemPresentation';
 import { isPersonalizedMateItem, naturalCaseName } from '../productionPresentation';
 import {
@@ -10,11 +12,10 @@ import {
   formatFileSize,
   getPaymentStatusValue,
   getPersonalizedItems,
-  orderStatusLabel,
   paymentStatusLabel,
+  personalizedProductionStatus,
   summarizePersonalization,
   whatsappContactUrl,
-  type PaymentStatusOption,
   type PersonalizedOrder,
   type PrivateAsset,
   type SurfaceSideSummary,
@@ -32,7 +33,17 @@ const readableDate = (value: string) => new Intl.DateTimeFormat('es-UY', {
   dateStyle: 'short',
   timeStyle: 'short',
 }).format(new Date(value));
+const shortDate = (value: string) => new Intl.DateTimeFormat('es-UY', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+}).format(new Date(value));
 const reference = (order: PersonalizedOrder) => order.reference_code || `#${order.order_number}`;
+const productTypes = (order: PersonalizedOrder) => [...new Set(getPersonalizedItems(order).map((item) => ({
+  mate: 'Mates',
+  matera: 'Materas',
+  bombilla: 'Bombillas',
+})[summarizePersonalization(item).kind]))].join(', ');
 
 function localPersonalizedOrders(state: State | undefined): PersonalizedOrder[] {
   if (!state) return [];
@@ -50,6 +61,7 @@ function localPersonalizedOrders(state: State | undefined): PersonalizedOrder[] 
       total_minor: Math.round(items.reduce((sum, item) => sum + item.amount, 0) * 100),
       created_at: createdAt,
       paid_at: balance(state, order) === 0 ? createdAt : null,
+      payment_label: balance(state, order) > 0 && paid(state, order) > 0 ? 'Pago parcial' : undefined,
       customer_snapshot: {
         fullName: contact?.name || order.customerName || 'Cliente sin nombre',
         email: contact?.email || '',
@@ -67,6 +79,7 @@ function localPersonalizedOrders(state: State | undefined): PersonalizedOrder[] 
           requires_review: false,
           review_status: null,
           review_reason: null,
+          production_status: item.productionStatus || null,
           immutable_snapshot: item.personalization || {
             configuration: {
               selectionLabels: {
@@ -82,10 +95,6 @@ function localPersonalizedOrders(state: State | undefined): PersonalizedOrder[] 
       }),
     }];
   });
-}
-
-function SearchIcon() {
-  return <svg className="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4 4"/></svg>;
 }
 
 function CloseIcon() {
@@ -146,7 +155,6 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
   const [loading, setLoading] = useState(true);
   const [assetLinks, setAssetLinks] = useState<Record<string, AssetLink>>({});
   const [assetWarning, setAssetWarning] = useState('');
-  const [busyId, setBusyId] = useState('');
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   const load = useCallback(async () => {
@@ -155,7 +163,7 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
       const result: PersonalizedOrder[] = [];
       for (let offset = 0; ; offset += 100) {
         const { data, error, count } = await supabase.from('orders')
-          .select('id,order_number,reference_code,status,total_minor,created_at,paid_at,customer_snapshot,order_items(id,item_type,source_variant_id,title,quantity,total_minor,requires_review,review_status,review_reason,immutable_snapshot)', {count:'exact'})
+          .select('id,order_number,reference_code,status,total_minor,created_at,paid_at,customer_snapshot,order_items(id,item_type,source_variant_id,title,quantity,total_minor,requires_review,review_status,review_reason,production_status,immutable_snapshot)', {count:'exact'})
           .order('created_at', {ascending:false}).order('id').range(offset, offset + 99);
         if (error) throw error;
         result.push(...(data || []) as PersonalizedOrder[]);
@@ -170,88 +178,6 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
   }, [onNotice]);
 
   useEffect(() => { void load(); }, [load]);
-
-  const updatePaymentStatus = async (order: PersonalizedOrder, nextValue: PaymentStatusOption) => {
-    setBusyId(order.id);
-    setWebOrders((prev) => prev.map((item) => {
-      if (item.id !== order.id) return item;
-      if (nextValue === 'completed') {
-        return {
-          ...item,
-          paid_at: item.paid_at || new Date().toISOString(),
-          status: ['cancelled', 'manual_review', 'pending_payment'].includes(item.status) ? 'ready_for_production' : item.status,
-        };
-      }
-      if (nextValue === 'cancelled') {
-        return { ...item, status: 'cancelled' };
-      }
-      return {
-        ...item,
-        paid_at: null,
-        status: item.status === 'cancelled' ? 'manual_review' : item.status,
-      };
-    }));
-
-    try {
-      if (nextValue === 'completed') {
-        const orderUpdates: Record<string, unknown> = {
-          paid_at: order.paid_at || new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        if (['cancelled', 'manual_review', 'pending_payment'].includes(order.status)) {
-          orderUpdates.status = 'ready_for_production';
-          orderUpdates.cancelled_at = null;
-        }
-        const { error: ordErr } = await supabase
-          .from('orders')
-          .update(orderUpdates)
-          .eq('id', order.id);
-        if (ordErr) throw ordErr;
-
-        const { error: reviewError } = await supabase
-          .from('order_items')
-          .update({ review_status: 'approved' })
-          .eq('order_id', order.id)
-          .eq('review_status', 'pending');
-        if (reviewError) throw reviewError;
-
-        onNotice(`Pedido ${reference(order)}: marcado como completado.`);
-      } else if (nextValue === 'cancelled') {
-        const { error: ordErr } = await supabase
-          .from('orders')
-          .update({
-            status: 'cancelled',
-            cancelled_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', order.id);
-        if (ordErr) throw ordErr;
-
-        onNotice(`Pedido ${reference(order)}: marcado como cancelado.`);
-      } else {
-        const { error: ordErr } = await supabase
-          .from('orders')
-          .update({
-            paid_at: null,
-            cancelled_at: null,
-            status: 'manual_review',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', order.id);
-        if (ordErr) throw ordErr;
-
-        onNotice(`Pedido ${reference(order)}: marcado como pendiente.`);
-      }
-
-      await load();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al actualizar el estado.';
-      onNotice(`No se pudo actualizar el estado: ${msg}`);
-      await load();
-    } finally {
-      setBusyId('');
-    }
-  };
 
   const orders = useMemo(() => [...webOrders, ...localPersonalizedOrders(state)]
     .sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id)), [state, webOrders]);
@@ -309,36 +235,24 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
 
   return (
     <>
-      <section className="data-panel" aria-label="Pedidos personalizados">
-        <div className="table-summary"><strong>{orders.length} pedidos personalizados</strong><small>Abrí la lupa para ver las imágenes y el detalle completo</small></div>
+      <section className="data-panel personalized-orders-panel" aria-label="Pedidos personalizados">
         <div className="table-scroll">
           <table className="data-table personalized-table">
-            <thead><tr><th>Pedido</th><th>Fecha</th><th>Cliente</th><th>Origen</th><th>Artículos</th><th>Pago</th><th>Producción</th><th className="numeric">Total</th><th className="action-column">Ver</th></tr></thead>
+            <thead><tr><th>Pedido</th><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Canal</th><th>Total</th><th>Pago</th><th>Producción</th><th className="action-column">Detalles</th></tr></thead>
             <tbody>
               {orders.map((order) => {
-                const itemCount = getPersonalizedItems(order).length;
                 return <tr key={order.id}>
                   <td><strong>{reference(order)}</strong></td>
-                  <td>{readableDate(order.created_at)}</td>
-                  <td>{customerName(order.customer_snapshot)}</td>
-                  <td>{order.source === 'local' ? 'Local' : 'Web'}</td>
-                  <td>{itemCount} {itemCount === 1 ? 'personalizado' : 'personalizados'}</td>
+                  <td>{shortDate(order.created_at)}</td>
+                  <td><strong>{customerName(order.customer_snapshot)}</strong></td>
+                  <td>{productTypes(order)}</td>
+                  <td><span className={`badge channel-${order.source === 'local' ? 'local' : 'web'}`}>{order.source === 'local' ? 'Local' : 'Web'}</span></td>
+                  <td><strong>{money(order.total_minor)}</strong></td>
                   <td className="payment-status-cell">
-                    {order.source === 'local' ? <div className={`status-badge status-${getPaymentStatusValue(order)}`}>{paymentStatusLabel(order)}</div> : <select
-                      className={`status-select status-select--${getPaymentStatusValue(order)}`}
-                      value={getPaymentStatusValue(order)}
-                      onChange={(e) => void updatePaymentStatus(order, e.target.value as PaymentStatusOption)}
-                      disabled={busyId === order.id}
-                      aria-label={`Cambiar estado de pago del pedido ${reference(order)}`}
-                    >
-                      <option value="pending">Pendiente</option>
-                      <option value="completed">Completado</option>
-                      <option value="cancelled">Cancelado</option>
-                    </select>}
+                    <Badge tone={getPaymentStatusValue(order) === 'cancelled' ? 'red' : undefined}>{paymentStatusLabel(order)}</Badge>
                   </td>
-                  <td><div className={`status-badge status-${order.status}`}>{orderStatusLabel(order.status)}</div></td>
-                  <td className="numeric"><strong>{money(order.total_minor)}</strong></td>
-                  <td className="action-column"><button className="icon-button" type="button" onClick={() => setSelectedId(order.id)} aria-label={`Ver detalle del pedido ${reference(order)}`} title="Ver detalle"><SearchIcon/></button></td>
+                  <td><Badge>{personalizedProductionStatus(order)}</Badge></td>
+                  <td className="action-column"><button className="secondary order-details-button personalized-details-button" type="button" onClick={() => setSelectedId(order.id)} aria-label={`Ver detalle del pedido ${reference(order)}`} title="Ver detalle"><Plus size={18} weight="bold" aria-hidden="true" /></button></td>
                 </tr>;
               })}
               {!orders.length && <tr><td className="empty-table" colSpan={9}>Todavía no hay pedidos personalizados.</td></tr>}
@@ -364,20 +278,10 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
               <div>
                 <small>Pago</small>
                 <div style={{ marginTop: '0.25rem' }}>
-                  {selected.source === 'local' ? <div className={`status-badge status-${getPaymentStatusValue(selected)}`}>{paymentStatusLabel(selected)}</div> : <select
-                    className={`status-select status-select--${getPaymentStatusValue(selected)}`}
-                    value={getPaymentStatusValue(selected)}
-                    onChange={(e) => void updatePaymentStatus(selected, e.target.value as PaymentStatusOption)}
-                    disabled={busyId === selected.id}
-                    aria-label={`Cambiar estado de pago del pedido ${reference(selected)}`}
-                  >
-                    <option value="pending">Pendiente</option>
-                    <option value="completed">Completado</option>
-                    <option value="cancelled">Cancelado</option>
-                  </select>}
+                  <Badge tone={getPaymentStatusValue(selected) === 'cancelled' ? 'red' : undefined}>{paymentStatusLabel(selected)}</Badge>
                 </div>
               </div>
-              <div><small>Producción</small><strong>{orderStatusLabel(selected.status)}</strong></div>
+              <div><small>Producción</small><strong>{personalizedProductionStatus(selected)}</strong></div>
               <div><small>Total del pedido</small><strong>{money(selected.total_minor)}</strong></div>
               <div><small>Contacto</small><strong>{phone || email || 'Sin contacto guardado'}</strong></div>
             </div>

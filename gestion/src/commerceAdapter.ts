@@ -128,7 +128,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
         weightGrams: Number(historicalProduct.peso) > 0 ? Number(historicalProduct.peso) : catalog?.weightGrams,
         sku: item.sku || text(variant, "sku"), quantity: item.quantity,
         unitPrice: Number(item.unit_price_minor) / 100, amount: Number(item.total_minor) / 100,
-        family: catalog?.family || text(object(historical.product), "category") || "Sin categoría",
+        family: item.item_type === "design" ? "Personalizados" : catalog?.family || text(object(historical.product), "category") || "Sin categoría",
         variant: catalog?.variant || text(variant, "name"), rim: catalog?.rim || "Sin especificar", leather: catalog?.leather || "Sin especificar",
         productionStatus: item.production_status || "", reviewStatus: item.review_status, orderType: item.item_type,
       };
@@ -299,7 +299,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
         productName: item.product_name, options: catalog?.options, personalization: item.customization || undefined,
         weightGrams: catalog?.weightGrams,
         sku: item.sku, quantity: item.quantity, unitPrice: Number(item.unit_price_minor) / 100,
-        amount: Number(item.line_total_minor) / 100, family: catalog?.family || "",
+        amount: Number(item.line_total_minor) / 100, family: item.customization ? "Personalizados" : catalog?.family || "",
         variant: item.variant_name, rim: catalog?.rim || "", leather: catalog?.leather || "",
         productionStatus: "", reviewStatus: null, orderType: item.customization ? "local_design" : undefined,
       };

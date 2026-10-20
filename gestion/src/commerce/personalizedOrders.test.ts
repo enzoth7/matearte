@@ -4,8 +4,10 @@ import {
   getPaymentStatusValue,
   normalizeWhatsappPhone,
   paymentStatusLabel,
+  personalizedProductionStatus,
   summarizePersonalization,
   whatsappContactUrl,
+  type PersonalizedOrder,
   type PersonalizedOrderItem,
 } from './personalizedOrders';
 
@@ -142,7 +144,12 @@ describe('getPaymentStatusValue y paymentStatusLabel', () => {
 
   it('retorna completed para pedidos pagados', () => {
     expect(getPaymentStatusValue({ paid_at: '2026-09-18T19:00:00Z', status: 'ready_for_production' })).toBe('completed');
-    expect(paymentStatusLabel({ paid_at: '2026-09-18T19:00:00Z', status: 'ready_for_production' })).toBe('Completado');
+    expect(paymentStatusLabel({ paid_at: '2026-09-18T19:00:00Z', status: 'ready_for_production' })).toBe('Pagado');
+    expect(paymentStatusLabel({ paid_at: '2026-09-18T19:00:00Z', status: 'paid_pending_review' })).toBe('Pagado');
+  });
+
+  it('muestra el pago parcial de ventas locales como en los demás pedidos', () => {
+    expect(paymentStatusLabel({ paid_at: null, status: 'ready_for_production', payment_label: 'Pago parcial' })).toBe('Pago parcial');
   });
 
   it('retorna cancelled para pedidos cancelados, reembolsados o con pago fallido', () => {
@@ -154,5 +161,26 @@ describe('getPaymentStatusValue y paymentStatusLabel', () => {
 
     expect(getPaymentStatusValue({ paid_at: null, status: 'refunded' })).toBe('cancelled');
     expect(paymentStatusLabel({ paid_at: null, status: 'refunded' })).toBe('Reembolsado');
+  });
+});
+
+describe('personalizedProductionStatus', () => {
+  const order = (statuses: string[]): PersonalizedOrder => ({
+    id: 'order-1', order_number: 1, status: 'paid_pending_review', total_minor: 620_000,
+    created_at: '2026-10-20T12:00:00Z', paid_at: '2026-10-20T12:00:00Z', customer_snapshot: {},
+    order_items: statuses.map((status, index) => ({ ...item({}), id: `item-${index}`, production_status: status })),
+  });
+
+  it('usa el avance real del artículo, no el estado de revisión del pedido', () => {
+    expect(personalizedProductionStatus(order(['pending']))).toBe('Pendiente');
+    expect(personalizedProductionStatus(order(['in_production']))).toBe('En producción');
+    expect(personalizedProductionStatus(order(['completed']))).toBe('Terminado');
+    expect(personalizedProductionStatus(order(['completed', 'pending']))).toBe('Pendiente');
+  });
+
+  it('no mezcla el avance de artículos comunes con el personalizado', () => {
+    const mixed = order(['pending']);
+    mixed.order_items.push({ ...item({}), id: 'catalog', item_type: 'catalog', requires_review: false, production_status: 'completed' });
+    expect(personalizedProductionStatus(mixed)).toBe('Pendiente');
   });
 });

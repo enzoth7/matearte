@@ -417,7 +417,7 @@ export default function App() {
               
             </div>
           )}
-          {s.activeUserId !== "t5" && <div className="source-status">
+          {(s.activeUserId !== "t5" || !path.startsWith("/marketing/")) && <div className="source-status">
             <small>{live.loadedAt ? `Actualizado ${live.loadedAt.toLocaleTimeString("es-UY", { hour: "2-digit", minute: "2-digit" })}` : "Leyendo datos del comercio…"}</small>
             <button className="text-button" disabled={live.loading} onClick={() => void live.refresh()}>{live.loading ? "Actualizando…" : "Actualizar"}</button>
           </div>}
