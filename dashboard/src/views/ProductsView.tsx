@@ -190,6 +190,7 @@ export function ProductsView({ data, onAdd, onUpdate, onUpdateExchangeRate }: Pr
             <table className="data-table editable-table product-table">
               <thead>
                 <tr>
+                  <th>Foto</th>
                   <th>#</th>
                   <th>
                     <select
@@ -256,6 +257,7 @@ export function ProductsView({ data, onAdd, onUpdate, onUpdateExchangeRate }: Pr
               <tbody>
                 {filtered.map((product) => (
                   <tr key={`${product.id}-${product.model}-${product.priceArg}`} className={savingProduct === product.id ? "is-saving" : ""}>
+                    <td data-label="Foto"><div className="dashboard-product-photo">{product.imageUrl ? <img src={product.imageUrl} alt="" style={product.imageCrop ? { objectPosition: `${50 - product.imageCrop.x}% ${50 - product.imageCrop.y}%`, transform: `scale(${product.imageCrop.zoom})` } : undefined} /> : <span>—</span>}</div></td>
                     <td data-label="#"><strong>{product.id}</strong></td>
                     <td data-label="Modelo"><input aria-label={`Modelo producto ${product.id}`} defaultValue={product.model} onBlur={(event) => save(product, { model: event.target.value })} /></td>
                     <td data-label="Variante"><input aria-label={`Variante producto ${product.id}`} defaultValue={product.variant} onBlur={(event) => save(product, { variant: event.target.value })} /></td>

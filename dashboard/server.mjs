@@ -76,6 +76,7 @@ async function getDashboardData() {
         quantity: l.quantity,
         status: l.status,
         orderType: l.order_type === "no_cost" ? "no_cost" : "normal",
+        saleChannel: l.sale_channel || "WhatsApp",
         unitPriceArg: l.unit_price_arg != null ? Number(l.unit_price_arg) : undefined,
         unitPriceUyu: l.unit_price_uyu != null ? Number(l.unit_price_uyu) : undefined,
         exchangeRate: l.exchange_rate != null ? Number(l.exchange_rate) : undefined,
@@ -94,6 +95,7 @@ async function getDashboardData() {
         quantity: l.quantity,
         completedAt: l.completed_at,
         orderType: l.order_type === "no_cost" ? "no_cost" : "normal",
+        saleChannel: l.sale_channel || "WhatsApp",
         unitPriceArg: l.unit_price_arg != null ? Number(l.unit_price_arg) : undefined,
         unitPriceUyu: l.unit_price_uyu != null ? Number(l.unit_price_uyu) : undefined,
         exchangeRate: l.exchange_rate != null ? Number(l.exchange_rate) : undefined,
@@ -231,6 +233,7 @@ app.post("/api/orders", async (request, response, next) => {
   try {
     const customer = cleanText(request.body.customer);
     const items = Array.isArray(request.body.items) ? request.body.items : [];
+    const saleChannel = ["Local", "Web", "WhatsApp", "Instagram", "Facebook", "Feria"].includes(request.body.saleChannel) ? request.body.saleChannel : "WhatsApp";
     const legacyOrderType = request.body.orderType === "no_cost" ? "no_cost" : "normal";
     if (!customer || !items.length) return response.status(400).json({ error: "Cliente y artículos son obligatorios." });
 
@@ -262,6 +265,7 @@ app.post("/api/orders", async (request, response, next) => {
         quantity,
         status: "Pendiente",
         order_type: orderType,
+        sale_channel: saleChannel,
         created_at: createdAt,
         unit_price_arg: unitPriceArg,
         unit_price_uyu: unitPriceUyu,

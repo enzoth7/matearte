@@ -33,6 +33,12 @@ const data: DashboardData = {
 afterEach(cleanup);
 
 describe("NewOrderView", () => {
+  it("no ofrece variantes deshabilitadas para pedidos nuevos", () => {
+    render(<NewOrderView data={{ ...data, products: [{ ...data.products[0], availableWholesale: false }, data.products[1]] }} onAddOrder={vi.fn()} onNavigate={vi.fn()} />);
+    const models = screen.getByLabelText("Modelo de la fila 1");
+    expect(models).not.toHaveTextContent("Torpedo");
+    expect(models).toHaveTextContent("Imperial");
+  });
   it("muestra una sola cabecera para todas las filas de productos", () => {
     const { container } = render(
       <NewOrderView data={data} onAddOrder={vi.fn()} onNavigate={vi.fn()} />,
@@ -87,6 +93,16 @@ describe("NewOrderView", () => {
         expect.objectContaining({ productId: "torpedo-natural", quantity: 1, orderType: "normal" }),
         expect.objectContaining({ productId: "imperial-negro", quantity: 1, orderType: "no_cost" }),
       ],
+      "WhatsApp",
     ));
+  });
+  it("guarda el canal elegido sin convertir Mayorista en canal", async () => {
+    const onAddOrder = vi.fn().mockResolvedValue("PED-201");
+    render(<NewOrderView data={data} onAddOrder={onAddOrder} onNavigate={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Encargar pedido a"), { target: { value: "GASPAR" } });
+    fireEvent.change(screen.getByLabelText("Modelo de la fila 1"), { target: { value: "Torpedo" } });
+    fireEvent.change(screen.getByLabelText("Canal de venta"), { target: { value: "Feria" } });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar pedido" }));
+    await waitFor(() => expect(onAddOrder).toHaveBeenCalledWith("GASPAR", expect.any(Array), "Feria"));
   });
 });

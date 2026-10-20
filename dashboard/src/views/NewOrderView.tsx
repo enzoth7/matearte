@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { CheckCircleIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { formatArg, formatUyu } from "../lib/format";
-import type { DashboardData, DraftOrderItem, OrderType, ViewId } from "../types";
+import type { DashboardData, DraftOrderItem, OrderType, SaleChannel, ViewId } from "../types";
 
 const createDraft = (): DraftOrderItem => ({
   key: crypto.randomUUID(),
@@ -12,20 +12,22 @@ const createDraft = (): DraftOrderItem => ({
 
 interface NewOrderViewProps {
   data: DashboardData;
-  onAddOrder: (customer: string, items: DraftOrderItem[]) => Promise<string>;
+  onAddOrder: (customer: string, items: DraftOrderItem[], saleChannel: SaleChannel) => Promise<string>;
   onNavigate: (view: ViewId) => void;
 }
 
 export function NewOrderView({ data, onAddOrder, onNavigate }: NewOrderViewProps) {
   const [customer, setCustomer] = useState("");
+  const [saleChannel, setSaleChannel] = useState<SaleChannel>("WhatsApp");
   const [items, setItems] = useState<DraftOrderItem[]>([createDraft()]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<string | null>(null);
 
-  const models = useMemo(() => Array.from(new Set(data.products.map((product) => product.model))), [data.products]);
+  const sellableProducts = useMemo(() => data.products.filter((product) => product.availableWholesale !== false), [data.products]);
+  const models = useMemo(() => Array.from(new Set(sellableProducts.map((product) => product.model))), [sellableProducts]);
   const recurrentCustomers = data.customers ?? [];
-  const productMap = useMemo(() => new Map(data.products.map((product) => [product.id, product])), [data.products]);
+  const productMap = useMemo(() => new Map(sellableProducts.map((product) => [product.id, product])), [sellableProducts]);
   const selectedItems = items.filter((item) => productMap.has(item.productId));
   const pricedTotalArg = selectedItems.reduce(
     (sum, item) => sum + (item.orderType === "no_cost" ? 0 : (productMap.get(item.productId)?.priceArg ?? 0) * Math.max(0, item.quantity || 0)),
@@ -58,7 +60,7 @@ export function NewOrderView({ data, onAddOrder, onNavigate }: NewOrderViewProps
     if (items.some((item) => !item.productId || item.quantity <= 0)) return setError("Completá todos los artículos.");
     setSaving(true);
     try {
-      const orderId = await onAddOrder(customer.trim(), items);
+      const orderId = await onAddOrder(customer.trim(), items, saleChannel);
       setCreatedOrder(orderId);
       setCustomer("");
       setItems([createDraft()]);
@@ -107,7 +109,7 @@ export function NewOrderView({ data, onAddOrder, onNavigate }: NewOrderViewProps
             {items.map((item, index) => {
               const product = productMap.get(item.productId);
               const selectedModel = product?.model ?? "";
-              const variants = data.products.filter((candidate) => candidate.model === selectedModel);
+              const variants = sellableProducts.filter((candidate) => candidate.model === selectedModel);
 
               return (
                 <li key={item.key}>
@@ -117,7 +119,7 @@ export function NewOrderView({ data, onAddOrder, onNavigate }: NewOrderViewProps
                       aria-label={`Modelo de la fila ${index + 1}`}
                       value={selectedModel}
                       onChange={(event) => {
-                        const first = data.products.find((candidate) => candidate.model === event.target.value);
+                        const first = sellableProducts.find((candidate) => candidate.model === event.target.value);
                         updateItem(item.key, { productId: first?.id ?? "" });
                       }}
                     >
@@ -181,6 +183,11 @@ export function NewOrderView({ data, onAddOrder, onNavigate }: NewOrderViewProps
         <aside className="order-summary-panel" aria-label="Resumen del pedido">
           <section className="order-summary-customers" aria-labelledby="customers-title">
             <h2 id="customers-title">Cliente</h2>
+            <label className="order-recurrent-customer" htmlFor="sale-channel">Canal de venta
+              <select id="sale-channel" value={saleChannel} onChange={(event) => setSaleChannel(event.target.value as SaleChannel)}>
+                {["WhatsApp", "Local", "Web", "Instagram", "Facebook", "Feria"].map((channel) => <option key={channel}>{channel}</option>)}
+              </select>
+            </label>
             <label className="order-recurrent-customer" htmlFor="recurrent-customer">
               Encargar pedido a
               <select

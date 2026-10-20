@@ -66,6 +66,7 @@ describe("supabaseService", () => {
                   quantity: 2,
                   status: "Pendiente",
                   order_type: "no_cost",
+                  sale_channel: "Feria",
                   created_at: "2026-08-19T10:00:00.000Z",
                   completed_at: null,
                   unit_price_arg: 50000,
@@ -104,6 +105,7 @@ describe("supabaseService", () => {
     expect(data.production[0].lineId).toBe("line-1");
     expect(data.production[0].createdAt).toBe("2026-08-19T10:00:00.000Z");
     expect(data.production[0].orderType).toBe("no_cost");
+    expect(data.production[0].saleChannel).toBe("Feria");
     expect(data.history).toHaveLength(1);
     expect(data.history[0].lineId).toBe("line-2");
   });

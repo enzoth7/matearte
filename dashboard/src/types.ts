@@ -1,5 +1,6 @@
 export type ProductionStatus = "Pendiente" | "En producción";
 export type OrderType = "normal" | "no_cost";
+export type SaleChannel = "Local" | "Web" | "WhatsApp" | "Instagram" | "Facebook" | "Feria";
 export type PanelMode = "wholesale" | "retail";
 
 export type ViewId = "resumen" | "nuevo" | "clientes" | "produccion" | "historico" | "productos";
@@ -12,6 +13,9 @@ export interface Product {
   leatherType: string;
   priceArg: number;
   priceUyu: number;
+  availableWholesale?: boolean;
+  imageUrl?: string;
+  imageCrop?: { x: number; y: number; zoom: number };
 }
 
 export interface ProductionItem {
@@ -24,6 +28,7 @@ export interface ProductionItem {
   quantity: number;
   status: ProductionStatus;
   orderType?: OrderType;
+  saleChannel?: SaleChannel;
   unitPriceArg?: number;
   unitPriceUyu?: number;
   exchangeRate?: number;
@@ -41,6 +46,7 @@ export interface HistoryItem {
   quantity: number;
   completedAt: string | null;
   orderType?: OrderType;
+  saleChannel?: SaleChannel;
   unitPriceArg?: number;
   unitPriceUyu?: number;
   exchangeRate?: number;

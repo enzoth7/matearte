@@ -6,6 +6,7 @@ import type {
   OrderType,
   Product,
   ProductionItem,
+  SaleChannel,
 } from "../types";
 
 const STORAGE_KEY = "matearte-dashboard-demo-v1";
@@ -177,10 +178,11 @@ export async function demoRequest<T>(url: string, options?: RequestInit): Promis
   }
 
   if (path === "/api/orders" && method === "POST") {
-    const body = parseBody<{ customer?: string; items?: DraftOrderItem[]; orderType?: OrderType }>(options);
+    const body = parseBody<{ customer?: string; items?: DraftOrderItem[]; orderType?: OrderType; saleChannel?: SaleChannel }>(options);
     const customer = cleanText(body.customer);
     const items = Array.isArray(body.items) ? body.items : [];
     const legacyOrderType: OrderType = body.orderType === "no_cost" ? "no_cost" : "normal";
+    const saleChannel: SaleChannel = ["Local", "Web", "WhatsApp", "Instagram", "Facebook", "Feria"].includes(body.saleChannel || "") ? body.saleChannel! : "WhatsApp";
     if (!customer || !items.length) throw new Error("Cliente y artículos son obligatorios.");
     const orderId = `PED-${Math.floor(100000 + Math.random() * 900000)}`;
     const createdAt = new Date().toISOString();
@@ -204,6 +206,7 @@ export async function demoRequest<T>(url: string, options?: RequestInit): Promis
         quantity,
         status: "Pendiente" as const,
         orderType,
+        saleChannel,
         createdAt,
         unitPriceArg,
         unitPriceUyu,

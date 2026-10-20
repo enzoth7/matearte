@@ -9,6 +9,7 @@ import type {
   DraftOrderItem,
   Product,
   ProductionItem,
+  SaleChannel,
 } from "../types";
 
 const initialData = seed as DashboardData;
@@ -111,14 +112,14 @@ export function useDashboard() {
   );
 
   const addOrder = useCallback(
-    async (customer: string, items: DraftOrderItem[]) => {
+    async (customer: string, items: DraftOrderItem[], saleChannel: SaleChannel = "WhatsApp") => {
       const result = await run(
         () =>
           useDirectSupabase
-            ? supabaseService.createOrder(customer, items)
+            ? supabaseService.createOrder(customer, items, saleChannel)
             : request<{ data: DashboardData; orderId: string }>("/api/orders", {
                 method: "POST",
-                body: JSON.stringify({ customer, items }),
+                body: JSON.stringify({ customer, items, saleChannel }),
               }),
         (payload) => payload.data,
       );

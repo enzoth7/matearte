@@ -5,6 +5,7 @@ import type {
   DraftOrderItem,
   Product,
   ProductionItem,
+  SaleChannel,
 } from "../types";
 
 function getClient() {
@@ -50,6 +51,9 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     leather_type?: string;
     price_arg?: number;
     price_uyu?: number;
+    available_wholesale?: boolean;
+    image_path?: string | null;
+    image_crop?: Record<string, unknown> | null;
   }>;
 
   const rawLines = (linesReq.data ?? []) as Array<{
@@ -62,6 +66,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     quantity: number;
     status: string;
     order_type?: string | null;
+    sale_channel?: SaleChannel | null;
     completed_at?: string | null;
     unit_price_arg?: number | null;
     unit_price_uyu?: number | null;
@@ -94,6 +99,13 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       leatherType: p.leather_type || "",
       priceArg: Number(p.price_arg) || 0,
       priceUyu: Number(p.price_uyu) || (Number(p.price_arg) || 0) * exchangeRate,
+      availableWholesale: p.available_wholesale !== false,
+      imageUrl: p.image_path ? client.storage.from("product-images").getPublicUrl(p.image_path).data.publicUrl : undefined,
+      imageCrop: p.image_path ? {
+        x: Number(p.image_crop?.cover_x) || 0,
+        y: Number(p.image_crop?.cover_y) || 0,
+        zoom: Number(p.image_crop?.cover_zoom) || 1,
+      } : undefined,
     })),
     production: rawLines
       .filter((l) => l.status === "Pendiente" || l.status === "En producción")
@@ -107,6 +119,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
         quantity: Number(l.quantity) || 1,
         status: (l.status === "En producción" ? "En producción" : "Pendiente") as "Pendiente" | "En producción",
         orderType: l.order_type === "no_cost" ? "no_cost" : "normal",
+        saleChannel: l.sale_channel || "WhatsApp",
         unitPriceArg: l.unit_price_arg != null ? Number(l.unit_price_arg) : undefined,
         unitPriceUyu: l.unit_price_uyu != null ? Number(l.unit_price_uyu) : undefined,
         exchangeRate: l.exchange_rate != null ? Number(l.exchange_rate) : undefined,
@@ -125,6 +138,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
         quantity: Number(l.quantity) || 1,
         completedAt: l.completed_at || null,
         orderType: l.order_type === "no_cost" ? "no_cost" : "normal",
+        saleChannel: l.sale_channel || "WhatsApp",
         unitPriceArg: l.unit_price_arg != null ? Number(l.unit_price_arg) : undefined,
         unitPriceUyu: l.unit_price_uyu != null ? Number(l.unit_price_uyu) : undefined,
         exchangeRate: l.exchange_rate != null ? Number(l.exchange_rate) : undefined,
@@ -146,8 +160,8 @@ export async function createCustomer(customer: Partial<CustomerProfile>): Promis
 
   const profile = {
     full_name: fullName,
-    first_name: firstName || fullName.split(/createdAt: l.created_at || settingsReq.data?.generated_at || nulls+/)[0],
-    last_name: lastName || fullName.split(/createdAt: l.created_at || settingsReq.data?.generated_at || nulls+/).slice(1).join(" "),
+    first_name: firstName || fullName.split(/\s+/)[0],
+    last_name: lastName || fullName.split(/\s+/).slice(1).join(" "),
     phone: cleanText(customer.phone),
     email: cleanText(customer.email),
     address: cleanText(customer.address),
@@ -179,8 +193,8 @@ export async function mergeOrUpdateCustomer(
   if (isSame) {
     const profile = {
       full_name: targetFullName,
-      first_name: firstName || targetFullName.split(/createdAt: l.created_at || settingsReq.data?.generated_at || nulls+/)[0],
-      last_name: lastName || targetFullName.split(/createdAt: l.created_at || settingsReq.data?.generated_at || nulls+/).slice(1).join(" "),
+      first_name: firstName || targetFullName.split(/\s+/)[0],
+      last_name: lastName || targetFullName.split(/\s+/).slice(1).join(" "),
       phone: cleanText(customer.phone),
       email: cleanText(customer.email),
       address: cleanText(customer.address),
@@ -207,7 +221,7 @@ export async function mergeOrUpdateCustomer(
       if (linesErr) throw linesErr;
 
       // Merge notes and contact info
-      const combinedNotes = [targetData.notes, cleanText(customer.notes)].filter(Boolean).join("createdAt: l.created_at || settingsReq.data?.generated_at || nulln");
+      const combinedNotes = [targetData.notes, cleanText(customer.notes)].filter(Boolean).join("\n");
       const updatedTarget = {
         phone: cleanText(customer.phone) || targetData.phone || "",
         email: cleanText(customer.email) || targetData.email || "",
@@ -228,8 +242,8 @@ export async function mergeOrUpdateCustomer(
       // Target doesn't exist, update customer name and contact
       const profile = {
         full_name: targetFullName,
-        first_name: firstName || targetFullName.split(/createdAt: l.created_at || settingsReq.data?.generated_at || nulls+/)[0],
-        last_name: lastName || targetFullName.split(/createdAt: l.created_at || settingsReq.data?.generated_at || nulls+/).slice(1).join(" "),
+        first_name: firstName || targetFullName.split(/\s+/)[0],
+        last_name: lastName || targetFullName.split(/\s+/).slice(1).join(" "),
         phone: cleanText(customer.phone),
         email: cleanText(customer.email),
         address: cleanText(customer.address),
@@ -252,6 +266,7 @@ export async function mergeOrUpdateCustomer(
 export async function createOrder(
   customer: string,
   items: DraftOrderItem[],
+  saleChannel: SaleChannel = "WhatsApp",
 ): Promise<{ data: DashboardData; orderId: string }> {
   const client = getClient();
   const cleanCust = cleanText(customer);
@@ -273,7 +288,7 @@ export async function createOrder(
 
   const newLines = items.map((item) => {
     const product = productsMap.get(String(item.productId));
-    if (!product) throw new Error(`Producto inexistente: ${item.productId}`);
+    if (!product || product.available_wholesale === false) throw new Error(`Producto no disponible para mayoristas: ${item.productId}`);
     const quantity = cleanQuantity(item.quantity);
     const isNoCost = item.orderType === "no_cost";
     const unitPriceArg = isNoCost ? 0 : Number(product.price_arg) || 0;
@@ -290,6 +305,7 @@ export async function createOrder(
       quantity,
       status: "Pendiente",
       order_type: isNoCost ? "no_cost" : "normal",
+      sale_channel: saleChannel,
       created_at: createdAt,
       unit_price_arg: unitPriceArg,
       unit_price_uyu: unitPriceUyu,
@@ -447,21 +463,25 @@ export async function createProduct(product: {
 
 export async function updateProduct(id: string, patch: Partial<Product>): Promise<DashboardData> {
   const client = getClient();
-  const { data: settings } = await client.from("settings").select("exchange_rate").eq("id", 1).maybeSingle();
-  const rate = settings ? Number(settings.exchange_rate) : 1;
-
   const { data: prevProduct, error: getErr } = await client.from("products").select("*").eq("id", id).single();
   if (getErr) throw getErr;
 
   const priceArg = Math.max(0, Number(patch.priceArg ?? prevProduct.price_arg) || 0);
+  const priceChanged = priceArg !== Number(prevProduct.price_arg);
+  let priceUpdate: { price_arg?: number; price_uyu?: number } = {};
+  if (priceChanged) {
+    const { data: settings, error: rateError } = await client.from("settings").select("exchange_rate").eq("id", 1).maybeSingle();
+    if (rateError) throw rateError;
+    const rate = settings ? Number(settings.exchange_rate) : 1;
+    priceUpdate = { price_arg: priceArg, price_uyu: priceArg * rate };
+  }
 
   const updates = {
     model: patch.model === undefined ? prevProduct.model : cleanText(patch.model) || prevProduct.model,
     variant: patch.variant === undefined ? prevProduct.variant : cleanText(patch.variant) || prevProduct.variant,
     rim_type: patch.rimType === undefined ? prevProduct.rim_type : cleanText(patch.rimType),
     leather_type: patch.leatherType === undefined ? prevProduct.leather_type : cleanText(patch.leatherType),
-    price_arg: priceArg,
-    price_uyu: priceArg * rate,
+    ...priceUpdate,
   };
 
   const { error } = await client.from("products").update(updates).eq("id", id);
