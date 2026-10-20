@@ -180,10 +180,10 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
       {stage === "model" && (
         <fieldset className="selection-model-grid">
           <legend className="sr-only">Tipo de mate</legend>
-          {mateDecisionCatalog.map((item) => (
+          {mateDecisionCatalog.filter((item) => item.enabled !== false).map((item) => (
             <button key={item.id} type="button" onClick={() => chooseFamily(item.id)} aria-pressed={item.id === selection.familyId} className="selection-product-card">
               <span className={`selection-model-card__image selection-model-card__image--${item.id}`}>
-                <ProductImage variantId={item.representativeVariantId} alt={`Mate ${item.label}`} />
+                <ProductImage variantId={item.representativeVariantId} alt={`Mate ${item.label}`} image={item.previewImage} />
               </span>
               <span className="selection-product-card__title">{item.label}</span>
               <span className="sr-only">{item.description}</span>
@@ -197,7 +197,7 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
         <div className="selection-texture-layout">
           <fieldset className={`selection-texture-grid ${family.textures.length === 1 ? "selection-texture-grid--single" : ""} ${family.textures.length === 3 ? "selection-texture-grid--triple" : ""} ${family.textures.length > 4 ? "selection-texture-grid--dense" : ""}`}>
             <legend className="sr-only">Textura o construcción</legend>
-            {family.textures.map((item) => (
+            {family.textures.filter((item) => item.enabled !== false).map((item) => (
               <button key={item.id} type="button" onClick={() => onChange({ ...selection, textureId: item.id, colorId: null, metalId: null, sizeId: null, engravingTypeId: null, flejeEngravingTypeId: null })} aria-pressed={item.id === selection.textureId} className={`selection-product-card selection-product-card--texture selection-product-card--${item.id}`}>
                 <span className={`selection-texture-card__image selection-texture-card__image--${item.id}`}>
                   <ProductImage variantId={item.representativeVariantId} alt={item.label} pending={item.status === "pending"} image={item.previewImage} />
@@ -218,7 +218,7 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
             >
               <legend>Elegí el color</legend>
               <div>
-                {selectedTexture.colors.map((item) => (
+                {selectedTexture.colors.filter((item) => item.enabled !== false).map((item) => (
                   <button
                     key={item.id}
                     type="button"
@@ -251,7 +251,7 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
       {stage === "metal" && selectedTexture && (
         <fieldset className={`selection-metal-grid ${selectedTexture.metals.length === 1 ? "selection-metal-grid--single" : ""} ${selectedTexture.metals.length === 2 ? "selection-metal-grid--double" : ""}`}>
           <legend className="sr-only">Tipo de alpaca o metal</legend>
-          {selectedTexture.metals.map((item) => (
+          {selectedTexture.metals.filter((item) => item.enabled !== false).map((item) => (
             <button key={item.id} type="button" onClick={() => onChange({ ...selection, metalId: item.id, sizeId: null, engravingTypeId: null, flejeEngravingTypeId: null })} aria-pressed={item.id === selection.metalId} className="selection-product-card">
               <MetalPreview image={item.previewImage} label={item.label} metalId={item.id} />
               <span className="selection-product-card__title">{item.label}</span>

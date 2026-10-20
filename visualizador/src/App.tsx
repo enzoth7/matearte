@@ -31,6 +31,7 @@ import {
   EMPTY_MATE_SELECTION,
   getFirstIncompleteStage,
   getSelectedTexture,
+  getSelectionPreviewImage,
   getSelectionFromLegacyVariant,
   getSelectionLabels,
   resolveMateSelection,
@@ -118,11 +119,11 @@ function FlejeTextLayer({ text, engravingArea }: { text: string; engravingArea: 
   );
 }
 
-function FlejePreview({ mate, text }: { mate: MateVariant; text: string }) {
+function FlejePreview({ mate, text, image }: { mate: MateVariant; text: string; image?: string }) {
   const model = getModelDefinition(mate.model);
   return (
     <div className="relative aspect-square w-full max-w-[540px]" aria-label={`Vista lateral del mate ${mate.name}`}>
-      <BaseImage src={mate.image} alt={`Mate ${mate.name} visto de frente`} />
+      <BaseImage src={image ?? mate.image} alt={`Mate ${mate.name} visto de frente`} />
       <FlejeTextLayer text={model.hasFleje ? text : ""} engravingArea={model.engravingArea} />
     </div>
   );
@@ -1532,7 +1533,7 @@ function VisualizerApp() {
               <section className="customizer-preview order-1 flex min-h-[540px] w-full flex-col lg:order-2 lg:col-span-5">
                 <div ref={previewContainerRef} className="flex min-h-[500px] max-h-[540px] flex-1 items-center justify-center rounded-3xl border border-[#e7d7c1] bg-white/60 p-6 shadow-xs" aria-label="Vista previa del mate">
                   {previewView === "mate" ? (
-                    <FlejePreview mate={selectedMate} text="" />
+                    <FlejePreview mate={selectedMate} text="" image={getSelectionPreviewImage(configuration.selection)} />
                   ) : previewView === "virola" ? (
                     <ConfiguratorPreview
                       rim={configuration.rim}

@@ -228,10 +228,12 @@ export function getSelectionPricing(catalog: PublishedPricingCatalog | null, sel
 
 export function listCatalogSelections(filters?: { familyId?: MateFamilyId; textureId?: string }) {
   return mateDecisionCatalog.flatMap((family) => {
+    if (family.enabled === false) return [];
     if (filters?.familyId && family.id !== filters.familyId) return [];
     return family.textures.flatMap((texture) => {
+      if (texture.enabled === false) return [];
       if (filters?.textureId && texture.id !== filters.textureId) return [];
-      return texture.colors.flatMap((color) => texture.metals.flatMap((metal) =>
+      return texture.colors.filter((color) => color.enabled !== false).flatMap((color) => texture.metals.filter((metal) => metal.enabled !== false).flatMap((metal) =>
         texture.sizes.map((sizeId): MateSelection => ({
           familyId: family.id,
           textureId: texture.id,

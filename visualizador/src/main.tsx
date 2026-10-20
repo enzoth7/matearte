@@ -19,7 +19,20 @@ if (storeCallbackUrl) {
   void Promise.all([
     import('./App.tsx'),
     import('./context/PricingContext.tsx'),
-  ]).then(([{ default: App }, { PricingProvider }]) => {
+    import('./catalog/publishedCatalog.ts'),
+    import('./lib/supabase.ts'),
+  ]).then(async ([{ default: App }, { PricingProvider }, { applyPublishedCatalog }, { supabase, isSupabaseConfigured }]) => {
+    if (isSupabaseConfigured) {
+      try {
+        const result = await Promise.race([
+          supabase.rpc('get_published_visualizer_catalog'),
+          new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 3500)),
+        ]);
+        if (result && !result.error) applyPublishedCatalog(result.data);
+      } catch {
+        // The built-in catalog remains available if the network is temporarily unavailable.
+      }
+    }
     createRoot(document.getElementById('root')!).render(
       <StrictMode>
         <BrowserRouter>

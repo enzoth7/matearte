@@ -21,7 +21,7 @@ export function SuccessStep({ userData, onReset, mockPayment = false }: SuccessS
           <p id="success-description">
             {mockPayment
               ? "Recorriste el checkout visual. No se procesó ningún cobro ni se envió el diseño a producción."
-              : "Registramos las especificaciones de tu mate personalizado. Un orfebre y asesor de ventas revisará tu diseño."}
+              : "Registramos las especificaciones de tu diseño de mate. Un orfebre y asesor de ventas revisará tu diseño."}
           </p>
         </div>
 

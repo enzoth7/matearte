@@ -2,6 +2,7 @@ import { useState, type RefObject } from "react";
 import type { UserData } from "../types/user";
 import type { FlejeCustomization, MateConfiguration } from "../types/customizer";
 import { getVariantDefinition } from "../catalog/mateCatalog";
+import { getSelectionPreviewImage } from "../catalog/mateDecisionCatalog";
 import { calculateOrderPricing } from "../catalog/pricingCatalog";
 import { usePricing } from "../context/PricingContext";
 import { ConfiguratorPreview } from "./ConfiguratorPreview";
@@ -47,10 +48,10 @@ export function SummaryStep({
 
   return (
     <main id="main-content" className="summary-page">
-      <section className="summary-gallery" ref={previewRef} aria-label="Vista final del mate personalizado">
+      <section className="summary-gallery" ref={previewRef} aria-label="Vista final del diseño de mate">
         <div className="summary-gallery__product">
           {configuration.skuId ? (
-            <img className="mate-product-photo" src={variant.image} alt={configuration.selectionLabels.texture} draggable={false} />
+            <img className="mate-product-photo" src={getSelectionPreviewImage(configuration.selection) ?? variant.image} alt={configuration.selectionLabels.texture} draggable={false} />
           ) : (
             <div className="summary-placeholder" role="img" aria-label="Imagen del producto pendiente">Imagen pendiente</div>
           )}
