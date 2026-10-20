@@ -295,7 +295,7 @@ export const featuredProducts = products.filter((product) => product.featured).s
 
 export const editorialMedia = {
   hero: socialImage("04-instagram/seleccion-hd/02-set-premium.jpg", "Conjunto MateArte de cuero, metal y madera", 2835, 3544),
-  personalization: socialImage("04-instagram/seleccion-hd/03-mate-personalizado.jpg", "Detalle de un mate personalizado", 3277, 4096),
+  personalization: socialImage("04-instagram/seleccion-hd/03-mate-personalizado.jpg", "Detalle de un diseño de mate", 3277, 4096),
   craft: socialImage("04-instagram/feed-preview/06-fabricacion-artesanal.jpg", "Manos trabajando artesanalmente una pieza de cuero", 360, 640),
   tradition: socialImage("04-instagram/seleccion-hd/05-cuchillo-y-tabla.jpg", "Cuchillo artesanal y tabla de madera", 1448, 1931),
   lifestyle: socialImage("04-instagram/seleccion-hd/01-matera-camel-escaleras.jpg", "Matera camel con termo y mate", 1086, 1448),

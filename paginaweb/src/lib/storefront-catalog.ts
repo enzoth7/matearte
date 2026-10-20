@@ -30,6 +30,7 @@ const storefrontSelection = `
     price_minor,
     currency,
     active,
+    available_web,
     color,
     weight_grams,
     option_values
@@ -108,7 +109,7 @@ export async function getStorefrontProduct(slug: string, locale: Locale) {
     }
     if (error) throw error;
     return data
-      ? storefrontProductFromRow(data as unknown as StorefrontProductRow, supabaseUrl(), locale, editorialProduct)
+      ? (() => { const product = storefrontProductFromRow(data as unknown as StorefrontProductRow, supabaseUrl(), locale, editorialProduct); return product.variants.length ? product : null; })()
       : null;
   } catch (reason) {
     console.error(`[storefront-catalog] No se pudo cargar el producto ${slug}.`, reason);

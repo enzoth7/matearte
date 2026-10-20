@@ -102,7 +102,6 @@ const materialVainaMap: Record<string, Record<Locale, string>> = {
 const tipoBombillaMap: Record<string, Record<Locale, string>> = {
   clasica: { es: "Clásica", en: "Classic", pt: "Clássica" },
   bombillon: { es: "Bombillón", en: "Large straw", pt: "Bombilhão" },
-  apaga: { es: "Apaga", en: "Apaga", pt: "Apaga" },
 };
 
 const formaPicoMap: Record<string, Record<Locale, string>> = {
@@ -167,7 +166,7 @@ export function ProductSpecsBox({ product, selectedOptions, activeVariant }: Pro
 
   // 3. Tipo de bombilla
   const rawTipoBombilla = product.attributes?.["tipo-bombilla"] ?? selectedOptions?.["tipo-bombilla"];
-  if (rawTipoBombilla) {
+  if (rawTipoBombilla && Object.hasOwn(tipoBombillaMap, String(rawTipoBombilla))) {
     specs.push({
       key: "tipo-bombilla",
       label: locale === "en" ? "Straw type" : locale === "pt" ? "Tipo de bomba" : "Tipo de bombilla",

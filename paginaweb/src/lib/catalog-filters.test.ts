@@ -108,9 +108,9 @@ describe("filtros del catálogo", () => {
     expect(filterAndSortCatalog([{ product: matera }, { product: termo }], { ...defaults, search: "paysandu" }).map(({ product }) => product.id)).toEqual(["matera-cuero"]);
   });
 
-  it("reconoce la categoría de mates personalizados", () => {
+  it("redirige el filtro histórico a la categoría única", () => {
     const parsed = parseCatalogFilters(new URLSearchParams("categoria=mates-personalizados"));
-    expect(parsed.category).toBe("mates-personalizados");
+    expect(parsed.category).toBe("personalizados");
     expect(parsed.sort).toBe("nombre");
   });
 

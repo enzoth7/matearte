@@ -70,6 +70,14 @@ function commerceProduct(overrides: Partial<StorefrontProductRow> = {}): Storefr
 }
 
 describe("catálogo público conectado a Supabase", () => {
+  it("oculta solo las variantes sin Web y no muestra fichas sin variantes vendibles", () => {
+    const oneAvailable = commerceProduct({ variants: [
+      { id: "local-only", sku: "LOCAL", name: "Local", price_minor: 10000, currency: "UYU", active: true, available_web: false },
+      { id: "web", sku: "WEB", name: "Web", price_minor: 20000, currency: "UYU", active: true, available_web: true },
+    ] });
+    expect(storefrontProductFromRow(oneAvailable, baseUrl, "es").variants.map(variant => variant.id)).toEqual(["web"]);
+    expect(mergeStorefrontProducts([], [{ ...oneAvailable, variants: [{ id: "local-only", sku: "LOCAL", name: "Local", price_minor: 10000, currency: "UYU", active: true, available_web: false }] }], baseUrl, "es")).toEqual([]);
+  });
   it("convierte imágenes, variantes y precio mínimo cargados en el panel", () => {
     const product = storefrontProductFromRow(commerceProduct(), baseUrl, "es");
 

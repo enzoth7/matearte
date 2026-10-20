@@ -1,7 +1,7 @@
 type Fetcher = typeof fetch;
 
 export type NewsletterState = {
-  status: "idle" | "success" | "invalid" | "error";
+  status: "idle" | "success" | "invalid" | "invalid_name" | "error";
 };
 
 export const initialNewsletterState: NewsletterState = { status: "idle" };
@@ -9,6 +9,7 @@ export const initialNewsletterState: NewsletterState = { status: "idle" };
 type NewsletterConfig = {
   apiKey: string;
   topicId: string;
+  segmentId?: string;
 };
 
 const resendUrl = "https://api.resend.com";
@@ -55,6 +56,10 @@ export async function subscribeNewsletterContact(
 
     if (!created.ok) throw new Error(`Resend rechazó el alta (${created.status}).`);
     const createdData = await created.json().catch(() => null) as { id?: string } | null;
+    if (config.segmentId) {
+      const segment = await resendRequest(`/contacts/${encodedEmail}/segments/${encodeURIComponent(config.segmentId)}`, { method: "POST" }, config, fetcher);
+      if (!segment.ok) throw new Error(`Resend no pudo agregar el contacto a campañas (${segment.status}).`);
+    }
     return { contactId: createdData?.id };
   }
 
@@ -76,6 +81,11 @@ export async function subscribeNewsletterContact(
     body: JSON.stringify({ topics: topicSubscription }),
   }, config, fetcher);
   if (!topicUpdated.ok) throw new Error(`Resend no pudo actualizar la suscripción (${topicUpdated.status}).`);
+
+  if (config.segmentId) {
+    const segment = await resendRequest(`/contacts/${encodedEmail}/segments/${encodeURIComponent(config.segmentId)}`, { method: "POST" }, config, fetcher);
+    if (!segment.ok) throw new Error(`Resend no pudo agregar el contacto a campañas (${segment.status}).`);
+  }
 
   return { contactId: existingData?.id };
 }

@@ -15,7 +15,7 @@ type RemoteItem = {
   id: string; item_type: "catalog" | "design"; quantity: number;
   unit_price_minor: number; base_unit_price_minor?: number; catalog_base_unit_price_minor?: number; currency: string;
   option_values_override?: CatalogValueMap;
-  variant: null | { id: string; name: string; base_price_minor?: number; price_minor: number; currency: string; option_values?: CatalogValueMap; product: { name: string; category?: string; category_code?: string | null; commerce_product_images?: { storage_path: string; sort_order: number; variant_id: string | null; option_values?: CatalogValueMap }[] } };
+  variant: null | { id: string; name: string; base_price_minor?: number; price_minor: number; currency: string; active?: boolean; available_web?: boolean; option_values?: CatalogValueMap; product: { name: string; category?: string; category_code?: string | null; published?: boolean; commerce_product_images?: { storage_path: string; sort_order: number; variant_id: string | null; option_values?: CatalogValueMap }[] } };
   design: null | { title: string };
 };
 type Cart = { id: string; items: RemoteItem[] };
@@ -291,6 +291,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
     basePriceMinor: number;
     wholesaleBasePriceMinor: number;
     priceMinor: number;
+    availableWeb: boolean;
     category?: string | null;
     imageSrc: string;
   };
@@ -332,6 +333,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
           basePriceMinor: priceMinor,
           wholesaleBasePriceMinor,
           priceMinor,
+          availableWeb: true,
           category: product.category,
           imageSrc: variantImage?.src || generalImage?.src || product.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.png",
         });
@@ -351,6 +353,8 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
             name,
             price_minor,
             base_price_minor,
+            active,
+            available_web,
              option_values,
              commerce_products (
                id,
@@ -358,6 +362,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
                name,
                category,
                category_code,
+               published,
               commerce_product_images (
                 storage_path,
                 sort_order,
@@ -409,6 +414,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
               basePriceMinor: vData.price_minor || 0,
               wholesaleBasePriceMinor: vData.base_price_minor ?? vData.price_minor ?? 0,
               priceMinor: vData.price_minor || 0,
+              availableWeb: vData.active !== false && vData.available_web !== false && rawProduct?.published === true,
               category: rawProduct?.category_code || rawProduct?.category || null,
               imageSrc,
             });
@@ -423,6 +429,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
               basePriceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
               wholesaleBasePriceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
               priceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
+              availableWeb: false,
               imageSrc: fallbackP?.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.png",
             });
           }
@@ -441,6 +448,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
             basePriceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
             wholesaleBasePriceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
             priceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
+            availableWeb: false,
             imageSrc: fallbackP?.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.png",
           });
         }
@@ -526,6 +534,8 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
       discount: wholesaleSettings.wholesale_mate_discount_percent,
       threshold: wholesaleSettings.wholesale_mate_quantity_threshold,
     });
+    const guestHasUnavailable = localItems.some((item) => !item.availableWeb);
+    const unavailableNotice = locale === "en" ? "An item is no longer available online. Remove it to continue." : locale === "pt" ? "Um item não está mais disponível online. Remova-o para continuar." : "Un producto ya no está disponible en la web. Quitalo para continuar.";
     return (
       <>
         <div className="cart-populated-mobile-state">
@@ -577,7 +587,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
             </dl>
             <div className="cart-mobile-summary-divider" aria-hidden="true" />
             <div className="cart-mobile-total"><span>{t("total")}</span><strong>{guestFormat(guestSubtotal)}</strong></div>
-            <Link href={"/perfil?redirect=/checkout" as any} className="cart-mobile-checkout">{t("continue")}</Link>
+            {guestHasUnavailable ? <p role="alert" className="cart-mobile-error">{unavailableNotice}</p> : <Link href={"/perfil?redirect=/checkout" as any} className="cart-mobile-checkout">{t("continue")}</Link>}
             {showGuestWholesaleNotice && <p className="cart-wholesale-notice">{wholesaleNotice}</p>}
           </aside>
         </div>
@@ -626,7 +636,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
             </dl>
             <div className="cart-desktop-summary-divider" aria-hidden="true" />
             <div className="cart-desktop-total"><span>{t("total")}</span><strong>{guestFormat(guestSubtotal)}</strong></div>
-            <Link href={"/perfil?redirect=/checkout" as any} className="cart-desktop-checkout">{t("continue")}</Link>
+            {guestHasUnavailable ? <p role="alert" className="cart-desktop-error">{unavailableNotice}</p> : <Link href={"/perfil?redirect=/checkout" as any} className="cart-desktop-checkout">{t("continue")}</Link>}
             {showGuestWholesaleNotice && <p className="cart-wholesale-notice">{wholesaleNotice}</p>}
           </aside>
         </div>
@@ -682,6 +692,8 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
     discount: wholesaleSettings.wholesale_mate_discount_percent,
     threshold: wholesaleSettings.wholesale_mate_quantity_threshold,
   });
+  const hasUnavailable = cart.items.some((item) => item.item_type === "catalog" && (!item.variant?.active || item.variant.available_web === false || !item.variant.product?.published));
+  const unavailableNotice = locale === "en" ? "An item is no longer available online. Remove it to continue." : locale === "pt" ? "Um item não está mais disponível online. Remova-o para continuar." : "Un producto ya no está disponible en la web. Quitalo para continuar.";
   return (
     <>
       <div className="cart-populated-mobile-state">
@@ -771,7 +783,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
             <span>{t("total")}</span>
             <strong>{format(subtotal)}</strong>
           </div>
-          <Link href={checkoutHref as any} className="cart-mobile-checkout">{t("continue")}</Link>
+          {hasUnavailable ? <p role="alert" className="cart-mobile-error">{unavailableNotice}</p> : <Link href={checkoutHref as any} className="cart-mobile-checkout">{t("continue")}</Link>}
           {showWholesaleNotice && <p className="cart-wholesale-notice">{wholesaleNotice}</p>}
         </aside>
       </div>
@@ -858,7 +870,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
             <span>{t("total")}</span>
             <strong>{format(subtotal)}</strong>
           </div>
-          <Link href={checkoutHref as any} className="cart-desktop-checkout">{t("continue")}</Link>
+          {hasUnavailable ? <p role="alert" className="cart-desktop-error">{unavailableNotice}</p> : <Link href={checkoutHref as any} className="cart-desktop-checkout">{t("continue")}</Link>}
           {showWholesaleNotice && <p className="cart-wholesale-notice">{wholesaleNotice}</p>}
         </aside>
       </div>

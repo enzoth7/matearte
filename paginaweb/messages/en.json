@@ -16,6 +16,18 @@
     "retry": "Try again",
     "currencyNotice": "Amounts are shown in Uruguayan pesos (UYU)."
   },
+  "welcomeSubscription": {
+    "dialogLabel": "MateArte subscription",
+    "email": "Your email address",
+    "name": "Your name",
+    "subscribe": "Get my 10% off",
+    "subscribing": "Sending…",
+    "success": "Check your email and open the link to activate your account and discount.",
+    "invalidEmail": "Enter a valid email address.",
+    "invalidName": "Enter your name to continue.",
+    "error": "We couldn't send the link. Please try again.",
+    "consent": "By subscribing, you agree to receive email updates. You can unsubscribe at any time."
+  },
   "header": {
     "homeLabel": "MateArte Uruguay, home",
     "tagline": "Art & Tradition",
@@ -190,7 +202,7 @@
     "allCollections": "All collections",
     "all": "All",
     "mates": "Mates",
-    "customMates": "Custom Mates",
+    "customMates": "Personalized",
     "bombillas": "Bombillas",
     "bombillones": "Large bombillas",
     "materas": "Materas",
@@ -525,6 +537,8 @@
       "already_used": "You already used this code on another purchase.",
       "in_use": "This code is reserved by another payment attempt. Please try again later.",
       "not_applicable": "The discount cannot be applied to this purchase subtotal.",
+      "not_subscribed": "Confirm your subscription to use this discount.",
+      "first_purchase_only": "This discount is only for your first purchase.",
       "invalid": "We couldn't validate the discount code."
     },
     "internationalNotice": "Shipping payment is coordinated separately.",
@@ -693,6 +707,17 @@
     "delivered": "Delivered",
     "paid": "Paid",
     "myOrders": "My orders",
+    "myCoupons": "My coupons",
+    "noCoupons": "You don't have any available coupons yet.",
+    "couponDiscountName": "Discount name",
+    "couponValidUntil": "Valid until",
+    "couponCode": "Code",
+    "couponCopy": "Copy",
+    "couponCopied": "Copied",
+    "couponCopyFailed": "Could not copy",
+    "personalCouponTitle": "Personal coupon",
+    "personalCouponUntil": "Valid until {date}.",
+    "personalCouponDesignOnly": "For personalized designs.",
     "emptyTitle": "Your purchase story|starts here",
     "emptyBody": "Once you choose a piece, you can track its status and review every detail from this account.",
     "historyAlt": "Historic photographs of the MateArte family workshop",
@@ -711,6 +736,13 @@
     "content": "Contents",
     "itemsAria": "Items in order {number}",
     "detailsAvailable": "Order details available",
-    "accountEyebrow": "My account"
+    "accountEyebrow": "My account",
+    "welcomeCouponAria": "Welcome coupon",
+    "welcomeCouponTitle": "Your 10% welcome discount",
+    "welcomeCouponValidity": "First purchase",
+    "welcomeCouponDescription": "Valid on your first purchase.",
+    "welcomeCouponIntro": "Use code",
+    "welcomeCouponOutro": "on your first purchase.",
+    "welcomeCouponCart": "Go to cart"
   }
 }

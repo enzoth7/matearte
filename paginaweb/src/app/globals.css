@@ -9920,3 +9920,73 @@ body:has(.rural-campaign-page) .whatsapp-fab {
   .storefront-announcement button { transition: none; }
 }
 
+/* Permanent welcome subscription shown after scheduled notices. */
+.profile-welcome-coupon { max-width: 1100px; margin: 16px auto; padding: 16px 24px; background: #e6d4ae; color: #2d1b12; border: 1px solid #a98a59; }
+.profile-welcome-coupon p { margin: 6px 0; }
+.profile-welcome-coupon code { font-weight: 700; }
+.profile-welcome-coupon a { text-decoration: underline; }
+.profile-coupons { margin-top: 48px; }
+.profile-coupons h2 { margin: 0; color: #311c12; font-family: var(--font-newsreader), Georgia, serif; font-size: 36px; font-weight: 500; letter-spacing: -.25px; line-height: 40px; }
+.profile-coupons-list { margin-top: 28px; }
+.profile-coupon-header, .profile-coupon-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(140px, 190px) minmax(240px, 320px); gap: 24px; }
+.profile-coupon-header { border-bottom: 1px solid #bcae9e; padding-bottom: 14px; color: #795f4e; font-size: 14px; font-weight: 600; }
+.profile-coupon-row { align-items: start; padding: 28px 0 30px; }
+.profile-coupon-row:not(:last-child) { border-bottom: 1px solid #d7c8b9; }
+.profile-coupons-empty { margin: 28px 0 0; border-top: 1px solid #bcae9e; padding-top: 24px; color: #6c584b; font-size: 15px; }
+.profile-coupon-name { min-width: 0; }
+.profile-coupon-name h3 { margin: 0 0 8px; font-family: var(--font-newsreader), Georgia, serif; font-size: 29px; font-weight: 500; line-height: 1.15; }
+.profile-coupon-name p { margin: 0; color: #6c584b; font-size: 15px; line-height: 1.5; }
+.profile-coupon-name p + p { margin-top: 4px; }
+.profile-coupon-validity { min-width: 0; color: #6c584b; font-size: 15px; line-height: 1.5; }
+.profile-coupon-validity-mobile-label { display: none; }
+.profile-coupon-code-value { display: flex; min-width: 0; align-items: center; justify-content: flex-start; gap: 6px; }
+.profile-coupon-code-value code { min-width: 0; overflow-wrap: anywhere; color: #311c12; font-family: var(--font-outfit), sans-serif; font-size: 15px; font-weight: 600; letter-spacing: 0.04em; }
+.profile-coupon-copy { display: inline-flex; width: 36px; height: 40px; flex: none; align-items: center; justify-content: center; border: 0; border-radius: 4px; padding: 0; background: transparent; color: #79452d; cursor: pointer; touch-action: manipulation; transition: color 160ms ease, transform 100ms ease; }
+.profile-coupon-copy:hover { color: #311c12; }
+.profile-coupon-copy:active { transform: scale(0.97); }
+.profile-coupon-copy.is-copied { color: #385438; }
+.profile-coupon-copy:focus-visible { outline: 3px solid #79452d; outline-offset: 3px; }
+@media (min-width: 1024px) { .profile-empty-desktop { height: auto; min-height: 900px; overflow: visible; padding-bottom: 120px; } }
+@media (max-width: 1023px) { .profile-coupons h2 { font-size: 34px; line-height: 38px; } .profile-coupons-list { margin-top: 24px; } }
+@media (max-width: 900px) {
+  .profile-coupon-header, .profile-coupon-row { grid-template-columns: minmax(0, 1fr) minmax(140px, 42%); column-gap: 16px; }
+  .profile-coupon-header span:nth-child(2) { display: none; }
+  .profile-coupon-name { grid-column: 1; grid-row: 1; }
+  .profile-coupon-code-value { grid-column: 2; grid-row: 1; }
+  .profile-coupon-validity { display: flex; grid-column: 1 / -1; grid-row: 2; flex-wrap: wrap; column-gap: 8px; }
+  .profile-coupon-validity-mobile-label { display: inline; font-weight: 600; }
+}
+@media (max-width: 600px) { .profile-coupon-row { padding-block: 22px; } .profile-coupon-name h3 { font-size: 25px; } .profile-coupon-code-value code { font-size: 13px; letter-spacing: 0; } }
+@media (prefers-reduced-motion: reduce) { .profile-coupon-copy { transition: none; } }
+.profile-coupons-container { box-sizing: border-box; padding: 0 48px 96px; background: #f5f0e8; color: #311c12; }
+.profile-coupons-shell { width: min(100%, 1232px); margin-inline: auto; }
+.profile-coupons-container .profile-coupons { margin-top: 0; }
+@media (min-width: 1024px) {
+  .profile-account-page-empty .profile-empty-desktop { min-height: 0; padding-bottom: 48px; }
+  .profile-account-page-orders .profile-orders-desktop { min-height: 0; padding-bottom: 48px; }
+}
+@media (max-width: 1023px) {
+  .profile-account-page-empty .profile-empty-mobile,
+  .profile-account-page-orders .profile-orders-mobile { min-height: 0; padding-bottom: 32px; }
+  .profile-coupons-container { padding: 0 24px 64px; }
+}
+.storefront-subscription { position: relative; display: block; width: min(100%, 540px); max-height: calc(100dvh - 32px); overflow-y: auto; padding: clamp(28px, 4vw, 44px); background: #fffaf4; color: #2d1b12; text-align: left; }
+.storefront-subscription-image { display: block; width: 100%; max-height: 190px; object-fit: cover; margin: 0 0 24px; border-radius: 12px; }
+.storefront-subscription .storefront-subscription-close { position: absolute; top: 14px; right: 14px; width: 42px; height: 42px; min-height: 42px; padding: 0; border: 0; border-radius: 50%; background: rgb(255 250 244 / 93%); color: #2d1b12; font: 300 30px/1 Arial,sans-serif; }
+.storefront-subscription h2 { max-width: 450px; margin: 0 0 14px; font: 700 clamp(2rem, 4vw, 2.75rem)/1.06 Georgia,serif; letter-spacing: -.025em; }
+.storefront-subscription > p { max-width: 440px; margin: 0; color: #5d5046; line-height: 1.5; }
+.storefront-subscription form { display: grid; gap: 7px; margin-top: 24px; text-align: left; }
+.storefront-subscription form > div { display: grid; }
+.storefront-subscription form label { margin-top: 7px; font-size: 13px; font-weight: 700; }
+.storefront-subscription form input:not([type="hidden"]) { box-sizing: border-box; display: block; width: 100%; min-height: 52px; padding: 12px 14px; border: 1px solid #cabaae; border-radius: 9px; background: white; color: #2d1b12; font: inherit; }
+.storefront-subscription form input:focus-visible { outline: 2px solid #87563b; outline-offset: 2px; }
+.storefront-subscription form button { min-height: 52px; margin-top: 12px; padding: 12px 16px; border: 0; border-radius: 9px; background: #382319; color: white; font-weight: 700; cursor: pointer; }
+.storefront-subscription form button:hover { background: #5b3926; }
+.storefront-subscription form button:disabled { opacity: .65; }
+.storefront-subscription .home-footer-newsletter-trap { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0; pointer-events: none; }
+.storefront-subscription .home-footer-newsletter-consent { margin: 5px 0 0; color: #75685d; font-size: 11px; line-height: 1.45; }
+.storefront-subscription .home-footer-newsletter-feedback { margin: 0; font-size: 13px; min-height: 1em; }
+.storefront-subscription .home-footer-button-desktop { display: inline; }
+.storefront-subscription .home-footer-button-mobile { display: none; }
+@media (max-width: 600px) { .storefront-announcement-backdrop:has(.storefront-subscription) { place-items: end center; padding: 0; } .storefront-subscription { width: 100%; max-height: min(90dvh, 800px); padding: 52px 24px calc(24px + env(safe-area-inset-bottom)); border-radius: 24px 24px 0 0; } .storefront-subscription h2 { font-size: clamp(1.9rem, 8vw, 2.5rem); } .storefront-subscription-image { max-height: 120px; } }
+@media (prefers-reduced-motion: reduce) { .storefront-subscription form button { transition: none; } }

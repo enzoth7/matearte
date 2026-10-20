@@ -19,7 +19,7 @@ export const categoryOptions = [
   { value: "kits-materos", labelKey: "kitMatero" },
   { value: "materas", labelKey: "materas" },
   { value: "mates", labelKey: "mates" },
-  { value: "mates-personalizados", labelKey: "customMates" },
+  { value: "personalizados", labelKey: "customMates" },
   { value: "termos", labelKey: "termos" },
 ] as const;
 
@@ -97,7 +97,7 @@ function validValues<T extends string>(params: URLSearchParams, key: string, all
 
 export function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
   const rawCategory = params.get("categoria") ?? "todas";
-  const categoryValue = rawCategory === "kit-matero" ? "kits-materos" : rawCategory === "cuchillo" ? "cuchillos" : rawCategory;
+  const categoryValue = rawCategory === "kit-matero" ? "kits-materos" : rawCategory === "cuchillo" ? "cuchillos" : rawCategory === "mates-personalizados" || rawCategory === "materas-personalizadas" ? "personalizados" : rawCategory;
   const sortValue = params.get("orden") ?? "nombre";
   return {
     search: (params.get("filter") ?? "").trim(),

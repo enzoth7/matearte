@@ -37,6 +37,19 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const data = requestData(request);
   if (!data.valid) return html("Enlace no válido", "No pudimos validar este enlace. Podés responder el correo y te ayudamos.");
+  try {
+    const { createAdminSupabase } = await import("@/lib/supabase/server");
+    const supabase = createAdminSupabase();
+    const { error } = await supabase.from("newsletter_subscribers").update({
+      status: "unsubscribed",
+      unsubscribed_at: new Date().toISOString(),
+      marketing_synced_at: null,
+    }).eq("email", data.email);
+    if (error) throw error;
+  } catch (dbError) {
+    console.error("No se pudo registrar la baja en Supabase.", dbError);
+    return html("No pudimos completar la baja", "Intentá nuevamente en unos minutos o respondé el correo y te ayudamos.");
+  }
   const response = await fetch(`https://api.resend.com/contacts/${encodeURIComponent(data.email)}/topics`, {
     method: "PATCH",
     headers: {
@@ -50,16 +63,14 @@ export async function POST(request: Request) {
   if (!response.ok && response.status !== 404) {
     return html("No pudimos completar la baja", "Intentá nuevamente en unos minutos o respondé el correo y te ayudamos.");
   }
-
-  try {
-    const { createAdminSupabase } = await import("@/lib/supabase/server");
-    const supabase = createAdminSupabase();
-    await supabase.from("newsletter_subscribers").update({
-      status: "unsubscribed",
-      unsubscribed_at: new Date().toISOString(),
-    }).eq("email", data.email);
-  } catch (dbError) {
-    console.error("No se pudo registrar la baja en Supabase.", dbError);
+  const segmentId = (process.env.RESEND_MARKETING_SEGMENT_ID || "").trim();
+  if (segmentId) {
+    const removed = await fetch(`https://api.resend.com/contacts/${encodeURIComponent(data.email)}/segments/${encodeURIComponent(segmentId)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${data.apiKey}` },
+      cache: "no-store",
+    });
+    if (!removed.ok && removed.status !== 404) return html("No pudimos completar la baja", "Intentá nuevamente en unos minutos o respondé el correo y te ayudamos.");
   }
 
   return html("Baja confirmada", "Ya no vas a recibir correos comerciales de Novedades. Los correos necesarios sobre tu cuenta y tus pedidos no se ven afectados.");

@@ -19,12 +19,12 @@ export async function readCart(client: SupabaseClient, userId: string) {
   const cart = await getOrCreateCart(client, userId);
   const selectionWithPeso = `
     id,item_type,variant_id,design_id,quantity,option_values_override,updated_at,
-    variant:commerce_variants(id,sku,name,base_price_minor,price_minor,currency,active,option_values,product:commerce_products(id,editorial_slug,name,category,category_code,sale_mode,published,peso,commerce_product_images(storage_path,sort_order,variant_id,option_values))),
+    variant:commerce_variants(id,sku,name,base_price_minor,price_minor,currency,active,available_web,option_values,product:commerce_products(id,editorial_slug,name,category,category_code,sale_mode,published,peso,commerce_product_images(storage_path,sort_order,variant_id,option_values))),
     design:designs(id,title,preview_path,updated_at)
   `;
   const legacySelection = `
     id,item_type,variant_id,design_id,quantity,option_values_override,updated_at,
-    variant:commerce_variants(id,sku,name,base_price_minor,price_minor,currency,active,option_values,product:commerce_products(id,editorial_slug,name,category,category_code,sale_mode,published,commerce_product_images(storage_path,sort_order,variant_id,option_values))),
+    variant:commerce_variants(id,sku,name,base_price_minor,price_minor,currency,active,available_web,option_values,product:commerce_products(id,editorial_slug,name,category,category_code,sale_mode,published,commerce_product_images(storage_path,sort_order,variant_id,option_values))),
     design:designs(id,title,preview_path,updated_at)
   `;
   let { data: items, error } = await client.from("cart_items").select(selectionWithPeso).eq("cart_id", cart.id).order("created_at");
@@ -119,6 +119,16 @@ export async function readPricedCart(client: SupabaseClient, userId: string) {
   };
 }
 
+export function assertWebAvailableCart(cart: { items: Array<{ item_type: string; variant?: unknown }> }) {
+  for (const item of cart.items) {
+    if (item.item_type !== "catalog") continue;
+    const variant = item.variant as { active?: boolean; available_web?: boolean; product?: { published?: boolean } } | null;
+    if (!variant?.active || variant.available_web === false || !variant.product?.published) {
+      throw new Error("Uno de los productos ya no está disponible en la web. Quitalo del carrito para continuar.");
+    }
+  }
+}
+
 async function validatedCatalogSelection(client: SupabaseClient, variantOptionsValue: unknown, selectionValue: unknown): Promise<CatalogValueMap> {
   const variantOptions = normalizeCatalogValueMap(variantOptionsValue);
   const selection = normalizeCatalogValueMap(selectionValue);
@@ -149,8 +159,8 @@ async function validatedCatalogSelection(client: SupabaseClient, variantOptionsV
 
 export async function addCatalogItem(client: SupabaseClient, userId: string, variantId: string, quantity: number, optionValuesOverride?: Record<string, string | number | boolean>) {
   const cart = await getOrCreateCart(client, userId);
-  const { data: variant, error } = await client.from("commerce_variants").select("id,active,option_values,product:commerce_products!inner(published)").eq("id", variantId).single();
-  if (error || !variant?.active || !(variant.product as unknown as { published: boolean }).published) throw new Error("La variante no está disponible.");
+  const { data: variant, error } = await client.from("commerce_variants").select("id,active,available_web,option_values,product:commerce_products!inner(published)").eq("id", variantId).single();
+  if (error || !variant?.active || !variant.available_web || !(variant.product as unknown as { published: boolean }).published) throw new Error("La variante no está disponible en la web.");
   const variantOptions = normalizeCatalogValueMap(variant.option_values);
   const selectedOptions = await validatedCatalogSelection(client, variantOptions, optionValuesOverride);
   const selectionSignature = optionSignature(selectedOptions);

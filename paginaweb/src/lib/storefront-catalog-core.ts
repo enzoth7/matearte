@@ -24,6 +24,7 @@ export type StorefrontVariantRow = {
   base_price_minor?: number;
   currency: "UYU";
   active: boolean;
+  available_web?: boolean;
   color?: string | null;
   weight_grams?: number | null;
   option_values?: unknown;
@@ -96,7 +97,7 @@ function mapImages(row: StorefrontProductRow, supabaseBaseUrl: string, existing?
 
 function mapVariants(row: StorefrontProductRow): ProductVariant[] {
   return (row.variants ?? [])
-    .filter((variant) => variant.active && variant.price_minor > 0)
+    .filter((variant) => variant.active && variant.available_web !== false && variant.price_minor > 0)
     .sort((a, b) => a.price_minor - b.price_minor || a.name.localeCompare(b.name))
     .map((variant) => {
       const options = normalizeCatalogValueMap(variant.option_values);
@@ -193,5 +194,6 @@ export function mergeStorefrontProducts(
       locale,
       editorialBySlug.get(product.editorial_slug),
     ))
+    .filter((product) => product.variants.length > 0)
     .sort((a, b) => a.name.localeCompare(b.name, locale));
 }

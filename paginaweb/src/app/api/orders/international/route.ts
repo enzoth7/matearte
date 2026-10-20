@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { apiError, apiOk, readJson } from "@/lib/api";
-import { readCart } from "@/lib/cart";
+import { assertWebAvailableCart, readCart } from "@/lib/cart";
 import { calculateDesignPriceMinor } from "@/lib/design-pricing";
 import { dispatchCommerceEmails } from "@/lib/commerce-email";
 import { localizeCatalogSnapshotTitle } from "@/content/catalog-localization";
@@ -48,6 +48,7 @@ export async function POST(request: Request) {
 
     const admin = createAdminSupabase();
     const cart = await readCart(admin, user.id);
+    assertWebAvailableCart(cart);
     if (!cart.items.length) return apiError("El carrito está vacío.");
     const eligibilityLines = cart.items.map((item) => {
       const variant = item.variant as unknown as { base_price_minor?: number; price_minor?: number; product?: { category?: string; category_code?: string | null } } | null;

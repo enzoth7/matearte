@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 import { apiError, apiOk, readJson } from "@/lib/api";
-import { readCart } from "@/lib/cart";
+import { assertWebAvailableCart, readCart } from "@/lib/cart";
 import { calculateDesignPriceMinor } from "@/lib/design-pricing";
 import { siteUrl } from "@/lib/supabase/config";
 import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
@@ -37,6 +37,7 @@ export async function POST(request: Request) {
 
     const admin = createAdminSupabase();
     const cart = await readCart(admin, user.id);
+    assertWebAvailableCart(cart);
     if (!cart.items.length) return apiError("El carrito está vacío.");
     const { data: shippingRate, error: shippingError } = await admin
       .from("shipping_rates")

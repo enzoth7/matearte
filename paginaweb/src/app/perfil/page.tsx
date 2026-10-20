@@ -4,6 +4,7 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { GoogleAuthButton } from "@/components/GoogleAuthButton";
+import { CouponCopyButton } from "@/components/CouponCopyButton";
 import { VisualizerProfileButton } from "@/components/VisualizerProfileButton";
 import { localizeCatalogSnapshotTitle } from "@/content/catalog-localization";
 import { Link } from "@/i18n/navigation";
@@ -14,7 +15,7 @@ import { formatOrderMoney } from "@/lib/order-money";
 import { orderItemImagePath, type OrderItemImageSource } from "@/lib/order-item-image";
 import { isActiveOrder, isConfirmedOrder, orderStatusTone } from "@/lib/order-status";
 import { getExchangeRates } from "@/lib/storefront-catalog";
-import { requireUser } from "@/lib/supabase/server";
+import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
 import type { Locale } from "@/types/catalog";
 import { safeStoreRedirect } from "@/lib/auth-redirect";
 
@@ -78,6 +79,67 @@ function orderThumbnail(item?: OrderItem) {
     return "/assets/matearte/01-marca/LogoOriginal.jpg";
   }
   return item?.image_url || "/assets/matearte/profile-orders-desktop/catalog-fallback.png";
+}
+
+type PersonalCoupon = { id: string; code: string; validUntil: string; designOnly: boolean };
+
+function ProfileCoupons({ id, welcomeCode, personalCoupons, labels, locale }: {
+  id: string;
+  welcomeCode: string | null;
+  personalCoupons: PersonalCoupon[];
+  labels: {
+    heading: string; empty: string; welcomeTitle: string; welcomeValidity: string;
+    discountName: string; validUntil: string; code: string; copy: string; copied: string; copyFailed: string;
+    personalTitle: string;
+    designOnly: string;
+  };
+  locale: Locale;
+}) {
+  return (
+    <section className="profile-coupons" aria-labelledby={id}>
+      <h2 id={id}>{labels.heading}</h2>
+      {welcomeCode || personalCoupons.length ? (
+        <div className="profile-coupons-list">
+          <div className="profile-coupon-header">
+            <span>{labels.discountName}</span>
+            <span>{labels.validUntil}</span>
+            <span>{labels.code}</span>
+          </div>
+          {welcomeCode && (
+            <article className="profile-coupon-row">
+              <div className="profile-coupon-name">
+                <h3>{labels.welcomeTitle}</h3>
+              </div>
+              <div className="profile-coupon-validity">
+                <span className="profile-coupon-validity-mobile-label">{labels.validUntil}</span>
+                <span>{labels.welcomeValidity}</span>
+              </div>
+              <div className="profile-coupon-code-value">
+                <code>{welcomeCode}</code>
+                <CouponCopyButton code={welcomeCode} copyLabel={labels.copy} copiedLabel={labels.copied} failedLabel={labels.copyFailed} />
+              </div>
+            </article>
+          )}
+          {personalCoupons.map((coupon) => (
+            <article className="profile-coupon-row" key={coupon.id}>
+              <div className="profile-coupon-name">
+                <h3>{labels.personalTitle}</h3>
+                {coupon.designOnly && <p>{labels.designOnly}</p>}
+              </div>
+              <div className="profile-coupon-validity">
+                <span className="profile-coupon-validity-mobile-label">{labels.validUntil}</span>
+                <span>{date(`${coupon.validUntil}T12:00:00Z`, locale)}</span>
+              </div>
+              <div className="profile-coupon-code-value">
+                <code>{coupon.code}</code>
+                <CouponCopyButton code={coupon.code} copyLabel={labels.copy} copiedLabel={labels.copied} failedLabel={labels.copyFailed} />
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : <p className="profile-coupons-empty">{labels.empty}</p>}
+    </section>
+  );
 }
 
 async function AccountAccessRequired({ authError, redirect: redirectPath }: { authError?: string; redirect?: string }) {
@@ -242,7 +304,56 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
     .join("") || "MA";
   const hasNoOrders = !error && orders.length === 0;
   const hasOrders = !error && orders.length > 0;
+  let welcomeCouponCode: string | null = null;
+  let personalCoupons: PersonalCoupon[] = [];
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Montevideo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const admin = createAdminSupabase();
+  const { data: ownedDiscounts } = await admin.from("commerce_discounts")
+    .select("id,code,valid_until,applicability")
+    .eq("owner_user_id", user.id).eq("enabled", true)
+    .lte("valid_from", today).gte("valid_until", today)
+    .order("valid_until", { ascending: true });
+  if (ownedDiscounts?.length) {
+    const { data: redeemed, error: redeemedError } = await admin.from("commerce_discount_usages")
+      .select("discount_id").eq("user_id", user.id).eq("status", "redeemed")
+      .in("discount_id", ownedDiscounts.map((discount) => discount.id));
+    if (!redeemedError) {
+      const redeemedIds = new Set((redeemed || []).map((usage) => usage.discount_id));
+      personalCoupons = ownedDiscounts.filter((discount) => !redeemedIds.has(discount.id)).map((discount) => ({
+        id: discount.id, code: discount.code, validUntil: discount.valid_until,
+        designOnly: discount.applicability === "design_items",
+      }));
+    }
+  }
+  if (user.email) {
+    const [{ data: subscriber }, { count: paidOrders }] = await Promise.all([
+      admin.from("newsletter_subscribers").select("status,confirmed_at").eq("email", user.email.trim().toLowerCase()).maybeSingle(),
+      admin.from("orders").select("id", { count: "exact", head: true }).eq("user_id", user.id).not("paid_at", "is", null),
+    ]);
+    if (paidOrders === 0 && subscriber?.status === "active" && subscriber.confirmed_at) {
+      const { data: offer } = await admin.from("marketing_subscription_settings")
+        .select("discount_code").eq("id", true).maybeSingle();
+      if (offer?.discount_code) {
+        const { data: discount } = await admin.from("commerce_discounts")
+          .select("enabled,welcome_only,valid_from,valid_until").eq("code", offer.discount_code).maybeSingle();
+        if (discount?.enabled && discount.welcome_only && discount.valid_from <= today && discount.valid_until >= today) welcomeCouponCode = offer.discount_code;
+      }
+    }
+  }
   const itemTitle = (item: OrderItem) => item.item_type === "design" ? item.title : localizeCatalogSnapshotTitle(item.title, locale);
+  const couponProps = {
+    welcomeCode: welcomeCouponCode,
+    personalCoupons,
+    locale,
+    labels: {
+      heading: t("myCoupons"), empty: t("noCoupons"), welcomeTitle: t("welcomeCouponTitle"),
+      welcomeValidity: t("welcomeCouponValidity"), discountName: t("couponDiscountName"),
+      validUntil: t("couponValidUntil"),
+      code: t("couponCode"), copy: t("couponCopy"), copied: t("couponCopied"), copyFailed: t("couponCopyFailed"),
+      personalTitle: t("personalCouponTitle"),
+      designOnly: t("personalCouponDesignOnly"),
+    },
+  };
 
   return (
     <main id="contenido" className={`profile-account-page${hasNoOrders ? " profile-account-page-empty" : ""}${hasOrders ? " profile-account-page-orders" : ""}`}>
@@ -709,6 +820,11 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             </div>
           )}
         </section>
+        </div>
+      </div>
+      <div className="profile-coupons-container">
+        <div className="profile-coupons-shell">
+          <ProfileCoupons id="profile-coupons-title" {...couponProps} />
         </div>
       </div>
     </main>

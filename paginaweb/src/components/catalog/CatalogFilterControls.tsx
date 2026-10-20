@@ -96,7 +96,7 @@ const CATEGORY_FALLBACKS: Record<string, Record<string, string>> = {
   es: {
     all: "Todos",
     mates: "Mates",
-    customMates: "Mates Personalizados",
+    customMates: "Personalizados",
     bombillas: "Bombillas",
     bombillones: "Bombillones",
     materas: "Materas",
@@ -114,7 +114,7 @@ const CATEGORY_FALLBACKS: Record<string, Record<string, string>> = {
   en: {
     all: "All",
     mates: "Mates",
-    customMates: "Custom Mates",
+    customMates: "Personalized",
     bombillas: "Bombillas",
     bombillones: "Large bombillas",
     materas: "Materas",
@@ -132,7 +132,7 @@ const CATEGORY_FALLBACKS: Record<string, Record<string, string>> = {
   pt: {
     all: "Todos",
     mates: "Mates",
-    customMates: "Mates Personalizados",
+    customMates: "Personalizados",
     bombillas: "Bombillas",
     bombillones: "Bombillas grandes",
     materas: "Materas",
@@ -183,7 +183,7 @@ export function CatalogFilterControls({
     const dict = CATEGORY_FALLBACKS[locale] || CATEGORY_FALLBACKS.es;
     const fallback = dict[labelKey] || CATEGORY_FALLBACKS.es[labelKey] || labelKey;
     if (labelKey === "customMates") {
-      return fallback || "Mates Personalizados";
+      return fallback || "Personalizados";
     }
     try {
       if (typeof (t as any).has === "function" && !(t as any).has(labelKey)) {

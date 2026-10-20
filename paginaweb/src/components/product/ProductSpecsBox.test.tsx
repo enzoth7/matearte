@@ -175,6 +175,14 @@ describe("ProductSpecsBox", () => {
     expect(screen.getByText("Cincelada")).toBeInTheDocument();
   });
 
+  it("no muestra el tipo de bombilla retirado en fichas antiguas", () => {
+    const product: Product = { ...emptyProduct, category: "bombillas", attributes: { "tipo-bombilla": "apaga", "forma-pico": "pico-loro" } };
+    renderBox(product, undefined, undefined, "es");
+    expect(screen.queryByText("Tipo de bombilla:")).not.toBeInTheDocument();
+    expect(screen.queryByText("Apaga")).not.toBeInTheDocument();
+    expect(screen.getByText("Pico loro")).toBeInTheDocument();
+  });
+
   it("muestra talle y capacidad", () => {
     const product: Product = {
       ...emptyProduct,

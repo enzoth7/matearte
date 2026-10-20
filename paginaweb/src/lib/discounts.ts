@@ -6,6 +6,8 @@ export type DiscountReason =
   | "already_used"
   | "in_use"
   | "not_applicable"
+  | "not_subscribed"
+  | "first_purchase_only"
   | "invalid_reservation"
   | "invalid";
 
@@ -42,6 +44,8 @@ export const discountErrorMessage = (reason: DiscountReason) => ({
   already_used: "Ya usaste este código en otra compra.",
   in_use: "Este código está reservado por otro intento de pago. Volvé a intentar más tarde.",
   not_applicable: "El descuento no puede aplicarse al subtotal de esta compra.",
+  not_subscribed: "Confirmá tu suscripción para usar este descuento.",
+  first_purchase_only: "Este descuento es solo para la primera compra.",
   invalid_reservation: "No se pudo reservar el descuento.",
   invalid: "No se pudo validar el código de descuento.",
 })[reason];

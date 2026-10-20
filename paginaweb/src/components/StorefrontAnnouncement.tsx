@@ -1,13 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { createBrowserSupabase } from '@/lib/supabase/browser';
 import { announcementDismissalKey, isAnnouncementCurrent, montevideoDate, type PublicSiteAnnouncement } from '@/lib/site-announcements';
+import { NewsletterForm } from '@/components/NewsletterForm';
 
 const BUCKET = 'site-announcements';
 
 export function StorefrontAnnouncement() {
+  const t = useTranslations('welcomeSubscription');
+  const common = useTranslations('common');
   const [announcement, setAnnouncement] = useState<PublicSiteAnnouncement | null>(null);
+  const [announcementLoaded, setAnnouncementLoaded] = useState(false);
+  const [offer, setOffer] = useState<{ enabled: boolean; headline: string; description: string; image_url: string | null } | null>(null);
+  const [offerDismissed, setOfferDismissed] = useState(false);
   const closeButton = useRef<HTMLButtonElement>(null);
 
   const close = useCallback(() => {
@@ -15,6 +22,7 @@ export function StorefrontAnnouncement() {
     sessionStorage.setItem(announcementDismissalKey(announcement.id), '1');
     setAnnouncement(null);
   }, [announcement]);
+  const closeOffer = useCallback(() => { sessionStorage.setItem('matearte-welcome-dismissed', '1'); setOfferDismissed(true); }, []);
 
   useEffect(() => {
     let active = true;
@@ -41,27 +49,47 @@ export function StorefrontAnnouncement() {
       } catch (error) {
         // A promotional notice must never prevent the storefront from loading.
         console.warn('No se pudo cargar el aviso de portada.', error);
+      } finally {
+        if (active) setAnnouncementLoaded(true);
       }
     };
     void load();
+    void createBrowserSupabase().from('marketing_active_offer')
+      .select('headline,description,image_url').eq('id', true).maybeSingle()
+      .then(({ data }) => {
+        if (active && data && sessionStorage.getItem('matearte-welcome-dismissed') !== '1' && sessionStorage.getItem('matearte-welcome-submitted') !== '1') {
+          setOffer({ ...data, enabled: true });
+        }
+      });
     return () => { active = false; };
   }, []);
 
   useEffect(() => {
-    if (!announcement) return;
+    if (!announcement && (!offer?.enabled || offerDismissed)) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     closeButton.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close();
+      if (event.key === 'Escape') { if (announcement) close(); else closeOffer(); }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [announcement, close]);
+  }, [announcement, offer, offerDismissed, close, closeOffer]);
 
+  const showOffer = announcementLoaded && !announcement && offer?.enabled && !offerDismissed;
+  if (!announcement && !showOffer) return <span hidden data-storefront-announcement-loader />;
+  if (showOffer) return <div className="storefront-announcement-backdrop" role="presentation">
+    <section className="storefront-announcement storefront-subscription" role="dialog" aria-modal="true" aria-label={t('dialogLabel')}>
+      <button ref={closeButton} type="button" className="storefront-subscription-close" onClick={closeOffer} aria-label={common('close')}>×</button>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {offer.image_url && <img className="storefront-subscription-image" src={offer.image_url} alt="" />}
+      <h2>{offer.headline}</h2><p>{offer.description}</p>
+      <NewsletterForm source="welcome" emailLabel={t('email')} nameLabel={t('name')} subscribeLabel={t('subscribe')} subscribeMobileLabel={t('subscribe')} subscribingLabel={t('subscribing')} successMessage={t('success')} invalidEmailMessage={t('invalidEmail')} invalidNameMessage={t('invalidName')} errorMessage={t('error')} consentMessage={t('consent')} onSuccess={() => sessionStorage.setItem('matearte-welcome-submitted', '1')} />
+    </section>
+  </div>;
   if (!announcement) return <span hidden data-storefront-announcement-loader />;
   const supabase = createBrowserSupabase();
   const imageUrl = announcement.image_path.startsWith('/')

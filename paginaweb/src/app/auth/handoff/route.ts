@@ -5,6 +5,7 @@ import { siteUrl, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/con
 import { createServerSupabase } from "@/lib/supabase/server";
 import { isLocale } from "@/i18n/config";
 import { safeStoreRedirect } from "@/lib/auth-redirect";
+import { activateWelcomeSubscriptionForVerifiedUser } from "@/lib/activate-welcome-subscription";
 
 function privateRedirect(destination: string) {
   const response = NextResponse.redirect(destination, 303);
@@ -47,6 +48,7 @@ export async function GET(request: NextRequest) {
     const server = await createServerSupabase();
     const { data: authData, error } = await server.auth.exchangeCodeForSession(code);
     if (error) return privateRedirect(`${destination("/perfil")}?auth=failed`);
+    await activateWelcomeSubscriptionForVerifiedUser(authData.user);
     const { data: profile } = await server
       .from("customer_profiles")
       .select("profile_completed_at")
@@ -76,6 +78,7 @@ export async function GET(request: NextRequest) {
   const { data: verified, error: verifyError } = await server.auth.verifyOtp({ type: "magiclink", token_hash: handoff.tokenHash });
   if (verifyError) return failure("invalid");
   if (!verified.user) return failure("invalid");
+  await activateWelcomeSubscriptionForVerifiedUser(verified.user);
   await applyPendingAction(server, verified.user.id, handoff.action, handoff.payload as Record<string, unknown>);
   const targetPath = ["/", "/carrito", "/checkout", "/pedidos", "/perfil"].includes(handoff.targetPath) ? handoff.targetPath : "/";
   return privateRedirect(destination(targetPath));
