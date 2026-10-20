@@ -35,8 +35,11 @@ export const mateAssetCatalog: Record<string, MateAssetEntry> = {
   "criollo-grande-lisa-posa-cuero-crudo": asset("criollo/torpedo-criollo-posa-mate/cuero-crudo.png", "Criollo alpaca grande lisa con posa mate de cuero crudo"),
   "criollo-grande-posa-cuero-crudo": asset("criollo/torpedo-criollo-posa-mate/cuero-crudo.png", "Criollo alpaca grande con posa mate de cuero crudo"),
   "criollo-posa-cuero-crudo": asset("criollo/torpedo-criollo-posa-mate/cuero-crudo.png", "Criollo con posa mate de cuero crudo"),
+  "criollo-torpedo-posa-negro": asset("criollo/torpedo-criollo-posa-mate/negro.png", "Torpedo criollo con posa mate negro"),
   "imperial-lacre": asset("imperial/cincelado-premium/natural.png", "Imperial cincelado premium"),
   "imperial-criollo-posa-cuero-crudo": asset("criollo/imperial-criollo-posa-mate/cuero-crudo.png", "Imperial criollo con posa mate de cuero crudo"),
+  "imperial-criollo-posa-vaqueta": asset("criollo/imperial-criollo-posa-mate/natural.png", "Imperial criollo con posa mate natural"),
+  "imperial-criollo-posa-negro": asset("criollo/imperial-criollo-posa-mate/negro.png", "Imperial criollo con posa mate negro"),
   "imperial-cuero-crudo": asset("imperial/cincelado-premium/cuero-crudo.png", "Imperial cuero crudo"),
   "imperial-premium": asset("imperial/imperial-clasico/natural.png", "Imperial clásico"),
   "imperial-print": asset("imperial/imperial-clasico/animal-print.jpg", "Imperial animal print"),
@@ -44,6 +47,8 @@ export const mateAssetCatalog: Record<string, MateAssetEntry> = {
   "camionero-liso": asset("camionero/alpaca-comun-patas/natural.png", "Camionero con alpaca común"),
   "camionero-artesanal": asset("camionero/alpaca-comun-patas/natural.png", "Camionero con alpaca común"),
   "camionero-criollo-posa-vaqueta": asset("criollo/camionero-criollo-posa-mate/natural.png", "Camionero criollo con posa mate natural"),
+  "camionero-criollo-posa-cuero-crudo": asset("criollo/camionero-criollo-posa-mate/cuero-crudo.png", "Camionero criollo con posa mate de cuero crudo"),
+  "camionero-criollo-posa-negro": asset("criollo/camionero-criollo-posa-mate/negro.png", "Camionero criollo con posa mate negro"),
 };
 
 export function getMateAssetPath(variantId: string, fallback: string) {

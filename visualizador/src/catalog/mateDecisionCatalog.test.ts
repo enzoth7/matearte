@@ -7,7 +7,7 @@ import {
   flejeEngravingTechniqueAssetManifest,
   torpedoVirolaEngravingTechniqueAssetManifest,
 } from "./engravingTechniqueAssetManifest";
-import { mateVariants } from "./mateCatalog";
+import { getVariantDefinition, mateVariants } from "./mateCatalog";
 import {
   EMPTY_MATE_SELECTION,
   engravingTypeOptions,
@@ -221,30 +221,24 @@ describe("árbol declarativo de mates", () => {
     }
   });
 
-  it("deja visibles como pendientes las ramas sin SKU confirmado", () => {
-    const pending = resolveMateSelection({
-      familyId: "criollo",
-      textureId: "imperial-criollo-posa-mate",
-      colorId: "vaqueta",
-      metalId: "alpaca-grande-criollo",
-      sizeId: "chico",
-    });
-    expect(pending?.skuId).toBeNull();
-    expect(pending?.status).toBe("pending");
-  });
-
-  it("no convierte un fallback visual pendiente en un SKU transaccional", () => {
-    const pending = resolveMateSelection({
-      familyId: "criollo",
-      textureId: "imperial-criollo-posa-mate",
-      colorId: "vaqueta",
-      metalId: "alpaca-grande-criollo",
-      sizeId: "medio",
-    });
-
-    expect(pending?.legacyVariantId).toBe("imperial-criollo-posa-cuero-crudo");
-    expect(pending?.skuId).toBeNull();
-    expect(pending?.status).toBe("pending");
+  it("ofrece los nueve colores Criollo con variante comprable y fotografía correcta", () => {
+    const criollo = getMateFamily("criollo")!;
+    for (const texture of criollo.textures) {
+      for (const color of texture.colors) {
+        const expectedImage = texture.colorPreviewImages?.[color.id];
+        for (const metal of texture.metals) {
+          for (const sizeId of texture.sizes) {
+            const product = resolveMateSelection({
+              familyId: "criollo", textureId: texture.id, colorId: color.id,
+              metalId: metal.id, sizeId,
+            });
+            expect(product?.status).toBe("ready");
+            expect(product?.skuId).toBeTruthy();
+            expect(getVariantDefinition(product!.legacyVariantId)?.image).toBe(expectedImage);
+          }
+        }
+      }
+    }
   });
 });
 
@@ -255,6 +249,17 @@ describe("compatibilidad y assets del catálogo", () => {
     expect(resolveMateSelection(getSelectionFromLegacyVariant("criollo-clasico")!)).not.toBeNull();
     expect(resolveMateSelection(getSelectionFromLegacyVariant("criollo-grande-posa-cuero-crudo")!)).not.toBeNull();
     expect(resolveMateSelection(getSelectionFromLegacyVariant("imperial-criollo-posa-cuero-crudo")!)).not.toBeNull();
+    for (const variantId of [
+      "criollo-torpedo-posa-negro",
+      "imperial-criollo-posa-vaqueta",
+      "imperial-criollo-posa-negro",
+      "camionero-criollo-posa-cuero-crudo",
+      "camionero-criollo-posa-negro",
+    ]) {
+      const selection = getSelectionFromLegacyVariant(variantId);
+      expect(selection).not.toBeNull();
+      expect(resolveMateSelection(selection!)?.skuId).toBe(variantId);
+    }
     expect(getSelectionFromLegacyVariant("camionero-liso")).toBeNull();
   });
 

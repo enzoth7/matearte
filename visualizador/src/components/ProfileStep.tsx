@@ -69,8 +69,10 @@ function ProfileIcon({ name }: { name: ProfileIconName }) {
 function DesignTile({ design, draft = false, onLoad, onCheckout, onDelete, onDuplicate }: DesignTileProps) {
   const { catalog: pricingCatalog } = usePricing();
   const config = design.configuration || {};
-  const variant = mateVariants.find((item) => item.id === config.variantId) || mateVariants[0];
-  const selection = resolveMateSelection(config.selection)
+  const resolved = resolveMateSelection(config.selection);
+  const variant = mateVariants.find((item) => item.id === (resolved?.legacyVariantId ?? config.variantId)) || mateVariants[0];
+  const imagePending = !resolved?.skuId && config.skuId === null;
+  const selection = resolved
     ? config.selection
     : getSelectionFromLegacyVariant(config.variantId, config.size);
   const price = selection ? getSavedDesignPrice(design, pricingCatalog) : null;
@@ -80,7 +82,7 @@ function DesignTile({ design, draft = false, onLoad, onCheckout, onDelete, onDup
       <article className="profile-design-tile">
         <button type="button" className="profile-design-tile__open" onClick={onLoad} aria-label={`Ver detalle de ${design.title || "pedido"}`}>
           <span className="profile-design-tile__preview">
-            {config.skuId === null ? <span>Imagen pendiente</span> : <img className="mate-product-photo" src={variant.image} alt="" loading="lazy" />}
+            {imagePending ? <span>Imagen pendiente</span> : <img className="mate-product-photo" src={variant.image} alt="" loading="lazy" />}
           </span>
           <strong>{price !== null && price > 0 ? formatUYU(price) : "Precio no disponible"}</strong>
           <span className="profile-design-tile__type">{design.title}</span>
@@ -112,7 +114,7 @@ function DesignTile({ design, draft = false, onLoad, onCheckout, onDelete, onDup
         className="profile-design-tile__preview"
         aria-label={draft ? `Continuar ${design.title || "borrador"}` : `Usar ${design.title || "diseño"} como base`}
       >
-        {config.skuId === null ? <span>Imagen pendiente</span> : <img className="mate-product-photo" src={variant.image} alt="" loading="lazy" />}
+        {imagePending ? <span>Imagen pendiente</span> : <img className="mate-product-photo" src={variant.image} alt="" loading="lazy" />}
       </button>
       <strong>{price !== null && price > 0 ? formatUYU(price) : "Precio no disponible"}</strong>
       <span className="profile-design-tile__type">{design.title}</span>

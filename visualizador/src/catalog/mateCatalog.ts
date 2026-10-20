@@ -101,9 +101,12 @@ const baseMateVariants: BaseMateVariant[] = [
     sourceProducts: ["Criollo Alpaca Grande Cincelada con Posa Mate Cuero Crudo"],
   },
   { id: "criollo-posa-cuero-crudo", model: "criollo", name: "Con posa mate de cuero crudo", sourceProducts: ["Criollo Virola de Acero con Posa Mate de Cuero Crudo"] },
+  { id: "criollo-torpedo-posa-negro", model: "torpedo", name: "Torpedo criollo posa mate negro" },
 
   { id: "imperial-lacre", model: "imperial", name: "Cincelado Premium", sourceProducts: ["Imperial Cincelado a Lacre"], isDefault: true },
   { id: "imperial-criollo-posa-cuero-crudo", model: "imperial", name: "Imperial Criollo con Posa Mate", sourceProducts: ["Imperial Criollo con Posa Mate de Cuero Crudo"] },
+  { id: "imperial-criollo-posa-vaqueta", model: "imperial", name: "Imperial criollo posa mate natural" },
+  { id: "imperial-criollo-posa-negro", model: "imperial", name: "Imperial criollo posa mate negro" },
   { id: "imperial-cuero-crudo", model: "imperial", name: "Cuero crudo", sourceProducts: ["Imperial Cuero Crudo"] },
   { id: "imperial-premium", model: "imperial", name: "Premium", sourceProducts: ["Imperial Premium"] },
   { id: "imperial-print", model: "imperial", name: "Print", sourceProducts: ["Imperial Print"] },
@@ -112,6 +115,8 @@ const baseMateVariants: BaseMateVariant[] = [
   { id: "camionero-liso", model: "camionero", name: "Cuerpo liso", sourceProducts: ["Camionero Acero Liso"], isDefault: true },
   { id: "camionero-artesanal", model: "camionero", name: "Cuerpo artesanal", sourceProducts: ["Camionero Alpaca Cincelado"] },
   { id: "camionero-criollo-posa-vaqueta", model: "camionero", name: "Criollo con posa mate de vaqueta", sourceProducts: ["Camionero Criolla Posa con Mate Vaqueta"] },
+  { id: "camionero-criollo-posa-cuero-crudo", model: "camionero", name: "Camionero criollo posa mate de cuero crudo" },
+  { id: "camionero-criollo-posa-negro", model: "camionero", name: "Camionero criollo posa mate negro" },
 ];
 
 const rimCompatibility: Record<string, { ids: string[]; defaultId: string }> = {
@@ -139,8 +144,11 @@ const rimCompatibility: Record<string, { ids: string[]; defaultId: string }> = {
   "criollo-grande-lisa-posa-cuero-crudo": { ids: ["alpaca-grande"], defaultId: "alpaca-grande" },
   "criollo-grande-posa-cuero-crudo": { ids: ["alpaca-grande"], defaultId: "alpaca-grande" },
   "criollo-posa-cuero-crudo": { ids: ["acero"], defaultId: "acero" },
+  "criollo-torpedo-posa-negro": { ids: ["alpaca-grande"], defaultId: "alpaca-grande" },
   "imperial-lacre": { ids: ["original"], defaultId: "original" },
   "imperial-criollo-posa-cuero-crudo": { ids: ["original"], defaultId: "original" },
+  "imperial-criollo-posa-vaqueta": { ids: ["alpaca-grande"], defaultId: "alpaca-grande" },
+  "imperial-criollo-posa-negro": { ids: ["alpaca-grande"], defaultId: "alpaca-grande" },
   "imperial-cuero-crudo": { ids: ["original"], defaultId: "original" },
   "imperial-premium": { ids: ["original"], defaultId: "original" },
   "imperial-print": { ids: ["original"], defaultId: "original" },
@@ -148,6 +156,8 @@ const rimCompatibility: Record<string, { ids: string[]; defaultId: string }> = {
   "camionero-liso": { ids: ["acero"], defaultId: "acero" },
   "camionero-artesanal": { ids: ["alpaca"], defaultId: "alpaca" },
   "camionero-criollo-posa-vaqueta": { ids: ["original"], defaultId: "original" },
+  "camionero-criollo-posa-cuero-crudo": { ids: ["original"], defaultId: "original" },
+  "camionero-criollo-posa-negro": { ids: ["original"], defaultId: "original" },
 };
 
 const COLORS = {
@@ -195,7 +205,8 @@ function getVariantMetadata(variant: BaseMateVariant) {
   const lowerName = name.toLowerCase();
   let colors: ProductColorOption[] = [COLORS.natural];
 
-  if (variant.id === "camionero-liso") colors = [COLORS.marron, COLORS.negro, COLORS.crudo, COLORS.natural];
+  if (variant.id === "criollo-torpedo-posa-negro") colors = [COLORS.negro];
+  else if (variant.id === "camionero-liso") colors = [COLORS.marron, COLORS.negro, COLORS.crudo, COLORS.natural];
   else if (variant.id === "imperial-print") colors = [COLORS.negro, COLORS.marron];
   else if (variant.id === "imperial-premium") colors = [COLORS.blanco, COLORS.marron, COLORS.negro, COLORS.rosa, COLORS.natural];
   else if (variant.model === "torpedo") {

@@ -152,21 +152,18 @@ it("accepts every purchasable selection and offered customization in cart pricin
   expect(failures).toEqual([]);
 });
 
-it("does not advertise a price for selectable combinations without a purchasable SKU", () => {
+it("advertises a purchasable price for every selectable catalog combination", () => {
   const catalog = { versionId: "test", version: 1, publishedAt: "", rules: Object.fromEntries(getActivePricingRuleKeys().map((key) => [key, 100])) };
-  const pending = listCatalogSelections().filter((selection) => !resolveMateSelection(selection)?.skuId);
-  expect(pending.length).toBeGreaterThan(0);
-  for (const selection of pending) {
+  for (const selection of listCatalogSelections()) {
     const filters = {
       familyId: selection.familyId ?? undefined,
       textureId: selection.textureId ?? undefined,
       colorId: selection.colorId ?? undefined,
       metalId: selection.metalId ?? undefined,
     };
-    expect(hasPurchasableSku(filters)).toBe(false);
-    expect(getMetalStartingPrice(catalog, selection)).toBeNull();
-    if (!hasPurchasableSku({ familyId: filters.familyId, textureId: filters.textureId, colorId: filters.colorId })) {
-      expect(getColorStartingPrice(catalog, { ...selection, colorId: selection.colorId! })).toBeNull();
-    }
+    expect(resolveMateSelection(selection)?.skuId).toBeTruthy();
+    expect(hasPurchasableSku(filters)).toBe(true);
+    expect(getMetalStartingPrice(catalog, selection)).not.toBeNull();
+    expect(getColorStartingPrice(catalog, { ...selection, colorId: selection.colorId! })).not.toBeNull();
   }
 });
