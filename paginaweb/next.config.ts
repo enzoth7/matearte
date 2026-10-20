@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      { source: "/rural", destination: "/sorteo", permanent: true },
+      { source: "/es/rural", destination: "/sorteo", permanent: true },
+      { source: "/en/rural", destination: "/en/sorteo", permanent: true },
+      { source: "/pt/rural", destination: "/pt/sorteo", permanent: true },
       { source: "/es", destination: "/", permanent: true },
       { source: "/es/:path*", destination: "/:path*", permanent: true },
       { source: "/catalogo/mates", destination: "/catalogo?categoria=mates", permanent: true },

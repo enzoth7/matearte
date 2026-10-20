@@ -4,7 +4,7 @@ import { CheckCircle } from "@phosphor-icons/react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { enterRuralRaffle } from "@/app/actions/rural-raffle";
 import { initialRuralRaffleState } from "@/lib/rural-raffle";
-import styles from "@/app/rural/RuralPage.module.css";
+import styles from "@/app/sorteo/RuralPage.module.css";
 
 const productOptions = [
   ["", "Elegí una opción"],

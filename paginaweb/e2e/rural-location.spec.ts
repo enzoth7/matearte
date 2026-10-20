@@ -1,7 +1,17 @@
 import { expect, test } from "@playwright/test";
 
+test("el sorteo abre en la nueva dirección y la anterior redirige", async ({ page }) => {
+  await page.goto("/sorteo");
+  await expect(page.getByRole("heading", { name: "Ya estás cerca." })).toBeVisible();
+  await expect(page).toHaveURL(/\/sorteo$/);
+
+  await page.goto("/rural");
+  await expect(page).toHaveURL(/\/sorteo$/);
+  await expect(page.getByRole("heading", { name: "Ya estás cerca." })).toBeVisible();
+});
+
 test("país y ciudad se eligen en orden, con Paysandú por defecto", async ({ page }) => {
-  await page.goto("/en/rural");
+  await page.goto("/en/sorteo");
   await page.waitForLoadState("networkidle");
 
   const country = page.getByRole("combobox", { name: "País" });
