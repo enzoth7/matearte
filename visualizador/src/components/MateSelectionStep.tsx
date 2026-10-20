@@ -19,6 +19,7 @@ import {
   getMetalStartingPrice,
   getSelectionPricing,
   getTextureStartingPrice,
+  hasPurchasableSku,
 } from "../catalog/pricingCatalog";
 import { usePricing } from "../context/PricingContext";
 import { getMateSizePreviewImage } from "./mateSizePreviewImages";
@@ -236,11 +237,9 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
                     <span className="selection-color-card__title">
                       {item.label}
                     </span>
-                    <SelectionPrice
-                      value={getColorStartingPrice(pricingCatalog, { ...selection, colorId: item.id })}
-                      pendingCopy={pendingPriceCopy}
-                      from
-                    />
+                    {hasPurchasableSku({ familyId: family.id, textureId: selectedTexture.id, colorId: item.id })
+                      ? <SelectionPrice value={getColorStartingPrice(pricingCatalog, { ...selection, colorId: item.id })} pendingCopy={pendingPriceCopy} from />
+                      : <PendingLabel copy="No disponible para comprar" />}
                   </button>
                 ))}
               </div>
@@ -257,11 +256,9 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
               <MetalPreview image={item.previewImage} label={item.label} metalId={item.id} />
               <span className="selection-product-card__title">{item.label}</span>
               <span className="sr-only">Muestra del material de {item.label.toLowerCase()}</span>
-              <SelectionPrice
-                value={getMetalStartingPrice(pricingCatalog, { ...selection, metalId: item.id })}
-                pendingCopy={pendingPriceCopy}
-                from
-              />
+              {hasPurchasableSku({ familyId: selection.familyId ?? undefined, textureId: selectedTexture.id, colorId: selection.colorId ?? undefined, metalId: item.id })
+                ? <SelectionPrice value={getMetalStartingPrice(pricingCatalog, { ...selection, metalId: item.id })} pendingCopy={pendingPriceCopy} from />
+                : <PendingLabel copy="No disponible para comprar" />}
             </button>
           ))}
         </fieldset>

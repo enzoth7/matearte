@@ -246,10 +246,20 @@ export function listCatalogSelections(filters?: { familyId?: MateFamilyId; textu
   });
 }
 
-function getStartingPrice(catalog: PublishedPricingCatalog | null, filters?: { familyId?: MateFamilyId; textureId?: string; colorId?: string; metalId?: string }) {
+type SelectionFilters = { familyId?: MateFamilyId; textureId?: string; colorId?: string; metalId?: string };
+
+export function hasPurchasableSku(filters: SelectionFilters) {
+  return listCatalogSelections(filters)
+    .filter((selection) => !filters.colorId || selection.colorId === filters.colorId)
+    .filter((selection) => !filters.metalId || selection.metalId === filters.metalId)
+    .some((selection) => Boolean(resolveMateSelection(selection)?.skuId));
+}
+
+function getStartingPrice(catalog: PublishedPricingCatalog | null, filters?: SelectionFilters) {
   const totals = listCatalogSelections(filters)
     .filter((selection) => !filters?.colorId || selection.colorId === filters.colorId)
     .filter((selection) => !filters?.metalId || selection.metalId === filters.metalId)
+    .filter((selection) => Boolean(resolveMateSelection(selection)?.skuId))
     .map((selection) => getSelectionPricing(catalog, selection))
     .filter((pricing): pricing is SelectionPricing => Boolean(pricing?.isPriceReady))
     .map((pricing) => pricing.totalUYU);
