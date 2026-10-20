@@ -5,7 +5,7 @@ import { ruralCityOptions, ruralCountryOptions } from "@/lib/rural-locations";
 import styles from "./RuralPage.module.css";
 
 export const metadata: Metadata = {
-  title: "Sorteo La Rural",
+  title: { absolute: "MateArte Uruguay | Sorteo" },
   description: "Registrate sin contraseña y participá del sorteo de MateArte en La Rural.",
   robots: { index: false, follow: false },
 };

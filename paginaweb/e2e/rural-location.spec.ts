@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("el sorteo abre en la nueva dirección y la anterior redirige", async ({ page }) => {
   await page.goto("/sorteo");
+  await expect(page).toHaveTitle("MateArte Uruguay | Sorteo");
   await expect(page.getByRole("heading", { name: "Ya estás cerca." })).toBeVisible();
   await expect(page).toHaveURL(/\/sorteo$/);
 
