@@ -28,11 +28,13 @@ describe("traducciones públicas", () => {
         "already_used",
         "disabled",
         "expired",
+        "first_purchase_only",
         "in_use",
         "invalid",
         "not_applicable",
         "not_found",
         "not_started",
+        "not_subscribed",
       ]);
     }
   });
