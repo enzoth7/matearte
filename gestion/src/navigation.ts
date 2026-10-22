@@ -123,6 +123,7 @@ export const areas = [
       ["canales", "Canales y medios de pago"],
       ["origen-canal", "Canal y origen"],
       ["automatizaciones", "Automatizaciones"],
+      ["links", "Links"],
       ["actividad", "Registro de actividad"],
     ],
   },

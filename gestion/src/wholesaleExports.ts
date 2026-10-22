@@ -1,5 +1,6 @@
 import { wholesaleLineValue } from "./wholesaleAdapter";
 import type { WholesaleLine, WholesaleSnapshot } from "./wholesaleSource";
+import { formatDate } from "./dateFormat";
 
 export type WholesaleCurrency = "UYU" | "ARS";
 const normalized = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("es");
@@ -17,8 +18,8 @@ const rowsFor = (lines: WholesaleLine[], snapshot: WholesaleSnapshot, currency?:
     Estado: line.status,
     Tipo: line.order_type === "no_cost" ? "Sin costo" : "Normal",
     ...(currency ? { [`Unitario ${currency}`]: currency === "ARS" ? value.unitArg : value.unitUyu, [`Total ${currency}`]: currency === "ARS" ? value.arg : value.uyu } : { "Unitario ARS": value.unitArg, "Total ARS": value.arg, "Total UYU": value.uyu }),
-    Creado: line.created_at?.slice(0, 10) || "",
-    Completado: line.completed_at?.slice(0, 10) || "",
+    Creado: formatDate(line.created_at, ""),
+    Completado: formatDate(line.completed_at, ""),
   };
 });
 const filename = (kind: string, extension: string) => `matearte-${kind}-${new Date().toISOString().slice(0, 10)}.${extension}`;
@@ -58,7 +59,7 @@ export async function exportWholesalePdf(title: string, lines: WholesaleLine[], 
   pdf.setTextColor(255, 255, 255); pdf.setFontSize(17); pdf.text("MateArte", 14, 12);
   pdf.setFontSize(11); pdf.text(title, 14, 21);
   pdf.setTextColor(40, 40, 40); pdf.setFontSize(9);
-  pdf.text(`Generado: ${new Date().toLocaleDateString("es-UY")}  |  ${lines.length} líneas`, 14, 35);
+  pdf.text(`Generado: ${formatDate(new Date())}  |  ${lines.length} líneas`, 14, 35);
   autoTable(pdf, {
     startY: 40,
     head: [["Pedido", "Cliente", "Modelo", "Variante", "Cant.", "Estado", ...currencies]],

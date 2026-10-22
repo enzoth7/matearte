@@ -1,3 +1,4 @@
+import { saveOriginOverride } from "./contactOrigin";
 import { useState, type FormEvent } from "react";
 import type { Customer } from "./data";
 import { commerceSource } from "./commerceSource";
@@ -49,11 +50,13 @@ export function LocalCustomerEditor({ customer, onSaved, onDeleted, orderCount =
       const webLead = await commerceSource.rpc("gestion_update_web_lead", { p_source_kind: customer.webLeadKind, p_source_id: customer.webLeadId, p_contact: contact });
       if (webLead.error || !webLead.data) { setError("Se guardó la ficha local, pero no se pudieron sincronizar sus datos Web."); setBusy(false); return; }
     }
+    const originError = await saveOriginOverride(customer, form);
+    if (originError) { setError(originError); setBusy(false); return; }
     setBusy(false);
     onSaved();
   }
   return <form onSubmit={(event) => void save(event)}>
-    <CustomerFormFields customer={companyOnly && customer ? { ...customer, name: "" } : customer} defaultOrigin="Local" emailReadOnly={customer?.webLeadKind === "account"} emailRequired={Boolean(customer?.raffleEntryId || webOrderIds.length || customer?.webLeadKind)} />
+    <CustomerFormFields customer={companyOnly && customer ? { ...customer, name: "" } : customer} defaultOrigin="Local" typeLocked={!customer} emailReadOnly={customer?.webLeadKind === "account"} emailRequired={Boolean(customer?.raffleEntryId || webOrderIds.length || customer?.webLeadKind)} />
     {error && <div className="error" role="alert">{error}</div>}
     <div className="wholesale-customer-actions">{customer && <button className="wholesale-customer-delete" type="button" aria-label={`Eliminar ${customer.name}`} title={`Eliminar ${customer.name}`} disabled={busy} onClick={() => void remove()}><Trash size={20} aria-hidden="true" /></button>}<button className="primary" disabled={busy}>{busy ? "Procesando…" : "Guardar cambios"}</button></div>
   </form>;

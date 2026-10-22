@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ComponentType, type For
 import * as flags from "country-flag-icons/react/3x2";
 import { commerceSource } from "./commerceSource";
 import { customerOriginClass, customerOriginLabel, customerOriginOptions, customerOriginValue } from "./customerChannel";
+import { formatDate } from "./dateFormat";
 
 type Contact = { id: string; name: string | null; email: string | null; phone: string | null; source: string; created_at: string; has_account: boolean; subscription_status: string };
 type ContactSummary = { total: number; origins: { source: string; contacts: number }[] };
@@ -21,7 +22,7 @@ async function callMarketing<T>(action: string, payload: Record<string, unknown>
   return data as T;
 }
 
-const date = (value: string | null) => value ? new Intl.DateTimeFormat("es-UY", { dateStyle: "medium" }).format(new Date(value)) : "—";
+const date = (value: string | null) => formatDate(value);
 const sourceName = customerOriginLabel;
 const originBadgeClass = customerOriginClass;
 

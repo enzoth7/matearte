@@ -32,7 +32,8 @@ import {
   Bar,
   Cell,
 } from "recharts";
-import { Package, Plus, PencilSimple, CaretDown, FileXls, FunnelX, MagnifyingGlass } from "@phosphor-icons/react";
+import { Package, Plus, PencilSimple, CaretDown, FileXls, FunnelX, MagnifyingGlass, Trash } from "@phosphor-icons/react";
+import { LocalSaleEditor, canEditLocalSale, deleteLocalSale } from "./LocalSaleEditor";
 import {
   type State,
   type Order,
@@ -40,7 +41,7 @@ import {
   type Product,
   type Row,
   type Customer,
-  type SalesChannel,
+  type OrderChannel,
   orderName,
   isSale,
   money,
@@ -66,6 +67,7 @@ import {
   AddButton,
   Export,
 } from "./ui";
+import { formatDate } from "./dateFormat";
 export type PageProps = {
   session?: Session | null;
   refresh?: (forceFullCustomers?: boolean) => Promise<void>;
@@ -79,10 +81,7 @@ const customer = (s: State, o: Order) =>
   s.customers.find((c) => c.id === o.customerId) ?? { name: o.customerName || "Cliente sin nombre" };
 const product = (s: State, o: Order) =>
   s.products.find((p) => p.id === o.productId) ?? { name: o.items?.[0]?.title || "Artículo sin nombre", family: o.items?.[0]?.family || "Sin categoría", variant: "", rim: "Sin especificar", leather: "Sin especificar" };
-const orderDate = (date: string) =>
-  /^\d{4}-\d{2}-\d{2}$/.test(date)
-    ? `${date.slice(8, 10)}/${date.slice(5, 7)}/${date.slice(0, 4)}`
-    : "—";
+const orderDate = (date: string) => formatDate(date);
 const customerSearchText = (customer: Customer) => `${customer.name} ${customer.companyName || ""} ${customer.email} ${customer.phone} ${(customer.agendaAdditionalPhones || []).join(" ")} ${customer.birthDate || ""} ${customer.city} ${customer.country || countryForCity(customer.city)}`;
 const paymentStatus = (s: State, o: Order) =>
   o.status === "cancelled" ? "Cancelado" : o.status === "refunded" ? "Reembolsado" : o.status === "payment_failed" ? "Pago fallido" : o.status === "payment_verification_pending" ? "Comprobante por verificar" : balance(s, o) === 0
@@ -118,7 +117,7 @@ export function Overview({ s, go }: PageProps) {
   const pending = productionOrders.filter((o) => o.production !== "Terminado");
   const customerTypeData = salesByCustomerType(s, orders);
   const customerTypeTotal = customerTypeData.reduce((sum, item) => sum + item.total, 0);
-  const channelData = (canSeeFinance ? (["Web", "Local", "Feria", "Instagram", "Facebook", "WhatsApp"] as SalesChannel[]) : allowedSalesChannels(s)).map(
+  const channelData = (canSeeFinance ? (["Web", "Mayorista", "Local", "Feria", "Instagram", "Facebook", "WhatsApp"] as OrderChannel[]) : allowedSalesChannels(s)).map(
     (name) => ({
       name,
       total: orders
@@ -126,7 +125,7 @@ export function Overview({ s, go }: PageProps) {
         .reduce((a, o) => a + total(o), 0),
     }),
   );
-  const channelColors: Record<SalesChannel, string> = { Web: "#236b91", Local: "#794c32", Feria: "#936735", Instagram: "#d83280", Facebook: "#2459a6", WhatsApp: "#28b765" };
+  const channelColors: Record<OrderChannel, string> = { Web: "#236b91", Mayorista: "#4d7a57", Local: "#794c32", Feria: "#936735", Instagram: "#d83280", Facebook: "#2459a6", WhatsApp: "#28b765" };
   return (
     <>
       <div className="welcome">
@@ -262,7 +261,7 @@ export function Overview({ s, go }: PageProps) {
         </Card>
         <Card title="Ventas por canal">
           <div className="channel-chart">
-            <ResponsiveContainer width="100%" height={165}>
+            <ResponsiveContainer width="100%" height={Math.max(165, channelData.length * 30 + 10)}>
               <BarChart
                 data={channelData}
                 layout="vertical"
@@ -275,7 +274,8 @@ export function Overview({ s, go }: PageProps) {
                   axisLine={false}
                   tickLine={false}
                   width={95}
-                  tick={({ x, y, payload }) => <text x={x} y={y} dy={4} textAnchor="end" fontSize={12} fill={channelColors[payload.value as SalesChannel]}>{payload.value}</text>}
+                  interval={0}
+                  tick={({ x, y, payload }) => <text x={x} y={y} dy={4} textAnchor="end" fontSize={12} fill={channelColors[payload.value as OrderChannel]}>{payload.value}</text>}
                 />
                 <Tooltip content={<ChartTooltip />} />
                 <Bar
@@ -404,7 +404,7 @@ function OrderTable({
   ].join(" ");
   return (
     <Table
-      className={mode === "pedidos" ? "sales-orders-table" : productionMode || ["pendientes", "envios"].includes(mode) ? `workshop-orders-table${showAmounts ? "" : " workshop-orders-table--no-amounts"}${["pendientes", "envios"].includes(mode) ? " logistics-orders-table" : ""}` : undefined}
+      className={mode === "pedidos" ? "sales-orders-table" : productionMode || ["pendientes", "envios"].includes(mode) ? `workshop-orders-table${productionMode ? " workshop-orders-table--company" : ""}${showAmounts ? "" : " workshop-orders-table--no-amounts"}${["pendientes", "envios"].includes(mode) ? " logistics-orders-table" : ""}` : undefined}
       showSearch={searchQuery === undefined}
       searchQuery={searchQuery}
       onSearchQueryChange={onSearchQueryChange}
@@ -420,6 +420,7 @@ function OrderTable({
           label: "Cliente",
           render: (o) => mode === "pedidos" ? customer(s, o).name : <strong>{productionMode ? naturalCaseName(customer(s, o).name) : customer(s, o).name}</strong>,
         },
+        ...(productionMode ? [{ label: "Empresa", render: (o: Order) => { const c = customer(s, o); return ("companyName" in c && c.companyName?.trim()) || "—"; } }] : []),
         { label: "Productos", render: (o) => orderCategoryLabels(o, s.products) },
         ...(mode === "pedidos" ? [{ label: "Origen", render: (o: Order) => { const origin = originByOrder.get(o.id); return origin ? <Badge>{customerOriginLabel(origin)}</Badge> : "—"; } }] : []),
         { label: "Canal", render: (o) => <Badge>{o.channel}</Badge> },
@@ -479,6 +480,9 @@ function OrderTable({
 
 function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order: Order; props: PageProps; showAmounts: boolean; onClose: () => void }) {
   const { s, go } = props;
+  const [editingSale, setEditingSale] = useState(false);
+  const [saleBusy, setSaleBusy] = useState(false);
+  const [saleError, setSaleError] = useState("");
   const items = order.items || [];
   const shipping = orderShippingStatus(order);
   const contact = s.customers.find((entry) => entry.id === order.customerId);
@@ -494,12 +498,15 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
     const details = orderItemDetailRows(item);
     const size = details.find((detail) => ["tamaño", "tamano", "talle"].includes(detail.label.toLocaleLowerCase("es")))?.value;
     const extra = details.filter((detail) => !["sku", "color", "variante", "tamaño", "tamano", "talle"].includes(detail.label.toLocaleLowerCase("es")));
+    const catalogProduct = s.products.find((entry) => entry.id === item.productId && !entry.wholesaleProductId);
+    const wholesaleItem = order.source === "wholesale";
     return {
       id: item.id,
-      name: compactOrderItemName(item), sku: item.sku, color: orderItemColor(item), size,
+      name: compactOrderItemName(item), sku: item.sku, color: orderItemColor(item) || (wholesaleItem ? item.variant : undefined), size,
+      onOpen: catalogProduct ? () => go(`/productos/catalogo?producto=${encodeURIComponent(catalogProduct.sourceProductId || catalogProduct.id)}&variante=${encodeURIComponent(catalogProduct.id)}`) : undefined,
       weight: item.weightGrams && item.weightGrams > 0 ? formatWeight(item.weightGrams) : undefined,
       quantity: item.quantity, amount: showAmounts ? money(item.amount) : undefined,
-      extra: extra.map((detail) => `${detail.label}: ${detail.value}`).join(" · "),
+      extra: wholesaleItem ? "" : extra.map((detail) => `${detail.label}: ${detail.value}`).join(" · "), notes: item.productionNotes,
     };
   }) : [{ id: order.id, name: product(s, order).name, quantity: order.quantity, amount: showAmounts ? money(total(order)) : undefined }];
   return <Modal title="Detalle del pedido" className="order-detail-modal unified-order-modal" onClose={onClose}>
@@ -537,12 +544,24 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       <div className="line-item"><div>Total</div><strong>{money(total(order))}</strong></div>
     </section>}
     {order.method === "Envío" && (order.carrier || order.tracking) && <section className="order-tracking-detail" aria-label="Seguimiento guardado"><small>Envío registrado</small><strong>{order.carrier || "Sin transportista"}</strong><span>{order.tracking || "Sin código"}</span></section>}
+    {saleError && <div className="error" role="alert">{saleError}</div>}
     <div className="form-actions unified-order-actions">
+      {canEditLocalSale(order) && <div className="unified-order-sale-tools">
+        <button type="button" className="unified-order-icon-action" aria-label="Editar esta venta" title="Editar venta" disabled={saleBusy} onClick={() => setEditingSale(true)}><PencilSimple size={20} aria-hidden="true" /></button>
+        <button type="button" className="unified-order-icon-action unified-order-icon-action--danger" aria-label="Eliminar esta venta" title="Eliminar venta" disabled={saleBusy} onClick={() => void (async () => {
+          setSaleBusy(true); setSaleError("");
+          const result = await deleteLocalSale(order);
+          if (result === null) { setSaleBusy(false); return; }
+          if (result) { setSaleError(result); setSaleBusy(false); return; }
+          await props.refresh?.(true); props.notify?.("Venta eliminada"); setSaleBusy(false); onClose();
+        })()}><Trash size={20} aria-hidden="true" /></button>
+      </div>}
       <button className="unified-order-action" onClick={onClose}>Cerrar</button>
       {s.customers.some((entry) => entry.id === order.customerId) && <button className="unified-order-action" onClick={() => go(`/clientes/base?cliente=${order.customerId}`)}>Ver ficha del cliente</button>}
       {order.source === "wholesale" && wholesaleLines.length > 0 && props.commerce?.wholesale && <button className="unified-order-action" onClick={() => exportWholesalePdf(orderName(order), wholesaleLines, props.commerce!.wholesale!)}>Descargar PDF</button>}
       {order.source === "wholesale" && <button className="unified-order-action unified-order-action--primary" onClick={() => go("/produccion/mayorista")}>Gestionar producción</button>}
     </div>
+    {editingSale && <LocalSaleEditor order={order} customers={s.customers} depositAmount={s.payments.find((payment) => payment.orderId === order.id)?.amount} onClose={() => setEditingSale(false)} onChanged={async (message) => { await props.refresh?.(true); props.notify?.(message); setEditingSale(false); onClose(); }} />}
   </Modal>;
 }
 
@@ -564,6 +583,10 @@ export function Orders(
   const productionView = ["mayorista-web", "minorista", "historico", "resumen-produccion"].includes(mode);
   const showAmounts = !productionView || canAccess(s, "/finanzas/resumen");
   const visible = visibleOrders(s, productionView);
+  const salesFilterChannels: OrderChannel[] = (() => {
+    const base = allowedSalesChannels(s) as OrderChannel[];
+    return visible.some((o) => o.channel === "Mayorista") ? [base[0], "Mayorista", ...base.slice(1)] : base;
+  })();
   const availableOrders = productionView ? workshopOrderRows(visible, s.products) : visible;
   const o = availableOrders.find((x) => x.id === selected);
   let rows = availableOrders.filter(
@@ -634,10 +657,10 @@ export function Orders(
       />
       <div className={`toolbar${mode === "pedidos" ? " orders-page-toolbar" : ""}`}>
         <div className="tabs">
-          {["Todos", ...(productionView ? ["Web", "Local", "WhatsApp", "Instagram", "Facebook", "Feria"] : allowedSalesChannels(s))].map((c) => (
+          {["Todos", ...(productionView ? ["Web", "Mayorista", "Local", "WhatsApp", "Instagram", "Facebook", "Feria"] : salesFilterChannels)].map((c) => (
             <button
               key={c}
-              className={`${channel === c ? "active" : ""} ${c === "Web" ? "channel-web" : c === "Local" ? "channel-local" : c === "Instagram" ? "channel-instagram" : c === "Facebook" ? "channel-facebook" : c === "WhatsApp" ? "channel-whatsapp" : ""}`}
+              className={`${channel === c ? "active" : ""} ${c === "Web" ? "channel-web" : c === "Mayorista" ? "channel-mayorista" : c === "Local" ? "channel-local" : c === "Instagram" ? "channel-instagram" : c === "Facebook" ? "channel-facebook" : c === "WhatsApp" ? "channel-whatsapp" : ""}`}
               onClick={() => setChannel(c)}
             >
               {c}
@@ -882,7 +905,7 @@ export function Customers({
         action={<div className="table-actions customers-table-actions">
           <button type="button" className="secondary customers-export-button" disabled={!filteredCustomers.length} onClick={() => void exportCustomersXlsx(customerExportRows).catch((error) => notify(error instanceof Error ? `No se pudo exportar: ${error.message}` : "No se pudo exportar el Excel."))}><FileXls size={19} aria-hidden="true" />Exportar Excel</button>
           <button type="button" className="secondary customers-clear-filters" aria-label="Quitar filtros" title="Quitar filtros" disabled={!hasCustomerFilters} onClick={clearCustomerFilters}><FunnelX size={19} aria-hidden="true" /></button>
-          {userId !== "t3" && <AddButton onClick={() => { setNewKind("local"); setEdit("new"); }}>Nuevo cliente</AddButton>}{userId !== "t2" && <AddButton onClick={() => { setNewKind("wholesale"); setEdit("new"); }}>Nuevo mayorista</AddButton>}
+          <AddButton onClick={() => { setNewKind(userId === "t3" ? "wholesale" : "local"); setEdit("new"); }}>Nuevo cliente</AddButton>
         </div>}
         columns={[
           {
@@ -899,7 +922,7 @@ export function Customers({
           { label: "Mail", render: (c) => c.email ? <a href={`mailto:${c.email}`} className="customer-contact-link">{c.email}</a> : "—" },
           { label: "Prefijo", render: (c) => splitCustomerPhone(c.phone, c.country).prefix || "—" },
           { label: "Celular", render: (c) => c.phone ? <a href={`tel:${c.phone.replace(/[^\d+]/g, "")}`} className="customer-contact-link">{splitCustomerPhone(c.phone, c.country).number}</a> : "—" },
-          { label: "Fecha de nacimiento", render: (c) => c.birthDate && /^\d{4}-\d{2}-\d{2}$/.test(c.birthDate) ? `${c.birthDate.slice(8, 10)}/${c.birthDate.slice(5, 7)}/${c.birthDate.slice(0, 4)}` : "—" },
+          { label: "Fecha de nacimiento", render: (c) => formatDate(c.birthDate) },
           { label: "Ciudad", render: (c) => c.city || "—" },
           { label: "País", header: countryHeader, render: (c) => c.country ? <LocationLabel place={c.country} /> : "—" },
           { label: "Origen", header: channelHeader, render: (c) => { const channel = channelByCustomer.get(c.id); return channel ? <Badge>{customerOriginLabel(channel)}</Badge> : "—"; } },
@@ -922,6 +945,7 @@ export function Customers({
           title={edit === "new" ? "Nuevo cliente" : "Editar cliente"}
           onClose={() => setEdit(null)}
         >
+          {edit === "new" && userId !== "t2" && userId !== "t3" && <div className="tabs new-customer-kind" role="group" aria-label="Tipo de cliente">{(["local", "wholesale"] as const).map((kind) => <button key={kind} type="button" className={newKind === kind ? "active" : ""} onClick={() => setNewKind(kind)}>{kind === "local" ? "Minorista" : "Mayorista"}</button>)}</div>}
           {(edit === "new" && newKind === "wholesale") || (edit !== "new" && !!edit.wholesaleName) ? <WholesaleCustomerEditor customer={edit === "new" ? undefined : edit} onSaved={() => { setEdit(null); setSelected(null); notify(edit === "new" ? "Cliente mayorista creado" : "Cliente mayorista actualizado"); void refresh?.(); }} onDeleted={() => { setEdit(null); setSelected(null); notify("Cliente mayorista eliminado"); void refresh?.(true); }} /> : s.source === "commerce" && edit !== "new" && edit.raffleEntryId && edit.id === `sorteo:${edit.raffleEntryId}` ? <RuralRaffleCustomerEditor customer={edit} orderCount={orders.filter(order => order.customerId === edit.id).length} onSaved={() => { setEdit(null); setSelected(null); notify("Participante actualizado"); void refresh?.(); }} onDeleted={() => { setEdit(null); setSelected(null); notify("Participante eliminado"); void refresh?.(true); }} /> : s.source === "commerce" && (edit === "new" || edit.localCustomerId) ? <LocalCustomerEditor customer={edit === "new" ? undefined : edit} orderCount={edit === "new" ? 0 : orders.filter(order => order.customerId === edit.id).length} webOrderIds={edit === "new" ? [] : orders.filter(order => order.customerId === edit.id && order.source !== "local" && order.source !== "wholesale").map(order => order.id)} onSaved={() => { setEdit(null); setSelected(null); notify(edit === "new" ? "Cliente creado" : "Cliente actualizado"); void refresh?.(); }} onDeleted={() => { setEdit(null); setSelected(null); notify("Cliente eliminado"); void refresh?.(true); }} /> : s.source === "commerce" && edit !== "new" ? <CustomerContactEditor customer={edit} orderIds={orders.filter(order => order.customerId === edit.id && order.source !== "local").map(order => order.id)} onSaved={() => { setEdit(null); setSelected(null); notify("Contacto actualizado"); void refresh?.(); }} onDeleted={() => { setEdit(null); setSelected(null); notify("Contacto eliminado"); void refresh?.(true); }} /> : <Form
             fields={fields}
             initial={edit === "new" ? { country: "Uruguay", segment: userId === "t3" ? "Mayorista" : "Minorista" } : { ...edit, country: edit.country || countryForCity(edit.city) }}
@@ -944,7 +968,7 @@ export function Customers({
         </Modal>
       )}
       {c && (
-        <Modal title={c.name} onClose={() => setSelected(null)}>
+        <Modal title={c.name} className="customer-detail-modal" onClose={() => setSelected(null)}>
           {c.localCustomerId && <div className="customer-local-facts">
             {!!c.agendaAdditionalPhones?.length && <div className="wide"><small>Otros celulares</small><strong>{c.agendaAdditionalPhones.join(" · ")}</strong></div>}
             {c.firstPurchaseDate && <div><small>Primera compra en el local</small><strong>{c.firstPurchaseDate}</strong></div>}

@@ -6,6 +6,7 @@ import { type Product, type Row, money, balance, orderName } from "./data";
 import { collections } from "./collections";
 import { catalogImageOptions, catalogStatusOptions, matchesCatalogImage, matchesCatalogStatus, type CatalogImageFilter, type CatalogStatusFilter } from "./catalogListFilters";
 import { Card, Stats, Table, Badge, Modal } from "./ui";
+import { formatDate } from "./dateFormat";
 
 export function CollectionPage({ s, path }: PageProps & { path: string }) {
   const config = collections[path];
@@ -93,7 +94,7 @@ export function Products({ s, mode, notify, refresh, commerce }: PageProps & { m
       <ProductThumbnail product={product} />
       <div className="product-info">{!product.wholesaleProductId && product.variant !== "Sin color" && <small>{product.variant}</small>}<h3>{product.name}</h3><div><strong>{primaryPrice(product)}</strong></div></div>
     </button>)}</div> : !selectedId && <section className="catalog-general-list">
-      <header className="catalog-print-heading"><strong>MateArte</strong><div>Catálogo de productos · {new Date().toLocaleDateString("es-UY")}</div></header>
+      <header className="catalog-print-heading"><strong>MateArte</strong><div>Catálogo de productos · {formatDate(new Date())}</div></header>
       <Table rows={listRows} searchText={(p) => `${p.name} ${p.sku} ${p.variant} ${p.family}`} showSearch={false} action={<><label className="catalog-sort">Ordenar<select value={listOrder} onChange={(event) => setListOrder(event.target.value)}><option value="sku-asc">SKU ascendente</option><option value="sku-desc">SKU descendente</option><option value="precio-asc">Precio local ascendente</option><option value="precio-desc">Precio local descendente</option></select></label><button className="secondary catalog-print-button" onClick={() => window.print()}>Imprimir lista</button></>} columns={mode === "servicios" ? [
       { label: "SKU", render: (p) => p.sku || "—" },
       { label: "Servicio", render: (p) => <button className="text-button" onClick={() => selectProduct(p.sourceProductId || p.id, p.id)}>{p.name}</button> },
@@ -129,14 +130,14 @@ export function Finance({ s, go, mode }: PageProps & { mode: string }) {
     ]} />
     <Table rows={s.payments} searchText={(payment) => `${payment.orderId} ${payment.method}`} columns={[
       { label: "Pedido", render: (payment) => <button className="text-button" onClick={() => go(`/comercial/pedidos?pedido=${payment.orderId}`)}>{orderName(s.orders.find((order) => order.id === payment.orderId)!)}</button> },
-      { label: "Fecha", render: (payment) => payment.date },
+      { label: "Fecha", render: (payment) => formatDate(payment.date) },
       { label: "Medio", render: (payment) => payment.method },
       { label: "Importe", render: (payment) => money(payment.amount) },
       { label: "Referencia de pago", render: (payment) => payment.derived ? "Según estado de producción" : payment.id },
     ]} />
   </>;
   return <>{!s.expensesConnected && <div className="data-note">Los egresos todavía no tienen una fuente conectada.</div>}{s.expensesConnected && <div className="data-note">Egresos cargados en Inventario y compras → Compras y Gastos fijos. Para agregar o corregir uno, hacelo allá.</div>}<Table rows={s.expenses} searchText={(e) => `${e.name} ${e.category}`} columns={[
-    { label: "Concepto", render: (e) => e.name }, { label: "Categoría", render: (e) => e.category ? <Badge>{e.category}</Badge> : "—" }, { label: "Fecha", render: (e) => e.date },
+    { label: "Concepto", render: (e) => e.name }, { label: "Categoría", render: (e) => e.category ? <Badge>{e.category}</Badge> : "—" }, { label: "Fecha", render: (e) => formatDate(e.date) },
     { label: "Estado", render: (e) => <Badge tone={e.paid ? "green" : "yellow"}>{e.paid ? "Pagado" : "Por pagar"}</Badge> }, { label: "Importe", render: (e) => money(e.amount) },
   ]} /></>;
 }

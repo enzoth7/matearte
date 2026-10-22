@@ -44,9 +44,10 @@ describe("estado sin registros ficticios", () => {
     } finally { vi.unstubAllGlobals(); }
   });
   it("mantiene las rutas vigentes sin las páginas duplicadas", () => {
-    expect(new Set(paths).size).toBe(50);
+    expect(new Set(paths).size).toBe(51);
     paths.forEach((path) => expect(resolvePath(path)).not.toBeNull());
     expect(resolvePath("/administracion/comercio")).toBeNull();
+    expect(resolvePath("/administracion/links")?.page[1]).toBe("Links");
     expect(resolvePath("/productos/ajustes")).not.toBeNull();
     expect(resolvePath("/productos/precios")).toBeNull();
     expect(resolvePath("/productos/publicacion")).toBeNull();

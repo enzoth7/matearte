@@ -17,11 +17,21 @@ import {
   type StoredPersonalizationAsset,
 } from "./localPersonalization";
 import { calculateLocalPersonalizationPrice, parsePublishedLocalPricing, type PublishedLocalPricing } from "./localPersonalizationPricing";
+import { formatDate } from "./dateFormat";
 
-type SaleLine = { id: string; product: Product; quantity: number; unitPriceMinor: number; priceEntered?: boolean; personalization?: LocalPersonalizationDraft };
+type SaleLine = { id: string; product: Product; quantity: number; unitPriceMinor: number; priceEntered?: boolean; personalization?: LocalPersonalizationDraft; notes?: string };
 const cents = (value: string) => Math.round(Number(value.replace(",", ".")) * 100);
 const categoryKey = (product: Product) => product.categoryCode || product.family;
 const isService = (product: Product) => categoryKey(product) === "servicios";
+const retailType = (product: Product) => {
+  if (product.catalogType) return product.catalogType;
+  const name = normalizeSearch(product.name);
+  const category = normalizeSearch(categoryKey(product));
+  if (category.includes("mate") && !category.includes("matera")) return ({ imperial: "Imperial", camionero: "Camionero", criollo: "Criollo", torpedo: "Torpedo" } as Record<string, string>)[name.match(/(imperial|camionero|criollo|torpedo)/)?.[1] || ""] || "General";
+  if (category.includes("matera")) return ({ ovalada: "Ovalada", cuadrada: "Cuadrada" } as Record<string, string>)[name.match(/(ovalada|cuadrada)/)?.[1] || ""] || "General";
+  if (category.includes("bombilla")) return /bombillon/.test(name) ? "Bombillón" : "Bombilla";
+  return "General";
+};
 const hasVariableServicePrice = (product: Product) => isService(product) && product.prices.Local === 0;
 const normalizeSearch = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
 const visibleVariant = (value: string) => value.split(/\s*[·|]\s*/)
@@ -167,6 +177,8 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
   const [payment, setPayment] = useState("Efectivo");
   const [channel, setChannel] = useState<"Local" | "Feria" | "Instagram" | "Facebook" | "WhatsApp">("Local");
   const [selectedProductId, setSelectedProductId] = useState("");
+  const [pickType, setPickType] = useState("");
+  const [pickName, setPickName] = useState("");
   const [city, setCity] = useState("Paysandú");
   const [country, setCountry] = useState("Uruguay");
   const [department, setDepartment] = useState("Paysandú");
@@ -194,6 +206,7 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
   const categories = useMemo(() => {
     const values = new Map<string, string>();
     for (const product of s.products.filter(sellable)) values.set(categoryKey(product), product.family);
+    if (channel === "Local") values.set("servicios", "Servicios");
     return [...values].map(([code, label]) => ({ code, label })).sort((a, b) => a.label.localeCompare(b.label, "es"));
   }, [s.products, channel]);
   const customerMatches = useMemo(() => {
@@ -209,6 +222,14 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
   }, [s.products, search, category, channel]);
   const categoryProducts = useMemo(() => s.products.filter((product) => sellable(product) && categoryKey(product) === category)
     .sort((a, b) => `${a.name} ${a.variant}`.localeCompare(`${b.name} ${b.variant}`, "es")), [s.products, category, channel]);
+  const pickTypes = useMemo(() => [...new Set(categoryProducts.map(retailType))].sort((a, b) => a.localeCompare(b, "es")), [categoryProducts]);
+  const typedCategory = ["mates", "materas", "bombillas"].includes(normalizeSearch(category));
+  const activeType = pickTypes.length === 1 ? pickTypes[0] : pickType;
+  const pickNames = useMemo(() => [...new Set(categoryProducts.filter((product) => retailType(product) === activeType).map((product) => product.name))], [categoryProducts, activeType]);
+  const activeName = pickNames.length === 1 ? pickNames[0] : pickName;
+  const pickVariants = useMemo(() => categoryProducts.filter((product) => retailType(product) === activeType && product.name === activeName), [categoryProducts, activeType, activeName]);
+  const pickedProduct = pickVariants.find((product) => product.id === selectedProductId) ?? pickVariants[0];
+  const resetPicker = () => { setPickType(""); setPickName(""); setSelectedProductId(""); };
   const customProducts = useMemo(() => s.products.filter((product) => sellable(product) && customizableKind(product) === customKind)
     .sort((a, b) => `${a.name} ${a.variant}`.localeCompare(`${b.name} ${b.variant}`, "es")), [s.products, customKind, channel]);
   const customSearchResults = useMemo(() => {
@@ -321,6 +342,7 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
         if (line.personalization?.bombillaLogoFile) await upload(line.personalization.bombillaLogoFile, "bombilla");
         items.push({
           variant_id: line.product.id,
+          ...(isService(line.product) && line.notes?.trim() ? { production_notes: line.notes.trim() } : {}),
           quantity: line.quantity,
           unit_price_minor: unitPriceMinor(line),
           customization: line.personalization ? {
@@ -351,6 +373,7 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
     <label>Cantidad<input type="number" min="1" max="1000" step="1" value={line.quantity} onChange={(event) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity: Number(event.target.value) } : item))} /></label>
     <strong>{linePriceReady(line) ? money(line.quantity * unitPriceMinor(line) / 100) : "—"}</strong>
     <button type="button" className="local-sale-remove" aria-label={`Quitar ${line.product.name}`} onClick={() => setLines((current) => current.filter((item) => item.id !== line.id))}><Trash size={18} /></button>
+    {isService(line.product) && <label className="local-sale-line-notes">Notas para producción<textarea aria-label={`Notas para producción de ${line.product.name}`} maxLength={1000} rows={2} placeholder="Indicaciones para el taller" value={line.notes || ""} onChange={(event) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, notes: event.target.value } : item))} /></label>}
   </div>;
   return <form className="local-sale-register" onSubmit={(event) => void save(event)}>
     <div className="local-sale-main">
@@ -360,9 +383,12 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
         <button type="button" role="tab" id="local-tab-custom" aria-controls="local-panel-custom" aria-selected={articleTab === "custom"} className={articleTab === "custom" ? "active" : ""} onClick={() => setArticleTab("custom")}>Personalizados{personalizedLines.length ? <span>{personalizedLines.length}</span> : null}</button>
       </div>
       {articleTab === "articles" ? <div id="local-panel-articles" role="tabpanel" aria-labelledby="local-tab-articles" className="local-sale-tab-panel">
-      <div className="local-sale-search"><label>Categoría<select value={category} onChange={(event) => { setCategory(event.target.value); setSelectedProductId(""); }}><option value="">Todas</option>{categories.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
+      <div className="local-sale-search"><label>Categoría<select value={category} onChange={(event) => { setCategory(event.target.value); resetPicker(); }}><option value="">Todas</option>{categories.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
         <label>Buscar producto<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre, variante o SKU" /></label></div>
-      {category && <div className="local-sale-picker"><label>Producto y variante<select value={selectedProductId} onChange={(event) => setSelectedProductId(event.target.value)}><option value="">Seleccionar del catálogo</option>{categoryProducts.map((product) => <option key={product.id} value={product.id}>{product.sku} · {product.name}{isService(product) || !visibleVariant(product.variant) ? "" : ` · ${visibleVariant(product.variant)}`}</option>)}</select></label><button type="button" className="secondary" disabled={!selectedProductId} onClick={() => { const selected = categoryProducts.find((product) => product.id === selectedProductId); if (selected) add(selected); setSelectedProductId(""); }}>Agregar producto</button></div>}
+      {category && <div className="local-sale-picker">{typedCategory && <label>Tipo<select aria-label="Tipo" value={activeType} onChange={(event) => { setPickType(event.target.value); setPickName(""); setSelectedProductId(""); }}><option value="">Elegir</option>{pickTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>}
+        <label>Nombre<select aria-label="Nombre" value={activeName} disabled={!activeType} onChange={(event) => { setPickName(event.target.value); setSelectedProductId(""); }}><option value="">Elegir</option>{pickNames.map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
+        {category !== "servicios" && <label>Variante<select aria-label="Variante" value={selectedProductId} disabled={!activeName || pickVariants.length <= 1} onChange={(event) => setSelectedProductId(event.target.value)}><option value="">{pickVariants.length === 1 ? (visibleVariant(pickVariants[0].variant) || "Sin variante") : "Primera variante"}</option>{pickVariants.length > 1 && pickVariants.map((product) => <option key={product.id} value={product.id}>{visibleVariant(product.variant) || "Única"}</option>)}</select></label>}
+        <button type="button" className="secondary" disabled={!pickedProduct} onClick={() => { if (pickedProduct) add(pickedProduct); setSelectedProductId(""); }}>Agregar producto</button></div>}
       {search.trim() && <div className="local-sale-results">{matches.map((product) => <button type="button" key={product.id} onClick={() => add(product)}>
         <strong>{product.sku} · {product.name}</strong><small>{hasVariableServicePrice(product) ? "Precio a definir en la venta" : [visibleVariant(product.variant), money(product.prices.Local)].filter(Boolean).join(" · ")}</small>
       </button>)}{!matches.length && <div className="empty">No hay variantes activas con esa búsqueda.</div>}</div>}
@@ -423,7 +449,7 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
             <dl className="local-sale-customer-details">
               <div><dt>Mail</dt><dd>{selectedCustomer.email || "-"}</dd></div>
               <div><dt>Celular</dt><dd>{selectedCustomer.phone || "-"}</dd></div>
-              <div><dt>Fecha de nacimiento</dt><dd>{selectedCustomer.birthDate || "-"}</dd></div>
+              <div><dt>Fecha de nacimiento</dt><dd>{selectedCustomer.birthDate ? formatDate(selectedCustomer.birthDate) : "-"}</dd></div>
               <div><dt>Ciudad</dt><dd>{selectedCustomer.city || "-"}</dd></div>
               <div><dt>País</dt><dd>{selectedCustomer.country || "-"}</dd></div>
               <div><dt>Departamento o provincia</dt><dd>{selectedCustomer.department || "-"}</dd></div>

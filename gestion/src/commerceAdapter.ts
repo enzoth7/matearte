@@ -1,3 +1,4 @@
+import { catalogValueLabel, defaultCatalogTaxonomy } from "../../shared/catalog-taxonomy";
 import { seed, type State, type Product, type Customer, type Order, type OrderLine, type SalesChannel, type CustomerSourceChannel } from "./data";
 import { commerceCustomerName, visibleInCommerceAdmin, type CommerceOrder, type CommerceProduct, type CommerceReference } from "./commerceSource";
 import { imageForVariant } from "./catalogImages";
@@ -56,6 +57,12 @@ const ruralInterestLabel: Record<string, string> = {
   "otros-articulos-cuero": "Otros artículos en cuero",
 };
 
+const catalogProductType = (categoryCode: string, attributes?: Record<string, unknown>) => {
+  const key = categoryCode === "mates" ? "tipo-mate" : categoryCode === "materas" ? "forma" : categoryCode === "bombillas" ? "tipo-bombilla" : "";
+  const code = key && typeof attributes?.[key] === "string" ? String(attributes[key]).trim() : "";
+  return code ? catalogValueLabel(defaultCatalogTaxonomy, key, code) : undefined;
+};
+
 export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: string) => string = () => ""): State {
   const state = seed();
   const birthByUser = new Map(snapshot.customerBirthdays?.filter((row) => row.source_user_id && row.birth_date).map((row) => [row.source_user_id!, row.birth_date!]) || []);
@@ -75,7 +82,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       weightGrams: Number(variant?.weight_grams) > 0 ? Number(variant?.weight_grams) : Number(product.peso) || 0,
       name: product.name, sku: variant?.sku ?? "", variant: variant?.name ?? "Sin variantes",
       options: variant ? { ...(variant.option_values || {}), ...(variant.color && !variant.option_values?.color ? { color: variant.color } : {}) } : undefined,
-      categoryCode, family: category, personalizationType: product.attributes?.["tipo-personalizado"] === "matera" ? "matera" : product.attributes?.["tipo-personalizado"] === "mate" ? "mate" : undefined, rim: variant?.rim_type || text(variant?.option_values, "virola", "rim"), leather: variant?.leather_type || text(variant?.option_values, "cuero", "leather"),
+      categoryCode, family: category, catalogType: catalogProductType(categoryCode, product.attributes), personalizationType: product.attributes?.["tipo-personalizado"] === "matera" ? "matera" : product.attributes?.["tipo-personalizado"] === "mate" ? "mate" : undefined, rim: variant?.rim_type || text(variant?.option_values, "virola", "rim"), leather: variant?.leather_type || text(variant?.option_values, "cuero", "leather"),
       imageUrl: cover ? imageUrl(cover.storage_path) : undefined,
       imageCrop: cover ? { x: Number(cover.option_values?.cover_x) || 0, y: Number(cover.option_values?.cover_y) || 0, zoom: Number(cover.option_values?.cover_zoom) || 1 } : undefined,
       cost: 0, stock: 0, min: 0,
@@ -315,7 +322,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       const catalog = products.find((product) => product.id === item.variant_id);
       return {
         id: item.id, productId: item.variant_id || item.id, title: item.product_name,
-        productName: item.product_name, options: catalog?.options, personalization: item.customization || undefined,
+        productName: item.product_name, options: catalog?.options, personalization: item.customization || undefined, productionNotes: item.production_notes || undefined,
         weightGrams: catalog?.weightGrams,
         sku: item.sku, quantity: item.quantity, unitPrice: Number(item.unit_price_minor) / 100,
         amount: Number(item.line_total_minor) / 100, family: item.customization ? "Personalizados" : catalog?.family || "",

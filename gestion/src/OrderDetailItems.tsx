@@ -8,6 +8,9 @@ export type OrderDetailRow = {
   quantity: number;
   amount?: string;
   extra?: string;
+  notes?: string;
+  /** Si existe, el nombre y el SKU abren el producto en el catálogo. */
+  onOpen?: () => void;
 };
 
 const value = (text?: string) => text?.trim() || "—";
@@ -20,10 +23,11 @@ export function OrderDetailItems({ rows }: { rows: OrderDetailRow[] }) {
     </div>
     <ul>{rows.map((row) => <li className="order-detail-item-row" key={row.id}>
       <div className="order-detail-item-copy">
-        <div className="order-detail-item-header">{row.name}</div>
+        <div className="order-detail-item-header">{row.onOpen ? <button type="button" className="text-button order-detail-item-link" title="Ir al producto" onClick={row.onOpen}>{row.name}</button> : row.name}</div>
         {row.extra && <div className="order-detail-item-extra">{row.extra}</div>}
+        {row.notes && <div className="order-detail-item-notes"><small>Notas para producción</small>{row.notes}</div>}
       </div>
-      <div className="order-detail-item-meta"><small>SKU</small><span>{value(row.sku)}</span></div>
+      <div className="order-detail-item-meta"><small>SKU</small><span>{row.onOpen && row.sku?.trim() ? <button type="button" className="text-button order-detail-item-link" title="Ir al producto" onClick={row.onOpen}>{row.sku}</button> : value(row.sku)}</span></div>
       <div className="order-detail-item-meta"><small>Color</small><span>{value(row.color)}</span></div>
       <div className="order-detail-item-meta"><small>Tamaño</small><span>{value(row.size)}</span></div>
       <div className="order-detail-item-meta"><small>Peso</small><span>{value(row.weight)}</span></div>

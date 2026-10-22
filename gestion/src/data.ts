@@ -3,6 +3,7 @@ import { paths } from "./navigation";
 
 export type Channel = "Local" | "Web" | "Mayorista";
 export type SalesChannel = "Local" | "Web" | "Feria" | "Instagram" | "Facebook" | "WhatsApp";
+export type OrderChannel = SalesChannel | "Mayorista";
 export type CustomerSourceChannel = SalesChannel | "Agenda" | "Sorteo" | "Suscripción" | "Suscripción con desc.";
 export type Product = {
   id: string;
@@ -20,6 +21,7 @@ export type Product = {
   sku: string;
   categoryCode?: string;
   personalizationType?: "mate" | "matera";
+  catalogType?: string;
   family: string;
   variant: string;
   options?: Record<string, unknown>;
@@ -64,6 +66,7 @@ export type OrderLine = {
   productName?: string; options?: Record<string, unknown>;
   weightGrams?: number;
   personalization?: Record<string, unknown>;
+  productionNotes?: string;
   unitPrice: number; amount: number; family: string; variant: string; rim: string; leather: string;
   productionStatus: string; reviewStatus: string | null;
   wholesaleLineId?: string; orderType?: string; priceArg?: number;
@@ -88,7 +91,7 @@ export type Order = {
   productId: string;
   quantity: number;
   unitPrice: number;
-  channel: SalesChannel;
+  channel: OrderChannel;
   date: string;
   due: string;
   production: "Pendiente" | "En producción" | "Terminado" | "No aplica";

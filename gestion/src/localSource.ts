@@ -35,6 +35,7 @@ export type LocalSaleItem = {
   unit_price_minor: number;
   line_total_minor: number;
   customization?: Record<string, unknown> | null;
+  production_notes?: string | null;
 };
 
 export type LocalSale = {

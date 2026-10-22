@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import { ArrowDown, ArrowUp, CaretDown, Check, Eye, Funnel, FunnelX, MagnifyingGlass, PencilSimple, Plus, Trash, X } from "@phosphor-icons/react";
 import type { PageProps } from "./pages";
-import type { Customer, Order } from "./data";
+import type { Customer, Order, Product } from "./data";
 import { money, orderName, paid, balance, total } from "./data";
 import { Badge, Modal, Stats, Table, type Column } from "./ui";
 import { createWholesaleOrder, deleteWholesaleCustomer, countWholesaleCustomerLines, deleteWholesaleLine, completeWholesaleLine, saveWholesaleCustomer, updateWholesaleLine, wholesaleProductImageUrl, type WholesaleCustomer, type WholesaleLine, type WholesaleProduct, type WholesaleProductImage, type WholesaleSnapshot } from "./wholesaleSource";
@@ -17,7 +17,8 @@ import { DynamicAttributeFields } from "./commerce/Operations";
 import { loadCatalogTaxonomy } from "./commerce/catalogTaxonomy";
 import { catalogValueLabel, allowsFlejeDesign, defaultCatalogTaxonomy, normalizeCatalogValueMap, taxonomyOptionsFor, type CatalogMaterialId, type CatalogTaxonomy } from "../../shared/catalog-taxonomy";
 import { naturalCaseName } from "./productionPresentation";
-import { GENERIC_WHOLESALE_VARIANT, genericVariantRepresentatives, wholesaleSaleCategory, wholesaleSaleCategoryLabel, wholesaleSaleType, wholesaleSaleVariantLabel } from "./wholesaleSaleSelection";
+import { GENERIC_WHOLESALE_VARIANT, genericVariantPriceConflict, wholesaleSaleCategory, wholesaleSaleCategoryLabel, wholesaleSaleType, wholesaleSaleVariantLabel } from "./wholesaleSaleSelection";
+import { formatDate } from "./dateFormat";
 
 const formatArg = (value: number) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 }).format(value);
 const saleArg = (value: number) => `ARS ${new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 }).format(value)}`;
@@ -29,6 +30,10 @@ const errorText = (value: unknown) => value instanceof Error ? value.message : "
 const snapshotOf = (props: PageProps) => props.commerce?.wholesale;
 const productLabel = (product: WholesaleProduct) => `${product.model} · ${product.variant}`;
 const mateModelCode = (model: string, category: string | null | undefined) => category === "mates" && ["imperial", "camionero", "criollo", "torpedo"].includes(model.trim().toLocaleLowerCase("es")) ? model.trim().toLocaleLowerCase("es") : "";
+
+const saleGroup = (product: WholesaleProduct) => { const category = wholesaleSaleCategory(product); return category === "bombillones" ? "bombillas" : category; };
+const customerLabel = (entry: WholesaleCustomer) => [formatContactName(entry.full_name), entry.company_name?.trim()].filter(Boolean).join(" · ");
+const NEW_ITEM = () => ({ key: crypto.randomUUID(), category: "", model: "", name: "", productId: "", quantity: 1, noCost: false, generic: false });
 
 export function WholesaleSummary({ props }: { props: PageProps }) {
   const snapshot = snapshotOf(props);
@@ -81,25 +86,29 @@ export function WholesaleRegister(props: PageProps) {
   const [customer, setCustomer] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [productSearch, setProductSearch] = useState("");
-  const [saleChannel, setSaleChannel] = useState<NonNullable<WholesaleLine["sale_channel"]>>("WhatsApp");
-  const [items, setItems] = useState([{ key: crypto.randomUUID(), category: "", model: "", productId: "", quantity: 1, noCost: false, generic: false }]);
+  const saleChannel: NonNullable<WholesaleLine["sale_channel"]> = "WhatsApp";
+  const [items, setItems] = useState([NEW_ITEM()]);
+  const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   if (!snapshot) return <div className="empty">Cargando producción mayorista…</div>;
-  const sortedProducts = snapshot.products.filter(product => product.available_wholesale !== false && wholesaleSaleCategory(product)).sort((a, b) => productLabel(a).localeCompare(productLabel(b), "es"));
+  const sortedProducts = snapshot.products.filter(product => product.available_wholesale !== false && saleGroup(product)).sort((a, b) => productLabel(a).localeCompare(productLabel(b), "es"));
   const productMatches = productSearch.trim() ? sortedProducts.filter((product) => `${product.model} ${product.variant} ${product.sku || ""}`.toLocaleLowerCase("es").includes(productSearch.trim().toLocaleLowerCase("es"))).slice(0, 8) : [];
   const sortedCustomers = [...snapshot.customers].sort((a, b) => a.full_name.localeCompare(b.full_name, "es"));
-  const customerMatches = sortedCustomers.filter((entry) => entry.full_name.toLocaleLowerCase("es").includes(customerSearch.trim().toLocaleLowerCase("es")));
+  const customerMatches = sortedCustomers.filter((entry) => `${entry.full_name} ${entry.company_name || ""}`.toLocaleLowerCase("es").includes(customerSearch.trim().toLocaleLowerCase("es")));
   const visibleCustomers = sortedCustomers.filter((entry) => !customerSearch.trim() || customerMatches.includes(entry) || entry.full_name === customer);
   const estimated = items.reduce((sum, item) => sum + (item.noCost ? 0 : Number(snapshot.products.find((product) => String(product.id) === item.productId)?.price_arg || 0) * item.quantity), 0);
   function chooseProduct(product: WholesaleProduct) {
-    setItems((current) => {
-      const target = current.find((row) => !row.productId);
-      if (target) return current.map((row) => row.key === target.key ? { ...row, category: wholesaleSaleCategory(product) || "", model: wholesaleSaleType(product), productId: String(product.id), generic: false } : row);
-      return [...current, { key: crypto.randomUUID(), category: wholesaleSaleCategory(product) || "", model: wholesaleSaleType(product), productId: String(product.id), quantity: 1, noCost: false, generic: false }];
-    });
+    const picked = { category: saleGroup(product) || "", model: wholesaleSaleType(product), name: product.model, productId: String(product.id), generic: false };
+    const target = items.find((row) => !row.productId);
+    const key = target?.key ?? crypto.randomUUID();
+    setItems((current) => target ? current.map((row) => row.key === target.key ? { ...row, ...picked } : row) : [...current, { ...NEW_ITEM(), key, ...picked }]);
     setProductSearch("");
   }
+  function patchItem(key: string, patch: Partial<ReturnType<typeof NEW_ITEM>>) {
+    setItems((current) => current.map((row) => row.key === key ? { ...row, ...patch } : row));
+  }
+  const imageOf = (product?: WholesaleProduct) => { const path = product && snapshot.images.find((image) => image.product_id === String(product.id))?.storage_path; return path ? wholesaleProductImageUrl(path) : ""; };
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(""); setBusy(true);
     try {
@@ -110,46 +119,53 @@ export function WholesaleRegister(props: PageProps) {
     } catch (failure) { setError(errorText(failure)); }
     finally { setBusy(false); }
   }
-  return <form className="wholesale-sale-register" onSubmit={(event) => void submit(event)}>
+  const photoLines = items.map((item) => ({ item, product: snapshot.products.find((product) => String(product.id) === item.productId) })).filter((entry): entry is { item: typeof items[number]; product: WholesaleProduct } => !!entry.product);
+  return <>
+  <form className="wholesale-sale-register" onSubmit={(event) => void submit(event)}>
+    <div className="wholesale-sale-main">
     <section className="local-sale-section wholesale-sale-section">
       <div className="wholesale-sale-section-heading">
         <div><h2>Artículos</h2><p>Seleccioná cada artículo y la cantidad solicitada.</p></div>
-        <button type="button" className="secondary" onClick={() => setItems((current) => [...current, { key: crypto.randomUUID(), category: "", model: "", productId: "", quantity: 1, noCost: false, generic: false }])}><Plus size={18} aria-hidden="true" />Agregar artículo</button>
+        <button type="button" className="primary" onClick={() => setItems((current) => [...current, NEW_ITEM()])}><Plus size={18} aria-hidden="true" />Agregar artículo</button>
       </div>
       <div className="wholesale-sale-product-search"><label>Buscar producto<span><MagnifyingGlass size={18} aria-hidden="true" /><input type="search" value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Nombre, variante o SKU" /></span></label>
         {productSearch.trim() && <div className="wholesale-sale-search-results" aria-label="Resultados de productos">{productMatches.map((product) => <button type="button" key={product.id} onClick={() => chooseProduct(product)}><span>{wholesaleSaleVariantLabel(product)}<small>{wholesaleSaleCategoryLabel(wholesaleSaleCategory(product)!)}{product.sku ? ` · SKU ${product.sku}` : ""}</small></span><strong>{saleArg(Number(product.price_arg) || 0)}</strong></button>)}{!productMatches.length && <div className="wholesale-sale-no-results">No hay productos mayoristas con esa búsqueda.</div>}</div>}
       </div>
-      {items.length ? <div className="wholesale-sale-lines"><div className="wholesale-sale-line-head" aria-hidden="true"><span>Categoría</span><span>Tipo</span><span>Nombre y variante</span><span>Cantidad</span><span>Precio ARS</span><span>Subtotal ARS</span><span>Sin costo</span><span></span></div>{items.map((item, index) => {
+      {items.length ? <div className="wholesale-sale-lines"><div className="wholesale-sale-line-head" aria-hidden="true"><span>Categoría</span><span>Tipo</span><span>Nombre</span><span>Variante</span><span>Cantidad</span><span>Importe ARS</span><span>Sin costo</span><span></span></div>{items.map((item, index) => {
         const selectedProduct = snapshot.products.find((product) => String(product.id) === item.productId);
         const lineTotal = item.noCost ? 0 : Number(selectedProduct?.price_arg || 0) * item.quantity;
-        const models = [...new Set(sortedProducts.filter((product) => wholesaleSaleCategory(product) === item.category).map(wholesaleSaleType))].sort((a, b) => a.localeCompare(b, "es"));
-        const variants = sortedProducts.filter((product) => wholesaleSaleCategory(product) === item.category && wholesaleSaleType(product) === item.model);
-        const typeLabel = item.category === "mates" ? "Modelo de mate" : item.category === "materas" ? "Forma" : item.category === "bombillas" || item.category === "bombillones" ? "Tipo de bombilla" : "Tipo";
+        const inCategory = sortedProducts.filter((product) => saleGroup(product) === item.category);
+        const models = [...new Set(inCategory.map(wholesaleSaleType))].sort((a, b) => a.localeCompare(b, "es"));
+        const inType = inCategory.filter((product) => wholesaleSaleType(product) === item.model);
+        const names = [...new Set(inType.map((product) => product.model.trim()))].sort((a, b) => a.localeCompare(b, "es"));
+        const variants = inType.filter((product) => product.model.trim() === item.name);
+        const genericOk = variants.length > 1 && !genericVariantPriceConflict(variants);
+        const typeLabel = item.category === "mates" ? "Modelo de mate" : item.category === "materas" ? "Forma" : item.category === "bombillas" ? "Tipo de bombilla" : "Tipo";
         return <div className="wholesale-sale-line" key={item.key}>
-          <label className="wholesale-sale-cell"><span>Categoría</span><select required aria-label={`Categoría ${index + 1}`} value={item.category} onChange={(event) => setItems(items.map((row) => row.key === item.key ? { ...row, category: event.target.value, model: "", productId: "", generic: false } : row))}><option value="">Elegir</option><option value="mates">Mates</option><option value="materas">Materas</option><option value="bombillas">Bombillas</option><option value="bombillones">Bombillones</option></select></label>
-          <label className="wholesale-sale-cell"><span>{typeLabel}</span><select required aria-label={`Tipo ${index + 1}`} value={item.model} disabled={!item.category} onChange={(event) => setItems(items.map((row) => row.key === item.key ? { ...row, model: event.target.value, productId: "", generic: false } : row))}><option value="">{item.category ? `Elegir ${typeLabel.toLocaleLowerCase("es")}` : "Elegir tipo"}</option>{models.map((model) => <option key={model} value={model}>{model}</option>)}</select></label>
-          <label className="wholesale-sale-cell"><span>Nombre y variante</span><select required aria-label={`Nombre y variante ${index + 1}`} value={item.generic ? `generic:${item.productId}` : item.productId} disabled={!item.model} onChange={(event) => { const generic = event.target.value.startsWith("generic:"); setItems(items.map((row) => row.key === item.key ? { ...row, productId: event.target.value.replace(/^generic:/, ""), generic } : row)); }}><option value="">Elegir nombre y variante</option>{variants.map((product) => <option key={product.id} value={product.id}>{wholesaleSaleVariantLabel(product)}</option>)}{genericVariantRepresentatives(variants).map((product) => <option key={`generic-${product.id}`} value={`generic:${product.id}`}>{product.model.trim()} · {GENERIC_WHOLESALE_VARIANT} (varios colores)</option>)}</select></label>
-          <label className="wholesale-sale-cell"><span>Cantidad</span><input type="number" min="1" step="1" required aria-label={`Cantidad ${index + 1}`} value={item.quantity} onChange={(event) => setItems(items.map((row) => row.key === item.key ? { ...row, quantity: Number(event.target.value) } : row))} /></label>
-          <div className="wholesale-sale-value" data-label="Precio ARS">{selectedProduct ? saleArg(Number(selectedProduct.price_arg) || 0) : "—"}</div>
-          <strong className="wholesale-sale-value" data-label="Subtotal ARS">{selectedProduct ? saleArg(lineTotal) : "—"}</strong>
-          <label className="wholesale-sale-checkbox"><input type="checkbox" aria-label={`Sin costo ${index + 1}`} checked={item.noCost} onChange={(event) => setItems(items.map((row) => row.key === item.key ? { ...row, noCost: event.target.checked } : row))} /><span>Sin costo</span></label>
+          <label className="wholesale-sale-cell"><span>Categoría</span><select required aria-label={`Categoría ${index + 1}`} value={item.category} onChange={(event) => patchItem(item.key, { category: event.target.value, model: "", name: "", productId: "", generic: false })}><option value="">Elegir</option><option value="mates">Mates</option><option value="materas">Materas</option><option value="bombillas">Bombillas</option></select></label>
+          <label className="wholesale-sale-cell"><span>{typeLabel}</span><select required aria-label={`Tipo ${index + 1}`} value={item.model} disabled={!item.category} onChange={(event) => patchItem(item.key, { model: event.target.value, name: "", productId: "", generic: false })}><option value="">Elegir</option>{models.map((model) => <option key={model} value={model}>{model}</option>)}</select></label>
+          <label className="wholesale-sale-cell"><span>Nombre</span><select required aria-label={`Nombre ${index + 1}`} value={item.name} disabled={!item.model} onChange={(event) => { const name = event.target.value; const matches = inType.filter((product) => product.model.trim() === name); patchItem(item.key, { name, productId: matches.length === 1 ? String(matches[0].id) : "", generic: false }); }}><option value="">Elegir</option>{names.map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
+          <label className="wholesale-sale-cell"><span>Variante</span><select required aria-label={`Variante ${index + 1}`} value={item.generic ? "generic" : item.productId} disabled={!item.name} onChange={(event) => { const value = event.target.value; if (value === "generic") patchItem(item.key, { productId: String(variants[0]?.id ?? ""), generic: true }); else patchItem(item.key, { productId: value, generic: false }); }}><option value="">Elegir</option>{variants.map((product) => <option key={product.id} value={product.id}>{product.variant.trim() || "Única"}</option>)}{genericOk && <option value="generic">{GENERIC_WHOLESALE_VARIANT}</option>}</select></label>
+          <label className="wholesale-sale-cell"><span>Cantidad</span><input type="number" min="1" step="1" required aria-label={`Cantidad ${index + 1}`} value={item.quantity} onChange={(event) => patchItem(item.key, { quantity: Number(event.target.value) })} /></label>
+          <div className="wholesale-sale-value wholesale-sale-amount" data-label="Importe ARS"><strong>{selectedProduct ? saleArg(lineTotal) : "—"}</strong>{selectedProduct && item.quantity > 1 && !item.noCost && <small>{saleArg(Number(selectedProduct.price_arg) || 0)} c/u</small>}</div>
+          <label className="wholesale-sale-checkbox"><input type="checkbox" aria-label={`Sin costo ${index + 1}`} checked={item.noCost} onChange={(event) => patchItem(item.key, { noCost: event.target.checked })} /><span>Sin costo</span></label>
           <button type="button" className="wholesale-sale-remove" aria-label={`Eliminar ${selectedProduct ? productLabel(selectedProduct) : `artículo ${index + 1}`}`} title="Eliminar artículo" onClick={() => setItems((current) => current.filter((row) => row.key !== item.key))}><Trash size={19} aria-hidden="true" /></button>
         </div>;
       })}</div> : <div className="wholesale-sale-empty">Todavía no agregaste artículos.</div>}
     </section>
 
     <section className="local-sale-section wholesale-sale-section">
-      <h2>Cliente</h2>
+      <div className="wholesale-sale-section-heading"><h2>Cliente</h2>{!customer && <button type="button" className="primary" onClick={() => setAdding(true)}><Plus size={18} aria-hidden="true" />Agregar cliente</button>}</div>
       <div className="wholesale-sale-single-field"><label className="wholesale-sale-customer-search">Buscar cliente<span><MagnifyingGlass size={18} aria-hidden="true" /><input type="search" value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Nombre del cliente" /></span></label>
-        {customerSearch.trim() && <div className="wholesale-sale-customer-results" aria-label="Resultados de clientes">{customerMatches.map((entry) => <button type="button" key={entry.full_name} onClick={() => { setCustomer(entry.full_name); setCustomerSearch(""); }}>{formatContactName(entry.full_name)}</button>)}{!customerMatches.length && <div className="wholesale-sale-no-results">No hay clientes con esa búsqueda.</div>}</div>}
+        {customerSearch.trim() && <div className="wholesale-sale-customer-results" aria-label="Resultados de clientes">{customerMatches.map((entry) => <button type="button" key={entry.full_name} onClick={() => { setCustomer(entry.full_name); setCustomerSearch(""); }}>{customerLabel(entry)}</button>)}{!customerMatches.length && <div className="wholesale-sale-no-results">No hay clientes con esa búsqueda.</div>}</div>}
         <label>Cliente
-        <select required value={customer} onChange={(event) => setCustomer(event.target.value)}><option value="">Seleccionar cliente</option>{visibleCustomers.map((entry) => <option key={entry.full_name} value={entry.full_name}>{formatContactName(entry.full_name)}</option>)}</select>
+        <select required value={customer} onChange={(event) => setCustomer(event.target.value)}><option value="">Seleccionar cliente</option>{visibleCustomers.map((entry) => <option key={entry.full_name} value={entry.full_name}>{customerLabel(entry)}</option>)}</select>
       </label></div>
     </section>
 
     <section className="local-sale-section wholesale-sale-section">
       <h2>Datos de la venta</h2>
-      <div className="wholesale-sale-single-field"><label>Canal de venta<select value={saleChannel} onChange={(event) => setSaleChannel(event.target.value as typeof saleChannel)}>{["WhatsApp", "Local", "Web", "Instagram", "Facebook", "Feria"].map((value) => <option key={value}>{value}</option>)}</select></label></div>
+      <div className="wholesale-sale-single-field"><label>Canal de venta<input value="Mayorista" readOnly /></label></div>
       <small className="wholesale-sale-note">El pedido se guardará en el tablero de producción mayorista con su número #M.</small>
     </section>
 
@@ -158,10 +174,20 @@ export function WholesaleRegister(props: PageProps) {
       {error && <div className="error" role="alert">{error}</div>}
       <button className="primary" type="submit" disabled={busy || !items.length}><Plus size={18} aria-hidden="true" />{busy ? "Guardando…" : "Crear pedido mayorista"}</button>
     </footer>
-  </form>;
+    </div>
+    <aside className="local-sale-photo-panel" aria-label="Fotos de los artículos de la venta">
+      <h2>Vista de la venta</h2>
+      {!photoLines.length ? <p className="local-sale-photo-empty">Las fotos de los artículos que agregues aparecerán acá.</p> : <div className="local-sale-photo-list">{photoLines.map(({ item, product }) => { const url = imageOf(product); const variant = item.generic ? GENERIC_WHOLESALE_VARIANT : product.variant.trim(); return <article key={item.key} className="local-sale-photo-item">
+        <div className="local-sale-photo-frame">{url ? <img src={url} alt={`Foto de ${product.model.trim()}`} /> : "Sin foto"}</div>
+        <div><strong>{product.model.trim()}</strong>{variant && <small>{variant}</small>}<small>{item.quantity} {item.quantity === 1 ? "unidad" : "unidades"}{item.noCost ? " · Sin costo" : ""}</small></div>
+      </article>; })}</div>}
+    </aside>
+  </form>
+  {adding && <Modal title="Nuevo cliente" onClose={() => setAdding(false)}><WholesaleCustomerEditor onSaved={(name) => { void (async () => { await props.refresh?.(); if (name) { setCustomer(name); setCustomerSearch(""); } setAdding(false); })(); }} onDeleted={() => setAdding(false)} /></Modal>}
+  </>;
 }
 
-export function WholesaleCustomerEditor({ customer, onSaved, onDeleted }: { customer?: Customer; onSaved: () => void; onDeleted: () => void }) {
+export function WholesaleCustomerEditor({ customer, onSaved, onDeleted }: { customer?: Customer; onSaved: (fullName?: string) => void; onDeleted: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function remove() {
@@ -192,12 +218,12 @@ export function WholesaleCustomerEditor({ customer, onSaved, onDeleted }: { cust
       origin_channel: form.originChannel as WholesaleCustomer["origin_channel"],
       customer_type: form.customerType as WholesaleCustomer["customer_type"],
     };
-    try { await saveWholesaleCustomer(value, customer?.wholesaleName); onSaved(); }
+    try { await saveWholesaleCustomer(value, customer?.wholesaleName); onSaved(cleanName); }
     catch (failure) { setError(errorText(failure)); }
     finally { setBusy(false); }
   }
   return <form className="wholesale-editor" onSubmit={(event) => void submit(event)}>
-    <CustomerFormFields customer={customer ? { ...customer, name: customer.wholesaleName || customer.name } : undefined} defaultOrigin="WhatsApp" defaultType="Mayorista" nameRequired />
+    <CustomerFormFields customer={customer ? { ...customer, name: customer.wholesaleName || customer.name } : undefined} defaultOrigin="WhatsApp" defaultType="Mayorista" typeLocked={!customer} nameRequired />
     {error && <div className="error" role="alert">{error}</div>}
     <div className="wholesale-customer-actions">
       {customer && <button className="wholesale-customer-delete" type="button" aria-label={`Eliminar ${customer.name}`} title={`Eliminar ${customer.name}`} disabled={busy} onClick={() => void remove()}><Trash size={20} aria-hidden="true" /></button>}
@@ -206,7 +232,7 @@ export function WholesaleCustomerEditor({ customer, onSaved, onDeleted }: { cust
   </form>;
 }
 
-function WholesaleLineEditor({ line, snapshot, displayModel, displayVariant, refresh, notify, initialEditing = false }: { line: WholesaleLine; snapshot: WholesaleSnapshot; displayModel: string; displayVariant: string; refresh?: () => Promise<void>; notify: (message: string) => void; initialEditing?: boolean }) {
+function WholesaleLineEditor({ line, snapshot, displayModel, displayVariant, catalogProduct, openProduct, refresh, notify, initialEditing = false }: { line: WholesaleLine; snapshot: WholesaleSnapshot; displayModel: string; displayVariant: string; catalogProduct?: Product; openProduct: (product: Product) => void; refresh?: () => Promise<void>; notify: (message: string) => void; initialEditing?: boolean }) {
   const [editing, setEditing] = useState(initialEditing);
   const [model, setModel] = useState(line.model);
   const [variant, setVariant] = useState(line.variant);
@@ -216,7 +242,6 @@ function WholesaleLineEditor({ line, snapshot, displayModel, displayVariant, ref
   const [orderId, setOrderId] = useState(line.order_id || "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const product = snapshot.products.find((item) => item.model === line.model && item.variant === line.variant);
   async function act(action: "save" | "complete" | "delete") {
     if (action === "delete" && !window.confirm("¿Eliminar esta línea de producción? Esta acción no se puede deshacer.")) return;
     setBusy(true); setError("");
@@ -238,7 +263,15 @@ function WholesaleLineEditor({ line, snapshot, displayModel, displayVariant, ref
       <label>Pedido<input value={orderId} onChange={(event) => setOrderId(event.target.value)} placeholder="Sin número" /></label>
       <button className="primary compact" disabled={busy || !model || !variant} onClick={() => void act("save")}>Guardar</button>
       <button className="secondary compact" onClick={() => setEditing(false)}>Cancelar</button>
-    </div> : <div className="wholesale-line-summary"><span>{displayModel} · {displayVariant} · {line.quantity} u. · <Badge tone={wholesaleStatusTone(line.status)}>{line.status}</Badge>{product && <small> {naturalCaseName(product.rim_type || "")} {naturalCaseName(product.leather_type || "")}</small>}</span><div className="table-actions">{line.status !== "Completado" && <><button className="secondary compact" onClick={() => setEditing(true)}>Editar</button><button className="secondary compact" disabled={busy} onClick={() => void act("complete")}>Completar</button></>}<button className="secondary compact" disabled={busy} onClick={() => void act("delete")}>Eliminar</button></div></div>}
+      <button className="secondary compact" disabled={busy} onClick={() => void act("delete")}>Eliminar</button>
+    </div> : <div className="wholesale-line-row">
+      <button type="button" className="wholesale-line-thumb" disabled={!catalogProduct} aria-label={`Abrir ${displayModel}`} title={catalogProduct ? "Ir al producto" : undefined} onClick={() => catalogProduct && openProduct(catalogProduct)}>{catalogProduct?.imageUrl ? <img src={catalogProduct.imageUrl} alt="" /> : <span>—</span>}</button>
+      {catalogProduct?.sku ? <button type="button" className="text-button wholesale-line-sku" title="Ir al producto" onClick={() => openProduct(catalogProduct)}>{catalogProduct.sku}</button> : <span className="wholesale-line-sku">—</span>}
+      <strong className="wholesale-line-name">{displayModel}</strong>
+      <span className="wholesale-line-variant">{displayVariant}</span>
+      <span className="wholesale-line-units">{line.quantity} u.</span>
+      <Badge tone={wholesaleStatusTone(line.status)}>{line.status}</Badge>
+      <div className="table-actions">{line.status !== "Completado" && <><button className="secondary compact" onClick={() => setEditing(true)}>Editar</button><button className="secondary compact" disabled={busy} onClick={() => void act("complete")}>Completar</button></>}<button className="secondary compact" disabled={busy} onClick={() => void act("delete")}>Eliminar</button></div></div>}
     {error && <div className="error" role="alert">{error}</div>}
   </div>;
 }
@@ -254,15 +287,26 @@ export function WholesaleOrderModal({ order, props, onClose, currency = "UYU", e
   const shownTotal = currency === "ARS" ? argTotal : totalUyu;
   const shownPaid = currency === "ARS" ? totalUyu > 0 ? argTotal * paidUyu / totalUyu : 0 : paidUyu;
   const shownBalance = currency === "ARS" ? Math.max(0, shownTotal - shownPaid) : balance(props.s, order);
-  return <Modal title={orderName(order)} onClose={onClose}>
-    <div className="detail-banner"><div><small>{order.date} · Mayorista</small><h3>{naturalCaseName(customer?.name || order.customerName || "Cliente sin nombre")}</h3></div><strong>{wholesaleMoney(shownTotal, currency)}</strong></div>
+  async function removeOrder() {
+    if (!lines.length || !window.confirm(`¿Eliminar el pedido ${orderName(order)} completo, con sus ${lines.length} ${lines.length === 1 ? "línea" : "líneas"}? Esta acción no se puede deshacer.`)) return;
+    try {
+      for (const line of lines) await deleteWholesaleLine(line.line_id);
+      await props.refresh?.(); props.notify(`Pedido ${orderName(order)} eliminado`); onClose();
+    } catch (failure) { props.notify(errorText(failure)); await props.refresh?.(); }
+  }
+  return <Modal title={orderName(order)} onClose={onClose} className="wholesale-order-dialog">
+    <div className="detail-banner"><div><small>{formatDate(order.date)} · Mayorista</small><h3>{naturalCaseName(customer?.name || order.customerName || "Cliente sin nombre")}</h3></div><strong>{wholesaleMoney(shownTotal, currency)}</strong></div>
     <Stats items={[{ label: "Unidades", value: order.quantity }, { label: "Cobrado", value: wholesaleMoney(shownPaid, currency) }, { label: "Por cobrar", value: wholesaleMoney(shownBalance, currency) }]} />
-    <div className="wholesale-line-list">{lines.map((line) => {
+    <div className="wholesale-line-list"><div className="wholesale-line-row wholesale-line-head" aria-hidden="true"><span>Foto</span><span>SKU</span><span>Nombre</span><span>Variante</span><span>Unidades</span><span>Estado</span><span></span></div>{lines.map((line) => {
       const orderItem = order.items?.find((item) => item.wholesaleLineId === line.line_id);
-      const catalogProduct = props.s.products.find((product) => product.id === orderItem?.productId);
-      return <WholesaleLineEditor key={line.line_id} line={line} snapshot={snapshot} displayModel={catalogProduct?.name || naturalCaseName(line.model)} displayVariant={catalogProduct?.variant || naturalCaseName(line.variant)} refresh={props.refresh} notify={props.notify} initialEditing={editingLineId === line.line_id} />;
+      const isGeneric = normalizeWholesaleText(line.variant) === normalizeWholesaleText(GENERIC_WHOLESALE_VARIANT);
+      const exact = isGeneric ? undefined : props.s.products.find((product) => product.id === orderItem?.productId);
+      // Línea "Genérico": se toma como referencia el primer SKU y la primera foto de ese producto.
+      const siblings = isGeneric && !exact ? props.s.products.filter((product) => !product.wholesaleProductId && normalizeWholesaleText(product.name) === normalizeWholesaleText(line.model)).sort((x, y) => x.sku.localeCompare(y.sku, "es", { numeric: true })) : [];
+      const catalogProduct = exact || (siblings[0] ? { ...siblings[0], imageUrl: siblings.find((product) => product.imageUrl)?.imageUrl } : undefined);
+      return <WholesaleLineEditor key={line.line_id} line={line} snapshot={snapshot} displayModel={catalogProduct?.name || naturalCaseName(line.model)} displayVariant={isGeneric ? GENERIC_WHOLESALE_VARIANT : catalogProduct?.variant || naturalCaseName(line.variant)} catalogProduct={catalogProduct} openProduct={(entry) => props.go(`/productos/catalogo?producto=${encodeURIComponent(entry.sourceProductId || entry.id)}&variante=${encodeURIComponent(entry.id)}`)} refresh={props.refresh} notify={props.notify} initialEditing={editingLineId === line.line_id} />;
     })}</div>
-    <div className="form-actions"><button className="secondary" onClick={() => exportWholesalePdf(orderName(order), lines, snapshot, currency)}>Descargar PDF</button><button className="text-button" onClick={() => props.go(`/clientes/base?cliente=${encodeURIComponent(order.customerId)}`)}>Ver cliente</button></div>
+    <div className="form-actions"><button className="secondary" onClick={() => exportWholesalePdf(orderName(order), lines, snapshot, currency)}>Descargar PDF</button><button className="text-button" onClick={() => props.go(`/clientes/base?cliente=${encodeURIComponent(order.customerId)}`)}>Ver cliente</button><button className="secondary" onClick={() => void removeOrder()}>Eliminar pedido</button></div>
   </Modal>;
 }
 
@@ -301,6 +345,7 @@ export function WholesaleProduction({ props, history = false }: { props: PagePro
       variant: catalogProduct?.variant || naturalCaseName(wholesaleProduct?.variant || line.variant),
     };
   };
+  const companyOf = (value: string) => props.s.customers.find((customer) => customer.wholesaleName === value)?.companyName?.trim() || "";
   const displayCustomer = (value: string) => naturalCaseName(props.s.customers.find((customer) => customer.wholesaleName === value)?.name || formatContactName(value));
   const valueFor = (line: WholesaleLine) => {
     const value = wholesaleLineValue(line, productFor(line), snapshot.exchangeRate);
@@ -334,6 +379,15 @@ export function WholesaleProduction({ props, history = false }: { props: PagePro
     if (busyLineId) return;
     setActionError(""); setBusyLineId(line.line_id);
     try { await completeWholesaleLine(line.line_id); await props.refresh?.(); props.notify("Línea completada"); }
+    catch (failure) { setActionError(errorText(failure)); }
+    finally { setBusyLineId(null); }
+  };
+  const deleteLine = async (line: WholesaleLine) => {
+    if (busyLineId) return;
+    const code = line.order_id || `Línea ${line.line_id}`;
+    if (!window.confirm(`¿Eliminar ${code} (${displayNames(line).model} · ${displayNames(line).variant}, ${line.quantity} u.)? Si es la única línea del pedido, el pedido también se elimina. Esta acción no se puede deshacer.`)) return;
+    setActionError(""); setBusyLineId(line.line_id);
+    try { await deleteWholesaleLine(line.line_id); await props.refresh?.(); props.notify(`${code} eliminado`); }
     catch (failure) { setActionError(errorText(failure)); }
     finally { setBusyLineId(null); }
   };
@@ -390,13 +444,14 @@ export function WholesaleProduction({ props, history = false }: { props: PagePro
     {group === "Pedidos" || history ? <Table rows={lines.map((line) => ({ ...line, id: line.line_id }))} showSearch={history} action={historyFilters} className={`wholesale-production-table wholesale-production-orders-table${history ? " wholesale-production-history-table" : ""}`} searchQuery={history ? undefined : search} onSearchQueryChange={history ? undefined : setSearch} searchText={(line) => { const names = displayNames(line); return `${line.order_id || line.line_id} ${displayCustomer(line.customer)} ${names.model} ${names.variant}`; }} columns={[
       { label: "Pedido", render: (line) => <button className="text-button" onClick={() => openLine(line.line_id)}>{line.order_id || `Línea ${line.line_id}`}</button> },
       { label: "Cliente", header: customerHeader, render: (line) => displayCustomer(line.customer) },
+      { label: "Empresa", render: (line) => companyOf(line.customer) || "—" },
       { label: "Modelo", header: modelHeader, render: (line) => displayNames(line).model },
       { label: "Variante", render: (line) => displayNames(line).variant },
       { label: "Cantidad", header: sortHeader("Cantidad", "cantidad"), sortDirection: sort.key === "cantidad" ? sort.direction === "desc" ? "descending" : "ascending" : "none", render: (line) => line.quantity },
       { label: "Estado", render: (line) => <Badge tone={wholesaleStatusTone(line.status)}>{line.status}</Badge> },
-      { label: history ? "Completado" : "Fecha", header: sortHeader("Fecha", "fecha"), sortDirection: sort.key === "fecha" ? sort.direction === "desc" ? "descending" : "ascending" : "none", render: (line) => (history ? line.completed_at : line.created_at)?.slice(0, 10) || "—" },
+      { label: history ? "Completado" : "Fecha", header: sortHeader("Fecha", "fecha"), sortDirection: sort.key === "fecha" ? sort.direction === "desc" ? "descending" : "ascending" : "none", render: (line) => formatDate(history ? line.completed_at : line.created_at) },
       { label: "Total", header: sortHeader(`Total ${currency}`, "total"), sortDirection: sort.key === "total" ? sort.direction === "desc" ? "descending" : "ascending" : "none", render: (line) => <span className="wholesale-amount">{wholesaleMoney(valueFor(line), currency)}</span> },
-      { label: "Acciones", render: (line) => <div className="wholesale-row-actions">{history ? <button type="button" className="wholesale-icon-button" aria-label={`Ver ${line.order_id || line.line_id}`} title="Ver detalle" onClick={() => openLine(line.line_id)}><Eye size={19} aria-hidden="true" /></button> : <><button type="button" className="wholesale-icon-button wholesale-complete-action" aria-label={`Completar ${line.order_id || line.line_id}`} title="Completar" disabled={Boolean(busyLineId)} onClick={() => void completeLine(line)}><Check size={20} weight="bold" aria-hidden="true" /></button><button type="button" className="wholesale-icon-button" aria-label={`Editar ${line.order_id || line.line_id}`} title="Editar" onClick={() => openLine(line.line_id, true)}><PencilSimple size={19} aria-hidden="true" /></button></>}</div> },
+      { label: "Acciones", render: (line) => <div className="wholesale-row-actions">{history ? <button type="button" className="wholesale-icon-button" aria-label={`Ver ${line.order_id || line.line_id}`} title="Ver detalle" onClick={() => openLine(line.line_id)}><Eye size={19} aria-hidden="true" /></button> : <><button type="button" className="wholesale-icon-button wholesale-complete-action" aria-label={`Completar ${line.order_id || line.line_id}`} title="Completar" disabled={Boolean(busyLineId)} onClick={() => void completeLine(line)}><Check size={20} weight="bold" aria-hidden="true" /></button><button type="button" className="wholesale-icon-button" aria-label={`Editar ${line.order_id || line.line_id}`} title="Editar" onClick={() => openLine(line.line_id, true)}><PencilSimple size={19} aria-hidden="true" /></button></>}<button type="button" className="wholesale-icon-button" aria-label={`Eliminar ${line.order_id || line.line_id}`} title="Eliminar" disabled={Boolean(busyLineId)} onClick={() => void deleteLine(line)}><Trash size={19} aria-hidden="true" /></button></div> },
     ]} /> : group === "Virolas" && !summaries.length ? <div className="empty" role="status">No hay tipos de virola registrados en los productos de pedidos activos.</div> : <Table rows={summaries} showSearch={false} className={`wholesale-production-table${group === "Variante" ? " wholesale-variant-summary-table" : ""}`} searchQuery={search} onSearchQueryChange={setSearch} searchText={(row) => row.name} columns={summaryColumns} />}
     {selectedOrder && <WholesaleOrderModal key={`${selectedOrder.id}:${editingLineId || "view"}`} order={selectedOrder} props={props} onClose={() => { setSelected(null); setEditingLineId(null); }} currency={currency} editingLineId={editingLineId} />}
   </section>;

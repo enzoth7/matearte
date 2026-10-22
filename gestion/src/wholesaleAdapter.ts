@@ -1,4 +1,5 @@
 import { buildSearchText, commerceDate } from "./commerceAdapter";
+import { GENERIC_WHOLESALE_VARIANT } from "./wholesaleSaleSelection";
 import type { Customer, Order, OrderLine, Payment, Product, State } from "./data";
 import { wholesaleProductImageUrl, type WholesaleLine, type WholesaleProduct, type WholesaleSnapshot } from "./wholesaleSource";
 import { formatContactName } from "../../shared/contactName";
@@ -161,7 +162,10 @@ export function adaptWholesale(state: State, snapshot: WholesaleSnapshot, imageU
     const first = lines[0];
     const id = `wholesale:${key}`;
     const items: OrderLine[] = lines.map((line) => {
-      const match = byProduct.get(productKey(line.model, line.variant));
+      const exact = byProduct.get(productKey(line.model, line.variant));
+      const isGeneric = normalized(line.variant) === normalized(GENERIC_WHOLESALE_VARIANT);
+      // Línea "Genérico": no es un SKU; se toma el primer SKU del producto como referencia (SKU, peso, categoría).
+      const match = exact ?? (isGeneric ? snapshot.products.filter((product) => normalized(product.model) === normalized(line.model)).sort((a, b) => (a.sku || "").localeCompare(b.sku || "", "es", { numeric: true }))[0] : undefined);
       const catalogProduct = match?.commerce_variant_id
         ? state.products.find((product) => product.id === match.commerce_variant_id)
         : products.find((product) => product.wholesaleProductId === match?.id);
@@ -171,7 +175,7 @@ export function adaptWholesale(state: State, snapshot: WholesaleSnapshot, imageU
         id: line.line_id, wholesaleLineId: line.line_id, productId: catalogProduct?.id || (match ? `wholesale:${match.id}` : `wholesale-missing:${line.line_id}`),
         title: productName, productName, sku: catalogProduct?.sku || match?.id || "", quantity: Number(line.quantity),
         weightGrams: catalogProduct?.weightGrams || (Number(match?.weight_grams) > 0 ? Number(match?.weight_grams) : undefined),
-        unitPrice: value.unitUyu, amount: value.uyu, family: catalogProduct?.family || line.model, variant: catalogProduct?.variant || line.variant,
+        unitPrice: value.unitUyu, amount: value.uyu, family: catalogProduct?.family || line.model, variant: isGeneric ? GENERIC_WHOLESALE_VARIANT : catalogProduct?.variant || line.variant,
         rim: catalogProduct?.rim || match?.rim_type || "", leather: catalogProduct?.leather || match?.leather_type || "",
         productionStatus: line.status, reviewStatus: null, orderType: line.order_type || "normal",
         priceArg: value.arg, createdAt: line.created_at, completedAt: line.completed_at,
@@ -185,7 +189,7 @@ export function adaptWholesale(state: State, snapshot: WholesaleSnapshot, imageU
       customerName: first.customer, productId: items[0]?.productId || "",
       quantity: items.reduce((sum, item) => sum + item.quantity, 0), unitPrice: 0,
       items, totalAmount: items.reduce((sum, item) => sum + item.amount, 0),
-      channel: first.sale_channel || "WhatsApp", date: date ? commerceDate(date) : "", due: "",
+      channel: "Mayorista", date: date ? commerceDate(date) : "", due: "",
       production, delivery: production === "Terminado" ? "Enviado" : "No aplica", method: "No aplica", design: false, approved: true,
     };
     orders.push(order);

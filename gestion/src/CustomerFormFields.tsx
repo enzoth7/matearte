@@ -29,9 +29,9 @@ export function readCustomerForm(form: HTMLFormElement): CustomerFormValues {
   };
 }
 
-export function CustomerFormFields({ customer, defaultOrigin = "Local", defaultType = "Minorista", emailReadOnly = false, emailRequired = false, phoneRequired = false, nameRequired = false }: {
+export function CustomerFormFields({ customer, defaultOrigin = "Local", defaultType = "Minorista", emailReadOnly = false, emailRequired = false, phoneRequired = false, nameRequired = false, typeLocked = false }: {
   customer?: Customer; defaultOrigin?: CustomerSourceChannel; defaultType?: "Minorista" | "Mayorista";
-  emailReadOnly?: boolean; emailRequired?: boolean; phoneRequired?: boolean; nameRequired?: boolean;
+  emailReadOnly?: boolean; emailRequired?: boolean; phoneRequired?: boolean; nameRequired?: boolean; typeLocked?: boolean;
 }) {
   const initialCountry = countryDisplayName(customer?.country || "");
   const [country, setCountry] = useState(initialCountry);
@@ -44,7 +44,7 @@ export function CustomerFormFields({ customer, defaultOrigin = "Local", defaultT
     <label>Empresa o institución<input name="company" maxLength={120} defaultValue={customer?.companyName || ""} /></label>
     <label>Correo<input name="email" type="email" required={emailRequired} readOnly={emailReadOnly} maxLength={320} defaultValue={customer?.email || ""} /></label>
     <label>Canal de origen<select name="originChannel" defaultValue={customer?.originChannel || defaultOrigin}>{customerOriginOptions.map((option) => <option key={option} value={option}>{customerOriginLabel(option)}</option>)}</select></label>
-    <label>Tipo de cliente<select name="customerType" defaultValue={customer?.segment === "Mayorista" ? "Mayorista" : customer?.segment === "Minorista" ? "Minorista" : defaultType}><option>Minorista</option><option>Mayorista</option></select></label>
+    <label>Tipo de cliente{typeLocked && <input type="hidden" name="customerType" value={defaultType} />}<select {...(typeLocked ? { disabled: true } : { name: "customerType" })} defaultValue={customer?.segment === "Mayorista" ? "Mayorista" : customer?.segment === "Minorista" ? "Minorista" : defaultType}><option>Minorista</option><option>Mayorista</option></select></label>
     <label>Prefijo<input name="prefix" type="tel" inputMode="tel" maxLength={8} placeholder="+598" defaultValue={phone.prefix || customerPhonePrefix(flagCode(customer?.country || "Uruguay") || customer?.country || "Uruguay")} /></label>
     <label>Celular<input name="phone" type="tel" inputMode="tel" required={phoneRequired} maxLength={40} defaultValue={phone.number} /></label>
     <label>Fecha de nacimiento<input name="birthDate" type="date" min="1900-01-01" max={new Date().toISOString().slice(0, 10)} defaultValue={customer?.birthDate || ""} /></label>

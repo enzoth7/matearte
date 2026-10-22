@@ -34,6 +34,6 @@ export function customerDisplayChannel(customer: Customer, orders: Order[]): Cus
     if (!first || order.date < first.date || (order.date === first.date && order.id < first.id)) return order;
     return first;
   }, null);
-  if (firstOrder) return firstOrder.channel;
+  if (firstOrder) return firstOrder.channel === "Mayorista" ? "WhatsApp" : firstOrder.channel;
   return customer.sourceChannels?.[0] || (customer.wholesaleName || customer.segment === "Mayorista" ? "WhatsApp" : null);
 }

@@ -213,10 +213,11 @@ test('la categoría filtra el selector de productos con el código real', async 
   await page.goto('/comercial/registrar-min');
   await expect(page.getByRole('combobox', { name: 'Canal de venta' }).getByRole('option', { name: 'Feria' })).toHaveCount(1);
   const category = page.getByRole('combobox', { name: 'Categoría' });
-  const product = page.getByRole('combobox', { name: 'Producto y variante' });
+  const product = page.getByRole('combobox', { name: 'Nombre' });
   await category.selectOption('bombillas');
-  await expect(product.locator('option')).toContainText(['Seleccionar del catálogo', 'BOMB-0 · Bombilla de prueba']);
-  await expect(product.locator('option')).not.toContainText(['SKU-1 · Mate de catálogo']);
+  await expect(page.getByRole('combobox', { name: 'Tipo' })).toHaveValue('Bombilla');
+  await expect(product.locator('option')).toContainText(['Bombilla de prueba']);
+  await expect(product.locator('option')).not.toContainText(['Mate de catálogo']);
 });
 
 test('registrar venta de Instagram usa su referencia y canal propios', async ({ page }) => {
@@ -252,7 +253,7 @@ test('Facebook y WhatsApp comparten serie R y mantienen el canal específico', a
     await page.goto('/comercial/registrar-min');
     await page.getByRole('combobox', { name: 'Canal de venta' }).selectOption(channel);
     await page.getByLabel('Categoría').selectOption('mates');
-    await page.getByRole('combobox', { name: 'Producto y variante' }).selectOption('variant-1');
+    await page.getByRole('combobox', { name: 'Variante' }).selectOption('variant-1');
     await page.getByRole('button', { name: 'Agregar producto' }).click();
     await page.getByRole('button', { name: 'Guardar venta' }).click();
   }

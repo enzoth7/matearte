@@ -3,9 +3,10 @@ import { CountryFlag, LocationLabel } from "./location";
 import { commerceSource } from "./commerceSource";
 import type { PageProps } from "./pages";
 import { areas } from "./navigation";
-import { accessUserIds, canAccess, defaultAccess, lockedForRichard, setAreaAccess, setPageAccess, type AccessUserId } from "./access";
+import { accessUserIds, canAccess, defaultAccess, isCustomAccessUserId, accessFor, lockedForRichard, setAreaAccess, setPageAccess, type AccessUserId } from "./access";
 import { id, today, orgEmployees, type Employee, type Row, money } from "./data";
 import { Card, Stats, Table, Modal, Form, AddButton } from "./ui";
+import { formatDate } from "./dateFormat";
 
 const departments = [
   {
@@ -171,7 +172,7 @@ export function People({
           }
           columns={[
             { label: "Persona", render: (h) => String(h.persona) },
-            { label: "Fecha", render: (h) => String(h.fecha) },
+            { label: "Fecha", render: (h) => formatDate(String(h.fecha)) },
             { label: "Horas", render: (h) => String(h.horas) },
             { label: "Trabajo", render: (h) => String(h.tarea) },
           ]}
@@ -313,23 +314,69 @@ export function Permissions({ s, update }: PageProps) {
 }
 
 type ManagedAccessUser = {
+  userId?: string;
   accessUserId: AccessUserId;
+  displayName?: string | null;
   username: string;
   configured: boolean;
+  active?: boolean;
   allowedPaths?: string[] | null;
 };
 
+type AccessPerson = { id: AccessUserId; name: string; role: string };
+
+const ownerKey = (userId: string) => `owner:${userId}`;
+// Richard es el primer acceso completo (t1); las demás cuentas con acceso completo tienen fila propia.
+const extraOwners = (users: ManagedAccessUser[]) => users.filter((user) => user.accessUserId === "t1").slice(1);
+const personKey = (user: ManagedAccessUser, users: ManagedAccessUser[]) =>
+  extraOwners(users).some((owner) => owner.userId === user.userId) ? ownerKey(user.userId!) : user.accessUserId;
+
+function accessPeople(s: PageProps["s"], users: ManagedAccessUser[], withOwners = true): AccessPerson[] {
+  const fixed = accessUserIds
+    .map((userId) => s.employees.find((employee) => employee.id === userId))
+    .filter((employee): employee is Employee => Boolean(employee))
+    .map((employee) => ({ id: employee.id, name: employee.name, role: employee.role }));
+  const custom = users
+    .filter((user) => isCustomAccessUserId(user.accessUserId))
+    .map((user) => ({ id: user.accessUserId, name: user.displayName || user.username, role: "Usuario de Gestión" }));
+  const owners = withOwners
+    ? extraOwners(users).map((user) => ({ id: ownerKey(user.userId!), name: user.displayName || user.username, role: "Acceso completo" }))
+    : [];
+  return [...fixed, ...owners, ...custom];
+}
+
 function AccessUsers({ s }: Pick<PageProps, "s">) {
-  const [selectedId, setSelectedId] = useState<AccessUserId>("t1");
+  const [selectedId, setSelectedId] = useState<AccessUserId | "new">("t1");
   const [users, setUsers] = useState<ManagedAccessUser[]>([]);
+  const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [status, setStatus] = useState<"loading" | "ready" | "saving">("loading");
   const [message, setMessage] = useState("");
-  const people = accessUserIds.map((userId) => s.employees.find((employee) => employee.id === userId)!).filter(Boolean);
-  const selected = people.find((person) => person.id === selectedId)!;
-  const configured = users.find((user) => user.accessUserId === selectedId)?.configured ?? false;
+  const people = accessPeople(s, users);
+  const adding = selectedId === "new";
+  const selected = people.find((person) => person.id === selectedId);
+  const entry = users.find((user) => personKey(user, users) === selectedId);
+  const isOwner = selectedId === "t1" || selectedId.startsWith("owner:");
+  const configured = entry?.configured ?? false;
+  const active = entry?.active !== false;
+
+  async function toggleActive() {
+    if (adding || isOwner) return;
+    const next = !active;
+    setStatus("saving"); setMessage("");
+    const { data, error } = await commerceSource!.functions.invoke("gestion-users", {
+      body: { action: "setActive", accessUserId: selectedId, active: next },
+    });
+    if (error || typeof data?.active !== "boolean") {
+      setMessage(data?.error || "No se pudo cambiar el estado del usuario.");
+    } else {
+      setUsers((current) => current.map((user) => personKey(user, current) === selectedId ? { ...user, active: data.active } : user));
+      setMessage(data.active ? "Usuario reactivado." : "Usuario pausado: ya no puede ingresar.");
+    }
+    setStatus("ready");
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -346,8 +393,8 @@ function AccessUsers({ s }: Pick<PageProps, "s">) {
   }, []);
 
   useEffect(() => {
-    const user = users.find((entry) => entry.accessUserId === selectedId);
-    setUsername(user?.username ?? "");
+    setUsername(adding ? "" : entry?.username ?? "");
+    setDisplayName("");
     setPassword("");
     setConfirmation("");
   }, [selectedId, users]);
@@ -355,11 +402,15 @@ function AccessUsers({ s }: Pick<PageProps, "s">) {
   async function saveUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const cleanUsername = username.trim().toLowerCase();
+    if (adding && !displayName.trim()) {
+      setMessage("Ingresá el nombre de la persona.");
+      return;
+    }
     if (!/^[a-z0-9._-]{3,64}$/.test(cleanUsername)) {
       setMessage("El usuario debe tener entre 3 y 64 caracteres y usar solo letras, números, punto, guión o guion bajo.");
       return;
     }
-    if ((!configured || password) && password.length < 8) {
+    if ((adding || !configured || password) && password.length < 8) {
       setMessage("La contraseña debe tener al menos 8 caracteres.");
       return;
     }
@@ -369,42 +420,56 @@ function AccessUsers({ s }: Pick<PageProps, "s">) {
     }
     setStatus("saving"); setMessage("");
     const { data, error } = await commerceSource!.functions.invoke("gestion-users", {
-      body: { action: "save", accessUserId: selectedId, displayName: selected.name, username: cleanUsername, password: password || undefined },
+      body: adding
+        ? { action: "create", displayName: displayName.trim(), username: cleanUsername, password }
+        : { action: "save", accessUserId: isOwner ? "t1" : selectedId, userId: selectedId.startsWith("owner:") ? entry?.userId : undefined, displayName: selected!.name, username: cleanUsername, password: password || undefined },
     });
     if (error || !data?.user) {
       setMessage(data?.error || "No se pudo guardar el usuario de ingreso.");
     } else {
-      setUsers((current) => [...current.filter((entry) => entry.accessUserId !== selectedId), data.user]);
-      setMessage("Usuario de ingreso guardado.");
+      const saved: ManagedAccessUser = data.user;
+      setUsers((current) => [...current.filter((user) => saved.userId && saved.accessUserId === "t1" ? user.userId !== saved.userId : user.accessUserId !== saved.accessUserId), saved]);
+      if (adding) setSelectedId(saved.accessUserId);
+      setMessage(adding ? "Usuario agregado y guardado." : "Usuario de ingreso guardado.");
       setPassword(""); setConfirmation("");
     }
     setStatus("ready");
   }
 
+  const title = adding ? "Agregar usuario" : selected?.name ?? "";
   return (
     <div className="access-layout access-users-layout">
       <nav className="access-people" aria-label="Usuarios de ingreso">
         {people.map((person) => {
-          const isConfigured = users.some((entry) => entry.accessUserId === person.id && entry.configured);
-          return <button key={person.id} className={selectedId === person.id ? "selected" : ""} aria-current={selectedId === person.id ? "true" : undefined} onClick={() => { setSelectedId(person.id as AccessUserId); setMessage(""); }}>
+          const item = users.find((user) => personKey(user, users) === person.id);
+          return <button key={person.id} className={selectedId === person.id ? "selected" : ""} aria-current={selectedId === person.id ? "true" : undefined} onClick={() => { setSelectedId(person.id); setMessage(""); }}>
             <strong>{person.name}</strong>
-            <small>{isConfigured ? "Usuario configurado" : "Pendiente de configurar"}</small>
+            <small>{!item?.configured ? "Pendiente de configurar" : item.active === false ? "Pausado" : "Usuario configurado"}</small>
           </button>;
         })}
+        <button type="button" className="primary" disabled={status === "loading"} onClick={() => { setSelectedId("new"); setMessage(""); }}>Agregar usuario</button>
       </nav>
       <section className="access-main access-user-card" aria-labelledby="access-user-title">
         <div className="access-heading">
-          <div><h2 id="access-user-title">{selected.name}</h2><p>Datos que usará para ingresar a Gestión. Sus pantallas se configuran en Permisos.</p></div>
-          <span className={`access-user-status ${configured ? "configured" : "pending"}`}>{configured ? "Configurado" : "Sin configurar"}</span>
+          <div><h2 id="access-user-title">{title}</h2><p>{adding ? "Creá el ingreso de una persona nueva. Después elegí sus pantallas en Permisos." : "Datos que usará para ingresar a Gestión. Sus pantallas se configuran en Permisos."}</p></div>
+          {!adding && <span className={`access-user-status ${configured && active ? "configured" : "pending"}`}>{!configured ? "Sin configurar" : active ? "Configurado" : "Pausado"}</span>}
         </div>
         {status === "loading" ? <div role="status">Cargando usuario…</div> : (
           <form className="access-user-form" onSubmit={(event) => void saveUser(event)}>
+            {adding && <label>Nombre de la persona<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} autoComplete="off" required /></label>}
             <label>Usuario de ingreso<input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required /></label>
             <label>{configured ? "Nueva contraseña" : "Contraseña"}<input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="new-password" required={!configured} minLength={8} /></label>
             <label>Confirmar contraseña<input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} type="password" autoComplete="new-password" required={!configured || Boolean(password)} minLength={8} /></label>
             {configured && <small className="access-user-help">Dejá la contraseña vacía si querés conservar la actual.</small>}
-            {message && <div className={message.endsWith("guardado.") ? "success" : "error"} role="status">{message}</div>}
-            <button className="primary" type="submit" disabled={status === "saving"}>{status === "saving" ? "Guardando…" : "Guardar usuario"}</button>
+            {message && <div className={/(guardado|reactivado)\.$|pausado:/.test(message) ? "success" : "error"} role="status">{message}</div>}
+            <div className="access-user-actions">
+              <button className="primary" type="submit" disabled={status === "saving"}>{status === "saving" ? "Guardando…" : adding ? "Agregar usuario" : "Guardar usuario"}</button>
+              {configured && !adding && !isOwner && (
+                <button className="access-user-pause" type="button" disabled={status === "saving"} onClick={() => void toggleActive()}>
+                  {active ? "Pausar usuario" : "Reactivar usuario"}
+                </button>
+              )}
+            </div>
           </form>
         )}
       </section>
@@ -416,9 +481,10 @@ function AccessPermissions({ s, update }: Pick<PageProps, "s" | "update">) {
   const [selectedId, setSelectedId] = useState<AccessUserId>("t2");
   const [status, setStatus] = useState<"loading" | "ready" | "saving">("loading");
   const [message, setMessage] = useState("");
-  const people = accessUserIds.map((userId) => s.employees.find((employee) => employee.id === userId)!);
-  const selected = s.employees.find((employee) => employee.id === selectedId)!;
-  const selectedAccess = selectedId === "t1" ? null : new Set(s.access?.[selectedId] ?? defaultAccess()[selectedId]);
+  const [users, setUsers] = useState<ManagedAccessUser[]>([]);
+  const people = accessPeople(s, users, false);
+  const selected = people.find((person) => person.id === selectedId) ?? people[0];
+  const selectedAccess = selectedId === "t1" ? null : new Set(accessFor(s, selectedId));
 
   useEffect(() => {
     let cancelled = false;
@@ -427,6 +493,7 @@ function AccessPermissions({ s, update }: Pick<PageProps, "s" | "update">) {
       if (error || !Array.isArray(data?.users)) {
         setMessage("No se pudieron cargar los permisos guardados.");
       } else {
+        setUsers(data.users);
         const persisted = Object.fromEntries(data.users
           .filter((user: ManagedAccessUser) => user.accessUserId !== "t1" && Array.isArray(user.allowedPaths))
           .map((user: ManagedAccessUser) => [user.accessUserId, user.allowedPaths]));
@@ -438,7 +505,7 @@ function AccessPermissions({ s, update }: Pick<PageProps, "s" | "update">) {
   }, []);
 
   async function savePermissions(next: ReturnType<typeof setPageAccess>, userId: Exclude<AccessUserId, "t1">) {
-    const previousPaths = s.access?.[userId] ?? defaultAccess()[userId];
+    const previousPaths = accessFor(s, userId);
     const allowedPaths = next.access?.[userId] ?? [];
     update(() => next, "Guardando acceso…");
     setStatus("saving"); setMessage("");

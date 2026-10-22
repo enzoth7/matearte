@@ -21,6 +21,7 @@ import {
   type PrivateAsset,
   type SurfaceSideSummary,
 } from './personalizedOrders';
+import { formatDate, formatDateTime } from "../dateFormat";
 
 type AssetLink = { viewUrl: string; downloadUrl: string };
 
@@ -30,15 +31,8 @@ const money = (minor: number) => new Intl.NumberFormat('es-UY', {
   maximumFractionDigits: 0,
 }).format(minor / 100);
 
-const readableDate = (value: string) => new Intl.DateTimeFormat('es-UY', {
-  dateStyle: 'short',
-  timeStyle: 'short',
-}).format(new Date(value));
-const shortDate = (value: string) => new Intl.DateTimeFormat('es-UY', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-}).format(new Date(value));
+const readableDate = (value: string) => formatDateTime(value);
+const shortDate = (value: string) => formatDate(value);
 const reference = (order: PersonalizedOrder) => order.reference_code || `#${order.order_number}`;
 const productTypes = (order: PersonalizedOrder) => [...new Set(getPersonalizedItems(order).map((item) => ({
   mate: 'Mates',

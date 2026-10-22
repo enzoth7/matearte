@@ -42,6 +42,7 @@ import {
   type CatalogValueMap,
   type CatalogMaterialId,
 } from '../../../shared/catalog-taxonomy';
+import { formatDate } from "../dateFormat";
 
 type Tab = 'catalog' | 'list' | 'orders' | 'personalized' | 'international_shipping' | 'discounts' | 'settings' | 'rates';
 
@@ -798,29 +799,39 @@ export function Catalog({onNotice,initialProductId,initialVariantId,startNew=fal
     setProductBusy('');
   };
 
+  type CatalogUsage = {variants:number;images:number;active_orders:number;historical_orders:number;active_references:string[];storage_paths?:string[]};
+  const usageSummary = (usage:CatalogUsage) => usage.historical_orders > 0
+    ? `Tiene ${usage.historical_orders} ${usage.historical_orders===1?'pedido histórico':'pedidos históricos'}: se conservan con sus datos, pero quedan sin vínculo a este producto.`
+    : 'No tiene pedidos asociados.';
+  const activeOrdersMessage = (usage:CatalogUsage,what:string) => `No se puede eliminar ${what}: tiene ${usage.active_orders} ${usage.active_orders===1?'pedido activo':'pedidos activos'} (${usage.active_references.join(', ')}). Terminá o cancelá esos pedidos primero, o desactivalo para retirarlo de la venta.`;
+
   const deleteProduct = async() => {
     if (!product) return;
-    if (product.commerce_variants.some(item => item.legacy_product_id)) {
-      onNotice('Este producto está vinculado al historial mayorista. Desactivá sus variantes para retirarlo de la venta.');
-      return;
-    }
-    const confirmed = window.confirm(`¿Eliminar definitivamente “${product.name}”?\n\nSe eliminarán también ${product.commerce_variants.length} variantes y ${images.length} fotos. Si solo querés sacarlo de la tienda, usá “Ocultar”.`);
-    if (!confirmed) return;
-
     setProductBusy('delete');
-    const paths = images.map(image => image.storage_path);
-    const {data,error} = await supabase.from('commerce_products').delete().eq('id',product.id).select('id').maybeSingle();
-    if (error || !data) {
-      const linked = error?.code === '23503';
-      onNotice(linked ? 'Este producto ya tiene movimientos asociados y no puede eliminarse. Podés ocultarlo para retirarlo de la tienda.' : error?.message || 'No se pudo eliminar el producto.');
+    const usageResult = await supabase.rpc('gestion_catalog_usage',{p_product_id:product.id});
+    const usage = usageResult.data as CatalogUsage | null;
+    if (usageResult.error || !usage) { onNotice(usageResult.error?.message || 'No se pudo revisar el uso del producto.'); setProductBusy(''); return; }
+    if (usage.active_orders > 0) { onNotice(activeOrdersMessage(usage,`“${product.name}”`)); setProductBusy(''); return; }
+    const confirmed = window.confirm(`¿Eliminar definitivamente “${product.name}”?
+
+Se eliminarán también ${usage.variants} variantes y ${usage.images} fotos.
+${usageSummary(usage)}
+
+Si solo querés sacarlo de la tienda, usá “Ocultar”.`);
+    if (!confirmed) { setProductBusy(''); return; }
+    const {data,error} = await supabase.rpc('gestion_delete_catalog_product',{p_product_id:product.id});
+    const deleted = data as CatalogUsage | null;
+    if (error || !deleted) {
+      onNotice(error?.code === '23503' ? 'El producto ya tiene pedidos activos y no puede eliminarse.' : error?.message || 'No se pudo eliminar el producto.');
       setProductBusy('');
       return;
     }
-
+    const paths = deleted.storage_paths || [];
     const {error:storageError} = paths.length ? await supabase.storage.from('product-images').remove(paths) : {error:null};
     onNotice(storageError ? 'Producto eliminado. Algunos archivos requieren limpieza manual.' : 'Producto eliminado definitivamente.');
     setProductBusy('');
     await load();
+    void onCatalogChange?.();
   };
 
   const uploadImages = async(event:React.ChangeEvent<HTMLInputElement>) => {
@@ -1072,12 +1083,18 @@ export function Catalog({onNotice,initialProductId,initialVariantId,startNew=fal
   };
 
   const removeVariant = async(item:ProductVariant) => {
-    if (item.legacy_product_id) { onNotice('Esta variante está vinculada al historial mayorista. Desactivala para retirarla de la venta.'); return; }
     if (hasUnsavedChanges) { onNotice('Guardá o cancelá los cambios pendientes antes de eliminar la variante.'); return; }
-    if (!product || !window.confirm(`¿Eliminar la variante “${item.name}” (${item.sku})?`)) return;
+    if (!product) return;
     setProductBusy(`variant-${item.id}`);
-    const {error} = await supabase.from('commerce_variants').delete().eq('id',item.id).eq('product_id',product.id);
-    onNotice(error?.code === '23503' ? 'Esta variante ya tiene movimientos asociados. Desactivala para retirarla de la venta.' : error?.message || 'Variante eliminada.');
+    const usageResult = await supabase.rpc('gestion_catalog_usage',{p_product_id:product.id,p_variant_id:item.id});
+    const usage = usageResult.data as CatalogUsage | null;
+    if (usageResult.error || !usage) { onNotice(usageResult.error?.message || 'No se pudo revisar el uso de la variante.'); setProductBusy(''); return; }
+    if (usage.active_orders > 0) { onNotice(activeOrdersMessage(usage,`la variante “${item.name}” (${item.sku})`)); setProductBusy(''); return; }
+    if (!window.confirm(`¿Eliminar la variante “${item.name}” (${item.sku})?
+
+${usageSummary(usage)}`)) { setProductBusy(''); return; }
+    const {error} = await supabase.rpc('gestion_delete_catalog_variant',{p_variant_id:item.id});
+    onNotice(error?.code === '23503' ? 'La variante ya tiene pedidos activos y no puede eliminarse.' : error?.message || 'Variante eliminada.');
     if (!error) { await syncWebPublication(product.id,product.commerce_variants.filter(candidate=>candidate.id!==item.id)); await load(product.id); void onCatalogChange?.(); }
     setProductBusy('');
   };
@@ -1453,7 +1470,7 @@ export function CatalogList({onNotice,onEdit}:{onNotice:(v:string)=>void;onEdit?
           </div>
         </div>
         <div className="print-meta">
-          <div><div>Fecha:</div> <strong>{new Date().toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric' })}</strong></div>
+          <div><div>Fecha:</div> <strong>{formatDate(new Date())}</strong></div>
           {categoryFilter !== 'all' && (
             <div><div>Categoría:</div> <strong>{catalogCategoryLabels[categoryFilter] || categoryFilter}</strong></div>
           )}
@@ -2030,7 +2047,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer}:{session:Se
                 const canShip = order.shipping_method !== 'pickup' && ['ready_for_fulfillment', 'ready_for_production', 'manual_review'].includes(order.status);
                 return <tr key={order.id} id={`order-${order.order_number}`} className={order.status==='payment_verification_pending'?'bank-transfer-pending-row':undefined}>
                   <td><button type="button" className="order-detail-trigger" onClick={()=>openDetails(order)} aria-label={`Ver detalle del pedido ${order.reference_code || `#${order.order_number}`}`}>{order.reference_code || `#${order.order_number}`}</button></td>
-                  <td>{new Date(order.created_at).toLocaleDateString('es-UY')}</td>
+                  <td>{formatDate(order.created_at)}</td>
                   <td>{orderCustomer(order.customer_snapshot)}</td>
                   <td className="order-items-cell">{order.order_items.length?<div className="order-items-summary">{order.order_items.map(item=>{const options=getCatalogOrderOptionDetails(item,taxonomy);const name=getOrderItemDisplayName(item);return options.length?<details className="commerce-order-item-disclosure" key={item.id}><summary>{name} <span>×{item.quantity}</span></summary><small>{options.map(option=>`${option.label}: ${option.value}`).join(' · ')}</small></details>:<div key={item.id}><strong>{name} <span>×{item.quantity}</span></strong></div>})}</div>:'Sin artículos'}</td>
                   <td><strong>{destination}</strong>{order.status==='shipped'&&<small className="tracking-summary">{order.shipping_carrier} · {order.tracking_code}</small>}</td>
@@ -2061,7 +2078,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer}:{session:Se
           <div className="web-order-modal__body">
             <section className="unified-order-identity" aria-label="Identificación del pedido">
               <div className="unified-order-reference"><small>Pedido</small><strong>{detailOrder.reference_code || `#${detailOrder.order_number}`}</strong></div>
-              <div><small>Fecha</small><strong>{new Date(detailOrder.created_at).toLocaleDateString('es-UY')}</strong></div>
+              <div><small>Fecha</small><strong>{formatDate(detailOrder.created_at)}</strong></div>
               <div><small>Canal</small><div className="badge channel-web">Web</div></div>
               <div><small>Envío</small><div className="badge">{detailOrder.shipping_method === 'pickup' ? 'Retiro' : detailOrder.status === 'shipped' ? 'Enviado' : 'No enviado'}</div></div>
             </section>

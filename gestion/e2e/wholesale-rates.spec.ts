@@ -2,18 +2,19 @@ import { test, expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { mockCommerce } from "./commerce-fixture";
 
-test("un pedido mayorista nuevo conserva el canal de venta elegido", async ({ page }) => {
+test("un pedido mayorista nuevo se carga con categoría, tipo, nombre y variante", async ({ page }) => {
   const { tables } = await mockCommerce(page, { writable: true });
   tables.products.push({ id: "7", model: "Torpedo", variant: "Negro", rim_type: "Acero", leather_type: "Negro", price_arg: 10000, price_uyu: 270 });
   tables.customers.push({ full_name: "Almacén Sur", first_name: "Almacén", last_name: "Sur", phone: "", email: "", address: "", notes: "" });
   await page.goto("/comercial/registrar-may");
   await page.getByRole("combobox", { name: "Cliente", exact: true }).selectOption("Almacén Sur");
-  await page.getByRole("combobox", { name: "Canal de venta" }).selectOption("Feria");
+  await expect(page.getByLabel("Canal de venta")).toHaveValue("Mayorista");
   await page.getByRole("combobox", { name: "Categoría 1" }).selectOption("mates");
   await page.getByRole("combobox", { name: "Tipo 1" }).selectOption("Torpedo");
-  await page.getByRole("combobox", { name: "Nombre y variante 1" }).selectOption("7");
+  await page.getByRole("combobox", { name: "Nombre 1" }).selectOption("Torpedo");
+  await expect(page.getByRole("combobox", { name: "Variante 1" })).toHaveValue("7");
   await page.getByRole("button", { name: "Crear pedido mayorista" }).click();
-  await expect.poll(() => tables.order_lines[0]?.sale_channel).toBe("Feria");
+  await expect.poll(() => tables.order_lines[0]?.total_arg).toBe(10000);
   expect(tables.order_lines[0].total_arg).toBe(10000);
   expect(tables.order_lines[0].total_uyu).toBe(270);
 });
@@ -39,10 +40,12 @@ test("el formulario mayorista busca y alinea los artículos con importes en ARS"
   await page.getByRole("button", { name: /Torpedo · Negro/ }).click();
   await expect(page.getByRole("combobox", { name: "Categoría 1" })).toHaveValue("mates");
   await expect(page.getByRole("combobox", { name: "Tipo 1" })).toHaveValue("Torpedo");
-  await expect(page.getByRole("combobox", { name: "Nombre y variante 1" })).toHaveValue("7");
-  await expect(page.getByRole("combobox", { name: "Nombre y variante 1" }).locator("option", { hasText: "Torpedo · Negro" })).toHaveCount(1);
+  await expect(page.getByRole("combobox", { name: "Nombre 1" })).toHaveValue("Torpedo");
+  await expect(page.getByRole("combobox", { name: "Variante 1" })).toHaveValue("7");
+  await expect(page.getByRole("combobox", { name: "Variante 1" }).locator("option", { hasText: "Negro" })).toHaveCount(1);
+  await expect(page.getByRole("combobox", { name: "Variante 1" }).locator("option", { hasText: "Genérico" })).toHaveCount(0);
   await expect(page.locator(".wholesale-sale-line-head")).toContainText("Cantidad");
-  await expect(page.locator(".wholesale-sale-line-head")).toContainText("Precio ARS");
+  await expect(page.locator(".wholesale-sale-line-head")).toContainText("Importe ARS");
   await expect(page.locator(".wholesale-sale-line").first()).toContainText("ARS 10.000");
   await expect(page.locator(".wholesale-sale-footer")).toContainText("ARS 10.000");
   await page.getByRole("button", { name: "Agregar artículo" }).click();
@@ -54,22 +57,24 @@ test("el formulario mayorista busca y alinea los artículos con importes en ARS"
   await remove.click();
   await expect(page.getByRole("combobox", { name: "Categoría 2" })).toHaveCount(0);
   await page.getByRole("button", { name: "Agregar artículo" }).click();
-  await page.getByRole("combobox", { name: "Categoría 2" }).selectOption("bombillones");
-  await expect(page.getByRole("combobox", { name: "Tipo 2" })).toContainText("Bombillón");
-  await page.getByRole("combobox", { name: "Tipo 2" }).selectOption("Bombillón");
-  await expect(page.getByRole("combobox", { name: "Nombre y variante 2" })).toContainText("Bombillón · Alpaca");
   await page.getByRole("combobox", { name: "Categoría 2" }).selectOption("bombillas");
+  await expect(page.getByRole("combobox", { name: "Categoría 2" }).locator("option", { hasText: "Bombillones" })).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Tipo 2" })).toContainText("Bombillón");
   await expect(page.getByRole("combobox", { name: "Tipo 2" })).toContainText("Clásica");
-  await expect(page.getByRole("combobox", { name: "Tipo 2" })).not.toContainText("Bombillón");
   await expect(page.getByRole("combobox", { name: "Tipo 2" })).not.toContainText("Apaga");
+  await page.getByRole("combobox", { name: "Tipo 2" }).selectOption("Bombillón");
+  await expect(page.getByRole("combobox", { name: "Nombre 2" })).toContainText("Bombillón");
   await page.getByRole("combobox", { name: "Tipo 2" }).selectOption("Clásica");
-  await expect(page.getByRole("combobox", { name: "Nombre y variante 2" })).toContainText("Bombilla lisa · Acero");
-  await page.getByRole("button", { name: "Eliminar artículo 2" }).click();
+  await expect(page.getByRole("combobox", { name: "Nombre 2" })).toContainText("Bombilla lisa");
+  await page.getByRole("combobox", { name: "Nombre 2" }).selectOption("Bombilla lisa");
+  await expect(page.getByRole("combobox", { name: "Variante 2" })).toHaveValue("11");
+  await page.getByRole("button", { name: /^Eliminar/ }).last().click();
   await page.getByRole("searchbox", { name: "Buscar producto" }).fill("Bombillón");
   await page.getByRole("button", { name: /Bombillón · Alpaca/ }).click();
-  await expect(page.getByRole("combobox", { name: "Categoría 2" })).toHaveValue("bombillones");
+  await expect(page.getByRole("combobox", { name: "Categoría 2" })).toHaveValue("bombillas");
   await expect(page.getByRole("combobox", { name: "Tipo 2" })).toHaveValue("Bombillón");
-  await expect(page.getByRole("combobox", { name: "Nombre y variante 2" })).toHaveValue("10");
+  await expect(page.getByRole("combobox", { name: "Nombre 2" })).toHaveValue("Bombillón");
+  await expect(page.getByRole("combobox", { name: "Variante 2" })).toHaveValue("10");
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
@@ -397,4 +402,106 @@ test("pedidos históricos mayoristas aparecen en las secciones existentes", asyn
   await expect(page.locator(".catalog-general-list")).toContainText("Torpedo");
   await page.goto("/produccion/historico");
   await expect(page.locator(".wholesale-production")).toContainText("PED-123456");
+});
+
+test("la venta mayorista lista a todos los artículos con foto y permite agregar el cliente en el momento", async ({ page }) => {
+  const { tables } = await mockCommerce(page, { writable: true });
+  tables.products.push(
+    { id: "21", model: "Torpedo Acero Liso", variant: "Negro", category_code: "mates", catalog_attributes: { "tipo-mate": "torpedo" }, price_arg: 18800, price_uyu: 500 },
+    { id: "22", model: "Matera Ovalada", variant: "Natural", category_code: "materas", catalog_attributes: { forma: "ovalada" }, price_arg: 32900, price_uyu: 890 },
+  );
+  tables.customers.push({ full_name: "Ana Pérez", first_name: "Ana", last_name: "Pérez", company_name: "Almacén Sur", phone: "", email: "", address: "", notes: "" });
+  await page.goto("/comercial/registrar-may");
+  await expect(page.getByRole("button", { name: "Agregar cliente" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Cliente", exact: true }).locator("option", { hasText: "Almacén Sur" })).toHaveCount(1);
+  await page.getByRole("searchbox", { name: "Buscar cliente" }).fill("almacén");
+  await expect(page.getByRole("button", { name: /Ana Pérez · Almacén Sur/ })).toBeVisible();
+  await page.getByRole("button", { name: /Ana Pérez · Almacén Sur/ }).click();
+  await expect(page.getByRole("button", { name: "Agregar cliente" })).toHaveCount(0);
+  await page.getByRole("searchbox", { name: "Buscar producto" }).fill("Torpedo");
+  await page.getByRole("button", { name: /Torpedo Acero Liso/ }).click();
+  await page.getByRole("button", { name: "Agregar artículo" }).click();
+  await page.getByRole("searchbox", { name: "Buscar producto" }).fill("Ovalada");
+  await page.getByRole("button", { name: /Matera Ovalada/ }).click();
+  const panel = page.getByLabel("Fotos de los artículos de la venta");
+  await expect(panel.locator(".local-sale-photo-item")).toHaveCount(2);
+  await expect(panel).toContainText("Torpedo Acero Liso");
+  await expect(panel).toContainText("Matera Ovalada");
+});
+
+test("producción mayorista permite eliminar una línea desde la tabla y el pedido completo desde su detalle", async ({ page }) => {
+  const { tables } = await mockCommerce(page, { writable: true });
+  const line = (id: string, order: string, variant: string) => ({ line_id: id, order_id: order, created_at: "2026-10-19T12:00:00Z", completed_at: null,
+    customer: "Cliente Uno", model: "Torpedo", variant, quantity: 1, status: "Pendiente", order_type: "normal",
+    unit_price_arg: 1000, unit_price_uyu: 30, exchange_rate: 0.03, total_arg: 1000, total_uyu: 30 });
+  tables.order_lines.push(line("l1", "PED-111111", "Negro"), line("l2", "PED-222222", "Negro"), line("l3", "PED-222222", "Marrón"));
+  page.on("dialog", (dialog) => void dialog.accept());
+  await page.goto("/produccion/mayorista");
+  await page.locator(".wholesale-production-table tbody tr").filter({ hasText: "PED-111111" }).getByRole("button", { name: "Eliminar PED-111111" }).click();
+  await expect.poll(() => tables.order_lines.some((entry) => entry.line_id === "l1")).toBe(false);
+  await page.getByRole("button", { name: "PED-222222" }).first().click();
+  await page.getByRole("dialog").getByRole("button", { name: "Eliminar pedido" }).click();
+  await expect.poll(() => tables.order_lines.filter((entry) => entry.order_id === "PED-222222").length).toBe(0);
+});
+
+test("el detalle del pedido mayorista muestra foto, SKU, nombre, variante, unidades y estado, con enlace al producto", async ({ page }) => {
+  const { tables } = await mockCommerce(page, { writable: true });
+  tables.customers.push({ full_name: "Juan", first_name: "Juan", last_name: "", phone: "", email: "", address: "", notes: "" });
+  tables.products.push({ id: "5", model: "Criollo Virola Acero", variant: "Natural", category_code: "mates", price_arg: 25100, price_uyu: 700, sku: "167" });
+  tables.order_lines.push({ line_id: "x", order_id: "#M095", created_at: "2026-10-20T12:00:00Z", completed_at: null, customer: "Juan", model: "Criollo Virola Acero", variant: "Natural",
+    quantity: 10, status: "Pendiente", order_type: "normal", unit_price_arg: 25100, unit_price_uyu: 700, exchange_rate: 0.027, total_arg: 251000, total_uyu: 7000 });
+  await page.goto("/produccion/mayorista");
+  await page.getByRole("button", { name: "#M095", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.locator(".wholesale-line-head")).toContainText("SKU");
+  const row = dialog.locator(".wholesale-line-row").nth(1);
+  await expect(row).toContainText("Criollo Virola Acero");
+  await expect(row).toContainText("Natural");
+  await expect(row).toContainText("10 u.");
+  await expect(row).toContainText("Pendiente");
+  await row.getByRole("button", { name: "167" }).click();
+  await expect(page).toHaveURL(/\/productos\/catalogo\?producto=/);
+});
+
+test("una línea genérica muestra como referencia el primer SKU y enlaza a ese producto", async ({ page }) => {
+  const { tables } = await mockCommerce(page, { writable: true });
+  tables.customers.push({ full_name: "Juan", first_name: "Juan", last_name: "", phone: "", email: "", address: "", notes: "" });
+  tables.products.push(
+    { id: "31", model: "Torpedo Acero Liso", variant: "Negro", category_code: "mates", price_arg: 18800, price_uyu: 500, sku: "210" },
+    { id: "32", model: "Torpedo Acero Liso", variant: "Marrón", category_code: "mates", price_arg: 18800, price_uyu: 500, sku: "209" },
+  );
+  tables.order_lines.push({ line_id: "g", order_id: "#M100", created_at: "2026-10-20T12:00:00Z", completed_at: null, customer: "Juan", model: "Torpedo Acero Liso", variant: "Genérico",
+    quantity: 5, status: "Pendiente", order_type: "normal", unit_price_arg: 18800, unit_price_uyu: 500, exchange_rate: 0.027, total_arg: 94000, total_uyu: 2500 });
+  await page.goto("/produccion/mayorista");
+  await page.getByRole("button", { name: "#M100", exact: true }).click();
+  const row = page.getByRole("dialog").locator(".wholesale-line-row").nth(1);
+  await expect(row).toContainText("Genérico");
+  await expect(row.getByRole("button", { name: "209" })).toBeVisible();
+});
+
+test("el detalle de resumen no muestra virola ni cuero y enlaza el nombre y el SKU al catálogo", async ({ page }) => {
+  const { tables } = await mockCommerce(page, { writable: true });
+  tables.customers.push({ full_name: "Juan", first_name: "Juan", last_name: "", phone: "", email: "", address: "", notes: "" });
+  tables.products.push({ id: "41", model: "Torpedo Acero Liso", variant: "Negro", category_code: "mates", rim_type: "Acero", leather_type: "Liso", price_arg: 18800, price_uyu: 500, sku: "253" });
+  tables.order_lines.push({ line_id: "d", order_id: "#M120", created_at: "2026-10-20T12:00:00Z", completed_at: null, customer: "Juan", model: "Torpedo Acero Liso", variant: "Genérico",
+    quantity: 5, status: "Pendiente", order_type: "normal", unit_price_arg: 18800, unit_price_uyu: 500, exchange_rate: 0.027, total_arg: 94000, total_uyu: 2500 });
+  await page.goto("/produccion/resumen");
+  await page.getByRole("button", { name: "Ver detalle del pedido #M120" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Torpedo Acero Liso");
+  await expect(dialog).not.toContainText("Virola:");
+  await expect(dialog).not.toContainText("Cuero:");
+  await expect(dialog.getByRole("button", { name: "253" })).toBeVisible();
+  await dialog.getByRole("button", { name: "Torpedo Acero Liso" }).click();
+  await expect(page).toHaveURL(/\/productos\/catalogo\?producto=/);
+});
+
+test("Administración tiene la pestaña Links con las direcciones del gestor, la web y el visualizador", async ({ page }) => {
+  await mockCommerce(page);
+  await page.goto("/administracion/links");
+  await expect(page.getByRole("heading", { name: "Links" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "https://matearte-gestion.vercel.app" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "https://www.matearteuruguay.com" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "https://matearte-visualizador.vercel.app" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Links/ }).first()).toBeVisible();
 });

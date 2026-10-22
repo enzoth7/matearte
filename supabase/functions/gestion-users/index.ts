@@ -10,7 +10,9 @@ const allowedOrigins = new Set([
   "http://localhost:5181",
   ...(Deno.env.get("GESTION_ALLOWED_ORIGINS") || "").split(",").map((value) => value.trim()).filter(Boolean),
 ]);
-const accessUserIds = new Set(["t1", "t2", "t3", "t5"]);
+const fixedAccessUserIds = ["t1", "t2", "t3", "t5"];
+const isManagedId = (id: string) => ["t2", "t3", "t5"].includes(id) || /^u[0-9a-f]{8}$/.test(id);
+const defaultNewUserPaths = ["/inicio/resumen"];
 const headers = (origin: string) => ({
   "Content-Type": "application/json",
   ...(allowedOrigins.has(origin) ? {
@@ -68,26 +70,42 @@ Deno.serve(async (request) => {
   if (!caller?.active || caller.access_user_id !== "t1") return json({ error: "Solo Richard puede administrar usuarios." }, 403, origin);
 
   if (body.action === "list") {
-    const { data: memberships, error } = await service.from("commerce_admin_users").select("user_id,access_user_id,allowed_paths").in("access_user_id", [...accessUserIds]);
+    const { data: memberships, error } = await service.from("commerce_admin_users").select("user_id,access_user_id,display_name,allowed_paths,active").or(`access_user_id.in.(${fixedAccessUserIds.join(",")}),access_user_id.like.u*`).order("created_at");
     if (error) return json({ error: "No se pudieron cargar los usuarios." }, 500, origin);
     const users = await Promise.all((memberships || []).map(async (membership) => {
       const { data } = await service.auth.admin.getUserById(membership.user_id);
       const email = data.user?.email || "";
       return {
+        userId: membership.user_id,
         accessUserId: membership.access_user_id,
+        displayName: membership.display_name,
         username: email.endsWith("@matearte.uy") ? email.slice(0, -"@matearte.uy".length) : email,
         configured: Boolean(data.user),
+        active: membership.active !== false,
         allowedPaths: membership.allowed_paths,
       };
     }));
     return json({ users }, 200, origin);
+  }
+  if (body.action === "setActive") {
+    const accessUserId = typeof body.accessUserId === "string" ? body.accessUserId : "";
+    if (!isManagedId(accessUserId) || typeof body.active !== "boolean") {
+      return json({ error: "Revisá los datos del usuario." }, 400, origin);
+    }
+    const { data, error } = await service.from("commerce_admin_users")
+      .update({ active: body.active })
+      .eq("access_user_id", accessUserId)
+      .select("access_user_id,active")
+      .maybeSingle();
+    if (error || !data) return json({ error: "No se pudo cambiar el estado del usuario." }, error ? 500 : 404, origin);
+    return json({ accessUserId: data.access_user_id, active: data.active }, 200, origin);
   }
   if (body.action === "savePermissions") {
     const accessUserId = typeof body.accessUserId === "string" ? body.accessUserId : "";
     const allowedPaths = Array.isArray(body.allowedPaths)
       ? [...new Set(body.allowedPaths.filter((path): path is string => typeof path === "string"))]
       : null;
-    if (!(["t2", "t3", "t5"] as const).includes(accessUserId as "t2" | "t3" | "t5") || !allowedPaths || allowedPaths.length > 100) {
+    if (!isManagedId(accessUserId) || !allowedPaths || allowedPaths.length > 100) {
       return json({ error: "Revisá los permisos seleccionados." }, 400, origin);
     }
     if (allowedPaths.some((path) => !path.startsWith("/") || path === "/administracion/usuarios" || path.startsWith("/finanzas/"))) {
@@ -101,17 +119,35 @@ Deno.serve(async (request) => {
     if (error || !data) return json({ error: "No se pudieron guardar los permisos." }, error ? 500 : 404, origin);
     return json({ accessUserId: data.access_user_id, allowedPaths: data.allowed_paths }, 200, origin);
   }
+  if (body.action === "create") {
+    const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
+    const password = typeof body.password === "string" ? body.password : "";
+    const displayName = typeof body.displayName === "string" ? body.displayName.trim().slice(0, 120) : "";
+    if (!displayName || !/^[a-z0-9._-]{3,64}$/.test(username)) return json({ error: "Revisá los datos del usuario." }, 400, origin);
+    if (password.length < 8) return json({ error: "La contraseña debe tener al menos 8 caracteres." }, 400, origin);
+    const { data: created, error: createError } = await service.auth.admin.createUser({ email: `${username}@matearte.uy`, password, email_confirm: true });
+    if (createError || !created.user) return json({ error: createError?.message.includes("already") ? "Ese usuario ya está en uso." : "No se pudo crear el usuario." }, 400, origin);
+    const accessUserId = `u${crypto.randomUUID().replaceAll("-", "").slice(0, 8)}`;
+    const { error: insertError } = await service.from("commerce_admin_users").insert({ user_id: created.user.id, access_user_id: accessUserId, display_name: displayName, active: true, allowed_paths: defaultNewUserPaths });
+    if (insertError) {
+      await service.auth.admin.deleteUser(created.user.id);
+      return json({ error: "No se pudo asignar el acceso a la persona." }, 500, origin);
+    }
+    return json({ user: { accessUserId, displayName, username, configured: true, active: true, allowedPaths: defaultNewUserPaths } }, 201, origin);
+  }
   if (body.action !== "save") return json({ error: "Operación inválida." }, 400, origin);
 
   const accessUserId = typeof body.accessUserId === "string" ? body.accessUserId : "";
   const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
   const password = typeof body.password === "string" ? body.password : "";
   const displayName = typeof body.displayName === "string" ? body.displayName.trim().slice(0, 120) : "";
-  if (!accessUserIds.has(accessUserId) || !/^[a-z0-9._-]{3,64}$/.test(username) || !displayName) return json({ error: "Revisá los datos del usuario." }, 400, origin);
+  if (!(accessUserId === "t1" || isManagedId(accessUserId)) || !/^[a-z0-9._-]{3,64}$/.test(username) || !displayName) return json({ error: "Revisá los datos del usuario." }, 400, origin);
   if (password && password.length < 8) return json({ error: "La contraseña debe tener al menos 8 caracteres." }, 400, origin);
 
   const email = `${username}@matearte.uy`;
-  const { data: membership } = await service.from("commerce_admin_users").select("user_id,allowed_paths").eq("access_user_id", accessUserId).maybeSingle();
+  let membershipQuery = service.from("commerce_admin_users").select("user_id,allowed_paths,active").eq("access_user_id", accessUserId);
+  if (accessUserId === "t1" && typeof body.userId === "string") membershipQuery = membershipQuery.eq("user_id", body.userId);
+  const { data: membership } = await membershipQuery.order("created_at").limit(1).maybeSingle();
   let userId = membership?.user_id as string | undefined;
   if (userId) {
     const attributes: { email: string; password?: string; email_confirm: boolean } = { email, email_confirm: true };
@@ -124,9 +160,9 @@ Deno.serve(async (request) => {
     if (error || !data.user) return json({ error: error?.message.includes("already") ? "Ese usuario ya está en uso." : "No se pudo crear el usuario." }, 400, origin);
     userId = data.user.id;
   }
-  const { error: membershipError } = await service.from("commerce_admin_users").upsert({ user_id: userId, access_user_id: accessUserId, display_name: displayName, active: true,
+  const { error: membershipError } = await service.from("commerce_admin_users").upsert({ user_id: userId, access_user_id: accessUserId, display_name: displayName, active: membership ? membership.active !== false : true,
     ...(accessUserId === "t5" ? { allowed_paths: membership?.allowed_paths || ["/marketing/campanas","/marketing/sorteo","/marketing/contactos","/marketing/suscripcion","/marketing/analytics","/marketing/descuentos","/marketing/avisos"] } : {}),
   }, { onConflict: "user_id" });
   if (membershipError) return json({ error: "Se creó el acceso, pero no se pudo asignar a la persona." }, 500, origin);
-  return json({ user: { accessUserId, username, configured: true } }, 200, origin);
+  return json({ user: { userId, accessUserId, username, configured: true } }, 200, origin);
 });

@@ -1,3 +1,4 @@
+import { saveOriginOverride } from "./contactOrigin";
 import { useState, type FormEvent } from "react";
 import type { Customer } from "./data";
 import { commerceSource } from "./commerceSource";
@@ -40,8 +41,10 @@ export function RuralRaffleCustomerEditor({ customer, onSaved, onDeleted, orderC
         additional_phones: form.additionalPhones, inferred_category: form.inferredCategory || null,
         origin_channel: form.originChannel, customer_type: form.customerType })
       .eq("id", customer.raffleEntryId).select("id").single();
+    if (saveError) { setBusy(false); setError(saveError.code === "23505" ? "Ya existe una inscripción con ese correo." : saveError.message); return; }
+    const originError = await saveOriginOverride(customer, form);
     setBusy(false);
-    if (saveError) { setError(saveError.code === "23505" ? "Ya existe una inscripción con ese correo." : saveError.message); return; }
+    if (originError) { setError(originError); return; }
     onSaved();
   }
   return <form onSubmit={(event) => void save(event)}>

@@ -1,5 +1,6 @@
 import { CommerceSection } from "./commerce/CommerceSection";
 import { ChannelOrigin } from "./ChannelOrigin";
+import { Links } from "./Links";
 import { MarketingSection } from "./MarketingSection";
 import { Purchases } from "./Purchases";
 import { SorteoView } from "./SorteoView";
@@ -40,6 +41,7 @@ import { CommerceLogin, useCommerce } from "./useCommerce";
 import { VisualizerConfiguratorView } from "./commerce/VisualizerConfiguratorView";
 import { CommerceShipping } from "./CommerceShipping";
 import { Card, Table, Badge, Modal } from "./ui";
+import { formatDate } from "./dateFormat";
 const icons = [
   House,
   Handshake,
@@ -151,13 +153,14 @@ function Content(
   if (area === "personal") return <People {...props} mode={page} />;
   if (key === "administracion/usuarios") return <Permissions {...props} />;
   if (key === "administracion/origen-canal") return <ChannelOrigin />;
+  if (key === "administracion/links") return <Links />;
   if (key === "administracion/actividad")
     return (
       <Table
         rows={s.activity}
         searchText={(r) => Object.values(r).join(" ")}
         columns={[
-          { label: "Momento", render: (r) => String(r.fecha) },
+          { label: "Momento", render: (r) => formatDate(String(r.fecha)) },
           { label: "Usuario", render: (r) => String(r.usuario) },
           { label: "Actividad", render: (r) => String(r.accion) },
         ]}

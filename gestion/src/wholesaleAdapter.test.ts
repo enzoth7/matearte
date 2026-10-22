@@ -45,9 +45,20 @@ describe("integración mayorista", () => {
     expect(state.products[0].priceArg).toBe(10000);
     expect(state.customers[0].wholesaleName).toBe("Almacén Sur");
     expect(orderName(state.orders[0])).toBe("#M001");
-    expect(state.orders[0].channel).toBe("WhatsApp");
+    expect(state.orders[0].channel).toBe("Mayorista");
     expect(state.customers[0]).toMatchObject({ segment: "Mayorista", originChannel: "WhatsApp" });
     expect(state.records.monedas[0]).toMatchObject({ moneda: "ARS", valor: 0.027 });
+  });
+  it("una línea genérica toma el primer SKU del producto como referencia y conserva Genérico como variante", () => {
+    const source = fixture();
+    source.products = [
+      { id: "8", model: "Torpedo", variant: "Marrón", rim_type: "Acero", leather_type: "Marrón", price_arg: 10000, price_uyu: 270, category_code: "mates", sku: "210", weight_grams: 90 },
+      { id: "7", model: "Torpedo", variant: "Negro", rim_type: "Acero", leather_type: "Negro", price_arg: 10000, price_uyu: 270, category_code: "mates", sku: "209", weight_grams: 80 },
+    ];
+    source.categories = [{ code: "mates", label_es: "Mates", active: true }];
+    source.lines = [line({ variant: "Genérico", quantity: 3, unit_price_arg: 10000, unit_price_uyu: 270, total_arg: 30000, total_uyu: 810 })];
+    const item = adaptWholesale(seed(), source).orders[0].items![0];
+    expect(item).toMatchObject({ sku: "209", variant: "Genérico", family: "Mates", weightGrams: 80 });
   });
   it("muestra la foto principal y el encuadre de una variante mayorista en el catálogo", () => {
     const source = fixture();

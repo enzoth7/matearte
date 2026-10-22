@@ -2,7 +2,11 @@ import { areas, paths, resolvePath } from "./navigation";
 import type { Customer, Order, SalesChannel, State } from "./data";
 
 export const accessUserIds = ["t1", "t2", "t3", "t5"] as const;
-export type AccessUserId = (typeof accessUserIds)[number];
+export type AccessUserId = string;
+
+export const isCustomAccessUserId = (id: string | undefined): id is string => /^u[0-9a-f]{8}$/.test(id ?? "");
+const newUserAccess = ["/inicio/resumen"];
+export const accessFor = (s: State, userId: string): string[] => s.access?.[userId] ?? defaultAccess()[userId] ?? newUserAccess;
 
 const withAreas = (areaIds: string[]) =>
   paths.filter((path) => areaIds.includes(path.split("/")[1]));
@@ -31,7 +35,7 @@ export function lockedForRichard(path: string): boolean {
 }
 
 export function accessUserId(s: State): AccessUserId {
-  if (accessUserIds.some((id) => id === s.activeUserId)) return s.activeUserId as AccessUserId;
+  if (accessUserIds.some((id) => id === s.activeUserId) || isCustomAccessUserId(s.activeUserId)) return s.activeUserId as AccessUserId;
   const employee = s.employees.find((person) => person.name === s.user);
   return accessUserIds.find((id) => id === employee?.id) ?? "t2";
 }
@@ -42,7 +46,7 @@ export function canAccess(s: State, path: string): boolean {
   const userId = accessUserId(s);
   if (userId === "t1") return true;
   if (lockedForRichard(normalized)) return false;
-  return (s.access?.[userId] ?? defaultAccess()[userId]).includes(normalized);
+  return accessFor(s, userId).includes(normalized);
 }
 
 export function firstRegistrationPath(s: State): string | null {
@@ -73,7 +77,7 @@ export function setAreaAccess(
 ): State {
   const area = areas.find((entry) => entry.id === areaId);
   if (!area) return s;
-  const current = new Set(s.access?.[userId] ?? defaultAccess()[userId]);
+  const current = new Set(accessFor(s, userId));
   for (const [slug] of area.pages) {
     const path = `/${area.id}/${slug}`;
     if (lockedForRichard(path)) continue;
@@ -90,7 +94,7 @@ export function setPageAccess(
   enabled: boolean,
 ): State {
   if (!resolvePath(path) || lockedForRichard(path)) return s;
-  const current = new Set(s.access?.[userId] ?? defaultAccess()[userId]);
+  const current = new Set(accessFor(s, userId));
   if (enabled) current.add(path);
   else current.delete(path);
   return { ...s, access: { ...s.access, [userId]: [...current] } };
@@ -103,17 +107,17 @@ export function allowedSalesChannels(s: State): SalesChannel[] {
 
 export function visibleOrders(s: State, production = false): Order[] {
   const userId = accessUserId(s);
-  if (userId === "t5" && !(s.access?.t5 ?? defaultAccess().t5).some((path) => !path.startsWith("/marketing/"))) return [];
+  if (userId === "t5" && !accessFor(s, "t5").some((path) => !path.startsWith("/marketing/"))) return [];
   if (userId === "t1" || userId === "t5" || (userId === "t3" && production)) return s.orders;
   const wholesaleCustomers = new Set(s.customers.filter((customer) => customer.segment === "Mayorista").map((customer) => customer.id));
   if (userId === "t3") return s.orders.filter((order) => order.source === "wholesale" || (order.channel === "Web" && wholesaleCustomers.has(order.customerId)));
   const channels = allowedSalesChannels(s);
-  return s.orders.filter((order) => channels.includes(order.channel) && !wholesaleCustomers.has(order.customerId) && order.source !== "wholesale");
+  return s.orders.filter((order) => channels.includes(order.channel as SalesChannel) && !wholesaleCustomers.has(order.customerId) && order.source !== "wholesale");
 }
 
 export function visibleCustomers(s: State): Customer[] {
   const userId = accessUserId(s);
-  if (userId === "t5" && !(s.access?.t5 ?? defaultAccess().t5).some((path) => !path.startsWith("/marketing/"))) return [];
+  if (userId === "t5" && !accessFor(s, "t5").some((path) => !path.startsWith("/marketing/"))) return [];
   if (userId === "t1" || userId === "t5") return s.customers;
   return s.customers.filter((customer) => userId === "t2" ? customer.segment !== "Mayorista" : customer.segment === "Mayorista");
 }

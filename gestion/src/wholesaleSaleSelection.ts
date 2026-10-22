@@ -39,7 +39,7 @@ export function wholesaleSaleType(product: WholesaleProduct): string {
   if (category === "bombillas") {
     const code = attribute(product, "tipo-bombilla");
     if (code) return catalogValueLabel(defaultCatalogTaxonomy, "tipo-bombilla", code);
-    return product.model.trim();
+    return "Bombilla";
   }
   return "";
 }

@@ -4,6 +4,7 @@ import { supabase } from "./supabase";
 import { Trash } from "@phosphor-icons/react";
 import { CustomerFormFields, readCustomerForm } from "../CustomerFormFields";
 import { flagCode } from "../location";
+import { saveOriginOverride } from "../contactOrigin";
 
 export function CustomerContactEditor({ customer, orderIds, onSaved, onDeleted }: { customer: Customer; orderIds: string[]; onSaved: () => void; onDeleted: () => void }) {
   const [busy, setBusy] = useState(false);
@@ -38,6 +39,8 @@ export function CustomerContactEditor({ customer, orderIds, onSaved, onDeleted }
         if (error) throw error;
         if (!data) throw new Error("No se encontró la ficha Web. Actualizá la lista.");
       } else if (!orderIds.length) throw new Error("No se identificó la ficha original de este contacto.");
+      const originError = await saveOriginOverride(customer, form);
+      if (originError) throw new Error(originError);
       onSaved();
     } catch (failure) { setError(failure && typeof failure === "object" && "message" in failure ? String(failure.message) : "No se pudo guardar el contacto."); }
     finally { setBusy(false); }

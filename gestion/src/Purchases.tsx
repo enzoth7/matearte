@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import { commerceSource } from "./commerceSource";
 import { money, today } from "./data";
 import { Badge, Modal, Stats, Table } from "./ui";
+import { formatDate } from "./dateFormat";
 
 type Currency = "UYU" | "USD";
 type Category = { id: string; name: string; kind: "compra" | "gasto_fijo" | "ambas" };
@@ -24,7 +25,7 @@ const formatAmount = (minor: number, currency: Currency) => currency === "UYU"
   : new Intl.NumberFormat("es-UY", { style: "currency", currency: "USD", currencyDisplay: "code" }).format(minor / 100);
 const toMinor = (value: string) => Math.round(Number(value.replace(",", ".")) * 100);
 const fromMinor = (minor: number) => String(minor / 100);
-const dateLabel = (value: string | null) => value ? new Intl.DateTimeFormat("es-UY", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`)) : "—";
+const dateLabel = (value: string | null) => formatDate(value);
 const monthLabel = (month: string) => new Intl.DateTimeFormat("es-UY", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${month}-01T00:00:00Z`));
 const monthEnd = (month: string) => { const [year, number] = month.split("-").map(Number); return `${month}-${String(new Date(Date.UTC(year, number, 0)).getUTCDate()).padStart(2, "0")}`; };
 const totalsByCurrency = (rows: { amount_minor: number; currency: Currency }[]) => {
