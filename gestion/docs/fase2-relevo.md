@@ -71,3 +71,27 @@ Pendiente, y depende de desplegar gestión primero (la versión publicada todav�
 - Se quitó la política de subida de fotos mayoristas en `storage.objects` (`wholesale_product_images_storage_insert`).
 - Acceso público cerrado: se borraron las políticas `Enable all for anon` de `customers`, `order_lines` y `settings`; ahora solo administradores (`is_pricing_admin` o `is_commerce_admin`). Probado: anon ve 0 filas; un administrador ve 45 clientes y 225 líneas. El dashboard viejo (clave anónima) ya no puede leer ni escribir esas tablas.
 - Pendiente: eliminar `wholesale_product_images` (sin lectores) y la columna `commerce_variants.legacy_product_id` cuando se apague el dashboard viejo.
+
+## Paso 2b aplicado, 2026-10-22
+- Desplegados antes gestión y commerce-admin con las listas de pedidos web filtradas por canal (commit `27f828e`).
+- Aplicado `docs/fase2-paso2b.sql`. `orders` tiene 123 pedidos: 8 Web, 95 Mayorista, 19 Local y 1 WhatsApp. Ventas, ítems y líneas quedaron idénticos a las tablas originales (verificación dentro de la misma transacción).
+- `local_sales`, `local_sale_items` y `order_lines` son vistas con escritura (disparadores INSTEAD OF). Las tablas originales quedan en `private.legacy_*_20261022`.
+- Probado después de aplicar: la API resuelve ventas con ítems anidados entre vistas; sin sesión no se lee nada; un administrador lee 20 ventas, 25 ítems, 225 líneas y 95 pedidos mayoristas, y puede crear un pedido mayorista y una venta local sin generar correos (prueba deshecha).
+- Vuelta atrás disponible en `docs/fase2-paso2b-vuelta-atras.sql` (no ensayada: el ensayo quedó bloqueado por permisos).
+- Pendiente: probar en pantalla Mayoristas, ventas locales, localventas y la lista de pedidos web.
+
+## Paso 3 aplicado (contactos), 2026-10-22
+- Enzo corrió `docs/fase2-paso3-ensayo.sql` (resultado OK) y después `docs/fase2-paso3.sql` en el editor de Supabase.
+- `public.contacts` tiene 5.732 contactos: 5.697 de la agenda y 45 mayoristas, de los que 10 quedaron fusionados con su ficha de agenda (Benjamin B, Francisco Gauchat, Gastón Mercado, Juampi Roman, Mariano Dalby, Martin Kern, Miriam Bochatay, Nico Perez, Robert Giménez, Tobías Ciros). Abigail, Anahí, Bautista, Masi y Yamil quedaron separados por coincidir solo en el nombre de pila.
+- `customers` y `local_sales_customers` son vistas con escritura; las tablas originales están en `private.legacy_customers_20261022` y `private.legacy_local_sales_customers_20261022`.
+- `orders.contact_id` enlaza 110 pedidos (los 95 mayoristas y las ventas locales con cliente); los nuevos se enlazan solos.
+- Verificado después de aplicar: sin sesión no se lee ninguna de las vistas ni `contacts`; un administrador lee 5.697 fichas de agenda, 45 mayoristas y 225 líneas; la vista de marketing sigue en 5.764 filas.
+- Cuentas web (`customer_profiles`) y newsletter quedan en sus tablas, enlazadas por usuario o email.
+- Pendiente: escribir la vuelta atrás del paso 3, probar en pantalla Clientes y el registro de ventas.
+
+## Paso 4 aplicado (seguridad, administradores y tipo de cambio), 2026-10-22
+- Enzo corrió `docs/fase2-paso4.sql` en el editor de Supabase (ensayo previo OK: `docs/fase2-paso4-ensayo.sql`).
+- Seguridad: `commerce_exchange_rates` y `commerce_international_shipping_rates` ya no se pueden modificar con cualquier cuenta de cliente (antes la regla era `auth.role() = 'authenticated'`); ahora solo `private.is_commerce_admin()`. La lectura pública sigue (la usa la tienda). Comprobado: un cliente con sesión no cambia el dólar, no agrega monedas y no modifica ni borra envíos.
+- Administradores: una sola tabla `commerce_admin_users` con `can_manage_pricing` (1 usuario). `private.is_pricing_admin()` lee esa columna; `admin_users` es una vista para localventas. Tabla original en `private.legacy_admin_users_20261022`.
+- Tipo de cambio: ARS (0,027) vive en `commerce_exchange_rates` junto a USD y BRL; `settings` es una vista editable (gestión la sigue usando igual). Tabla original en `private.legacy_settings_20261022`.
+- `shipping_rates` (envío nacional) y `commerce_international_shipping_rates` (internacional por peso) cumplen funciones distintas: se mantienen las dos.
