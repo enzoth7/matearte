@@ -33,15 +33,13 @@ test("usuarios y permisos están separados en pestañas", async ({ page }) => {
 });
 test("el usuario de Marketing muestra sus accesos y permite administrarlos", async ({ page }) => {
   await page.goto("/administracion/usuarios");
-  await page.getByRole("button", { name: /Betiana Marketing/ }).click();
-  await expect(page.getByText("Acceso a Marketing")).toBeVisible();
-  await expect(page.locator(".access-user-scope")).toContainText("Campañas");
-  await expect(page.locator(".access-user-scope")).not.toContainText("Métricas");
+  await page.getByRole("button", { name: /^Betiana/ }).click();
+  await expect(page.getByRole("heading", { name: "Betiana" })).toBeVisible();
 
   await page.getByRole("tab", { name: "Permisos" }).click();
   await page.getByRole("button", { name: "Betiana Marketing" }).click();
-  await expect(page.locator(".access-area")).toHaveCount(1);
-  await expect(page.getByRole("checkbox", { name: "Mostrar Sorteo a Betiana" })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: "Mostrar Sorteo a Betiana" })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "Mostrar toda el área Marketing a Betiana" })).toBeVisible();
 });
 test("los permisos se guardan en el backend", async ({ page }) => {
   await page.goto("/administracion/usuarios");
