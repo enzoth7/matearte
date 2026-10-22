@@ -326,7 +326,9 @@ export function ProductSpecsBox({ product, selectedOptions, activeVariant }: Pro
     specs.push({
       key: "largo-cinto-cm",
       label: locale === "en" ? "Belt length" : locale === "pt" ? "Comprimento do cinto" : "Largo del cinto",
-      value: cintoStr.toLowerCase().endsWith("cm") ? cintoStr : `${cintoStr} cm`,
+      value: cintoStr.toLowerCase() === "todos"
+        ? (locale === "en" ? "All sizes" : locale === "pt" ? "Todos os tamanhos" : "Todos los tamaños")
+        : cintoStr.toLowerCase().endsWith("cm") ? cintoStr : `${cintoStr} cm`,
     });
   }
 

@@ -67,6 +67,7 @@ export const collectionOptions: ReadonlyArray<{ value: CatalogCollectionId; labe
   { value: "estribo", label: "Estribo" },
   { value: "uruguay", label: "Uruguay" },
   { value: "alfonsina", label: "Alfonsina" },
+  { value: "sonia", label: "Sonia" },
 ];
 
 export type PriceRangeId = (typeof priceRangeOptions)[number]["value"];
