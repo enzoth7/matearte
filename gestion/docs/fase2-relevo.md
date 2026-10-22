@@ -87,7 +87,8 @@ Pendiente, y depende de desplegar gestión primero (la versión publicada todav�
 - `orders.contact_id` enlaza 110 pedidos (los 95 mayoristas y las ventas locales con cliente); los nuevos se enlazan solos.
 - Verificado después de aplicar: sin sesión no se lee ninguna de las vistas ni `contacts`; un administrador lee 5.697 fichas de agenda, 45 mayoristas y 225 líneas; la vista de marketing sigue en 5.764 filas.
 - Cuentas web (`customer_profiles`) y newsletter quedan en sus tablas, enlazadas por usuario o email.
-- Pendiente: escribir la vuelta atrás del paso 3, probar en pantalla Clientes y el registro de ventas.
+- Vuelta atrás escrita y ensayada en la base (se deshizo): `docs/fase2-paso3-vuelta-atras.sql`, con su ensayo en `docs/fase2-paso3-vuelta-atras-ensayo.sql`.
+- Pendiente: probar en pantalla Clientes y el registro de ventas.
 
 ## Paso 4 aplicado (seguridad, administradores y tipo de cambio), 2026-10-22
 - Enzo corrió `docs/fase2-paso4.sql` en el editor de Supabase (ensayo previo OK: `docs/fase2-paso4-ensayo.sql`).
