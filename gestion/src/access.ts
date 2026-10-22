@@ -18,6 +18,7 @@ export function defaultAccess(): Record<string, string[]> {
       "/inicio/resumen",
       "/comercial/pedidos", "/comercial/registrar-min",
       "/clientes/base",
+      "/inventario/compras", "/finanzas/egresos",
     ],
     t3: [
       "/inicio/resumen", "/inicio/alertas",
@@ -25,13 +26,15 @@ export function defaultAccess(): Record<string, string[]> {
       "/clientes/base",
       "/productos/catalogo", "/productos/servicios", "/productos/ajustes", "/productos/personalizador",
       ...withAreas(["produccion", "inventario", "entregas"]),
+      "/finanzas/egresos",
     ],
     t5: withAreas(["marketing"]),
   };
 }
 
+// Finanzas ya no es exclusiva: Richard decide quién la ve desde Usuarios y permisos.
 export function lockedForRichard(path: string): boolean {
-  return path === "/administracion/usuarios" || path.startsWith("/finanzas/");
+  return path === "/administracion/usuarios";
 }
 
 export function accessUserId(s: State): AccessUserId {

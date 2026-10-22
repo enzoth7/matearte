@@ -21,18 +21,20 @@ describe("visibilidad de los tres perfiles", () => {
     const withProducts = setAreaAccess(s, "t5", "productos", true);
     expect(canAccess(withProducts, "/productos/catalogo")).toBe(true);
     expect(canAccess(withProducts, "/productos/personalizador")).toBe(true);
-    expect(canAccess(setPageAccess(s, "t5", "/finanzas/resumen", true), "/finanzas/resumen")).toBe(false);
+    expect(canAccess(setPageAccess(s, "t5", "/finanzas/resumen", true), "/finanzas/resumen")).toBe(true);
   });
-  it("deja toda la gestión a Richard y reserva Finanzas y Usuarios para él", () => {
+  it("reserva Usuarios y permisos para Richard y deja Egresos y Compras a las dos Florencias", () => {
     const richard = seed();
     expect(canAccess(richard, "/finanzas/resumen")).toBe(true);
     expect(canAccess(richard, "/administracion/usuarios")).toBe(true);
     for (const id of ["t2", "t3"]) {
       const s = { ...richard, activeUserId: id };
+      expect(canAccess(s, "/finanzas/egresos")).toBe(true);
+      expect(canAccess(s, "/inventario/compras")).toBe(true);
       expect(canAccess(s, "/finanzas/resumen")).toBe(false);
       expect(canAccess(s, "/administracion/usuarios")).toBe(false);
-      expect(setAreaAccess(s, id as "t2" | "t3", "finanzas", true).access?.[id]).toEqual(defaultAccess()[id]);
-      expect(setPageAccess(s, id as "t2" | "t3", "/finanzas/egresos", true).access?.[id]).toEqual(defaultAccess()[id]);
+      expect(canAccess(setPageAccess(s, id as "t2" | "t3", "/finanzas/resumen", true), "/finanzas/resumen")).toBe(true);
+      expect(setPageAccess(s, id as "t2" | "t3", "/administracion/usuarios", true).access?.[id]).toEqual(defaultAccess()[id]);
     }
   });
 

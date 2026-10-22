@@ -108,8 +108,8 @@ Deno.serve(async (request) => {
     if (!isManagedId(accessUserId) || !allowedPaths || allowedPaths.length > 100) {
       return json({ error: "Revisá los permisos seleccionados." }, 400, origin);
     }
-    if (allowedPaths.some((path) => !path.startsWith("/") || path === "/administracion/usuarios" || path.startsWith("/finanzas/"))) {
-      return json({ error: "Hay una sección que sólo puede usar Richard." }, 400, origin);
+    if (allowedPaths.some((path) => !path.startsWith("/") || path === "/administracion/usuarios")) {
+      return json({ error: "Usuarios y permisos sólo puede usarlo Richard." }, 400, origin);
     }
     const { data, error } = await service.from("commerce_admin_users")
       .update({ allowed_paths: allowedPaths })
