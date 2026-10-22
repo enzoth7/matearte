@@ -63,3 +63,11 @@ Pendiente, y depende de desplegar gestión primero (la versión publicada todav�
 1. Reemplazar `products` por vista de compatibilidad y quitar los triggers espejo.
 2. Cerrar el acceso público de `products`, `order_lines`, `customers` y `settings` (ver sección 1) y decidir qué pasa con el dashboard viejo.
 3. Eliminar `wholesale_product_images` cuando nadie la lea.
+
+## Paso 1 completado en la base, 2026-10-22
+- `public.products` ya no es una tabla: es una vista de compatibilidad (solo lectura, `security_invoker`, solo `authenticated`) construida desde `commerce_variants` y `commerce_products`. 206 filas, igual al respaldo salvo `id 16` (Imperial Plata 900 Marrón), cuyo precio ARS era un valor calculado y hoy figura 0 porque no tiene precio mayorista cargado.
+- Triggers espejo eliminados (`sync_catalog_variant_to_legacy`, `link_catalog_variant_to_legacy`, `sync_catalog_cover_to_legacy`, `sync_catalog_product_name_to_legacy`) y sus funciones. Quedan `sync_variant_name_to_history` y `sync_product_name_to_history`, que mantienen alineados los nombres de `order_lines`, `local_sale_items` y `order_items` cuando se renombra un producto o variante.
+- `check_wholesale_line_availability` valida contra el catálogo y acepta variante "Genérico" si el modelo tiene algún color con mayorista.
+- Se quitó la política de subida de fotos mayoristas en `storage.objects` (`wholesale_product_images_storage_insert`).
+- Acceso público cerrado: se borraron las políticas `Enable all for anon` de `customers`, `order_lines` y `settings`; ahora solo administradores (`is_pricing_admin` o `is_commerce_admin`). Probado: anon ve 0 filas; un administrador ve 45 clientes y 225 líneas. El dashboard viejo (clave anónima) ya no puede leer ni escribir esas tablas.
+- Pendiente: eliminar `wholesale_product_images` (sin lectores) y la columna `commerce_variants.legacy_product_id` cuando se apague el dashboard viejo.

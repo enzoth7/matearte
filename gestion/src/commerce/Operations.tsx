@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { saveWholesaleExchangeRate } from '../wholesaleSource';
+import { INTERNAL_ORDER_CHANNELS } from '../commerceSource';
 import { PersonalizedOrders } from './PersonalizedOrdersView';
 import { TaxonomyManager } from './TaxonomyManager';
 import { loadCatalogTaxonomy } from './catalogTaxonomy';
@@ -1675,12 +1676,14 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer}:{session:Se
     let {data,error}:{data:unknown;error:{message:string;code?:string}|null} = await supabase
       .from('orders')
       .select('id,order_number,reference_code,status,peso,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,discount_code,discount_minor,total_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot,source_variant:commerce_variants(product:commerce_products(peso)))')
+      .not('channel','in',INTERNAL_ORDER_CHANNELS)
       .order('created_at',{ascending:false})
       .limit(orderId ? 1 : 100).match(orderId ? { id: orderId } : {});
     if (error && (error.code === '42703' || /peso|source_variant/i.test(error.message))) {
       ({data,error} = await supabase
         .from('orders')
         .select('id,order_number,reference_code,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,discount_code,discount_minor,total_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot)')
+        .not('channel','in',INTERNAL_ORDER_CHANNELS)
         .order('created_at',{ascending:false})
         .limit(orderId ? 1 : 100).match(orderId ? { id: orderId } : {}));
     }

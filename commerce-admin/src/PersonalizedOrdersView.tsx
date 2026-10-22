@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { supabase } from './supabase';
+import { INTERNAL_ORDER_CHANNELS, supabase } from './supabase';
 import {
   asRecord,
   customerName,
@@ -100,6 +100,7 @@ export function PersonalizedOrders({ onNotice }: { onNotice: (value: string) => 
     const { data, error } = await supabase
       .from('orders')
       .select('id,order_number,status,total_minor,created_at,paid_at,customer_snapshot,order_items(id,item_type,title,quantity,total_minor,requires_review,review_status,review_reason,immutable_snapshot)')
+      .not('channel', 'in', INTERNAL_ORDER_CHANNELS)
       .order('created_at', { ascending: false })
       .limit(100);
 

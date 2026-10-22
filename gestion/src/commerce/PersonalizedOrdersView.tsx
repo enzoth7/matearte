@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Plus } from '@phosphor-icons/react';
 import { supabase } from './supabase';
+import { INTERNAL_ORDER_CHANNELS } from '../commerceSource';
 import { balance, orderName, paid, type State } from '../data';
 import { Badge } from '../ui';
 import { compactOrderItemName } from '../orderItemPresentation';
@@ -164,6 +165,7 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
       for (let offset = 0; ; offset += 100) {
         const { data, error, count } = await supabase.from('orders')
           .select('id,order_number,reference_code,status,total_minor,created_at,paid_at,customer_snapshot,order_items(id,item_type,source_variant_id,title,quantity,total_minor,requires_review,review_status,review_reason,production_status,immutable_snapshot)', {count:'exact'})
+          .not('channel', 'in', INTERNAL_ORDER_CHANNELS)
           .order('created_at', {ascending:false}).order('id').range(offset, offset + 99);
         if (error) throw error;
         result.push(...(data || []) as PersonalizedOrder[]);
