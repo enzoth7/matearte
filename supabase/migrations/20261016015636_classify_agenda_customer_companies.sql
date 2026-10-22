@@ -1,0 +1,56 @@
+-- Casos claros revisados por nombre: no se modifica la tabla mayorista.
+with mapping(old_name, new_name, company_name) as (values
+  ('ADT Security Services S.A. Carla', 'Carla', 'ADT Security Services S.A.'),
+  ('Agencia Nacional de Desarrollo', 'Agencia Nacional de Desarrollo', 'Agencia Nacional de Desarrollo'),
+  ('Ana Distribuidora', 'Ana', 'Distribuidora'),
+  ('Ana Panz', 'Ana', 'Panz'),
+  ('Cata Panz', 'Cata', 'Panz'),
+  ('Club Domo Secreto Maldonado', 'Club Domo Secreto Maldonado', 'Club Domo Secreto Maldonado'),
+  ('Daniel Agencia Central De Carga', 'Daniel', 'Agencia Central de Carga'),
+  ('Daniela Pizzería', 'Daniela', 'Pizzería'),
+  ('Dario Carniceria', 'Darío', 'Carnicería'),
+  ('El Bar Delibery', 'El Bar Delibery', 'El Bar Delibery'),
+  ('El Rancho Salon', 'El Rancho Salon', 'El Rancho Salon'),
+  ('Evelyn Agencia Central', 'Evelyn', 'Agencia Central'),
+  ('Ferreteria Rural', 'Ferreteria Rural', 'Ferreteria Rural'),
+  ('Gabriela Hotel', 'Gabriela', 'Hotel'),
+  ('Grstora Intendencia', 'Grstora Intendencia', 'Intendencia'),
+  ('Guille Panz', 'Guille', 'Panz'),
+  ('Hotel Barcelo Costa Cancun', 'Hotel Barcelo Costa Cancun', 'Hotel Barcelo Costa Cancun'),
+  ('Hotel Moron', 'Hotel Moron', 'Hotel Moron'),
+  ('Hotel Patagonia Gral Acha', 'Hotel Patagonia Gral Acha', 'Hotel Patagonia Gral Acha'),
+  ('Hotel Posada Punta Del Diablo', 'Hotel Posada Punta Del Diablo', 'Hotel Posada Punta Del Diablo'),
+  ('Juan Jose Hotel Quinto Elemento', 'Juan José', 'Hotel Quinto Elemento'),
+  ('Marcel Panz', 'Marcel', 'Panz'),
+  ('Marita Panz', 'Marita', 'Panz'),
+  ('Martin Panz', 'Martín', 'Panz'),
+  ('Matebom Srl', 'Matebom Srl', 'Matebom Srl'),
+  ('Matias Mozo Panz', 'Matías', 'Panz'),
+  ('Michel Pizzeria', 'Michel', 'Pizzería'),
+  ('Nahuel Panz', 'Nahuel', 'Panz'),
+  ('Panz Pizzeria', 'Panz Pizzeria', 'Panz Pizzeria'),
+  ('Pizzeria Andres Giordano', 'Pizzeria Andres Giordano', 'Pizzeria Andres Giordano'),
+  ('Pizzeria La Terulia', 'Pizzeria La Terulia', 'Pizzeria La Terulia'),
+  ('Raosa Srl Transporte', 'Raosa Srl Transporte', 'Raosa Srl Transporte'),
+  ('Rodrigo Panz', 'Rodrigo', 'Panz'),
+  ('Rossina Gran Hotel', 'Rossina', 'Gran Hotel'),
+  ('Salon Carmisol', 'Salon Carmisol', 'Salon Carmisol'),
+  ('Salon El Rancho Felipone', 'Salon El Rancho Felipone', 'Salon El Rancho Felipone'),
+  ('Salon Fiestas Torreon', 'Salon Fiestas Torreon', 'Salon Fiestas Torreon'),
+  ('Sebagol Panz', 'Sebagol', 'Panz'),
+  ('Sergio Ferreteria', 'Sergio', 'Ferretería'),
+  ('Sofia Club Del Este', 'Sofía', 'Club del Este'),
+  ('Tienda Urguaya', 'Tienda Urguaya', 'Tienda Urguaya'),
+  ('Tito Panz', 'Tito', 'Panz'),
+  ('Victor Panz', 'Víctor', 'Panz'),
+  ('Víctor y Leo Pizzeria', 'Víctor y Leo', 'Pizzería'),
+  ('Werba s.a.', 'Werba s.a.', 'Werba s.a.'),
+  ('Ypf Colon', 'Ypf Colon', 'YPF Colón'),
+  ('Zoe Intendencia', 'Zoe', 'Intendencia')
+)
+update public.local_sales_customers c
+set full_name = m.new_name, company_name = m.company_name
+from mapping m
+where c.agenda_import_key is not null
+  and c.company_name is null
+  and c.full_name = m.old_name;

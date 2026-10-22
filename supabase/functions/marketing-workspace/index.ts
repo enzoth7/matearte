@@ -16,9 +16,12 @@ const safeUrl = (value: string) => {
 };
 
 function campaignHtml(campaign: { subject: string; body: string; image_url: string | null; target_url: string | null }, test = false) {
-  const image = campaign.image_url ? `<img src="${escapeHtml(campaign.image_url)}" alt="" width="600" style="display:block;max-width:100%;height:auto;margin:0 auto 24px">` : "";
-  const button = campaign.target_url ? `<p><a href="${escapeHtml(campaign.target_url)}" style="display:inline-block;background:#3d2519;color:white;padding:14px 24px;text-decoration:none">Ver en Matearte</a></p>` : "";
-  return `<!doctype html><html lang="es"><body style="margin:0;background:#f6f0e8;color:#302018;font-family:Arial,sans-serif"><main style="max-width:600px;margin:auto;padding:32px;background:#fffdf9"><h1 style="font-family:Georgia,serif">Matearte</h1>${image}<h2>${escapeHtml(campaign.subject)}</h2>${campaign.body.split(/\n{2,}/).map((part) => `<p style="line-height:1.6">${escapeHtml(part).replace(/\n/g, "<br>")}</p>`).join("")}${button}<p style="margin-top:36px;font-size:12px;color:#695950">${test ? "Esta es una prueba de la campaña." : 'Si no querés recibir más novedades, <a href="{{{RESEND_UNSUBSCRIBE_URL}}}">podés darte de baja</a>.'}</p></main></body></html>`;
+  const image = campaign.image_url ? `<img src="${escapeHtml(campaign.image_url)}" alt="" width="600" style="display:block;max-width:100%;height:auto;margin:0 auto 24px;border:0">` : "";
+  const content = `${image}<h2>${escapeHtml(campaign.subject)}</h2>${campaign.body.split(/\n{2,}/).map((part) => `<p style="line-height:1.6">${escapeHtml(part).replace(/\n/g, "<br>")}</p>`).join("")}`;
+  // Todo el contenido (foto, asunto y mensaje) lleva al enlace de la promoción.
+  const linked = campaign.target_url ? `<a href="${escapeHtml(campaign.target_url)}" style="display:block;color:inherit;text-decoration:none">${content}</a>` : content;
+  const footer = test ? "Esta es una prueba de la campaña." : '<a href="{{{RESEND_UNSUBSCRIBE_URL}}}" style="color:#695950">Cancelar suscripción</a>';
+  return `<!doctype html><html lang="es"><body style="margin:0;background:#f6f0e8;color:#302018;font-family:Arial,sans-serif"><main style="max-width:600px;margin:auto;padding:32px;background:#fffdf9"><h1 style="font-family:Georgia,serif">Matearte</h1>${linked}<p style="margin-top:36px;font-size:11px;color:#695950">${footer}</p></main></body></html>`;
 }
 
 Deno.serve(async (request) => {
@@ -38,7 +41,7 @@ Deno.serve(async (request) => {
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return response({ error: "Solicitud inválida." }, 400, origin); }
   const action = clean(body.action, 30);
-  const route = action === "contacts" ? "/marketing/contactos" : action === "metrics" ? "/marketing/metricas" : action === "settings" || action === "saveSettings" ? "/marketing/suscripcion" : "/marketing/campanas";
+  const route = action === "contacts" ? "/marketing/contactos" : action === "analytics" ? "/marketing/analytics" : action === "metrics" ? "/marketing/metricas" : action === "settings" || action === "saveSettings" ? "/marketing/suscripcion" : "/marketing/campanas";
   if (membership.access_user_id !== "t1" && !membership.allowed_paths?.includes(route)) return response({ error: "No tenés acceso a esta pestaña." }, 403, origin);
 
   if (action === "contacts") {
@@ -91,6 +94,56 @@ Deno.serve(async (request) => {
       withPhone: phoneResult.count || 0, active: activeResult.count || 0, accounts: accountResult.count || 0,
     } }, 200, origin);
   }
+  if (action === "analytics") {
+    const vercelToken = Deno.env.get("VERCEL_ANALYTICS_TOKEN")?.trim() || "";
+    const teamId = Deno.env.get("VERCEL_TEAM_ID")?.trim() || "team_nvrETovmDRtUay05tg8OkZb0";
+    // VERCEL_ANALYTICS_SITES: "tienda:Tienda web:prj_xxx,visualizador:Visualizador:prj_yyy"
+    const sites = (Deno.env.get("VERCEL_ANALYTICS_SITES") || "tienda:Tienda web:prj_wACNXNMkoQymJhRi01L4mJQ5E2a1,visualizador:Visualizador:prj_Slv0SnaWTPUZdYZ6qAzbrIHMsd49")
+      .split(",").map((entry) => entry.trim().split(":")).filter((parts) => parts.length === 3).map(([id, name, projectId]) => ({ id, name, projectId }));
+    if (!vercelToken) return response({ error: "Falta configurar VERCEL_ANALYTICS_TOKEN en Supabase.", sites: sites.map(({ id, name }) => ({ id, name })) }, 503, origin);
+    const site = sites.find((item) => item.id === clean(body.site, 40)) || sites[0];
+    if (!site) return response({ error: "No hay sitios configurados." }, 503, origin);
+    const days = [1, 7, 30, 90].includes(Number(body.days)) ? Number(body.days) : 30;
+    const until = new Date();
+    const since = new Date(until.getTime() - (days - 1) * 86400000);
+    since.setUTCHours(0, 0, 0, 0);
+    // Filtros de la pestaña: cada dimensión admite varios valores ya normalizados en el cliente.
+    const filterable = ["country", "deviceType", "referrerHostname", "route", "requestPath"];
+    const rawFilters = body.filters && typeof body.filters === "object" ? body.filters as Record<string, unknown> : {};
+    const filter = filterable.flatMap((dimension) => {
+      const values = (Array.isArray(rawFilters[dimension]) ? rawFilters[dimension] as unknown[] : []).map((value) => clean(value, 200)).filter((value) => value && !/['\]/.test(value)).slice(0, 20);
+      return values.length ? [`${dimension} in (${values.map((value) => `'${value}'`).join(",")})`] : [];
+    }).join(" and ");
+    const query = async (by: string, limit = 10, extra = "") => {
+      const combined = [filter, extra].filter(Boolean).join(" and ");
+      const params = new URLSearchParams({ projectId: site.projectId, teamId, since: since.toISOString(), until: until.toISOString(), by, limit: String(limit), ...(combined ? { filter: combined } : {}) });
+      const res = await fetch(`https://api.vercel.com/v1/query/web-analytics/visits/aggregate?${params}`, { headers: { Authorization: `Bearer ${vercelToken}` } });
+      if (!res.ok) throw new Error(String(res.status));
+      const json = await res.json();
+      return (Array.isArray(json.data) ? json.data : []) as Record<string, string | number>[];
+    };
+    try {
+      const [timeline, countries, devices, referrers, pages, productPaths] = await Promise.all([
+        query(days === 1 ? "hour" : "day", 100), query("country", 30), query("deviceType"), query("referrerHostname", 30), query("route", 30),
+        query("requestPath", 100, "route in ('/producto/[slug]','/[locale]/product/[slug]','/[locale]/produto/[slug]')"),
+      ]);
+      // El slug de la URL es el editorial_slug del producto; lo traducimos al nombre del catálogo.
+      const slugOf = (path: string) => { try { return decodeURIComponent(path.split("?")[0].split("/").filter(Boolean).pop() || ""); } catch { return ""; } };
+      const slugs = [...new Set(productPaths.map((row) => slugOf(String(row.requestPath))).filter(Boolean))];
+      const { data: catalog } = slugs.length ? await admin.from("commerce_products").select("editorial_slug,name").in("editorial_slug", slugs) : { data: [] };
+      const productNames = new Map((catalog || []).map((row) => [row.editorial_slug, row.name]));
+      const rows = (data: Record<string, string | number>[], key: string) => data.map((row) => ({ label: String(row[key] || ""), pageviews: Number(row.pageviews) || 0, visitors: Number(row.visitors) || 0 }));
+      return response({
+        site: { id: site.id, name: site.name }, sites: sites.map(({ id, name }) => ({ id, name })), days,
+        timeline: timeline.map((row) => ({ timestamp: String(row.timestamp), pageviews: Number(row.pageviews) || 0, visitors: Number(row.visitors) || 0 })),
+        countries: rows(countries, "country"), devices: rows(devices, "deviceType"), referrers: rows(referrers, "referrerHostname"), pages: rows(pages, "route"),
+        products: productPaths.map((row) => { const path = String(row.requestPath || ""); const slug = slugOf(path); return { label: String(productNames.get(slug) || slug.replace(/[-_]+/g, " ")), value: path, pageviews: Number(row.pageviews) || 0, visitors: Number(row.visitors) || 0 }; }).filter((row) => row.label),
+      }, 200, origin);
+    } catch (reason) {
+      const status = Number((reason as Error).message);
+      return response({ error: status === 401 || status === 403 ? "Vercel rechazó el token de Analytics." : status === 402 ? "Tu plan de Vercel no incluye esta consulta." : "No se pudieron consultar las estadísticas de Vercel." }, 502, origin);
+    }
+  }
   if (action === "metrics") {
     const [active, confirmed, accounts, sources, campaigns, settings] = await Promise.all([
       admin.from("newsletter_subscribers").select("id", { count: "exact", head: true }).eq("status", "active"),
@@ -141,9 +194,16 @@ Deno.serve(async (request) => {
     return result.error || !result.data ? response({ error: "No se pudo guardar el borrador." }, 400, origin) : response({ id: result.data.id }, 200, origin);
   }
   if (action === "syncContacts") {
-    const apiKey = Deno.env.get("RESEND_API_KEY") || "";
+    let apiKey = Deno.env.get("RESEND_API_KEY")?.trim() || "";
     const segmentId = Deno.env.get("RESEND_MARKETING_SEGMENT_ID") || "";
-    const topicId = Deno.env.get("RESEND_NEWSLETTER_TOPIC_ID") || "";
+    let topicId = Deno.env.get("RESEND_NEWSLETTER_TOPIC_ID")?.trim() || "";
+    if (!apiKey || !topicId) {
+      const { data, error } = await admin.rpc("get_email_delivery_config");
+      if (error) return response({ error: "No se pudo leer la configuración del correo." }, 500, origin);
+      const config = (data || {}) as Record<string, string>;
+      apiKey ||= config.matearte_resend_api_key || "";
+      topicId ||= config.matearte_newsletter_topic_id || "";
+    }
     if (!apiKey || !segmentId || !topicId) return response({ error: "Configurá el grupo de suscriptores de Resend antes de enviar." }, 503, origin);
     const batchSize = 5;
     const { data: contacts, count, error } = await admin.from("newsletter_subscribers")
@@ -185,9 +245,16 @@ Deno.serve(async (request) => {
     const id = clean(body.id, 36);
     const { data: campaign } = await admin.from("marketing_campaigns").select("id,subject,body,image_url,target_url,status").eq("id", id).maybeSingle();
     if (!campaign || campaign.status !== "draft") return response({ error: "El borrador no está disponible." }, 404, origin);
-    const apiKey = Deno.env.get("RESEND_API_KEY") || "";
-    const from = Deno.env.get("MARKETING_EMAIL_FROM") || Deno.env.get("NEWSLETTER_EMAIL_FROM") || Deno.env.get("COMMERCE_EMAIL_FROM") || "";
+    let apiKey = Deno.env.get("RESEND_API_KEY")?.trim() || "";
+    let from = Deno.env.get("MARKETING_EMAIL_FROM")?.trim() || Deno.env.get("NEWSLETTER_EMAIL_FROM")?.trim() || Deno.env.get("COMMERCE_EMAIL_FROM")?.trim() || "";
     const segmentId = Deno.env.get("RESEND_MARKETING_SEGMENT_ID") || "";
+    if (!apiKey || !from) {
+      const { data, error } = await admin.rpc("get_email_delivery_config");
+      if (error) return response({ error: "No se pudo leer la configuración del correo." }, 500, origin);
+      const config = (data || {}) as Record<string, string>;
+      apiKey ||= config.matearte_resend_api_key || "";
+      from ||= config.matearte_email_from || "";
+    }
     if (!apiKey || !from || (action === "sendCampaign" && !segmentId)) return response({ error: "Configurá el remitente y el grupo de suscriptores antes de enviar." }, 503, origin);
     const isTest = action === "testCampaign";
     const testEmail = clean(body.testEmail, 320);

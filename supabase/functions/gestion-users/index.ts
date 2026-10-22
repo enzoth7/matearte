@@ -125,7 +125,7 @@ Deno.serve(async (request) => {
     userId = data.user.id;
   }
   const { error: membershipError } = await service.from("commerce_admin_users").upsert({ user_id: userId, access_user_id: accessUserId, display_name: displayName, active: true,
-    ...(accessUserId === "t5" ? { allowed_paths: membership?.allowed_paths || ["/marketing/campanas","/marketing/sorteo","/marketing/contactos","/marketing/suscripcion","/marketing/descuentos","/marketing/avisos"] } : {}),
+    ...(accessUserId === "t5" ? { allowed_paths: membership?.allowed_paths || ["/marketing/campanas","/marketing/sorteo","/marketing/contactos","/marketing/suscripcion","/marketing/analytics","/marketing/descuentos","/marketing/avisos"] } : {}),
   }, { onConflict: "user_id" });
   if (membershipError) return json({ error: "Se creó el acceso, pero no se pudo asignar a la persona." }, 500, origin);
   return json({ user: { accessUserId, username, configured: true } }, 200, origin);
