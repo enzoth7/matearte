@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Order, OrderLine, Product } from "./data";
-import { isPersonalizedMateOrder, naturalCaseName, withoutPersonalizedMateItems } from "./productionPresentation";
+import { isPersonalizedMateOrder, naturalCaseName, workshopOrderRows } from "./productionPresentation";
 
 const product = (id: string, name: string, categoryCode: string): Product => ({
   id, name, categoryCode, family: categoryCode, sku: id, variant: "Marrón", rim: "", leather: "", cost: 0,
@@ -22,12 +22,25 @@ describe("presentación de producción", () => {
     expect(naturalCaseName("Mate Imperial Pampa")).toBe("Mate Imperial Pampa");
   });
 
-  it("reconoce personalizados Web y Local y los separa de la producción general", () => {
-    const products = [product("regular", "Mate Imperial", "mates"), product("custom", "Mate a medida", "personalizados")];
+  it("envía a producción solo personalizados y servicios de Web y Local", () => {
+    const products = [product("regular", "Mate Imperial", "mates"), product("custom", "Mate a medida", "personalizados"), product("service", "Grabado", "servicios")];
     const mixed = order([line("custom-line", "custom", "local_design"), line("regular-line", "regular")]);
+    const localDesign: Order = { ...order([line("local-design", "custom", "local_design")]), id: "local-design", source: "local", production: "No aplica" };
+    const localService: Order = { ...order([line("local-service", "service"), line("local-service-regular", "regular")]), id: "local-service", source: "local", production: "No aplica" };
+    const webService: Order = { ...order([line("web-service", "service")]), id: "web-service" };
+    const regularLocal: Order = { ...order([line("local-regular", "regular")]), id: "local-regular", source: "local", production: "No aplica" };
+    const legacyLocal: Order = { ...order([line("legacy-local-regular", "regular")]), id: "legacy-local", channel: "Local" };
+    const regularWeb: Order = { ...order([line("web-regular", "regular")]), id: "web-regular" };
+    const wholesale: Order = { ...order([line("wholesale-regular", "regular")]), id: "wholesale", source: "wholesale" };
+    const cancelled = { ...order([line("cancelled", "custom", "design")]), id: "cancelled", status: "cancelled" };
     expect(isPersonalizedMateOrder(mixed, products)).toBe(true);
-    expect(withoutPersonalizedMateItems(mixed, products)?.items?.map((item) => item.id)).toEqual(["regular-line"]);
-    expect(withoutPersonalizedMateItems(order([line("design", "missing", "design")]), products)).toBeNull();
+    const rows = workshopOrderRows([mixed, localDesign, localService, webService, regularLocal, legacyLocal, regularWeb, wholesale, cancelled], products);
+    expect(rows.map((row) => row.id)).toEqual(["order", "local-design", "local-service", "web-service", "wholesale"]);
+    expect(rows[0].items?.map((item) => item.id)).toEqual(["custom-line"]);
+    expect(rows[1].production).toBe("Pendiente");
+    expect(rows[2].items?.map((item) => item.id)).toEqual(["local-service"]);
+    expect(rows[3].items?.map((item) => item.id)).toEqual(["web-service"]);
+    expect(rows[4].items?.map((item) => item.id)).toEqual(["wholesale-regular"]);
   });
 
   it("no confunde un modelo fijo vendido en Local con un encargo diseñado", () => {

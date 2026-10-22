@@ -76,11 +76,11 @@ test("el formulario mayorista busca y alinea los artículos con importes en ARS"
 
 test("producción usa los nombres de Clientes y Catálogo aunque el histórico esté en mayúsculas", async ({ page }) => {
   const { tables } = await mockCommerce(page);
-  tables.products.push({ id: "legacy-linked", model: "MATE HISTORICO", variant: "MARRON", rim_type: "ACERO",
-    leather_type: "LISO", price_arg: 10000, price_uyu: 270, commerce_product_id: "product-1", commerce_variant_id: "variant-1" });
+  tables.products.push({ id: "legacy-linked", model: "Mate de catálogo", variant: "Cuero negro", rim_type: "Acero",
+    leather_type: "Liso", price_arg: 10000, price_uyu: 270 });
   tables.customers.push({ full_name: "CLIENTE NORTE", first_name: "CLIENTE", last_name: "NORTE", phone: "", email: "", address: "", notes: "" });
   tables.order_lines.push({ line_id: "legacy-line", order_id: "PED-LEGACY", created_at: "2026-10-19T12:00:00Z",
-    completed_at: null, customer: "CLIENTE NORTE", model: "MATE HISTORICO", variant: "MARRON", quantity: 1,
+    completed_at: null, customer: "CLIENTE NORTE", model: "MATE DE CATÁLOGO", variant: "CUERO NEGRO", quantity: 1,
     status: "Pendiente", order_type: "normal", unit_price_arg: null, unit_price_uyu: null,
     exchange_rate: null, total_arg: null, total_uyu: null });
 
@@ -89,7 +89,7 @@ test("producción usa los nombres de Clientes y Catálogo aunque el histórico e
   await expect(row).toContainText("Cliente Norte");
   await expect(row).toContainText("Mate de catálogo");
   await expect(row).toContainText("Cuero negro");
-  await expect(row).not.toContainText("MATE HISTORICO");
+  await expect(row).not.toContainText("MATE DE CATÁLOGO");
 });
 
 test("la búsqueda de producción mayorista comparte fila con las pestañas y filtra ambas vistas", async ({ page }) => {
@@ -343,7 +343,7 @@ test("solo elimina fichas mayoristas sin pedidos, después de confirmar", async 
   await expect(page.getByRole("button", { name: "Editar Cliente Sin Pedidos" })).not.toBeVisible();
 });
 
-test("ARS comparte la tabla de cotizaciones y actualiza el catálogo mayorista", async ({ page }) => {
+test("ARS comparte la tabla de cotizaciones", async ({ page }) => {
   const { tables } = await mockCommerce(page, { writable: true });
   tables.products.push({ id: "1", model: "Torpedo", variant: "Negro", rim_type: "", leather_type: "", price_arg: 10000, price_uyu: 270 });
 
@@ -356,7 +356,6 @@ test("ARS comparte la tabla de cotizaciones y actualiza el catálogo mayorista",
   await ars.getByRole("spinbutton", { name: "Cotización ARS en UYU" }).fill("0.028");
   await ars.getByRole("button", { name: "Guardar" }).click();
   await expect.poll(() => tables.settings.exchange_rate).toBe(0.028);
-  await expect.poll(() => tables.products[0].price_uyu).toBe(280);
   await expect(ars.getByRole("spinbutton", { name: "Cotización ARS en UYU" })).toHaveValue("0.028");
 });
 

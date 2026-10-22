@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentType, type FormEvent, type PointerEvent, type ReactNode } from "react";
+import * as flags from "country-flag-icons/react/3x2";
 import { commerceSource } from "./commerceSource";
 import { customerOriginClass, customerOriginLabel, customerOriginOptions, customerOriginValue } from "./customerChannel";
 
@@ -10,7 +11,13 @@ type Settings = { enabled: boolean; headline: string; description: string; image
 async function callMarketing<T>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
   if (!commerceSource) throw new Error("El comercio no está conectado.");
   const { data, error } = await commerceSource.functions.invoke("marketing-workspace", { body: { action, ...payload } });
-  if (error || data?.error) throw new Error(data?.error || error?.message || "No se pudo completar la operación.");
+  if (error) {
+    const responseBody = error.context instanceof Response
+      ? await error.context.json().catch(() => null) as { error?: string } | null
+      : null;
+    throw new Error(responseBody?.error || error.message || "No se pudo completar la operación.");
+  }
+  if (data?.error) throw new Error(data.error);
   return data as T;
 }
 
@@ -120,10 +127,11 @@ function Campaigns({ notify }: { notify: (message: string) => void }) {
   const [syncProgress, setSyncProgress] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [viewing, setViewing] = useState<Campaign | null>(null);
   const load = useCallback(async () => { const result = await callMarketing<{ campaigns: Campaign[] }>("campaigns"); setCampaigns(result.campaigns); }, []);
   useEffect(() => { void load().catch((reason) => setError(reason.message)); }, [load]);
-  const reset = () => { setId(""); setSubject(""); setMessage(""); setTargetUrl(""); setImageUrl(""); setFile(null); setDirty(false); setError(""); };
-  const edit = (campaign: Campaign) => { setId(campaign.id); setSubject(campaign.subject); setMessage(campaign.body); setTargetUrl(campaign.target_url || ""); setImageUrl(campaign.image_url || ""); setFile(null); setDirty(false); setError(""); };
+  const reset = () => { setViewing(null); setId(""); setSubject(""); setMessage(""); setTargetUrl(""); setImageUrl(""); setFile(null); setDirty(false); setError(""); };
+  const edit = (campaign: Campaign) => { setViewing(null); setId(campaign.id); setSubject(campaign.subject); setMessage(campaign.body); setTargetUrl(campaign.target_url || ""); setImageUrl(campaign.image_url || ""); setFile(null); setDirty(false); setError(""); };
   const save = async (event?: FormEvent) => {
     event?.preventDefault();
     setBusy(true); setError("");
@@ -162,26 +170,242 @@ function Campaigns({ notify }: { notify: (message: string) => void }) {
     setSyncProgress(null);
     setBusy(false);
   };
+  const sent = campaigns.filter((campaign) => campaign.status === "sent");
+  const others = campaigns.filter((campaign) => campaign.status !== "sent");
+  const campaignRow = (campaign: Campaign) => <button key={campaign.id} className={`marketing-campaign-row${viewing?.id === campaign.id ? " is-selected" : ""}`} onClick={() => campaign.status === "draft" ? edit(campaign) : (reset(), setViewing(campaign))}><strong>{campaign.subject}</strong><span>{campaign.status === "draft" ? "Borrador" : campaign.status === "sent" ? "Enviada" : "En proceso"} · {date(campaign.sent_at || campaign.created_at)}</span></button>;
   return <div className="marketing-layout">
-    <section className="marketing-panel marketing-form"><div className="marketing-inline"><h2>{id ? "Editar campaña" : "Nueva campaña"}</h2>{id && <button className="secondary" type="button" onClick={reset}>Nueva</button>}</div>
+    {viewing ? <section className="marketing-panel marketing-sent-view"><div className="marketing-inline"><h2>Campaña enviada</h2><button className="secondary" type="button" onClick={reset}>Nueva campaña</button></div>
+      <p className="marketing-hint">Enviada el {date(viewing.sent_at || viewing.created_at)}</p>
+      <h3>{viewing.subject}</h3>
+      {viewing.image_url && (viewing.target_url ? <a href={viewing.target_url} target="_blank" rel="noreferrer"><img className="marketing-preview-image" src={viewing.image_url} alt="Imagen de la campaña" /></a> : <img className="marketing-preview-image" src={viewing.image_url} alt="Imagen de la campaña" />)}
+      <div className="marketing-sent-body">{viewing.body}</div>
+      {viewing.target_url ? <p className="marketing-hint">Enlace de la promoción: <a href={viewing.target_url} target="_blank" rel="noreferrer">{viewing.target_url}</a></p> : <p className="marketing-hint">Esta campaña no tenía enlace.</p>}
+    </section> : <section className="marketing-panel marketing-form"><div className="marketing-inline"><h2>{id ? "Editar campaña" : "Nueva campaña"}</h2>{id && <button className="secondary" type="button" onClick={reset}>Nueva</button>}</div>
       <form onSubmit={(event) => void save(event)}>
         <label><span>Asunto</span><input required maxLength={160} value={subject} onChange={(event) => { setSubject(event.target.value); setDirty(true); }} /></label>
         <label><span>Mensaje</span><textarea required rows={8} maxLength={10000} value={message} onChange={(event) => { setMessage(event.target.value); setDirty(true); }} /></label>
         <label><span>Foto</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { setFile(event.target.files?.[0] || null); setDirty(true); }} /></label>
         {imageUrl && <img className="marketing-preview-image" src={imageUrl} alt="Vista previa de la campaña" />}
-        <label><span>Enlace del botón</span><input type="url" placeholder="https://…" value={targetUrl} onChange={(event) => { setTargetUrl(event.target.value); setDirty(true); }} /></label>
+        <label><span>Enlace de la promoción</span><input type="url" placeholder="https://…" value={targetUrl} onChange={(event) => { setTargetUrl(event.target.value); setDirty(true); }} /><small className="marketing-hint">Al hacer clic en la foto o en el mensaje del correo se abre este enlace.</small></label>
         {error && <p className="error" role="alert">{error}</p>}
         <button className="primary" type="submit" disabled={busy}>{busy ? "Procesando…" : "Guardar borrador"}</button>
       </form>
       {id && <div className="marketing-send"><label><span>Correo de prueba</span><input type="email" value={testEmail} onChange={(event) => setTestEmail(event.target.value)} /></label><div className="marketing-inline"><button className="secondary" disabled={busy || !testEmail} onClick={() => void send("testCampaign")}>Enviar prueba</button><button className="primary" disabled={busy} onClick={() => void send("sendCampaign")}>Enviar a suscriptores</button></div></div>}
       {syncProgress && <p role="status">{syncProgress}</p>}
-    </section>
-    <section className="marketing-panel"><h2>Campañas</h2>{campaigns.map((campaign) => <button key={campaign.id} className="marketing-campaign-row" onClick={() => campaign.status === "draft" && edit(campaign)}><strong>{campaign.subject}</strong><span>{campaign.status === "draft" ? "Borrador" : campaign.status === "sent" ? "Enviada" : "En proceso"} · {date(campaign.sent_at || campaign.created_at)}</span></button>)}{!campaigns.length && <p>Tu primera campaña aparecerá acá.</p>}</section>
+    </section>}
+    <section className="marketing-panel"><h2>Campañas enviadas ({sent.length})</h2>{sent.map(campaignRow)}{!sent.length && <p>Todavía no enviaste ninguna campaña.</p>}
+      {others.length > 0 && <><h2 className="marketing-subtitle">Borradores y en proceso</h2>{others.map(campaignRow)}</>}</section>
+  </div>;
+}
+
+type AnalyticsRow = { label: string; value?: string; pageviews: number; visitors: number };
+type AnalyticsData = { site: { id: string; name: string }; sites: { id: string; name: string }[]; days: number; timeline: { timestamp: string; pageviews: number; visitors: number }[]; countries: AnalyticsRow[]; devices: AnalyticsRow[]; referrers: AnalyticsRow[]; pages: AnalyticsRow[]; products: AnalyticsRow[] };
+type Dimension = "country" | "deviceType" | "referrerHostname" | "route" | "product";
+type Group = { key: string; label: string; icon: ReactNode | null; values: string[]; pageviews: number; visitors: number; filterable: boolean };
+type ActiveFilter = { label: string; icon: ReactNode | null; values: string[] };
+const analyticsPreviewRows = 7;
+const rangeOptions = [[1, "Hoy"], [7, "7 días"], [30, "30 días"], [90, "90 días"]] as const;
+const dimensionTitles: Record<Dimension, string> = { route: "Página", product: "Producto", referrerHostname: "Fuente", country: "País", deviceType: "Dispositivo" };
+
+type Naming = { label: string; icon: ReactNode | null };
+const emoji = (value: string) => <span className="analytics-emoji" aria-hidden="true">{value}</span>;
+const globe = emoji("🌐");
+function Favicon({ domain }: { domain: string }) {
+  const [failed, setFailed] = useState(false);
+  return failed ? globe : <img className="analytics-favicon" src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`} alt="" width="20" height="20" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} />;
+}
+const site = (domain: string) => <Favicon domain={domain} />;
+const referrerRules: [RegExp, Naming][] = [
+  [/(^|\.)instagram\.com$/, { label: "Instagram", icon: site("instagram.com") }],
+  [/(^|\.)(facebook|fb)\.com$|^fb\.me$/, { label: "Facebook", icon: site("facebook.com") }],
+  [/^com\.google\.android\.gm$/, { label: "Gmail", icon: site("mail.google.com") }],
+  [/(^|\.)google\.[a-z.]+$/, { label: "Google", icon: site("google.com") }],
+  [/(^|\.)(bing|yahoo|ecosia)\.com$/, { label: "Otros buscadores", icon: site("bing.com") }],
+  [/(^|\.)duckduckgo\.com$/, { label: "DuckDuckGo", icon: site("duckduckgo.com") }],
+  [/(^|\.)(whatsapp\.com|wa\.me)$/, { label: "WhatsApp", icon: site("whatsapp.com") }],
+  [/(^|\.)(t\.co|twitter\.com|x\.com)$/, { label: "X (Twitter)", icon: site("x.com") }],
+  [/(^|\.)tiktok\.com$/, { label: "TikTok", icon: site("tiktok.com") }],
+  [/(^|\.)(youtube\.com|youtu\.be)$/, { label: "YouTube", icon: site("youtube.com") }],
+  [/(^|\.)mercadopago\.[a-z.]+$|(^|\.)mercadolibre\.[a-z.]+$/, { label: "Mercado Pago / Libre", icon: site("mercadopago.com.uy") }],
+  [/(^|\.)matearteuruguay\.com$/, { label: "MateArte (sitio)", icon: site("matearteuruguay.com") }],
+  [/^matearte-visualizador\.vercel\.app$/, { label: "Personalizador", icon: site("matearte-visualizador.vercel.app") }],
+  [/^matearte-gestion\.vercel\.app$/, { label: "Gestión (interno)", icon: site("matearte-gestion.vercel.app") }],
+];
+const routeRules: [RegExp, Naming][] = [
+  [/^\/(\[locale\])?$/, { label: "Inicio", icon: emoji("🏠") }],
+  [/^\/(\[locale\]\/)?(catalogo|catalog)$/, { label: "Catálogo", icon: emoji("📖") }],
+  [/^\/(\[locale\]\/)?(producto|product)\/\[slug\]$/, { label: "Producto", icon: emoji("🧉") }],
+  [/^\/(\[locale\]\/)?rural$/, { label: "Rural", icon: emoji("🌾") }],
+  [/^\/(\[locale\]\/)?(personalizados|customized)$/, { label: "Personalizados", icon: emoji("✨") }],
+  [/^\/(\[locale\]\/)?(perfil|profile)$/, { label: "Perfil", icon: emoji("👤") }],
+  [/^\/(\[locale\]\/)?(pedidos|orders)\/\[id\]$/, { label: "Seguimiento de pedido", icon: emoji("📦") }],
+  [/^\/(\[locale\]\/)?(carrito|cart)$/, { label: "Carrito", icon: emoji("🛒") }],
+  [/^\/(\[locale\]\/)?(checkout|pagar)$/, { label: "Pago", icon: emoji("💳") }],
+];
+const segmentNames: Record<string, string> = {
+  catalogo: "Catálogo", catalog: "Catálogo", custom: "Personalizados", customized: "Personalizados", personalizados: "Personalizados",
+  producto: "Producto", produto: "Producto", product: "Producto", perfil: "Perfil", profile: "Perfil", editar: "Editar", edit: "Editar",
+  pedidos: "Pedidos", orders: "Pedidos", carrito: "Carrito", cart: "Carrito", checkout: "Pago", pagar: "Pago", rural: "Rural",
+};
+const routeName = (raw: string) => {
+  const segments = raw.replace(/^\/\[locale\]/, "").split("/").filter((segment) => segment && !/^\[.*\]$/.test(segment));
+  if (!segments.length) return "Inicio";
+  return segments.map((segment) => {
+    const known = segmentNames[segment.toLowerCase()];
+    if (known) return known;
+    const text = decodeURIComponent(segment).replace(/[-_]+/g, " ");
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }).join(" › ");
+};
+const deviceNames: Record<string, Naming> = {
+  desktop: { label: "Computadora", icon: emoji("🖥️") }, mobile: { label: "Celular", icon: emoji("📱") }, tablet: { label: "Tablet", icon: emoji("📲") },
+};
+const countryName = (code: string) => { try { return new Intl.DisplayNames(["es"], { type: "region" }).of(code.toUpperCase()) || code; } catch { return code; } };
+const Flag = ({ code }: { code: string }) => {
+  const Component = (flags as unknown as Record<string, ComponentType<{ className?: string }>>)[code.toUpperCase()];
+  return Component ? <Component className="analytics-flag" /> : globe;
+};
+
+function nameFor(dimension: Dimension, raw: string): Naming & { filterable: boolean } {
+  if (raw === "Others") return { label: "Otros", icon: globe, filterable: false };
+  if (dimension === "country") return { label: /^[A-Za-z]{2}$/.test(raw) ? countryName(raw) : raw || "Desconocido", icon: /^[A-Za-z]{2}$/.test(raw) ? <Flag code={raw} /> : globe, filterable: Boolean(raw) };
+  if (dimension === "deviceType") return { ...(deviceNames[raw.toLowerCase()] || { label: raw || "Otro", icon: globe }), filterable: Boolean(raw) };
+  if (dimension === "product") return { label: raw || "—", icon: null, filterable: Boolean(raw) };
+  if (dimension === "route") { const rule = routeRules.find(([pattern]) => pattern.test(raw)); return { label: rule?.[1].label || routeName(raw), icon: null, filterable: Boolean(raw) }; }
+  if (!raw) return { label: "Directo", icon: emoji("🔗"), filterable: false };
+  const rule = referrerRules.find(([pattern]) => pattern.test(raw));
+  return { ...(rule?.[1] || { label: raw.replace(/^www\./, ""), icon: site(raw) }), filterable: true };
+}
+function groupRows(dimension: Dimension, rows: AnalyticsRow[]): Group[] {
+  const groups = new Map<string, Group>();
+  for (const row of rows) {
+    const naming = nameFor(dimension, row.label);
+    const raw = row.value ?? row.label;
+    const existing = groups.get(naming.label);
+    if (existing) { existing.visitors += row.visitors; existing.pageviews += row.pageviews; if (raw && !existing.values.includes(raw)) existing.values.push(raw); }
+    else groups.set(naming.label, { key: naming.label, label: naming.label, icon: naming.icon, values: raw ? [raw] : [], pageviews: row.pageviews, visitors: row.visitors, filterable: naming.filterable });
+  }
+  return [...groups.values()].sort((x, y) => Number(x.key === "Otros") - Number(y.key === "Otros") || y.visitors - x.visitors);
+}
+
+function AnalyticsList({ title, dimension, rows, active, onToggle }: { title: string; dimension: Dimension; rows: AnalyticsRow[]; active?: ActiveFilter; onToggle: (dimension: Dimension, group: Group) => void }) {
+  const groups = useMemo(() => groupRows(dimension, rows), [dimension, rows]);
+  const [expanded, setExpanded] = useState(false);
+  const max = Math.max(1, ...groups.map((group) => group.visitors));
+  const visible = expanded ? groups : groups.slice(0, analyticsPreviewRows);
+  return <section className="marketing-panel analytics-list"><h2>{title}</h2>
+    {groups.length ? visible.map((group) => {
+      const selected = active?.label === group.label;
+      return <button type="button" key={group.key} className={`analytics-row${selected ? " is-selected" : ""}`} disabled={!group.filterable} aria-pressed={group.filterable ? selected : undefined} title={group.filterable ? (selected ? "Quitar filtro" : "Filtrar todo el panel") : undefined} onClick={() => onToggle(dimension, group)}>
+        <span className="analytics-row-head"><span className="analytics-row-label">{group.icon}<span>{group.label}</span></span><strong>{group.visitors.toLocaleString("es-UY")}</strong></span>
+        <span className="analytics-bar"><i style={{ width: `${Math.max(2, (group.visitors / max) * 100)}%` }} /></span>
+      </button>;
+    }) : <p className="marketing-directory-empty">Sin datos en este período.</p>}
+    {groups.length > analyticsPreviewRows && <button type="button" className="analytics-more" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>{expanded ? "Ver menos" : `Ver más (${groups.length - analyticsPreviewRows})`}</button>}
+  </section>;
+}
+
+function TrafficChart({ timeline, metric, days }: { timeline: AnalyticsData["timeline"]; metric: "visitors" | "pageviews"; days: number }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const width = 1000, height = 260;
+  const values = timeline.map((row) => row[metric]);
+  const peak = Math.max(1, ...values);
+  const top = Math.max(4, Math.ceil(peak / 4) * 4);
+  const x = (index: number) => timeline.length < 2 ? width / 2 : (index / (timeline.length - 1)) * width;
+  const y = (value: number) => height - (value / top) * height;
+  const line = values.map((value, index) => `${index ? "L" : "M"}${x(index).toFixed(1)},${y(value).toFixed(1)}`).join(" ");
+  const area = values.length ? `${line} L${x(values.length - 1).toFixed(1)},${height} L${x(0).toFixed(1)},${height} Z` : "";
+  const format = (value: string, long = false) => new Intl.DateTimeFormat("es-UY", days === 1 ? { hour: "2-digit", minute: "2-digit", timeZone: "America/Montevideo" } : { day: "numeric", month: "short", ...(long ? { weekday: "short" as const } : {}), timeZone: "UTC" }).format(new Date(value));
+  const move = (event: PointerEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+    setHover(timeline.length < 2 ? 0 : Math.round(ratio * (timeline.length - 1)));
+  };
+  const point = hover === null ? null : timeline[hover];
+  return <div className="analytics-chart-wrap">
+    <div className="analytics-yaxis" aria-hidden="true">{[4, 3, 2, 1, 0].map((step) => <span key={step}>{Math.round((top / 4) * step).toLocaleString("es-UY")}</span>)}</div>
+    <div className="analytics-chart" role="img" aria-label="Evolución del tráfico" onPointerMove={move} onPointerLeave={() => setHover(null)}>
+      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+        {[0, 1, 2, 3, 4].map((step) => <line key={step} x1="0" x2={width} y1={(height / 4) * step} y2={(height / 4) * step} className="analytics-grid-line" />)}
+        {area && <path d={area} className="analytics-area" />}
+        {line && <path d={line} className="analytics-line" />}
+      </svg>
+      {hover !== null && point && <>
+        <div className="analytics-cursor" style={{ left: `${(x(hover) / width) * 100}%` }} />
+        <div className="analytics-dot" style={{ left: `${(x(hover) / width) * 100}%`, top: `${(y(point[metric]) / height) * 100}%` }} />
+        <div className="analytics-tooltip" style={{ left: `${(x(hover) / width) * 100}%`, transform: `translateX(${hover > timeline.length * 0.7 ? "-105%" : "10%"})` }}>
+          <small>{format(point.timestamp, true)}</small><strong>{point.visitors.toLocaleString("es-UY")} visitantes</strong><span>{point.pageviews.toLocaleString("es-UY")} visualizaciones</span>
+        </div>
+      </>}
+    </div>
+    {timeline.length > 0 && <div className="analytics-axis"><span>{format(timeline[0].timestamp)}</span><span>{format(timeline[timeline.length - 1].timestamp)}</span></div>}
+  </div>;
+}
+
+function Analytics() {
+  const [days, setDays] = useState(30);
+  const [metric, setMetric] = useState<"visitors" | "pageviews">("visitors");
+  const [filters, setFilters] = useState<Partial<Record<Dimension, ActiveFilter>>>({});
+  const [data, setData] = useState<AnalyticsData | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const filterPayload = useMemo(() => Object.fromEntries(Object.entries(filters).map(([dimension, filter]) => [dimension === "product" ? "requestPath" : dimension, filter?.values])), [filters]);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    void callMarketing<AnalyticsData>("analytics", { site: "tienda", days, filters: filterPayload })
+      .then((result) => { if (active) { setData(result); setError(""); } })
+      .catch((reason) => { if (active) setError(reason.message); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [days, filterPayload]);
+  const toggle = (dimension: Dimension, group: Group) => {
+    if (!group.filterable) return;
+    setFilters((current) => {
+      const next = { ...current };
+      if (current[dimension]?.label === group.label) delete next[dimension]; else next[dimension] = { label: group.label, icon: group.icon, values: group.values };
+      return next;
+    });
+  };
+  const timeline = data?.timeline || [];
+  const pageviews = timeline.reduce((total, row) => total + row.pageviews, 0);
+  // Los dispositivos cubren a cada visitante una sola vez en todo el período; sumar días lo contaría de más.
+  const visitors = (data?.devices || []).reduce((total, row) => total + row.visitors, 0);
+  const activeFilters = Object.entries(filters) as [Dimension, ActiveFilter][];
+  return <div className="marketing-analytics-page">
+    <div className="analytics-toolbar">
+      <div className="tabs analytics-range" role="group" aria-label="Período">{rangeOptions.map(([value, label]) => <button key={value} className={days === value ? "active" : ""} onClick={() => setDays(value)}>{label}</button>)}</div>
+    </div>
+    {activeFilters.length > 0 && <div className="analytics-filters" aria-label="Filtros activos">
+      {activeFilters.map(([dimension, filter]) => <button type="button" key={dimension} className="analytics-chip" onClick={() => setFilters(({ [dimension]: _removed, ...rest }) => rest)} title="Quitar filtro"><small>{dimensionTitles[dimension]}</small>{filter.icon}<span>{filter.label}</span><b aria-hidden="true">×</b></button>)}
+      <button type="button" className="analytics-clear" onClick={() => setFilters({})}>Quitar todos</button>
+    </div>}
+    {error && <p className="error" role="alert">{error}</p>}
+    {loading && !data && !error && <p role="status">Cargando estadísticas…</p>}
+    {data && <div className={loading ? "analytics-loading" : undefined}>
+      <section className="marketing-panel analytics-overview">
+        <div className="analytics-metrics" role="tablist" aria-label="Métrica del gráfico">
+          <button type="button" role="tab" aria-selected={metric === "visitors"} onClick={() => setMetric("visitors")}><small>Visitantes</small><strong>{visitors.toLocaleString("es-UY")}</strong></button>
+          <button type="button" role="tab" aria-selected={metric === "pageviews"} onClick={() => setMetric("pageviews")}><small>Visualizaciones</small><strong>{pageviews.toLocaleString("es-UY")}</strong></button>
+          <div className="analytics-metric-static"><small>Páginas por visitante</small><strong>{visitors ? (pageviews / visitors).toLocaleString("es-UY", { maximumFractionDigits: 1 }) : "—"}</strong></div>
+        </div>
+        {timeline.length ? <TrafficChart timeline={timeline} metric={metric} days={days} /> : <p className="marketing-directory-empty">Sin visitas en este período.</p>}
+      </section>
+      <div className="analytics-grid">
+        <AnalyticsList title="Páginas más vistas" dimension="route" rows={data.pages} active={filters.route} onToggle={toggle} />
+        <AnalyticsList title="Productos más vistos" dimension="product" rows={data.products || []} active={filters.product} onToggle={toggle} />
+        <AnalyticsList title="Fuentes de tráfico" dimension="referrerHostname" rows={data.referrers} active={filters.referrerHostname} onToggle={toggle} />
+        <AnalyticsList title="Países" dimension="country" rows={data.countries} active={filters.country} onToggle={toggle} />
+        <AnalyticsList title="Dispositivos" dimension="deviceType" rows={data.devices} active={filters.deviceType} onToggle={toggle} />
+      </div>
+      <p className="analytics-note">Datos de Vercel Web Analytics. Tocá una fila para filtrar todo el panel.</p>
+    </div>}
   </div>;
 }
 
 export function MarketingSection({ page, notify }: { page: string; notify: (message: string) => void }) {
   if (page === "contactos") return <Contacts />;
+  if (page === "analytics") return <Analytics />;
   if (page === "suscripcion") return <Subscription notify={notify} />;
   return <Campaigns notify={notify} />;
 }

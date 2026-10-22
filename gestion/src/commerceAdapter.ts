@@ -16,6 +16,8 @@ export type CommerceSnapshot = {
   products: CommerceProduct[]; orders: CommerceOrder[]; payments: CommercePayment[];
   reference: CommerceReference; nationalRates: NationalRate[]; customerBirthdays?: LocalCustomerBirth[]; customerProfiles?: WebCustomerProfile[];
   localCustomers?: LocalCustomer[]; localSales?: LocalSale[];
+  /** Origen calculado en la base (primer canal de entrada); es el mismo que usa Marketing → Contactos. */
+  contactOrigins?: { contact_key: string; origin: string }[];
   ruralRaffleEntries?: RuralRaffleEntry[];
   webLeads?: WebLead[];
   wholesale?: WholesaleSnapshot;
@@ -24,6 +26,14 @@ const text = (source: Record<string, unknown> | undefined, ...keys: string[]) =>
   for (const key of keys) if (typeof source?.[key] === "string" && source[key]) return String(source[key]);
   return "";
 };
+const flattenSearch = (value: unknown, depth = 0): string[] => {
+  if (value == null || depth > 3) return [];
+  if (typeof value === "string" || typeof value === "number") return [String(value)];
+  if (Array.isArray(value)) return value.flatMap((item) => flattenSearch(item, depth + 1));
+  if (typeof value === "object") return Object.values(value as Record<string, unknown>).flatMap((item) => flattenSearch(item, depth + 1));
+  return [];
+};
+export const buildSearchText = (...sources: unknown[]) => sources.flatMap((source) => flattenSearch(source)).join(" ");
 const object = (value: unknown): Record<string, unknown> => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 export function commerceDate(iso: string) {
   if (!iso) return "";
@@ -61,6 +71,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       const cover = imageForVariant(product.commerce_product_images, variant);
       return ({
       id: variant?.id ?? product.id, sourceProductId: product.id,
+      searchText: buildSearchText(product.description, product.attributes, variant?.option_values, variant?.color, variant?.rim_type, variant?.leather_type, category),
       weightGrams: Number(variant?.weight_grams) > 0 ? Number(variant?.weight_grams) : Number(product.peso) || 0,
       name: product.name, sku: variant?.sku ?? "", variant: variant?.name ?? "Sin variantes",
       options: variant ? { ...(variant.option_values || {}), ...(variant.color && !variant.option_values?.color ? { color: variant.color } : {}) } : undefined,
@@ -130,7 +141,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
         unitPrice: Number(item.unit_price_minor) / 100, amount: Number(item.total_minor) / 100,
         family: item.item_type === "design" ? "Personalizados" : catalog?.family || text(object(historical.product), "category") || "Sin categoría",
         variant: catalog?.variant || text(variant, "name"), rim: catalog?.rim || "Sin especificar", leather: catalog?.leather || "Sin especificar",
-        productionStatus: item.production_status || "", reviewStatus: item.review_status, orderType: item.item_type,
+        productionStatus: source.status === "shipped" ? "completed" : item.production_status || "", reviewStatus: item.review_status, orderType: item.item_type,
       };
     });
     const production = items.length > 0 && items.every((item) => item.productionStatus === "completed") ? "Terminado"
@@ -289,6 +300,14 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
     };
     customers.set(contact.id, contact);
     if (email) customerByEmail.set(email, contact);
+  }
+  // El origen es el primer canal por el que entró la persona: lo calcula la base para que Clientes y Marketing coincidan.
+  const originByContact = new Map((snapshot.contactOrigins || []).map((row) => [row.contact_key, row.origin as CustomerSourceChannel]));
+  for (const customer of customers.values()) {
+    const email = customer.email?.trim().toLowerCase();
+    const phone = (customer.phone || "").replace(/[^0-9]+/g, "");
+    const origin = (email && originByContact.get(`email:${email}`)) || (!email && phone ? originByContact.get(`phone:${phone}`) : undefined);
+    if (origin) customer.originChannel = origin;
   }
   const localOrders: Order[] = (snapshot.localSales || []).map((source) => {
     if (source.currency !== "UYU") throw new Error(`La venta local #${source.sale_number} requiere conversión de ${source.currency}.`);

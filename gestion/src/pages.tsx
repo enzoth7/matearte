@@ -14,7 +14,7 @@ import { compactOrderItemName, orderItemColor, orderItemDetailRows } from "./ord
 import { orderCategoryLabels, orderShippingStatus } from "./orderListPresentation";
 import { OrderDetailItems, type OrderDetailRow } from "./OrderDetailItems";
 import { PersonalizedOrders } from "./commerce/PersonalizedOrdersView";
-import { naturalCaseName, withoutPersonalizedMateItems } from "./productionPresentation";
+import { naturalCaseName, workshopOrderRows } from "./productionPresentation";
 import type { Session } from "@supabase/supabase-js";
 import { Orders as CommerceOrderDetails, formatWeight } from "./commerce/Operations";
 import type { CommerceSnapshot } from "./commerceAdapter";
@@ -101,7 +101,7 @@ export function Overview({ s, go }: PageProps) {
     }
   });
   const canSeeFinance = canAccess(s, "/finanzas/resumen");
-  const hasExpenses = s.source !== "commerce";
+  const hasExpenses = s.source !== "commerce" || Boolean(s.expensesConnected);
   const canSeeProduction = canAccess(s, "/produccion/resumen");
   const { orders, expenses, trend, start, end } = overviewScope({
     ...s,
@@ -172,13 +172,13 @@ export function Overview({ s, go }: PageProps) {
           },
           ...(canSeeFinance ? [{
             label: "Egresos pagados",
-            value: s.source === "commerce" ? "—" : money(expensesPaid),
+            value: hasExpenses ? money(expensesPaid) : "—",
             tone: "red" as const,
             solid: true,
             go: () => go("/finanzas/egresos"),
           }, {
             label: "Ganancia",
-            value: s.source === "commerce" ? "—" : money(sales - expensesPaid),
+            value: hasExpenses ? money(sales - expensesPaid) : "—",
             tone: "yellow" as const,
             note: "Ventas registradas menos egresos pagados en el período",
             go: () => go("/finanzas/resumen"),
@@ -387,6 +387,16 @@ function OrderTable({
   onSearchQueryChange?: (query: string) => void;
 }) {
   const productionMode = ["mayorista", "mayorista-web", "minorista", "historico", "resumen-produccion"].includes(mode);
+  const originByOrder = useMemo(() => {
+    if (mode !== "pedidos") return new Map<string, string>();
+    const ordersByCustomer = new Map<string, Order[]>();
+    for (const order of s.orders) ordersByCustomer.set(order.customerId, [...(ordersByCustomer.get(order.customerId) || []), order]);
+    const customerById = new Map(s.customers.map((entry) => [entry.id, entry]));
+    return new Map(orders.map((order) => {
+      const entry = customerById.get(order.customerId);
+      return [order.id, entry ? customerDisplayChannel(entry, ordersByCustomer.get(entry.id) || []) || "" : ""];
+    }));
+  }, [mode, orders, s.orders, s.customers]);
   const itemSearchText = (item: OrderLine) => [
     compactOrderItemName(item),
     item.title,
@@ -394,23 +404,24 @@ function OrderTable({
   ].join(" ");
   return (
     <Table
-      className={mode === "pedidos" ? "sales-orders-table" : undefined}
+      className={mode === "pedidos" ? "sales-orders-table" : productionMode || ["pendientes", "envios"].includes(mode) ? `workshop-orders-table${showAmounts ? "" : " workshop-orders-table--no-amounts"}${["pendientes", "envios"].includes(mode) ? " logistics-orders-table" : ""}` : undefined}
       showSearch={searchQuery === undefined}
       searchQuery={searchQuery}
       onSearchQueryChange={onSearchQueryChange}
       title={title}
       rows={orders}
       searchText={(o) =>
-        `${orderName(o)} ${customer(s, o).name} ${o.items?.map(itemSearchText).join(" ") || product(s, o).name} ${o.channel}`
+        `${orderName(o)} ${customer(s, o).name} ${customerOriginLabel(originByOrder.get(o.id) || "")} ${o.items?.map(itemSearchText).join(" ") || product(s, o).name} ${o.channel}`
       }
       columns={[
-        { label: "Pedido", render: (o) => <strong>{orderName(o)}</strong> },
+        { label: "Pedido", render: (o) => mode === "pedidos" ? orderName(o) : <strong>{orderName(o)}</strong> },
         { label: "Fecha", render: (o) => orderDate(o.date) },
         {
           label: "Cliente",
-          render: (o) => <strong>{productionMode ? naturalCaseName(customer(s, o).name) : customer(s, o).name}</strong>,
+          render: (o) => mode === "pedidos" ? customer(s, o).name : <strong>{productionMode ? naturalCaseName(customer(s, o).name) : customer(s, o).name}</strong>,
         },
         { label: "Productos", render: (o) => orderCategoryLabels(o, s.products) },
+        ...(mode === "pedidos" ? [{ label: "Origen", render: (o: Order) => { const origin = originByOrder.get(o.id); return origin ? <Badge>{customerOriginLabel(origin)}</Badge> : "—"; } }] : []),
         { label: "Canal", render: (o) => <Badge>{o.channel}</Badge> },
         ...(showAmounts ? [
           { label: "Total", render: (o: Order) => <strong>{money(total(o))}</strong> },
@@ -418,19 +429,14 @@ function OrderTable({
         ] : []),
         {
           label: "Producci\u00F3n",
-          render: (o) => o.source === "local" ? "—" : <Badge>{o.production}</Badge>,
+          render: (o) => <Badge>{o.production}</Badge>,
         },
         {
           label: "Envío",
-          render: (o) => <Badge>{orderShippingStatus(o, paymentStatus(s, o) === "Pagado")}</Badge>,
+          render: (o) => o.source === "local" ? "—" : <Badge>{orderShippingStatus(o)}</Badge>,
         },
         ...(["pendientes", "retiros", "envios"].includes(mode)
           ? [
-              {
-                label: "Entrega",
-                render: (o: Order) => <Badge>{o.delivery}</Badge>,
-              },
-              { label: "Fecha prevista", render: (o: Order) => o.due || "Sin fecha" },
               {
                 label: "Modalidad / seguimiento",
                 render: (o: Order) => (
@@ -451,9 +457,7 @@ function OrderTable({
                   render: (o: Order) => <strong>{money(balance(s, o))}</strong>,
                 },
               ]
-          : ["mayorista", "minorista", "resumen-produccion"].includes(mode)
-                ? [{ label: "Fecha objetivo", render: (o: Order) => o.due || "Sin fecha" }]
-                : []),
+          : []),
         {
           label: "Detalles",
           render: (o) => (
@@ -476,7 +480,7 @@ function OrderTable({
 function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order: Order; props: PageProps; showAmounts: boolean; onClose: () => void }) {
   const { s, go } = props;
   const items = order.items || [];
-  const shipping = orderShippingStatus(order, paymentStatus(s, order) === "Pagado");
+  const shipping = orderShippingStatus(order);
   const contact = s.customers.find((entry) => entry.id === order.customerId);
   const phone = contact?.phone?.trim() || "";
   const country = contact?.country || (contact?.city ? countryForCity(contact.city) : "") || (/^0?9\d{7}$/.test(phone.replace(/\D/g, "")) ? "Uruguay" : "");
@@ -511,7 +515,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
         <div><small>Cliente</small><strong>{naturalCaseName(customer(s, order).name)}</strong></div>
         <div><small>Productos</small><strong>{orderCategoryLabels(order, s.products)}</strong></div>
         {showAmounts && <div><small>Pago</small><strong>{paymentStatus(s, order)}</strong><span>{order.paymentMethod === "Seña" ? "Saldo de la seña" : "Saldo pendiente"}: {money(balance(s, order))}</span></div>}
-        <div><small>Producción</small><strong>{order.source === "local" ? "No aplica" : order.production}</strong></div>
+        <div><small>Producción</small><strong>{order.production}</strong></div>
       </div>
     </section>
     {hasContactOrDelivery && <section className="unified-order-contact order-delivery-summary" aria-label="Entrega y contacto">
@@ -559,13 +563,8 @@ export function Orders(
   if (mode === "personalizados") return <div className="commerce-tools"><PersonalizedOrders onNotice={props.notify} state={s} /></div>;
   const productionView = ["mayorista-web", "minorista", "historico", "resumen-produccion"].includes(mode);
   const showAmounts = !productionView || canAccess(s, "/finanzas/resumen");
-  const availableOrders = visibleOrders(s, productionView)
-    .filter((order) => !productionView || (order.source !== "local" && isSale(order)))
-    .flatMap((order) => {
-      if (!productionView) return [order];
-      const regularOrder = withoutPersonalizedMateItems(order, s.products);
-      return regularOrder ? [regularOrder] : [];
-    });
+  const visible = visibleOrders(s, productionView);
+  const availableOrders = productionView ? workshopOrderRows(visible, s.products) : visible;
   const o = availableOrders.find((x) => x.id === selected);
   let rows = availableOrders.filter(
     (o) => channel === "Todos" || o.channel === channel,
@@ -573,10 +572,10 @@ export function Orders(
   if (mode === "mayorista")
     rows = rows.filter((o) => o.source === "wholesale" && o.production !== "Terminado");
   if (mode === "mayorista-web")
-    rows = rows.filter((o) => o.source !== "wholesale" && s.customers.some((customer) => customer.id === o.customerId && customer.segment === "Mayorista") && o.production !== "Terminado");
+    rows = rows.filter((o) => o.source !== "wholesale" && o.source !== "local" && s.customers.some((customer) => customer.id === o.customerId && customer.segment === "Mayorista") && o.production !== "Terminado");
   if (mode === "minorista")
     rows = rows.filter(
-      (o) => o.source !== "wholesale" && !s.customers.some((customer) => customer.id === o.customerId && customer.segment === "Mayorista") && o.production !== "Terminado",
+      (o) => o.source !== "wholesale" && (o.source === "local" || !s.customers.some((customer) => customer.id === o.customerId && customer.segment === "Mayorista")) && o.production !== "Terminado",
     );
   if (mode === "historico")
     rows = rows.filter((o) => o.source !== "wholesale" && o.production === "Terminado");
@@ -659,7 +658,7 @@ export function Orders(
               cantidad: o.quantity,
               ...(showAmounts ? { total: total(o), saldo: balance(s, o) } : {}),
               produccion: o.source === "local" ? "" : o.production,
-              entrega: o.source === "local" ? "" : o.delivery,
+              envio: o.source === "local" ? "" : orderShippingStatus(o),
             }))}
           />
           {registrationPath && <AddButton onClick={() => go(registrationPath)}>
@@ -706,7 +705,7 @@ export function Orders(
                   : mode === "historico"
                     ? "Trabajos terminados"
                     : ["pendientes", "retiros", "envios"].includes(mode)
-                      ? "Log\u00EDstica y entregas"
+                      ? "Envíos"
                       : "Trabajo del taller"
           }
           open={(o) => setSelected(o.id)}

@@ -44,6 +44,20 @@ export function wholesaleSaleType(product: WholesaleProduct): string {
   return "";
 }
 
+/** Variante de pedido para ventas mayoristas "entreveradas": no es un SKU, no existe como producto. */
+export const GENERIC_WHOLESALE_VARIANT = "Genérico";
+
+/** Un representante por nombre de producto que tiene 2 o más variantes (colores) a elegir. */
+export function genericVariantRepresentatives(products: WholesaleProduct[]): WholesaleProduct[] {
+  const byModel = new Map<string, WholesaleProduct[]>();
+  for (const product of products) byModel.set(product.model, [...(byModel.get(product.model) ?? []), product]);
+  return [...byModel.values()].filter((group) => group.length > 1).map((group) => group[0]);
+}
+
+/** El precio de una línea genérica solo es válido si todos los colores del producto cuestan lo mismo. */
+export const genericVariantPriceConflict = (siblings: Pick<WholesaleProduct, "price_arg">[]) =>
+  new Set(siblings.map((product) => Number(product.price_arg) || 0)).size > 1;
+
 export const wholesaleSaleVariantLabel = (product: WholesaleProduct) => [product.model.trim(), product.variant.trim()].filter(Boolean).join(" · ");
 
 export const wholesaleSaleCategoryLabel = (category: WholesaleSaleCategory) => ({

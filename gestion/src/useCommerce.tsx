@@ -4,6 +4,8 @@ import { commerceSource, readCommerceOrders, readCommerceProducts, readCommerceR
 import { adaptCommerce, type CommerceSnapshot, type CommercePayment, type NationalRate, type RuralRaffleEntry, type WebCustomerProfile, type WebLead } from "./commerceAdapter";
 import { loadState, type State } from "./data";
 import type { LocalCustomer, LocalSale } from "./localSource";
+import { adaptExpenses, canReadExpenses, readExpenseSources } from "./expenseSource";
+import { montevideoToday } from "./overview";
 import { readWholesale } from "./wholesaleSource";
 import { adaptWholesale } from "./wholesaleAdapter";
 
@@ -107,7 +109,7 @@ export function useCommerce() {
     busyRef.current = true;
     setLoading(true);
     try {
-      const [products, orders, payments, reference, shipping, customerProfiles, localCustomerResult, localSales, ruralRaffleEntries, wholesale, webLeads, membership] = await Promise.all([
+      const [products, orders, payments, reference, shipping, customerProfiles, localCustomerResult, localSales, ruralRaffleEntries, wholesale, webLeads, membership, expenseSources, contactOrigins] = await Promise.all([
         readAllPages((page) => readCommerceProducts(client, page)),
         readAllPages((page) => readCommerceOrders(client, page)),
         readAllPages<CommercePayment>(async (page) => {
@@ -147,14 +149,21 @@ export function useCommerce() {
           return { rows, count: rows.length < 100 ? page * 100 + rows.length : (page + 2) * 100 };
         }),
         client.from("commerce_admin_users").select("display_name,access_user_id,allowed_paths").eq("user_id", session!.user.id).eq("active", true).maybeSingle(),
+        readExpenseSources(client),
+        client.rpc("gestion_contact_origins"),
       ]);
       if (requestEpoch !== epoch.current) return;
       if (shipping.error) throw shipping.error;
       if (membership.error) throw membership.error;
       localCustomerCache.current = localCustomerResult;
       const localCustomers = localCustomerResult.rows;
-      const next: CommerceSnapshot = { products, orders, payments, reference, nationalRates: (shipping.data || []) as NationalRate[], customerProfiles, localCustomers, localSales, ruralRaffleEntries, wholesale, webLeads };
-      const adapted = adaptWholesale(adaptCommerce(next, (path) => client.storage.from("product-images").getPublicUrl(path).data.publicUrl), wholesale);
+      const next: CommerceSnapshot = { products, orders, payments, reference, nationalRates: (shipping.data || []) as NationalRate[], customerProfiles, localCustomers, localSales, ruralRaffleEntries, wholesale, webLeads, contactOrigins: contactOrigins.error ? undefined : (contactOrigins.data || []) as { contact_key: string; origin: string }[] };
+      const base = adaptWholesale(adaptCommerce(next, (path) => client.storage.from("product-images").getPublicUrl(path).data.publicUrl), wholesale);
+      const rates = Object.fromEntries(reference.exchangeRates.map((rate) => [rate.currency_code, Number(rate.rate_to_uyu)]));
+      // Sin ningún egreso cargado no se calcula ganancia: se vería como si no hubiera gastos.
+      const connected = Boolean(expenseSources) && canReadExpenses(membership.data) && Boolean(expenseSources!.purchases.length || expenseSources!.fixed.length);
+      const expenseResult = connected && expenseSources ? adaptExpenses(expenseSources, rates, montevideoToday()) : null;
+      const adapted: State = { ...base, expenses: expenseResult?.expenses ?? base.expenses, expensesConnected: connected, expensesSkipped: expenseResult?.skipped ?? 0 };
       setState((current) => ({
         ...adapted,
         access: Array.isArray(membership.data?.allowed_paths) && membership.data?.access_user_id

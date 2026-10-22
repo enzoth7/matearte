@@ -49,10 +49,11 @@ describe("presentación resumida de ventas y pedidos", () => {
     expect(orderCategoryLabels(personalizedOrder, products)).toBe("Personalizados");
   });
 
-  it("solo muestra Enviado con producción terminada, entrega registrada y pago acreditado", () => {
-    expect(orderShippingStatus(order, true)).toBe("Enviado");
-    expect(orderShippingStatus({ ...order, production: "En producción" }, true)).toBe("No enviado");
-    expect(orderShippingStatus(order, false)).toBe("No enviado");
-    expect(orderShippingStatus({ ...order, delivery: "Pendiente" }, true)).toBe("No enviado");
+  it("respeta el envío registrado aunque otros estados estén desactualizados", () => {
+    expect(orderShippingStatus(order)).toBe("Enviado");
+    expect(orderShippingStatus({ ...order, production: "En producción" })).toBe("Enviado");
+    expect(orderShippingStatus({ ...order, delivery: "Entregado" })).toBe("Enviado");
+    expect(orderShippingStatus({ ...order, delivery: "Pendiente", status: "shipped" })).toBe("Enviado");
+    expect(orderShippingStatus({ ...order, delivery: "Pendiente" })).toBe("No enviado");
   });
 });

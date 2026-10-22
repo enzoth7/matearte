@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WholesaleProduct } from "./wholesaleSource";
-import { wholesaleSaleCategory, wholesaleSaleType, wholesaleSaleVariantLabel } from "./wholesaleSaleSelection";
+import { genericVariantPriceConflict, genericVariantRepresentatives, wholesaleSaleCategory, wholesaleSaleType, wholesaleSaleVariantLabel } from "./wholesaleSaleSelection";
 
 const product = (values: Partial<WholesaleProduct>): WholesaleProduct => ({
   id: "1", model: "", variant: "", rim_type: null, leather_type: null, price_arg: 0, price_uyu: 0, ...values,
@@ -12,6 +12,15 @@ describe("selección de artículos mayoristas", () => {
     expect(wholesaleSaleCategory(item)).toBe("mates");
     expect(wholesaleSaleType(item)).toBe("Criollo");
     expect(wholesaleSaleVariantLabel(item)).toBe("Mate Criollo imperial · Negro");
+  });
+
+  it("ofrece Genérico solo para nombres con 2 o más variantes y exige un único precio", () => {
+    const marron = product({ id: "62", model: "Torpedo A", variant: "Marrón", price_arg: 37000 });
+    const negro = product({ id: "63", model: "Torpedo A", variant: "Negro", price_arg: 37000 });
+    const unico = product({ id: "70", model: "Torpedo B", variant: "Natural", price_arg: 30000 });
+    expect(genericVariantRepresentatives([marron, negro, unico]).map((item) => item.id)).toEqual(["62"]);
+    expect(genericVariantPriceConflict([marron, negro])).toBe(false);
+    expect(genericVariantPriceConflict([marron, { ...negro, price_arg: 3700 }])).toBe(true);
   });
 
   it("usa la forma de la matera", () => {

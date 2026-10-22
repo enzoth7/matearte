@@ -7,6 +7,7 @@ export type CustomerSourceChannel = SalesChannel | "Agenda" | "Sorteo" | "Suscri
 export type Product = {
   id: string;
   sourceProductId?: string;
+  searchText?: string;
   wholesaleProductId?: string;
   priceArg?: number;
   imageUrl?: string;
@@ -137,6 +138,9 @@ export type State = {
   orders: Order[];
   payments: Payment[];
   expenses: Expense[];
+  /** true cuando los egresos salen de Compras y Gastos fijos y el usuario tiene permiso para leerlos. */
+  expensesConnected?: boolean;
+  expensesSkipped?: number;
   employees: Employee[];
   hours: Row[];
   records: Record<string, Row[]>;

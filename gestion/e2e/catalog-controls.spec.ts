@@ -101,21 +101,14 @@ test("una ficha mayorista vinculada usa el editor único y conserva su precio AR
   product.name = "Criollo Coquito · Sin posa mate";
   product.commerce_variants = [product.commerce_variants[0]];
   Object.assign(product.commerce_variants[0], {
-    name: "Sin color", available_local: false, available_web: false,
-    available_wholesale: true, wholesale_price_arg: 10500, legacy_product_id: "45",
+    name: "Sin color", sku: "SKU-1", available_local: false, available_web: false,
+    available_wholesale: true, wholesale_price_arg: 10500,
   });
   product.commerce_product_images.push({
     id: "legacy-photo", storage_path: "wholesale/45/criollo.png", original_name: "Criollo.png",
     alt_text: "Criollo", mime_type: "image/png", byte_size: 1024, sort_order: 0, variant_id: null, option_values: {},
   });
-  tables.products = [{
-    id: "45", model: "Criollo Coquito", variant: "Sin posa mate", rim_type: "Acero",
-    leather_type: "", price_arg: 10500, price_uyu: 283.5, category_code: "mates",
-    sku: "SKU-1", commerce_product_id: "product-1", commerce_variant_id: "variant-1",
-    available_local: false, available_web: false, available_wholesale: true,
-  }];
-
-  await page.goto("/productos/catalogo?producto=wholesale%3A45");
+  await page.goto(`/productos/catalogo?producto=${product.id}`);
   await expect(page.locator(".catalog-editor .panel-head h3")).toHaveText(product.name);
   await expect(page.getByLabel("Nombre", { exact: false }).first()).toHaveValue(product.name);
   await expect(page.getByText("Variantes comprables", { exact: true })).toBeVisible();
@@ -210,10 +203,10 @@ test("un servicio nuevo puede quedar sin precio fijo y solo para Local", async (
   const form = page.locator(".variant-create");
   await expect(form.getByRole("combobox", { name: "Tipo de precio" })).toHaveValue("variable");
   await expect(form.getByRole("spinbutton", { name: "Precio local UYU" })).toHaveCount(0);
-  await form.getByRole("textbox", { name: "SKU" }).fill("SERV-NEW");
+  await form.getByRole("textbox", { name: "SKU" }).fill("610");
   await form.getByRole("button", { name: "Crear variante" }).click();
   await expect.poll(() => writes.find((write) => write.table === "commerce_variants" && write.method === "POST")?.body).toMatchObject({
-    sku: "SERV-NEW", base_price_minor: 0, price_minor: 0,
+    sku: "610", base_price_minor: 0, price_minor: 0,
     available_local: true, available_web: false, available_wholesale: false,
   });
 });

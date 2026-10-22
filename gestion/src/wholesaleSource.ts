@@ -1,4 +1,6 @@
-import { commerceSource } from "./commerceSource";
+import { commerceSource, type CommerceImage, type CommerceVariant } from "./commerceSource";
+import { imageForVariant } from "./catalogImages";
+import { GENERIC_WHOLESALE_VARIANT, genericVariantPriceConflict } from "./wholesaleSaleSelection";
 
 export type WholesaleProduct = {
   id: string; model: string; variant: string; rim_type: string | null;
@@ -58,18 +60,52 @@ async function pages<T>(table: string, order: string): Promise<T[]> {
     if (!data?.length) throw new Error(`La lectura de ${table} quedó incompleta.`);
   }
 }
+const CATALOG_SELECT = "id,name,category,category_code,description,attributes,commerce_variants(id,sku,name,active,base_price_minor,wholesale_price_arg,available_local,available_web,available_wholesale,weight_grams,rim_type,leather_type,color,option_values),commerce_product_images(id,storage_path,original_name,alt_text,mime_type,byte_size,sort_order,variant_id,option_values)";
+type CatalogVariantRow = Omit<CommerceVariant, "wholesale_price_arg"> & { wholesale_price_arg: number | string | null; available_local?: boolean | null; available_web?: boolean | null; available_wholesale?: boolean | null; weight_grams?: number | null; rim_type?: string | null; leather_type?: string | null };
+type CatalogRow = { id: string; name: string; category: string | null; category_code: string | null; description: string | null; attributes: Record<string, unknown> | null; commerce_variants: CatalogVariantRow[]; commerce_product_images: (CommerceImage & { original_name?: string; mime_type?: string; byte_size?: number })[] };
+async function readCatalogRows(): Promise<CatalogRow[]> {
+  const result: CatalogRow[] = [];
+  for (let start = 0; ; start += 100) {
+    const { data, count, error } = await client().from("commerce_products").select(CATALOG_SELECT, { count: "exact" }).order("id").range(start, start + 99);
+    if (error) throw error;
+    result.push(...(data || []) as unknown as CatalogRow[]);
+    if (result.length >= (count ?? result.length)) return result;
+    if (!data?.length) throw new Error("La lectura del catálogo quedó incompleta.");
+  }
+}
+/** El mayorista lee el catálogo único: cada variante con mayorista activo es un producto mayorista. */
+export function wholesaleFromCatalog(rows: CatalogRow[], rate: number): { products: WholesaleProduct[]; images: WholesaleProductImage[] } {
+  const products: WholesaleProduct[] = [];
+  const images: WholesaleProductImage[] = [];
+  for (const row of rows) {
+    for (const variant of row.commerce_variants || []) {
+      if (variant.available_wholesale !== true) continue;
+      const priceArg = Number(variant.wholesale_price_arg) || 0;
+      products.push({
+        id: variant.id, model: row.name, variant: variant.name, rim_type: variant.rim_type ?? null, leather_type: variant.leather_type ?? null,
+        price_arg: priceArg, price_uyu: priceArg * rate, category_code: row.category_code || row.category, description: row.description,
+        sku: variant.sku, weight_grams: variant.weight_grams ?? null, available_local: variant.available_local !== false, available_web: variant.available_web !== false,
+        available_wholesale: true, catalog_attributes: row.attributes || {}, commerce_product_id: row.id, commerce_variant_id: variant.id,
+      });
+      const cover = imageForVariant(row.commerce_product_images || [], variant as unknown as CommerceVariant) as (typeof row.commerce_product_images)[number] | undefined;
+      if (cover) images.push({ id: cover.id, product_id: variant.id, storage_path: cover.storage_path, original_name: cover.original_name ?? "", alt_text: cover.alt_text, mime_type: cover.mime_type ?? "", byte_size: cover.byte_size ?? 0, sort_order: cover.sort_order, option_values: cover.option_values || {} });
+    }
+  }
+  return { products, images };
+}
 export async function readWholesale(): Promise<WholesaleSnapshot> {
-  const [products, customers, lines, images, categories, settings] = await Promise.all([
-    pages<WholesaleProduct>("products", "id"),
+  const [catalog, customers, lines, categories, settings] = await Promise.all([
+    readCatalogRows(),
     pages<WholesaleCustomer>("customers", "full_name"),
     pages<WholesaleLine>("order_lines", "line_id"),
-    pages<WholesaleProductImage>("wholesale_product_images", "id"),
     client().from("commerce_categories").select("code,label_es,active").order("sort_order"),
     client().from("settings").select("exchange_rate").eq("id", 1).single(),
   ]);
   if (settings.error) throw settings.error;
   if (categories.error) throw categories.error;
-  return { products, customers, lines, images, categories: categories.data || [], exchangeRate: Number(settings.data.exchange_rate) };
+  const exchangeRate = Number(settings.data.exchange_rate);
+  const { products, images } = wholesaleFromCatalog(catalog, exchangeRate);
+  return { products, customers, lines, images, categories: categories.data || [], exchangeRate };
 }
 export async function saveWholesaleCustomer(input: WholesaleCustomer, previousName?: string) {
   const name = clean(input.full_name);
@@ -99,126 +135,22 @@ export async function deleteWholesaleCustomer(fullName: string): Promise<void> {
   if (error?.code === "23503") throw new Error("No se puede eliminar este cliente porque ya tiene pedidos vinculados. La ficha y el historial se conservaron.");
   if (error) throw error;
 }
-export async function saveWholesaleProduct(input: WholesaleProduct, previousId?: string) {
-  if (!clean(input.model) || !clean(input.variant)) throw new Error("Modelo y variante son obligatorios.");
-  if (!Number.isFinite(input.price_arg) || input.price_arg < 0) throw new Error("El precio ARS debe ser válido.");
-  if (input.weight_grams != null && (!Number.isInteger(input.weight_grams) || input.weight_grams < 0)) throw new Error("El peso debe ser un entero no negativo.");
-  const payload = { id: input.id, model: clean(input.model), variant: clean(input.variant), rim_type: clean(input.rim_type || ""), leather_type: clean(input.leather_type || ""), price_arg: input.price_arg, category_code: clean(input.category_code || "") || null, description: clean(input.description || ""), sku: clean(input.sku || "") || null, weight_grams: input.weight_grams ?? null, available_local: input.available_local === true, available_web: input.available_web === true, available_wholesale: input.available_wholesale !== false, catalog_attributes: input.catalog_attributes || {} };
-  if (previousId) {
-    const { data: previous, error: previousError } = await client().from("products").select("price_arg,model,variant").eq("id", previousId).single();
-    if (previousError) throw previousError;
-    const { id: _id, price_arg: _priceArg, ...changes } = payload;
-    let priceChange: { price_arg?: number; price_uyu?: number } = {};
-    if (Number(previous.price_arg) !== input.price_arg) {
-      const { data: settings, error: rateError } = await client().from("settings").select("exchange_rate").eq("id", 1).single();
-      if (rateError) throw rateError;
-      priceChange = { price_arg: input.price_arg, price_uyu: input.price_arg * Number(settings.exchange_rate) };
-    }
-    const { data, error } = await client().from("products").update({ ...changes, ...priceChange }).eq("id", previousId).select("id").maybeSingle();
-    if (error) throw error;
-    if (!data) throw new Error("No se pudo actualizar el producto mayorista. Verificá tus permisos y volvé a intentar.");
-    if (previous.model !== payload.model || previous.variant !== payload.variant) {
-      const { error: historyError } = await client().from("order_lines")
-        .update({ model: payload.model, variant: payload.variant })
-        .eq("model", previous.model).eq("variant", previous.variant);
-      if (historyError) throw new Error("El producto se guardó, pero no se pudieron actualizar sus nombres en el dashboard.");
-    }
-  } else {
-    const { data: settings, error: rateError } = await client().from("settings").select("exchange_rate").eq("id", 1).single();
-    if (rateError) throw rateError;
-    const { error } = await client().from("products").insert({ ...payload, price_uyu: input.price_arg * Number(settings.exchange_rate) }).select("id").single();
-    if (error) throw error;
-  }
-}
 const imageBucket = () => client().storage.from("product-images");
 export const wholesaleProductImageUrl = (path: string) => imageBucket().getPublicUrl(path).data.publicUrl;
 
-export async function uploadWholesaleProductImages(productId: string, files: File[], startOrder: number, altText: string): Promise<number> {
-  let uploaded = 0;
-  for (const [index, file] of files.entries()) {
-    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) throw new Error(`“${file.name}” no es PNG, JPEG ni WebP.`);
-    if (!file.size || file.size > 10 * 1024 * 1024) throw new Error(`“${file.name}” supera el máximo de 10 MB o está vacío.`);
-    const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
-    const path = `wholesale/${productId}/${crypto.randomUUID()}.${extension}`;
-    const { error: uploadError } = await imageBucket().upload(path, file, { cacheControl: "31536000", contentType: file.type, upsert: false });
-    if (uploadError) throw uploadError;
-    const { error: rowError } = await client().from("wholesale_product_images").insert({ product_id: productId, storage_path: path, original_name: file.name.slice(0, 240), alt_text: altText, mime_type: file.type, byte_size: file.size, sort_order: startOrder + index });
-    if (rowError) {
-      await imageBucket().remove([path]);
-      throw rowError;
-    }
-    uploaded += 1;
-  }
-  return uploaded;
-}
-
-export async function setWholesaleProductImageCover(image: WholesaleProductImage, firstOrder: number) {
-  const { error } = await client().from("wholesale_product_images").update({ sort_order: firstOrder - 1 }).eq("id", image.id).eq("product_id", image.product_id).select("id").single();
-  if (error) throw error;
-}
-
-export async function saveWholesaleProductImageCrop(image: WholesaleProductImage, crop: { x: number; y: number; zoom: number }) {
-  const optionValues = { ...image.option_values, cover_x: Math.round(crop.x * 100) / 100, cover_y: Math.round(crop.y * 100) / 100, cover_zoom: Math.round(crop.zoom * 100) / 100 };
-  const { error } = await client().from("wholesale_product_images").update({ option_values: optionValues }).eq("id", image.id).eq("product_id", image.product_id).select("id").single();
-  if (error) throw error;
-}
-
-export async function saveWholesaleProductImageColor(image: WholesaleProductImage, color: string) {
-  const optionValues = { ...image.option_values };
-  if (color) optionValues.color = color;
-  else delete optionValues.color;
-  const { error } = await client().from("wholesale_product_images").update({ option_values: optionValues }).eq("id", image.id).eq("product_id", image.product_id).select("id").single();
-  if (error) throw error;
-}
-
-export async function moveWholesaleProductImage(image: WholesaleProductImage, target: WholesaleProduct, nextOrder: number): Promise<boolean> {
-  if (image.product_id === target.id) throw new Error("Elegí otro producto para mover la foto.");
-  const extension = image.mime_type === "image/png" ? "png" : image.mime_type === "image/webp" ? "webp" : "jpg";
-  const nextPath = `wholesale/${target.id}/${crypto.randomUUID()}.${extension}`;
-  const { error: copyError } = await imageBucket().copy(image.storage_path, nextPath);
-  if (copyError) throw copyError;
-  const { error: rowError } = await client().from("wholesale_product_images").update({
-    product_id: target.id,
-    storage_path: nextPath,
-    alt_text: `Foto de ${target.model} · ${target.variant}`,
-    sort_order: nextOrder,
-  }).eq("id", image.id).eq("product_id", image.product_id).select("id").single();
-  if (rowError) {
-    await imageBucket().remove([nextPath]);
-    throw rowError;
-  }
-  const { error: cleanupError } = await imageBucket().remove([image.storage_path]);
-  return Boolean(cleanupError);
-}
-
-export async function deleteWholesaleProductImage(image: WholesaleProductImage) {
-  const { error: rowError } = await client().from("wholesale_product_images").delete().eq("id", image.id).eq("product_id", image.product_id).select("id").single();
-  if (rowError) throw rowError;
-  const { error: storageError } = await imageBucket().remove([image.storage_path]);
-  if (storageError) throw new Error("La foto se quitó de la ficha, pero el archivo requiere limpieza manual.");
-}
-export async function nextWholesaleProductId() {
-  const products = await pages<{ id: string }>("products", "id");
-  return String(Math.max(0, ...products.map((item) => Number(item.id) || 0)) + 1);
-}
-export async function createWholesaleOrder(customer: string, items: { productId: string; quantity: number; noCost: boolean }[], saleChannel: WholesaleLine["sale_channel"] = "WhatsApp") {
+export async function createWholesaleOrder(customer: string, items: { productId: string; quantity: number; noCost: boolean; generic?: boolean }[], saleChannel: WholesaleLine["sale_channel"] = "WhatsApp") {
   if (!clean(customer) || !items.length) throw new Error("Seleccioná cliente y al menos un artículo.");
   const { data: settings, error: rateError } = await client().from("settings").select("exchange_rate").eq("id", 1).single();
   if (rateError) throw rateError;
   const rate = Number(settings.exchange_rate);
-  const productIds = [...new Set(items.map((item) => item.productId))];
-  const { data: products, error: productError } = await client().from("products").select("*").in("id", productIds);
-  if (productError) throw productError;
-  const byId = new Map((products as WholesaleProduct[]).map((item) => [String(item.id), item]));
-  // El identificador visible conserva el formato del dashboard anterior.
-  let orderId = "";
-  for (let attempt = 0; attempt < 10; attempt++) {
-    const candidate = `PED-${Math.floor(100000 + Math.random() * 900000)}`;
-    const { count, error } = await client().from("order_lines").select("line_id", { count: "exact", head: true }).eq("order_id", candidate);
-    if (error) throw error;
-    if (!count) { orderId = candidate; break; }
+  const catalog = wholesaleFromCatalog(await readCatalogRows(), rate).products;
+  const byId = new Map(catalog.map((item) => [item.id, item]));
+  for (const model of new Set(items.filter((item) => item.generic).map((item) => byId.get(item.productId)?.model).filter((value): value is string => !!value))) {
+    if (genericVariantPriceConflict(catalog.filter((item) => item.model === model))) throw new Error(`Los colores de "${model}" tienen precios distintos: elegí una variante concreta.`);
   }
-  if (!orderId) throw new Error("No se pudo asignar un número de pedido. Reintentá.");
+  // El número del pedido (#M001…) lo asigna la base con la misma secuencia de los pedidos mayoristas de la web.
+  const { data: orderId, error: codeError } = await client().rpc("gestion_next_wholesale_order_code");
+  if (codeError || typeof orderId !== "string" || !orderId) throw new Error("No se pudo asignar un número de pedido. Reintentá.");
   const now = new Date().toISOString();
   const lines = items.map((item) => {
     const product = byId.get(item.productId);
@@ -226,7 +158,7 @@ export async function createWholesaleOrder(customer: string, items: { productId:
     const count = quantity(item.quantity);
     const priceArg = item.noCost ? 0 : Number(product.price_arg) || 0;
     const priceUyu = item.noCost ? 0 : Number(product.price_uyu) || priceArg * rate;
-    return { line_id: `line-${crypto.randomUUID()}`, order_id: orderId, created_at: now, customer: clean(customer), model: product.model, variant: product.variant, quantity: count, status: "Pendiente", order_type: item.noCost ? "no_cost" : "normal", sale_channel: saleChannel, unit_price_arg: priceArg, unit_price_uyu: priceUyu, exchange_rate: rate, total_arg: priceArg * count, total_uyu: priceUyu * count };
+    return { line_id: `line-${crypto.randomUUID()}`, order_id: orderId, created_at: now, customer: clean(customer), model: product.model, variant: item.generic ? GENERIC_WHOLESALE_VARIANT : product.variant, quantity: count, status: "Pendiente", order_type: item.noCost ? "no_cost" : "normal", sale_channel: saleChannel, unit_price_arg: priceArg, unit_price_uyu: priceUyu, exchange_rate: rate, total_arg: priceArg * count, total_uyu: priceUyu * count };
   });
   const { error } = await client().from("order_lines").insert(lines);
   if (error) throw error;
@@ -268,9 +200,4 @@ export async function saveWholesaleExchangeRate(rate: number) {
   if (!Number.isFinite(rate) || rate <= 0) throw new Error("La cotización debe ser positiva.");
   const { error } = await client().from("settings").update({ exchange_rate: rate }).eq("id", 1);
   if (error) throw error;
-  const products = await pages<WholesaleProduct>("products", "id");
-  for (const product of products) {
-    const { error: productError } = await client().from("products").update({ price_uyu: Number(product.price_arg) * rate }).eq("id", product.id);
-    if (productError) throw productError;
-  }
 }

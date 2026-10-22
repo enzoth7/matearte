@@ -1,4 +1,4 @@
-import { commerceDate } from "./commerceAdapter";
+import { buildSearchText, commerceDate } from "./commerceAdapter";
 import type { Customer, Order, OrderLine, Payment, Product, State } from "./data";
 import { wholesaleProductImageUrl, type WholesaleLine, type WholesaleProduct, type WholesaleSnapshot } from "./wholesaleSource";
 import { formatContactName } from "../../shared/contactName";
@@ -103,6 +103,7 @@ export function adaptWholesale(state: State, snapshot: WholesaleSnapshot, imageU
     return ({
     id: `wholesale:${source.id}`, wholesaleProductId: source.id,
     name: [source.model.trim(), source.variant.trim()].filter(Boolean).join(" · "), sku: source.sku || source.id, categoryCode: source.category_code || undefined, family: wholesaleCategory(source, snapshot), variant: source.variant,
+    searchText: buildSearchText(source.description, source.catalog_attributes, source.rim_type, source.leather_type),
     rim: source.rim_type || "", leather: source.leather_type || "", cost: 0,
     imageUrl: cover ? imageUrl(cover.storage_path) : undefined,
     imageCrop: cover ? { x: Number(crop.cover_x) || 0, y: Number(crop.cover_y) || 0, zoom: Number(crop.cover_zoom) || 1 } : undefined,
@@ -185,7 +186,7 @@ export function adaptWholesale(state: State, snapshot: WholesaleSnapshot, imageU
       quantity: items.reduce((sum, item) => sum + item.quantity, 0), unitPrice: 0,
       items, totalAmount: items.reduce((sum, item) => sum + item.amount, 0),
       channel: first.sale_channel || "WhatsApp", date: date ? commerceDate(date) : "", due: "",
-      production, delivery: "No aplica", method: "No aplica", design: false, approved: true,
+      production, delivery: production === "Terminado" ? "Enviado" : "No aplica", method: "No aplica", design: false, approved: true,
     };
     orders.push(order);
     for (const line of lines) {

@@ -26,6 +26,7 @@ import {
   defaultCatalogTaxonomy,
   emptyCatalogAttributes,
   formatVariantLabel,
+  allowsFlejeDesign,
   normalizeCatalogAttributes,
   normalizeCatalogValueMap,
   optionSignature,
@@ -483,7 +484,7 @@ const orderStatus = (status: string) => ({
 }[status] || status.replaceAll('_', ' '));
 const normalizeSearch = (value:string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 const catalogCategoryLabels: Record<string,string> = {
-  mates:'Mate','mates-personalizados':'Personalizados',bombillas:'Bombilla',materas:'Matera',termos:'Termo','kits-materos':'Kit matero',cuchillos:'Cuchillo',cintos:'Cinto',calzado:'Calzado',botas:'Bota',marroquineria:'Marroquinería',billeteras:'Billetera',carteras:'Cartera','posa-mates':'Posa mates',personalizados:'Personalizados',
+  mates:'Mate','mates-personalizados':'Personalizados',bombillas:'Bombilla',materas:'Matera',termos:'Termo','kits-materos':'Kit matero',cuchillos:'Cuchillo',cintos:'Cinto',calzado:'Calzado',botas:'Bota',marroquineria:'Marroquinería',billeteras:'Billetera',carteras:'Cartera',bandolera:'Bandolera','posa-mates':'Posa mates',personalizados:'Personalizados',
 };
 const catalogMaterialLabels: Record<string,string> = {
   cuero:'Cuero',plata:'Plata',alpaca:'Alpaca','acero-inoxidable':'Acero inoxidable','otros-metales':'Otros metales',madera:'Madera',estampado:'Estampado',
@@ -537,6 +538,7 @@ export function DynamicAttributeFields({taxonomy,category,scope,values,onChange,
       const next={...values};
       if(value===undefined) delete next[definition.code];
       else next[definition.code]=value;
+      if (definition.code==='tipo-mate' && !allowsFlejeDesign(next)) delete next['diseno-fleje'];
       if (definition.code==='tipo-personalizado' && value!==values[definition.code]) {
         const oldType=values['tipo-personalizado'];
         const oldRules=taxonomyRulesForCategory(taxonomy,oldType==='mate'?'mates':'materas','product');
@@ -658,6 +660,8 @@ export function Catalog({onNotice,initialProductId,initialVariantId,startNew=fal
   const [variant,setVariant] = useState<VariantForm>(()=>emptyVariantForm(fixedCategory==='servicios'));
   const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
   const [editingVariantForm, setEditingVariantForm] = useState<VariantForm>(emptyVariantForm);
+  // Los SKU son numéricos y correlativos desde 100: el próximo es el mayor existente + 1.
+  const nextSku = useMemo(() => String(Math.max(99, ...products.flatMap(item => item.commerce_variants.map(entry => /^\d+$/.test(entry.sku) ? Number(entry.sku) : 0))) + 1), [products]);
 
   const [taxonomyError,setTaxonomyError] = useState('');
   const categoryOptions = useMemo(() => taxonomy.categories
@@ -977,7 +981,9 @@ export function Catalog({onNotice,initialProductId,initialVariantId,startNew=fal
     const missingProduct = (variant.web || variant.local) && taxonomyRulesForProduct(taxonomy,category,productAttributes,'product').find(rule=>rule.required&&(productAttributes[rule.attribute_code]===undefined||productAttributes[rule.attribute_code]===''));
     if(missingProduct){onNotice(`Antes de habilitarlo en Local o Web completá ${catalogAttributeLabel(taxonomy,missingProduct.attribute_code)}.`);return}
     const missing = variantRules.find(rule=>rule.required&&(variant.options[rule.attribute_code]===undefined||variant.options[rule.attribute_code]===''));
-    if(!variant.sku.trim()||!Number.isFinite(price)||(!isService && price<=0)||(isService && variant.servicePriceMode==='fixed' && price<=0)||missing){onNotice(missing?`Completá ${catalogAttributeLabel(taxonomy,missing.attribute_code)}.`:'Completá SKU y un precio válido.');return}
+    const sku = variant.sku.trim() || nextSku;
+    if(!/^\d{3,}$/.test(sku)){onNotice('El SKU debe ser numérico, desde 100.');return}
+    if(!Number.isFinite(price)||(!isService && price<=0)||(isService && variant.servicePriceMode==='fixed' && price<=0)||missing){onNotice(missing?`Completá ${catalogAttributeLabel(taxonomy,missing.attribute_code)}.`:'Completá SKU y un precio válido.');return}
     if(!isService && variant.wholesale && (!variant.priceArg.trim() || !Number.isFinite(Number(variant.priceArg)) || Number(variant.priceArg) <= 0)){onNotice('Completá un precio ARS válido para Mayorista.');return}
     const options = colorOnlyVariantValues(variant.options);
     const signature=optionSignature(options);
@@ -985,7 +991,7 @@ export function Catalog({onNotice,initialProductId,initialVariantId,startNew=fal
     setProductBusy('variant-create');
     const {error} = await supabase.from('commerce_variants').insert({
       product_id: product.id,
-      sku: variant.sku.trim(),
+      sku,
       name: formatVariantLabel(taxonomy,product.category_code||product.category,options),
       base_price_minor: Math.round(price*100),
       price_minor: Math.round(price*100),
@@ -1306,7 +1312,7 @@ export function Catalog({onNotice,initialProductId,initialVariantId,startNew=fal
           <form className="variant-create" onSubmit={event=>void createVariant(event)}>
             <h4>Nueva variante</h4>
             <div className="variant-create-fields">
-              <label><div className="field-label">SKU <div className="field-required" aria-hidden="true">*</div></div><input required value={variant.sku} onChange={e=>setVariant({...variant,sku:e.target.value})}/></label>
+              <label><div className="field-label">SKU</div><input inputMode="numeric" placeholder={nextSku} value={variant.sku} onChange={e=>setVariant({...variant,sku:e.target.value})}/></label>
               <DynamicAttributeFields taxonomy={taxonomy} category={product.category_code||product.category} scope="variant" values={variant.options} onChange={options=>setVariant({...variant,options})}/>
               {isService && <label>Tipo de precio<select value={variant.servicePriceMode} onChange={e=>setVariant({...variant,servicePriceMode:e.target.value as VariantForm['servicePriceMode']})}><option value="fixed">Fijo</option><option value="variable">A definir en la venta</option></select></label>}
               {(!isService || variant.servicePriceMode==='fixed') && <label><div className="field-label">{isService ? 'Precio local UYU' : 'Precio base UYU'} <div className="field-required" aria-hidden="true">*</div></div><input required type="number" min="1" step="0.01" value={variant.price} onChange={e=>setVariant({...variant,price:e.target.value})}/></label>}
@@ -2281,11 +2287,17 @@ export function Settings({onNotice,section="all"}:{onNotice:(v:string)=>void;sec
   return <>
     {section !== "pricing" && <section className="panel settings settings-section">
       <header className="settings-heading"><h2>Canales de venta</h2><div>Controles generales para habilitar la tienda y sus proveedores de pago.</div></header>
-      {([
-        ['commerce_enabled','Habilitar comercio'],
-        ['mercado_pago_enabled','Habilitar Mercado Pago'],
-        ['paypal_enabled','Habilitar PayPal'],
-      ] as const).map(([key,label])=><label className="toggle" key={key}><div>{label}</div><input type="checkbox" disabled={saving} checked={value[key]} onChange={event=>void save({[key]:event.target.checked})}/></label>)}
+      <div className="channel-switches">
+        {([
+          ['commerce_enabled','Comercio web','Activa la tienda online y su checkout.'],
+          ['mercado_pago_enabled','Mercado Pago','Cobro de pedidos con Mercado Pago.'],
+          ['paypal_enabled','PayPal','Cobro de pedidos con PayPal.'],
+        ] as const).map(([key,label,description])=><label className={`channel-switch${value[key]?' is-on':''}`} key={key}>
+          <div className="channel-switch-text"><strong>{label}</strong><small>{description}</small></div>
+          <span className="channel-switch-state">{value[key]?'Activo':'Apagado'}</span>
+          <input type="checkbox" role="switch" disabled={saving} checked={value[key]} aria-label={`Habilitar ${label}`} onChange={event=>void save({[key]:event.target.checked})}/>
+        </label>)}
+      </div>
     </section>}
     {section !== "payments" && <>
     <section className="panel settings settings-section">
@@ -2313,10 +2325,14 @@ export function Settings({onNotice,section="all"}:{onNotice:(v:string)=>void;sec
     {section !== "pricing" && bank&&<section className="panel settings settings-section">
       <header className="settings-heading"><h2>Datos para transferencia</h2><div>Se muestran solamente en el checkout mayorista. Guardalos acá para no exponerlos en la configuración pública de la tienda.</div></header>
       <form className="bank-settings-form" onSubmit={event=>void saveBank(event)}>
-        <label><div className="field-label">Titular</div><input required minLength={2} maxLength={120} value={bank.account_holder} disabled={bankSaving} onChange={event=>setBank({...bank,account_holder:event.target.value})}/></label>
-        <label><div className="field-label">Cuenta para transferencias</div><input required minLength={3} maxLength={160} value={bank.transfer_account} disabled={bankSaving} onChange={event=>setBank({...bank,transfer_account:event.target.value})}/></label>
-        <label><div className="field-label">Texto para depósitos</div><input required minLength={3} maxLength={240} value={bank.cash_deposit_label} disabled={bankSaving} onChange={event=>setBank({...bank,cash_deposit_label:event.target.value})}/></label>
-        <label><div className="field-label">Cuenta anterior RedPagos/Abitab</div><input required minLength={3} maxLength={160} value={bank.cash_deposit_account} disabled={bankSaving} onChange={event=>setBank({...bank,cash_deposit_account:event.target.value})}/></label>
+        <fieldset className="bank-group"><legend>Transferencia bancaria</legend>
+          <label><div className="field-label">Titular</div><input required minLength={2} maxLength={120} value={bank.account_holder} disabled={bankSaving} onChange={event=>setBank({...bank,account_holder:event.target.value})}/></label>
+          <label><div className="field-label">Cuenta para transferencias</div><input required minLength={3} maxLength={160} value={bank.transfer_account} disabled={bankSaving} onChange={event=>setBank({...bank,transfer_account:event.target.value})}/></label>
+        </fieldset>
+        <fieldset className="bank-group"><legend>Depósitos RedPagos / Abitab</legend>
+          <label><div className="field-label">Texto para depósitos</div><input required minLength={3} maxLength={240} value={bank.cash_deposit_label} disabled={bankSaving} onChange={event=>setBank({...bank,cash_deposit_label:event.target.value})}/></label>
+          <label><div className="field-label">Cuenta anterior RedPagos/Abitab</div><input required minLength={3} maxLength={160} value={bank.cash_deposit_account} disabled={bankSaving} onChange={event=>setBank({...bank,cash_deposit_account:event.target.value})}/></label>
+        </fieldset>
         <button type="submit" disabled={bankSaving}>{bankSaving?'Guardando…':'Guardar datos bancarios'}</button>
       </form>
     </section>}

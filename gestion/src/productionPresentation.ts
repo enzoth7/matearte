@@ -1,4 +1,4 @@
-import type { Order, OrderLine, Product } from "./data";
+import { isSale, type Order, type OrderLine, type Product } from "./data";
 
 const normalized = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("es");
 
@@ -20,29 +20,33 @@ export function isPersonalizedMateItem(order: Order, item: OrderLine, products: 
   if (order.source === "local") return Boolean(item.personalization);
   const product = products.find((entry) => entry.id === item.productId);
   if (isPersonalizedMateProduct(product)) return true;
-  return Boolean(order.design && item.reviewStatus != null && /\bmate(?:ra)?\b/.test(normalized(item.productName || item.title || "")));
+  return Boolean(order.design && item.reviewStatus != null && /personaliz/.test(normalized(`${item.productName || ""} ${item.title || ""}`)));
 }
 
 export function isPersonalizedMateOrder(order: Order, products: Product[]): boolean {
   return (order.items || []).some((item) => isPersonalizedMateItem(order, item, products));
 }
 
-export function withoutPersonalizedMateItems(order: Order, products: Product[]): Order | null {
-  if (!order.items?.length) return isPersonalizedMateOrder(order, products) ? null : order;
-  const items = order.items.filter((item) => !isPersonalizedMateItem(order, item, products));
-  if (items.length === order.items.length) return order;
-  if (!items.length) return null;
-  const production = items.every((item) => item.productionStatus === "completed" || item.productionStatus === "Completado")
-    ? "Terminado"
-    : items.some((item) => item.productionStatus === "in_production" || item.productionStatus === "En producción")
-      ? "En producción"
-      : "Pendiente";
-  return {
-    ...order,
-    items,
-    productId: items[0].productId,
-    quantity: items.reduce((sum, item) => sum + item.quantity, 0),
-    totalAmount: items.reduce((sum, item) => sum + item.amount, 0),
-    production,
-  };
+function isWorkshopServiceItem(item: OrderLine, products: Product[]): boolean {
+  if (normalized(item.orderType || "") === "service" || normalized(item.orderType || "") === "servicio") return true;
+  if (normalized(item.family || "") === "servicios") return true;
+  const product = products.find((entry) => entry.id === item.productId);
+  return normalized(product?.categoryCode || product?.family || "") === "servicios";
+}
+
+export function workshopOrderRows(orders: Order[], products: Product[]): Order[] {
+  return orders.filter(isSale).flatMap((order) => {
+    if (order.source === "wholesale" || (order.source !== "local" && order.channel !== "Web" && order.channel !== "Local")) return [order];
+    const workshopItems = (order.items || []).flatMap((item) => {
+      if (isPersonalizedMateItem(order, item, products)) return [{ ...item, orderType: item.orderType === "local_design" ? "local_design" : "design" }];
+      return isWorkshopServiceItem(item, products) ? [item] : [];
+    });
+    if (!workshopItems.length) return [];
+    const production = workshopItems.every((item) => item.productionStatus === "completed" || item.productionStatus === "Completado")
+      ? "Terminado"
+      : workshopItems.some((item) => item.productionStatus === "in_production" || item.productionStatus === "En producción")
+        ? "En producción"
+        : "Pendiente";
+    return [{ ...order, items: workshopItems, productId: workshopItems[0].productId, quantity: workshopItems.reduce((sum, item) => sum + item.quantity, 0), production }];
+  });
 }

@@ -108,7 +108,7 @@ export function FinanceOverview({
   s: State;
 }) {
   const [openingBalance, setOpeningBalance] = useState(0);
-  const incomplete = s.source === "commerce";
+  const incomplete = s.source === "commerce" && !s.expensesConnected;
   const changeOpeningBalance = (value: string) => setOpeningBalance(Number(value) || 0);
   const months = buildFinanceProjection(s, { openingBalance, model: "linear" });
   const revenueForecast = buildRevenueForecast(s);
@@ -139,7 +139,8 @@ export function FinanceOverview({
         </div>
       </div>
 
-      {incomplete && <div className="data-note">Ingresos y cobros del comercio web. Los egresos y el saldo bancario aún no están conectados; no se calcula ganancia con información incompleta.</div>}
+      {!incomplete && s.expensesConnected && <div className="data-note">Los egresos salen de Compras y Gastos fijos y solo incluyen lo que esté cargado ahí.{s.expensesSkipped ? ` ${s.expensesSkipped} egreso${s.expensesSkipped === 1 ? "" : "s"} en moneda extranjera no se cuenta${s.expensesSkipped === 1 ? "" : "n"} porque falta la cotización en Monedas y cotizaciones.` : ""}</div>}
+      {incomplete && <div className="data-note">Ingresos y cobros del comercio web. Todavía no hay egresos cargados: agregalos en Inventario y compras → Compras y Gastos fijos. Hasta entonces no se calcula ganancia con información incompleta.</div>}
       <section className="finance-flow" aria-label="Proyección mensual de ingresos y egresos">
         <Matrix months={months} incomplete={incomplete} />
       </section>

@@ -46,6 +46,7 @@ export type CommerceProduct = {
   sale_mode: string;
   peso: number;
   updated_at: string;
+  description?: string | null;
   attributes?: Record<string, unknown>;
   commerce_variants: CommerceVariant[];
   commerce_product_images: CommerceImage[];
@@ -152,11 +153,11 @@ export function commercePesos(amount: number): string {
 export async function readCommerceProducts(client: SupabaseClient, page: number) {
   const start = page * commercePageSize;
   let result: { data: unknown[] | null; count: number | null; error: { code?: string; message: string } | null } = await client.from("commerce_products")
-    .select("id,name,editorial_slug,category,category_code,published,sale_mode,peso,updated_at,attributes,commerce_variants(id,sku,name,price_minor,base_price_minor,active,available_local,available_web,available_wholesale,wholesale_price_arg,legacy_product_id,rim_type,leather_type,weight_grams,color,option_values),commerce_product_images(id,storage_path,alt_text,sort_order,variant_id,option_values)", { count: "exact" })
+    .select("id,name,editorial_slug,category,category_code,description,published,sale_mode,peso,updated_at,attributes,commerce_variants(id,sku,name,price_minor,base_price_minor,active,available_local,available_web,available_wholesale,wholesale_price_arg,legacy_product_id,rim_type,leather_type,weight_grams,color,option_values),commerce_product_images(id,storage_path,alt_text,sort_order,variant_id,option_values)", { count: "exact" })
     .order("name").order("id").range(start, start + commercePageSize - 1);
   if (result.error?.code === "42703" && /available_wholesale|wholesale_price_arg|legacy_product_id/i.test(result.error.message)) {
     result = await client.from("commerce_products")
-      .select("id,name,editorial_slug,category,category_code,published,sale_mode,peso,updated_at,attributes,commerce_variants(id,sku,name,price_minor,base_price_minor,active,available_local,available_web,rim_type,leather_type,weight_grams,color,option_values),commerce_product_images(id,storage_path,alt_text,sort_order,variant_id,option_values)", { count: "exact" })
+      .select("id,name,editorial_slug,category,category_code,description,published,sale_mode,peso,updated_at,attributes,commerce_variants(id,sku,name,price_minor,base_price_minor,active,available_local,available_web,rim_type,leather_type,weight_grams,color,option_values),commerce_product_images(id,storage_path,alt_text,sort_order,variant_id,option_values)", { count: "exact" })
       .order("name").order("id").range(start, start + commercePageSize - 1);
   }
   const { data, count, error } = result;

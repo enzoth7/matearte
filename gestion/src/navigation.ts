@@ -28,6 +28,7 @@ export const areas = [
       ["sorteo", "Sorteo"],
       ["contactos", "Contactos"],
       ["suscripcion", "Suscripción"],
+      ["analytics", "Analytics"],
       ["descuentos", "Descuentos y promociones"],
       ["avisos", "Avisos"],
     ],
@@ -71,11 +72,11 @@ export const areas = [
     name: "Inventario y compras",
     hint: "Todo en su lugar",
     pages: [
+      ["compras", "Compras"],
       ["stock", "Stock de productos"],
       ["insumos", "Insumos"],
       ["movimientos", "Movimientos y reservas"],
       ["reposicion", "Reposición"],
-      ["compras", "Compras"],
       ["proveedores", "Proveedores"],
     ],
   },
@@ -120,6 +121,7 @@ export const areas = [
     pages: [
       ["usuarios", "Usuarios y permisos"],
       ["canales", "Canales y medios de pago"],
+      ["origen-canal", "Canal y origen"],
       ["automatizaciones", "Automatizaciones"],
       ["actividad", "Registro de actividad"],
     ],

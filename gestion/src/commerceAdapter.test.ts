@@ -61,6 +61,13 @@ describe("integración de commerce en el estado compartido", () => {
     expect(state.customers[0].id).toBe(order.customerId); expect(order.production).toBe("Pendiente");
     expect(overviewScope(state, "14d", "2026-10-13").orders.reduce((sum, order) => sum + order.quantity, 0)).toBe(3);
   });
+  it("interpreta un pedido web enviado como producción terminada aunque sus artículos conserven un estado viejo", () => {
+    const fixture = commerceFixture();
+    fixture.orders[0].status = "shipped";
+    const order = adaptCommerce(fixture).orders[0];
+    expect(order).toMatchObject({ production: "Terminado", delivery: "Enviado" });
+    expect(order.items?.every((item) => item.productionStatus === "completed")).toBe(true);
+  });
   it("clasifica un diseño web sin variante de catálogo como Personalizados", () => {
     const fixture = commerceFixture();
     fixture.orders[0].order_items = [{
@@ -207,6 +214,13 @@ describe("integración de commerce en el estado compartido", () => {
     expect(adaptCommerce(fixture).customers[0].birthDate).toBe("");
     fixture.customerProfiles = [{ user_id: "customer-1", birth_date: "1990-01-02", city: "Montevideo", country_code: "UY" }];
     expect(adaptCommerce(fixture).customers[0].birthDate).toBe("1990-01-02");
+  });
+  it("usa el origen calculado en la base, el mismo que ve Marketing", () => {
+    const fixture = commerceFixture();
+    const before = adaptCommerce(fixture).customers[0];
+    expect(before.originChannel).toBe("Web");
+    fixture.contactOrigins = [{ contact_key: `email:${before.email.toLowerCase()}`, origin: "Agenda" }];
+    expect(adaptCommerce(fixture).customers[0].originChannel).toBe("Agenda");
   });
   it("respeta paid_at sin fabricar una transacción de pago", () => {
     const fixture = commerceFixture(); fixture.payments = [];

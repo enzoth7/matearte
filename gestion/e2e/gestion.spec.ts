@@ -341,12 +341,14 @@ test("la columna Detalles queda visible en la lista de pedidos", async ({ page }
   await page.goto("/comercial/pedidos");
   const table = page.locator(".sales-orders-table table");
   await expect(table.getByRole("columnheader", { name: "Detalles" })).toBeVisible();
+  await expect(table.getByRole("columnheader", { name: "Origen" })).toBeVisible();
   const bounds = await table.evaluate((element) => {
     const product = element.querySelectorAll("th")[3].getBoundingClientRect();
-    const details = element.querySelectorAll("th")[9].getBoundingClientRect();
+    const details = element.querySelectorAll("th")[10].getBoundingClientRect();
     const viewport = element.parentElement!.getBoundingClientRect();
-    return { productWidth: product.width, tableWidth: element.getBoundingClientRect().width, detailsRight: details.right, viewportRight: viewport.right };
+    return { overflows: element.parentElement!.scrollWidth > element.parentElement!.clientWidth, productWidth: product.width, tableWidth: element.getBoundingClientRect().width, detailsRight: details.right, viewportRight: viewport.right };
   });
+  expect(bounds.overflows).toBe(false);
   expect(bounds.productWidth).toBeLessThan(bounds.tableWidth * 0.14);
   expect(bounds.detailsRight).toBeLessThanOrEqual(bounds.viewportRight + 1);
   await expect(page.locator(".sales-orders-table .order-details-button").first()).toBeInViewport();
@@ -402,10 +404,13 @@ test("pedido real integrado en ventas, cliente, producción y cobros", async ({ 
   await expect(page.getByRole("button", { name: "Ver comprobante" })).toHaveCount(0);
 });
 
-test("Producción separa los mates personalizados de Web y Local y conserva sus nombres", async ({ page }) => {
+test("Producción muestra los personalizados Web y Local también en el trabajo del taller", async ({ page }) => {
   const { fixture, tables } = await mockCommerce(page);
   fixture.orders[0].customer_snapshot.fullName = "CLIENTE DE PRUEBA";
   fixture.orders[0].order_items[1].title = "MATE PERSONALIZADO WEB";
+  fixture.orders[0].order_items[1].production_status = "pending";
+  fixture.orders.push({ ...fixture.orders[0], id: "order-regular-web", order_number: 9002,
+    total_minor: 200100, order_items: [fixture.orders[0].order_items[0]] });
   fixture.products.push({
     id: "product-custom-local", name: "Mate Personalizado Local", editorial_slug: "mate-personalizado-local",
     category: "mates-personalizados", category_code: "mates-personalizados", published: false, sale_mode: "standard",
@@ -414,6 +419,14 @@ test("Producción separa los mates personalizados de Web y Local y conserva sus 
       base_price_minor: 150000, active: true, available_local: true, available_web: false, available_wholesale: false,
       weight_grams: 0, rim_type: "Alpaca", leather_type: "Liso", option_values: { color: "marron" } }],
   });
+  fixture.products.push({
+    id: "product-service-local", name: "Grabado láser", editorial_slug: "grabado-laser",
+    category: "servicios", category_code: "servicios", published: false, sale_mode: "standard",
+    peso: 0, updated_at: "2026-10-19T12:00:00Z", attributes: {}, commerce_product_images: [],
+    commerce_variants: [{ id: "variant-service-local", sku: "SERVICE-LOCAL", name: "Servicio", price_minor: 50000,
+      base_price_minor: 50000, active: true, available_local: true, available_web: false, available_wholesale: false,
+      weight_grams: 0, rim_type: null, leather_type: null, option_values: {} }],
+  });
   tables.local_sales_customers.push({ id: "customer-custom-local", full_name: "CLIENTE LOCAL", email: null, phone: null,
     city: "Paysandú", country: "Uruguay", birth_date: null, first_purchase_date: "2026-10-19", last_purchase_date: "2026-10-19",
     source_user_id: null, notes: "" });
@@ -421,7 +434,14 @@ test("Producción separa los mates personalizados de Web y Local y conserva sus 
     customer_id: "customer-custom-local", customer_name: "CLIENTE LOCAL", sold_on: "2026-10-19", payment_method: "Efectivo",
     total_minor: 150000, currency: "UYU", created_at: "2026-10-19T15:00:00Z",
     local_sale_items: [{ id: "sale-custom-item", variant_id: "variant-custom-local", sku: "CUSTOM-LOCAL",
-      product_name: "MATE PERSONALIZADO LOCAL", variant_name: "MARRÓN", quantity: 1, unit_price_minor: 150000, line_total_minor: 150000 }],
+      product_name: "MATE PERSONALIZADO LOCAL", variant_name: "MARRÓN", quantity: 1, unit_price_minor: 150000, line_total_minor: 150000,
+      customization: { kind: "mate" } }],
+  });
+  tables.local_sales.push({ id: "sale-service-local", sale_number: 26, reference_code: "#L008", channel: "Local",
+    customer_id: "customer-custom-local", customer_name: "CLIENTE LOCAL", sold_on: "2026-10-19", payment_method: "Efectivo",
+    total_minor: 50000, currency: "UYU", created_at: "2026-10-19T16:00:00Z",
+    local_sale_items: [{ id: "sale-service-item", variant_id: "variant-service-local", sku: "SERVICE-LOCAL",
+      product_name: "Grabado láser", variant_name: "Servicio", quantity: 1, unit_price_minor: 50000, line_total_minor: 50000 }],
   });
 
   await page.goto("/produccion/personalizados");
@@ -435,8 +455,53 @@ test("Producción separa los mates personalizados de Web y Local y conserva sus 
   await localRow.getByRole("button", { name: "Ver detalle del pedido #L007" }).click();
   await expect(page.getByRole("dialog").getByRole("heading", { name: "Mate Personalizado Local" })).toBeVisible();
 
+  await page.goto("/produccion/minorista");
+  const workshopRows = page.locator(".workshop-orders-table tbody tr");
+  await expect(workshopRows.filter({ hasText: "#9001" })).toBeVisible();
+  await expect(workshopRows.filter({ hasText: "#L007" })).toBeVisible();
+  await expect(workshopRows.filter({ hasText: "#L008" })).toContainText("Servicios");
+  await expect(workshopRows.filter({ hasText: "#9002" })).toHaveCount(0);
+  await expect(workshopRows.filter({ hasText: "#9001" })).toContainText("Personalizados");
+  await expect(workshopRows.filter({ hasText: "#9001" })).not.toContainText("Mates");
+  await expect(workshopRows.filter({ hasText: "#L007" })).toContainText("Personalizados");
+  for (const width of [390, 1024, 1440, 1920]) {
+    await page.setViewportSize({ width, height: 1100 });
+    const fits = await page.locator(".workshop-orders-table .table-scroll").evaluate((element) => element.scrollWidth <= element.clientWidth + 1);
+    expect(fits).toBe(true);
+  }
+  await workshopRows.filter({ hasText: "#L007" }).getByRole("button", { name: "Ver detalle del pedido #L007" }).click();
+  await expect(page.getByRole("dialog").getByText("Pendiente", { exact: true })).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Cerrar" }).last().click();
   await page.goto("/produccion/resumen");
-  await expect(page.getByRole("button", { name: "Personalizaciones y archivos" })).toHaveCount(0);
+  await expect(page.locator(".workshop-orders-table tbody tr").filter({ hasText: "#L007" })).toBeVisible();
+});
+
+test("Producción mayorista muestra pedidos y resúmenes sin desplazamiento horizontal", async ({ page }) => {
+  const { tables } = await mockCommerce(page);
+  tables.products.push({ id: "wholesale-product-1", model: "Torpedo", variant: "Cuero crudo con virola de alpaca cincelada",
+    rim_type: "Alpaca", leather_type: "Cuero crudo", price_arg: 30000, price_uyu: 810, category_code: "mates" });
+  tables.order_lines.push({ line_id: "wholesale-line-1", order_id: "PED-001", created_at: "2026-10-20T12:00:00Z",
+    completed_at: null, customer: "Cliente mayorista de prueba", model: "Torpedo",
+    variant: "Cuero crudo con virola de alpaca cincelada", quantity: 12, status: "Pendiente", order_type: "mayorista",
+    unit_price_arg: 30000, unit_price_uyu: 810, exchange_rate: 0.027, total_arg: 360000, total_uyu: 9720 });
+  await page.goto("/produccion/mayorista");
+  await expect(page.locator(".wholesale-production-orders-table tbody tr")).toContainText("PED-001");
+  for (const group of ["Pedidos", "Modelo", "Variante", "Virolas", "Cuero Torpedo"]) {
+    await page.getByRole("button", { name: group, exact: true }).click();
+    for (const width of [390, 1024, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 1100 });
+      const fits = await page.locator(".wholesale-production-table .table-scroll").evaluate((element) => element.scrollWidth <= element.clientWidth + 1);
+      expect(fits, `${group} se desborda a ${width}px`).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${group} ensancha la página a ${width}px`).toBe(true);
+      if (width === 390) {
+        await page.locator(".wholesale-compact-filters summary").click();
+        await expect(page.getByLabel("Filtrar cliente en vista compacta")).toBeVisible();
+        await expect(page.getByLabel("Ordenar en vista compacta")).toBeVisible();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+        await page.locator(".wholesale-compact-filters summary").click();
+      }
+    }
+  }
 });
 
 test("ventas muestra referencias nuevas de web y mayorista sin cambiar pedidos anteriores", async ({ page }) => {

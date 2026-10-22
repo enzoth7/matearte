@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
-import { ArrowDown, ArrowUp, CaretDown, Check, Eye, FunnelX, MagnifyingGlass, PencilSimple, Plus, Trash, X } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, CaretDown, Check, Eye, Funnel, FunnelX, MagnifyingGlass, PencilSimple, Plus, Trash, X } from "@phosphor-icons/react";
 import type { PageProps } from "./pages";
 import type { Customer, Order } from "./data";
 import { money, orderName, paid, balance, total } from "./data";
 import { Badge, Modal, Stats, Table, type Column } from "./ui";
-import { createWholesaleOrder, deleteWholesaleCustomer, countWholesaleCustomerLines, deleteWholesaleLine, completeWholesaleLine, nextWholesaleProductId, saveWholesaleCustomer, saveWholesaleProduct, updateWholesaleLine, uploadWholesaleProductImages, deleteWholesaleProductImage, saveWholesaleProductImageCrop, saveWholesaleProductImageColor, moveWholesaleProductImage, setWholesaleProductImageCover, wholesaleProductImageUrl, type WholesaleCustomer, type WholesaleLine, type WholesaleProduct, type WholesaleProductImage, type WholesaleSnapshot } from "./wholesaleSource";
+import { createWholesaleOrder, deleteWholesaleCustomer, countWholesaleCustomerLines, deleteWholesaleLine, completeWholesaleLine, saveWholesaleCustomer, updateWholesaleLine, wholesaleProductImageUrl, type WholesaleCustomer, type WholesaleLine, type WholesaleProduct, type WholesaleProductImage, type WholesaleSnapshot } from "./wholesaleSource";
 import { ProductCoverEditor, type ProductCoverCrop } from "./commerce/ProductCoverEditor";
 import { exportWholesaleCsv, exportWholesalePdf, exportWholesaleXlsx, type WholesaleCurrency } from "./wholesaleExports";
 import { summarizeWholesale, wholesaleLineValue } from "./wholesaleAdapter";
@@ -15,9 +15,9 @@ import { isMateCategory, mateLeatherCode, mateRimCode } from "./mateOptions";
 import { CatalogProductCoreFields } from "./CatalogProductCoreFields";
 import { DynamicAttributeFields } from "./commerce/Operations";
 import { loadCatalogTaxonomy } from "./commerce/catalogTaxonomy";
-import { catalogValueLabel, defaultCatalogTaxonomy, normalizeCatalogValueMap, taxonomyOptionsFor, type CatalogMaterialId, type CatalogTaxonomy } from "../../shared/catalog-taxonomy";
+import { catalogValueLabel, allowsFlejeDesign, defaultCatalogTaxonomy, normalizeCatalogValueMap, taxonomyOptionsFor, type CatalogMaterialId, type CatalogTaxonomy } from "../../shared/catalog-taxonomy";
 import { naturalCaseName } from "./productionPresentation";
-import { wholesaleSaleCategory, wholesaleSaleCategoryLabel, wholesaleSaleType, wholesaleSaleVariantLabel } from "./wholesaleSaleSelection";
+import { GENERIC_WHOLESALE_VARIANT, genericVariantRepresentatives, wholesaleSaleCategory, wholesaleSaleCategoryLabel, wholesaleSaleType, wholesaleSaleVariantLabel } from "./wholesaleSaleSelection";
 
 const formatArg = (value: number) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 }).format(value);
 const saleArg = (value: number) => `ARS ${new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 }).format(value)}`;
@@ -82,7 +82,7 @@ export function WholesaleRegister(props: PageProps) {
   const [customerSearch, setCustomerSearch] = useState("");
   const [productSearch, setProductSearch] = useState("");
   const [saleChannel, setSaleChannel] = useState<NonNullable<WholesaleLine["sale_channel"]>>("WhatsApp");
-  const [items, setItems] = useState([{ key: crypto.randomUUID(), category: "", model: "", productId: "", quantity: 1, noCost: false }]);
+  const [items, setItems] = useState([{ key: crypto.randomUUID(), category: "", model: "", productId: "", quantity: 1, noCost: false, generic: false }]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   if (!snapshot) return <div className="empty">Cargando producción mayorista…</div>;
@@ -95,8 +95,8 @@ export function WholesaleRegister(props: PageProps) {
   function chooseProduct(product: WholesaleProduct) {
     setItems((current) => {
       const target = current.find((row) => !row.productId);
-      if (target) return current.map((row) => row.key === target.key ? { ...row, category: wholesaleSaleCategory(product) || "", model: wholesaleSaleType(product), productId: String(product.id) } : row);
-      return [...current, { key: crypto.randomUUID(), category: wholesaleSaleCategory(product) || "", model: wholesaleSaleType(product), productId: String(product.id), quantity: 1, noCost: false }];
+      if (target) return current.map((row) => row.key === target.key ? { ...row, category: wholesaleSaleCategory(product) || "", model: wholesaleSaleType(product), productId: String(product.id), generic: false } : row);
+      return [...current, { key: crypto.randomUUID(), category: wholesaleSaleCategory(product) || "", model: wholesaleSaleType(product), productId: String(product.id), quantity: 1, noCost: false, generic: false }];
     });
     setProductSearch("");
   }
@@ -114,7 +114,7 @@ export function WholesaleRegister(props: PageProps) {
     <section className="local-sale-section wholesale-sale-section">
       <div className="wholesale-sale-section-heading">
         <div><h2>Artículos</h2><p>Seleccioná cada artículo y la cantidad solicitada.</p></div>
-        <button type="button" className="secondary" onClick={() => setItems((current) => [...current, { key: crypto.randomUUID(), category: "", model: "", productId: "", quantity: 1, noCost: false }])}><Plus size={18} aria-hidden="true" />Agregar artículo</button>
+        <button type="button" className="secondary" onClick={() => setItems((current) => [...current, { key: crypto.randomUUID(), category: "", model: "", productId: "", quantity: 1, noCost: false, generic: false }])}><Plus size={18} aria-hidden="true" />Agregar artículo</button>
       </div>
       <div className="wholesale-sale-product-search"><label>Buscar producto<span><MagnifyingGlass size={18} aria-hidden="true" /><input type="search" value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Nombre, variante o SKU" /></span></label>
         {productSearch.trim() && <div className="wholesale-sale-search-results" aria-label="Resultados de productos">{productMatches.map((product) => <button type="button" key={product.id} onClick={() => chooseProduct(product)}><span>{wholesaleSaleVariantLabel(product)}<small>{wholesaleSaleCategoryLabel(wholesaleSaleCategory(product)!)}{product.sku ? ` · SKU ${product.sku}` : ""}</small></span><strong>{saleArg(Number(product.price_arg) || 0)}</strong></button>)}{!productMatches.length && <div className="wholesale-sale-no-results">No hay productos mayoristas con esa búsqueda.</div>}</div>}
@@ -126,9 +126,9 @@ export function WholesaleRegister(props: PageProps) {
         const variants = sortedProducts.filter((product) => wholesaleSaleCategory(product) === item.category && wholesaleSaleType(product) === item.model);
         const typeLabel = item.category === "mates" ? "Modelo de mate" : item.category === "materas" ? "Forma" : item.category === "bombillas" || item.category === "bombillones" ? "Tipo de bombilla" : "Tipo";
         return <div className="wholesale-sale-line" key={item.key}>
-          <label className="wholesale-sale-cell"><span>Categoría</span><select required aria-label={`Categoría ${index + 1}`} value={item.category} onChange={(event) => setItems(items.map((row) => row.key === item.key ? { ...row, category: event.target.value, model: "", productId: "" } : row))}><option value="">Elegir</option><option value="mates">Mates</option><option value="materas">Materas</option><option value="bombillas">Bombillas</option><option value="bombillones">Bombillones</option></select></label>
-          <label className="wholesale-sale-cell"><span>{typeLabel}</span><select required aria-label={`Tipo ${index + 1}`} value={item.model} disabled={!item.category} onChange={(event) => setItems(items.map((row) => row.key === item.key ? { ...row, model: event.target.value, productId: "" } : row))}><option value="">{item.category ? `Elegir ${typeLabel.toLocaleLowerCase("es")}` : "Elegir tipo"}</option>{models.map((model) => <option key={model} value={model}>{model}</option>)}</select></label>
-          <label className="wholesale-sale-cell"><span>Nombre y variante</span><select required aria-label={`Nombre y variante ${index + 1}`} value={item.productId} disabled={!item.model} onChange={(event) => setItems(items.map((row) => row.key === item.key ? { ...row, productId: event.target.value } : row))}><option value="">Elegir nombre y variante</option>{variants.map((product) => <option key={product.id} value={product.id}>{wholesaleSaleVariantLabel(product)}</option>)}</select></label>
+          <label className="wholesale-sale-cell"><span>Categoría</span><select required aria-label={`Categoría ${index + 1}`} value={item.category} onChange={(event) => setItems(items.map((row) => row.key === item.key ? { ...row, category: event.target.value, model: "", productId: "", generic: false } : row))}><option value="">Elegir</option><option value="mates">Mates</option><option value="materas">Materas</option><option value="bombillas">Bombillas</option><option value="bombillones">Bombillones</option></select></label>
+          <label className="wholesale-sale-cell"><span>{typeLabel}</span><select required aria-label={`Tipo ${index + 1}`} value={item.model} disabled={!item.category} onChange={(event) => setItems(items.map((row) => row.key === item.key ? { ...row, model: event.target.value, productId: "", generic: false } : row))}><option value="">{item.category ? `Elegir ${typeLabel.toLocaleLowerCase("es")}` : "Elegir tipo"}</option>{models.map((model) => <option key={model} value={model}>{model}</option>)}</select></label>
+          <label className="wholesale-sale-cell"><span>Nombre y variante</span><select required aria-label={`Nombre y variante ${index + 1}`} value={item.generic ? `generic:${item.productId}` : item.productId} disabled={!item.model} onChange={(event) => { const generic = event.target.value.startsWith("generic:"); setItems(items.map((row) => row.key === item.key ? { ...row, productId: event.target.value.replace(/^generic:/, ""), generic } : row)); }}><option value="">Elegir nombre y variante</option>{variants.map((product) => <option key={product.id} value={product.id}>{wholesaleSaleVariantLabel(product)}</option>)}{genericVariantRepresentatives(variants).map((product) => <option key={`generic-${product.id}`} value={`generic:${product.id}`}>{product.model.trim()} · {GENERIC_WHOLESALE_VARIANT} (varios colores)</option>)}</select></label>
           <label className="wholesale-sale-cell"><span>Cantidad</span><input type="number" min="1" step="1" required aria-label={`Cantidad ${index + 1}`} value={item.quantity} onChange={(event) => setItems(items.map((row) => row.key === item.key ? { ...row, quantity: Number(event.target.value) } : row))} /></label>
           <div className="wholesale-sale-value" data-label="Precio ARS">{selectedProduct ? saleArg(Number(selectedProduct.price_arg) || 0) : "—"}</div>
           <strong className="wholesale-sale-value" data-label="Subtotal ARS">{selectedProduct ? saleArg(lineTotal) : "—"}</strong>
@@ -150,7 +150,7 @@ export function WholesaleRegister(props: PageProps) {
     <section className="local-sale-section wholesale-sale-section">
       <h2>Datos de la venta</h2>
       <div className="wholesale-sale-single-field"><label>Canal de venta<select value={saleChannel} onChange={(event) => setSaleChannel(event.target.value as typeof saleChannel)}>{["WhatsApp", "Local", "Web", "Instagram", "Facebook", "Feria"].map((value) => <option key={value}>{value}</option>)}</select></label></div>
-      <small className="wholesale-sale-note">El pedido se guardará en el tablero de producción mayorista con su número PED-.</small>
+      <small className="wholesale-sale-note">El pedido se guardará en el tablero de producción mayorista con su número #M.</small>
     </section>
 
     <footer className="wholesale-sale-footer">
@@ -206,164 +206,6 @@ export function WholesaleCustomerEditor({ customer, onSaved, onDeleted }: { cust
   </form>;
 }
 
-const wholesaleImageCrop = (image: WholesaleProductImage): ProductCoverCrop => ({
-  x: Number(image.option_values?.cover_x) || 0,
-  y: Number(image.option_values?.cover_y) || 0,
-  zoom: Number(image.option_values?.cover_zoom) || 1,
-});
-
-export function WholesaleProductEditor({ product, snapshot, onSaved, onClose, onRefresh, onNotice, onDirtyChange }: { product?: WholesaleProduct; snapshot: WholesaleSnapshot; onSaved: (id: string) => void; onClose: () => void; onRefresh?: () => Promise<void>; onNotice: (message: string) => void; onDirtyChange?: (dirty: boolean) => void }) {
-  const [model, setModel] = useState(product?.model || "");
-  const [variant, setVariant] = useState(product?.variant || "");
-  const [price, setPrice] = useState(String(product?.price_arg ?? ""));
-  const [category, setCategory] = useState(product?.category_code || "");
-  const [description, setDescription] = useState(product?.description || "");
-  const [sku, setSku] = useState(product?.sku || "");
-  const [weight, setWeight] = useState(product?.weight_grams == null ? "" : String(product.weight_grams));
-  const [availableLocal, setAvailableLocal] = useState(product?.available_local === true);
-  const [availableWeb, setAvailableWeb] = useState(product?.available_web === true);
-  const [available, setAvailable] = useState(product?.available_wholesale !== false);
-  const [catalogAttributes, setCatalogAttributes] = useState(() => {
-    const values = normalizeCatalogValueMap(product?.catalog_attributes);
-    if (!values["tipo-mate"]) values["tipo-mate"] = mateModelCode(product?.model || "", product?.category_code) || "";
-    if (!values["tipo-virola"] && product?.rim_type) values["tipo-virola"] = mateRimCode(product.rim_type);
-    if (!values["tipo-cuero"] && product?.leather_type) values["tipo-cuero"] = mateLeatherCode(product.leather_type);
-    return values;
-  });
-  const [materials, setMaterials] = useState<CatalogMaterialId[]>(() => { const attributes = product?.catalog_attributes; const value = attributes?.materials; return Array.isArray(value) ? value.filter((item): item is CatalogMaterialId => typeof item === "string") : typeof attributes?.material === "string" ? [attributes.material as CatalogMaterialId] : []; });
-  const [taxonomy, setTaxonomy] = useState<CatalogTaxonomy>(defaultCatalogTaxonomy);
-  useEffect(() => { void loadCatalogTaxonomy(false).then(value => { if (value.rules.length && value.attributes.length) setTaxonomy(value); }).catch(() => { /* El catálogo local sigue disponible. */ }); }, []);
-  const [busy, setBusy] = useState(false);
-  const [imageBusy, setImageBusy] = useState(false);
-  const [imageTargets, setImageTargets] = useState<Record<string, string>>({});
-  const [coverEditorImage, setCoverEditorImage] = useState<WholesaleProductImage | null>(null);
-  const [error, setError] = useState("");
-  const images = snapshot.images.filter(image => image.product_id === product?.id).sort((a, b) => a.sort_order - b.sort_order || a.id.localeCompare(b.id));
-  async function upload(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.currentTarget.files || []);
-    event.currentTarget.value = "";
-    if (!product || !files.length) return;
-    const invalid = files.find(file => !["image/png", "image/jpeg", "image/webp"].includes(file.type) || !file.size || file.size > 10 * 1024 * 1024);
-    if (invalid) { setError(`“${invalid.name}” debe ser PNG, JPEG o WebP de hasta 10 MB.`); return; }
-    setImageBusy(true); setError("");
-    try {
-      const count = await uploadWholesaleProductImages(product.id, files, Math.max(-1, ...images.map(image => image.sort_order)) + 1, `Foto de ${product.model} · ${product.variant}`);
-      await onRefresh?.();
-      onNotice(count === 1 ? "Foto mayorista subida." : `${count} fotos mayoristas subidas.`);
-    } catch (failure) { setError(errorText(failure)); try { await onRefresh?.(); } catch { /* El error original queda visible. */ } }
-    finally { setImageBusy(false); }
-  }
-  async function changeImage(action: "cover" | "delete", image: WholesaleProductImage) {
-    if (action === "delete" && !window.confirm(`¿Eliminar “${image.original_name}”?`)) return;
-    setImageBusy(true); setError("");
-    try {
-      if (action === "cover") await setWholesaleProductImageCover(image, images[0].sort_order);
-      else await deleteWholesaleProductImage(image);
-      await onRefresh?.();
-      onNotice(action === "cover" ? "Foto principal actualizada." : "Foto eliminada.");
-    } catch (failure) { setError(errorText(failure)); try { await onRefresh?.(); } catch { /* El error original queda visible. */ } }
-    finally { setImageBusy(false); }
-  }
-  async function saveCrop(crop: ProductCoverCrop) {
-    if (!coverEditorImage) return;
-    setImageBusy(true); setError("");
-    try {
-      await saveWholesaleProductImageCrop(coverEditorImage, crop);
-      setCoverEditorImage(null);
-      await onRefresh?.();
-      onNotice("Encuadre guardado.");
-    } catch (failure) { setError(errorText(failure)); }
-    finally { setImageBusy(false); }
-  }
-  async function changeImageColor(image: WholesaleProductImage, color: string) {
-    setImageBusy(true); setError("");
-    try {
-      await saveWholesaleProductImageColor(image, color);
-      await onRefresh?.();
-      onNotice(color ? "Color enlazado a la foto." : "Foto marcada como general.");
-    } catch (failure) { setError(errorText(failure)); }
-    finally { setImageBusy(false); }
-  }
-  async function moveImage(image: WholesaleProductImage) {
-    const target = snapshot.products.find(item => item.id === imageTargets[image.id]);
-    if (!target) { setError("Elegí a qué producto querés mover la foto."); return; }
-    const nextOrder = Math.max(-1, ...snapshot.images.filter(item => item.product_id === target.id).map(item => item.sort_order)) + 1;
-    setImageBusy(true); setError("");
-    try {
-      const needsCleanup = await moveWholesaleProductImage(image, target, nextOrder);
-      setImageTargets(current => { const next = { ...current }; delete next[image.id]; return next; });
-      await onRefresh?.();
-      onNotice(needsCleanup ? `Foto movida a “${productLabel(target)}”. El archivo anterior requiere limpieza manual.` : `Foto movida a “${productLabel(target)}”.`);
-    } catch (failure) { setError(errorText(failure)); try { await onRefresh?.(); } catch { /* El error original queda visible. */ } }
-    finally { setImageBusy(false); }
-  }
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setError("");
-    try {
-      if (isMateCategory(category) && (!catalogAttributes["tipo-virola"] || !catalogAttributes["tipo-cuero"] || !catalogAttributes.posamate)) throw new Error("Elegí el tipo de virola, el tipo de cuero y el posamate.");
-      if (isMateCategory(category) && !catalogAttributes["material-mate"]) throw new Error("Elegí el material del mate.");
-      const id = product?.id || await nextWholesaleProductId();
-      const rim = catalogAttributes["tipo-virola"] ? catalogValueLabel(taxonomy, "tipo-virola", catalogAttributes["tipo-virola"]) : "";
-      const leather = catalogAttributes["tipo-cuero"] ? catalogValueLabel(taxonomy, "tipo-cuero", catalogAttributes["tipo-cuero"]) : "";
-      await saveWholesaleProduct({ id, model, variant, rim_type: rim, leather_type: leather, price_arg: Number(price), price_uyu: Number(price) * snapshot.exchangeRate, category_code: category || null, description, sku: sku || null, weight_grams: weight === "" ? null : Number(weight), available_local: availableLocal, available_web: availableWeb, available_wholesale: available, catalog_attributes: { ...catalogAttributes, materials } }, product?.id);
-      onDirtyChange?.(false);
-      onSaved(id);
-    } catch (failure) { setError(errorText(failure)); }
-    finally { setBusy(false); }
-  }
-  return <section className="catalog-workspace catalog-workspace-embedded wholesale-catalog-workspace"><div className="panel">
-    <div className="panel-head"><div><h3>{product ? productLabel(product) : "Nuevo producto"}</h3></div><div className="product-actions"><button type="button" className="catalog-close-button" onClick={onClose} aria-label="Cerrar ficha" title="Cerrar ficha"><X size={20} aria-hidden="true" /></button></div></div>
-    <form className="catalog-product-editor-form" onChangeCapture={() => onDirtyChange?.(true)} onSubmit={(event) => void submit(event)}>
-    <details className="catalog-editor-section" open><summary>Datos del producto</summary>
-      <div className="product-details">
-        <div className="product-fields">
-          <label><span className="field-label">Nombre *</span><input required maxLength={160} value={model} onChange={event => { const next = event.target.value; setCatalogAttributes(current => current["tipo-mate"] && current["tipo-mate"] !== mateModelCode(model, category) ? current : { ...current, "tipo-mate": mateModelCode(next, category) }); setModel(next); }} /></label>
-          <CatalogProductCoreFields category={category} categories={snapshot.categories.filter(item => item.active || item.code === category).map(item => ({code:item.code,label:item.label_es}))} saleMode={String(catalogAttributes.sale_mode || "standard")} weight={weight} description={description} onCategoryChange={next => { setCategory(next); if (!catalogAttributes["tipo-mate"]) setCatalogAttributes(current => ({ ...current, "tipo-mate": mateModelCode(model, next) })); }} onSaleModeChange={sale_mode => setCatalogAttributes(current => ({ ...current, sale_mode }))} onWeightChange={setWeight} onDescriptionChange={setDescription} />
-        </div>
-        <DynamicAttributeFields taxonomy={taxonomy} category={category} scope="product" values={catalogAttributes} onChange={setCatalogAttributes} materials={materials} onMaterialsChange={next => { setMaterials(next); setCatalogAttributes(current => { const updated = { ...current }; if (next.length) updated.material = next[0]; else delete updated.material; return updated; }); }} />
-        {error && <div className="error" role="alert">{error}</div>}
-      </div>
-    </details>
-    <details className="catalog-editor-section" open><summary>Imágenes del producto</summary>
-      <section className="image-manager">
-        <input id={`wholesale-images-${product?.id || "new"}`} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={imageBusy || !product} onChange={event => void upload(event)} />
-        <div className="image-manager-head"><div>PNG, JPEG o WebP · Hasta 10 MB.</div>{product && images.length > 0 && <label className={`upload-button ${imageBusy ? "disabled" : ""}`} htmlFor={`wholesale-images-${product.id}`}>Subir imágenes</label>}</div>
-        {!product ? <div className="image-empty">Guardá el producto para poder agregar fotos.</div> : images.length ? <div className="image-gallery">{images.map((image, index) => <figure className="product-image" key={image.id}>
-          <div className="product-image-preview"><img src={wholesaleProductImageUrl(image.storage_path)} alt={image.alt_text || product.model} loading="lazy" style={{ objectPosition: `${50 - wholesaleImageCrop(image).x}% ${50 - wholesaleImageCrop(image).y}%`, transform: `scale(${wholesaleImageCrop(image).zoom})` }} /></div>
-          <figcaption><div className="image-meta"><strong>{index === 0 ? "Principal" : `Imagen ${index + 1}`}</strong><div title={image.original_name}>{image.original_name}</div></div><div className="image-card-actions">
-            <button type="button" className="image-cover" disabled={imageBusy} onClick={() => setCoverEditorImage(image)}>Ajustar encuadre</button>
-            {index > 0 && <button type="button" className="image-move" disabled={imageBusy} onClick={() => void changeImage("cover", image)}>Hacer principal</button>}
-            <select className="image-variant-select" value={typeof image.option_values?.color === "string" ? image.option_values.color : ""} disabled={imageBusy} onChange={event => void changeImageColor(image, event.target.value)} aria-label={`Color para ${image.original_name}`}>
-              <option value="">General (todos los colores)</option>
-              {taxonomyOptionsFor(taxonomy, "color").map(color => <option key={color.code} value={color.code}>{color.label_es}</option>)}
-            </select>
-            <select value={imageTargets[image.id] || ""} disabled={imageBusy} onChange={event => setImageTargets(current => ({ ...current, [image.id]: event.target.value }))} aria-label={`Mover ${image.original_name} a otro producto`}>
-              <option value="">Mover a…</option>
-              {snapshot.products.filter(item => item.id !== product.id).sort((a, b) => productLabel(a).localeCompare(productLabel(b), "es")).map(item => <option key={item.id} value={item.id}>{productLabel(item)}</option>)}
-            </select>
-            <button type="button" className="image-move" disabled={imageBusy || !imageTargets[image.id]} onClick={() => void moveImage(image)}>Mover</button>
-            <button type="button" className="image-delete" disabled={imageBusy} onClick={() => void changeImage("delete", image)}>Eliminar</button>
-          </div></figcaption>
-        </figure>)}</div> : <div className="image-empty"><strong>Todavía no hay imágenes</strong><label className="upload-button" htmlFor={`wholesale-images-${product.id}`}>Subir imágenes</label></div>}
-      </section>
-    </details>
-    <details className="catalog-editor-section" open><summary>Precio y disponibilidad</summary><section className="variants-section wholesale-variant-section">
-      <div className="catalog-variant-summary">
-        <div className="product-fields">
-          <label><span className="field-label">SKU</span><input maxLength={80} value={sku} onChange={event => setSku(event.target.value)} placeholder={product?.id || "Código interno"} /></label>
-          <label><span className="field-label">Nombre / detalles del producto *</span><input required maxLength={160} value={variant} onChange={event => setVariant(event.target.value)} /></label>
-          <label><span className="field-label">Precio ARS *</span><input required type="number" min="0" step="0.01" value={price} onChange={event => setPrice(event.target.value)} /></label>
-        </div>
-        <div className="wholesale-price-equivalent">Equivalente UYU <strong>{money(product && Number(price) === Number(product.price_arg) ? Number(product.price_uyu) : (Number(price) || 0) * snapshot.exchangeRate)}</strong></div>
-        <CatalogVariantDetails channels={{ Local: availableLocal, Web: availableWeb, Mayorista: available }} onChannelChange={(channel, checked) => channel === "Local" ? setAvailableLocal(checked) : channel === "Web" ? setAvailableWeb(checked) : setAvailable(checked)} disabled={busy} />
-        <div className="form-actions"><button type="submit" disabled={busy}>{busy ? "Guardando…" : "Guardar cambios"}</button></div>
-      </div>
-    </section></details>
-    </form>
-    {coverEditorImage && <ProductCoverEditor key={coverEditorImage.id} imageUrl={wholesaleProductImageUrl(coverEditorImage.storage_path)} imageAlt={coverEditorImage.alt_text || product?.model || "Producto mayorista"} initialCrop={wholesaleImageCrop(coverEditorImage)} busy={imageBusy} onCancel={() => setCoverEditorImage(null)} onSave={crop => void saveCrop(crop)} />}
-  </div></section>;
-}
-
 function WholesaleLineEditor({ line, snapshot, displayModel, displayVariant, refresh, notify, initialEditing = false }: { line: WholesaleLine; snapshot: WholesaleSnapshot; displayModel: string; displayVariant: string; refresh?: () => Promise<void>; notify: (message: string) => void; initialEditing?: boolean }) {
   const [editing, setEditing] = useState(initialEditing);
   const [model, setModel] = useState(line.model);
@@ -389,7 +231,7 @@ function WholesaleLineEditor({ line, snapshot, displayModel, displayVariant, ref
   return <div className="wholesale-line-editor">
     {editing ? <div className="wholesale-line-fields">
       <label>Modelo<select value={model} onChange={(event) => { setModel(event.target.value); setVariant(""); }}><option value="">Seleccionar</option>{[...new Set(snapshot.products.map((item) => item.model))].map((value) => <option key={value} value={value}>{naturalCaseName(value)}</option>)}</select></label>
-      <label>Variante<select value={variant} onChange={(event) => setVariant(event.target.value)}><option value="">Seleccionar</option>{snapshot.products.filter((item) => item.model === model).map((item) => <option key={item.id} value={item.variant}>{naturalCaseName(item.variant)}</option>)}</select></label>
+      <label>Variante<select value={variant} onChange={(event) => setVariant(event.target.value)}><option value="">Seleccionar</option>{snapshot.products.filter((item) => item.model === model).map((item) => <option key={item.id} value={item.variant}>{naturalCaseName(item.variant)}</option>)}{(snapshot.products.filter((item) => item.model === model).length > 1 || variant === GENERIC_WHOLESALE_VARIANT) && <option value={GENERIC_WHOLESALE_VARIANT}>{GENERIC_WHOLESALE_VARIANT} (varios colores)</option>}</select></label>
       <label>Cantidad<input type="number" min="1" step="1" value={quantity} onChange={(event) => setQuantity(Number(event.target.value))} /></label>
       <label>Estado<select value={status} onChange={(event) => setStatus(event.target.value)}><option>Pendiente</option><option>En producción</option></select></label>
       <label>Cliente<select value={customer} onChange={(event) => setCustomer(event.target.value)}>{snapshot.customers.map((entry) => <option key={entry.full_name} value={entry.full_name}>{naturalCaseName(formatContactName(entry.full_name))}</option>)}</select></label>
@@ -538,13 +380,14 @@ export function WholesaleProduction({ props, history = false }: { props: PagePro
     { label: "Cantidad", header: sortHeader("Cantidad", "cantidad"), sortDirection: sort.key === "cantidad" ? sort.direction === "desc" ? "descending" : "ascending" : "none", render: (row) => row.quantity },
   ];
   const selectedOrder = props.s.orders.find((order) => order.source === "wholesale" && order.items?.some((item) => item.wholesaleLineId === selected));
+  const historyFilters = history ? <details className="wholesale-compact-filters is-orders wholesale-history-filters"><summary aria-label="Filtros y orden" title="Filtros y orden"><Funnel size={19} aria-hidden="true" /></summary><div className="wholesale-compact-filters-panel"><label>Cliente<select aria-label="Filtrar cliente en histórico mayorista" value={customerFilter} onChange={(event) => setCustomerFilter(event.target.value)}><option value="">Todos</option>{customers.map((option) => <option key={option} value={option}>{displayCustomer(option)}</option>)}</select></label><label>Modelo<select aria-label="Filtrar modelo en histórico mayorista" value={modelFilter} onChange={(event) => setModelFilter(event.target.value)}><option value="">Todos</option>{models.map((option) => <option key={option} value={option}>{displayNames(baseLines.find((line) => line.model === option)!).model}</option>)}</select></label><label>Ordenar<select aria-label="Ordenar histórico mayorista" value={`${sort.key}:${sort.direction}`} onChange={(event) => { const [key, direction] = event.target.value.split(":") as [typeof sort.key, typeof sort.direction]; setSort({ key, direction }); }}><option value="fecha:desc">Fecha: más recientes</option><option value="fecha:asc">Fecha: más antiguos</option><option value="cantidad:desc">Cantidad: mayor a menor</option><option value="cantidad:asc">Cantidad: menor a mayor</option><option value="total:desc">Total: mayor a menor</option><option value="total:asc">Total: menor a mayor</option></select></label></div></details> : undefined;
   return <section className="wholesale-production">
     <Stats items={[{ label: history ? "Líneas terminadas" : "Líneas activas", value: summaryLines.length }, { label: "Unidades", value: summaryLines.reduce((sum, line) => sum + Number(line.quantity), 0) }, { label: "Pedidos", value: new Set(summaryLines.map((line) => line.order_id || line.line_id)).size }]} />
     <div className="wholesale-production-actions"><label className="wholesale-currency-picker">Moneda<select aria-label="Moneda mayorista" value={currency} onChange={(event) => setCurrency(event.target.value as WholesaleCurrency)}><option value="UYU">UYU · pesos uruguayos</option><option value="ARS">ARS · pesos argentinos</option></select></label>
       <div className="table-actions"><button className="secondary wholesale-export-button" disabled={!lines.length} onClick={() => exportWholesaleXlsx(lines, snapshot, currency)}>Excel</button><button className="secondary wholesale-export-button" disabled={!lines.length} onClick={() => exportWholesalePdf(history ? "Histórico mayorista" : "Producción mayorista", lines, snapshot, currency)}>PDF</button><button className="secondary wholesale-export-button" disabled={!lines.length} onClick={() => exportWholesaleCsv(lines, snapshot, currency)}>CSV</button></div></div>
-    {!history && <div className="wholesale-production-viewbar"><div className="tabs inner-tabs">{["Pedidos", "Modelo", "Variante", "Virolas", "Cuero Torpedo"].map((value) => <button key={value} className={group === value ? "active" : ""} onClick={() => { setGroup(value); setSort({ key: "fecha", direction: "desc" }); }}>{value}</button>)}</div><div className="wholesale-production-view-actions"><button type="button" className="wholesale-icon-button wholesale-clear-filters" aria-label="Quitar filtros" title="Quitar filtros" disabled={!hasFilters} onClick={clearFilters}><FunnelX size={19} aria-hidden="true" /></button><label className="search"><MagnifyingGlass size={18} aria-hidden="true" /><input aria-label="Buscar en producción mayorista" placeholder="Buscar…" value={search} onChange={(event) => setSearch(event.target.value)} /></label></div></div>}
+    {!history && <div className="wholesale-production-viewbar"><div className="tabs inner-tabs">{["Pedidos", "Modelo", "Variante", "Virolas", "Cuero Torpedo"].map((value) => <button key={value} className={group === value ? "active" : ""} onClick={() => { setGroup(value); setSort({ key: "fecha", direction: "desc" }); }}>{value}</button>)}</div><div className="wholesale-production-view-actions"><button type="button" className="wholesale-icon-button wholesale-clear-filters" aria-label="Quitar filtros" title="Quitar filtros" disabled={!hasFilters} onClick={clearFilters}><FunnelX size={19} aria-hidden="true" /></button><details className={`wholesale-compact-filters${group === "Pedidos" ? " is-orders" : ""}`}><summary aria-label="Filtros y orden" title="Filtros y orden"><Funnel size={19} aria-hidden="true" /></summary><div className="wholesale-compact-filters-panel"><label>Cliente<select aria-label="Filtrar cliente en vista compacta" value={customerFilter} onChange={(event) => setCustomerFilter(event.target.value)}><option value="">Todos</option>{customers.map((option) => <option key={option} value={option}>{displayCustomer(option)}</option>)}</select></label><label>Modelo<select aria-label="Filtrar modelo en vista compacta" value={modelFilter} onChange={(event) => setModelFilter(event.target.value)}><option value="">Todos</option>{models.map((option) => <option key={option} value={option}>{displayNames(baseLines.find((line) => line.model === option)!).model}</option>)}</select></label><label>Ordenar<select aria-label="Ordenar en vista compacta" value={`${sort.key}:${sort.direction}`} onChange={(event) => { const [key, direction] = event.target.value.split(":") as [typeof sort.key, typeof sort.direction]; setSort({ key, direction }); }}><option value="fecha:desc">Fecha: más recientes</option><option value="fecha:asc">Fecha: más antiguos</option><option value="cantidad:desc">Cantidad: mayor a menor</option><option value="cantidad:asc">Cantidad: menor a mayor</option><option value="total:desc">Total: mayor a menor</option><option value="total:asc">Total: menor a mayor</option></select></label></div></details><label className="search"><MagnifyingGlass size={18} aria-hidden="true" /><input aria-label="Buscar en producción mayorista" placeholder="Buscar…" value={search} onChange={(event) => setSearch(event.target.value)} /></label></div></div>}
     {actionError && <div className="error" role="alert">{actionError}</div>}
-    {group === "Pedidos" || history ? <Table rows={lines.map((line) => ({ ...line, id: line.line_id }))} showSearch={history} className={history ? undefined : "wholesale-production-table"} searchQuery={history ? undefined : search} onSearchQueryChange={history ? undefined : setSearch} searchText={(line) => { const names = displayNames(line); return `${line.order_id || line.line_id} ${displayCustomer(line.customer)} ${names.model} ${names.variant}`; }} columns={[
+    {group === "Pedidos" || history ? <Table rows={lines.map((line) => ({ ...line, id: line.line_id }))} showSearch={history} action={historyFilters} className={`wholesale-production-table wholesale-production-orders-table${history ? " wholesale-production-history-table" : ""}`} searchQuery={history ? undefined : search} onSearchQueryChange={history ? undefined : setSearch} searchText={(line) => { const names = displayNames(line); return `${line.order_id || line.line_id} ${displayCustomer(line.customer)} ${names.model} ${names.variant}`; }} columns={[
       { label: "Pedido", render: (line) => <button className="text-button" onClick={() => openLine(line.line_id)}>{line.order_id || `Línea ${line.line_id}`}</button> },
       { label: "Cliente", header: customerHeader, render: (line) => displayCustomer(line.customer) },
       { label: "Modelo", header: modelHeader, render: (line) => displayNames(line).model },

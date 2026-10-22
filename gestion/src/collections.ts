@@ -104,22 +104,6 @@ export const collections: Record<string, Collection> = {
       f("proveedor", "Proveedor"),
     ],
   ),
-  "inventario/compras": make(
-    "Órdenes de compra y gastos asociados.",
-    "Nueva compra",
-    [
-      f("nombre", "Compra"),
-      f("proveedor", "Proveedor"),
-      f("importe", "Importe UYU", "number"),
-      f("fecha", "Entrega estimada", "date"),
-      f("estado", "Estado", undefined, [
-        "Solicitada",
-        "Confirmada",
-        "Recibida",
-      ]),
-    ],
-    ["Solicitada", "Confirmada", "Recibida"],
-  ),
   "inventario/proveedores": make(
     "Contactos y condiciones de abastecimiento.",
     "Agregar proveedor",

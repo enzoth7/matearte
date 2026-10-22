@@ -1,10 +1,10 @@
 import { Catalog } from "./commerce/Operations";
-import { WholesaleProductEditor } from "./WholesaleScreens";
 import { useState } from "react";
 import { FinanceOverview } from "./FinanceOverview";
 import type { PageProps } from "./pages";
 import { type Product, type Row, money, balance, orderName } from "./data";
 import { collections } from "./collections";
+import { catalogImageOptions, catalogStatusOptions, matchesCatalogImage, matchesCatalogStatus, type CatalogImageFilter, type CatalogStatusFilter } from "./catalogListFilters";
 import { Card, Stats, Table, Badge, Modal } from "./ui";
 
 export function CollectionPage({ s, path }: PageProps & { path: string }) {
@@ -25,6 +25,7 @@ function ProductThumbnail({ product }: { product: Product }) {
     ? <img className="product-photo" src={product.imageUrl} alt="" loading="lazy" style={product.imageCrop ? { transform: `translate(${product.imageCrop.x}%, ${product.imageCrop.y}%) scale(${product.imageCrop.zoom})` } : undefined} />
     : <div className="product-photo-empty">Sin foto</div>}</div>;
 }
+const normalizeSearch = (value: string) => value.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[-_]+/g, " ").toLocaleLowerCase().trim();
 export function Products({ s, mode, notify, refresh, commerce }: PageProps & { mode: string }) {
   const [selectedId, setSelectedId] = useState<string | null>(() => {
     const params = new URLSearchParams(location.search);
@@ -33,11 +34,19 @@ export function Products({ s, mode, notify, refresh, commerce }: PageProps & { m
   const [selectedCardId, setSelectedCardId] = useState<string | null>(() => new URLSearchParams(location.search).get("variante"));
   const [editorDirty, setEditorDirty] = useState(false);
   const [filter, setFilter] = useState("Todos");
+  const [statusFilter, setStatusFilter] = useState<CatalogStatusFilter>("Todos");
+  const [imageFilter, setImageFilter] = useState<CatalogImageFilter>("Todas");
   const [search, setSearch] = useState("");
   const [view, setView] = useState(() => new URLSearchParams(location.search).get("vista") === "lista" ? "Lista" : "Tarjetas");
   const [listOrder, setListOrder] = useState("sku-asc");
   const sectionProducts = s.products.filter((product) => mode === "servicios" ? product.categoryCode === "servicios" : product.categoryCode !== "servicios");
-  const rows = sectionProducts.filter((product) => (filter === "Todos" || product.family === filter) && `${product.name} ${product.sku} ${product.variant}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+  const searchTerms = normalizeSearch(search).split(/\s+/).filter(Boolean);
+  const rows = sectionProducts.filter((product) => {
+    if (filter !== "Todos" && product.family !== filter) return false;
+    if (!matchesCatalogStatus(product, statusFilter) || !matchesCatalogImage(product, imageFilter)) return false;
+    const haystack = normalizeSearch(`${product.name} ${product.sku} ${product.variant} ${product.family} ${product.rim} ${product.leather} ${product.searchText || ""}`);
+    return searchTerms.every((term) => haystack.includes(term));
+  });
   const listRows = [...rows].sort((a, b) => {
     const bySku = a.sku.localeCompare(b.sku, "es", { numeric: true });
     const byPrice = a.prices.Local - b.prices.Local || bySku;
@@ -58,8 +67,7 @@ export function Products({ s, mode, notify, refresh, commerce }: PageProps & { m
   };
   const legacyProduct = selectedId?.startsWith("wholesale:") ? commerce?.wholesale?.products.find(entry => `wholesale:${entry.id}` === selectedId) : undefined;
   const resolvedSelectedId = legacyProduct?.commerce_product_id || selectedId;
-  const wholesaleSelection = Boolean(legacyProduct && !legacyProduct.commerce_product_id);
-  const editor = selectedId && <div className="commerce-tools catalog-editor">{wholesaleSelection && commerce?.wholesale ? <WholesaleProductEditor key={selectedId} product={legacyProduct} snapshot={commerce.wholesale} onSaved={(id) => { notify("Producto guardado"); void (async () => { await refresh?.(); const next = `wholesale:${id}`; setSelectedId(next); history.replaceState(null, "", `${location.pathname}?producto=${encodeURIComponent(next)}`); })(); }} onRefresh={refresh} onNotice={notify} onDirtyChange={setEditorDirty} onClose={() => selectProduct(null)} /> : <Catalog onNotice={notify} embedded={mode === "catalogo" || mode === "servicios"} fixedCategory={mode === "servicios" ? "servicios" : undefined} initialProductId={resolvedSelectedId === "new" ? undefined : resolvedSelectedId || undefined} initialVariantId={selectedCardId} startNew={selectedId === "new"} onDirtyChange={setEditorDirty} onCancelNew={() => selectProduct(null)} onClose={() => selectProduct(null)} onCatalogChange={refresh} onCreated={(id) => { setEditorDirty(false); setSelectedId(id); history.replaceState(null, "", `${location.pathname}?producto=${encodeURIComponent(id)}`); void refresh?.(); }} />}</div>;
+  const editor = selectedId && <div className="commerce-tools catalog-editor"><Catalog onNotice={notify} embedded={mode === "catalogo" || mode === "servicios"} fixedCategory={mode === "servicios" ? "servicios" : undefined} initialProductId={resolvedSelectedId === "new" ? undefined : resolvedSelectedId || undefined} initialVariantId={selectedCardId} startNew={selectedId === "new"} onDirtyChange={setEditorDirty} onCancelNew={() => selectProduct(null)} onClose={() => selectProduct(null)} onCatalogChange={refresh} onCreated={(id) => { setEditorDirty(false); setSelectedId(id); history.replaceState(null, "", `${location.pathname}?producto=${encodeURIComponent(id)}`); void refresh?.(); }} /></div>;
   if (selectedId && mode !== "catalogo") return <><div className="toolbar"><button className="secondary" onClick={() => selectProduct(null)}>Volver al catálogo</button></div>{editor}</>;
   return <>
     {!selectedId && <Stats items={[
@@ -71,9 +79,11 @@ export function Products({ s, mode, notify, refresh, commerce }: PageProps & { m
       {!selectedId && <div className="table-actions"><button className="primary" onClick={() => selectProduct("new")}>Nuevo producto</button></div>}
       <div className="table-actions">
         <label className="inline-label">Familia<select value={filter} onChange={(e) => setFilter(e.target.value)}>{["Todos", ...new Set(sectionProducts.map((p) => p.family))].map((family) => <option key={family}>{family}</option>)}</select></label>
+        <label className="inline-label">Estado<select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as CatalogStatusFilter)}>{catalogStatusOptions.map((option) => <option key={option}>{option}</option>)}</select></label>
+        <label className="inline-label">Imagen<select value={imageFilter} onChange={(e) => setImageFilter(e.target.value as CatalogImageFilter)}>{catalogImageOptions.map((option) => <option key={option}>{option}</option>)}</select></label>
         {mode === "catalogo" && !selectedId && <div className="tabs">{["Tarjetas", "Lista"].map((item) => <button key={item} className={item === view ? "active" : ""} onClick={() => setView(item)}>{item}</button>)}</div>}
       </div>
-      <input aria-label="Buscar productos" placeholder="Buscar producto, variante o SKU" value={search} onChange={(e) => setSearch(e.target.value)} />
+      <input aria-label="Buscar productos" placeholder="Buscar por nombre, SKU, material o característica" value={search} onChange={(e) => setSearch(e.target.value)} />
     </div>
     {mode === "catalogo" && selectedId && <div className="catalog-split-view"><aside className="catalog-product-rail" aria-label="Productos del catálogo"><div className="catalog-rail-heading"><strong>Productos</strong><small>{rows.length} artículos</small></div><div className="product-grid catalog-rail-grid">{rows.map((product) => <button className={`product-card ${activeCardId === product.id ? "selected" : ""}`} key={product.id} onClick={() => selectProduct(product.wholesaleProductId ? product.id : product.sourceProductId || product.id, product.id)} aria-pressed={activeCardId === product.id}>
       <ProductThumbnail product={product} />
@@ -125,7 +135,8 @@ export function Finance({ s, go, mode }: PageProps & { mode: string }) {
       { label: "Referencia de pago", render: (payment) => payment.derived ? "Según estado de producción" : payment.id },
     ]} />
   </>;
-  return <><div className="data-note">Los egresos todavía no tienen una fuente conectada.</div><Table rows={s.expenses} searchText={(e) => e.name} columns={[
-    { label: "Concepto", render: (e) => e.name }, { label: "Fecha", render: (e) => e.date }, { label: "Importe", render: (e) => money(e.amount) },
+  return <>{!s.expensesConnected && <div className="data-note">Los egresos todavía no tienen una fuente conectada.</div>}{s.expensesConnected && <div className="data-note">Egresos cargados en Inventario y compras → Compras y Gastos fijos. Para agregar o corregir uno, hacelo allá.</div>}<Table rows={s.expenses} searchText={(e) => `${e.name} ${e.category}`} columns={[
+    { label: "Concepto", render: (e) => e.name }, { label: "Categoría", render: (e) => e.category ? <Badge>{e.category}</Badge> : "—" }, { label: "Fecha", render: (e) => e.date },
+    { label: "Estado", render: (e) => <Badge tone={e.paid ? "green" : "yellow"}>{e.paid ? "Pagado" : "Por pagar"}</Badge> }, { label: "Importe", render: (e) => money(e.amount) },
   ]} /></>;
 }

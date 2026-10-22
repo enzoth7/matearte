@@ -6,7 +6,7 @@ import { commerceFixture } from "./testing/commerce";
 import type { WholesaleLine, WholesaleSnapshot } from "./wholesaleSource";
 
 const line = (patch: Partial<WholesaleLine>): WholesaleLine => ({
-  line_id: "line-1", order_id: "PED-123456", created_at: "2026-10-01T12:00:00Z", completed_at: null,
+  line_id: "line-1", order_id: "#M001", created_at: "2026-10-01T12:00:00Z", completed_at: null,
   customer: "Almacén Sur", model: "Torpedo", variant: "Negro", quantity: 2, status: "Pendiente",
   order_type: "normal", unit_price_arg: null, unit_price_uyu: null, exchange_rate: null,
   total_arg: null, total_uyu: null, ...patch,
@@ -37,14 +37,14 @@ describe("integración mayorista", () => {
     expect(state.customers[0]).toMatchObject({ id: "wholesale:JOAO", wholesaleName: "JOAO", name: "Joao" });
     expect(state.orders[0].customerId).toBe("wholesale:JOAO");
   });
-  it("agrega variantes y clientes como registros propios y conserva PED", () => {
+  it("agrega variantes y clientes como registros propios y conserva el código del pedido", () => {
     const source = fixture(); source.lines = [line({})];
     const state = adaptWholesale(seed(), source);
     expect(state.products[0].id).toBe("wholesale:7");
     expect(state.products[0].family).toBe("Mates");
     expect(state.products[0].priceArg).toBe(10000);
     expect(state.customers[0].wholesaleName).toBe("Almacén Sur");
-    expect(orderName(state.orders[0])).toBe("PED-123456");
+    expect(orderName(state.orders[0])).toBe("#M001");
     expect(state.orders[0].channel).toBe("WhatsApp");
     expect(state.customers[0]).toMatchObject({ segment: "Mayorista", originChannel: "WhatsApp" });
     expect(state.records.monedas[0]).toMatchObject({ moneda: "ARS", valor: 0.027 });
@@ -74,6 +74,12 @@ describe("integración mayorista", () => {
     expect(state.payments).toHaveLength(3);
     expect(state.payments.every((payment) => payment.derived)).toBe(true);
   });
+  it("muestra un pedido mayorista completado como pagado y enviado", () => {
+    const source = fixture(); source.lines = [line({ status: "Completado", completed_at: "2026-10-10T12:00:00Z" })];
+    const state = adaptWholesale(seed(), source);
+    expect(state.orders[0]).toMatchObject({ production: "Terminado", delivery: "Enviado" });
+    expect(balance(state, state.orders[0])).toBe(0);
+  });
   it("usa el catálogo para líneas antiguas, cero para las no coincidentes y respeta sin costo", () => {
     const source = fixture(); source.lines = [line({ order_id: null }), line({ line_id: "line-2", order_id: null, model: "Otro", variant: "Sin variante" }), line({ line_id: "line-3", order_id: null, order_type: "no_cost", total_uyu: 100 })];
     const state = adaptWholesale(seed(), source);
@@ -98,7 +104,7 @@ describe("integración mayorista", () => {
     source.lines = [
       line({ status: "Completado", completed_at: "2026-10-10T12:00:00Z" }),
       line({ line_id: "line-2", status: "Completado", completed_at: "2026-10-11T12:00:00Z", variant: "Marrón", quantity: 3 }),
-      line({ line_id: "line-3", order_id: "PED-999999", status: "Pendiente", quantity: 4 }),
+      line({ line_id: "line-3", order_id: "#M099", status: "Pendiente", quantity: 4 }),
     ];
     const state = adaptWholesale(seed(), source);
     const history = summarizeWholesaleCustomer(state.orders, "wholesale:Almacén Sur");

@@ -40,15 +40,15 @@ export function Badge({
 }) {
   const s = String(children);
   const channelClass = s === "Mayorista" ? "channel-mayorista" : customerOriginClass(s);
-  const inferredTone = /Pagado|Terminado|Entregado|Activo|Activa|Habilitado|Aprobado|Resuelto|Recibida|Publicado/.test(s)
+  const inferredTone = /Pagado|Terminado|Enviado|Entregado|Activo|Activa|Habilitado|Aprobado|Resuelto|Recibida|Publicado/.test(s)
     ? "green"
     : /Vencido|Atrasado|Bloqueado|Rechazado|Cancelado|Sin stock/.test(s)
       ? "red"
-      : /Pendiente|Parcial|parcial|En producción|Revis|Borrador|Uso interno|Enviado/.test(s)
+      : /Pendiente|Parcial|parcial|En producción|Revis|Borrador|Uso interno/.test(s)
         ? "yellow"
         : undefined;
   return (
-    <div className={`badge ${channelClass || tone || inferredTone || ""}`}>
+    <div className={`badge ${channelClass || tone || inferredTone || ""}`} title={s}>
       {children}
     </div>
   );

@@ -1,5 +1,7 @@
 import { CommerceSection } from "./commerce/CommerceSection";
+import { ChannelOrigin } from "./ChannelOrigin";
 import { MarketingSection } from "./MarketingSection";
+import { Purchases } from "./Purchases";
 import { SorteoView } from "./SorteoView";
 import "./commerce/operations.css";
 import { useCallback, useEffect, useState } from "react";
@@ -85,6 +87,7 @@ function Content(
   if (["marketing/descuentos", "marketing/avisos", "productos/categorias", "productos/ajustes", "administracion/canales", "finanzas/monedas", "entregas/tarifas"].includes(key)) return <CommerceSection {...props} path={key} />;
   if (key === "marketing/sorteo") return <SorteoView />;
   if (area === "marketing") return <MarketingSection page={page} notify={props.notify} />;
+  if (key === "inventario/compras") return <Purchases notify={props.notify} />;
   if (collections[key]) return <CollectionPage {...props} path={key} />;
   if (key === "inicio/resumen") return <Overview {...props} />;
   if (key === "inicio/alertas")
@@ -147,6 +150,7 @@ function Content(
     );
   if (area === "personal") return <People {...props} mode={page} />;
   if (key === "administracion/usuarios") return <Permissions {...props} />;
+  if (key === "administracion/origen-canal") return <ChannelOrigin />;
   if (key === "administracion/actividad")
     return (
       <Table

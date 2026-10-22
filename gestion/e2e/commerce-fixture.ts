@@ -1,5 +1,17 @@
 import type { Page } from "@playwright/test";
 import { commerceFixture } from "../src/testing/commerce";
+// Los productos mayoristas viven en el catálogo único: las pruebas los cargan en `tables.products` con el formato histórico.
+function wholesaleAsCatalog(rows: any[]) {
+  return rows.map((row) => ({
+    id: `wholesale-${row.id}`, name: row.model, category: row.category_code || 'mates', category_code: row.category_code || 'mates', description: row.description || '',
+    attributes: row.catalog_attributes || {}, published: false, editorial_slug: `mayorista-${row.id}`, sale_mode: 'standard', peso: 0,
+    commerce_variants: [{ id: String(row.id), sku: row.sku || String(row.id), name: row.variant, price_minor: 0, base_price_minor: Math.round(Number(row.price_uyu || 0) * 100), active: true,
+      available_wholesale: row.available_wholesale !== false, wholesale_price_arg: row.price_arg, available_local: row.available_local, available_web: row.available_web,
+      rim_type: row.rim_type || '', leather_type: row.leather_type || '', weight_grams: row.weight_grams ?? null, option_values: {} }],
+    commerce_product_images: [],
+  }));
+}
+
 export async function mockCommerce(page: Page, options: { denied?: boolean; failure?: boolean; authenticated?: boolean; writable?: boolean; failWrite?: string; needsSetup?: boolean; accessUserId?: "t1" | "t2" | "t3"; allowedPaths?: string[] | null } = {}) {
   const fixture = commerceFixture();
   const user = { id: "admin-test", aud: "authenticated", role: "authenticated", email: "test@example.invalid", app_metadata: {}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z" };
@@ -26,7 +38,7 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
     orders: fixture.orders, commerce_payments: fixture.payments, commerce_discounts: fixture.reference.discounts,
     commerce_international_shipping_rates: fixture.reference.shippingRates, commerce_exchange_rates: fixture.reference.exchangeRates,
     commerce_attribute_definitions: [], commerce_attribute_options: [], commerce_category_attributes: [], commerce_bank_transfer_settings: { account_holder: 'Titular', transfer_account: '111', cash_deposit_account: '222', cash_deposit_label: 'Depósito' },
-    commerce_categories: fixture.reference.categories, commerce_settings: fixture.reference.settings, shipping_rates: fixture.nationalRates,
+    commerce_categories: fixture.reference.categories, commerce_settings: fixture.reference.settings, shipping_rates: fixture.nationalRates, purchases: [], fixed_expenses: [], fixed_expense_payments: [], expense_categories: [],
     local_sales_customers: [], local_sales: [], rural_raffle_entries: [],
     site_announcements: [], web_leads: [],
     products: [], wholesale_product_images: [], customers: [], order_lines: [], settings: { id: 1, exchange_rate: 0.027 },
@@ -56,7 +68,9 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
       return respond({ user: { accessUserId: body.accessUserId, username: body.username, configured: true } });
     }
     if (table === 'gestion_customer_profile_details' || table === 'gestion_customer_profile_details_full') return respond([{ user_id: 'customer-1', birth_date: '1993-04-05', city: 'Montevideo', country_code: 'UY', company: null, address_line1: null, department: null, postal_code: null }]);
+    if (table === 'gestion_next_wholesale_order_code') return respond(`#M${String(tables.order_lines.length + 96).padStart(3, '0')}`);
     if (table === 'gestion_web_leads') return respond(tables.web_leads);
+    if (table === 'gestion_contact_origins') return respond([]);
     if (table === 'get_published_pricing_catalog') return respond({ versionId: 'pricing-test', version: 7, publishedAt: '2026-10-20T12:00:00Z', rules: {
       'customization:laser:rim_text': 120, 'customization:laser:rim_image': 300,
       'customization:bronze-applique:rim_text': 25, 'customization:bronze-applique:rim_image': 350,
@@ -65,6 +79,16 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
       'customization:alpaca-applique:fleje_text': 20, 'customization:alpaca-applique:fleje_image': 500,
     } });
     if (url.pathname.startsWith('/storage/v1/object/public/')) return route.fulfill({status:200,contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/X1cAAAAASUVORK5CYII=', 'base64')});
+    if (url.pathname.endsWith('/functions/v1/marketing-workspace')) {
+      const action = String(route.request().postDataJSON()?.action || '');
+      const marketing: Record<string, unknown> = {
+        contacts: { contacts: [], count: 0, summary: { total: 0, origins: [] } },
+        campaigns: { campaigns: [] },
+        settings: { settings: { enabled: false, headline: '', description: '', image_url: null, discount_code: '' } },
+        analytics: { site: { id: 'tienda', name: 'Tienda web' }, sites: [{ id: 'tienda', name: 'Tienda web' }], days: 30, timeline: [], countries: [], devices: [], referrers: [], pages: [], products: [] },
+      };
+      return respond(marketing[action] ?? {});
+    }
     if (method !== 'GET' && method !== 'HEAD') {
       if (!options.writable) throw Error('No se permiten escrituras en esta prueba');
       const body = route.request().headers()['content-type']?.includes('json') ? route.request().postDataJSON() : {};
@@ -150,7 +174,7 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
       }
       return respond(route.request().headers().accept?.includes('object') ? matched[0] : matched);
     }
-    let data = tables[table];
+    let data = table === 'commerce_products' ? [...fixture.products, ...wholesaleAsCatalog(tables.products)] : tables[table];
     if (data === undefined) throw Error(`Lectura no prevista: ${table}`);
     const ids = url.searchParams.get('id')?.match(/^in\.\((.*)\)$/)?.[1].split(',').map((value) => value.replace(/^"|"$/g, ''));
     const id = url.searchParams.get('id')?.replace('eq.','');
