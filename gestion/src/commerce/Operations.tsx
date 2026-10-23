@@ -488,7 +488,7 @@ const orderStatus = (status: string) => ({
 }[status] || status.replaceAll('_', ' '));
 const normalizeSearch = (value:string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 const catalogCategoryLabels: Record<string,string> = {
-  mates:'Mate','mates-personalizados':'Personalizados',bombillas:'Bombilla',materas:'Matera',termos:'Termo','kits-materos':'Kit matero',cuchillos:'Cuchillo',cintos:'Cinto',calzado:'Calzado',botas:'Bota',marroquineria:'Marroquinería',billeteras:'Billetera',carteras:'Cartera',bandolera:'Bandolera','posa-mates':'Posa mates',personalizados:'Personalizados',
+  mates:'Mate','mates-personalizados':'Personalizados',bombillas:'Bombilla',materas:'Matera',termos:'Termo','kits-materos':'Kit matero',cuchillos:'Cuchillo',cintos:'Cinto',calzado:'Calzado',botas:'Bota',zuecos:'Zueco',marroquineria:'Marroquinería',billeteras:'Billetera',carteras:'Cartera',bandolera:'Bandolera','posa-mates':'Posa mates',personalizados:'Personalizados',
 };
 const catalogMaterialLabels: Record<string,string> = {
   cuero:'Cuero',plata:'Plata',alpaca:'Alpaca','acero-inoxidable':'Acero inoxidable','otros-metales':'Otros metales',madera:'Madera',estampado:'Estampado',

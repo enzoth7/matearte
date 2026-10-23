@@ -1,7 +1,7 @@
 /** Stable storage/query contracts shared by Commerce Admin and the storefront. */
 export const catalogCategoryIds = [
   "bandolera", "billeteras", "bombillas", "botas", "carteras", "cintos", "cuchillos",
-  "kits-materos", "materas", "mates", "personalizados", "servicios", "termos",
+  "kits-materos", "materas", "mates", "personalizados", "servicios", "termos", "zuecos",
 ] as const;
 export const catalogMaterialIds = ["cuero", "plata", "alpaca", "acero-inoxidable", "otros-metales", "madera", "estampado", "cuero-crudo", "croco", "pelos"] as const;
 export const catalogProductTypeIds = ["imperial", "camionero", "criollo", "torpedo"] as const;
@@ -175,7 +175,7 @@ const labels = {
 
 export const defaultCatalogTaxonomy: CatalogTaxonomy = {
   categories: [
-    category("billeteras", "Billeteras", null, 10), category("bombillas", "Bombillas", null, 20), category("botas", "Botas", null, 30),
+    category("billeteras", "Billeteras", null, 10), category("bombillas", "Bombillas", null, 20), category("botas", "Botas", null, 30), category("zuecos", "Zuecos", null, 35),
     category("carteras", "Carteras", null, 40), category("bandolera", "Bandolera", null, 45), category("cintos", "Cintos", null, 50), category("cuchillos", "Cuchillos", null, 60),
     category("kits-materos", "Kits materos", null, 70), category("materas", "Materas", null, 80), category("mates", "Mates", null, 90),
     category("personalizados", "Personalizados", null, 100), category("servicios", "Servicios", null, 105), category("termos", "Termos", null, 110),
@@ -239,6 +239,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     rule("kits-materos","material","product",10), rule("kits-materos","color","variant",100),
     rule("cuchillos","tipo-cuchillo","product",10,true), rule("cuchillos","largo-hoja-mm","product",20,true), rule("cuchillos","ancho-hoja-mm","product",30,false,false), rule("cuchillos","configuracion-filo","product",40,true), rule("cuchillos","tiene-gavilan","product",50), rule("cuchillos","forma-gavilan","product",60), rule("cuchillos","material-hoja","product",70), rule("cuchillos","material-cabo","product",80), rule("cuchillos","material-vaina","product",90), rule("cuchillos","acabado","product",100),
     rule("botas","material","product",10), rule("botas","genero","product",20), rule("botas","talle","product",30,true,true,true), rule("botas","color","variant",100,true),
+    rule("zuecos","material","product",10), rule("zuecos","genero","product",20), rule("zuecos","talle","product",30,true,true,true), rule("zuecos","color","variant",100,true),
     rule("cintos","material","product",10), rule("cintos","largo-cinto-cm","product",20,false,true,true), rule("cintos","acabado","product",30), rule("cintos","color","variant",100,true),
     rule("billeteras","material","product",10), rule("billeteras","acabado","product",30), rule("billeteras","color","variant",100,true),
     rule("carteras","material","product",10), rule("carteras","acabado","product",30), rule("carteras","color","variant",100,true),

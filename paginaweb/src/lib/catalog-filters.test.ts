@@ -128,6 +128,16 @@ describe("filtros del catálogo", () => {
     expect(parsed.sort).toBe("nuevo");
   });
 
+  it("permite filtrar zuecos como categoría propia", () => {
+    const zueco = product("zueco", 3200).product;
+    zueco.category = "zuecos";
+    const bota = product("bota", 3500).product;
+    bota.category = "botas";
+    const filters = parseCatalogFilters(new URLSearchParams("categoria=zuecos"));
+    expect(filters.category).toBe("zuecos");
+    expect(filterAndSortCatalog([{ product: zueco }, { product: bota }], filters).map(item => item.product.id)).toEqual(["zueco"]);
+  });
+
   it("muestra primero los productos modificados más recientemente y resuelve empates por nombre", () => {
     const entries: Array<{ product: Product }> = [
       { product: { ...product("Termo Stanley", 3500).product, lastModifiedAt: 100 } },

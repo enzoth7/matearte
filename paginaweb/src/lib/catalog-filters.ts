@@ -14,6 +14,7 @@ export const categoryOptions = [
   { value: "billeteras", labelKey: "wallets" },
   { value: "bombillas", labelKey: "bombillas" },
   { value: "botas", labelKey: "boots" },
+  { value: "zuecos", labelKey: "clogs" },
   { value: "carteras", labelKey: "bags" },
   { value: "cintos", labelKey: "belts" },
   { value: "cuchillos", labelKey: "knives" },

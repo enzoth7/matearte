@@ -20,10 +20,13 @@ describe("regla de variantes del catálogo", () => {
   it("trata virola, cuero, posamate, talle y capacidad como datos del producto", () => {
     const mates = taxonomyRulesForCategory(defaultCatalogTaxonomy, "mates", "product").map(rule => rule.attribute_code);
     const botas = taxonomyRulesForCategory(defaultCatalogTaxonomy, "botas", "product").map(rule => rule.attribute_code);
+    const zuecos = taxonomyRulesForCategory(defaultCatalogTaxonomy, "zuecos", "product").map(rule => rule.attribute_code);
     const termos = taxonomyRulesForCategory(defaultCatalogTaxonomy, "termos", "product").map(rule => rule.attribute_code);
 
     expect(mates).toEqual(expect.arrayContaining(["tipo-virola", "tipo-cuero", "posamate", "tamano", "interior"]));
     expect(botas).toContain("talle");
+    expect(zuecos).toEqual(botas);
+    expect(catalogPurchaseAxes(defaultCatalogTaxonomy, "zuecos", { talle: "todos" }).find(axis => axis.code === "talle")?.values).toHaveLength(13);
     expect(termos).toContain("capacidad-ml");
   });
 

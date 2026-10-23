@@ -6,9 +6,9 @@ import { getVariantColorBackground } from "@/lib/catalog-filters";
 import type { CatalogPurchaseAxis } from "../../../../shared/catalog-taxonomy";
 
 const labels: Record<string, Record<string, string>> = {
-  es: { color: "Color", talle: "Número de bota", tamano: "Tamaño", interior: "Interior", "largo-mm": "Largo", "largo-cinto-cm": "Largo del cinto" },
-  en: { color: "Color", talle: "Boot size", tamano: "Size", interior: "Interior", "largo-mm": "Length", "largo-cinto-cm": "Belt length" },
-  pt: { color: "Cor", talle: "Número da bota", tamano: "Tamanho", interior: "Interior", "largo-mm": "Comprimento", "largo-cinto-cm": "Comprimento do cinto" },
+  es: { color: "Color", talle: "Número de bota", talleZueco: "Número de zueco", tamano: "Tamaño", interior: "Interior", "largo-mm": "Largo", "largo-cinto-cm": "Largo del cinto" },
+  en: { color: "Color", talle: "Boot size", talleZueco: "Clog size", tamano: "Size", interior: "Interior", "largo-mm": "Length", "largo-cinto-cm": "Belt length" },
+  pt: { color: "Cor", talle: "Número da bota", talleZueco: "Número do tamanco", tamano: "Tamanho", interior: "Interior", "largo-mm": "Comprimento", "largo-cinto-cm": "Comprimento do cinto" },
 };
 
 const unavailableMeasure: Record<string, string> = {
@@ -51,7 +51,7 @@ function formatOptionLabel(axisCode: string, value: string, locale: string): str
 export function StructuredVariantPicker({product,axes,selected,onSelect}:{product:Product;axes:CatalogPurchaseAxis[];selected:Record<string,string|number|boolean>;onSelect:(code:string,value:string)=>void}) {
   const locale = useLocale();
   if (!axes.length) return null;
-  return <div className="structured-variant-picker">{axes.map(axis=><fieldset key={axis.code}><legend>{labels[locale]?.[axis.code] ?? labels.es[axis.code] ?? axis.label}</legend><div>{!axis.values.length && <p className="structured-option-unavailable">{unavailableMeasure[locale] ?? unavailableMeasure.es}</p>}{axis.values.map(option=>{
+  return <div className="structured-variant-picker">{axes.map(axis=><fieldset key={axis.code}><legend>{labels[locale]?.[axis.code === "talle" && product.category === "zuecos" ? "talleZueco" : axis.code] ?? labels.es[axis.code] ?? axis.label}</legend><div>{!axis.values.length && <p className="structured-option-unavailable">{unavailableMeasure[locale] ?? unavailableMeasure.es}</p>}{axis.values.map(option=>{
     const value=option.value;
     const representative=product.variants.find(variant=>String(variant.options?.color ?? variant.color ?? '')===value);
     const active=String(selected[axis.code]??'')===value;
