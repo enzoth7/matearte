@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  catalogAttributeDetails,
   colorOnlyVariantValues,
   catalogPurchaseAxes,
   mateInteriorChoices,
@@ -28,6 +29,17 @@ describe("regla de variantes del catálogo", () => {
     expect(zuecos).toEqual(botas);
     expect(catalogPurchaseAxes(defaultCatalogTaxonomy, "zuecos", { talle: "todos" }).find(axis => axis.code === "talle")?.values).toHaveLength(13);
     expect(termos).toContain("capacidad-ml");
+  });
+
+  it("limita los talles de botas y zuecos a varios números cargados en el mismo producto", () => {
+    for (const category of ["botas", "zuecos"]) {
+      const sizes = catalogPurchaseAxes(defaultCatalogTaxonomy, category, { talle: ["36", "38", "40"] })
+        .find(axis => axis.code === "talle")?.values.map(option => option.value);
+      expect(sizes).toEqual(["36", "38", "40"]);
+      expect(catalogAttributeDetails(defaultCatalogTaxonomy, { talle: ["36", "38", "40"] }).find(detail => detail.code === "talle")?.values).toEqual(["36", "38", "40"]);
+      expect(catalogPurchaseAxes(defaultCatalogTaxonomy, category, { talle: "37" }).find(axis => axis.code === "talle")?.values.map(option => option.value)).toEqual(["37"]);
+      expect(catalogPurchaseAxes(defaultCatalogTaxonomy, category, { talle: ["36", "99"] }).find(axis => axis.code === "talle")?.values).toEqual([]);
+    }
   });
 
   it("ofrece los interiores según el modelo real del mate", () => {

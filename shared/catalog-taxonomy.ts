@@ -13,7 +13,7 @@ export type CatalogMaterialId = (typeof catalogMaterialIds)[number];
 export type CatalogProductTypeId = (typeof catalogProductTypeIds)[number];
 export type CatalogColorId = (typeof catalogColorIds)[number];
 export type CatalogCollectionId = (typeof catalogCollectionIds)[number];
-export type CatalogValue = string | number | boolean;
+export type CatalogValue = string | number | boolean | string[];
 export type CatalogValueMap = Record<string, CatalogValue>;
 export type CatalogAttributeDataType = "enum" | "number" | "boolean" | "text";
 export type CatalogAttributeInputStyle = "select" | "swatch" | "buttons" | "number" | "checkbox" | "text";
@@ -50,7 +50,9 @@ export function normalizeCatalogAttributes(value: unknown): CatalogAttributes {
 }
 export function normalizeCatalogValueMap(value: unknown): CatalogValueMap {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, CatalogValue] => ["string", "number", "boolean"].includes(typeof entry[1])));
+  return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, CatalogValue] =>
+    ["string", "number", "boolean"].includes(typeof entry[1])
+    || (entry[0] === "talle" && Array.isArray(entry[1]) && entry[1].every(item => typeof item === "string"))));
 }
 export function canonicalCategoryCode(value: string) {
   return ({ bombillones: "bombillas", "kit-matero": "kits-materos", cuchillo: "cuchillos", calzado: "botas", marroquineria: "cintos", "mates-personalizados": "personalizados", "materas-personalizadas": "personalizados" } as Record<string, string>)[value] ?? value;
@@ -115,7 +117,11 @@ export function catalogPurchaseAxes(taxonomy: CatalogTaxonomy, categoryCode: str
       const allowedInteriors = rule.attribute_code === "interior" ? mateInteriorChoices(categoryCode, attributes, productName) : null;
       const options = taxonomyOptionsFor(taxonomy, rule.attribute_code).filter(item => item.code !== "todos" && (!allowedInteriors || allowedInteriors.includes(item.code as "calabaza" | "ceramica")));
       const raw = attributes[rule.attribute_code];
-      const available = raw === "todos" ? options : options.filter(item => item.code === String(raw));
+      const selected = rule.attribute_code === "talle" && Array.isArray(raw) ? raw : [String(raw)];
+      const available = raw === "todos" ? options
+        : selected.length > 0 && selected.every(code => options.some(item => item.code === code))
+          ? options.filter(item => selected.includes(item.code))
+          : [];
       return {
         code: rule.attribute_code,
         label: definition?.label_es ?? rule.attribute_code,
@@ -130,7 +136,9 @@ export function catalogAttributeDetails(taxonomy: CatalogTaxonomy, attributes: C
       const definition = taxonomy.attributes.find(item => item.code === code);
       const options = taxonomyOptionsFor(taxonomy, code).filter(item => item.code !== "todos");
       const resolved = typeof rawValue === "boolean" ? rawValue ? "Sí" : "No" : catalogValueLabel(taxonomy, code, rawValue);
-      const values = rawValue === "todos" && options.length
+      const values = code === "talle" && Array.isArray(rawValue)
+        ? options.filter(item => rawValue.includes(item.code)).map(item => item.label_es)
+        : rawValue === "todos" && options.length
         ? options.map(item => item.label_es)
         : [typeof rawValue === "string" && resolved === rawValue ? rawValue.replaceAll("-", " ").replace(/^./, letter => letter.toUpperCase()) : resolved];
       return { code, label: definition?.label_es ?? code.replaceAll("-", " "), values, rawValue };

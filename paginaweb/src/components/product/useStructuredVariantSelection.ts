@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { catalogPurchaseAxes, defaultCatalogTaxonomy, type CatalogPurchaseAxis, type CatalogValueMap } from "../../../../shared/catalog-taxonomy";
+import { catalogPurchaseAxes, defaultCatalogTaxonomy, type CatalogPurchaseAxis } from "../../../../shared/catalog-taxonomy";
 import type { Product } from "@/types/catalog";
 import { getVariantColorId } from "@/lib/catalog-filters";
 
@@ -13,10 +13,10 @@ export function useStructuredVariantSelection(product: Product) {
       : [];
     return [...colorAxis, ...(product.purchaseAxes ?? catalogPurchaseAxes(defaultCatalogTaxonomy, product.category, product.attributes ?? {}, product.name))];
   }, [product]);
-  const [selected, setSelected] = useState<CatalogValueMap>({});
+  const [selected, setSelected] = useState<Record<string, string | number | boolean>>({});
 
   useEffect(() => {
-    const next: CatalogValueMap = {};
+    const next: Record<string, string | number | boolean> = {};
     const requestedColor = new URLSearchParams(window.location.search).get("color");
     axes.forEach(axis => {
       const values = axis.values.map(option => option.value);

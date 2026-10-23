@@ -84,7 +84,7 @@ export function ProductSpecsBox({ product, selectedOptions, activeVariant }: Pro
       <ul className="product-specs-list">
         {visibleDetails.map(detail => (
           <li key={detail.code} className="product-specs-item">
-            <strong className="product-specs-label">{labels[detail.code]?.[locale] ?? detail.label}:</strong>{" "}
+            <strong className="product-specs-label">{detail.code === "talle" && product.category === "zuecos" ? ({ es: "Número de zueco", en: "Clog size", pt: "Número do tamanco" })[locale] : labels[detail.code]?.[locale] ?? detail.label}:</strong>{" "}
             <span className="product-specs-value">{displayValue(detail, locale)}</span>
           </li>
         ))}

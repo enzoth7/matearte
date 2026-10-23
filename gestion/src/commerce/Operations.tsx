@@ -22,6 +22,7 @@ import {
   catalogCategoryIds,
   catalogColorIds,
   catalogMaterialIds,
+  catalogPurchaseAxes,
   catalogProductTypeIds,
   catalogValueLabel,
   colorOnlyVariantValues,
@@ -538,6 +539,25 @@ export function DynamicAttributeFields({taxonomy,category,scope,values,onChange,
           </label>)}</div>
       </fieldset>;
     }
+    if (scope==='product' && definition.code==='talle' && ['botas','zuecos'].includes(canonicalCategoryCode(category))) {
+      const sizes = taxonomyOptionsFor(taxonomy,'talle').filter(option=>option.code!=='todos');
+      const raw = values.talle;
+      const selected = raw==='todos' ? sizes.map(option=>option.code) : Array.isArray(raw) ? raw : typeof raw==='string' ? [raw] : [];
+      const setSizes = (next:string[]|undefined) => {
+        const attributes={...values};
+        if (next?.length) attributes.talle=next;
+        else delete attributes.talle;
+        onChange(attributes);
+      };
+      return <fieldset className="material-field" key="talle">
+        <legend>{category==='zuecos'?'Números de zueco':'Números de bota'} <span className="field-required" aria-hidden="true">*</span></legend>
+        <div className="material-options">
+          <label className="material-option"><input type="checkbox" checked={raw==='todos'} onChange={event=>event.target.checked?onChange({...values,talle:'todos'}):setSizes(undefined)}/>Todos los talles</label>
+          {sizes.map(option=><label key={option.code} className="material-option"><input type="checkbox" checked={selected.includes(option.code)} onChange={event=>setSizes(event.target.checked?[...selected,option.code]:selected.filter(code=>code!==option.code))}/>{option.label_es}</label>)}
+        </div>
+        <small className="field-help">Elegí uno o varios números para este producto.</small>
+      </fieldset>;
+    }
     return <TaxonomyValueField key={definition.code} definition={definition} taxonomy={taxonomy} value={values[definition.code]} required={rule.required} allowedOptionCodes={definition.code==='interior'?mateInteriorChoices(category,values,productName):undefined} onChange={value=>{
       const next={...values};
       if(value===undefined) delete next[definition.code];
@@ -557,6 +577,11 @@ export function DynamicAttributeFields({taxonomy,category,scope,values,onChange,
     return <div className="product-fields">{fields}</div>;
   }
   return <fieldset className="catalog-attributes"><legend>Características del producto</legend><div className="product-fields">{fields}</div>{orientativeWarning&&<div className="warning-inline">El largo no es el habitual para este tipo tradicional. Es una advertencia orientativa: podés guardar la pieza si la clasificación es correcta.</div>}</fieldset>;
+}
+
+function hasConfiguredFootwearSizes(taxonomy:CatalogTaxonomy,category:string,attributes:CatalogValueMap) {
+  if (!['botas','zuecos'].includes(canonicalCategoryCode(category))) return true;
+  return Boolean(catalogPurchaseAxes(taxonomy,category,attributes).find(axis=>axis.code==='talle'&&axis.values.length>0));
 }
 
 export function Rates({onNotice,wholesaleRate}:{onNotice:(v:string)=>void;wholesaleRate?:number}) {
@@ -745,6 +770,8 @@ export function Catalog({onNotice,initialProductId,initialVariantId,startNew=fal
       return;
     }
 
+    if (!hasConfiguredFootwearSizes(taxonomy,category,newProduct.attributes)) { onNotice('Elegí al menos un número de calzado.'); return; }
+
     setProductBusy('create');
     try {
       const payload = {name,category,category_code:category,description:newProduct.description.trim(),sale_mode:newProduct.saleMode,peso:newProduct.peso??0,catalog_filters:newProduct.catalogFilters,attributes:newProduct.attributes,published:false,...(category==='servicios'?{apply_catalog_price_adjustment:false}:{})};
@@ -778,6 +805,7 @@ export function Catalog({onNotice,initialProductId,initialVariantId,startNew=fal
     }
 
     const attributes = {...productDetails.attributes};
+    if (!hasConfiguredFootwearSizes(taxonomy,category,attributes)) { onNotice('Elegí al menos un número de calzado.'); return; }
     if (mateInteriorChoices(category, attributes, name).length===1 && (attributes.interior==='todos' || attributes.interior==='ceramica')) {
       attributes.interior='calabaza';
     }
@@ -996,7 +1024,7 @@ Si solo querés sacarlo de la tienda, usá “Ocultar”.`);
   };
 
   const syncWebPublication = async(productId:string, variants:Pick<ProductVariant,'active'|'available_web'>[]) => {
-    const published = !isService && variants.some(item=>item.active&&item.available_web!==false);
+    const published = !isService && Boolean(product && hasConfiguredFootwearSizes(taxonomy,product.category_code||product.category,normalizeCatalogValueMap(product.attributes))) && variants.some(item=>item.active&&item.available_web!==false);
     const {error:updateError} = await supabase.from('commerce_products').update({published}).eq('id',productId);
     if(updateError) throw updateError;
   };
@@ -1007,6 +1035,7 @@ Si solo querés sacarlo de la tienda, usá “Ocultar”.`);
     const price = isService && variant.servicePriceMode==='variable' ? 0 : Number(variant.price);
     const category = product.category_code||product.category;
     const productAttributes = normalizeCatalogValueMap(product.attributes);
+    if ((variant.web || variant.local) && !hasConfiguredFootwearSizes(taxonomy,category,productAttributes)) { onNotice('Elegí al menos un número de calzado antes de habilitar esta variante.'); return; }
     const missingProduct = (variant.web || variant.local) && taxonomyRulesForProduct(taxonomy,category,productAttributes,'product').find(rule=>rule.required&&(productAttributes[rule.attribute_code]===undefined||productAttributes[rule.attribute_code]===''));
     if(missingProduct){onNotice(`Antes de habilitarlo en Local o Web completá ${catalogAttributeLabel(taxonomy,missingProduct.attribute_code)}.`);return}
     const missing = variantRules.find(rule=>rule.required&&(variant.options[rule.attribute_code]===undefined||variant.options[rule.attribute_code]===''));
@@ -1040,6 +1069,7 @@ Si solo querés sacarlo de la tienda, usá “Ocultar”.`);
     const priceNum = isService && form.servicePriceMode==='variable' ? 0 : Number(form.price);
     const category = product.category_code||product.category;
     const productAttributes = normalizeCatalogValueMap(product.attributes);
+    if ((form.web || form.local) && !hasConfiguredFootwearSizes(taxonomy,category,productAttributes)) { onNotice('Elegí al menos un número de calzado antes de habilitar esta variante.'); return; }
     const missingProduct = (form.web || form.local) && taxonomyRulesForProduct(taxonomy,category,productAttributes,'product').find(rule=>rule.required&&(productAttributes[rule.attribute_code]===undefined||productAttributes[rule.attribute_code]===''));
     if(missingProduct){onNotice(`Antes de habilitarlo en Local o Web completá ${catalogAttributeLabel(taxonomy,missingProduct.attribute_code)}.`);return}
     const missing = variantRules.find(rule=>rule.required&&(form.options[rule.attribute_code]===undefined||form.options[rule.attribute_code]===''));

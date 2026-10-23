@@ -2,6 +2,33 @@ import { test, expect } from "@playwright/test";
 import { mockCommerce } from "./commerce-fixture";
 import { defaultCatalogTaxonomy } from "../../shared/catalog-taxonomy";
 
+for (const category of ["botas", "zuecos"] as const) {
+  test(`${category} permite guardar varios números en un solo producto`, async ({ page }) => {
+    const { fixture, tables, writes } = await mockCommerce(page, { writable: true });
+    tables.commerce_categories = defaultCatalogTaxonomy.categories;
+    tables.commerce_attribute_definitions = defaultCatalogTaxonomy.attributes;
+    tables.commerce_attribute_options = defaultCatalogTaxonomy.options;
+    tables.commerce_category_attributes = defaultCatalogTaxonomy.rules;
+    Object.assign(fixture.products[0], { category, category_code: category, attributes: { talle: "36" } });
+
+    await page.goto("/productos/catalogo?producto=product-1");
+    const sizes = page.getByRole("group", { name: category === "botas" ? /Números de bota/ : /Números de zueco/ });
+    await expect(sizes.getByLabel("36", { exact: true })).toBeChecked();
+    await sizes.getByLabel("38", { exact: true }).check();
+    await sizes.getByLabel("40", { exact: true }).check();
+    await page.locator(".product-details").getByRole("button", { name: "Guardar cambios" }).click();
+    await expect.poll(() => writes.find(write => write.table === "commerce_products" && Array.isArray(write.body.attributes?.talle))?.body.attributes.talle).toEqual(["36", "38", "40"]);
+    await page.reload();
+    await expect(sizes.getByLabel("36", { exact: true })).toBeChecked();
+    await expect(sizes.getByLabel("38", { exact: true })).toBeChecked();
+    await expect(sizes.getByLabel("40", { exact: true })).toBeChecked();
+    await expect(sizes.getByLabel("37", { exact: true })).not.toBeChecked();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(sizes).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
+
 test("el selector distingue los personalizados y ordena las categorías por nombre", async ({ page }) => {
   const { tables } = await mockCommerce(page);
   tables.commerce_categories = [

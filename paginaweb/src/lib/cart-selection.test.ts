@@ -62,4 +62,15 @@ describe("selección comercial del carrito", () => {
     expect(validatedCatalogSelection(defaultCatalogTaxonomy, product, variant, { color: "natural", talle: "38" })).toEqual({ color: "natural", talle: "38" });
     expect(() => validatedCatalogSelection(defaultCatalogTaxonomy, product, variant, { color: "negro", talle: "38" })).toThrow(/color/);
   });
+
+  it("acepta varios talles de botas y zuecos sin mezclar las líneas del carrito", () => {
+    for (const category_code of ["botas", "zuecos"]) {
+      const product = { category_code, attributes: { talle: ["36", "38", "40"] } };
+      const size36 = validatedCatalogSelection(defaultCatalogTaxonomy, product, variant, { color: "natural", talle: "36" });
+      const size40 = validatedCatalogSelection(defaultCatalogTaxonomy, product, variant, { color: "natural", talle: "40" });
+      expect(optionSignature(size36)).not.toBe(optionSignature(size40));
+      expect(() => validatedCatalogSelection(defaultCatalogTaxonomy, product, variant, { color: "natural", talle: "37" })).toThrow(/Talle/);
+      expect(() => validatedCatalogSelection(defaultCatalogTaxonomy, product, variant, { color: "natural" })).toThrow(/Talle/);
+    }
+  });
 });
