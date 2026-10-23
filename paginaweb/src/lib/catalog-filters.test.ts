@@ -72,6 +72,14 @@ describe("filtros del catálogo", () => {
     expect(visible.map(({ product }) => product.id)).toEqual(["imperial-alpaca", "imperial-cuero"]);
   });
 
+  it("permite filtrar calzado de gamuza y charol como materiales propios", () => {
+    const entries = [product("bota-gamuza", 4200, { materials: ["gamuza"] }), product("zueco-charol", 4200, { materials: ["charol"] }), product("bota-cuero", 4200)];
+    expect(parseCatalogFilters(new URLSearchParams("material=gamuza")).materials).toEqual(["gamuza"]);
+    expect(parseCatalogFilters(new URLSearchParams("material=charol")).materials).toEqual(["charol"]);
+    expect(filterAndSortCatalog(entries, { ...defaults, materials: ["gamuza"] }).map(({ product }) => product.id)).toEqual(["bota-gamuza"]);
+    expect(filterAndSortCatalog(entries, { ...defaults, materials: ["charol"] }).map(({ product }) => product.id)).toEqual(["zueco-charol"]);
+  });
+
   it("lee, valida y vuelve a escribir parámetros repetibles", () => {
     const filters = parseCatalogFilters(new URLSearchParams("filter=matera&categoria=billeteras&coleccion=estribo&coleccion=alfonsina&coleccion=invalida&precio=menos-3000&precio=7000-mas&material=estampado&tipo=torpedo&orden=precio&precio=invalido&forma=ovalada"));
     expect(filters).toMatchObject({ search: "matera", category: "billeteras", collections: ["estribo", "alfonsina"], prices: ["menos-3000", "7000-mas"], materials: ["estampado"], productTypes: ["torpedo"], sort: "precio-asc" });
@@ -248,6 +256,32 @@ describe("filtros del catálogo", () => {
     expect(matchVariantWithColor("Chocolate", "chocolate")).toBe(true);
     expect(getColorSwatchBackground("chocolate")).toBe("#4b2e24");
     expect(filterAndSortCatalog([{ product: mate }], { ...defaults, colors: ["chocolate"] })).toHaveLength(1);
+    expect(filterAndSortCatalog([{ product: mate }], { ...defaults, colors: ["marron"] })).toHaveLength(0);
+  });
+
+  it("reconoce Dorado/Natural como un solo color combinado", () => {
+    const mate: Product = product("mate-dorado-natural", 4500).product;
+    mate.variants = [{ id: "dorado-natural", label: "Dorado/Natural", value: "Dorado/Natural", color: "dorado-natural", available: true }];
+    expect(getVariantColorId("Dorado/Natural")).toBe("dorado-natural");
+    expect(getVariantColorId("Natural/Dorado")).toBe("dorado-natural");
+    expect(matchVariantWithColor("Natural/Dorado", "dorado-natural")).toBe(true);
+    expect(matchVariantWithColor("Dorado/Natural", "dorado")).toBe(false);
+    expect(matchVariantWithColor("Dorado/Natural", "natural")).toBe(false);
+    expect(getColorSwatchBackground("dorado-natural")).toBe("linear-gradient(90deg, #c9a859 0 50%, #cfaf79 50% 100%)");
+    expect(filterAndSortCatalog([{ product: mate }], { ...defaults, colors: ["dorado-natural"] })).toHaveLength(1);
+    expect(filterAndSortCatalog([{ product: mate }], { ...defaults, colors: ["natural"] })).toHaveLength(0);
+  });
+
+  it("reconoce Marrón/Rojo como un solo color combinado", () => {
+    const mate: Product = product("mate-marron-rojo", 4500).product;
+    mate.variants = [{ id: "marron-rojo", label: "Marrón/Rojo", value: "Marrón/Rojo", color: "marron-rojo", available: true }];
+    expect(getVariantColorId("Marrón/Rojo")).toBe("marron-rojo");
+    expect(getVariantColorId("Rojo/Marrón")).toBe("marron-rojo");
+    expect(matchVariantWithColor("Rojo/Marrón", "marron-rojo")).toBe(true);
+    expect(matchVariantWithColor("Marrón/Rojo", "marron")).toBe(false);
+    expect(matchVariantWithColor("Marrón/Rojo", "rojo")).toBe(false);
+    expect(getColorSwatchBackground("marron-rojo")).toBe("linear-gradient(90deg, #6c4530 0 50%, #a83232 50% 100%)");
+    expect(filterAndSortCatalog([{ product: mate }], { ...defaults, colors: ["marron-rojo"] })).toHaveLength(1);
     expect(filterAndSortCatalog([{ product: mate }], { ...defaults, colors: ["marron"] })).toHaveLength(0);
   });
 

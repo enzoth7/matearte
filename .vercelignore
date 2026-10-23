@@ -1,10 +1,14 @@
 .github
+.codex-temp
+.tmp
+/tmp
+/output
+**/.env*
 /Informacion
 /auditoria-movil-2026-08-24
 
 /dashboard
 /supabase
-/visualizador
 **/node_modules
 **/.next
 **/dist

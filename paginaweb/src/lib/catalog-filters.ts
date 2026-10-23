@@ -32,7 +32,7 @@ export const priceRangeOptions = [
   { value: "7000-mas", labelKey: "from7000", min: 7000, max: Number.POSITIVE_INFINITY },
 ] as const;
 
-export const materialOptions: ReadonlyArray<{ value: CatalogMaterialId; labelKey: "leather" | "silver" | "alpaca" | "stainlessSteel" | "otherMetals" | "wood" | "patterned" }> = [
+export const materialOptions: ReadonlyArray<{ value: CatalogMaterialId; labelKey: "leather" | "silver" | "alpaca" | "stainlessSteel" | "otherMetals" | "wood" | "patterned" | "suede" | "patentLeather" }> = [
   { value: "cuero", labelKey: "leather" },
   { value: "plata", labelKey: "silver" },
   { value: "alpaca", labelKey: "alpaca" },
@@ -40,6 +40,8 @@ export const materialOptions: ReadonlyArray<{ value: CatalogMaterialId; labelKey
   { value: "otros-metales", labelKey: "otherMetals" },
   { value: "madera", labelKey: "wood" },
   { value: "estampado", labelKey: "patterned" },
+  { value: "gamuza", labelKey: "suede" },
+  { value: "charol", labelKey: "patentLeather" },
 ];
 
 export const productTypeOptions: ReadonlyArray<{ value: CatalogProductTypeId; labelKey: "imperial" | "camionero" | "criollo" | "torpedo" }> = [
@@ -75,6 +77,8 @@ export const colorOptions: ReadonlyArray<CatalogColorOption> = [
   { value: "negro-marron", labelKey: "blackBrown", color: "#241d1a", secondaryColor: "#6c4530", showWhenAvailable: true },
   { value: "beige-dorado", labelKey: "beigeGold", color: "#dfd1b8", secondaryColor: "#c9a859", showWhenAvailable: true },
   { value: "negro-blanco", labelKey: "blackWhite", color: "#241d1a", secondaryColor: "#f5f5f5", showWhenAvailable: true },
+  { value: "dorado-natural", labelKey: "goldNatural", color: "#c9a859", secondaryColor: "#cfaf79", showWhenAvailable: true },
+  { value: "marron-rojo", labelKey: "brownRed", color: "#6c4530", secondaryColor: "#a83232", showWhenAvailable: true },
 ];
 
 export function getColorSwatchBackground(colorId: string): string | undefined {
@@ -168,19 +172,23 @@ function normalizeSearchText(value: string) {
  */
 export function matchVariantWithColor(variantLabel: string, color: CatalogColorId): boolean {
   const norm = variantLabel.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const goldNatural = (norm.includes("dorad") && norm.includes("natural"));
+  const brownRed = (norm.includes("marr") && norm.includes("roj")) || (norm.includes("brown") && norm.includes("red"));
   switch (color) {
     case "negro":
       return norm.includes("negr") || norm.includes("black");
     case "marron":
-      return norm.includes("marr") || norm.includes("brown") || norm.includes("suela") || norm.includes("cafe");
+      return (norm.includes("marr") || norm.includes("brown") || norm.includes("suela") || norm.includes("cafe")) && !brownRed;
+    case "marron-rojo":
+      return brownRed;
     case "chocolate":
       return norm.includes("chocolate");
     case "natural":
-      return norm.includes("natural");
+      return norm.includes("natural") && !goldNatural;
     case "cuero-crudo":
       return norm.includes("crudo") || norm.includes("raw");
     case "rojo":
-      return norm.includes("roj") || norm.includes("red") || norm.includes("bordo");
+      return (norm.includes("roj") || norm.includes("red") || norm.includes("bordo")) && !brownRed;
     case "blanco":
       return norm.includes("blanc") || norm.includes("white");
     case "rosado":
@@ -188,7 +196,9 @@ export function matchVariantWithColor(variantLabel: string, color: CatalogColorI
     case "gris":
       return norm.includes("gris") || norm.includes("gray") || norm.includes("grey");
     case "dorado":
-      return norm.includes("dorad") || norm.includes("oro") || norm.includes("gold");
+      return (norm.includes("dorad") || norm.includes("oro") || norm.includes("gold")) && !goldNatural;
+    case "dorado-natural":
+      return goldNatural;
     case "celeste":
       return norm.includes("celeste") || norm.includes("sky");
     case "azul":
@@ -220,6 +230,8 @@ export function getVariantColorId(
   const norm = variantOrLabel.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const directCode = norm.trim().replace(/[\s/]+/g, "-");
   if (colorIds.has(directCode)) return directCode as CatalogColorId;
+  if (directCode === "rojo-marron" || (norm.includes("marr") && norm.includes("roj")) || (norm.includes("brown") && norm.includes("red"))) return "marron-rojo";
+  if (directCode === "natural-dorado" || (norm.includes("dorad") && norm.includes("natural"))) return "dorado-natural";
   if (norm.includes("chocolate")) return "chocolate";
   if (norm.includes("negr") || norm.includes("black")) return "negro";
   if (norm.includes("marr") || norm.includes("brown") || norm.includes("suela") || norm.includes("cafe")) return "marron";

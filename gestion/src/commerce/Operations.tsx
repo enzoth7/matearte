@@ -511,6 +511,8 @@ export const catalogColorLabels: Record<string, string> = {
   metalico: 'Metálico',
 };
 
+const footwearOnlyMaterialCodes = new Set(['gamuza', 'charol']);
+
 function TaxonomyValueField({ definition, taxonomy, value, required, onChange, compact = false, allowedOptionCodes }:{ definition:CatalogAttributeDefinition;taxonomy:CatalogTaxonomy;value:CatalogValue|undefined;required:boolean;onChange:(value:CatalogValue|undefined)=>void;compact?:boolean;allowedOptionCodes?:string[] }) {
   const label = <div className={compact ? 'sr-only' : 'field-label'}>{definition.label_es}{definition.unit ? ` (${definition.unit})` : ''}{required&&<div className="field-required" aria-hidden="true">*</div>}</div>;
   if (definition.data_type === 'boolean') return <label className="taxonomy-boolean-field">{label}<input type="checkbox" checked={value===true} onChange={event=>onChange(event.target.checked)}/></label>;
@@ -532,7 +534,7 @@ export function DynamicAttributeFields({taxonomy,category,scope,values,onChange,
       return <fieldset className="material-field" key="material">
         <legend>Materiales</legend>
         <div className="material-options">{taxonomyOptionsFor(taxonomy,'material')
-          .filter(option=>catalogMaterialIds.includes(option.code as CatalogMaterialId))
+          .filter(option=>catalogMaterialIds.includes(option.code as CatalogMaterialId) && (!footwearOnlyMaterialCodes.has(option.code) || ['botas','zuecos'].includes(canonicalCategoryCode(category))))
           .map(option=><label key={option.code} className="material-option">
             <input type="checkbox" checked={materials.includes(option.code as CatalogMaterialId)} onChange={event=>onMaterialsChange(event.target.checked?[...materials,option.code as CatalogMaterialId]:materials.filter(item=>item!==option.code))}/>
             {option.label_es}
@@ -558,7 +560,7 @@ export function DynamicAttributeFields({taxonomy,category,scope,values,onChange,
         <small className="field-help">Elegí uno o varios números para este producto.</small>
       </fieldset>;
     }
-    return <TaxonomyValueField key={definition.code} definition={definition} taxonomy={taxonomy} value={values[definition.code]} required={rule.required} allowedOptionCodes={definition.code==='interior'?mateInteriorChoices(category,values,productName):undefined} onChange={value=>{
+    return <TaxonomyValueField key={definition.code} definition={definition} taxonomy={taxonomy} value={values[definition.code]} required={rule.required} allowedOptionCodes={definition.code==='interior'?mateInteriorChoices(category,values,productName):definition.code==='material' && !['botas','zuecos'].includes(canonicalCategoryCode(category))?taxonomyOptionsFor(taxonomy,'material').filter(option=>!footwearOnlyMaterialCodes.has(option.code)).map(option=>option.code):undefined} onChange={value=>{
       const next={...values};
       if(value===undefined) delete next[definition.code];
       else next[definition.code]=value;
