@@ -21,12 +21,11 @@ export async function POST(request: Request) {
 
     if (orderError || !order) return apiError("Pedido no encontrado.", 404);
 
-    // Idempotent: if PayPal order already created, return it
+    if (order.status !== "pending_payment") return apiError("El pedido no está pendiente de pago.");
     if (order.paypal_order_id) return apiOk({ id: order.paypal_order_id });
 
-    if (order.status !== "pending_payment") return apiError("El pedido no está pendiente de pago.");
-
     const totalUsd = Number(order.paypal_amount_usd_minor) / 100;
+    if (!Number.isFinite(totalUsd) || totalUsd <= 0) throw new Error("El pedido no tiene un importe USD válido.");
 
     const paypalOrder = await createPayPalOrder({
       referenceId: order.id,
@@ -41,10 +40,12 @@ export async function POST(request: Request) {
       ],
     });
 
-    await admin
+    if (typeof paypalOrder.id !== "string" || !paypalOrder.id) throw new Error("PayPal no devolvió una orden válida.");
+    const { data: saved, error: saveError } = await admin
       .from("orders")
       .update({ paypal_order_id: paypalOrder.id })
-      .eq("id", order.id);
+      .eq("id", order.id).eq("status", "pending_payment").select("id").single();
+    if (saveError || !saved) throw new Error("No se pudo asociar el pago al pedido. Volvé a intentarlo.");
 
     return apiOk({ id: paypalOrder.id });
   } catch (error) {

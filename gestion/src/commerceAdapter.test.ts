@@ -8,6 +8,28 @@ import { buildRevenueForecast } from "./revenueForecast";
 import { readAllPages } from "./useCommerce";
 
 describe("integración de commerce en el estado compartido", () => {
+  it("incluye cobros USD con su equivalencia histórica sin usar la cotización actual", () => {
+    const fixture = commerceFixture();
+    fixture.orders[0].paypal_amount_usd_minor = 10000;
+    fixture.payments[0] = { ...fixture.payments[0], currency: "USD", amount_minor: 10000, provider: "paypal" };
+    const state = adaptCommerce(fixture);
+    expect(state.payments[0]).toMatchObject({ amount: 4101, sourceCurrency: "USD", sourceAmount: 100, reconciliationRequired: false });
+    expect(state.orders[0].paymentAmountUsd).toBe(100);
+    expect(buildFinanceProjection(state, { asOf: state.payments[0].date })[0].actualIncome).toBe(4101);
+  });
+  it("conserva un cobro sin cotización histórica y señala la conciliación", () => {
+    const fixture = commerceFixture();
+    fixture.payments[0] = { ...fixture.payments[0], currency: "USD", amount_minor: 10000, provider: "paypal" };
+    const state = adaptCommerce(fixture);
+    expect(state.payments).toHaveLength(1);
+    expect(state.payments[0]).toMatchObject({ amount: null, sourceCurrency: "USD", sourceAmount: 100, reconciliationRequired: true });
+  });
+  it("convierte importes distintos con la relación histórica y pide conciliarlos", () => {
+    const fixture = commerceFixture();
+    fixture.orders[0].paypal_amount_usd_minor = 10000;
+    fixture.payments[0] = { ...fixture.payments[0], currency: "USD", amount_minor: 5000, provider: "paypal" };
+    expect(adaptCommerce(fixture).payments[0]).toMatchObject({ amount: 2050.5, sourceAmount: 50, reconciliationRequired: true });
+  });
   it("incluye cuentas y suscriptores Web sin compras, sin duplicarlos por correo", () => {
     const fixture = commerceFixture();
     fixture.orders = [];

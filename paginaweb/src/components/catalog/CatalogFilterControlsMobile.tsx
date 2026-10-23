@@ -8,6 +8,7 @@ import {
   productTypeOptions,
   priceRangeOptions,
   getProductColors,
+  getColorSwatchBackground,
   type CatalogFilters,
   type PriceRangeId,
 } from "@/lib/catalog-filters";
@@ -272,7 +273,8 @@ export function CatalogFilterControlsMobile({
         <label className="catalog-mobile-filter-select-label" htmlFor="mfs-color">
           {t("color")}
         </label>
-        <div className="catalog-mobile-filter-select-wrap">
+        <div className="catalog-mobile-filter-select-wrap catalog-mobile-color-select-wrap">
+          {selectedColor && <span className="catalog-color-swatch catalog-mobile-selected-swatch" style={{ background: getColorSwatchBackground(selectedColor) }} aria-hidden="true" />}
           <select
             id="mfs-color"
             value={selectedColor}

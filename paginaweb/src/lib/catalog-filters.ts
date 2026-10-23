@@ -7,6 +7,7 @@ import type {
   Product,
   ProductVariant,
 } from "@/types/catalog";
+import { catalogAttributeDetails, defaultCatalogTaxonomy } from "../../../shared/catalog-taxonomy";
 
 export const categoryOptions = [
   { value: "todas", labelKey: "all" },
@@ -47,7 +48,9 @@ export const productTypeOptions: ReadonlyArray<{ value: CatalogProductTypeId; la
   { value: "torpedo", labelKey: "torpedo" },
 ];
 
-export const colorOptions: ReadonlyArray<{ value: CatalogColorId; labelKey: "brown" | "black" | "natural" | "rawLeather" | "red" | "white" | "pink" | "gray" | "gold" | "skyBlue" | "blue" | "beige" | "metallic"; color: string }> = [
+export type CatalogColorOption = { value: CatalogColorId; labelKey: string; color: string; secondaryColor?: string; showWhenAvailable?: boolean };
+
+export const colorOptions: ReadonlyArray<CatalogColorOption> = [
   { value: "marron", labelKey: "brown", color: "#6c4530" },
   { value: "negro", labelKey: "black", color: "#241d1a" },
   { value: "natural", labelKey: "natural", color: "#cfaf79" },
@@ -61,7 +64,24 @@ export const colorOptions: ReadonlyArray<{ value: CatalogColorId; labelKey: "bro
   { value: "azul", labelKey: "blue", color: "#1e3a8a" },
   { value: "beige", labelKey: "beige", color: "#dfd1b8" },
   { value: "metalico", labelKey: "metallic", color: "#9b9b95" },
+  { value: "marron-claro", labelKey: "lightBrown", color: "#a67b5b", showWhenAvailable: true },
+  { value: "negro-dorado", labelKey: "blackGold", color: "#241d1a", secondaryColor: "#c9a859", showWhenAvailable: true },
+  { value: "marron-dorado", labelKey: "brownGold", color: "#6c4530", secondaryColor: "#c9a859", showWhenAvailable: true },
+  { value: "blanco-plateado", labelKey: "whiteSilver", color: "#f5f5f5", secondaryColor: "#9b9b95", showWhenAvailable: true },
+  { value: "blanco-dorado", labelKey: "whiteGold", color: "#f5f5f5", secondaryColor: "#c9a859", showWhenAvailable: true },
+  { value: "marron-blanco", labelKey: "brownWhite", color: "#6c4530", secondaryColor: "#f5f5f5", showWhenAvailable: true },
+  { value: "negro-marron", labelKey: "blackBrown", color: "#241d1a", secondaryColor: "#6c4530", showWhenAvailable: true },
+  { value: "beige-dorado", labelKey: "beigeGold", color: "#dfd1b8", secondaryColor: "#c9a859", showWhenAvailable: true },
+  { value: "negro-blanco", labelKey: "blackWhite", color: "#241d1a", secondaryColor: "#f5f5f5", showWhenAvailable: true },
 ];
+
+export function getColorSwatchBackground(colorId: string): string | undefined {
+  const option = colorOptions.find((item) => item.value === colorId);
+  if (!option) return undefined;
+  return option.secondaryColor
+    ? `linear-gradient(90deg, ${option.color} 0 50%, ${option.secondaryColor} 50% 100%)`
+    : option.color;
+}
 
 export const collectionOptions: ReadonlyArray<{ value: CatalogCollectionId; label: string }> = [
   { value: "estribo", label: "Estribo" },
@@ -71,7 +91,7 @@ export const collectionOptions: ReadonlyArray<{ value: CatalogCollectionId; labe
 ];
 
 export type PriceRangeId = (typeof priceRangeOptions)[number]["value"];
-export type CatalogSort = "editorial" | "nombre" | "precio";
+export type CatalogSort = "nuevo" | "precio-asc" | "precio-desc" | "nombre-asc" | "nombre-desc";
 
 export type CatalogFilters = {
   search: string;
@@ -90,7 +110,7 @@ const materialIds: ReadonlySet<string> = new Set(materialOptions.map((option) =>
 const productTypeIds: ReadonlySet<string> = new Set(productTypeOptions.map((option) => option.value));
 const colorIds: ReadonlySet<string> = new Set(colorOptions.map((option) => option.value));
 const collectionIds: ReadonlySet<string> = new Set(collectionOptions.map((option) => option.value));
-const sortIds = new Set<CatalogSort>(["editorial", "nombre", "precio"]);
+const sortIds = new Set<CatalogSort>(["nuevo", "precio-asc", "precio-desc", "nombre-asc", "nombre-desc"]);
 
 function validValues<T extends string>(params: URLSearchParams, key: string, allowed: ReadonlySet<string>) {
   return [...new Set(params.getAll(key).filter((value): value is T => allowed.has(value)))];
@@ -99,7 +119,8 @@ function validValues<T extends string>(params: URLSearchParams, key: string, all
 export function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
   const rawCategory = params.get("categoria") ?? "todas";
   const categoryValue = rawCategory === "kit-matero" ? "kits-materos" : rawCategory === "cuchillo" ? "cuchillos" : rawCategory === "mates-personalizados" || rawCategory === "materas-personalizadas" ? "personalizados" : rawCategory;
-  const sortValue = params.get("orden") ?? "nombre";
+  const requestedSort = params.get("orden") ?? "nuevo";
+  const sortValue = requestedSort === "precio" ? "precio-asc" : requestedSort === "nombre" ? "nombre-asc" : requestedSort;
   return {
     search: (params.get("filter") ?? "").trim(),
     category: categoryIds.has(categoryValue) ? categoryValue as CatalogFilters["category"] : "todas",
@@ -108,7 +129,7 @@ export function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
     materials: validValues<CatalogMaterialId>(params, "material", materialIds),
     productTypes: validValues<CatalogProductTypeId>(params, "tipo", productTypeIds),
     colors: validValues<CatalogColorId>(params, "color", colorIds),
-    sort: sortIds.has(sortValue as CatalogSort) ? sortValue as CatalogSort : "nombre",
+    sort: sortIds.has(sortValue as CatalogSort) ? sortValue as CatalogSort : "nuevo",
   };
 }
 
@@ -117,7 +138,7 @@ export function writeCatalogFilters(filters: CatalogFilters) {
   if (filters.search) params.set("filter", filters.search.trim());
   if (filters.category !== "todas") params.set("categoria", filters.category);
   filters.collections.forEach((value) => params.append("coleccion", value));
-  if (filters.sort !== "nombre") params.set("orden", filters.sort);
+  if (filters.sort !== "nuevo") params.set("orden", filters.sort);
   filters.prices.forEach((value) => params.append("precio", value));
   filters.materials.forEach((value) => params.append("material", value));
   filters.productTypes.forEach((value) => params.append("tipo", value));
@@ -193,6 +214,8 @@ export function getVariantColorId(
   }
   if (explicitColor) return explicitColor;
   const norm = variantOrLabel.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const directCode = norm.trim().replace(/[\s/]+/g, "-");
+  if (colorIds.has(directCode)) return directCode as CatalogColorId;
   if (norm.includes("negr") || norm.includes("black")) return "negro";
   if (norm.includes("marr") || norm.includes("brown") || norm.includes("suela") || norm.includes("chocolate") || norm.includes("cafe")) return "marron";
   if (norm.includes("crudo") || norm.includes("raw")) return "cuero-crudo";
@@ -218,12 +241,14 @@ export function getVariantColorHex(
   explicitColor?: CatalogColorId | null,
 ): string {
   const colorId = typeof variantOrLabel === "object" && variantOrLabel !== null
-    ? (variantOrLabel.color ?? getVariantColorId(variantOrLabel.label))
+    ? getVariantColorId(variantOrLabel)
     : (explicitColor ?? getVariantColorId(variantOrLabel));
 
   if (colorId) {
     const found = colorOptions.find((opt) => opt.value === colorId);
     if (found) return found.color;
+    const taxonomyColor = defaultCatalogTaxonomy.options.find((option) => option.attribute_code === "color" && option.code === colorId);
+    if (taxonomyColor?.swatch_hex) return taxonomyColor.swatch_hex;
   }
   const label = typeof variantOrLabel === "object" && variantOrLabel !== null ? variantOrLabel.label : variantOrLabel;
   const norm = label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -232,6 +257,14 @@ export function getVariantColorHex(
   if (norm.includes("beige") || norm.includes("arena")) return "#dfd1b8";
   if (norm.includes("verde") || norm.includes("green")) return "#2d5a27";
   return "#cccccc";
+}
+
+export function getVariantColorBackground(
+  variantOrLabel: ProductVariant | string,
+  explicitColor?: CatalogColorId | null,
+): string {
+  const colorId = getVariantColorId(variantOrLabel, explicitColor);
+  return (colorId && getColorSwatchBackground(colorId)) || getVariantColorHex(variantOrLabel, explicitColor);
 }
 
 /**
@@ -244,7 +277,7 @@ export function findMatchingVariantForColors(
 ): ProductVariant | undefined {
   if (!product.variants || product.variants.length === 0 || colors.length === 0) return undefined;
   for (const color of colors) {
-    const variant = product.variants.find((v) => v.color === color);
+    const variant = product.variants.find((v) => getVariantColorId(v) === color);
     if (variant) return variant;
   }
   for (const color of colors) {
@@ -293,6 +326,7 @@ export function filterAndSortCatalog<T extends { product: Product }>(entries: T[
     const matchesProductType = filters.productTypes.length === 0 || getProductTypes(product).some((type) => filters.productTypes.includes(type));
     const productColors = getProductColors(product);
     const matchesColor = filters.colors.length === 0 || productColors.some((color) => filters.colors.includes(color));
+    const attributeDetails = product.attributeDetails ?? catalogAttributeDetails(defaultCatalogTaxonomy, product.attributes ?? {});
     const searchableText = normalizeSearchText([
       product.name,
       product.slug,
@@ -306,14 +340,25 @@ export function filterAndSortCatalog<T extends { product: Product }>(entries: T[
       ...productColors,
       data.collection ?? "",
       ...(product.variants ?? []).map((variant) => variant.label),
+      ...attributeDetails.flatMap(detail => [detail.code, detail.label, String(detail.rawValue), ...detail.values]),
     ].join(" "));
     const matchesSearch = searchTerms.length === 0 || searchTerms.every((term) => searchableText.includes(term));
     return matchesSearch && matchesCategory && matchesCollection && matchesPrice && matchesMaterial && matchesProductType && matchesColor;
   });
 
-  if (filters.sort === "precio") return [...filtered].sort((a, b) => (a.product.filterData.priceUYU ?? Number.POSITIVE_INFINITY) - (b.product.filterData.priceUYU ?? Number.POSITIVE_INFINITY));
-  if (filters.sort === "editorial") return [...filtered].sort((a, b) => (b.product.featured ? 1 : 0) - (a.product.featured ? 1 : 0) || a.product.name.localeCompare(b.product.name, locale));
-  return [...filtered].sort((a, b) => a.product.name.localeCompare(b.product.name, locale));
+  const byName = (a: T, b: T) => a.product.name.localeCompare(b.product.name, locale);
+  if (filters.sort === "nuevo") {
+    return [...filtered].sort((a, b) => (b.product.lastModifiedAt ?? 0) - (a.product.lastModifiedAt ?? 0) || byName(a, b));
+  }
+  if (filters.sort === "nombre-asc") return [...filtered].sort(byName);
+  if (filters.sort === "nombre-desc") return [...filtered].sort((a, b) => -byName(a, b));
+  return [...filtered].sort((a, b) => {
+    const first = a.product.filterData.priceUYU;
+    const second = b.product.filterData.priceUYU;
+    if (first === undefined) return second === undefined ? byName(a, b) : 1;
+    if (second === undefined) return -1;
+    return (filters.sort === "precio-asc" ? first - second : second - first) || byName(a, b);
+  });
 }
 
 export function formatCatalogPrice(priceUYU?: number, consultLabel = "Consultar", locale = "es", exchangeRates?: Record<string, number>) {

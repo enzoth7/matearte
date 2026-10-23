@@ -478,7 +478,7 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
     <aside className="local-sale-photo-panel" aria-label="Fotos de los artículos de la venta">
       <h2>Vista de la venta</h2>
       {!lines.length ? <p className="local-sale-photo-empty">Las fotos de los artículos que agregues aparecerán acá.</p> : <div className="local-sale-photo-list">{lines.map((line) => <article key={line.id} className="local-sale-photo-item">
-        <div className="local-sale-photo-frame">{line.product.imageUrl ? <img src={line.product.imageUrl} alt={`Foto de ${line.product.name}`} style={{ objectPosition: `${50 + (line.product.imageCrop?.x || 0) * 50}% ${50 + (line.product.imageCrop?.y || 0) * 50}%`, transform: `scale(${line.product.imageCrop?.zoom || 1})` }} /> : <span>Sin foto</span>}</div>
+        <div className="local-sale-photo-frame">{line.product.imageUrl ? <img src={line.product.imageUrl} alt={`Foto de ${line.product.name}`} style={line.product.imageCrop ? { transform: `translate(${line.product.imageCrop.x}%, ${line.product.imageCrop.y}%) scale(${line.product.imageCrop.zoom})` } : undefined} /> : <span>Sin foto</span>}</div>
         <div><strong>{line.product.name}</strong>{visibleVariant(line.product.variant) && <small>{visibleVariant(line.product.variant)}</small>}<small>{line.quantity} {line.quantity === 1 ? "unidad" : "unidades"}{line.personalization ? " · Personalizado" : ""}</small></div>
       </article>)}</div>}
     </aside>

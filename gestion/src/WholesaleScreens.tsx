@@ -265,7 +265,7 @@ function WholesaleLineEditor({ line, snapshot, displayModel, displayVariant, cat
       <button className="secondary compact" onClick={() => setEditing(false)}>Cancelar</button>
       <button className="secondary compact" disabled={busy} onClick={() => void act("delete")}>Eliminar</button>
     </div> : <div className="wholesale-line-row">
-      <button type="button" className="wholesale-line-thumb" disabled={!catalogProduct} aria-label={`Abrir ${displayModel}`} title={catalogProduct ? "Ir al producto" : undefined} onClick={() => catalogProduct && openProduct(catalogProduct)}>{catalogProduct?.imageUrl ? <img src={catalogProduct.imageUrl} alt="" /> : <span>—</span>}</button>
+      <button type="button" className="wholesale-line-thumb" disabled={!catalogProduct} aria-label={`Abrir ${displayModel}`} title={catalogProduct ? "Ir al producto" : undefined} onClick={() => catalogProduct && openProduct(catalogProduct)}>{catalogProduct?.imageUrl ? <img src={catalogProduct.imageUrl} alt="" style={catalogProduct.imageCrop ? { transform: `translate(${catalogProduct.imageCrop.x}%, ${catalogProduct.imageCrop.y}%) scale(${catalogProduct.imageCrop.zoom})` } : undefined} /> : <span>—</span>}</button>
       {catalogProduct?.sku ? <button type="button" className="text-button wholesale-line-sku" title="Ir al producto" onClick={() => openProduct(catalogProduct)}>{catalogProduct.sku}</button> : <span className="wholesale-line-sku">—</span>}
       <strong className="wholesale-line-name">{displayModel}</strong>
       <span className="wholesale-line-variant">{displayVariant}</span>
@@ -303,7 +303,8 @@ export function WholesaleOrderModal({ order, props, onClose, currency = "UYU", e
       const exact = isGeneric ? undefined : props.s.products.find((product) => product.id === orderItem?.productId);
       // Línea "Genérico": se toma como referencia el primer SKU y la primera foto de ese producto.
       const siblings = isGeneric && !exact ? props.s.products.filter((product) => !product.wholesaleProductId && normalizeWholesaleText(product.name) === normalizeWholesaleText(line.model)).sort((x, y) => x.sku.localeCompare(y.sku, "es", { numeric: true })) : [];
-      const catalogProduct = exact || (siblings[0] ? { ...siblings[0], imageUrl: siblings.find((product) => product.imageUrl)?.imageUrl } : undefined);
+      const photoReference = siblings.find((product) => product.imageUrl);
+      const catalogProduct = exact || (siblings[0] ? { ...siblings[0], imageUrl: photoReference?.imageUrl, imageCrop: photoReference?.imageCrop } : undefined);
       return <WholesaleLineEditor key={line.line_id} line={line} snapshot={snapshot} displayModel={catalogProduct?.name || naturalCaseName(line.model)} displayVariant={isGeneric ? GENERIC_WHOLESALE_VARIANT : catalogProduct?.variant || naturalCaseName(line.variant)} catalogProduct={catalogProduct} openProduct={(entry) => props.go(`/productos/catalogo?producto=${encodeURIComponent(entry.sourceProductId || entry.id)}&variante=${encodeURIComponent(entry.id)}`)} refresh={props.refresh} notify={props.notify} initialEditing={editingLineId === line.line_id} />;
     })}</div>
     <div className="form-actions"><button className="secondary" onClick={() => exportWholesalePdf(orderName(order), lines, snapshot, currency)}>Descargar PDF</button><button className="text-button" onClick={() => props.go(`/clientes/base?cliente=${encodeURIComponent(order.customerId)}`)}>Ver cliente</button><button className="secondary" onClick={() => void removeOrder()}>Eliminar pedido</button></div>

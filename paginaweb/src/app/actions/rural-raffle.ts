@@ -38,7 +38,7 @@ export async function enterRuralRaffle(
       marketing_opt_in: marketingOptIn,
       marketing_opt_in_at: marketingOptIn ? now : null,
       source: "qr-rural",
-    }, { onConflict: "campaign,email" });
+    }, { onConflict: "campaign,email", ignoreDuplicates: true });
 
     if (error) throw error;
     return { status: "success" };

@@ -88,6 +88,8 @@ export type Product = {
   name: string;
   category: string;
   attributes?: CatalogValueMap;
+  attributeDetails?: import("../../../shared/catalog-taxonomy").CatalogAttributeDetail[];
+  purchaseAxes?: import("../../../shared/catalog-taxonomy").CatalogPurchaseAxis[];
   eyebrow: string;
   summary: string;
   description: string;
@@ -95,6 +97,8 @@ export type Product = {
   filterData: CatalogFilterData;
   images: MediaAsset[];
   variants: ProductVariant[];
+  /** Última creación o modificación del producto, sus variantes o sus fotos. */
+  lastModifiedAt?: number;
   featured?: boolean;
   editorial?: boolean;
 };

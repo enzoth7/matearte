@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { calculateDesignPriceMinor } from "@/lib/design-pricing";
 import { applyWholesaleMateDiscount, DEFAULT_WHOLESALE_DISCOUNT_SETTINGS, isWholesaleMateEligible, wholesaleMateQuantity, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
-import { normalizeCatalogValueMap, optionSignature, type CatalogValueMap } from "../../../shared/catalog-taxonomy";
+import { catalogPurchaseAxes, normalizeCatalogValueMap, optionSignature, type CatalogTaxonomy, type CatalogValueMap } from "../../../shared/catalog-taxonomy";
+import { loadPublicCatalogTaxonomy } from "@/lib/catalog-taxonomy-live";
 
 export async function getOrCreateCart(client: SupabaseClient, userId: string) {
   const existing = await client.from("carts").select("id,user_id,status,merge_keys,updated_at").eq("user_id", userId).eq("status", "active").maybeSingle();
@@ -19,12 +20,12 @@ export async function readCart(client: SupabaseClient, userId: string) {
   const cart = await getOrCreateCart(client, userId);
   const selectionWithPeso = `
     id,item_type,variant_id,design_id,quantity,option_values_override,updated_at,
-    variant:commerce_variants(id,sku,name,base_price_minor,price_minor,currency,active,available_web,option_values,product:commerce_products(id,editorial_slug,name,category,category_code,sale_mode,published,peso,commerce_product_images(storage_path,sort_order,variant_id,option_values))),
+    variant:commerce_variants(id,sku,name,base_price_minor,price_minor,currency,active,available_web,color,option_values,product:commerce_products(id,editorial_slug,name,category,category_code,attributes,sale_mode,published,peso,commerce_product_images(storage_path,sort_order,variant_id,option_values))),
     design:designs(id,title,preview_path,updated_at)
   `;
   const legacySelection = `
     id,item_type,variant_id,design_id,quantity,option_values_override,updated_at,
-    variant:commerce_variants(id,sku,name,base_price_minor,price_minor,currency,active,available_web,option_values,product:commerce_products(id,editorial_slug,name,category,category_code,sale_mode,published,commerce_product_images(storage_path,sort_order,variant_id,option_values))),
+    variant:commerce_variants(id,sku,name,base_price_minor,price_minor,currency,active,available_web,color,option_values,product:commerce_products(id,editorial_slug,name,category,category_code,attributes,sale_mode,published,commerce_product_images(storage_path,sort_order,variant_id,option_values))),
     design:designs(id,title,preview_path,updated_at)
   `;
   let { data: items, error } = await client.from("cart_items").select(selectionWithPeso).eq("cart_id", cart.id).order("created_at");
@@ -129,46 +130,53 @@ export function assertWebAvailableCart(cart: { items: Array<{ item_type: string;
   }
 }
 
-async function validatedCatalogSelection(client: SupabaseClient, variantOptionsValue: unknown, selectionValue: unknown): Promise<CatalogValueMap> {
-  const variantOptions = normalizeCatalogValueMap(variantOptionsValue);
+type SelectionProduct = { name?: string; category?: string; category_code?: string | null; attributes?: unknown };
+type SelectionVariant = { option_values?: unknown; color?: string | null };
+
+export function validatedCatalogSelection(taxonomy: CatalogTaxonomy, product: SelectionProduct, variant: SelectionVariant, selectionValue: unknown): CatalogValueMap {
+  const variantOptions = normalizeCatalogValueMap(variant.option_values);
   const selection = normalizeCatalogValueMap(selectionValue);
-  const genericSelections: Array<[string,string]> = [];
-  for (const [attribute, value] of Object.entries(selection)) {
-    if (!(attribute in variantOptions)) throw new Error("La selección contiene una opción que no pertenece a la variante.");
-    const variantValue = variantOptions[attribute];
-    if (variantValue !== "todos" && value !== variantValue) throw new Error("La opción elegida no coincide con la variante disponible.");
-    if (variantValue === "todos" && value === "todos") throw new Error("Elegí una opción concreta antes de agregar el producto.");
-    if (variantValue === "todos") {
-      if (typeof value !== "string") throw new Error("La opción elegida no es válida.");
-      genericSelections.push([attribute,value]);
+  const axes = catalogPurchaseAxes(taxonomy, product.category_code || product.category || "", normalizeCatalogValueMap(product.attributes), product.name ?? "");
+  if (axes.some(axis => axis.values.length === 0)) throw new Error("Este producto necesita configurar sus opciones de compra antes de venderse en la web.");
+  const color = variantOptions.color ?? variant.color;
+  const allowedKeys = new Set([...axes.map(axis => axis.code), ...(color ? ["color"] : [])]);
+  if (Object.keys(selection).some(key => !allowedKeys.has(key))) throw new Error("La selección contiene una opción que no pertenece al producto.");
+  if (color && selection.color !== color) throw new Error("El color elegido no coincide con la variante disponible.");
+  for (const axis of axes) {
+    if (!axis.values.some(option => option.value === selection[axis.code])) {
+      throw new Error(`Elegí un valor válido para ${axis.label}.`);
     }
   }
-  if (genericSelections.length) {
-    const {data,error} = await client.from("commerce_attribute_options")
-      .select("attribute_code,code")
-      .in("attribute_code", [...new Set(genericSelections.map(([attribute]) => attribute))])
-      .eq("active", true);
-    if (error) throw error;
-    const allowed = new Set((data || []).map(option => `${option.attribute_code}:${option.code}`));
-    if (genericSelections.some(([attribute,value]) => !allowed.has(`${attribute}:${value}`))) {
-      throw new Error("La opción elegida ya no está disponible.");
+  return { ...(color ? { color: String(color) } : {}), ...Object.fromEntries(axes.map(axis => [axis.code, selection[axis.code]])) };
+}
+
+export async function assertValidCartSelections(client: SupabaseClient, cart: { items: Array<{ item_type: string; variant?: unknown; option_values_override?: unknown }> }) {
+  const catalogItems = cart.items.filter(item => item.item_type === "catalog");
+  if (!catalogItems.length) return;
+  const taxonomy = await loadPublicCatalogTaxonomy(client);
+  for (const item of catalogItems) {
+    const variant = item.variant as (SelectionVariant & { product?: SelectionProduct }) | null;
+    if (!variant?.product) throw new Error("Uno de los productos ya no está disponible. Quitalo del carrito.");
+    try {
+      validatedCatalogSelection(taxonomy, variant.product, variant, item.option_values_override);
+    } catch {
+      throw new Error("Uno de los productos del carrito tiene una opción de compra pendiente o inválida. Quitalo y volvé a elegirlo.");
     }
   }
-  return { ...variantOptions, ...selection };
 }
 
 export async function addCatalogItem(client: SupabaseClient, userId: string, variantId: string, quantity: number, optionValuesOverride?: Record<string, string | number | boolean>) {
   const cart = await getOrCreateCart(client, userId);
-  const { data: variant, error } = await client.from("commerce_variants").select("id,active,available_web,option_values,product:commerce_products!inner(published)").eq("id", variantId).single();
+  const { data: variant, error } = await client.from("commerce_variants").select("id,active,available_web,color,option_values,product:commerce_products!inner(published,name,category,category_code,attributes)").eq("id", variantId).single();
   if (error || !variant?.active || !variant.available_web || !(variant.product as unknown as { published: boolean }).published) throw new Error("La variante no está disponible en la web.");
-  const variantOptions = normalizeCatalogValueMap(variant.option_values);
-  const selectedOptions = await validatedCatalogSelection(client, variantOptions, optionValuesOverride);
+  const taxonomy = await loadPublicCatalogTaxonomy(client);
+  const selectedOptions = validatedCatalogSelection(taxonomy, variant.product as unknown as SelectionProduct, variant, optionValuesOverride);
   const selectionSignature = optionSignature(selectedOptions);
   const current = await client.from("cart_items").select("id,quantity,option_values_override").eq("cart_id", cart.id).eq("variant_id", variantId);
   if (current.error) throw current.error;
   const currentItem = current.data?.find((item) => {
     const storedOptions = normalizeCatalogValueMap(item.option_values_override);
-    return optionSignature(Object.keys(storedOptions).length ? storedOptions : variantOptions) === selectionSignature;
+    return optionSignature(storedOptions) === selectionSignature;
   });
   const next = Math.min(99, (currentItem?.quantity || 0) + quantity);
   if (currentItem) {

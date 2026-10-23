@@ -1,3 +1,4 @@
+import { paypalUsdMinor } from '@/lib/paypal-money';
 import { apiError, apiOk } from '@/lib/api';
 import { verifyPayPalWebhookSignature } from '@/lib/paypal';
 import { dispatchCommerceEmails } from '@/lib/commerce-email';
@@ -46,19 +47,21 @@ export async function POST(req: Request) {
       case 'PAYMENT.CAPTURE.COMPLETED': {
         const resource = event.resource;
         const capture_id = resource.id;
-        const amount_usd = resource.amount?.value;
+        const amountMinor = paypalUsdMinor(resource.amount);
         const paypal_order_id = resource.supplementary_data?.related_ids?.order_id;
 
-        if (paypal_order_id && capture_id && amount_usd) {
-          const { data: rpcResult } = await admin.rpc('process_paypal_payment', {
+        if (!event.id || !paypal_order_id || !capture_id || resource.status !== 'COMPLETED') throw new Error('Evento de captura incompleto.');
+        {
+          const { data: rpcResult, error: rpcError } = await admin.rpc('process_paypal_payment', {
             p_event_id: event.id,
             p_event_type: event.event_type,
             p_paypal_order_id: paypal_order_id,
             p_capture_id: capture_id,
-            p_amount_usd_minor: Math.round(parseFloat(amount_usd) * 100),
+            p_amount_usd_minor: amountMinor,
             p_capture_payload: event,
           });
 
+          if (rpcError) throw rpcError;
           const orderId = rpcResult && typeof rpcResult === 'object'
             && 'orderId' in rpcResult && typeof rpcResult.orderId === 'string'
             ? rpcResult.orderId
@@ -80,15 +83,15 @@ export async function POST(req: Request) {
       }
       case 'PAYMENT.CAPTURE.REFUNDED': {
         const resource = event.resource;
-        const paypal_order_id = resource.supplementary_data?.related_ids?.order_id; // Check if supplementary_data exists, sometimes refunded has different structure
-        const links = resource.links || [];
-        const upLink = links.find((l: Record<string, unknown>) => l.rel === 'up');
-        // Sometimes the order ID is in links. We'll do our best to find it.
-        const upHref = typeof upLink?.href === "string" ? upLink.href : "";
-        const order_id_extracted = paypal_order_id || (upHref.match(/orders\/([A-Z0-9]+)/)?.[1]);
-        if (order_id_extracted) {
-           await admin.from('orders').update({ status: 'refunded' }).eq('paypal_order_id', order_id_extracted);
-        }
+        const upHref = resource.links?.find((link: { rel?: string; href?: string }) => link.rel === 'up')?.href || '';
+        const captureId = resource.supplementary_data?.related_ids?.capture_id || upHref.match(/\/captures\/([A-Z0-9]+)(?:[/?#]|$)/)?.[1];
+        if (!event.id || !resource.id || !captureId) throw new Error('Reembolso sin referencia a su captura.');
+        if (resource.status !== 'COMPLETED') throw new Error('Reembolso aún no confirmado.');
+        const { error } = await admin.rpc('process_paypal_refund', {
+          p_event_id: event.id, p_capture_id: captureId, p_refund_id: resource.id,
+          p_amount_usd_minor: paypalUsdMinor(resource.amount), p_payload: event,
+        });
+        if (error) throw error;
         break;
       }
       default:

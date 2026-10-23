@@ -88,6 +88,7 @@ function CatalogMobileCard({
               className={emphasizeProductImage ? "catalog-mobile-product-image-estribo" : undefined}
               style={coverStyle}
               priority={index < 2}
+              unoptimized={!isEditorialFallback && (variantImage ?? defaultImage)?.source === "supabase"}
             />
           ) : null}
         </div>
@@ -168,9 +169,11 @@ export function CatalogMobile({ products, exchangeRates }: { products: Product[]
                   value={filters.sort}
                   onChange={(event) => catalogFilters.setSort(event.target.value as CatalogSort)}
                 >
-                  <option value="nombre">{t("name")}</option>
-                  <option value="precio">{t("price")}</option>
-                  <option value="editorial">{t("featured")}</option>
+                  <option value="nuevo">{t("newest")}</option>
+                  <option value="precio-asc">{t("priceAsc")}</option>
+                  <option value="precio-desc">{t("priceDesc")}</option>
+                  <option value="nombre-asc">{t("nameAsc")}</option>
+                  <option value="nombre-desc">{t("nameDesc")}</option>
                 </select>
                 <Image src={`${assetRoot}/chevron-down.svg`} alt="" width={10} height={10} aria-hidden="true" />
               </span>

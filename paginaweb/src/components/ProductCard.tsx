@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Product } from "@/types/catalog";
-import { getVariantColorHex } from "@/lib/catalog-filters";
+import { getVariantColorBackground } from "@/lib/catalog-filters";
 
 export function ProductCard({ product, priority = false, headingLevel = "h3" }: { product: Product; priority?: boolean; headingLevel?: "h2" | "h3" }) {
   const image = product.images[0];
@@ -17,6 +17,7 @@ export function ProductCard({ product, priority = false, headingLevel = "h3" }: 
             sizes="(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 30vw"
             className="object-cover"
             priority={priority}
+            unoptimized={image.source === "supabase"}
           />
           {product.editorial && <span className="absolute left-3 top-3 bg-[var(--yerba)] px-3 py-1.5 text-[0.66rem] font-semibold tracking-widest text-white uppercase">Inspiración</span>}
         </div>
@@ -30,12 +31,12 @@ export function ProductCard({ product, priority = false, headingLevel = "h3" }: 
           {product.variants && product.variants.length > 1 && (
             <div className="mt-4 flex items-center gap-2">
               {product.variants.map((v) => {
-                const colorHex = getVariantColorHex(v);
+                const colorBackground = getVariantColorBackground(v);
                 return (
                   <span
                     key={v.id}
                     className="block h-4 w-4 rounded-full border border-black/20"
-                    style={{ backgroundColor: colorHex }}
+                    style={{ background: colorBackground }}
                     title={v.label}
                   />
                 );

@@ -6406,6 +6406,7 @@ img {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .catalog-mobile-heading-left {
@@ -6428,6 +6429,7 @@ img {
   height: 32px;
   align-items: center;
   gap: 8px;
+  margin-left: auto;
   color: #705c53;
   font-size: 12px;
   font-weight: 400;
@@ -7469,6 +7471,19 @@ img {
 .catalog-mobile-filter-select-wrap select:focus-visible {
   outline: 2px solid var(--yerba);
   outline-offset: 2px;
+}
+
+.catalog-mobile-selected-swatch {
+  position: absolute;
+  z-index: 1;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.catalog-mobile-color-select-wrap:has(.catalog-mobile-selected-swatch) select {
+  padding-left: 34px;
 }
 
 .catalog-mobile-filter-groups {
@@ -9763,6 +9778,7 @@ body:has(.rural-campaign-page) .whatsapp-fab {
 .structured-color[data-selected="true"] { transform: scale(1.08); box-shadow: 0 0 0 2px #faf6ee, 0 0 0 4px #2d1d16; }
 .structured-option { min-width: 2.8rem; padding: .55rem .75rem; border: 1px solid rgba(45,29,22,.3); border-radius: .3rem; background: transparent; color: inherit; cursor: pointer; }
 .structured-option[data-selected="true"] { border-color: #2d1d16; background: #2d1d16; color: #fff; }
+.structured-option-unavailable { margin: 0; color: #765d50; font-size: .875rem; line-height: 1.45; }
 .variant-selection-note, .product-attribute-summary { margin: -.65rem 0 1rem; font-size: .83rem; color: rgba(26,26,26,.68); }
 .product-desktop-primary:disabled, .product-mobile-primary:disabled { cursor: not-allowed; opacity: .55; }
 

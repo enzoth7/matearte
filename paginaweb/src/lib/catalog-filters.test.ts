@@ -3,6 +3,8 @@ import {
   filterAndSortCatalog,
   findMatchingVariantForColors,
   getProductColors,
+  getColorSwatchBackground,
+  getVariantColorBackground,
   getVariantColorHex,
   getVariantColorId,
   hasActiveCatalogFilters,
@@ -31,7 +33,7 @@ function product(id: string, priceUYU: number, overrides: Partial<Product["filte
   };
 }
 
-const defaults: CatalogFilters = { search: "", category: "todas", collections: [], prices: [], materials: [], productTypes: [], colors: [], sort: "nombre" };
+const defaults: CatalogFilters = { search: "", category: "todas", collections: [], prices: [], materials: [], productTypes: [], colors: [], sort: "nuevo" };
 
 describe("filtros del catálogo", () => {
   it("respeta los límites sin superponer rangos", () => {
@@ -72,7 +74,7 @@ describe("filtros del catálogo", () => {
 
   it("lee, valida y vuelve a escribir parámetros repetibles", () => {
     const filters = parseCatalogFilters(new URLSearchParams("filter=matera&categoria=billeteras&coleccion=estribo&coleccion=alfonsina&coleccion=invalida&precio=menos-3000&precio=7000-mas&material=estampado&tipo=torpedo&orden=precio&precio=invalido&forma=ovalada"));
-    expect(filters).toMatchObject({ search: "matera", category: "billeteras", collections: ["estribo", "alfonsina"], prices: ["menos-3000", "7000-mas"], materials: ["estampado"], productTypes: ["torpedo"], sort: "precio" });
+    expect(filters).toMatchObject({ search: "matera", category: "billeteras", collections: ["estribo", "alfonsina"], prices: ["menos-3000", "7000-mas"], materials: ["estampado"], productTypes: ["torpedo"], sort: "precio-asc" });
     expect(writeCatalogFilters(filters).get("filter")).toBe("matera");
     expect(filters).not.toHaveProperty("shapes");
     expect(writeCatalogFilters(filters).getAll("precio")).toEqual(["menos-3000", "7000-mas"]);
@@ -108,17 +110,29 @@ describe("filtros del catálogo", () => {
     expect(filterAndSortCatalog([{ product: matera }, { product: termo }], { ...defaults, search: "paysandu" }).map(({ product }) => product.id)).toEqual(["matera-cuero"]);
   });
 
+  it("encuentra características por su nombre y valor legible", () => {
+    const mate: Product = product("mate-natural", 4200).product;
+    mate.attributes = { "tipo-virola": "lisa", tamano: "mediano" };
+    mate.attributeDetails = [
+      { code: "tipo-virola", label: "Tipo de virola", rawValue: "lisa", values: ["Lisa"] },
+      { code: "tamano", label: "Tamaño", rawValue: "mediano", values: ["Mediano"] },
+    ];
+    const entries = [{ product: mate }, product("termo", 3500)];
+    expect(filterAndSortCatalog(entries, { ...defaults, search: "virola lisa" }).map(item => item.product.id)).toEqual(["mate-natural"]);
+    expect(filterAndSortCatalog(entries, { ...defaults, search: "tamaño mediano" }).map(item => item.product.id)).toEqual(["mate-natural"]);
+  });
+
   it("redirige el filtro histórico a la categoría única", () => {
     const parsed = parseCatalogFilters(new URLSearchParams("categoria=mates-personalizados"));
     expect(parsed.category).toBe("personalizados");
-    expect(parsed.sort).toBe("nombre");
+    expect(parsed.sort).toBe("nuevo");
   });
 
-  it("ordena el catálogo alfabéticamente por nombre por defecto", () => {
+  it("muestra primero los productos modificados más recientemente y resuelve empates por nombre", () => {
     const entries: Array<{ product: Product }> = [
-      product("Termo Stanley", 3500),
-      product("Bombilla Pico de Loro", 1200),
-      product("Mate Imperial", 4500),
+      { product: { ...product("Termo Stanley", 3500).product, lastModifiedAt: 100 } },
+      { product: { ...product("Bombilla Pico de Loro", 1200).product, lastModifiedAt: 300 } },
+      { product: { ...product("Mate Imperial", 4500).product, lastModifiedAt: 100 } },
     ];
     const sorted = filterAndSortCatalog(entries, defaults);
     expect(sorted.map(({ product }) => product.name)).toEqual([
@@ -126,6 +140,20 @@ describe("filtros del catálogo", () => {
       "Mate Imperial",
       "Termo Stanley",
     ]);
+  });
+
+  it("ordena precio y nombre en ambos sentidos", () => {
+    const entries = [product("Zeta", 5000), product("Alfa", 3000), product("Beta", 4000)];
+    expect(filterAndSortCatalog(entries, { ...defaults, sort: "precio-asc" }).map(({ product }) => product.id)).toEqual(["Alfa", "Beta", "Zeta"]);
+    expect(filterAndSortCatalog(entries, { ...defaults, sort: "precio-desc" }).map(({ product }) => product.id)).toEqual(["Zeta", "Beta", "Alfa"]);
+    expect(filterAndSortCatalog(entries, { ...defaults, sort: "nombre-asc" }).map(({ product }) => product.id)).toEqual(["Alfa", "Beta", "Zeta"]);
+    expect(filterAndSortCatalog(entries, { ...defaults, sort: "nombre-desc" }).map(({ product }) => product.id)).toEqual(["Zeta", "Beta", "Alfa"]);
+  });
+
+  it("usa Nuevo por defecto y descarta enlaces antiguos de Destacados", () => {
+    expect(parseCatalogFilters(new URLSearchParams()).sort).toBe("nuevo");
+    expect(parseCatalogFilters(new URLSearchParams("orden=editorial")).sort).toBe("nuevo");
+    expect(writeCatalogFilters(defaults).has("orden")).toBe(false);
   });
 
   it("reconoce y normaliza la categoria de kits materos", () => {
@@ -187,6 +215,19 @@ describe("filtros del catálogo", () => {
 
     const filteredRojo = filterAndSortCatalog(entries, { ...defaults, colors: ["rojo"] });
     expect(filteredRojo.map(({ product }) => product.id)).toEqual(["mate-imperial-rojo"]);
+  });
+
+  it("representa y filtra colores combinados como una sola opción", () => {
+    const mate: Product = product("mate-negro-blanco", 4500).product;
+    mate.variants = [{ id: "negro-blanco", label: "Negro/Blanco", value: "NB", color: "negro-blanco", available: true }];
+    expect(getVariantColorId("Negro / Blanco")).toBe("negro-blanco");
+    expect(getProductColors(mate)).toEqual(["negro-blanco"]);
+    expect(getColorSwatchBackground("negro-blanco")).toBe("linear-gradient(90deg, #241d1a 0 50%, #f5f5f5 50% 100%)");
+    expect(getVariantColorBackground(mate.variants[0])).toBe(getColorSwatchBackground("negro-blanco"));
+    expect(getColorSwatchBackground("beige-dorado")).toBe("linear-gradient(90deg, #dfd1b8 0 50%, #c9a859 50% 100%)");
+    expect(filterAndSortCatalog([{ product: mate }], { ...defaults, colors: ["negro-blanco"] })).toHaveLength(1);
+    expect(filterAndSortCatalog([{ product: mate }], { ...defaults, colors: ["negro"] })).toHaveLength(0);
+    expect(findMatchingVariantForColors(mate, ["negro-blanco"])?.id).toBe("negro-blanco");
   });
 
   it("prioriza el campo color explícito de las variantes", () => {

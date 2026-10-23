@@ -72,6 +72,7 @@ export type CommerceOrder = {
   user_id: string | null;
   paid_at: string | null;
   currency: string;
+  paypal_amount_usd_minor?: number | null;
   shipping_minor: number;
   discount_minor: number;
   payment_fee_minor: number;
@@ -170,7 +171,7 @@ export async function readCommerceProducts(client: SupabaseClient, page: number)
 export async function readCommerceOrders(client: SupabaseClient, page: number) {
   const start = page * commercePageSize;
   const { data, count, error } = await client.from("orders")
-    .select("id,order_number,reference_code,user_id,paid_at,currency,status,shipping_method,shipping_carrier,tracking_code,total_minor,shipping_minor,discount_minor,payment_fee_minor,shipping_snapshot,created_at,customer_snapshot,order_items(id,item_type,title,quantity,unit_price_minor,total_minor,source_variant_id,sku,immutable_snapshot,requires_review,review_status,production_status),commerce_bank_transfer_receipts(id,status,submitted_at)", { count: "exact" })
+    .select("id,order_number,reference_code,user_id,paid_at,currency,paypal_amount_usd_minor,status,shipping_method,shipping_carrier,tracking_code,total_minor,shipping_minor,discount_minor,payment_fee_minor,shipping_snapshot,created_at,customer_snapshot,order_items(id,item_type,title,quantity,unit_price_minor,total_minor,source_variant_id,sku,immutable_snapshot,requires_review,review_status,production_status),commerce_bank_transfer_receipts(id,status,submitted_at)", { count: "exact" })
     .not("channel", "in", INTERNAL_ORDER_CHANNELS)
     .order("created_at", { ascending: false }).order("id").range(start, start + commercePageSize - 1);
   if (error) throw error;

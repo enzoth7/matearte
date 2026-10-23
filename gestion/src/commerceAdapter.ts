@@ -1,5 +1,5 @@
 import { catalogValueLabel, defaultCatalogTaxonomy } from "../../shared/catalog-taxonomy";
-import { seed, type State, type Product, type Customer, type Order, type OrderLine, type SalesChannel, type CustomerSourceChannel } from "./data";
+import { seed, type State, type Product, type Customer, type Order, type OrderLine, type Payment, type SalesChannel, type CustomerSourceChannel } from "./data";
 import { commerceCustomerName, visibleInCommerceAdmin, type CommerceOrder, type CommerceProduct, type CommerceReference } from "./commerceSource";
 import { imageForVariant } from "./catalogImages";
 import type { LocalCustomer, LocalSale } from "./localSource";
@@ -156,6 +156,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
     return {
       id: source.id, number: source.order_number, referenceCode: source.reference_code, status: source.status, paidAt: source.paid_at,
       customerId, productId: items[0]?.productId ?? source.id, quantity: items.reduce((sum, item) => sum + item.quantity, 0), unitPrice: 0,
+      paymentAmountUsd: source.paypal_amount_usd_minor ? Number(source.paypal_amount_usd_minor) / 100 : undefined,
       items, totalAmount: Number(source.total_minor) / 100, shippingAmount: Number(source.shipping_minor) / 100,
       discountAmount: Number(source.discount_minor) / 100, feeAmount: Number(source.payment_fee_minor) / 100,
       channel: "Web", date: commerceDate(source.created_at), due: "",
@@ -345,10 +346,23 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
   });
   return {
     ...state, products, orders: [...orders, ...localOrders].sort((a, b) => b.date.localeCompare(a.date)), customers: [...customers.values()],
-    payments: snapshot.payments.filter((payment) => payment.status === "approved" && payment.currency === "UYU" && orderIds.has(payment.order_id)).map((payment) => ({
-      id: payment.id, orderId: payment.order_id, amount: Number(payment.amount_minor) / 100,
-      date: commerceDate(payment.approved_at || payment.created_at), method: payment.provider,
-    })).concat((snapshot.localSales || []).filter((sale) => Number(sale.total_minor) > 0).map((sale) => ({
+    payments: snapshot.payments.filter((payment) => payment.status === "approved" && orderIds.has(payment.order_id)).map((payment): Payment => {
+      const order = snapshot.orders.find((order) => order.id === payment.order_id)!;
+      const originalMinor = Number(payment.amount_minor);
+      const historicalUsd = Number(order.paypal_amount_usd_minor);
+      const baseUyu = Number(order.total_minor);
+      const validAmount = Number.isSafeInteger(originalMinor) && originalMinor >= 0;
+      const canConvert = payment.currency === "USD" && order.currency === "UYU"
+        && Number.isSafeInteger(historicalUsd) && historicalUsd > 0 && Number.isSafeInteger(baseUyu) && baseUyu > 0;
+      const amount = !validAmount ? null : payment.currency === "UYU" ? originalMinor / 100
+        : canConvert ? Math.round(originalMinor * baseUyu / historicalUsd) / 100 : null;
+      return {
+        id: payment.id, orderId: payment.order_id, amount,
+        sourceCurrency: payment.currency, sourceAmount: originalMinor / 100,
+        reconciliationRequired: amount == null || (payment.currency === "USD" && originalMinor !== historicalUsd),
+        date: commerceDate(payment.approved_at || payment.created_at), method: payment.provider,
+      };
+    }).concat((snapshot.localSales || []).filter((sale) => Number(sale.total_minor) > 0).map((sale) => ({
       id: `local:${sale.id}`, orderId: sale.id, amount: Number(sale.total_minor) / 100,
       date: sale.sold_on, method: sale.payment_method,
     }))),

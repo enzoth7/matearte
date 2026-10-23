@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   colorOnlyVariantValues,
+  catalogPurchaseAxes,
+  mateInteriorChoices,
   defaultCatalogTaxonomy,
   formatVariantLabel,
   taxonomyRulesForCategory,
@@ -20,9 +22,20 @@ describe("regla de variantes del catálogo", () => {
     const botas = taxonomyRulesForCategory(defaultCatalogTaxonomy, "botas", "product").map(rule => rule.attribute_code);
     const termos = taxonomyRulesForCategory(defaultCatalogTaxonomy, "termos", "product").map(rule => rule.attribute_code);
 
-    expect(mates).toEqual(expect.arrayContaining(["tipo-virola", "tipo-cuero", "posamate", "tamano"]));
+    expect(mates).toEqual(expect.arrayContaining(["tipo-virola", "tipo-cuero", "posamate", "tamano", "interior"]));
     expect(botas).toContain("talle");
     expect(termos).toContain("capacidad-ml");
+  });
+
+  it("ofrece los interiores según el modelo real del mate", () => {
+    expect(mateInteriorChoices("mates", { "tipo-mate": "torpedo" }, "Mate Torpedo")).toEqual(["calabaza"]);
+    expect(mateInteriorChoices("mates", { "tipo-mate": "criollo" }, "Mate Criollo")).toEqual(["calabaza"]);
+    expect(mateInteriorChoices("mates", { "tipo-mate": "criollo" }, "Mate Criollo Imperial")).toEqual(["calabaza", "ceramica"]);
+    expect(mateInteriorChoices("mates", { "tipo-mate": "camionero" })).toEqual(["calabaza", "ceramica"]);
+    expect(mateInteriorChoices("personalizados", { "tipo-personalizado": "mate", "tipo-mate": "imperial" })).toEqual(["calabaza", "ceramica"]);
+    expect(mateInteriorChoices("personalizados", { "tipo-personalizado": "matera" })).toEqual([]);
+    expect(catalogPurchaseAxes(defaultCatalogTaxonomy, "mates", { "tipo-mate": "criollo", interior: "todos" }, "Mate Criollo").find(axis => axis.code === "interior")?.values.map(item => item.value)).toEqual(["calabaza"]);
+    expect(catalogPurchaseAxes(defaultCatalogTaxonomy, "mates", { "tipo-mate": "criollo", interior: "todos" }, "Mate Criollo Imperial").find(axis => axis.code === "interior")?.values.map(item => item.value)).toEqual(["calabaza", "ceramica"]);
   });
 
   it("muestra el diseño de fleje solo para mates imperiales y ofrece las opciones nuevas", () => {
@@ -35,7 +48,7 @@ describe("regla de variantes del catálogo", () => {
     const flejeRule = taxonomyRulesForProduct(defaultCatalogTaxonomy, "mates", { "tipo-mate": "criollo" }, "product").find(rule => rule.attribute_code === "diseno-fleje");
     expect(flejeRule?.required).toBe(false);
     const options = (attribute: string) => defaultCatalogTaxonomy.options.filter(item => item.attribute_code === attribute).map(item => item.label_es);
-    expect(options("diseno-fleje")).toEqual(["Pampa", "Griego", "Rupestre", "Flores", "Abstracto", "Liso", "Premium", "Manos"]);
+    expect(options("diseno-fleje")).toEqual(["Pampa", "Griego", "Rupestre", "Flores", "Abstracto", "Liso", "Premium", "Manos", "Laureles"]);
     expect(options("tipo-virola")).toEqual(expect.arrayContaining(["Sin Virola", "Plata", "Alpaca Grande Cincelada Premium", "Imperial Premium", "Acero y Bronce Liso", "Imperial Acero Inoxidable"]));
     expect(options("tipo-cuero")).toContain("Sin Cuero");
   });

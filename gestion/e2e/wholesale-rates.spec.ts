@@ -479,6 +479,33 @@ test("una línea genérica muestra como referencia el primer SKU y enlaza a ese 
   await expect(row.getByRole("button", { name: "209" })).toBeVisible();
 });
 
+test("las fotos del pedido mayorista respetan el encuadre del catálogo, también en líneas genéricas", async ({ page }) => {
+  const { fixture, tables } = await mockCommerce(page);
+  fixture.products.push({
+    id: "product-crop", name: "Torpedo de prueba", editorial_slug: "torpedo-de-prueba", category: "mates", category_code: "mates", published: true, sale_mode: "stock", peso: 250,
+    commerce_variants: [
+      { id: "variant-crop-a", sku: "159", name: "Natural", price_minor: 100000, base_price_minor: 100000, active: true, available_wholesale: true, wholesale_price_arg: 1000, option_values: {} },
+      { id: "variant-crop-b", sku: "160", name: "Marrón", price_minor: 100000, base_price_minor: 100000, active: true, available_wholesale: true, wholesale_price_arg: 1000, option_values: {} },
+    ],
+    commerce_product_images: [{ id: "image-crop-b", storage_path: "test.png", alt_text: "Torpedo marrón", sort_order: 0, variant_id: "variant-crop-b", option_values: { cover_x: 8, cover_y: -12, cover_zoom: 1.4 } }],
+  });
+  tables.customers.push({ full_name: "Juan", first_name: "Juan", last_name: "", phone: "", email: "", address: "", notes: "" });
+  for (const [id, variant] of [["generic", "Genérico"], ["specific", "Marrón"]]) {
+    tables.order_lines.push({ line_id: id, order_id: "#M110", created_at: "2026-10-20T12:00:00Z", completed_at: null, customer: "Juan", model: "Torpedo de prueba", variant,
+      quantity: 2, status: "Pendiente", order_type: "normal", unit_price_arg: 1000, unit_price_uyu: 500, exchange_rate: 0.027, total_arg: 2000, total_uyu: 1000 });
+  }
+  await page.goto("/produccion/mayorista");
+  await page.getByRole("button", { name: "#M110", exact: true }).first().click();
+  const photos = page.getByRole("dialog").locator(".wholesale-line-thumb img");
+  await expect(photos).toHaveCount(2);
+  for (const photo of await photos.all()) {
+    await expect(photo).toHaveAttribute("style", /translate\(8%, -12%\) scale\(1\.4\)/);
+    await expect(photo).toHaveCSS("object-fit", "contain");
+  }
+  const frame = await photos.first().locator("..").boundingBox();
+  expect(frame && frame.height > frame.width).toBeTruthy();
+});
+
 test("el detalle de resumen no muestra virola ni cuero y enlaza el nombre y el SKU al catálogo", async ({ page }) => {
   const { tables } = await mockCommerce(page, { writable: true });
   tables.customers.push({ full_name: "Juan", first_name: "Juan", last_name: "", phone: "", email: "", address: "", notes: "" });

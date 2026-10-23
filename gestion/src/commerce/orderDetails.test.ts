@@ -298,12 +298,13 @@ describe('getCatalogOrderOptionDetails', () => {
       immutable_snapshot: {
         product: { category_code: 'mates' },
         variant: { option_values: { color: 'marron', tamano: 'todos' } },
-        selectedOptions: { color: 'marron', tamano: 'mediano' },
+        selectedOptions: { color: 'marron', tamano: 'mediano', interior: 'ceramica' },
       },
     }, defaultCatalogTaxonomy);
 
     expect(details).toEqual([
       { attribute: 'color', label: 'Color', value: 'Marrón' },
+      { attribute: 'interior', label: 'Interior', value: 'Cerámica' },
       { attribute: 'tamano', label: 'Tamaño', value: 'Mediano' },
     ]);
   });

@@ -23,6 +23,7 @@ export function isAllowedCustomizerOrigin(origin: string | null) {
 export function isAllowedCommerceAdminOrigin(origin: string | null) {
   if (!origin) return false;
   if (
+    origin === "https://matearte-gestion.vercel.app" ||
     origin === "https://matearte-commerce-admin.vercel.app" ||
     /^https:\/\/matearte-commerce-admin(-[a-z0-9-]+)?\.vercel\.app$/.test(origin)
   ) {

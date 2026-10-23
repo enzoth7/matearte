@@ -14,6 +14,7 @@ interface PayPalCheckoutSectionProps {
 export function PayPalCheckoutSection({ orderId, amountUsd, onSuccess, onError }: PayPalCheckoutSectionProps) {
   const t = useTranslations('checkout');
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
   const handleError = (msg: string) => {
     setError(msg);
@@ -27,6 +28,7 @@ export function PayPalCheckoutSection({ orderId, amountUsd, onSuccess, onError }
           {error}
         </div>
       )}
+      {pending && <div role="status" className="mb-4 p-4 text-sm">{t('paypalPending')}</div>}
       
       <div className="w-full bg-[var(--paper)] rounded-xl p-4">
         <PayPalScriptProvider
@@ -37,6 +39,7 @@ export function PayPalCheckoutSection({ orderId, amountUsd, onSuccess, onError }
           }}
         >
           <PayPalButtons
+            disabled={pending}
             style={{ layout: 'vertical', color: 'gold', shape: 'rect', label: 'pay', height: 48 }}
             createOrder={async () => {
               try {
@@ -62,15 +65,18 @@ export function PayPalCheckoutSection({ orderId, amountUsd, onSuccess, onError }
                 });
                 const captureResult = await res.json();
                 
-                if (captureResult.status === 'COMPLETED') {
-                  onSuccess(captureResult.id);
+                if (res.ok && captureResult.status === 'COMPLETED') {
+                  onSuccess(captureResult.captureId || '');
                 } else if (captureResult.status === 'DECLINED' && captureResult.recoverable) {
                   actions.restart();
                 } else {
-                  handleError(t('paypalDeclined'));
+                  // Approval may already have moved money even if confirmation failed.
+                  setError(null);
+                  setPending(true);
                 }
               } catch (err) {
-                handleError(t('paypalError'));
+                setError(null);
+                setPending(true);
               }
             }}
             onCancel={() => {

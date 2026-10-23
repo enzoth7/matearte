@@ -8,6 +8,7 @@ const productWithAllSizes: Product = {
   slug: "mate-todos",
   name: "Mate en todos los tamaños",
   category: "mates",
+  attributes: { tamano: "todos", interior: "calabaza" },
   eyebrow: "Tradicional",
   summary: "Disponible en tres tamaños",
   description: "Mate de cuero",
@@ -19,18 +20,19 @@ const productWithAllSizes: Product = {
       id: "v-todos",
       label: "Todos los tamaños",
       value: "MATE-TODOS",
-      options: { tamano: "todos" },
+      options: {},
       price: { amountMinor: 350000, currency: "UYU" },
     },
   ],
 };
 
 describe("useStructuredVariantSelection", () => {
-  it("expande una variante de mate con todos los tamaños y conserva la elección concreta", () => {
+  it("ofrece todos los tamaños del producto sin crear variantes por tamaño", () => {
     const { result } = renderHook(() => useStructuredVariantSelection(productWithAllSizes));
 
     expect(result.current.axes).toEqual([
-      { code: "tamano", values: ["chico", "mediano", "grande"] },
+      { code: "tamano", label: "Tamaño", values: [{ value: "chico", label: "Chico" }, { value: "mediano", label: "Mediano" }, { value: "grande", label: "Grande" }] },
+      { code: "interior", label: "Interior", values: [{ value: "calabaza", label: "Calabaza" }] },
     ]);
     expect(result.current.complete).toBe(false);
 

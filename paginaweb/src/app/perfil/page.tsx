@@ -13,6 +13,7 @@ import { localizeCanonicalPath } from "@/i18n/paths";
 import { countryName } from "@/lib/countries";
 import { formatOrderMoney } from "@/lib/order-money";
 import { orderItemImagePath, type OrderItemImageSource } from "@/lib/order-item-image";
+import { orderSelectionLabel } from "@/lib/order-selection";
 import { isActiveOrder, isConfirmedOrder, orderStatusTone } from "@/lib/order-status";
 import { getExchangeRates } from "@/lib/storefront-catalog";
 import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
@@ -34,6 +35,7 @@ type OrderItem = {
   quantity: number;
   total_minor: number;
   image_url: string | null;
+  selection_label?: string | null;
 };
 
 type CustomerOrder = {
@@ -255,7 +257,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       .select(`
         id,order_number,status,shipping_method,shipping_carrier,tracking_code,total_minor,currency,paypal_amount_usd_minor,created_at,paid_at,
         order_items(
-          id,item_type,title,quantity,total_minor,source_variant_id,
+          id,item_type,title,quantity,total_minor,immutable_snapshot,source_variant_id,
           variant:commerce_variants(product:commerce_products(commerce_product_images(storage_path,sort_order,variant_id)))
         )
       `)
@@ -280,6 +282,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
         title: item.title,
         quantity: item.quantity,
         total_minor: item.total_minor,
+        selection_label: item.item_type === "catalog" ? orderSelectionLabel(item.immutable_snapshot) : null,
         image_url: imagePath
           ? client.storage.from("product-images").getPublicUrl(imagePath).data.publicUrl
           : null,
@@ -340,7 +343,10 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       }
     }
   }
-  const itemTitle = (item: OrderItem) => item.item_type === "design" ? item.title : localizeCatalogSnapshotTitle(item.title, locale);
+  const itemTitle = (item: OrderItem) => {
+    const title = item.item_type === "design" ? item.title : localizeCatalogSnapshotTitle(item.title, locale);
+    return item.selection_label ? `${title.split(" — ")[0]} · ${item.selection_label}` : title;
+  };
   const couponProps = {
     welcomeCode: welcomeCouponCode,
     personalCoupons,

@@ -292,7 +292,10 @@ export function CheckoutForm({
         });
         const text = await response.text();
         const value = text ? JSON.parse(text) : {};
-        if (!response.ok) throw new Error(responseError(value, t("paymentStartFailed")));
+        if (!response.ok) {
+          if (value.details?.reason === "paypal_reservation_expired") sessionStorage.removeItem("matearte_paypal_order_idempotency");
+          throw new Error(responseError(value, t("paymentStartFailed")));
+        }
         setPaypalOrderId(value.orderId);
         setPaypalAmountUsd(value.amountUsd);
         setPaypalReady(true);
@@ -339,13 +342,13 @@ export function CheckoutForm({
       {/* ── Form grid: columna izquierda + sidebar ── */}
       <form
         onSubmit={submit}
-        className="lg:grid lg:grid-cols-[1fr_22rem]"
+        className="lg:grid lg:grid-cols-[minmax(0,1fr)_22rem]"
       >
         {/* ── Columna izquierda — formulario ── */}
-        <div className="space-y-6 p-8 sm:p-10">
+        <div className="min-w-0 space-y-6 p-8 sm:p-10">
 
           {/* Nombre + Teléfono */}
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <label className="text-sm font-semibold text-[var(--walnut)]">
               {t("fullName")}
               <input
@@ -366,7 +369,7 @@ export function CheckoutForm({
                   suppressHydrationWarning
                   value={phoneCountry}
                   onChange={(event) => updatePhoneCountry(event.target.value)}
-                  className="max-w-[42%] shrink-0 rounded-l-lg border-r border-[#b8a88a]/60 bg-transparent px-2.5 text-xs text-[var(--walnut)] outline-none transition sm:max-w-[48%] sm:text-sm"
+                  className="min-w-0 w-[42%] shrink-0 rounded-l-lg border-r border-[#b8a88a]/60 bg-transparent px-2.5 text-xs text-[var(--walnut)] outline-none transition sm:w-[48%] sm:text-sm"
                 >
                   {phoneCountryOptions.map((c) => (
                     <option key={c.code} value={c.code} suppressHydrationWarning className="bg-[#fffdf8] text-[#17130f]">

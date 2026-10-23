@@ -2,10 +2,10 @@ import { Catalog } from "./commerce/Operations";
 import { useState } from "react";
 import { FinanceOverview } from "./FinanceOverview";
 import type { PageProps } from "./pages";
-import { type Product, type Row, money, balance, orderName } from "./data";
+import { type Product, type Row, money, paymentMoney, balance, orderName } from "./data";
 import { collections } from "./collections";
 import { catalogImageOptions, catalogStatusOptions, matchesCatalogImage, matchesCatalogStatus, type CatalogImageFilter, type CatalogStatusFilter } from "./catalogListFilters";
-import { Card, Stats, Table, Badge, Modal } from "./ui";
+import { Card, Stats, Table, Badge, Modal, downloadCsv } from "./ui";
 import { formatDate } from "./dateFormat";
 
 export function CollectionPage({ s, path }: PageProps & { path: string }) {
@@ -125,14 +125,19 @@ export function Finance({ s, go, mode }: PageProps & { mode: string }) {
   ]} />;
   if (mode === "cobros") return <>
     <Stats items={[
-      { label: "Cobros y señas", value: money(s.payments.reduce((sum, payment) => sum + payment.amount, 0)), tone: "green" },
+      { label: "Cobros y señas", value: money(s.payments.reduce((sum, payment) => sum + (payment.amount ?? 0), 0)), tone: "green" },
       { label: "Pendiente de cobro", value: money(s.orders.reduce((sum, order) => sum + balance(s, order), 0)), go: () => go("/finanzas/por-cobrar") },
     ]} />
-    <Table rows={s.payments} searchText={(payment) => `${payment.orderId} ${payment.method}`} columns={[
+    {s.payments.some((payment) => payment.reconciliationRequired) && <div className="data-note">Hay cobros pendientes de conciliación. Los importes sin equivalencia histórica se muestran abajo y no se incluyen en el total UYU.</div>}
+    <Table rows={s.payments} action={<button className="secondary" onClick={() => downloadCsv("cobros", s.payments.map((payment) => ({
+      Pedido: orderName(s.orders.find((order) => order.id === payment.orderId)!), Fecha: payment.date, Medio: payment.method,
+      Moneda: payment.sourceCurrency || "UYU", "Importe original": payment.sourceAmount ?? payment.amount,
+      "Equivalente histórico UYU": payment.amount, Conciliación: payment.reconciliationRequired ? "Pendiente" : "Conciliado",
+    })))}>Exportar cobros</button>} searchText={(payment) => `${payment.orderId} ${payment.method}`} columns={[
       { label: "Pedido", render: (payment) => <button className="text-button" onClick={() => go(`/comercial/pedidos?pedido=${payment.orderId}`)}>{orderName(s.orders.find((order) => order.id === payment.orderId)!)}</button> },
       { label: "Fecha", render: (payment) => formatDate(payment.date) },
       { label: "Medio", render: (payment) => payment.method },
-      { label: "Importe", render: (payment) => money(payment.amount) },
+      { label: "Importe", render: (payment) => paymentMoney(payment) },
       { label: "Referencia de pago", render: (payment) => payment.derived ? "Según estado de producción" : payment.id },
     ]} />
   </>;

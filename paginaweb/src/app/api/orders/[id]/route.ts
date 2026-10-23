@@ -1,5 +1,6 @@
 import { apiError, apiOk } from "@/lib/api";
 import { orderItemImagePath, type OrderItemImageSource } from "@/lib/order-item-image";
+import { orderSelectionLabel } from "@/lib/order-selection";
 import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -9,7 +10,7 @@ const orderSelection = `
   items_subtotal_minor,shipping_minor,payment_fee_minor,discount_code,discount_minor,total_minor,currency,paypal_amount_usd_minor,created_at,paid_at,
   commerce_bank_transfer_receipts(status,rejection_reason),
   order_items(
-    id,item_type,title,quantity,unit_price_minor,total_minor,requires_review,review_status,source_variant_id,
+    id,item_type,title,quantity,unit_price_minor,total_minor,immutable_snapshot,requires_review,review_status,source_variant_id,
     variant:commerce_variants(product:commerce_products(commerce_product_images(storage_path,sort_order,variant_id)))
   )
 `;
@@ -51,6 +52,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       quantity: item.quantity,
       unit_price_minor: item.unit_price_minor,
       total_minor: item.total_minor,
+      selection_label: item.item_type === "catalog" ? orderSelectionLabel(item.immutable_snapshot) : null,
       requires_review: item.requires_review,
       review_status: item.review_status,
       image_url: imagePath

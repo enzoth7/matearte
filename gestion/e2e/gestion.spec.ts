@@ -78,6 +78,50 @@ test("canales y columnas de clientes tienen identidad y datos separados", async 
   await expect(page.getByRole("cell", { name: "05/04/1993" })).toBeVisible();
   await expect(page.getByRole("link", { name: "test@example.invalid" })).toHaveAttribute("href", "mailto:test@example.invalid");
 });
+test("fecha de alta, categoría comprada y KPI filtran la base en conjunto", async ({ page }) => {
+  const { tables } = await mockCommerce(page);
+  tables.local_sales_customers.push(
+    { id: "local-antiguo", full_name: "Cliente antiguo", email: null, phone: null, country: "Uruguay", created_at: "2026-10-01T12:00:00Z", agenda_inferred_category: "Mates" },
+    { id: "local-saldo", full_name: "Cliente con saldo", email: null, phone: null, country: "Uruguay", created_at: "2026-10-05T12:00:00Z" },
+  );
+  tables.commerce_products.push({
+    id: "product-bombilla", name: "Bombilla de catálogo", editorial_slug: "bombilla", category: "bombillas", category_code: "bombillas", published: true, sale_mode: "stock", peso: 50, attributes: {}, commerce_product_images: [],
+    commerce_variants: [{ id: "variant-bombilla", sku: "SKU-B", name: "Única", price_minor: 100000, base_price_minor: 100000, active: true, option_values: {} }],
+  });
+  tables.local_sales.push({
+    id: "sale-saldo", sale_number: 21, customer_id: "local-saldo", customer_name: "Cliente con saldo", sold_on: "2026-10-15", payment_method: "Seña", total_minor: 10000, currency: "UYU", created_at: "2026-10-15T12:00:00Z",
+    local_sale_items: [{ id: "item-bombilla", variant_id: "variant-bombilla", sku: "SKU-B", product_name: "Bombilla de catálogo", variant_name: "Única", quantity: 1, unit_price_minor: 100000, line_total_minor: 100000 }],
+  });
+
+  await page.goto("/clientes/base");
+  await expect(page.getByRole("columnheader", { name: "Total pedidos" })).toHaveCount(0);
+  const category = page.locator('.customers-table thead select[aria-label="Filtrar por última categoría comprada"]');
+  await expect(category.locator("option")).toHaveText(["Última categoría comprada", "Bombillas", "Mates"]);
+  const balanceKpi = page.getByRole("button", { name: /Clientes con saldo/ });
+  const ordersKpi = page.getByRole("button", { name: /Con pedidos/ });
+  await category.selectOption("Bombillas");
+  await expect(page.getByRole("row").filter({ hasText: "Cliente con saldo" })).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "Cliente antiguo" })).toHaveCount(0);
+  await balanceKpi.click();
+  await expect(balanceKpi).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("row").filter({ hasText: "Cliente con saldo" })).toBeVisible();
+  await category.selectOption("Mates");
+  await expect(page.locator(".customers-table tbody tr")).toHaveCount(0);
+  await ordersKpi.click();
+  await expect(ordersKpi).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("row").filter({ hasText: "Cliente de prueba" })).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "Cliente antiguo" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Quitar filtros" }).click();
+  await page.getByRole("button", { name: "Ordenar fecha de alta de más antigua a más nueva" }).last().click();
+  await expect(page.locator(".customers-table tbody tr").first()).toContainText(/Cliente antiguo/i);
+  await expect(page.getByRole("row").filter({ hasText: /Cliente con saldo/i })).toContainText("05/10/2026");
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileCategory = page.locator('.customers-mobile-filters select[aria-label="Filtrar por última categoría comprada"]');
+  await expect(mobileCategory).toBeVisible();
+  await mobileCategory.selectOption("Bombillas");
+  await expect(page.locator(".customers-table tbody tr")).toHaveCount(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
 test("Tipo filtra minoristas y mayoristas desde el encabezado", async ({ page }) => {
   const { tables } = await mockCommerce(page);
   tables.web_leads.push(

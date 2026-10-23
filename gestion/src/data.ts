@@ -83,6 +83,7 @@ export type Order = {
   status?: string;
   paidAt?: string | null;
   totalAmount?: number;
+  paymentAmountUsd?: number;
   shippingAmount?: number;
   discountAmount?: number;
   feeAmount?: number;
@@ -105,7 +106,11 @@ export type Order = {
 export type Payment = {
   id: string;
   orderId: string;
-  amount: number;
+  /** Historical equivalent in UYU; null means it still needs reconciliation. */
+  amount: number | null;
+  sourceCurrency?: string;
+  sourceAmount?: number;
+  reconciliationRequired?: boolean;
   date: string;
   method: string;
   derived?: boolean;
@@ -159,6 +164,11 @@ export const money = (n: number) =>
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(n);
+export const usdMoney = (n: number) => `USD ${n.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+export const paymentMoney = (p: Payment) => {
+  const original = p.sourceCurrency && p.sourceCurrency !== "UYU" ? `${p.sourceCurrency} ${(p.sourceAmount ?? 0).toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · ` : "";
+  return `${original}${p.amount == null ? "Equivalente UYU pendiente de conciliación" : `${money(p.amount)} UYU`}${p.reconciliationRequired && p.amount != null ? " · Revisar conciliación" : ""}`;
+};
 export const id = () => crypto.randomUUID();
 export const total = (o: Order) => o.totalAmount ?? o.quantity * o.unitPrice;
 export const orderName = (o: Order) => o.referenceCode ||
@@ -177,7 +187,7 @@ export const orgEmployees: Employee[] = [
 export const paid = (s: State, o: Order) =>
   s.payments
     .filter((p) => p.orderId === o.id)
-    .reduce((a, p) => a + p.amount, 0);
+    .reduce((a, p) => a + (p.amount ?? 0), 0);
 export const balance = (s: State, o: Order) =>
   o.paidAt || ["cancelled", "refunded", "payment_failed"].includes(o.status || "") ? 0 : Math.max(0, total(o) - paid(s, o));
 export function seed(): State {

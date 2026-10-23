@@ -166,3 +166,14 @@ export async function verifyPayPalWebhookSignature(params: {
   const data = await response.json();
   return data.verification_status === 'SUCCESS';
 }
+
+export async function refundPayPalCapture(captureId: string, requestId: string) {
+  const token = await getPayPalAccessToken();
+  const response = await fetch(`${PAYPAL_API_BASE}/v2/payments/captures/${encodeURIComponent(captureId)}/refund`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'PayPal-Request-Id': requestId },
+    body: '{}', cache: 'no-store',
+  });
+  if (!response.ok) throw new Error(`No se pudo confirmar el reembolso PayPal (${response.status}).`);
+  return response.json() as Promise<{ id: string; status: string }>;
+}

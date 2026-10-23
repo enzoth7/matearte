@@ -88,7 +88,7 @@ function Content(
   const key = `${area}/${page}`;
   if (["marketing/descuentos", "marketing/avisos", "productos/categorias", "productos/ajustes", "administracion/canales", "finanzas/monedas", "entregas/tarifas"].includes(key)) return <CommerceSection {...props} path={key} />;
   if (key === "marketing/sorteo") return <SorteoView />;
-  if (area === "marketing") return <MarketingSection page={page} notify={props.notify} />;
+  if (area === "marketing") return <MarketingSection page={page} notify={props.notify} s={s} go={go} commerce={props.commerce} />;
   if (key === "inventario/compras") return <Purchases notify={props.notify} />;
   if (collections[key]) return <CollectionPage {...props} path={key} />;
   if (key === "inicio/resumen") return <Overview {...props} />;

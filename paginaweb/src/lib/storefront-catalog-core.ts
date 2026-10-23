@@ -14,10 +14,16 @@ import {
   catalogProductTypeIds,
   normalizeCatalogAttributes,
   normalizeCatalogValueMap,
+  catalogAttributeDetails,
+  catalogPurchaseAxes,
+  defaultCatalogTaxonomy,
+  type CatalogTaxonomy,
 } from "../../../shared/catalog-taxonomy";
 
 export type StorefrontVariantRow = {
   id: string;
+  created_at?: string;
+  updated_at?: string;
   sku: string;
   name: string;
   price_minor: number;
@@ -32,6 +38,8 @@ export type StorefrontVariantRow = {
 
 export type StorefrontImageRow = {
   id: string;
+  created_at?: string;
+  updated_at?: string;
   storage_path: string;
   alt_text: string;
   sort_order: number;
@@ -42,6 +50,8 @@ export type StorefrontImageRow = {
 
 export type StorefrontProductRow = {
   id: string;
+  created_at?: string;
+  updated_at?: string;
   editorial_slug: string;
   name: string;
   category: string;
@@ -121,11 +131,22 @@ function mergeCommercialValues<T extends string>(stored: T[], structured: unknow
   return [...new Set([...stored, ...(typeof structured === "string" ? [structured as T] : [])])];
 }
 
+function lastModifiedAt(row: StorefrontProductRow): number {
+  const dates = [
+    row.created_at,
+    row.updated_at,
+    ...(row.variants ?? []).flatMap((variant) => [variant.created_at, variant.updated_at]),
+    ...(row.images ?? []).flatMap((image) => [image.created_at, image.updated_at]),
+  ];
+  return Math.max(0, ...dates.map((date) => date ? Date.parse(date) : NaN).filter(Number.isFinite));
+}
+
 export function storefrontProductFromRow(
   row: StorefrontProductRow,
   supabaseBaseUrl: string,
   locale: Locale,
   existing?: Product,
+  taxonomy: CatalogTaxonomy = defaultCatalogTaxonomy,
 ): Product {
   const variants = mapVariants(row);
   const minimumPrice = variants.length > 0
@@ -160,6 +181,8 @@ export function storefrontProductFromRow(
     name: keepEditorialTranslation ? existing!.name : row.name,
     category: canonicalCategoryCode(row.category_code || row.category),
     attributes,
+    attributeDetails: catalogAttributeDetails(taxonomy, attributes),
+    purchaseAxes: catalogPurchaseAxes(taxonomy, canonicalCategoryCode(row.category_code || row.category), attributes, row.name),
     eyebrow: existing?.eyebrow ?? genericCopy[locale].eyebrow,
     summary,
     description,
@@ -173,6 +196,7 @@ export function storefrontProductFromRow(
     },
     images: mapImages(row, supabaseBaseUrl, existing),
     variants,
+    lastModifiedAt: lastModifiedAt(row),
     featured: existing?.featured,
     editorial: false,
   };
@@ -183,6 +207,7 @@ export function mergeStorefrontProducts(
   commerceProducts: StorefrontProductRow[],
   supabaseBaseUrl: string,
   locale: Locale,
+  taxonomy: CatalogTaxonomy = defaultCatalogTaxonomy,
 ) {
   const published = commerceProducts.filter((product) => product.published && product.category !== "sandbox" && product.category !== "regalos");
   const editorialBySlug = new Map(editorialProducts.map((product) => [product.slug, product]));
@@ -193,6 +218,7 @@ export function mergeStorefrontProducts(
       supabaseBaseUrl,
       locale,
       editorialBySlug.get(product.editorial_slug),
+      taxonomy,
     ))
     .filter((product) => product.variants.length > 0)
     .sort((a, b) => a.name.localeCompare(b.name, locale));

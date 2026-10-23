@@ -38,12 +38,33 @@ function renderWithLocale(ui: React.ReactElement, locale: Locale = "es", message
 }
 
 describe("StructuredVariantPicker", () => {
+  it("explica cuando la medida todavía no está configurada", () => {
+    renderWithLocale(<StructuredVariantPicker product={mockProduct} axes={[{ code: "largo-mm", label: "Largo", values: [] }]} selected={{}} onSelect={vi.fn()} />);
+    expect(screen.getByText("Medida pendiente de configurar. Todavía no se puede agregar al carrito.")).toBeInTheDocument();
+  });
+  it("muestra la elección de interior junto al tamaño", () => {
+    const onSelect = vi.fn();
+    renderWithLocale(
+      <StructuredVariantPicker
+        product={mockProduct}
+        axes={[
+          { code: "tamano", label: "Tamaño", values: [{ value: "mediano", label: "Mediano" }] },
+          { code: "interior", label: "Interior", values: [{ value: "calabaza", label: "Calabaza" }, { value: "ceramica", label: "Cerámica" }] },
+        ]}
+        selected={{ tamano: "mediano" }}
+        onSelect={onSelect}
+      />,
+    );
+    expect(screen.getByText("Interior")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Interior Cerámica" }));
+    expect(onSelect).toHaveBeenCalledWith("interior", "ceramica");
+  });
   it("renderiza labels y opciones de tamaño en español", () => {
     const onSelect = vi.fn();
     renderWithLocale(
       <StructuredVariantPicker
         product={mockProduct}
-        axes={[{ code: "tamano", values: ["chico", "mediano", "grande"] }]}
+        axes={[{ code: "tamano", label: "Tamaño", values: ["chico", "mediano", "grande"].map(value => ({ value, label: value })) }]}
         selected={{ tamano: "chico" }}
         onSelect={onSelect}
       />,
@@ -64,7 +85,7 @@ describe("StructuredVariantPicker", () => {
     renderWithLocale(
       <StructuredVariantPicker
         product={mockProduct}
-        axes={[{ code: "tamano", values: ["chico", "mediano", "grande"] }]}
+        axes={[{ code: "tamano", label: "Tamaño", values: ["chico", "mediano", "grande"].map(value => ({ value, label: value })) }]}
         selected={{}}
         onSelect={vi.fn()}
       />,
@@ -82,7 +103,7 @@ describe("StructuredVariantPicker", () => {
     renderWithLocale(
       <StructuredVariantPicker
         product={mockProduct}
-        axes={[{ code: "tamano", values: ["chico", "mediano", "grande"] }]}
+        axes={[{ code: "tamano", label: "Tamaño", values: ["chico", "mediano", "grande"].map(value => ({ value, label: value })) }]}
         selected={{}}
         onSelect={vi.fn()}
       />,

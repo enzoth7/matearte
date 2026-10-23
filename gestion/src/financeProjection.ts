@@ -52,7 +52,7 @@ export function buildFinanceProjection(
     const scheduledMonth = (date: string) => date.slice(0, 7) < currentMonth ? currentMonth : date.slice(0, 7);
     const actualIncome = state.payments
       .filter((payment) => payment.date.startsWith(key))
-      .reduce((sum, payment) => sum + payment.amount, 0);
+      .reduce((sum, payment) => sum + (payment.amount ?? 0), 0);
     const receivable = state.orders
       .filter((order) => scheduledMonth(order.due || order.date) === key)
       .reduce((sum, order) => sum + balance(state, order), 0);

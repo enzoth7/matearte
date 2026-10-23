@@ -119,9 +119,8 @@ describe("ProductSpecsBox", () => {
     const product: Product = {
       ...emptyProduct,
       category: "mates",
-      variants: [
-        { id: "v-todos", label: "Todos los tamaños", value: "v-todos", options: { tamano: "todos" } },
-      ],
+      attributes: { tamano: "todos" },
+      variants: [{ id: "v-color", label: "Natural", value: "v-color", options: { color: "natural" } }],
     };
     renderBox(product, {}, undefined, "es");
 
@@ -175,11 +174,11 @@ describe("ProductSpecsBox", () => {
     expect(screen.getByText("Cincelada")).toBeInTheDocument();
   });
 
-  it("no muestra el tipo de bombilla retirado en fichas antiguas", () => {
+  it("muestra incluso características antiguas que ya no tienen opción en la taxonomía", () => {
     const product: Product = { ...emptyProduct, category: "bombillas", attributes: { "tipo-bombilla": "apaga", "forma-pico": "pico-loro" } };
     renderBox(product, undefined, undefined, "es");
-    expect(screen.queryByText("Tipo de bombilla:")).not.toBeInTheDocument();
-    expect(screen.queryByText("Apaga")).not.toBeInTheDocument();
+    expect(screen.getByText("Tipo de bombilla:")).toBeInTheDocument();
+    expect(screen.getByText("Apaga")).toBeInTheDocument();
     expect(screen.getByText("Pico loro")).toBeInTheDocument();
   });
 

@@ -1,3 +1,4 @@
+import { paymentMoney, usdMoney } from "./data";
 import { CustomerContactEditor } from "./commerce/CustomerContactEditor";
 import { LocalCustomerEditor } from "./LocalCustomerEditor";
 import { RuralRaffleCustomerEditor } from "./RuralRaffleCustomerEditor";
@@ -375,6 +376,7 @@ function OrderTable({
   showAmounts = true,
   searchQuery,
   onSearchQueryChange,
+  onCustomer,
 }: {
   s: State;
   orders: Order[];
@@ -385,6 +387,7 @@ function OrderTable({
   showAmounts?: boolean;
   searchQuery?: string;
   onSearchQueryChange?: (query: string) => void;
+  onCustomer?: (order: Order) => void;
 }) {
   const productionMode = ["mayorista", "mayorista-web", "minorista", "historico", "resumen-produccion"].includes(mode);
   const originByOrder = useMemo(() => {
@@ -418,14 +421,16 @@ function OrderTable({
         { label: "Fecha", render: (o) => orderDate(o.date) },
         {
           label: "Cliente",
-          render: (o) => mode === "pedidos" ? customer(s, o).name : <strong>{productionMode ? naturalCaseName(customer(s, o).name) : customer(s, o).name}</strong>,
+          render: (o) => mode === "pedidos"
+            ? onCustomer ? <button type="button" className="text-button" aria-label={`Ver ficha de ${customer(s, o).name}`} onClick={() => onCustomer(o)}>{customer(s, o).name}</button> : customer(s, o).name
+            : <strong>{productionMode ? naturalCaseName(customer(s, o).name) : customer(s, o).name}</strong>,
         },
         ...(productionMode ? [{ label: "Empresa", render: (o: Order) => { const c = customer(s, o); return ("companyName" in c && c.companyName?.trim()) || "—"; } }] : []),
         { label: "Productos", render: (o) => orderCategoryLabels(o, s.products) },
         ...(mode === "pedidos" ? [{ label: "Origen", render: (o: Order) => { const origin = originByOrder.get(o.id); return origin ? <Badge>{customerOriginLabel(origin)}</Badge> : "—"; } }] : []),
         { label: "Canal", render: (o) => <Badge>{o.channel}</Badge> },
         ...(showAmounts ? [
-          { label: "Total", render: (o: Order) => <strong>{money(total(o))}</strong> },
+          { label: "Total", render: (o: Order) => <strong>{money(total(o))}{o.paymentAmountUsd != null && <small> · {usdMoney(o.paymentAmountUsd)}</small>}</strong> },
           { label: "Pago", render: (o: Order) => <Badge>{paymentStatus(s, o)}</Badge> },
         ] : []),
         {
@@ -542,6 +547,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       {!!order.shippingAmount && <div className="line-item"><div>Envío</div><strong>{money(order.shippingAmount)}</strong></div>}
       {!!order.feeAmount && <div className="line-item"><div>Cargo por pago</div><strong>{money(order.feeAmount)}</strong></div>}
       <div className="line-item"><div>Total</div><strong>{money(total(order))}</strong></div>
+      {s.payments.filter((payment) => payment.orderId === order.id && payment.sourceCurrency === "USD").map((payment) => <div className="line-item" key={payment.id}><div>Cobro PayPal</div><strong>{paymentMoney(payment)}</strong></div>)}
     </section>}
     {order.method === "Envío" && (order.carrier || order.tracking) && <section className="order-tracking-detail" aria-label="Seguimiento guardado"><small>Envío registrado</small><strong>{order.carrier || "Sin transportista"}</strong><span>{order.tracking || "Sin código"}</span></section>}
     {saleError && <div className="error" role="alert">{saleError}</div>}
@@ -561,7 +567,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       {order.source === "wholesale" && wholesaleLines.length > 0 && props.commerce?.wholesale && <button className="unified-order-action" onClick={() => exportWholesalePdf(orderName(order), wholesaleLines, props.commerce!.wholesale!)}>Descargar PDF</button>}
       {order.source === "wholesale" && <button className="unified-order-action unified-order-action--primary" onClick={() => go("/produccion/mayorista")}>Gestionar producción</button>}
     </div>
-    {editingSale && <LocalSaleEditor order={order} customers={s.customers} depositAmount={s.payments.find((payment) => payment.orderId === order.id)?.amount} onClose={() => setEditingSale(false)} onChanged={async (message) => { await props.refresh?.(true); props.notify?.(message); setEditingSale(false); onClose(); }} />}
+    {editingSale && <LocalSaleEditor order={order} customers={s.customers} depositAmount={s.payments.find((payment) => payment.orderId === order.id)?.amount ?? undefined} onClose={() => setEditingSale(false)} onChanged={async (message) => { await props.refresh?.(true); props.notify?.(message); setEditingSale(false); onClose(); }} />}
   </Modal>;
 }
 
@@ -575,6 +581,7 @@ export function Orders(
   const [selected, setSelected] = useState<string | null>(
     new URLSearchParams(location.search).get("pedido"),
   );
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [channel, setChannel] = useState("Todos");
   const [orderSearch, setOrderSearch] = useState("");
   const [group, setGroup] = useState("Pedidos");
@@ -732,13 +739,55 @@ export function Orders(
                       : "Trabajo del taller"
           }
           open={(o) => setSelected(o.id)}
+          onCustomer={mode === "pedidos" ? (order) => {
+            const entry = s.customers.find((item) => item.id === order.customerId);
+            setSelectedCustomer(entry || { id: order.customerId, name: order.customerName || "Cliente sin nombre", email: "", phone: "", city: "", segment: "Minorista" });
+          } : undefined}
         />
       )}
+      {selectedCustomer && <CustomerDetailModal customer={selectedCustomer} s={s} go={go} commerce={props.commerce} onClose={() => setSelectedCustomer(null)} />}
       {mode === "historico" && <WholesaleProduction props={props} history />}
       {o && (o.source === "local" || o.source === "wholesale" || !props.session) && <UnifiedOrderDetailModal order={o} props={props} showAmounts={showAmounts} onClose={() => setSelected(null)} />}
       {o && o.source !== "local" && o.source !== "wholesale" && props.session && <div className="commerce-tools order-tools"><CommerceOrderDetails key={o.id} session={props.session} onNotice={props.notify} orderId={o.id} onCustomer={() => go(`/clientes/base?cliente=${o.customerId}`)} onClose={() => { setSelected(null); void props.refresh?.(); }} /></div>}
     </>
   );
+}
+export function CustomerDetailModal({ customer: c, s, go, commerce, onClose }: { customer: Customer; s: State; go: PageProps["go"]; commerce?: CommerceSnapshot | null; onClose: () => void }) {
+  const [historyView, setHistoryView] = useState<"products" | "orders">("products");
+  const orders = visibleOrders(s);
+  const customerOrders = orders.filter((order) => order.customerId === c.id);
+  const wholesaleHistory = c.wholesaleName ? summarizeWholesaleCustomer(orders, c.id) : undefined;
+  const birthDate = c.birthDate ? /^\d{4}$/.test(c.birthDate) ? c.birthDate : formatDate(c.birthDate) : "";
+  const country = countryDisplayName(c.country || countryForCity(c.city));
+  return <Modal title={c.name} className="customer-detail-modal" onClose={onClose}>
+    <section className="customer-identity" aria-label="Datos del cliente">
+      <h3>Datos del cliente</h3>
+      <div className="customer-identity-grid">
+        {([
+          ["Nombre", c.name], ["Fecha de nacimiento", birthDate], ["País", country],
+          ["Ciudad", c.city], ["Dirección", [c.address, c.department, c.postalCode].filter(Boolean).join(", ")],
+          ["Teléfono", c.phone], ["Correo", c.email],
+        ] as [string, string | undefined][]).map(([label, value]) => <div key={label}><small>{label}</small><strong>{value?.trim() || "Sin datos"}</strong></div>)}
+      </div>
+    </section>
+    {c.localCustomerId && <div className="customer-local-facts">
+      {!!c.agendaAdditionalPhones?.length && <div className="wide"><small>Otros celulares</small><strong>{c.agendaAdditionalPhones.join(" · ")}</strong></div>}
+      {c.firstPurchaseDate && <div><small>Primera compra en el local</small><strong>{c.firstPurchaseDate}</strong></div>}
+      {c.lastPurchaseDate && <div><small>Última compra en el local</small><strong>{c.lastPurchaseDate}</strong></div>}
+      {c.notes && <div className="wide"><small>Notas</small><div>{c.notes}</div></div>}
+    </div>}
+    <Stats items={[
+      { label: "Compras", value: money(customerOrders.filter(isSale).reduce((sum, order) => sum + total(order), 0)) },
+      { label: "Saldo", value: money(customerOrders.reduce((sum, order) => sum + balance(s, order), 0)) },
+    ]} />
+    {c.wholesaleName && wholesaleHistory && <div className="tabs inner-tabs customer-history-tabs" role="tablist" aria-label="Vista del histórico mayorista"><button role="tab" aria-selected={historyView === "products"} className={historyView === "products" ? "active" : ""} onClick={() => setHistoryView("products")}>Por tipo de mate</button><button role="tab" aria-selected={historyView === "orders"} className={historyView === "orders" ? "active" : ""} onClick={() => setHistoryView("orders")}>Por pedido</button></div>}
+    {c.wholesaleName && wholesaleHistory && historyView === "products" ? <Table title="Histórico por tipo de mate" rows={wholesaleHistory.rows} searchText={(row) => row.model} columns={[
+      { label: "Tipo de mate", render: (row) => row.model },
+      { label: "Pedidos", render: (row) => row.orders },
+      { label: "Unidades", render: (row) => row.units },
+    ]} /> : <OrderTable s={s} orders={customerOrders} go={go} title="Historial compartido" />}
+    {c.wholesaleName && commerce?.wholesale && <div className="form-actions"><button className="secondary" onClick={() => void exportWholesalePdf(`Historial · ${c.name}`, commerce.wholesale!.lines.filter((line) => line.customer === c.wholesaleName), commerce.wholesale!)}>PDF historial</button><button className="secondary" onClick={() => void exportWholesalePdf(`Pendientes · ${c.name}`, commerce.wholesale!.lines.filter((line) => line.customer === c.wholesaleName && line.status !== "Completado"), commerce.wholesale!)}>PDF pendientes</button></div>}
+  </Modal>;
 }
 export function Register(props: PageProps & { kind: "minorista" | "mayorista" }) {
   return props.kind === "minorista" ? <LocalSaleRegister {...props} /> : <WholesaleRegister {...props} />;
@@ -759,12 +808,13 @@ export function Customers({
   const [selected, setSelected] = useState<string | null>(
     new URLSearchParams(location.search).get("cliente"),
   );
-  const [historyView, setHistoryView] = useState<"products" | "orders">("products");
-  const [customerSort, setCustomerSort] = useState<"latestPurchase" | "name">("latestPurchase");
+  const [customerSort, setCustomerSort] = useState<"latestPurchase" | "createdAt" | "name">("latestPurchase");
   const [customerSortDirection, setCustomerSortDirection] = useState<"desc" | "asc">("desc");
   const [channelFilter, setChannelFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [customerKpiFilter, setCustomerKpiFilter] = useState<"orders" | "balance" | null>(null);
   const [customerQuery, setCustomerQuery] = useState("");
   const customers = visibleCustomers(s);
   useEffect(() => {
@@ -780,6 +830,10 @@ export function Customers({
     return grouped;
   }, [orders]);
   const purchaseByCustomer = useMemo(() => new Map(customers.map((entry) => [entry.id, latestCustomerPurchase(entry, ordersByCustomer.get(entry.id) || [], s.products)])), [customers, ordersByCustomer, s.products]);
+  const availablePurchaseCategories = useMemo(() => [...new Set(customers.flatMap((entry) => {
+    const purchase = purchaseByCustomer.get(entry.id);
+    return purchase?.date ? purchase.category.split(",").map((category) => category.trim()).filter(Boolean) : [];
+  }))].sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" })), [customers, purchaseByCustomer]);
   const customerTableSearchText = (entry: Customer) => `${customerSearchText(entry)} ${purchaseByCustomer.get(entry.id)?.category || ""}`;
   const channelByCustomer = useMemo(() => new Map(customers.map((customer) => [
     customer.id, customerDisplayChannel(customer, ordersByCustomer.get(customer.id) || []),
@@ -797,12 +851,12 @@ export function Customers({
     }];
   })), [customers, orders, ordersByCustomer, purchaseByCustomer]);
   const sortedCustomers = useMemo(() => [...customers].sort((a, b) => {
-    const aDate = customerMetrics.get(a.id)?.latestPurchase || "";
-    const bDate = customerMetrics.get(b.id)?.latestPurchase || "";
-    if (customerSort === "latestPurchase" && !!aDate !== !!bDate) return aDate ? -1 : 1;
-    let comparison = customerSort === "latestPurchase"
-      ? aDate.localeCompare(bDate)
-      : a.name.localeCompare(b.name, "es", { sensitivity: "base" });
+    const aDate = customerSort === "createdAt" ? a.createdAt || "" : customerMetrics.get(a.id)?.latestPurchase || "";
+    const bDate = customerSort === "createdAt" ? b.createdAt || "" : customerMetrics.get(b.id)?.latestPurchase || "";
+    if (customerSort !== "name" && !!aDate !== !!bDate) return aDate ? -1 : 1;
+    let comparison = customerSort === "name"
+      ? a.name.localeCompare(b.name, "es", { sensitivity: "base" })
+      : aDate.localeCompare(bDate);
     if (!comparison) comparison = a.name.localeCompare(b.name, "es", { sensitivity: "base" });
     return customerSortDirection === "desc" ? -comparison : comparison;
   }), [customerMetrics, customerSort, customerSortDirection, customers]);
@@ -810,16 +864,26 @@ export function Customers({
     if (channelFilter && channelByCustomer.get(entry.id) !== channelFilter) return false;
     if (typeFilter && (entry.segment === "Mayorista" ? "Mayorista" : "Minorista") !== typeFilter) return false;
     if (countryFilter && countryDisplayName(entry.country || "") !== countryFilter) return false;
+    if (categoryFilter) {
+      const purchase = purchaseByCustomer.get(entry.id);
+      if (!purchase?.date || !purchase.category.split(",").some((category) => category.trim() === categoryFilter)) return false;
+    }
     return true;
-  }), [sortedCustomers, channelFilter, channelByCustomer, typeFilter, countryFilter]);
-  const filteredCustomers = useMemo(() => {
+  }), [sortedCustomers, channelFilter, channelByCustomer, typeFilter, countryFilter, categoryFilter, purchaseByCustomer]);
+  const queryFilteredCustomers = useMemo(() => {
     const normalizedQuery = customerQuery.trim().toLocaleLowerCase("es");
     return normalizedQuery
       ? selectedFilterCustomers.filter((entry) => customerTableSearchText(entry).toLocaleLowerCase("es").includes(normalizedQuery))
       : selectedFilterCustomers;
   }, [customerQuery, purchaseByCustomer, selectedFilterCustomers]);
-  const filteredCustomerIds = useMemo(() => new Set(filteredCustomers.map((entry) => entry.id)), [filteredCustomers]);
-  const filteredCustomerOrders = useMemo(() => orders.filter((order) => filteredCustomerIds.has(order.customerId)), [filteredCustomerIds, orders]);
+  const customersWithOrders = useMemo(() => new Set(orders.map((order) => order.customerId)), [orders]);
+  const customersWithBalance = useMemo(() => new Set(orders.filter((order) => balance(s, order) > 0).map((order) => order.customerId)), [orders, s]);
+  const filteredCustomers = useMemo(() => queryFilteredCustomers.filter((entry) =>
+    customerKpiFilter === "orders" ? customersWithOrders.has(entry.id)
+      : customerKpiFilter === "balance" ? customersWithBalance.has(entry.id) : true,
+  ), [queryFilteredCustomers, customerKpiFilter, customersWithOrders, customersWithBalance]);
+  const customersWithOrdersInView = queryFilteredCustomers.filter((entry) => customersWithOrders.has(entry.id)).length;
+  const customersWithBalanceInView = queryFilteredCustomers.filter((entry) => customersWithBalance.has(entry.id)).length;
   const customerExportRows = useMemo(() => filteredCustomers.map((entry) => {
     const phone = splitCustomerPhone(entry.phone, entry.country);
     const latestPurchase = purchaseByCustomer.get(entry.id);
@@ -836,15 +900,17 @@ export function Customers({
       Origen: customerOriginLabel(channelByCustomer.get(entry.id) || ""),
       Tipo: entry.segment === "Mayorista" ? "Mayorista" : "Minorista",
       "Última compra": customerMetrics.get(entry.id)?.latestPurchase ? orderDate(customerMetrics.get(entry.id)?.latestPurchase || "") : "",
-      "Última categoría comprada": latestPurchase?.category || "",
-      "Total pedidos": customerMetrics.get(entry.id)?.totalOrders || 0,
+      "Última categoría comprada": latestPurchase?.date ? latestPurchase.category : "",
+      "Fecha de alta": entry.createdAt ? formatDate(entry.createdAt) : "",
     };
   }), [channelByCustomer, customerMetrics, filteredCustomers, purchaseByCustomer]);
-  const hasCustomerFilters = Boolean(channelFilter || typeFilter || countryFilter || customerQuery.trim());
+  const hasCustomerFilters = Boolean(channelFilter || typeFilter || countryFilter || categoryFilter || customerKpiFilter || customerQuery.trim());
   const clearCustomerFilters = () => {
     setChannelFilter("");
     setTypeFilter("");
     setCountryFilter("");
+    setCategoryFilter("");
+    setCustomerKpiFilter(null);
     setCustomerQuery("");
   };
   const sortHeader = (label: string, field: typeof customerSort, ascending: string, descending: string) => (
@@ -859,7 +925,7 @@ export function Customers({
   const channelHeader = <span className="customer-filter-heading"><select aria-label="Filtrar por canal de origen" value={channelFilter} onChange={(event) => setChannelFilter(event.target.value)}><option value="">Origen</option>{customerOriginOptions.map((channel) => <option key={channel} value={channel}>{customerOriginLabel(channel)}</option>)}</select><CaretDown size={12} aria-hidden="true" /></span>;
   const typeHeader = <span className="customer-filter-heading"><select aria-label="Filtrar por tipo de cliente" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="">Tipo</option><option value="Minorista">Minorista</option><option value="Mayorista">Mayorista</option></select><CaretDown size={12} aria-hidden="true" /></span>;
   const countryHeader = <span className="customer-filter-heading"><select aria-label="Filtrar por país" title={countryFilter || "Filtrar por país"} value={countryFilter} onChange={(event) => setCountryFilter(event.target.value)}><option value="">País</option>{availableCountries.map((country) => <option key={country} value={country}>{country}</option>)}</select><CaretDown size={12} aria-hidden="true" /></span>;
-  const selectedWholesaleHistory = c?.wholesaleName ? customerMetrics.get(c.id) : undefined;
+  const categoryHeader = <span className="customer-filter-heading customer-category-filter-heading"><select aria-label="Filtrar por última categoría comprada" title={categoryFilter || "Filtrar por última categoría comprada"} value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}><option value="">Última categoría comprada</option>{availablePurchaseCategories.map((category) => <option key={category} value={category}>{category}</option>)}</select><CaretDown size={12} aria-hidden="true" /></span>;
   const userId = accessUserId(s);
   const fields: Field[] = [
     { key: "name", label: "Nombre" },
@@ -878,26 +944,21 @@ export function Customers({
       <Stats
         items={[
           { label: "Clientes en esta vista", value: filteredCustomers.length },
-          { label: "Con pedidos", value: new Set(filteredCustomerOrders.map((order) => order.customerId)).size },
-          {
-            label: "Clientes con saldo",
-            value: new Set(
-              filteredCustomerOrders
-                .filter((o) => balance(s, o) > 0)
-                .map((o) => o.customerId),
-            ).size,
-          },
+          { label: "Con pedidos", value: customersWithOrdersInView, go: () => setCustomerKpiFilter((current) => current === "orders" ? null : "orders"), pressed: customerKpiFilter === "orders" },
+          { label: "Clientes con saldo", value: customersWithBalanceInView, go: () => setCustomerKpiFilter((current) => current === "balance" ? null : "balance"), pressed: customerKpiFilter === "balance" },
         ]}
       />
       <div className="customers-mobile-filters">
         {sortHeader("Cliente", "name", "Ordenar clientes de A a Z", "Ordenar clientes de Z a A")}
         {sortHeader("Última compra", "latestPurchase", "Ordenar última compra de más antigua a más nueva", "Ordenar última compra de más nueva a más antigua")}
+        {sortHeader("Fecha de alta", "createdAt", "Ordenar fecha de alta de más antigua a más nueva", "Ordenar fecha de alta de más nueva a más antigua")}
         {countryHeader}
+        {categoryHeader}
         {channelHeader}
         {typeHeader}
       </div>
       <div className="customers-table"><Table
-        rows={selectedFilterCustomers}
+        rows={filteredCustomers}
         pageSize={75}
         searchText={customerTableSearchText}
         searchQuery={customerQuery}
@@ -912,7 +973,7 @@ export function Customers({
             label: "Cliente",
             header: sortHeader("Cliente", "name", "Ordenar clientes de A a Z", "Ordenar clientes de Z a A"),
             render: (c) => (
-              <button className="text-button" aria-label={`Ver ficha de ${c.name}`} onClick={() => { setHistoryView("products"); setSelected(c.id); }}>
+              <button className="text-button" aria-label={`Ver ficha de ${c.name}`} onClick={() => setSelected(c.id)}>
                 {c.companyName && c.companyName.localeCompare(c.name, "es", { sensitivity: "base" }) === 0 ? "—" : c.name}
                 
               </button>
@@ -928,8 +989,8 @@ export function Customers({
           { label: "Origen", header: channelHeader, render: (c) => { const channel = channelByCustomer.get(c.id); return channel ? <Badge>{customerOriginLabel(channel)}</Badge> : "—"; } },
           { label: "Tipo", header: typeHeader, render: (c) => c.segment === "Mayorista" ? "Mayorista" : "Minorista" },
           { label: "Última compra", header: sortHeader("Última compra", "latestPurchase", "Ordenar última compra de más antigua a más nueva", "Ordenar última compra de más nueva a más antigua"), render: (c) => orderDate(customerMetrics.get(c.id)?.latestPurchase || "") },
-          { label: "Última categoría comprada", render: (c) => purchaseByCustomer.get(c.id)?.category || "—" },
-          { label: "Total pedidos", render: (c) => customerMetrics.get(c.id)?.totalOrders || 0 },
+          { label: "Última categoría comprada", header: categoryHeader, render: (c) => { const purchase = purchaseByCustomer.get(c.id); return purchase?.date ? purchase.category || "—" : "—"; } },
+          { label: "Fecha de alta", header: sortHeader("Fecha de alta", "createdAt", "Ordenar fecha de alta de más antigua a más nueva", "Ordenar fecha de alta de más nueva a más antigua"), render: (c) => formatDate(c.createdAt) },
           ... ([{
             label: "Acciones",
             render: (c: Customer) => (
@@ -967,54 +1028,7 @@ export function Customers({
           />}
         </Modal>
       )}
-      {c && (
-        <Modal title={c.name} className="customer-detail-modal" onClose={() => setSelected(null)}>
-          {c.localCustomerId && <div className="customer-local-facts">
-            {!!c.agendaAdditionalPhones?.length && <div className="wide"><small>Otros celulares</small><strong>{c.agendaAdditionalPhones.join(" · ")}</strong></div>}
-            {c.firstPurchaseDate && <div><small>Primera compra en el local</small><strong>{c.firstPurchaseDate}</strong></div>}
-            {c.lastPurchaseDate && <div><small>Última compra en el local</small><strong>{c.lastPurchaseDate}</strong></div>}
-            {c.notes && <div className="wide"><small>Notas</small><div>{c.notes}</div></div>}
-          </div>}
-          
-          <Stats
-            items={[
-              {
-                label: "Compras",
-                value: money(
-                  orders
-                    .filter((o) => isSale(o) && o.customerId === c.id)
-                    .reduce((a, o) => a + total(o), 0),
-                ),
-              },
-              {
-                label: "Saldo",
-                value: money(
-                  orders
-                    .filter((o) => o.customerId === c.id)
-                    .reduce((a, o) => a + balance(s, o), 0),
-                ),
-              },
-            ]}
-          />
-          {c.wholesaleName && selectedWholesaleHistory && <div className="tabs inner-tabs customer-history-tabs" role="tablist" aria-label="Vista del histórico mayorista"><button role="tab" aria-selected={historyView === "products"} className={historyView === "products" ? "active" : ""} onClick={() => setHistoryView("products")}>Por tipo de mate</button><button role="tab" aria-selected={historyView === "orders"} className={historyView === "orders" ? "active" : ""} onClick={() => setHistoryView("orders")}>Por pedido</button></div>}
-          {c.wholesaleName && selectedWholesaleHistory && historyView === "products" ? <Table
-            title="Histórico por tipo de mate"
-            rows={selectedWholesaleHistory.rows}
-            searchText={(row) => row.model}
-            columns={[
-              { label: "Tipo de mate", render: (row) => row.model },
-              { label: "Pedidos", render: (row) => row.orders },
-              { label: "Unidades", render: (row) => row.units },
-            ]}
-          /> : <OrderTable
-            s={s}
-            orders={orders.filter((o) => o.customerId === c.id)}
-            go={go}
-            title="Historial compartido"
-          />}
-          {c.wholesaleName && commerce?.wholesale && <div className="form-actions"><button className="secondary" onClick={() => void exportWholesalePdf(`Historial · ${c.name}`, commerce.wholesale!.lines.filter((line) => line.customer === c.wholesaleName), commerce.wholesale!)}>PDF historial</button><button className="secondary" onClick={() => void exportWholesalePdf(`Pendientes · ${c.name}`, commerce.wholesale!.lines.filter((line) => line.customer === c.wholesaleName && line.status !== "Completado"), commerce.wholesale!)}>PDF pendientes</button></div>}
-        </Modal>
-      )}
+      {c && <CustomerDetailModal customer={c} s={s} go={go} commerce={commerce} onClose={() => setSelected(null)} />}
     </>
   );
 }

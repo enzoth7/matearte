@@ -1,30 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { CatalogValueMap } from "../../../../shared/catalog-taxonomy";
+import { catalogPurchaseAxes, defaultCatalogTaxonomy, type CatalogPurchaseAxis, type CatalogValueMap } from "../../../../shared/catalog-taxonomy";
 import type { Product } from "@/types/catalog";
 import { getVariantColorId } from "@/lib/catalog-filters";
 
-const ALL_TALLES = Array.from({ length: 13 }, (_, i) => String(i + 34)); // ['34','35',...,'46']
-const ALL_TAMANOS = ["chico", "mediano", "grande"];
-
-function valuesFor(product: Product, code: string) {
-  const raw = [...new Set(product.variants.map(variant => variant.options?.[code] ?? (code === "color" ? getVariantColorId(variant) : undefined)).filter(value => value !== undefined).map(String))];
-  if (code === "talle" && raw.includes("todos")) {
-    return ALL_TALLES;
-  }
-  if (code === "tamano" && raw.includes("todos")) {
-    return ALL_TAMANOS;
-  }
-  return raw;
-}
-
 export function useStructuredVariantSelection(product: Product) {
   const axes = useMemo(() => {
-    const keys = new Set<string>();
-    product.variants.forEach(variant => Object.keys(variant.options ?? {}).forEach(key => keys.add(key)));
-    if (product.variants.some(variant=>Boolean(getVariantColorId(variant)))) keys.add("color");
-    return [...keys].sort((a,b)=>a === "color" ? -1 : b === "color" ? 1 : a.localeCompare(b));
+    const colorValues = [...new Set(product.variants.map(variant => getVariantColorId(variant)).filter((value): value is NonNullable<typeof value> => Boolean(value)))];
+    const colorAxis: CatalogPurchaseAxis[] = colorValues.length
+      ? [{ code: "color", label: "Color", values: colorValues.map(value => ({ value, label: product.variants.find(variant => getVariantColorId(variant) === value)?.label ?? value })) }]
+      : [];
+    return [...colorAxis, ...(product.purchaseAxes ?? catalogPurchaseAxes(defaultCatalogTaxonomy, product.category, product.attributes ?? {}, product.name))];
   }, [product]);
   const [selected, setSelected] = useState<CatalogValueMap>({});
 
@@ -32,19 +19,15 @@ export function useStructuredVariantSelection(product: Product) {
     const next: CatalogValueMap = {};
     const requestedColor = new URLSearchParams(window.location.search).get("color");
     axes.forEach(axis => {
-      const values = valuesFor(product, axis);
-      if (axis === "color" && requestedColor && values.includes(requestedColor)) next.color = requestedColor;
-      else if (values.length === 1) next[axis] = values[0];
+      const values = axis.values.map(option => option.value);
+      if (axis.code === "color" && requestedColor && values.includes(requestedColor)) next.color = requestedColor;
+      else if (values.length === 1) next[axis.code] = values[0];
     });
     setSelected(next);
-  }, [axes, product]);
+  }, [axes]);
 
-  const matches = product.variants.filter(variant => Object.entries(selected).every(([code, value]) => {
-    const variantValue = variant.options?.[code] ?? (code === "color" ? getVariantColorId(variant) : undefined);
-    if (String(variantValue ?? "") === "todos") return true;
-    return String(variantValue ?? "") === String(value);
-  }));
-  const complete = axes.every(axis => selected[axis] !== undefined && selected[axis] !== "");
+  const matches = product.variants.filter(variant => !selected.color || getVariantColorId(variant) === selected.color);
+  const complete = axes.every(axis => axis.values.length > 0 && axis.values.some(option => option.value === selected[axis.code])) && matches.length > 0;
   const activeVariant = complete ? matches[0] : undefined;
   const priceVariant = [...matches].sort((a,b)=>(a.price?.amountMinor??Infinity)-(b.price?.amountMinor??Infinity))[0];
   const selectedColor = typeof selected.color === "string" ? selected.color : undefined;
@@ -54,7 +37,7 @@ export function useStructuredVariantSelection(product: Product) {
   const images = colorImages.length ? [...colorImages,...generalImages] : legacyImages.length ? [...legacyImages,...generalImages] : product.images;
 
   return {
-    axes: axes.map(code=>({ code, values: valuesFor(product,code) })),
+    axes,
     selected,
     select: (code:string,value:string) => setSelected(current=>({...current,[code]:value})),
     activeVariant,

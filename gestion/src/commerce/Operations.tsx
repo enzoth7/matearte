@@ -1,3 +1,4 @@
+import { usdMoney } from "../data";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
@@ -28,6 +29,7 @@ import {
   emptyCatalogAttributes,
   formatVariantLabel,
   allowsFlejeDesign,
+  mateInteriorChoices,
   normalizeCatalogAttributes,
   normalizeCatalogValueMap,
   optionSignature,
@@ -89,7 +91,7 @@ type VariantForm = {sku:string;price:string;priceArg:string;options:CatalogValue
 const emptyVariantForm = (service = false): VariantForm => ({sku:'',price:'',priceArg:'',options:{},local:true,web:!service,wholesale:false,servicePriceMode:service?'variable':'fixed'});
 export type OrderItem = {id:string;item_type:'catalog'|'design';title:string;quantity:number;requires_review:boolean;review_status:string|null;immutable_snapshot:Record<string,unknown>;sku?:string|null;unit_price_minor?:number|null;total_minor?:number|null;source_variant?:{product?:{peso?:number}}};
 export type BankTransferReceipt = {id:string;original_name:string;mime_type:string;byte_size:number;status:'pending'|'approved'|'rejected';rejection_reason:string|null;submitted_at:string;reviewed_at:string|null};
-export type Order = { id:string;order_number:number;reference_code?:string|null;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;items_subtotal_minor?:number;shipping_minor?:number;payment_fee_minor?:number;discount_code?:string|null;discount_minor?:number;total_minor:number;created_at:string;customer_snapshot:Record<string,unknown>;peso?:number|null;order_items:OrderItem[];commerce_bank_transfer_receipts?:BankTransferReceipt[] };
+export type Order = { id:string;order_number:number;reference_code?:string|null;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;items_subtotal_minor?:number;shipping_minor?:number;payment_fee_minor?:number;discount_code?:string|null;discount_minor?:number;total_minor:number;paypal_amount_usd_minor?:number|null;created_at:string;customer_snapshot:Record<string,unknown>;peso?:number|null;order_items:OrderItem[];commerce_bank_transfer_receipts?:BankTransferReceipt[] };
 type SupabaseOrder = Omit<Order,'commerce_bank_transfer_receipts'> & {commerce_bank_transfer_receipts?:BankTransferReceipt[]|BankTransferReceipt|null};
 export const normalizeBankTransferReceipts = (value:SupabaseOrder['commerce_bank_transfer_receipts']):BankTransferReceipt[] => Array.isArray(value) ? value : value ? [value] : [];
 const money=(minor:number)=>new Intl.NumberFormat('es-UY',{style:'currency',currency:'UYU',minimumFractionDigits:0,maximumFractionDigits:2}).format(minor/100);
@@ -508,14 +510,14 @@ export const catalogColorLabels: Record<string, string> = {
   metalico: 'Metálico',
 };
 
-function TaxonomyValueField({ definition, taxonomy, value, required, onChange, compact = false }:{ definition:CatalogAttributeDefinition;taxonomy:CatalogTaxonomy;value:CatalogValue|undefined;required:boolean;onChange:(value:CatalogValue|undefined)=>void;compact?:boolean }) {
+function TaxonomyValueField({ definition, taxonomy, value, required, onChange, compact = false, allowedOptionCodes }:{ definition:CatalogAttributeDefinition;taxonomy:CatalogTaxonomy;value:CatalogValue|undefined;required:boolean;onChange:(value:CatalogValue|undefined)=>void;compact?:boolean;allowedOptionCodes?:string[] }) {
   const label = <div className={compact ? 'sr-only' : 'field-label'}>{definition.label_es}{definition.unit ? ` (${definition.unit})` : ''}{required&&<div className="field-required" aria-hidden="true">*</div>}</div>;
   if (definition.data_type === 'boolean') return <label className="taxonomy-boolean-field">{label}<input type="checkbox" checked={value===true} onChange={event=>onChange(event.target.checked)}/></label>;
-  if (definition.data_type === 'enum') return <label>{label}<select required={required} value={typeof value==='string'?value:''} onChange={event=>onChange(event.target.value||undefined)}><option value="">Sin especificar</option>{taxonomyOptionsFor(taxonomy,definition.code).map(option=><option key={option.code} value={option.code}>{option.label_es}</option>)}</select></label>;
+  if (definition.data_type === 'enum') return <label>{label}<select required={required} value={typeof value==='string'?value:''} onChange={event=>onChange(event.target.value||undefined)}><option value="">Sin especificar</option>{taxonomyOptionsFor(taxonomy,definition.code).filter(option=>!allowedOptionCodes || option.code==='todos' && allowedOptionCodes.length>1 || allowedOptionCodes.includes(option.code)).map(option=><option key={option.code} value={option.code}>{definition.code==='interior' && option.code!=='todos' ? `Interior ${option.label_es}` : option.label_es}</option>)}</select></label>;
   return <label>{label}<input required={required} type={definition.data_type==='number'?'number':'text'} min={definition.data_type==='number'?'0':undefined} step={definition.data_type==='number'?'any':undefined} value={value===undefined?'':String(value)} onChange={event=>onChange(event.target.value===''?undefined:definition.data_type==='number'?Number(event.target.value):event.target.value)}/></label>;
 }
 
-export function DynamicAttributeFields({taxonomy,category,scope,values,onChange,materials,onMaterialsChange}:{taxonomy:CatalogTaxonomy;category:string;scope:'product'|'variant';values:CatalogValueMap;onChange:(values:CatalogValueMap)=>void;materials?:CatalogMaterialId[];onMaterialsChange?:(materials:CatalogMaterialId[])=>void}) {
+export function DynamicAttributeFields({taxonomy,category,scope,values,onChange,materials,onMaterialsChange,productName=''}:{taxonomy:CatalogTaxonomy;category:string;scope:'product'|'variant';values:CatalogValueMap;onChange:(values:CatalogValueMap)=>void;materials?:CatalogMaterialId[];onMaterialsChange?:(materials:CatalogMaterialId[])=>void;productName?:string}) {
   const rules = taxonomyRulesForProduct(taxonomy,category,values,scope).filter(rule=>scope==='variant'||rule.attribute_code!=='acabado');
   if (!rules.length) return null;
   const hasSpecificMateMaterial = scope === 'product' && rules.some(rule => rule.attribute_code === 'material-mate');
@@ -536,11 +538,12 @@ export function DynamicAttributeFields({taxonomy,category,scope,values,onChange,
           </label>)}</div>
       </fieldset>;
     }
-    return <TaxonomyValueField key={definition.code} definition={definition} taxonomy={taxonomy} value={values[definition.code]} required={rule.required} onChange={value=>{
+    return <TaxonomyValueField key={definition.code} definition={definition} taxonomy={taxonomy} value={values[definition.code]} required={rule.required} allowedOptionCodes={definition.code==='interior'?mateInteriorChoices(category,values,productName):undefined} onChange={value=>{
       const next={...values};
       if(value===undefined) delete next[definition.code];
       else next[definition.code]=value;
       if (definition.code==='tipo-mate' && !allowsFlejeDesign(next)) delete next['diseno-fleje'];
+      if (definition.code==='tipo-mate' && mateInteriorChoices(category,next,productName).length===1 && next.interior) next.interior='calabaza';
       if (definition.code==='tipo-personalizado' && value!==values[definition.code]) {
         const oldType=values['tipo-personalizado'];
         const oldRules=taxonomyRulesForCategory(taxonomy,oldType==='mate'?'mates':'materas','product');
@@ -774,6 +777,10 @@ export function Catalog({onNotice,initialProductId,initialVariantId,startNew=fal
       return;
     }
 
+    const attributes = {...productDetails.attributes};
+    if (mateInteriorChoices(category, attributes, name).length===1 && (attributes.interior==='todos' || attributes.interior==='ceramica')) {
+      attributes.interior='calabaza';
+    }
     const changes:Record<string,unknown> = {};
     if(name !== product.name) changes.name = name;
     if(category !== (product.category_code || product.category)) {changes.category = category;changes.category_code = category}
@@ -782,7 +789,7 @@ export function Catalog({onNotice,initialProductId,initialVariantId,startNew=fal
     if(category==='servicios') { changes.published = false; changes.apply_catalog_price_adjustment = false; }
     if((productDetails.peso??0) !== (product.peso??0)) changes.peso = productDetails.peso??0;
     if(JSON.stringify(productDetails.catalogFilters) !== JSON.stringify(savedProductDetails.catalogFilters)) changes.catalog_filters = productDetails.catalogFilters;
-    if(JSON.stringify(productDetails.attributes) !== JSON.stringify(savedProductDetails.attributes)) changes.attributes = productDetails.attributes;
+    if(JSON.stringify(attributes) !== JSON.stringify(savedProductDetails.attributes)) changes.attributes = attributes;
     if(changes.published === product.published) delete changes.published;
     if(changes.apply_catalog_price_adjustment === product.apply_catalog_price_adjustment) delete changes.apply_catalog_price_adjustment;
     if(!Object.keys(changes).length){onNotice('No hay cambios para guardar.');return}
@@ -895,8 +902,13 @@ Si solo querés sacarlo de la tienda, usá “Ocultar”.`);
     try {
       const {error:rowError} = await supabase.from('commerce_product_images').delete().eq('id',image.id).eq('product_id',product.id);
       if (rowError) throw rowError;
+      const {error:modifiedError} = await supabase.from('commerce_products').update({updated_at:new Date().toISOString()}).eq('id',product.id);
       const {error:storageError} = await supabase.storage.from('product-images').remove([image.storage_path]);
-      onNotice(storageError ? 'La imagen se quitó del catálogo, pero el archivo necesita limpieza manual.' : 'Imagen eliminada.');
+      const warnings = [
+        modifiedError && 'No se pudo actualizar la fecha del producto.',
+        storageError && 'El archivo necesita limpieza manual.',
+      ].filter(Boolean);
+      onNotice(warnings.length ? `Imagen eliminada del catálogo. ${warnings.join(' ')}` : 'Imagen eliminada.');
       await load();
       void onCatalogChange?.();
     } catch (reason) {
@@ -965,9 +977,14 @@ Si solo querés sacarlo de la tienda, usá “Ocultar”.`);
         throw updateError;
       }
 
+      const {error:sourceModifiedError} = await supabase.from('commerce_products').update({updated_at:new Date().toISOString()}).eq('id',product.id);
       const {error:cleanupError} = await supabase.storage.from('product-images').remove([image.storage_path]);
       setImageTargets(current => {const next={...current};delete next[image.id];return next});
-      onNotice(cleanupError ? `Foto movida a “${target.name}”. El archivo anterior requiere limpieza manual.` : `Foto movida a “${target.name}”.`);
+      const warnings = [
+        sourceModifiedError && 'No se pudo actualizar la fecha del producto de origen.',
+        cleanupError && 'El archivo anterior requiere limpieza manual.',
+      ].filter(Boolean);
+      onNotice(`Foto movida a “${target.name}”.${warnings.length ? ` ${warnings.join(' ')}` : ''}`);
       await load(product.id);
       void onCatalogChange?.();
     } catch (reason) {
@@ -1113,7 +1130,7 @@ ${usageSummary(usage)}`)) { setProductBusy(''); return; }
             <label><div className="field-label">Nombre <div className="field-required" aria-hidden="true">*</div></div><input required autoFocus value={newProduct.name} onChange={event=>setNewProduct({...newProduct,name:event.target.value})} placeholder="Ej.: Imperial clásico"/></label>
             <CatalogProductCoreFields category={newProduct.category} categoryRequired categories={categoryOptions} saleMode={newProduct.saleMode} weight={newProduct.peso} description={newProduct.description} onCategoryChange={category=>setNewProduct({...newProduct,category,attributes:{}})} onSaleModeChange={saleMode=>setNewProduct({...newProduct,saleMode:saleMode as SaleMode})} onWeightChange={value=>setNewProduct({...newProduct,peso:Math.max(0,parseInt(value,10)||0)})} onDescriptionChange={description=>setNewProduct({...newProduct,description})} />
           </div>
-          <DynamicAttributeFields taxonomy={taxonomy} category={newProduct.category} scope="product" values={newProduct.attributes} onChange={attributes=>setNewProduct({...newProduct,attributes})} materials={newProduct.catalogFilters.materials} onMaterialsChange={materials=>setNewProduct(current=>withMaterials(current,materials))}/>
+          <DynamicAttributeFields taxonomy={taxonomy} category={newProduct.category} scope="product" values={newProduct.attributes} productName={newProduct.name} onChange={attributes=>setNewProduct({...newProduct,attributes})} materials={newProduct.catalogFilters.materials} onMaterialsChange={materials=>setNewProduct(current=>withMaterials(current,materials))}/>
           <div className="form-actions"><button type="submit" disabled={Boolean(productBusy)}>{productBusy === 'create' ? 'Creando…' : 'Crear producto'}</button></div>
         </form>
       )}
@@ -1151,7 +1168,7 @@ ${usageSummary(usage)}`)) { setProductBusy(''); return; }
               <label><div className="field-label">Nombre <div className="field-required" aria-hidden="true">*</div></div><input required value={productDetails.name} onChange={event=>setProductDetails({...productDetails,name:event.target.value})}/></label>
               <CatalogProductCoreFields category={productDetails.category} categoryRequired categories={categoryOptions} saleMode={productDetails.saleMode} weight={productDetails.peso} description={productDetails.description} onCategoryChange={category=>setProductDetails({...productDetails,category,attributes:{}})} onSaleModeChange={saleMode=>setProductDetails({...productDetails,saleMode:saleMode as SaleMode})} onWeightChange={value=>setProductDetails({...productDetails,peso:Math.max(0,parseInt(value,10)||0)})} onDescriptionChange={description=>setProductDetails({...productDetails,description})} />
             </div>
-            <DynamicAttributeFields taxonomy={taxonomy} category={productDetails.category} scope="product" values={productDetails.attributes} onChange={attributes=>setProductDetails({...productDetails,attributes})} materials={productDetails.catalogFilters.materials} onMaterialsChange={materials=>setProductDetails(current=>withMaterials(current,materials))}/>
+            <DynamicAttributeFields taxonomy={taxonomy} category={productDetails.category} scope="product" values={productDetails.attributes} productName={productDetails.name} onChange={attributes=>setProductDetails({...productDetails,attributes})} materials={productDetails.catalogFilters.materials} onMaterialsChange={materials=>setProductDetails(current=>withMaterials(current,materials))}/>
             <div className="form-actions"><button type="submit" disabled={Boolean(productBusy)}>{productBusy === 'save' ? 'Guardando…' : 'Guardar cambios'}</button></div>
           </form>
           </details>
@@ -1692,14 +1709,14 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer}:{session:Se
   const load = useCallback(async() => {
     let {data,error}:{data:unknown;error:{message:string;code?:string}|null} = await supabase
       .from('orders')
-      .select('id,order_number,reference_code,status,peso,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,discount_code,discount_minor,total_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot,source_variant:commerce_variants(product:commerce_products(peso)))')
+      .select('id,order_number,reference_code,status,peso,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,discount_code,discount_minor,total_minor,paypal_amount_usd_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot,source_variant:commerce_variants(product:commerce_products(peso)))')
       .not('channel','in',INTERNAL_ORDER_CHANNELS)
       .order('created_at',{ascending:false})
       .limit(orderId ? 1 : 100).match(orderId ? { id: orderId } : {});
     if (error && (error.code === '42703' || /peso|source_variant/i.test(error.message))) {
       ({data,error} = await supabase
         .from('orders')
-        .select('id,order_number,reference_code,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,discount_code,discount_minor,total_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot)')
+        .select('id,order_number,reference_code,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,discount_code,discount_minor,total_minor,paypal_amount_usd_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot)')
         .not('channel','in',INTERNAL_ORDER_CHANNELS)
         .order('created_at',{ascending:false})
         .limit(orderId ? 1 : 100).match(orderId ? { id: orderId } : {}));
@@ -1737,27 +1754,6 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer}:{session:Se
     if (decision === 'reject' && !reason) return;
     setBusy(id);
     try {
-      if (decision === 'approve') {
-        const { error: itemsError } = await supabase
-          .from('order_items')
-          .update({ review_status: 'approved' })
-          .eq('order_id', id);
-        if (itemsError) throw itemsError;
-
-        const { error: orderError } = await supabase
-          .from('orders')
-          .update({ status: 'ready_for_production' })
-          .eq('id', id).select('id').single();
-        if (orderError) throw orderError;
-
-        const approvedOrder = orders.find(order=>order.id===id);
-        if (textValue(approvedOrder?.customer_snapshot.purchaseFlow) !== 'wholesale_bank_transfer') {
-          const email = await supabase.functions.invoke('commerce-email', { body: { orderId: id } });
-          if (email.error) onNotice('Pedido guardado. No se pudo confirmar el envío del correo.');
-        }
-        onNotice('Pedido aprobado.');
-        await load();
-      } else {
         const storeApi = getStoreApiUrl();
         const response = await fetch(`${storeApi}/api/admin/orders/${id}/review`, {
           method: 'POST',
@@ -1768,9 +1764,8 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer}:{session:Se
           body: JSON.stringify({ decision, reason }),
         });
         const value = await response.json();
-        onNotice(response.ok ? 'Pedido actualizado.' : value.error || 'No se pudo actualizar.');
+        onNotice(response.ok ? value.message || 'Pedido actualizado.' : value.error || 'No se pudo actualizar.');
         if (response.ok) await load();
-      }
     } catch (err) {
       onNotice(decision === 'approve'
         ? (err instanceof Error ? `No se pudo aprobar el pedido: ${err.message}` : 'No se pudo aprobar el pedido.')
@@ -2053,7 +2048,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer}:{session:Se
                   <td><strong>{destination}</strong>{order.status==='shipped'&&<small className="tracking-summary">{order.shipping_carrier} · {order.tracking_code}</small>}</td>
                   <td><div className={`status-badge status-${order.status}`}>{orderStatus(order.status)}</div></td>
                   <td className="numeric"><div>{formatWeight(getOrderTotalWeight(order))}</div></td>
-                  <td className="numeric"><strong>{money(order.total_minor)}</strong></td>
+                  <td className="numeric"><strong>{money(order.total_minor)}{order.paypal_amount_usd_minor != null && <small> · {usdMoney(order.paypal_amount_usd_minor / 100)}</small>}</strong></td>
                   <td><div className="row-actions">
                     <button className="compact-button secondary-button" type="button" onClick={()=>openDetails(order)}>Ver detalle</button>
                     {order.status==='payment_verification_pending'&&<button className="compact-button" type="button" onClick={()=>openDetails(order)}>Revisar comprobante</button>}
@@ -2114,7 +2109,9 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer}:{session:Se
               {Number(detailOrder.discount_minor) > 0&&<div className="line-item"><div>Descuento{detailOrder.discount_code ? ` · ${detailOrder.discount_code}` : ''}</div><strong>−{money(Number(detailOrder.discount_minor))}</strong></div>}
               {Number(detailOrder.shipping_minor) > 0&&<div className="line-item"><div>Envío</div><strong>{money(Number(detailOrder.shipping_minor))}</strong></div>}
               {Number(detailOrder.payment_fee_minor) > 0&&<div className="line-item"><div>Cargos</div><strong>{money(Number(detailOrder.payment_fee_minor))}</strong></div>}
-              <div className="line-item"><div>Total</div><strong>{money(detailOrder.total_minor)}</strong></div>
+              <div className="line-item"><div>Total UYU</div><strong>{money(detailOrder.total_minor)}</strong></div>
+              {detailOrder.paypal_amount_usd_minor != null && <div className="line-item"><div>Importe de compra PayPal</div><strong>{usdMoney(detailOrder.paypal_amount_usd_minor / 100)}</strong></div>}
+              {detailOrder.status === "manual_review" && detailOrder.order_items.some(item => item.review_status === "rejected") && <div className="data-note">Reembolso pendiente de confirmación. Si pagó por transferencia, requiere devolución manual.</div>}
             </section>
             {detailOrder.status==='shipped'&&<section className="order-tracking-detail" aria-label="Seguimiento guardado"><small>Envío registrado</small><strong>{detailOrder.shipping_carrier}</strong><div>{detailOrder.tracking_code}</div></section>}
           </div>

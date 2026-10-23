@@ -78,6 +78,14 @@ describe("catálogo público conectado a Supabase", () => {
     expect(storefrontProductFromRow(oneAvailable, baseUrl, "es").variants.map(variant => variant.id)).toEqual(["web"]);
     expect(mergeStorefrontProducts([], [{ ...oneAvailable, variants: [{ id: "local-only", sku: "LOCAL", name: "Local", price_minor: 10000, currency: "UYU", active: true, available_web: false }] }], baseUrl, "es")).toEqual([]);
   });
+  it("muestra productos publicados aunque falte configurar la medida de compra", () => {
+    const products = mergeStorefrontProducts([], [
+      commerceProduct({ category: "cintos", attributes: {}, variants: [{ id: "cinto", sku: "100", name: "Natural", price_minor: 140000, currency: "UYU", active: true, available_web: true }] }),
+      commerceProduct({ id: "bombilla", editorial_slug: "bombilla", category: "bombillas", attributes: {}, variants: [{ id: "bombilla", sku: "101", name: "Metálico", price_minor: 140000, currency: "UYU", active: true, available_web: true }] }),
+    ], baseUrl, "es");
+    expect(products).toHaveLength(2);
+    expect(products.every(product => product.purchaseAxes?.some(axis => axis.values.length === 0))).toBe(true);
+  });
   it("convierte imágenes, variantes y precio mínimo cargados en el panel", () => {
     const product = storefrontProductFromRow(commerceProduct(), baseUrl, "es");
 
@@ -93,6 +101,16 @@ describe("catálogo público conectado a Supabase", () => {
       ["NUEVO-1", true],
       ["NUEVO-2", true],
     ]);
+  });
+
+  it("toma la fecha más reciente entre producto, variantes y fotos", () => {
+    const row = commerceProduct({
+      created_at: "2026-10-01T10:00:00Z",
+      updated_at: "2026-10-02T10:00:00Z",
+      variants: [{ id: "v", sku: "123", name: "Natural", price_minor: 450000, currency: "UYU", active: true, updated_at: "2026-10-03T10:00:00Z" }],
+      images: [{ id: "i", storage_path: "products/test.webp", alt_text: "Test", sort_order: 0, mime_type: "image/webp", variant_id: null, created_at: "2026-10-04T10:00:00Z" }],
+    });
+    expect(storefrontProductFromRow(row, baseUrl, "es").lastModifiedAt).toBe(Date.parse("2026-10-04T10:00:00Z"));
   });
 
   it("usa Supabase como fuente del catálogo y excluye productos ausentes o de pruebas", () => {
@@ -165,6 +183,7 @@ describe("catálogo público conectado a Supabase", () => {
       editorial_slug: editorialProduct.slug,
       name: "Nombre del panel",
       category: "mates",
+      attributes: { tamano: "mediano", interior: "calabaza" },
     });
     const [product] = mergeStorefrontProducts([editorialProduct], [linked], baseUrl, "en");
 

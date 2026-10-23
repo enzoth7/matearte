@@ -39,29 +39,9 @@ Deno.serve(async (request) => {
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return json({ error: "JSON inválido." }, 400, origin); }
 
-  const { count: ownerCount } = await service.from("commerce_admin_users").select("user_id", { count: "exact", head: true }).eq("access_user_id", "t1").eq("active", true);
-  if (body.action === "status") return json({ needsSetup: !ownerCount }, 200, origin);
-  if (body.action === "bootstrap") {
-    if (ownerCount) return json({ error: "El acceso inicial ya fue configurado." }, 409, origin);
-    const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
-    const password = typeof body.password === "string" ? body.password : "";
-    if (!/^[a-z0-9._-]{3,64}$/.test(username)) return json({ error: "El usuario debe tener entre 3 y 64 caracteres válidos." }, 400, origin);
-    if (password.length < 8) return json({ error: "La contraseña debe tener al menos 8 caracteres." }, 400, origin);
-    const email = `${username}@matearte.uy`;
-    const { data: existing } = await service.from("commerce_admin_users").select("user_id").eq("active", true).order("created_at").limit(1).maybeSingle();
-    let ownerId = existing?.user_id as string | undefined;
-    if (ownerId) {
-      const { error } = await service.auth.admin.updateUserById(ownerId, { email, password, email_confirm: true });
-      if (error) return json({ error: error.message.includes("already") ? "Ese usuario ya está en uso." : "No se pudo configurar el acceso inicial." }, 400, origin);
-    } else {
-      const { data, error } = await service.auth.admin.createUser({ email, password, email_confirm: true });
-      if (error || !data.user) return json({ error: error?.message.includes("already") ? "Ese usuario ya está en uso." : "No se pudo crear el acceso inicial." }, 400, origin);
-      ownerId = data.user.id;
-    }
-    const { error } = await service.from("commerce_admin_users").upsert({ user_id: ownerId, access_user_id: "t1", display_name: "Richard Ortiz", active: true }, { onConflict: "user_id" });
-    if (error) return json({ error: "No se pudo asignar el acceso de administrador." }, 500, origin);
-    return json({ username }, 201, origin);
-  }
+  // Initial provisioning is permanently closed. Recovery requires a trusted operator.
+  if (body.action === "status") return json({ needsSetup: false }, 200, origin);
+  if (body.action === "bootstrap") return json({ error: "El acceso inicial está cerrado." }, 410, origin);
 
   const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: `Bearer ${bearer}` } }, auth: { persistSession: false } });
   const { data: { user } } = await userClient.auth.getUser(bearer);

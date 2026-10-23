@@ -84,6 +84,7 @@ export function Stats({
     value: string | number;
     note?: string;
     go?: () => void;
+    pressed?: boolean;
     tone?: SignalTone | "brown";
     solid?: boolean;
   }[];
@@ -95,7 +96,7 @@ export function Stats({
         const className = `stat ${i.tone ? `tone-${i.tone}` : ""} ${i.solid ? "solid" : ""}`;
         const content = <><div>{i.label}</div><strong>{i.value}</strong></>;
         return i.go ? (
-          <button className={className} key={i.label} onClick={i.go} title={i.note}>
+          <button className={className} key={i.label} onClick={i.go} title={i.note} aria-pressed={i.pressed}>
             {content}
           </button>
         ) : (

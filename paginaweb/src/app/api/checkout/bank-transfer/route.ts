@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { apiError, apiOk } from "@/lib/api";
-import { assertWebAvailableCart, readCart } from "@/lib/cart";
+import { assertValidCartSelections, assertWebAvailableCart, readCart } from "@/lib/cart";
 import { calculateDesignPriceMinor } from "@/lib/design-pricing";
 import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
 import { isWholesaleMateEligible, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
@@ -88,6 +88,7 @@ export async function POST(request: Request) {
     if (!shippingRate.is_pickup && (!uruguayDepartments.has(department) || !city || !address)) return apiError("Completá una dirección de entrega válida en Uruguay.");
     const cart = await readCart(admin, user.id);
     assertWebAvailableCart(cart);
+    await assertValidCartSelections(admin, cart);
     if (!cart.items.length) return apiError("El carrito está vacío.");
     const designIds = cart.items.filter((item) => item.item_type === "design").map((item) => item.design_id).filter(Boolean) as string[];
     const designPrices: Record<string, number> = {};

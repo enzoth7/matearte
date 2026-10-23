@@ -19,6 +19,7 @@ type OrderItem = {
   unit_price_minor: number;
   total_minor: number;
   image_url: string | null;
+  selection_label?: string | null;
 };
 type OrderValue = {
   id: string;
@@ -55,7 +56,7 @@ function snapshotText(snapshot: Snapshot, key: string) {
 function itemCopy(item: OrderItem, locale: Locale, labels: { custom: string; catalog: string; piece: string; units: (count: number) => string }) {
   const title = item.item_type === "design" ? item.title : localizeCatalogSnapshotTitle(item.title, locale);
   const [name, ...details] = title.split(" — ");
-  const baseSubtitle = details.join(" — ") || (item.item_type === "design" ? labels.custom : labels.catalog);
+  const baseSubtitle = item.selection_label || details.join(" — ") || (item.item_type === "design" ? labels.custom : labels.catalog);
   return {
     name: name || labels.piece,
     subtitle: item.quantity > 1 ? `${baseSubtitle} · ${labels.units(item.quantity)}` : baseSubtitle,

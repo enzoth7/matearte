@@ -61,26 +61,27 @@ describe("Atributo largo-cinto-cm en ProductDesktop y ProductMobile", () => {
       const product = { ...baseProduct, attributes: { "largo-cinto-cm": 110 } };
       renderComponent(<ProductDesktop product={product} />, "es");
       expect(screen.getByText("Largo del cinto:")).toBeInTheDocument();
-      expect(screen.getByText("110 cm")).toBeInTheDocument();
+      expect(screen.getAllByText("110 cm")).toHaveLength(2);
     });
 
     it("muestra Belt length en inglés correctamente", () => {
       const product = { ...baseProduct, attributes: { "largo-cinto-cm": 105 } };
       renderComponent(<ProductDesktop product={product} />, "en");
       expect(screen.getByText("Belt length:")).toBeInTheDocument();
-      expect(screen.getByText("105 cm")).toBeInTheDocument();
+      expect(screen.getAllByText("105 cm")).toHaveLength(2);
     });
 
     it("muestra Comprimento do cinto en portugués correctamente", () => {
       const product = { ...baseProduct, attributes: { "largo-cinto-cm": 120 } };
       renderComponent(<ProductDesktop product={product} />, "pt");
       expect(screen.getByText("Comprimento do cinto:")).toBeInTheDocument();
-      expect(screen.getByText("120 cm")).toBeInTheDocument();
+      expect(screen.getAllByText("120 cm")).toHaveLength(2);
     });
 
     it("no muestra párrafo de largo del cinto si no está definido", () => {
       renderComponent(<ProductDesktop product={baseProduct} />, "es");
-      expect(screen.queryByText(/largo del cinto|belt length|comprimento do cinto/i)).not.toBeInTheDocument();
+      expect(screen.queryByText("Largo del cinto:")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Agregar al carrito" })).toBeDisabled();
     });
   });
 
@@ -89,26 +90,27 @@ describe("Atributo largo-cinto-cm en ProductDesktop y ProductMobile", () => {
       const product = { ...baseProduct, attributes: { "largo-cinto-cm": 105 } };
       renderComponent(<ProductMobile product={product} />, "en");
       expect(screen.getByText("Belt length:")).toBeInTheDocument();
-      expect(screen.getByText("105 cm")).toBeInTheDocument();
+      expect(screen.getAllByText("105 cm")).toHaveLength(2);
     });
 
     it("muestra Comprimento do cinto en portugués correctamente", () => {
       const product = { ...baseProduct, attributes: { "largo-cinto-cm": 120 } };
       renderComponent(<ProductMobile product={product} />, "pt");
       expect(screen.getByText("Comprimento do cinto:")).toBeInTheDocument();
-      expect(screen.getByText("120 cm")).toBeInTheDocument();
+      expect(screen.getAllByText("120 cm")).toHaveLength(2);
     });
 
     it("muestra Largo del cinto en español correctamente", () => {
       const product = { ...baseProduct, attributes: { "largo-cinto-cm": 110 } };
       renderComponent(<ProductMobile product={product} />, "es");
       expect(screen.getByText("Largo del cinto:")).toBeInTheDocument();
-      expect(screen.getByText("110 cm")).toBeInTheDocument();
+      expect(screen.getAllByText("110 cm")).toHaveLength(2);
     });
 
     it("no muestra párrafo de largo del cinto si no está definido", () => {
       renderComponent(<ProductMobile product={baseProduct} />, "es");
-      expect(screen.queryByText(/largo del cinto|belt length|comprimento do cinto/i)).not.toBeInTheDocument();
+      expect(screen.queryByText("Largo del cinto:")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Agregar al carrito" })).toBeDisabled();
     });
   });
 });

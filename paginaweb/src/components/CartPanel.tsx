@@ -8,7 +8,7 @@ import { products } from "@/data/catalog";
 import { Link } from "@/i18n/navigation";
 import type { Locale, Product } from "@/types/catalog";
 import { localCartEntryKey, readLocalCart, removeLocalCartItem, updateLocalCartItemQuantity } from "@/lib/browser-cart";
-import { defaultCatalogTaxonomy, formatVariantLabel, normalizeCatalogValueMap, type CatalogValueMap } from "../../../shared/catalog-taxonomy";
+import { defaultCatalogTaxonomy, formatPurchaseSelectionLabel, normalizeCatalogValueMap, type CatalogValueMap } from "../../../shared/catalog-taxonomy";
 import { applyWholesaleMateDiscount, isWholesaleMateCategory, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
 
 type RemoteItem = {
@@ -112,8 +112,7 @@ function itemTitle(item: RemoteItem, localizedProducts: Product[], fallback: str
 function itemSubtitle(item: RemoteItem, customDesign: string, catalogPiece: string) {
   if (item.item_type === "design") return customDesign;
   const options = { ...normalizeCatalogValueMap(item.variant?.option_values), ...normalizeCatalogValueMap(item.option_values_override) };
-  const category = item.variant?.product.category_code || item.variant?.product.category || "";
-  const selection = formatVariantLabel(defaultCatalogTaxonomy, category, options);
+  const selection = formatPurchaseSelectionLabel(defaultCatalogTaxonomy, options);
   return selection === "Única" ? item.variant?.name || catalogPiece : selection;
 }
 
@@ -322,7 +321,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
         const variantImage = product.images.find(image => image.variantId === variantId);
         const generalImage = product.images.find(image => !image.variantId);
         const normalizedOptions = normalizeCatalogValueMap(optionValues);
-        const selectedLabel = formatVariantLabel(defaultCatalogTaxonomy, product.category, normalizedOptions);
+        const selectedLabel = formatPurchaseSelectionLabel(defaultCatalogTaxonomy, normalizedOptions);
         resolved.push({
           lineKey: localCartEntryKey(entry),
           title: localizedName,
@@ -402,7 +401,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
               ? supabase.storage.from("product-images").getPublicUrl(imagePath).data.publicUrl
               : (localImage || "/assets/matearte/profile-orders-desktop/catalog-fallback.png");
             const normalizedOptions = normalizeCatalogValueMap(optionValues);
-            const selectedLabel = formatVariantLabel(defaultCatalogTaxonomy, rawProduct?.category_code || rawProduct?.category || "", normalizedOptions);
+            const selectedLabel = formatPurchaseSelectionLabel(defaultCatalogTaxonomy, normalizedOptions);
 
             resolved.push({
               lineKey: localCartEntryKey(entry),

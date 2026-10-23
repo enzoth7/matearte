@@ -76,6 +76,19 @@ test('registrar venta escribe en las tablas compartidas sin duplicar el cobro', 
   await expect(page.getByText('local:sale-19')).toBeVisible();
 });
 
+test('la miniatura de la venta respeta el encuadre usado en catálogo', async ({ page }) => {
+  const { fixture } = await mockCommerce(page);
+  fixture.products[0].commerce_product_images.push({ id: 'image-sale-preview', storage_path: 'test.png', alt_text: 'Mate', sort_order: 0, variant_id: null, option_values: { cover_x: 8, cover_y: -12, cover_zoom: 1.4 } });
+  await page.goto('/comercial/registrar-min');
+  await page.getByLabel('Buscar producto').fill('SKU-1');
+  await page.getByRole('button', { name: /SKU-1 · Mate de catálogo/ }).click();
+  const salePhoto = page.getByRole('img', { name: 'Foto de Mate de catálogo' });
+  await expect(salePhoto).toBeVisible();
+  await expect(salePhoto).toHaveAttribute('style', /translate\(8%, -12%\) scale\(1\.4\)/);
+  const photoFrame = await salePhoto.locator('..').boundingBox();
+  expect(photoFrame && photoFrame.height > photoFrame.width).toBeTruthy();
+});
+
 test('un servicio de precio variable se cobra en el local con el importe acordado', async ({ page }) => {
   const { fixture, writes } = await mockCommerce(page, { writable: true });
   fixture.reference.categories.push({ code: 'servicios', label_es: 'Servicios', active: true });

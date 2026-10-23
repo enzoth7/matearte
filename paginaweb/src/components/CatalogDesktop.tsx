@@ -106,6 +106,7 @@ function CatalogDesktopCard({
               className={`catalog-product-image ${presentation?.imageClass ?? ""} ${emphasizeProductImage ? "catalog-product-image-estribo" : ""}`}
               style={coverStyle}
               priority={index < 3}
+              unoptimized={!isEditorialFallback && (variantImage ?? defaultImage)?.source === "supabase"}
             />
           ) : null}
         </div>
@@ -189,9 +190,11 @@ export function CatalogDesktop({ products, exchangeRates }: { products: Product[
           <span>{t("sortBy")}</span>
           <span className="catalog-sort-control">
             <select aria-label={t("sortLabel")} value={filters.sort} onChange={(event) => catalogFilters.setSort(event.target.value as CatalogSort)}>
-              <option value="nombre">{t("name")}</option>
-              <option value="precio">{t("price")}</option>
-              <option value="editorial">{t("featured")}</option>
+              <option value="nuevo">{t("newest")}</option>
+              <option value="precio-asc">{t("priceAsc")}</option>
+              <option value="precio-desc">{t("priceDesc")}</option>
+              <option value="nombre-asc">{t("nameAsc")}</option>
+              <option value="nombre-desc">{t("nameDesc")}</option>
             </select>
             <CaretDown size={10} weight="bold" aria-hidden="true" />
           </span>

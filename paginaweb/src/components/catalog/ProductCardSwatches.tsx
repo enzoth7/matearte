@@ -1,7 +1,7 @@
 "use client";
 
 import type { ProductVariant } from "@/types/catalog";
-import { getVariantColorHex } from "@/lib/catalog-filters";
+import { getVariantColorBackground } from "@/lib/catalog-filters";
 
 type Props = {
   variants: ProductVariant[];
@@ -35,7 +35,7 @@ export function ProductCardSwatches({
       }}
     >
       {variants.map((v) => {
-        const colorHex = getVariantColorHex(v);
+        const colorBackground = getVariantColorBackground(v);
         const isHighlighted = highlightedVariantId === v.id;
         return (
           <span
@@ -61,7 +61,7 @@ export function ProductCardSwatches({
               height: "0.875rem",
               width: "0.875rem",
               borderRadius: "50%",
-              backgroundColor: colorHex,
+              background: colorBackground,
               border: "1px solid rgba(0, 0, 0, 0.15)",
               boxShadow: isHighlighted
                 ? "0 0 0 2px #fff, 0 0 0 3.5px #2d1d16"

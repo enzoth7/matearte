@@ -10,9 +10,13 @@ import {
 } from "@/lib/storefront-catalog-core";
 import type { Locale } from "@/types/catalog";
 import { DEFAULT_WHOLESALE_DISCOUNT_SETTINGS, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
+import { defaultCatalogTaxonomy } from "../../../shared/catalog-taxonomy";
+import { loadPublicCatalogTaxonomy } from "@/lib/catalog-taxonomy-live";
 
 const storefrontSelection = `
   id,
+  created_at,
+  updated_at,
   editorial_slug,
   name,
   category,
@@ -24,6 +28,8 @@ const storefrontSelection = `
   catalog_filters,
   variants:commerce_variants(
     id,
+    created_at,
+    updated_at,
     sku,
     name,
     base_price_minor,
@@ -37,6 +43,8 @@ const storefrontSelection = `
   ),
   images:commerce_product_images(
     id,
+    created_at,
+    updated_at,
     storage_path,
     alt_text,
     sort_order,
@@ -47,9 +55,9 @@ const storefrontSelection = `
 `;
 
 const legacyStorefrontSelection = `
-  id, editorial_slug, name, category, description, sale_mode, published, catalog_filters,
-  variants:commerce_variants(id,sku,name,price_minor,currency,active,color),
-  images:commerce_product_images(id,storage_path,alt_text,sort_order,mime_type,variant_id)
+  id, created_at, updated_at, editorial_slug, name, category, description, sale_mode, published, catalog_filters,
+  variants:commerce_variants(id,created_at,updated_at,sku,name,price_minor,currency,active,color),
+  images:commerce_product_images(id,created_at,updated_at,storage_path,alt_text,sort_order,mime_type,variant_id)
 `;
 
 function missingStructuredCatalogColumn(error: { message?: string; code?: string } | null) {
@@ -75,11 +83,16 @@ export async function getStorefrontProducts(locale: Locale) {
         .order("name", { ascending: true }));
     }
     if (error) throw error;
+    const taxonomy = await loadPublicCatalogTaxonomy(client).catch(reason => {
+      console.error("[storefront-catalog] No se pudo cargar la taxonomía pública.", reason);
+      return defaultCatalogTaxonomy;
+    });
     return mergeStorefrontProducts(
       editorialProducts,
       (data ?? []) as unknown as StorefrontProductRow[],
       supabaseUrl(),
       locale,
+      taxonomy,
     );
   } catch (reason) {
     console.error("[storefront-catalog] No se pudo cargar el catálogo comercial.", reason);
@@ -108,8 +121,12 @@ export async function getStorefrontProduct(slug: string, locale: Locale) {
         .maybeSingle());
     }
     if (error) throw error;
+    const taxonomy = await loadPublicCatalogTaxonomy(client).catch(reason => {
+      console.error("[storefront-catalog] No se pudo cargar la taxonomía pública.", reason);
+      return defaultCatalogTaxonomy;
+    });
     return data
-      ? (() => { const product = storefrontProductFromRow(data as unknown as StorefrontProductRow, supabaseUrl(), locale, editorialProduct); return product.variants.length ? product : null; })()
+      ? (() => { const product = storefrontProductFromRow(data as unknown as StorefrontProductRow, supabaseUrl(), locale, editorialProduct, taxonomy); return product.variants.length ? product : null; })()
       : null;
   } catch (reason) {
     console.error(`[storefront-catalog] No se pudo cargar el producto ${slug}.`, reason);

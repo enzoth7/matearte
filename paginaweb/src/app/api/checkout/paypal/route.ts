@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { apiError, apiOk, readJson } from "@/lib/api";
-import { assertWebAvailableCart, readCart } from "@/lib/cart";
+import { assertValidCartSelections, assertWebAvailableCart, readCart } from "@/lib/cart";
 import { calculateDesignPriceMinor } from "@/lib/design-pricing";
 import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
 import { applyWholesaleMateDiscount, isWholesaleMateEligible, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
@@ -42,6 +42,7 @@ export async function POST(request: Request) {
     const admin = createAdminSupabase();
     const cart = await readCart(admin, user.id);
     assertWebAvailableCart(cart);
+    await assertValidCartSelections(admin, cart);
     if (!cart.items.length) return apiError("El carrito está vacío.");
 
     const designIds = cart.items
@@ -118,6 +119,9 @@ export async function POST(request: Request) {
       p_usd_rate: usdRate,
     });
     if (orderError || !result) throw new Error(orderError?.message || "No se pudo crear la solicitud internacional.");
+    if (["cancelled", "payment_failed"].includes(result.status)) {
+      return apiError("La reserva venció. Iniciá nuevamente la compra.", 409, { reason: "paypal_reservation_expired" });
+    }
     const authoritativeTotalMinor = Number(result.totalMinor);
     const authoritativeShippingMinor = Number(result.shippingMinor);
     if (!Number.isSafeInteger(authoritativeTotalMinor) || !Number.isSafeInteger(authoritativeShippingMinor)) {

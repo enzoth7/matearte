@@ -3,6 +3,9 @@ import * as flags from "country-flag-icons/react/3x2";
 import { commerceSource } from "./commerceSource";
 import { customerOriginClass, customerOriginLabel, customerOriginOptions, customerOriginValue } from "./customerChannel";
 import { formatDate } from "./dateFormat";
+import { CustomerDetailModal } from "./pages";
+import type { CommerceSnapshot } from "./commerceAdapter";
+import type { Customer, State } from "./data";
 
 type Contact = { id: string; name: string | null; email: string | null; phone: string | null; source: string; created_at: string; has_account: boolean; subscription_status: string };
 type ContactSummary = { total: number; origins: { source: string; contacts: number }[] };
@@ -26,7 +29,7 @@ const date = (value: string | null) => formatDate(value);
 const sourceName = customerOriginLabel;
 const originBadgeClass = customerOriginClass;
 
-function Contacts() {
+function Contacts({ s, go, commerce }: { s: State; go: (path: string) => void; commerce?: CommerceSnapshot | null }) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [count, setCount] = useState(0);
   const [summary, setSummary] = useState<ContactSummary | null>(null);
@@ -36,6 +39,19 @@ function Contacts() {
   const [applied, setApplied] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const selectedCustomer = useMemo((): Customer | null => {
+    if (!selectedContact) return null;
+    const email = selectedContact.email?.trim().toLowerCase();
+    const phone = selectedContact.phone?.replace(/[^0-9]/g, "");
+    const match = s.customers.find((entry) => email
+      ? entry.email.trim().toLowerCase() === email
+      : phone && entry.phone.replace(/[^0-9]/g, "") === phone);
+    return match || {
+      id: selectedContact.id, name: selectedContact.name || selectedContact.email || "Contacto sin nombre",
+      email: selectedContact.email || "", phone: selectedContact.phone || "", city: "", segment: "Minorista",
+    };
+  }, [s.customers, selectedContact]);
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -65,12 +81,13 @@ function Contacts() {
     {loading ? <p role="status">Cargando contactos…</p> : <>
       {(applied || sourceFilter) && <p className="marketing-directory-count">{count.toLocaleString("es-UY")} {count === 1 ? "resultado" : "resultados"}</p>}
       <div className="table-wrap"><table className="data-table marketing-directory-table"><thead><tr><th>Cliente</th><th>Mail</th><th>Celular</th><th>Origen</th><th>Suscripción</th><th>Cuenta</th><th>Alta</th></tr></thead><tbody>
-        {contacts.map((contact) => <tr key={contact.id}><td className="marketing-directory-name">{contact.name || "—"}</td><td>{contact.email ? <a href={`mailto:${contact.email}`}>{contact.email}</a> : "—"}</td><td>{contact.phone ? <a href={`tel:${contact.phone.replace(/[^\d+]/g, "")}`}>{contact.phone}</a> : "—"}</td><td><div className={`badge ${originBadgeClass(contact.source)}`}>{sourceName(contact.source)}</div></td><td><span className={`marketing-status marketing-status-${contact.subscription_status === "active" ? "active" : contact.subscription_status === "pending" ? "pending" : "neutral"}`}>{contact.subscription_status === "active" ? "Activa" : contact.subscription_status === "pending" ? "Pendiente" : contact.subscription_status === "none" ? "Sin suscripción" : "Baja"}</span></td><td>{contact.has_account ? "Registrada" : "—"}</td><td>{date(contact.created_at)}</td></tr>)}
+        {contacts.map((contact) => <tr key={contact.id}><td className="marketing-directory-name"><button type="button" className="text-button" aria-label={`Ver ficha de ${contact.name || contact.email || "contacto"}`} onClick={() => setSelectedContact(contact)}>{contact.name || contact.email || "Contacto sin nombre"}</button></td><td>{contact.email ? <a href={`mailto:${contact.email}`}>{contact.email}</a> : "—"}</td><td>{contact.phone ? <a href={`tel:${contact.phone.replace(/[^\d+]/g, "")}`}>{contact.phone}</a> : "—"}</td><td><div className={`badge ${originBadgeClass(contact.source)}`}>{sourceName(contact.source)}</div></td><td><span className={`marketing-status marketing-status-${contact.subscription_status === "active" ? "active" : contact.subscription_status === "pending" ? "pending" : "neutral"}`}>{contact.subscription_status === "active" ? "Activa" : contact.subscription_status === "pending" ? "Pendiente" : contact.subscription_status === "none" ? "Sin suscripción" : "Baja"}</span></td><td>{contact.has_account ? "Registrada" : "—"}</td><td>{date(contact.created_at)}</td></tr>)}
       </tbody></table></div>
       {!contacts.length && <p className="marketing-directory-empty">No hay contactos con este filtro.</p>}
       <div className="marketing-directory-pagination"><button className="secondary" disabled={page === 0} onClick={() => setPage((value) => value - 1)}>Anterior</button><span>Página {page + 1} de {Math.max(1, Math.ceil(count / 50))}</span><button className="secondary" disabled={(page + 1) * 50 >= count} onClick={() => setPage((value) => value + 1)}>Siguiente</button></div>
     </>}
     </section>
+    {selectedCustomer && <CustomerDetailModal customer={selectedCustomer} s={s} go={go} commerce={commerce} onClose={() => setSelectedContact(null)} />}
   </div>;
 }
 
@@ -404,8 +421,8 @@ function Analytics() {
   </div>;
 }
 
-export function MarketingSection({ page, notify }: { page: string; notify: (message: string) => void }) {
-  if (page === "contactos") return <Contacts />;
+export function MarketingSection({ page, notify, s, go, commerce }: { page: string; notify: (message: string) => void; s: State; go: (path: string) => void; commerce?: CommerceSnapshot | null }) {
+  if (page === "contactos") return <Contacts s={s} go={go} commerce={commerce} />;
   if (page === "analytics") return <Analytics />;
   if (page === "suscripcion") return <Subscription notify={notify} />;
   return <Campaigns notify={notify} />;

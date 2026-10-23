@@ -8,6 +8,7 @@ import {
   productTypeOptions,
   priceRangeOptions,
   getProductColors,
+  getColorSwatchBackground,
   type CatalogFilters,
   type PriceRangeId,
 } from "@/lib/catalog-filters";
@@ -301,13 +302,13 @@ export function CatalogFilterControls({
       <fieldset className={`${groupClass} catalog-color-filter`} aria-describedby={availableColors.size === 0 ? `${idPrefix}-color-note` : undefined}>
         <legend>{t("color")}</legend>
         <div className={listClass}>
-          {colorOptions.map((option) => {
+          {colorOptions.filter((option) => !option.showWhenAvailable || availableColors.has(option.value)).map((option) => {
             const available = availableColors.has(option.value);
             return (
               <label key={option.value} className={`${rowClass}${available ? "" : " is-disabled"}`}>
                 <input type="checkbox" disabled={!available} checked={filters.colors.includes(option.value)} onChange={() => onColorToggle(option.value)} />
                 <span className={mobile ? "catalog-mobile-checkbox" : "catalog-checkbox"} aria-hidden="true" />
-                <span className="catalog-color-swatch" style={{ backgroundColor: option.color }} aria-hidden="true" />
+                <span className="catalog-color-swatch" style={{ background: getColorSwatchBackground(option.value) }} aria-hidden="true" />
                 <span>{getColorLabel(option.labelKey, option.value)}</span>
               </label>
             );
