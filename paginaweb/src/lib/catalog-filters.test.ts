@@ -240,6 +240,17 @@ describe("filtros del catálogo", () => {
     expect(findMatchingVariantForColors(mate, ["negro-blanco"])?.id).toBe("negro-blanco");
   });
 
+  it("distingue Chocolate de Marrón al reconocer y filtrar variantes", () => {
+    const mate: Product = product("mate-chocolate", 4500).product;
+    mate.variants = [{ id: "chocolate", label: "Chocolate", value: "Chocolate", color: "chocolate", available: true }];
+    expect(getVariantColorId("Chocolate")).toBe("chocolate");
+    expect(matchVariantWithColor("Chocolate", "marron")).toBe(false);
+    expect(matchVariantWithColor("Chocolate", "chocolate")).toBe(true);
+    expect(getColorSwatchBackground("chocolate")).toBe("#4b2e24");
+    expect(filterAndSortCatalog([{ product: mate }], { ...defaults, colors: ["chocolate"] })).toHaveLength(1);
+    expect(filterAndSortCatalog([{ product: mate }], { ...defaults, colors: ["marron"] })).toHaveLength(0);
+  });
+
   it("prioriza el campo color explícito de las variantes", () => {
     const p: Product = {
       ...product("mate-imperial-especial", 5000).product,

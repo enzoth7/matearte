@@ -66,6 +66,7 @@ export const colorOptions: ReadonlyArray<CatalogColorOption> = [
   { value: "beige", labelKey: "beige", color: "#dfd1b8" },
   { value: "metalico", labelKey: "metallic", color: "#9b9b95" },
   { value: "marron-claro", labelKey: "lightBrown", color: "#a67b5b", showWhenAvailable: true },
+  { value: "chocolate", labelKey: "chocolate", color: "#4b2e24", showWhenAvailable: true },
   { value: "negro-dorado", labelKey: "blackGold", color: "#241d1a", secondaryColor: "#c9a859", showWhenAvailable: true },
   { value: "marron-dorado", labelKey: "brownGold", color: "#6c4530", secondaryColor: "#c9a859", showWhenAvailable: true },
   { value: "blanco-plateado", labelKey: "whiteSilver", color: "#f5f5f5", secondaryColor: "#9b9b95", showWhenAvailable: true },
@@ -171,7 +172,9 @@ export function matchVariantWithColor(variantLabel: string, color: CatalogColorI
     case "negro":
       return norm.includes("negr") || norm.includes("black");
     case "marron":
-      return norm.includes("marr") || norm.includes("brown") || norm.includes("suela") || norm.includes("chocolate") || norm.includes("cafe");
+      return norm.includes("marr") || norm.includes("brown") || norm.includes("suela") || norm.includes("cafe");
+    case "chocolate":
+      return norm.includes("chocolate");
     case "natural":
       return norm.includes("natural");
     case "cuero-crudo":
@@ -217,8 +220,9 @@ export function getVariantColorId(
   const norm = variantOrLabel.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const directCode = norm.trim().replace(/[\s/]+/g, "-");
   if (colorIds.has(directCode)) return directCode as CatalogColorId;
+  if (norm.includes("chocolate")) return "chocolate";
   if (norm.includes("negr") || norm.includes("black")) return "negro";
-  if (norm.includes("marr") || norm.includes("brown") || norm.includes("suela") || norm.includes("chocolate") || norm.includes("cafe")) return "marron";
+  if (norm.includes("marr") || norm.includes("brown") || norm.includes("suela") || norm.includes("cafe")) return "marron";
   if (norm.includes("crudo") || norm.includes("raw")) return "cuero-crudo";
   if (norm.includes("natural")) return "natural";
   if (norm.includes("roj") || norm.includes("red") || norm.includes("bordo")) return "rojo";
