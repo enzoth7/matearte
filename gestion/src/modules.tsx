@@ -92,7 +92,7 @@ export function Products({ s, mode, notify, refresh, commerce }: PageProps & { m
     ]} />}
     <div className={`toolbar ${selectedId ? "catalog-toolbar-open" : ""}`}>
       {!selectedId && <div className="table-actions"><button className="primary" onClick={() => selectProduct("new")}>Nuevo producto</button></div>}
-      <div className="table-actions">
+      <div className="table-actions catalog-filter-actions">
         <label className="inline-label">Familia<select value={filter} onChange={(e) => setFilter(e.target.value)}>{["Todos", ...new Set(sectionProducts.map((p) => p.family))].map((family) => <option key={family}>{family}</option>)}</select></label>
         <label className="inline-label">Estado<select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as CatalogStatusFilter)}>{catalogStatusOptions.map((option) => <option key={option}>{option}</option>)}</select></label>
         <label className="inline-label">Imagen<select value={imageFilter} onChange={(e) => setImageFilter(e.target.value as CatalogImageFilter)}>{catalogImageOptions.map((option) => <option key={option}>{option}</option>)}</select></label>
