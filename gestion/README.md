@@ -2,7 +2,7 @@
 
 ## Consultas desde ChatGPT
 
-Gestión incluye un servidor MCP de consultas con autenticación de propietario y fuentes comerciales paginadas. La implementación y los pasos de conexión están en [MCP de solo lectura](docs/mcp-solo-lectura.md). El complemento de prueba se creó en la cuenta Free de Enzo Gaston; falta completar OAuth y probar una consulta antes de conectar la cuenta de ChatGPT de Richard.
+Gestión incluye un servidor MCP de consultas con autenticación de propietario y fuentes comerciales paginadas. La implementación y los pasos de conexión están en [MCP de solo lectura](docs/mcp-solo-lectura.md). El usuario confirmó que el complemento funciona en la cuenta Free de prueba. Falta configurar y probar la cuenta de ChatGPT de Richard.
 
 Gestión integra Commerce Admin y LocalVentas en las pantallas existentes. No hay un panel paralelo ni datos ficticios en la aplicación. Las 42 subáreas conservan su navegación y diseño; las fuentes aún no conectadas muestran ausencia de datos.
 
