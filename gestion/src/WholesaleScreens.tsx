@@ -48,7 +48,7 @@ export function WholesaleSummary({ props }: { props: PageProps }) {
 
   return <section className="wholesale-summary" aria-labelledby="wholesale-summary-title">
     <div className="wholesale-summary-heading">
-      <div><h2 id="wholesale-summary-title">Resumen mayorista</h2><p>Estado actual de la carga compartida con el dashboard de producción.</p></div>
+      <div><h2 id="wholesale-summary-title">Resumen mayorista</h2><p>Estado actual de los pedidos y la producción mayorista.</p></div>
       <div className="wholesale-summary-values" aria-label="Valores activos mayoristas">
         <div><small>Valor activo UYU</small><strong>{money(summary.activeValueUyu)}</strong></div>
         <div><small>Valor activo ARS</small><strong>{formatArg(summary.activeValueArg)}</strong></div>

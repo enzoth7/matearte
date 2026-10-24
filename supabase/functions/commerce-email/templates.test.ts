@@ -101,7 +101,7 @@ test("every email button points to its verified destination", () => {
     null,
     "https://admin.example/orders",
   );
-  assert.match(admin.html, /href="https:\/\/admin\.example\/orders"/);
+  assert.match(admin.html, /href="https:\/\/admin\.example\/orders\?pedido=00000000-0000-0000-0000-000000000001"/);
 });
 
 test("every supported commerce event renders an email", () => {

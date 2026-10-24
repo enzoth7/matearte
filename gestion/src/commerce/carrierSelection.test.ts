@@ -83,7 +83,7 @@ describe('getStoreApiUrl', () => {
   it('devuelve https://www.matearteuruguay.com como fallback en producción/Vercel', () => {
     vi.stubEnv('VITE_STORE_API_URL', '');
     (globalThis as unknown as { window: unknown }).window = {
-      location: { hostname: 'matearte-commerce-admin.vercel.app' },
+      location: { hostname: 'matearte-gestion.vercel.app' },
     };
     expect(getStoreApiUrl()).toBe('https://www.matearteuruguay.com');
   });

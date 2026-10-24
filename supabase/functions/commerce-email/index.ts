@@ -44,7 +44,7 @@ Deno.serve(async (request) => {
   const emailFrom = Deno.env.get("COMMERCE_EMAIL_FROM")?.trim() || config.matearte_email_from;
   const replyTo = Deno.env.get("COMMERCE_EMAIL_REPLY_TO")?.trim() || config.matearte_email_reply_to;
   const adminEmails = (Deno.env.get("COMMERCE_ADMIN_EMAIL") || config.matearte_admin_email || "").split(",").map((value) => value.trim()).filter(Boolean);
-  const commerceAdminUrl = (Deno.env.get("COMMERCE_ADMIN_URL") || "https://matearte-commerce-admin.vercel.app/orders").trim();
+  const gestionOrdersUrl = "https://matearte-gestion.vercel.app/comercial/pedidos";
   const siteUrl = (Deno.env.get("MATEARTE_SITE_URL") || config.matearte_site_url || "https://www.matearteuruguay.com").trim();
   const missing = [
     !resendApiKey && "RESEND_API_KEY",
@@ -89,7 +89,7 @@ Deno.serve(async (request) => {
         (order.order_items || []) as EmailOrderItem[],
         siteUrl,
         orderAccessToken,
-        commerceAdminUrl,
+        gestionOrdersUrl,
       );
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",

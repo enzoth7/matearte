@@ -29,7 +29,7 @@ En Supabase Edge Functions configurar para el correo transaccional:
 - `RESEND_API_KEY`, creada en Resend y nunca expuesta al navegador
 - `COMMERCE_EMAIL_FROM`, con formato `MateArte <pedidos@dominio-verificado>`
 - `COMMERCE_ADMIN_EMAIL`, uno o más destinatarios internos separados por coma
-- `COMMERCE_ADMIN_URL=https://matearte-commerce-admin.vercel.app/orders`, destino del botón administrativo
+- Los correos administrativos enlazan a `https://matearte-gestion.vercel.app/comercial/pedidos`.
 - `MATEARTE_SITE_URL=https://matearte.vercel.app`
 
 La función `commerce-email` procesa la cola privada `commerce_email_outbox`. Los triggers en `orders` agregan eventos idempotentes y el backend intenta enviarlos después de crear el pedido, confirmar el webhook o revisar un personalizado. Si Resend no está configurado o está temporalmente caído, el pedido continúa y el correo permanece en la cola para reintento.

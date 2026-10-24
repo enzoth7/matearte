@@ -5,7 +5,7 @@ Sitio público, catálogo y comercio de MateArte, construido con Next.js, TypeSc
 ## Funciones
 
 - Portada editorial y contenido en español, inglés y portugués.
-- Catálogo comercial conectado con los productos publicados desde `commerce-admin`.
+- Catálogo comercial conectado con los productos publicados desde Gestión.
 - Fichas de producto con imágenes, variantes y precios en UYU.
 - Registro, login con Google, perfil y consulta de pedidos mediante Supabase Auth.
 - Carrito combinado de productos estándar y diseños personalizados.
@@ -38,7 +38,7 @@ El backend recalcula productos y diseños; no confía en importes enviados por e
 
 Los pedidos internacionales se crean con estado de revisión manual y abren WhatsApp con número de pedido, destino, artículos y subtotal. No generan una preferencia de Mercado Pago.
 
-Los pedidos personalizados guardan un snapshot inmutable con las vistas PNG y los originales activos utilizados al comprar. `commerce-admin` crea enlaces firmados temporales para consultarlos o descargarlos.
+Los pedidos personalizados guardan un snapshot inmutable con las vistas PNG y los originales activos utilizados al comprar. Gestión permite consultar las vistas y los originales mediante enlaces firmados temporales.
 
 La disponibilidad comercial depende de `NEXT_PUBLIC_COMMERCE_ENABLED`, `NEXT_PUBLIC_COMMERCE_PROVIDER` y los controles de `commerce_settings` en Supabase.
 
@@ -59,7 +59,6 @@ Variables exclusivas del backend:
 - `MERCADO_PAGO_ACCESS_TOKEN`.
 - `MERCADO_PAGO_WEBHOOK_SECRET`.
 - `MERCADO_PAGO_ENV`.
-- `COMMERCE_ADMIN_URL`.
 - `CRON_SECRET`.
 - `MATEARTE_WHATSAPP_NUMBER`.
 

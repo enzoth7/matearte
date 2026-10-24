@@ -32,7 +32,7 @@ Los modelos sin fleje generan solamente mate y virola. Cada archivo debe ser vá
 
 Registro, login, recuperación y biblioteca de diseños usan Supabase Auth. Las acciones que guardan o compran exigen una cuenta y, cuando corresponde, un perfil completo.
 
-`/dashboard` dentro del visualizador es el panel de precios del personalizador. Usa Supabase Auth y exige una membresía en `admin_users`. No es el mismo sistema que `matearte-dashboard.vercel.app`, que administra operaciones y producción.
+`/dashboard` dentro del visualizador es el panel de precios del personalizador. Usa Supabase Auth y exige una membresía en `admin_users`. Gestión es el panel para ventas, pedidos y producción.
 
 Para provisionar o rotar el administrador de precios:
 

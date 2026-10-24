@@ -2,7 +2,6 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.112.4";
 
 const allowedOrigins = new Set([
-  "https://matearte-commerce-admin.vercel.app",
   "https://matearte-gestion.vercel.app",
   "http://127.0.0.1:5180",
   "http://127.0.0.1:5181",

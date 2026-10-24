@@ -2,6 +2,8 @@
 
 Gestión integra Commerce Admin y LocalVentas en las pantallas existentes. No hay un panel paralelo ni datos ficticios en la aplicación. Las 42 subáreas conservan su navegación y diseño; las fuentes aún no conectadas muestran ausencia de datos.
 
+**Estado operativo (24/10/2026):** Gestión es el único panel administrativo en uso. `dashboard/`, `localventas/` y `commerce-admin/` se conservan como código e historial; sus proyectos de Vercel están pausados y desconectados de Git. Las notas de convivencia y migración más abajo documentan el proceso anterior, no el modo de operación actual.
+
 ## Ejecutar
 
 Desde `gestion/`:
@@ -40,7 +42,7 @@ Las ventas del local reutilizan los precios base del catálogo común, los méto
 
 La migración `20261014035344_local_customer_location_social_channels.sql` añadió ciudad y país a los clientes del local. Completó Paysandú, Uruguay para los nueve clientes con ventas locales recientes y ubicación vacía, sin cambiar los pedidos. Para ventas de redes creó `create_channel_sale_with_items`; la función original de LocalVentas sigue vigente.
 
-Para revisión de comprobantes y rechazo/reembolso, ejecutar también `paginaweb` en localhost:3000: Gestión reutiliza sus servicios autenticados mediante el proxy local `/commerce-api/api/admin/orders/`. En producción será necesario configurar el dominio de Gestión en el servicio o un proxy equivalente; no se realizó despliegue.
+Para revisión de comprobantes y rechazo/reembolso en desarrollo, ejecutar también `paginaweb` en localhost:3000: Gestión reutiliza sus servicios autenticados mediante el proxy local `/commerce-api/api/admin/orders/`. En producción, la web admite las llamadas autenticadas desde el origen de Gestión.
 
 Inventario, compras, egresos, horas, personalizador, consultas y automatizaciones no tienen fuente conectada todavía. No se muestra stock cero, gastos cero, rentabilidad ni saldo bancario como si fueran datos confirmados. Las proyecciones no rellenan el historial faltante: requieren al menos seis meses con registros en el último año; los pedidos cancelados, fallidos, reembolsados o pendientes de pago no cuentan como ventas.
 
