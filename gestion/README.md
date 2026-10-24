@@ -66,3 +66,7 @@ Las pruebas unitarias comprueban adaptación multiartículo, importes en centés
 - `src/CommerceShipping.tsx`: contenido de la ruta existente Entregas → Tarifas.
 - `src/commerce/`: editores y acciones trasladados, adaptados al diseño y las rutas actuales.
 - `src/testing/`: datos aislados para pruebas; no se importan en la aplicación.
+
+## Publicación
+
+Los cambios se publican subiéndolos a la rama `main` de GitHub: Vercel construye este proyecto desde el repositorio (Root Directory `gestion`). No se publica con `vercel deploy` desde una carpeta local. El build se omite cuando el último commit no toca `gestion/` ni `shared/`.

@@ -44,3 +44,7 @@ Los proyectos activos de Vercel usan estos Root Directory:
 3. `gestion`
 
 La configuración de Supabase, Mercado Pago, correo y activación comercial está documentada en [COMMERCE_RUNBOOK.md](COMMERCE_RUNBOOK.md). Nunca deben exponerse `service_role`, secretos de webhooks ni credenciales de Mercado Pago mediante variables `VITE_` o `NEXT_PUBLIC_`.
+
+## Publicación
+
+Todo cambio se sube a GitHub (rama `main`) y Vercel publica desde ahí; no se despliega directo con la CLI. Antes de subir código que dependa de una migración de Supabase o de una variable de entorno, hay que aplicarla primero. Las funciones de `supabase/functions` se publican aparte.

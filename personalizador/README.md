@@ -65,3 +65,7 @@ npm run build
 ```
 
 El servidor local usa `http://localhost:5173`.
+
+## Publicación
+
+Los cambios se publican subiéndolos a la rama `main` de GitHub: Vercel construye este proyecto desde el repositorio (Root Directory `personalizador`, dominio <https://personalizador.matearteuruguay.com>). No se publica con `vercel deploy` desde una carpeta local. El build se omite cuando el último commit no toca `personalizador/`.
