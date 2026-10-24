@@ -185,7 +185,10 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       if (lead.origin_channel === "Suscripción con desc." && existing.originChannel === "Web") {
         existing.originChannel = lead.origin_channel;
       }
-      existing.name ||= formatContactName(lead.full_name || "") || email;
+      const leadName = formatContactName(lead.full_name || "");
+      if (leadName && leadName.toLowerCase() !== email && (!existing.name || existing.name.trim().toLowerCase() === email || existing.name === "Cliente sin nombre")) {
+        existing.name = leadName;
+      }
       existing.phone ||= lead.phone || "";
       existing.city ||= lead.city || "";
       existing.country ||= countryName(lead.country_code || "");

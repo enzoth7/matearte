@@ -178,6 +178,21 @@ test("una cuenta Web sin pedidos aparece en Clientes y permite editar su ficha",
   await page.getByRole("dialog").getByRole("button", { name: "Guardar contacto" }).click();
   await expect.poll(() => tables.web_leads[0].full_name).toBe("Ana Pérez");
 });
+
+test("Clientes muestra el nombre de Suscripciones si la cuenta Web no tenía nombre", async ({ page }) => {
+  const { tables } = await mockCommerce(page);
+  tables.web_leads.push(
+    { source_kind: "account", source_id: "00000000-0000-4000-8000-000000000013", full_name: null, email: "persona@example.com", phone: null, city: null, country_code: null, birth_date: null, company: null, origin_channel: "Web", customer_type: "Minorista", created_at: "2026-10-10T12:00:00Z" },
+    { source_kind: "newsletter", source_id: "00000000-0000-4000-8000-000000000014", full_name: "Nombre Apellido", email: "persona@example.com", phone: null, city: null, country_code: null, birth_date: null, company: null, origin_channel: "Suscripción con desc.", customer_type: "Minorista", created_at: "2026-10-10T12:00:01Z" },
+  );
+  await page.goto("/clientes/base");
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    const row = page.locator(".customers-table tbody tr").filter({ hasText: "persona@example.com" });
+    await expect(row.getByRole("button", { name: "Ver ficha de Nombre Apellido" })).toBeVisible();
+    await expect(row).toContainText("Suscripción con desc.");
+  }
+});
 test("una cuenta Web y un suscriptor sin compras se pueden borrar desde Clientes", async ({ page }) => {
   const { tables, writes } = await mockCommerce(page, { writable: true });
   tables.web_leads.push(

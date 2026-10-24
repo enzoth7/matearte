@@ -46,12 +46,24 @@ describe("integración de commerce en el estado compartido", () => {
     const fixture = commerceFixture();
     fixture.orders = [];
     fixture.webLeads = [
-      { source_kind: "account", source_id: "user-1", full_name: "Ana", email: "ana@example.com", phone: null, city: null, country_code: null, birth_date: null, company: null, origin_channel: "Web", customer_type: "Minorista", created_at: "2026-10-01T12:00:00Z" },
+      { source_kind: "account", source_id: "user-1", full_name: "Ana Pérez", email: "ana@example.com", phone: null, city: null, country_code: null, birth_date: null, company: null, origin_channel: "Web", customer_type: "Minorista", created_at: "2026-10-01T12:00:00Z" },
       { source_kind: "newsletter", source_id: "lead-1", full_name: "Ana", email: "ana@example.com", phone: null, city: null, country_code: null, birth_date: null, company: null, origin_channel: "Suscripción con desc.", customer_type: "Minorista", created_at: "2026-10-02T12:00:00Z" },
     ];
     const state = adaptCommerce(fixture);
     expect(state.customers).toHaveLength(1);
     expect(state.customers[0].originChannel).toBe("Suscripción con desc.");
+    expect(state.customers[0].name).toBe("Ana Pérez");
+  });
+  it("usa el nombre de la suscripción si la cuenta web solo tenía el correo", () => {
+    const fixture = commerceFixture();
+    fixture.orders = [];
+    fixture.webLeads = [
+      { source_kind: "account", source_id: "user-1", full_name: null, email: "persona@example.com", phone: null, city: null, country_code: null, birth_date: null, company: null, origin_channel: "Web", customer_type: "Minorista", created_at: "2026-10-24T00:47:01Z" },
+      { source_kind: "newsletter", source_id: "lead-1", full_name: "Nombre Apellido", email: "persona@example.com", phone: null, city: null, country_code: null, birth_date: null, company: null, origin_channel: "Suscripción con desc.", customer_type: "Minorista", created_at: "2026-10-24T00:47:02Z" },
+    ];
+    const state = adaptCommerce(fixture);
+    expect(state.customers).toHaveLength(1);
+    expect(state.customers[0]).toMatchObject({ name: "Nombre Apellido", email: "persona@example.com", originChannel: "Suscripción con desc." });
   });
   it("mantiene Agenda como primer origen cuando el contacto compra después", () => {
     const fixture = commerceFixture();
