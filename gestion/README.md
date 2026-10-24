@@ -1,5 +1,9 @@
 # MateArte Gestión
 
+## Consultas desde ChatGPT
+
+Gestión incluye un servidor MCP de consultas con autenticación de propietario y fuentes comerciales paginadas. La implementación y los pasos de conexión están en [MCP de solo lectura](docs/mcp-solo-lectura.md). El complemento de prueba se creó en la cuenta Free de Enzo Gaston; falta completar OAuth y probar una consulta antes de conectar la cuenta de ChatGPT de Richard.
+
 Gestión integra Commerce Admin y LocalVentas en las pantallas existentes. No hay un panel paralelo ni datos ficticios en la aplicación. Las 42 subáreas conservan su navegación y diseño; las fuentes aún no conectadas muestran ausencia de datos.
 
 **Estado operativo (24/10/2026):** Gestión es el único panel administrativo en uso. `dashboard/`, `localventas/` y `commerce-admin/` se conservan como código e historial; sus proyectos de Vercel están pausados y desconectados de Git. Las notas de convivencia y migración más abajo documentan el proceso anterior, no el modo de operación actual.

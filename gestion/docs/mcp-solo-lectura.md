@@ -1,0 +1,36 @@
+# Consultas de Gestión desde ChatGPT
+
+El servidor MCP de Gestión está en `supabase/functions/gestion-mcp/`. Su URL es:
+
+`https://agdkljuulwjwjasftcce.supabase.co/functions/v1/gestion-mcp`
+
+Ofrece herramientas para identificar la cuenta, enumerar fuentes y consultar registros comerciales, clientes, productos, producción, entregas, finanzas y Marketing. Las listas tienen paginación y límites. Los importes cuyo nombre termina en `_minor` están en centésimos. Las páginas de Gestión que todavía no tienen una fuente conectada tampoco tienen datos reales para consultar en el MCP.
+
+**Estado (24/10/2026):** la función está publicada en Supabase. Responde `401` sin sesión y anuncia correctamente sus metadatos OAuth. La pantalla de consentimiento está publicada en `https://matearte-gestion.vercel.app/oauth/consent`. Supabase dirige la autorización a `https://www.matearteuruguay.com/oauth/consent`; esa ruta redirige a Gestión conservando `authorization_id`. Se registró un cliente OAuth público y se creó el complemento en la cuenta Free de Enzo Gaston. Una publicación posterior de Gestión había omitido la pantalla de consentimiento y produjo «Página no encontrada» durante la autorización; se reincorporó a la versión de producción y se verificó que el paquete público contiene la ruta. Falta completar el consentimiento y probar una consulta autenticada desde ChatGPT. Después se registrará por separado la cuenta de Richard.
+
+## Acceso y alcance
+
+- Cada petición exige un token de Supabase Auth. El servidor comprueba que corresponda a una cuenta activa de Gestión con perfil propietario (`t1`) y consulta con las políticas RLS de esa misma cuenta.
+- Las herramientas solo contienen operaciones de lectura; no exponen SQL arbitrario, funciones de escritura ni claves de servicio. La función `marketing-workspace` se invoca únicamente con sus acciones de lectura permitidas.
+- Esto describe el alcance del **MCP**. Una sesión OAuth de Supabase conserva los permisos propios de la cuenta fuera del MCP; el consentimiento debe tratarse como acceso a esa cuenta. Revocar la autorización OAuth corta nuevas llamadas.
+- Un `401` anónimo debe incluir `WWW-Authenticate` con la URL de metadatos OAuth. La ruta `/oauth-protected-resource` debe responder con la URL de Supabase Auth. El servidor no devuelve datos sin iniciar sesión.
+
+## Conexión con una cuenta compatible
+
+1. El **Site URL** de Supabase dirige la autorización a la tienda. `paginaweb/src/app/oauth/consent/route.ts` redirige a la pantalla de Gestión, conservando `authorization_id`; mantener esta ruta pública y fuera del middleware de idioma. No cambiar el Site URL de Auth para este MCP.
+2. En la **cuenta Free de prueba elegida por el usuario**, abrir **Complementos → Añadir → Añadir servidor MCP personalizado**, indicar la URL anterior y elegir OAuth. Abrir **Ajustes avanzados de OAuth** y copiar la **URL de devolución de llamada** que muestre esa cuenta. No utilizar una URL copiada desde otro perfil de Chrome o cuenta de ChatGPT.
+3. Registrar en Supabase un cliente OAuth específico para esa cuenta de ChatGPT con la URL de devolución de llamada exacta. Para la prueba Free de Enzo Gaston ya se registró un cliente público con ID `2f985e64-d473-4e8a-9c0a-ce9c767c4af0` y URL de retorno `https://chatgpt.com/connector/oauth/uZ05yJTPcXGG`. El formulario observado permite elegir **Cliente OAuth definido por el usuario** e introducir el ID; este cliente público no tiene secreto. Así no hace falta habilitar el registro dinámico para cualquier aplicación. Mantener `offline_access` entre los ámbitos si el cliente lo solicita para renovar la sesión.
+4. Introducir el ID del cliente OAuth en ChatGPT y completar la conexión con una cuenta propietaria de Gestión. Revisar los permisos y aceptar el consentimiento.
+5. Probar `quien_soy`, `listar_fuentes`, una consulta de catálogo y una consulta de pedidos. Comprobar que una cuenta sin perfil propietario reciba `403` y que nunca aparezcan herramientas de escritura.
+6. Repetir los pasos 2 a 5 en la **cuenta de Richard**, con su propia URL de devolución de llamada y un cliente OAuth separado.
+
+**Disponibilidad observada:** el 24/10/2026 se abrió el formulario **Añadir servidor MCP personalizado** en una cuenta ChatGPT Free distinta de la cuenta de prueba solicitada. Al introducir la URL de este MCP, ChatGPT detectó correctamente los puntos de autorización y token de Supabase, el soporte de PKCE y `offline_access`, y mostró la opción de registrar un cliente OAuth definido por el usuario. Esto contradice la conclusión anterior basada en la documentación general de planes de OpenAI. La presencia del formulario permite intentar la conexión en Free y después en Plus, aunque todavía falta comprobar el alta efectiva y una consulta autenticada desde ambas cuentas.
+
+## Mantenimiento
+
+- Cambiar columnas y fuentes permitidas solo en `supabase/functions/gestion-mcp/index.ts`. No añadir mutaciones, SQL libre ni campos de pagos internos como `raw_payload`.
+- Comprobar tipos con `npx deno check --lock supabase/functions/gestion-mcp/deno.lock supabase/functions/gestion-mcp/index.ts` y compilar Gestión con `npm run build` desde `gestion/`.
+- La función usa `verify_jwt = false` para que el descubrimiento OAuth anónimo llegue al middleware; `withSupabase({ auth: "user" })` verifica el token antes de cualquier consulta.
+- Si cambia la lista o los esquemas de herramientas, actualizar la conexión en ChatGPT y repetir las pruebas de lectura y autorización.
+
+Fuentes: [MCP y OAuth de Supabase](https://supabase.com/docs/guides/ai-tools/byo-mcp), [conexiones MCP en ChatGPT](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt).
