@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { sanitizeDesignSvg } from "@/lib/design-svg";
 import { NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
-import { isAllowedCustomizerOrigin } from "@/lib/supabase/config";
+import { isAllowedPersonalizerOrigin } from "@/lib/supabase/config";
 import { createAdminSupabase, createTokenSupabase } from "@/lib/supabase/server";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -10,12 +10,12 @@ const cors = (origin: string) => ({ "Access-Control-Allow-Origin": origin, "Acce
 
 export function OPTIONS(request: Request) {
   const origin = request.headers.get("origin");
-  return origin && isAllowedCustomizerOrigin(origin) ? new Response(null, { status: 204, headers: cors(origin) }) : new Response(null, { status: 403 });
+  return origin && isAllowedPersonalizerOrigin(origin) ? new Response(null, { status: 204, headers: cors(origin) }) : new Response(null, { status: 403 });
 }
 
 export async function POST(request: Request) {
   const origin = request.headers.get("origin");
-  if (!origin || !isAllowedCustomizerOrigin(origin)) return apiError("Origen no permitido.", 403);
+  if (!origin || !isAllowedPersonalizerOrigin(origin)) return apiError("Origen no permitido.", 403);
   const accessToken = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!accessToken) return apiError("Falta la sesión.", 401);
   const client = createTokenSupabase(accessToken);

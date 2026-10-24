@@ -2,7 +2,7 @@
 import { createHash } from "node:crypto";
 import { beforeEach, expect, it, vi } from "vitest";
 const mock = vi.hoisted(() => ({ upload: vi.fn(), insert: vi.fn(), remove: vi.fn() }));
-vi.mock("@/lib/supabase/config", () => ({ isAllowedCustomizerOrigin: () => true }));
+vi.mock("@/lib/supabase/config", () => ({ isAllowedPersonalizerOrigin: () => true }));
 vi.mock("@/lib/supabase/server", () => ({
   createTokenSupabase: () => ({ auth: { getUser: async () => ({ data: { user: { id: "buyer" } } }) }, from: () => {
     const chain = { select: () => chain, eq: () => chain, maybeSingle: async () => ({ data: { id: "design" } }) }; return chain;
@@ -16,7 +16,7 @@ beforeEach(() => { vi.clearAllMocks(); mock.upload.mockResolvedValue({ error: nu
 async function upload(bytes: Uint8Array | string, type: string) {
   const form = new FormData(); form.set("designId", "f1a04858-ed0b-42c6-8dbd-2461374d11f4"); form.set("assetId", "upload-f1a04858-ed0b-42c6-8dbd-2461374d11f4");
   form.set("file", new File([typeof bytes === "string" ? bytes : new Uint8Array(bytes)], "art", { type }));
-  return POST(new Request("https://store.test/api/design-assets", { method: "POST", headers: { origin: "https://customizer.test", authorization: "Bearer test" }, body: form }));
+  return POST(new Request("https://store.test/api/design-assets", { method: "POST", headers: { origin: "https://personalizer.test", authorization: "Bearer test" }, body: form }));
 }
 it("persiste los bytes sanitizados y calcula tamaño y hash sobre esos bytes", async () => {
   expect((await upload('<svg viewBox="0 0 10 10" onload="alert(1)"><path d="M0 0"/></svg>', "image/svg+xml")).status).toBe(201);

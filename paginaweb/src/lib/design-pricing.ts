@@ -59,10 +59,13 @@ export function calculateDesignPriceMinor(configurationValue: unknown, flejeValu
   const rim = record(configuration.rim);
   const rimTexts = list(rim.texts).map((entry) => text(record(entry).text)).join("") || text(rim.text);
   const rimTextCharacterCount = rim.textMode === "text" ? chargeable(rimTexts) : 0;
-  const rimTextQuantity = technique === "laser" && rimTextCharacterCount > 0 ? 1 : rimTextCharacterCount;
   const rimImageQuantity = rim.imageMode === "image" ? list(rim.icons).filter((entry) => Boolean(text(record(entry).selectedImageId) || record(entry).customImage)).length : 0;
-  if (rimTextQuantity) total += price(`customization:${technique}:rim_text`) * rimTextQuantity;
-  if (rimImageQuantity) total += price(`customization:${technique}:rim_image`) * rimImageQuantity;
+  if (technique === "laser") {
+    if (rimTextCharacterCount || rimImageQuantity) total += price("customization:laser:rim_text");
+  } else {
+    if (rimTextCharacterCount) total += price(`customization:${technique}:rim_text`) * rimTextCharacterCount;
+    if (rimImageQuantity) total += price(`customization:${technique}:rim_image`) * rimImageQuantity;
+  }
 
   const capabilities = record(configuration.capabilities);
   if (capabilities.hasFleje === true) {

@@ -1,6 +1,6 @@
 import { apiError, apiOk } from "@/lib/api";
 import { createOpaqueHandoffCode } from "@/lib/auth-handoff";
-import { customizerUrl } from "@/lib/supabase/config";
+import { personalizerUrl } from "@/lib/supabase/config";
 import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
 
 export async function POST() {
@@ -20,9 +20,9 @@ export async function POST() {
     created_at: createdAt.toISOString(),
     expires_at: expiresAt.toISOString(),
   });
-  if (error) return apiError("No pudimos conectar tu cuenta con el visualizador.", 400, error.message);
+  if (error) return apiError("No pudimos conectar tu cuenta con el personalizador.", 400, error.message);
 
-  return apiOk({ redirectUrl: `${customizerUrl()}/profile?handoff=${encodeURIComponent(code)}` }, 201);
+  return apiOk({ redirectUrl: `${personalizerUrl()}/profile?handoff=${encodeURIComponent(code)}` }, 201);
 }
 
 export const dynamic = "force-dynamic";

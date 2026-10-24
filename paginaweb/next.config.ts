@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import { resolve } from "node:path";
+import { productSlugRedirectRules } from "./src/lib/product-slug-redirects";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
@@ -28,6 +29,7 @@ const nextConfig: NextConfig = {
       { source: "/catalogo/regalos", destination: "/catalogo?categoria=regalos", permanent: true },
       { source: "/en/catalog/:category(mates|bombillas|materas|termos|kits-materos|kit-matero|cuchillos|cuchillo|regalos)", destination: "/en/catalog?categoria=:category", permanent: true },
       { source: "/pt/catalogo/:category(mates|bombillas|materas|termos|kits-materos|kit-matero|cuchillos|cuchillo|regalos)", destination: "/pt/catalogo?categoria=:category", permanent: true },
+      ...productSlugRedirectRules(),
     ];
   },
   images: {

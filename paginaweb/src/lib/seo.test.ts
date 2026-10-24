@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getLocalizedProduct } from "@/content/catalog-localization";
 import { products } from "@/data/catalog";
 import { localizedPageMetadata } from "@/i18n/metadata";
+import { truncateForMeta } from "@/lib/product-description";
 import { buildEnterpriseStructuredData, buildProductStructuredData, buildSiteStructuredData, productSeoCopy } from "@/lib/seo";
 import { buildManifestFile, buildRobotsFile, buildSitemapFile } from "@/lib/seo-files";
 
@@ -40,15 +41,61 @@ describe("SEO técnico", () => {
     expect(JSON.stringify(schema)).not.toContain("MerchantReturnPolicy");
   });
 
-  it("añade marca y breadcrumbs al producto sin publicar una oferta no confirmada", () => {
-    const product = getLocalizedProduct("mate-imperial", "en");
+  it("añade marca y breadcrumbs al producto y no inventa ofertas sin precio", () => {
+    const product = getLocalizedProduct("mate-imperial-pie-de-alpaca-fleje-pampa", "en");
     expect(product).toBeDefined();
     const schema = buildProductStructuredData("en", product!, "Catalog", "MateArte");
     const graph = schema["@graph"] as Array<Record<string, unknown>>;
     const productNode = graph.find((node) => node["@type"] === "Product");
     expect(productNode?.brand).toEqual({ "@type": "Brand", name: "MateArte" });
     expect(graph.some((node) => node["@type"] === "BreadcrumbList")).toBe(true);
+    expect(JSON.stringify(schema)).not.toContain("AggregateRating");
     expect(productNode).not.toHaveProperty("offers");
+  });
+
+  it("publica el precio en UYU de cada variante: una oferta simple o un rango", () => {
+    const base = getLocalizedProduct("mate-imperial-pie-de-alpaca-fleje-pampa", "es")!;
+    const variant = (value: string, amountMinor: number) => ({
+      id: value,
+      label: value,
+      value,
+      price: { amountMinor, currency: "UYU" as const },
+    });
+    const offerOf = (variants: typeof base.variants) => {
+      const schema = buildProductStructuredData("es", { ...base, variants }, "Catálogo", "MateArte");
+      const graph = schema["@graph"] as Array<Record<string, unknown>>;
+      return graph.find((node) => node["@type"] === "Product")?.offers as Record<string, unknown>;
+    };
+
+    expect(offerOf([variant("A", 450000)])).toMatchObject({
+      "@type": "Offer",
+      price: "4500.00",
+      priceCurrency: "UYU",
+      availability: "https://schema.org/InStock",
+    });
+    expect(offerOf([variant("A", 450000), variant("B", 550000)])).toMatchObject({
+      "@type": "AggregateOffer",
+      lowPrice: "4500.00",
+      highPrice: "5500.00",
+      priceCurrency: "UYU",
+      offerCount: 2,
+    });
+    expect(offerOf([{ ...variant("A", 0) }])).toBeUndefined();
+  });
+
+  it("informa lastmod solo donde existe una fecha real de modificación", () => {
+    const [first, second] = products;
+    const entries = buildSitemapFile([
+      { ...first, lastModifiedAt: Date.parse("2026-10-20T12:00:00Z") },
+      { ...second, lastModifiedAt: undefined },
+    ]);
+    const find = (slug: string) => entries.find((entry) => entry.url === `https://www.matearteuruguay.com/producto/${slug}`);
+
+    expect(find(first.slug)?.lastModified).toEqual(new Date("2026-10-20T12:00:00Z"));
+    expect(find(second.slug)).not.toHaveProperty("lastModified");
+    expect(entries.find((entry) => entry.url === "https://www.matearteuruguay.com/catalogo")?.lastModified)
+      .toEqual(new Date("2026-10-20T12:00:00Z"));
+    expect(entries.find((entry) => entry.url === "https://www.matearteuruguay.com/nosotros")).not.toHaveProperty("lastModified");
   });
 
   it("describe regalos empresariales como un servicio indexable con imagen y breadcrumbs", () => {
@@ -70,11 +117,15 @@ describe("SEO técnico", () => {
   });
 
   it("genera metadatos sociales propios y copy SEO por idioma", () => {
-    const product = getLocalizedProduct("mate-imperial", "pt");
+    const product = getLocalizedProduct("mate-imperial-pie-de-alpaca-fleje-pampa", "pt");
     expect(product).toBeDefined();
     const copy = productSeoCopy(product!, "pt");
     expect(copy.title).toContain("cuia uruguaia artesanal");
-    expect(copy.description).toContain("MateArte Uruguai");
+    expect(copy.description).toBe(truncateForMeta(product!.description));
+    expect(copy.description.length).toBeLessThanOrEqual(155);
+
+    const long = productSeoCopy({ ...product!, description: `${product!.name}. ${"Texto informativo ".repeat(30)}` }, "pt");
+    expect(long.description.length).toBeLessThanOrEqual(155);
 
     const metadata = localizedPageMetadata("en", "/catalogo", "Catalog title", "Catalog description");
     expect(metadata.alternates?.canonical).toBe("/en/catalog");

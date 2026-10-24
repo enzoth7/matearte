@@ -11,12 +11,12 @@ export const supabasePublishableKey = () => required("NEXT_PUBLIC_SUPABASE_PUBLI
 export const supabaseServiceRoleKey = () => required("SUPABASE_SERVICE_ROLE_KEY");
 
 export const siteUrl = () => (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").trim().replace(/\/$/, "");
-export const customizerUrl = () => (process.env.NEXT_PUBLIC_CUSTOMIZER_URL || "http://localhost:5173").trim().replace(/\/$/, "");
+export const personalizerUrl = () => (process.env.NEXT_PUBLIC_PERSONALIZER_URL || "http://localhost:5173").trim().replace(/\/$/, "");
 export const whatsappNumber = () => (process.env.MATEARTE_WHATSAPP_NUMBER || "+59891674231").replace(/\D/g, "");
 
-export function isAllowedCustomizerOrigin(origin: string | null) {
+export function isAllowedPersonalizerOrigin(origin: string | null) {
   if (!origin) return false;
-  return origin === new URL(customizerUrl()).origin || /^http:\/\/localhost:\d+$/.test(origin);
+  return origin === new URL(personalizerUrl()).origin || /^http:\/\/localhost:\d+$/.test(origin);
 }
 
 export function isAllowedCommerceAdminOrigin(origin: string | null) {

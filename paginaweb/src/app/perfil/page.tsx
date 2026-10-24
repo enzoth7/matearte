@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { CouponCopyButton } from "@/components/CouponCopyButton";
-import { VisualizerProfileButton } from "@/components/VisualizerProfileButton";
+import { PersonalizerProfileButton } from "@/components/PersonalizerProfileButton";
 import { localizeCatalogSnapshotTitle } from "@/content/catalog-localization";
 import { Link } from "@/i18n/navigation";
 import { localizedAlternates } from "@/i18n/metadata";
@@ -398,7 +398,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
 
                   <div className="profile-empty-account-actions">
                     <Link className="profile-empty-account-button" href="/perfil/editar">{t("editData")}</Link>
-                    <div className="profile-empty-visualizer"><VisualizerProfileButton /></div>
+                    <div className="profile-empty-personalizer"><PersonalizerProfileButton /></div>
                   </div>
                 </div>
               </div>
@@ -452,7 +452,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
 
               <div className="profile-empty-mobile-actions">
                 <Link href="/perfil/editar">{t("editDataShort")}</Link>
-                <div className="profile-empty-mobile-visualizer"><VisualizerProfileButton label={t("myDesigns")} /></div>
+                <div className="profile-empty-mobile-personalizer"><PersonalizerProfileButton label={t("myDesigns")} /></div>
               </div>
 
               <dl className="profile-empty-mobile-metrics" aria-label={t("accountSummary")}>
@@ -517,7 +517,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
 
                   <div className="profile-empty-account-actions">
                     <Link className="profile-empty-account-button" href="/perfil/editar">{t("editData")}</Link>
-                    <div className="profile-empty-visualizer"><VisualizerProfileButton /></div>
+                    <div className="profile-empty-personalizer"><PersonalizerProfileButton /></div>
                   </div>
                 </div>
               </div>
@@ -611,7 +611,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
 
             <div className="profile-empty-mobile-actions">
               <Link href="/perfil/editar">{t("editDataShort")}</Link>
-              <div className="profile-empty-mobile-visualizer"><VisualizerProfileButton label={t("myDesigns")} /></div>
+              <div className="profile-empty-mobile-personalizer"><PersonalizerProfileButton label={t("myDesigns")} /></div>
             </div>
 
             <dl className="profile-empty-mobile-metrics" aria-label={t("accountSummary")}>
@@ -727,7 +727,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                   <PencilSimple size={18} aria-hidden="true" />
                   {t("editData")}
                 </Link>
-                <VisualizerProfileButton />
+                <PersonalizerProfileButton />
               </div>
             </div>
             <div className="bg-[var(--walnut)] p-6 text-[var(--paper)] sm:p-8 lg:p-9">

@@ -7,7 +7,6 @@ const catalog = {
     "family:torpedo": 1800,
     "metal:alpaca-bronce": 300,
     "customization:laser:rim_text": 300,
-    "customization:laser:rim_image": 400,
   },
 };
 
@@ -24,6 +23,16 @@ describe("server design pricing", () => {
     const result = calculateDesignPriceMinor({ ...configuration, pricingSnapshot: { totalUYU: 1 } }, {}, catalog);
     expect(result.priceMinor).toBe(240_000);
     expect(result.pricingVersion).toBe(7);
+  });
+
+  it.each(["solo íconos", "texto e íconos"])("cobra un único grabado láser con %s", (caseName) => {
+    const rim = {
+      textMode: caseName === "solo íconos" ? "none" : "text",
+      texts: [{ text: "MATEARTE" }],
+      imageMode: "image",
+      icons: [{ selectedImageId: "escudo-1" }, { selectedImageId: "escudo-2" }, { selectedImageId: "escudo-3" }],
+    };
+    expect(calculateDesignPriceMinor({ ...configuration, rim }, {}, catalog).priceMinor).toBe(240_000);
   });
 
   it("rejects a catalog combination invented by the browser", () => {

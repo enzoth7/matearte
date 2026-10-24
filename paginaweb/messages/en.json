@@ -339,11 +339,11 @@
     "metadataDescription": "Create personalized mate gourds with names, symbols, crests and artisan finishes. Discover the MateArte review process before production.",
     "title": "One piece, your story.",
     "body": "Letters, symbols and finishes turn a mate into a personal keepsake. The process is designed so every decision can be reviewed before production.",
-    "action": "Open customizer",
+    "action": "Open the personalization tool",
     "heroAlt": "A custom mate held by an artisan",
     "galleryLabel": "Examples of custom mates",
     "craftTitle": "The craft remains human.",
-    "craftBody": "The customizer is a conversation tool, not an automatic production promise. Every combination must be confirmed with MateArte.",
+    "craftBody": "The personalization tool is a conversation tool, not an automatic production promise. Every combination must be confirmed with MateArte.",
     "gallery1": "Custom mate engraved with a name",
     "gallery2": "Leather mate with handcrafted customization",
     "gallery3": "Handcrafted mate with a silver finish",
@@ -598,7 +598,7 @@
     "continueGoogle": "Continue with Google",
     "googleFailed": "We couldn't sign you in with Google. Please try again."
   },
-  "visualizer": {
+  "personalizer": {
     "myDesigns": "View my designs",
     "connecting": "Connecting account…",
     "openFailed": "We couldn't open your designs. Please try again."

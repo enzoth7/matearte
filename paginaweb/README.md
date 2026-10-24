@@ -12,7 +12,7 @@ Sitio público, catálogo y comercio de MateArte, construido con Next.js, TypeSc
 - Checkout nacional con retiro o envío y Mercado Pago.
 - Códigos de descuento de un uso por cliente para Mercado Pago y PayPal.
 - Pedidos internacionales registrados para coordinación por WhatsApp.
-- Recepción segura de diseños desde el visualizador mediante códigos de un solo uso.
+- Recepción segura de diseños desde el personalizador mediante códigos de un solo uso.
 - API para conservar originales subidos por invitados al autenticarse.
 
 No se realiza control de stock en los productos o variantes.
@@ -21,7 +21,7 @@ No se realiza control de stock en los productos o variantes.
 
 - `/` — portada.
 - `/catalogo` y `/producto/[slug]` — catálogo y fichas comerciales.
-- `/personalizados` — presentación y acceso al visualizador.
+- `/personalizados` — presentación y acceso al personalizador.
 - `/clientes`, `/nosotros` y `/contacto` — contenido institucional.
 - `/carrito` y `/checkout` — compra nacional o internacional.
 - `/perfil` y `/perfil/editar` — cuenta, pedidos y datos del cliente.
@@ -47,7 +47,7 @@ La disponibilidad comercial depende de `NEXT_PUBLIC_COMMERCE_ENABLED`, `NEXT_PUB
 Partir de `.env.example`. Las principales variables públicas son:
 
 - `NEXT_PUBLIC_SITE_URL`: URL canónica; en producción, `https://www.matearteuruguay.com`.
-- `NEXT_PUBLIC_CUSTOMIZER_URL`: URL del visualizador.
+- `NEXT_PUBLIC_PERSONALIZER_URL`: URL del personalizador.
 - `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: cliente público de Supabase.
 - `NEXT_PUBLIC_COMMERCE_ENABLED` y `NEXT_PUBLIC_COMMERCE_PROVIDER`: disponibilidad del comercio.
 - `NEXT_PUBLIC_PRESENTATION_MODE` y `NEXT_PUBLIC_ENABLE_RESTRICTED_MEDIA`: material editorial sujeto a aprobación.

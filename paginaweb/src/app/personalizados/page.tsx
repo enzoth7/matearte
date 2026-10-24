@@ -50,7 +50,7 @@ const mobilePersonalizedGallery = [
 export default async function PersonalizadosPage() {
   const locale = await getLocale();
   const t = await getTranslations("customPage");
-  const customizerUrl = process.env.NEXT_PUBLIC_CUSTOMIZER_URL;
+  const personalizerUrl = process.env.NEXT_PUBLIC_PERSONALIZER_URL;
   return (
     <main id="contenido" className="personalizados-page">
       <JsonLd data={buildPageStructuredData({ locale, href: "/personalizados", name: t("metadataTitle"), description: t("metadataDescription"), homeLabel: "MateArte" })} />
@@ -69,8 +69,8 @@ export default async function PersonalizadosPage() {
           <div className="personalizados-mobile-hero-copy">
             <h1>{t("title")}</h1>
             <p>{t("body")}</p>
-            {customizerUrl ? (
-              <a href={customizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
+            {personalizerUrl ? (
+              <a href={personalizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
             ) : (
               <Link href="/contacto">{t("action")}</Link>
             )}
@@ -118,8 +118,8 @@ export default async function PersonalizadosPage() {
           <div className="personalizados-desktop-hero-copy">
             <h1>{t("title")}</h1>
             <p>{t("body")}</p>
-            {customizerUrl ? (
-              <a href={customizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
+            {personalizerUrl ? (
+              <a href={personalizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
             ) : (
               <Link href="/contacto">{t("action")}</Link>
             )}

@@ -36,7 +36,13 @@ export function buildManifestFile(): MetadataRoute.Manifest {
   };
 }
 
+function toDate(timestamp?: number) {
+  return timestamp && Number.isFinite(timestamp) && timestamp > 0 ? new Date(timestamp) : undefined;
+}
+
 export function buildSitemapFile(catalogProducts = products): MetadataRoute.Sitemap {
+  // Solo se informa lastmod donde hay una fecha real: el catálogo cambia cuando cambia algún producto.
+  const catalogModified = toDate(Math.max(0, ...catalogProducts.map((product) => product.lastModifiedAt ?? 0)));
   const staticRoutes = [
     {
       href: "/" as const,
@@ -52,6 +58,7 @@ export function buildSitemapFile(catalogProducts = products): MetadataRoute.Site
       href: "/catalogo" as const,
       changeFrequency: "weekly" as const,
       priority: 0.9,
+      lastModified: catalogModified,
       images: ["/assets/matearte/catalog-desktop/hero.png"],
     },
     {
@@ -94,6 +101,7 @@ export function buildSitemapFile(catalogProducts = products): MetadataRoute.Site
 
   const staticEntries = staticRoutes.flatMap((route) => locales.map((locale) => ({
     url: absoluteUrl(localizedPathname(locale, route.href)),
+    ...("lastModified" in route && route.lastModified ? { lastModified: route.lastModified } : {}),
     changeFrequency: route.changeFrequency,
     priority: route.priority,
     alternates: { languages: languageLinks(route.href) },
@@ -101,8 +109,10 @@ export function buildSitemapFile(catalogProducts = products): MetadataRoute.Site
   })));
   const productEntries = catalogProducts.flatMap((product) => {
     const href = { pathname: "/producto/[slug]" as const, params: { slug: product.slug } };
+    const lastModified = toDate(product.lastModifiedAt);
     return locales.map((locale) => ({
       url: absoluteUrl(localizedPathname(locale, href)),
+      ...(lastModified ? { lastModified } : {}),
       changeFrequency: "monthly" as const,
       priority: 0.7,
       alternates: { languages: languageLinks(href) },

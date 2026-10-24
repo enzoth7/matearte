@@ -2603,7 +2603,7 @@
   }
 
   .profile-empty-mobile-actions > a,
-  .profile-empty-mobile-visualizer button {
+  .profile-empty-mobile-personalizer button {
     box-sizing: border-box;
     display: inline-flex;
     width: 100%;
@@ -2626,22 +2626,22 @@
     transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
   }
 
-  .profile-empty-mobile-visualizer,
-  .profile-empty-mobile-visualizer > span {
+  .profile-empty-mobile-personalizer,
+  .profile-empty-mobile-personalizer > span {
     display: block;
     min-width: 0;
     width: 100%;
   }
 
-  .profile-empty-mobile-visualizer button svg { display: none; }
+  .profile-empty-mobile-personalizer button svg { display: none; }
 
   .profile-empty-mobile-actions > a:active,
-  .profile-empty-mobile-visualizer button:active {
+  .profile-empty-mobile-personalizer button:active {
     background: #f5f0e8;
   }
 
   .profile-empty-mobile-actions > a:focus-visible,
-  .profile-empty-mobile-visualizer button:focus-visible {
+  .profile-empty-mobile-personalizer button:focus-visible {
     outline: 3px solid #bfab8c;
     outline-offset: 2px;
   }
@@ -3036,7 +3036,7 @@
   .profile-empty-mobile-metrics { right: 16px; left: 16px; }
   .profile-empty-mobile-avatar { left: 16px; }
   .profile-empty-mobile-actions > a,
-  .profile-empty-mobile-visualizer button { padding-inline: 8px; font-size: 13px; }
+  .profile-empty-mobile-personalizer button { padding-inline: 8px; font-size: 13px; }
   .profile-empty-mobile-card { padding-inline: 20px; }
   .profile-orders-mobile-card { padding-inline: 16px; }
   .profile-orders-mobile-card-main { grid-template-columns: 88px minmax(0, 1fr); gap: 12px; }
@@ -3208,7 +3208,7 @@
   }
 
   .profile-empty-account-button,
-  .profile-empty-visualizer button {
+  .profile-empty-personalizer button {
     box-sizing: border-box;
     display: inline-flex;
     width: 176px;
@@ -3228,15 +3228,15 @@
     transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
   }
 
-  .profile-empty-visualizer > span {
+  .profile-empty-personalizer > span {
     display: flex;
     align-items: flex-start;
   }
 
-  .profile-empty-visualizer button svg { display: none; }
+  .profile-empty-personalizer button svg { display: none; }
 
   .profile-empty-account-button:hover,
-  .profile-empty-visualizer button:hover {
+  .profile-empty-personalizer button:hover {
     border-color: #bfab8c;
     background: #f5f0e8;
     color: #311c12;
@@ -3244,7 +3244,7 @@
   }
 
   .profile-empty-account-button:focus-visible,
-  .profile-empty-visualizer button:focus-visible {
+  .profile-empty-personalizer button:focus-visible {
     outline: 3px solid #bfab8c;
     outline-offset: 3px;
   }
@@ -3633,7 +3633,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .profile-empty-account-button,
-  .profile-empty-visualizer button,
+  .profile-empty-personalizer button,
   .profile-empty-orders-copy > a,
   .profile-empty-orders-image img,
   .profile-orders-heading > a,

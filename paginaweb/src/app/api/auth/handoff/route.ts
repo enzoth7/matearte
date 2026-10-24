@@ -1,12 +1,12 @@
 import { apiError, apiOk, readJson } from "@/lib/api";
-import { customizerUrl, isAllowedCustomizerOrigin, siteUrl, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
+import { personalizerUrl, isAllowedPersonalizerOrigin, siteUrl, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 import { createTokenSupabase } from "@/lib/supabase/server";
 
 const allowedTargets = new Set(["/", "/carrito", "/checkout", "/pedidos", "/perfil"]);
 const allowedActions = new Set(["continue", "open_cart", "add_design", "checkout"]);
 
 function cors(origin: string | null): Record<string, string> {
-  return isAllowedCustomizerOrigin(origin) ? {
+  return isAllowedPersonalizerOrigin(origin) ? {
     "Access-Control-Allow-Origin": origin!,
     "Access-Control-Allow-Headers": "authorization, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -21,13 +21,13 @@ function withCors(response: Response, origin: string | null) {
 
 export function OPTIONS(request: Request) {
   const origin = request.headers.get("origin");
-  if (!isAllowedCustomizerOrigin(origin)) return new Response(null, { status: 403 });
+  if (!isAllowedPersonalizerOrigin(origin)) return new Response(null, { status: 403 });
   return new Response(null, { status: 204, headers: cors(origin) });
 }
 
 export async function POST(request: Request) {
   const origin = request.headers.get("origin");
-  if (!isAllowedCustomizerOrigin(origin)) return apiError("Origen no permitido.", 403);
+  if (!isAllowedPersonalizerOrigin(origin)) return apiError("Origen no permitido.", 403);
   const accessToken = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!accessToken) return withCors(apiError("Falta la sesión.", 401), origin);
 
@@ -60,4 +60,4 @@ export async function POST(request: Request) {
 export const dynamic = "force-dynamic";
 
 // Exported for UI links and tests; this value is never treated as an allowed request origin.
-export const loginUrl = `${customizerUrl()}/?auth=login&next=profile`;
+export const loginUrl = `${personalizerUrl()}/?auth=login&next=profile`;

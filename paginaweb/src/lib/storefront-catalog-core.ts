@@ -16,9 +16,11 @@ import {
   normalizeCatalogValueMap,
   catalogAttributeDetails,
   catalogPurchaseAxes,
+  catalogValueLabel,
   defaultCatalogTaxonomy,
   type CatalogTaxonomy,
 } from "../../../shared/catalog-taxonomy";
+import { buildProductDescription } from "@/lib/product-description";
 
 export type StorefrontVariantRow = {
   id: string;
@@ -75,10 +77,10 @@ const fallbackImage = (name: string): MediaAsset => ({
   rightsStatus: "brand-public",
 });
 
-const genericCopy: Record<Locale, { eyebrow: string; summary: string }> = {
-  es: { eyebrow: "Producto MateArte", summary: "Producto disponible en el catálogo de MateArte Uruguay." },
-  en: { eyebrow: "MateArte product", summary: "Product available in the MateArte Uruguay catalog." },
-  pt: { eyebrow: "Produto MateArte", summary: "Produto disponível no catálogo da MateArte Uruguai." },
+const genericCopy: Record<Locale, { eyebrow: string }> = {
+  es: { eyebrow: "Producto MateArte" },
+  en: { eyebrow: "MateArte product" },
+  pt: { eyebrow: "Produto MateArte" },
 };
 
 function publicStorageUrl(supabaseBaseUrl: string, path: string) {
@@ -153,14 +155,22 @@ export function storefrontProductFromRow(
     ? Math.min(...variants.map((variant) => variant.price!.amountMinor)) / 100
     : existing?.filterData.priceUYU;
   const keepEditorialTranslation = locale !== "es" && Boolean(existing);
-  const description = keepEditorialTranslation
-    ? existing!.description
-    : row.description.trim() || existing?.description || genericCopy[locale].summary;
-  const summary = keepEditorialTranslation
-    ? existing!.summary
-    : row.description.trim() || existing?.summary || genericCopy[locale].summary;
   const storedAttributes = normalizeCatalogAttributes(row.catalog_filters);
   const attributes = normalizeCatalogValueMap(row.attributes);
+  const categoryCode = canonicalCategoryCode(row.category_code || row.category);
+  const attributeDetails = catalogAttributeDetails(taxonomy, attributes);
+  const authoredText = row.description.trim();
+  // Sin texto cargado en Gestión se arma uno con las características del producto.
+  const generated = authoredText ? null : buildProductDescription({
+    name: row.name,
+    category: categoryCode,
+    details: attributeDetails,
+    colors: [...new Set(variants.map(variant => variant.color).filter((color): color is CatalogColorId => Boolean(color)))]
+      .map(color => catalogValueLabel(taxonomy, "color", color)),
+    madeToOrder: row.sale_mode === "made_to_order",
+  }, locale);
+  const description = keepEditorialTranslation && authoredText ? existing!.description : authoredText || generated!.description;
+  const summary = keepEditorialTranslation && authoredText ? existing!.summary : authoredText || generated!.summary;
   const existingProductTypes = existing?.filterData.productTypes
     ?? (existing?.filterData.mateType ? [existing.filterData.mateType] : []);
   const structuredMaterial = typeof attributes.material === "string" && catalogMaterialIds.includes(attributes.material as CatalogMaterialId)
@@ -179,10 +189,10 @@ export function storefrontProductFromRow(
     id: existing?.id ?? row.id,
     slug: row.editorial_slug,
     name: keepEditorialTranslation ? existing!.name : row.name,
-    category: canonicalCategoryCode(row.category_code || row.category),
+    category: categoryCode,
     attributes,
-    attributeDetails: catalogAttributeDetails(taxonomy, attributes),
-    purchaseAxes: catalogPurchaseAxes(taxonomy, canonicalCategoryCode(row.category_code || row.category), attributes, row.name),
+    attributeDetails,
+    purchaseAxes: catalogPurchaseAxes(taxonomy, categoryCode, attributes, row.name),
     eyebrow: existing?.eyebrow ?? genericCopy[locale].eyebrow,
     summary,
     description,

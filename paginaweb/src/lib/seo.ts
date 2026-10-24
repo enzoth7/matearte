@@ -4,6 +4,8 @@ import { localizedPathname, type RouteHref } from "@/i18n/metadata";
 import { es } from "@/content/es";
 import type { CategorySlug, Product } from "@/types/catalog";
 import { absoluteUrl } from "@/lib/metadata";
+import { isMadeByMateArte, truncateForMeta } from "@/lib/product-description";
+import { specLabel, specValue } from "@/lib/product-spec-labels";
 
 type StructuredPageType = "AboutPage" | "CollectionPage" | "ContactPage" | "WebPage";
 
@@ -221,6 +223,49 @@ export function buildCatalogStructuredData(
   };
 }
 
+function formatPrice(amountMinor: number) {
+  return (amountMinor / 100).toFixed(2);
+}
+
+/** Ofertas con precio y moneda reales de las variantes publicadas en la web; sin variantes con precio no hay oferta. */
+function productOffers(product: Product, url: string) {
+  const priced = product.variants.filter((variant) => variant.price && variant.price.amountMinor > 0);
+  if (priced.length === 0) return undefined;
+  const offer = (variant: (typeof priced)[number]) => ({
+    "@type": "Offer",
+    url,
+    sku: variant.value,
+    name: variant.label,
+    price: formatPrice(variant.price!.amountMinor),
+    priceCurrency: variant.price!.currency,
+    availability: "https://schema.org/InStock",
+    itemCondition: "https://schema.org/NewCondition",
+    seller: { "@id": organizationId },
+  });
+  if (priced.length === 1) return offer(priced[0]);
+  const amounts = priced.map((variant) => variant.price!.amountMinor);
+  return {
+    "@type": "AggregateOffer",
+    url,
+    priceCurrency: priced[0].price!.currency,
+    lowPrice: formatPrice(Math.min(...amounts)),
+    highPrice: formatPrice(Math.max(...amounts)),
+    offerCount: priced.length,
+    availability: "https://schema.org/InStock",
+    offers: priced.map(offer),
+  };
+}
+
+function productProperties(product: Product, locale: AppLocale) {
+  return (product.attributeDetails ?? [])
+    .filter((detail) => detail.code !== "color" && detail.code !== "tipo-personalizado" && detail.rawValue !== "todos" && detail.values.length > 0)
+    .map((detail) => ({
+      "@type": "PropertyValue",
+      name: specLabel(detail.code, detail.label, locale, product.category),
+      value: detail.values.map((value) => specValue(value, locale)).join(", "),
+    }));
+}
+
 export function buildProductStructuredData(
   locale: AppLocale,
   product: Product,
@@ -229,6 +274,8 @@ export function buildProductStructuredData(
 ) {
   const href = { pathname: "/producto/[slug]" as const, params: { slug: product.slug } };
   const url = localizedAbsoluteUrl(locale, href);
+  const offers = productOffers(product, url);
+  const properties = productProperties(product, locale);
   return {
     "@context": "https://schema.org",
     "@graph": [
@@ -237,13 +284,16 @@ export function buildProductStructuredData(
         "@id": `${url}#product`,
         sku: product.id,
         name: product.name,
-        description: product.summary,
+        description: product.description,
         image: product.images.map((image) => absoluteUrl(image.src)),
         category: product.category,
-        material: product.materials,
+        ...(product.materials.length ? { material: product.materials } : {}),
+        ...(properties.length ? { additionalProperty: properties } : {}),
         url,
         brand: { "@type": "Brand", name: es.brand.shortName },
         manufacturer: { "@id": organizationId },
+        ...(isMadeByMateArte(product.category) ? { countryOfOrigin: { "@type": "Country", name: "Uruguay" } } : {}),
+        ...(offers ? { offers } : {}),
       },
       breadcrumbNode(locale, [
         { name: homeLabel, href: "/" },
@@ -314,11 +364,6 @@ export function productSeoCopy(product: Product, locale: AppLocale) {
       carteras: `${product.name}, bolsa artesanal de couro`,
     },
   };
-  const descriptions: Record<AppLocale, string> = {
-    es: `${product.summary} Conocé sus materiales y opciones de personalización en el catálogo de MateArte Uruguay.`,
-    en: `${product.summary} Explore its materials and customization options in the MateArte Uruguay catalog.`,
-    pt: `${product.summary} Conheça seus materiais e opções de personalização no catálogo da MateArte Uruguai.`,
-  };
   const fallbackTitles: Record<AppLocale, string> = {
     es: `${product.name} de MateArte Uruguay`,
     en: `${product.name} by MateArte Uruguay`,
@@ -326,6 +371,6 @@ export function productSeoCopy(product: Product, locale: AppLocale) {
   };
   return {
     title: titles[locale][product.category as CategorySlug] ?? fallbackTitles[locale],
-    description: descriptions[locale],
+    description: truncateForMeta(product.description),
   };
 }

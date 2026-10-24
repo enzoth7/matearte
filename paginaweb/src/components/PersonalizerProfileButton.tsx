@@ -4,8 +4,8 @@ import { ArrowSquareOut } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
-export function VisualizerProfileButton({ label }: { label?: string }) {
-  const t = useTranslations("visualizer");
+export function PersonalizerProfileButton({ label }: { label?: string }) {
+  const t = useTranslations("personalizer");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -13,14 +13,14 @@ export function VisualizerProfileButton({ label }: { label?: string }) {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/auth/visualizer-handoff", { method: "POST" });
+      const response = await fetch("/api/auth/personalizer-handoff", { method: "POST" });
       const value = await response.json().catch(() => ({})) as { redirectUrl?: unknown; error?: unknown };
       if (!response.ok || typeof value.redirectUrl !== "string") {
         throw new Error(t("openFailed"));
       }
       window.location.assign(value.redirectUrl);
     } catch (reason) {
-      console.error("Visualizer handoff failed", reason);
+      console.error("Personalizer handoff failed", reason);
       setError(t("openFailed"));
       setBusy(false);
     }

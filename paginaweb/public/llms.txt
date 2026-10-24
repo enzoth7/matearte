@@ -1,32 +1,51 @@
 # MateArte Uruguay
 
-> MateArte is a family business from Paysandu, Uruguay, focused on handcrafted mates, bombillas, leather materas, thermoses and personalized gifts.
+> MateArte es una empresa familiar de Paysandú, Uruguay, que elabora a mano mates, bombillas, materas de cuero, cintos, billeteras, calzado y piezas personalizadas. / MateArte is a family business from Paysandú, Uruguay, that handcrafts mates, bombillas, leather materas, belts, wallets, footwear and personalized pieces.
 
-MateArte presents its catalog in Spanish, English and Brazilian Portuguese. Product names such as mate, bombilla, imperial and camionero retain their cultural terminology. All prices currently displayed by the website use Uruguayan pesos (UYU).
+El sitio está en español, inglés y portugués de Brasil. Los precios se muestran en pesos uruguayos (UYU). Los nombres de producto como mate, bombilla, imperial, camionero, torpedo y criollo conservan su terminología cultural.
 
-## Main pages
+## Sitio oficial / Official site
 
-- Spanish: https://matearte.uy/
-- English: https://matearte.uy/en
-- Portuguese: https://matearte.uy/pt
-- Catalog: https://matearte.uy/catalogo
-- Custom pieces: https://matearte.uy/personalizados
-- About MateArte: https://matearte.uy/nosotros
-- Contact: https://matearte.uy/contacto
-- International reach: https://matearte.uy/clientes
+- Español: https://www.matearteuruguay.com/
+- English: https://www.matearteuruguay.com/en
+- Português: https://www.matearteuruguay.com/pt
 
-## International versions
+## Páginas principales
 
-- English catalog: https://matearte.uy/en/catalog
-- English about page: https://matearte.uy/en/about
-- Portuguese catalog: https://matearte.uy/pt/catalogo
-- Portuguese about page: https://matearte.uy/pt/sobre-nos
+- Catálogo: https://www.matearteuruguay.com/catalogo
+- Mates personalizados: https://www.matearteuruguay.com/personalizados
+- Regalos empresariales: https://www.matearteuruguay.com/empresas
+- Nosotros: https://www.matearteuruguay.com/nosotros
+- Clientes y envíos internacionales: https://www.matearteuruguay.com/clientes
+- Contacto: https://www.matearteuruguay.com/contacto
 
-## Business information
+## English pages
 
-- Address: 25 de Mayo 1734, Paysandu, Uruguay
-- Phone and WhatsApp: +598 91 674 231
-- Email: matearte.ventas@gmail.com
+- Catalog: https://www.matearteuruguay.com/en/catalog
+- Custom pieces: https://www.matearteuruguay.com/en/custom
+- Corporate gifts: https://www.matearteuruguay.com/en/corporate-gifts
+- About: https://www.matearteuruguay.com/en/about
+- Customers: https://www.matearteuruguay.com/en/customers
+- Contact: https://www.matearteuruguay.com/en/contact
+
+## Páginas em português
+
+- Catálogo: https://www.matearteuruguay.com/pt/catalogo
+- Personalizados: https://www.matearteuruguay.com/pt/personalizados
+- Presentes corporativos: https://www.matearteuruguay.com/pt/empresas
+- Sobre nós: https://www.matearteuruguay.com/pt/sobre-nos
+- Clientes: https://www.matearteuruguay.com/pt/clientes
+- Contato: https://www.matearteuruguay.com/pt/contato
+
+## Productos
+
+Cada producto tiene su página en https://www.matearteuruguay.com/producto/<nombre-del-producto> (inglés: /en/product/..., portugués: /pt/produto/...). El listado completo está en https://www.matearteuruguay.com/sitemap.xml.
+
+## Datos del negocio
+
+- Dirección: 25 de Mayo 1734, Paysandú, Uruguay
+- Teléfono y WhatsApp: +598 91 674 231
+- Correo: matearte.ventas@gmail.com
 - Instagram: https://www.instagram.com/matearteuruguay/
 
-International orders and shipping are coordinated directly with MateArte. Legal and purchase-information pages remain excluded from indexing while their content awaits final approval.
+Los pedidos internacionales y sus envíos se coordinan directamente con MateArte. Las páginas legales y de condiciones de compra no se indexan hasta que su contenido esté aprobado.

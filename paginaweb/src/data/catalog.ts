@@ -87,7 +87,7 @@ export const categories: Category[] = [
 export const products: Product[] = [
   {
     id: "mate-imperial",
-    slug: "mate-imperial",
+    slug: "mate-imperial-pie-de-alpaca-fleje-pampa",
     name: "Mate Imperial",
     category: "mates",
     eyebrow: "Cuero & alpaca",
@@ -123,7 +123,7 @@ export const products: Product[] = [
   },
   {
     id: "criollo-posa-mate",
-    slug: "mate-criollo-con-posa-mate",
+    slug: "mate-criollo-camionero-sin-virola",
     name: "Criollo con posa mate",
     category: "mates",
     eyebrow: "Tradición cotidiana",
@@ -150,7 +150,7 @@ export const products: Product[] = [
   },
   {
     id: "mate-torpedo",
-    slug: "mate-torpedo",
+    slug: "mate-torpedo-alpaca-grande-cincelada",
     name: "Mate Torpedo",
     category: "mates",
     eyebrow: "Perfil estilizado",
