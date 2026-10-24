@@ -9,7 +9,14 @@ import { buildPageStructuredData } from "@/lib/seo";
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
   const t = await getTranslations("customPage");
-  return localizedPageMetadata(locale, "/personalizados", t("metadataTitle"), t("metadataDescription"));
+  return localizedPageMetadata(locale, "/personalizados", t("metadataTitle"), t("metadataDescription"), {
+    image: {
+      url: "/assets/matearte/og/matearte-personalizados.jpg",
+      width: 1200,
+      height: 630,
+      alt: locale === "en" ? "Customize a mate online with MateArte" : locale === "pt" ? "Personalize sua cuia online com a MateArte" : "Personalizá tu mate online con MateArte",
+    },
+  });
 }
 
 const desktopAssets = "/assets/matearte/personalizados-desktop";
