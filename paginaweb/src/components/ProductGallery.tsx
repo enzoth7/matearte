@@ -50,7 +50,7 @@ export function ProductGallery({ images }: { images: MediaAsset[] }) {
               alt={image.alt}
               fill
               sizes="(max-width: 1024px) 100vw, 60vw"
-              className="object-contain"
+              className="object-cover"
               priority={image === images[0]}
             />
           </div>
@@ -74,7 +74,7 @@ export function ProductGallery({ images }: { images: MediaAsset[] }) {
               }}
               aria-label={`Ver imagen ${i + 1}`}
             >
-              <Image src={image.src} alt={image.alt} fill sizes="64px" className="object-contain" />
+              <Image src={image.src} alt={image.alt} fill sizes="64px" className="object-cover" />
             </button>
           ))}
         </div></>

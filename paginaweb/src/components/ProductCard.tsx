@@ -15,7 +15,7 @@ export function ProductCard({ product, priority = false, headingLevel = "h3" }: 
             alt={image.alt}
             fill
             sizes="(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 30vw"
-            className="object-contain"
+            className="object-cover"
             priority={priority}
           />
           {product.editorial && <span className="absolute left-3 top-3 bg-[var(--yerba)] px-3 py-1.5 text-[0.66rem] font-semibold tracking-widest text-white uppercase">Inspiración</span>}
