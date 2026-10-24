@@ -78,6 +78,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       const cover = imageForVariant(product.commerce_product_images, variant);
       return ({
       id: variant?.id ?? product.id, sourceProductId: product.id,
+      updatedAt: variant?.updated_at && variant.updated_at > product.updated_at ? variant.updated_at : product.updated_at,
       searchText: buildSearchText(product.description, product.attributes, variant?.option_values, variant?.color, variant?.rim_type, variant?.leather_type, category),
       weightGrams: Number(variant?.weight_grams) > 0 ? Number(variant?.weight_grams) : Number(product.peso) || 0,
       name: product.name, sku: variant?.sku ?? "", variant: variant?.name ?? "Sin variantes",

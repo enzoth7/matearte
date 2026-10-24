@@ -58,9 +58,13 @@ export function Products({ s, mode, notify, refresh, commerce }: PageProps & { m
   });
   const activeRows = rows.filter((product) => product.active);
   const webRows = activeRows.filter((product) => product.published && product.availableChannels?.includes("Web") && product.prices.Web > 0 && !["sandbox", "regalos"].includes(product.categoryCode || ""));
-  const listRows = [...rows].sort((a, b) => {
+  const sortedRows = [...rows].sort((a, b) => {
     const bySku = a.sku.localeCompare(b.sku, "es", { numeric: true });
     const byPrice = a.prices.Local - b.prices.Local || bySku;
+    if (listOrder.startsWith("modificacion")) {
+      const byDate = (a.updatedAt ? Date.parse(a.updatedAt) || 0 : 0) - (b.updatedAt ? Date.parse(b.updatedAt) || 0 : 0);
+      return byDate * (listOrder.endsWith("desc") ? -1 : 1) || bySku;
+    }
     return (listOrder.startsWith("precio") ? byPrice : bySku) * (listOrder.endsWith("desc") ? -1 : 1);
   });
   const activeCardId = selectedCardId || rows.find(product => (product.sourceProductId || product.id) === selectedId)?.id;
@@ -92,21 +96,22 @@ export function Products({ s, mode, notify, refresh, commerce }: PageProps & { m
         <label className="inline-label">Familia<select value={filter} onChange={(e) => setFilter(e.target.value)}>{["Todos", ...new Set(sectionProducts.map((p) => p.family))].map((family) => <option key={family}>{family}</option>)}</select></label>
         <label className="inline-label">Estado<select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as CatalogStatusFilter)}>{catalogStatusOptions.map((option) => <option key={option}>{option}</option>)}</select></label>
         <label className="inline-label">Imagen<select value={imageFilter} onChange={(e) => setImageFilter(e.target.value as CatalogImageFilter)}>{catalogImageOptions.map((option) => <option key={option}>{option}</option>)}</select></label>
+        {mode === "catalogo" && !selectedId && <label className="inline-label catalog-sort">Ordenar<select aria-label="Ordenar catálogo" value={listOrder} onChange={(event) => setListOrder(event.target.value)}><option value="sku-asc">SKU ascendente</option><option value="sku-desc">SKU descendente</option><option value="precio-asc">Precio local ascendente</option><option value="precio-desc">Precio local descendente</option><option value="modificacion-desc">Última modificación: más nueva</option><option value="modificacion-asc">Última modificación: más vieja</option></select></label>}
         {mode === "catalogo" && <button type="button" className="catalog-clear-filters" aria-label="Quitar filtros" title="Quitar filtros y búsqueda" onClick={clearCatalogFilters} disabled={!hasCatalogFilters}><FunnelX size={20} aria-hidden="true" /></button>}
         {mode === "catalogo" && !selectedId && <div className="tabs">{["Tarjetas", "Lista"].map((item) => <button key={item} className={item === view ? "active" : ""} onClick={() => setView(item)}>{item}</button>)}</div>}
       </div>
       <input aria-label="Buscar productos" placeholder="Buscar por nombre, SKU, material o característica" value={search} onChange={(e) => setSearch(e.target.value)} />
     </div>
-    {mode === "catalogo" && selectedId && <div className="catalog-split-view"><aside className="catalog-product-rail" aria-label="Productos del catálogo"><div className="catalog-rail-heading"><strong>Productos</strong><small>{rows.length} artículos</small></div><div className="product-grid catalog-rail-grid">{rows.map((product) => <button className={`product-card ${activeCardId === product.id ? "selected" : ""}`} key={product.id} onClick={() => selectProduct(product.wholesaleProductId ? product.id : product.sourceProductId || product.id, product.id)} aria-pressed={activeCardId === product.id}>
+    {mode === "catalogo" && selectedId && <div className="catalog-split-view"><aside className="catalog-product-rail" aria-label="Productos del catálogo"><div className="catalog-rail-heading"><strong>Productos</strong><small>{rows.length} artículos</small></div><div className="product-grid catalog-rail-grid">{sortedRows.map((product) => <button className={`product-card ${activeCardId === product.id ? "selected" : ""}`} key={product.id} onClick={() => selectProduct(product.wholesaleProductId ? product.id : product.sourceProductId || product.id, product.id)} aria-pressed={activeCardId === product.id}>
       <ProductThumbnail product={product} />
       <div className="product-info">{!product.wholesaleProductId && product.variant !== "Sin color" && <small>{product.variant}</small>}<h3>{product.name}</h3><div><strong>{primaryPrice(product)}</strong></div></div>
     </button>)}</div>{!rows.length && <div className="empty">No hay productos con este filtro.</div>}</aside><div className="catalog-editor-column">{editor}</div></div>}
-    {mode === "catalogo" && !selectedId && view === "Tarjetas" ? <div className="product-grid">{rows.map((product) => <button className="product-card" key={product.id} onClick={() => selectProduct(product.wholesaleProductId ? product.id : product.sourceProductId || product.id, product.id)}>
+    {mode === "catalogo" && !selectedId && view === "Tarjetas" ? <div className="product-grid">{sortedRows.map((product) => <button className="product-card" key={product.id} onClick={() => selectProduct(product.wholesaleProductId ? product.id : product.sourceProductId || product.id, product.id)}>
       <ProductThumbnail product={product} />
       <div className="product-info">{!product.wholesaleProductId && product.variant !== "Sin color" && <small>{product.variant}</small>}<h3>{product.name}</h3><div><strong>{primaryPrice(product)}</strong></div></div>
     </button>)}</div> : !selectedId && <section className="catalog-general-list">
       <header className="catalog-print-heading"><strong>MateArte</strong><div>Catálogo de productos · {formatDate(new Date())}</div></header>
-      <Table rows={listRows} searchText={(p) => `${p.name} ${p.sku} ${p.variant} ${p.family}`} showSearch={false} action={<><label className="catalog-sort">Ordenar<select value={listOrder} onChange={(event) => setListOrder(event.target.value)}><option value="sku-asc">SKU ascendente</option><option value="sku-desc">SKU descendente</option><option value="precio-asc">Precio local ascendente</option><option value="precio-desc">Precio local descendente</option></select></label><button className="secondary catalog-print-button" onClick={() => window.print()}>Imprimir lista</button></>} columns={mode === "servicios" ? [
+      <Table rows={sortedRows} searchText={(p) => `${p.name} ${p.sku} ${p.variant} ${p.family}`} showSearch={false} action={<>{mode === "servicios" && <label className="catalog-sort">Ordenar<select value={listOrder} onChange={(event) => setListOrder(event.target.value)}><option value="sku-asc">SKU ascendente</option><option value="sku-desc">SKU descendente</option><option value="precio-asc">Precio local ascendente</option><option value="precio-desc">Precio local descendente</option></select></label>}<button className="secondary catalog-print-button" onClick={() => window.print()}>Imprimir lista</button></>} columns={mode === "servicios" ? [
       { label: "SKU", render: (p) => p.sku || "—" },
       { label: "Servicio", render: (p) => <button className="text-button" onClick={() => selectProduct(p.sourceProductId || p.id, p.id)}>{p.name}</button> },
       { label: "Precio local", render: (p) => p.prices.Local > 0 ? money(p.prices.Local) : "A definir en la venta" },

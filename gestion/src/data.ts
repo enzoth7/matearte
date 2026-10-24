@@ -9,6 +9,7 @@ export type Product = {
   assembly?: import("../../shared/mate-assembly").MateAssembly;
   id: string;
   sourceProductId?: string;
+  updatedAt?: string;
   searchText?: string;
   wholesaleProductId?: string;
   priceArg?: number;
