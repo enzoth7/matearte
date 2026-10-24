@@ -4,6 +4,7 @@ import {
   categoryOptions,
   collectionOptions,
   colorOptions,
+  footwearClosureOptions,
   materialOptions,
   productTypeOptions,
   priceRangeOptions,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/catalog-filters";
 import { useLocale, useTranslations } from "next-intl";
 import type { CatalogCollectionId, CatalogColorId, CatalogMaterialId, CatalogProductTypeId, Product } from "@/types/catalog";
+import type { CatalogFootwearClosureId } from "../../../../shared/catalog-taxonomy";
 
 const COLOR_FALLBACKS: Record<string, Record<string, string>> = {
   es: {
@@ -110,6 +112,7 @@ const CATEGORY_FALLBACKS: Record<string, Record<string, string>> = {
     footwear: "Calzado",
     boots: "Botas",
     clogs: "Zuecos",
+    shoes: "Zapatos",
     wallets: "Billeteras",
     bags: "Carteras",
   },
@@ -129,6 +132,7 @@ const CATEGORY_FALLBACKS: Record<string, Record<string, string>> = {
     footwear: "Footwear",
     boots: "Boots",
     clogs: "Clogs",
+    shoes: "Shoes",
     wallets: "Wallets",
     bags: "Bags",
   },
@@ -148,6 +152,7 @@ const CATEGORY_FALLBACKS: Record<string, Record<string, string>> = {
     footwear: "Calçados",
     boots: "Botas",
     clogs: "Tamancos",
+    shoes: "Sapatos",
     wallets: "Carteiras",
     bags: "Bolsas",
   },
@@ -162,6 +167,7 @@ type Props = {
   onCollectionToggle: (value: CatalogCollectionId) => void;
   onPriceToggle: (value: PriceRangeId) => void;
   onMaterialToggle: (value: CatalogMaterialId) => void;
+  onClosureToggle: (value: CatalogFootwearClosureId) => void;
   onProductTypeToggle: (value: CatalogProductTypeId) => void;
   onColorToggle: (value: CatalogColorId) => void;
   onClear: () => void;
@@ -176,6 +182,7 @@ export function CatalogFilterControls({
   onCollectionToggle,
   onPriceToggle,
   onMaterialToggle,
+  onClosureToggle,
   onProductTypeToggle,
   onColorToggle,
   onClear,
@@ -228,6 +235,7 @@ export function CatalogFilterControls({
   const listClass = mobile ? "catalog-mobile-filter-list" : "catalog-filter-list";
   const rowClass = mobile ? "catalog-mobile-filter-row" : "catalog-check-row";
   const availableColors = new Set(products.flatMap((product) => getProductColors(product)));
+  const showFootwearFilter = filters.category === "todas" || ["botas", "zuecos", "zapatos"].includes(filters.category) || filters.closures.length > 0;
 
   return (
     <div className={mobile ? "catalog-mobile-filter-groups" : "catalog-filter-groups"}>
@@ -288,6 +296,19 @@ export function CatalogFilterControls({
           ))}
         </div>
       </fieldset>
+
+      {showFootwearFilter && <fieldset className={`${groupClass} catalog-footwear-filter`}>
+        <legend>{t("fastening")}</legend>
+        <div className={listClass}>
+          {footwearClosureOptions.map((option) => (
+            <label key={option.value} className={rowClass}>
+              <input type="checkbox" checked={filters.closures.includes(option.value)} onChange={() => onClosureToggle(option.value)} />
+              <span className={mobile ? "catalog-mobile-checkbox" : "catalog-checkbox"} aria-hidden="true" />
+              <span>{t(option.labelKey)}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>}
 
       <fieldset className={`${groupClass} catalog-product-type-filter`}>
         <legend>{t("productType")}</legend>

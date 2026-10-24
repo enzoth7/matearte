@@ -895,7 +895,7 @@ main {
   border-radius: 0;
 }
 .catalog-general-list .table-scroll { overflow-x: auto; }
-.catalog-general-list table { table-layout: fixed; min-width: 790px; white-space: normal; }
+.catalog-general-list table { table-layout: fixed; min-width: 980px; white-space: normal; }
 .catalog-general-list th, .catalog-general-list td { padding: 11px 8px; line-height: 1.35; vertical-align: middle; }
 .catalog-general-list th:first-child, .catalog-general-list td:first-child { padding-left: 12px; width: 8%; }
 .catalog-general-list th:nth-child(2) { width: 20%; }
@@ -905,7 +905,7 @@ main {
 .catalog-general-list th:nth-child(7) { width: 10%; }
 .catalog-general-list th:nth-child(8) { width: 11%; }
 .catalog-general-list th:nth-child(9) { width: 9%; }
-.catalog-general-list td:nth-child(n+5):nth-child(-n+7) { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.catalog-general-list td:nth-child(n+5):nth-child(-n+9) { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .catalog-general-list td:nth-child(2) .text-button { text-align: left; white-space: normal; line-height: 1.35; }
 .catalog-general-list td:last-child .badge { padding: 4px 6px; font-size: 11px; }
 .catalog-wholesale-note { margin-top: 8px; color: var(--muted); font-size: 12px; }
@@ -3072,6 +3072,27 @@ details.org-node {
 .local-personalization-card-heading small { display: block; color: var(--muted); font-size: 11px; font-weight: 650; }
 .local-personalization-card-heading h3 { margin: 1px 0 0; font-size: 17px; letter-spacing: -.012em; }
 .local-personalization-card-heading > strong { align-self: center; color: var(--brown); font-size: 12px; }
+.local-mate-steps { display: flex; gap: 7px; overflow-x: auto; padding: 14px 19px; border-bottom: 1px solid var(--line); }
+.local-mate-steps button { display: inline-flex; flex: none; align-items: center; gap: 7px; min-height: 36px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--white); font-size: 12px; white-space: nowrap; }
+.local-mate-steps button.active { border-color: var(--brown); background: var(--brown); color: var(--white); }
+.local-mate-steps button span { display: grid; place-items: center; width: 19px; height: 19px; border-radius: 50%; background: rgb(121 76 50 / .12); }
+.local-mate-steps button.active span { background: rgb(255 255 255 / .2); }
+.local-mate-base { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 10px 0; }
+.local-mate-base span { color: var(--muted); }
+.local-mate-characteristics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.local-mate-characteristics div { min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; }
+.local-mate-characteristics dt { color: var(--muted); font-size: 12px; }
+.local-mate-characteristics dd { margin: 3px 0 0; overflow-wrap: anywhere; font-weight: 600; }
+.local-mate-choice { margin: 0 0 15px; padding: 0; border: 0; }
+.local-mate-choice legend { margin-bottom: 9px; font-weight: 650; }
+.local-mate-choice > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.local-mate-facets { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 14px; }
+.local-mate-facets button { padding: 8px 13px; border: 1px solid var(--line); border-radius: 9px; background: var(--white); text-align: left; }
+.local-mate-facets button[aria-pressed="true"] { border-color: var(--brown); background: var(--brown); color: var(--white); }
+.local-mate-choice button { padding: 8px 13px; border: 1px solid var(--line); border-radius: 9px; background: var(--white); }
+.local-mate-choice button[aria-pressed="true"] { border-color: var(--brown); background: var(--brown); color: var(--white); }
+.local-mate-step-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 19px; }
+.local-mate-step-actions span { color: var(--muted); font-size: 12px; }
 .local-personalization-body { display: grid; gap: 0; }
 .local-personalization-surface { padding: 18px 19px; border-bottom: 1px solid var(--line); }
 .local-personalization-surface:last-child { border-bottom: 0; }
@@ -3151,6 +3172,7 @@ details.org-node {
   .local-sale-payment-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .local-sale-line { grid-template-columns: minmax(150px, 1fr) 110px 90px 110px 40px; gap: 9px; }
   .local-personalization-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .local-mate-characteristics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 650px) {
   .local-sale-section { padding: 18px; }
@@ -3175,6 +3197,7 @@ details.org-node {
   .local-personalization-card-heading { grid-template-columns: minmax(0, 1fr); }
   .local-personalization-card-heading > strong { grid-column: 1; }
   .local-personalization-fields { grid-template-columns: 1fr; }
+  .local-mate-characteristics { grid-template-columns: 1fr; }
   .local-personalization-fields .local-personalization-text { grid-column: auto; }
   .local-personalization-surface-title { align-items: flex-start; flex-direction: column; gap: 2px; }
   .local-personalization-upload { align-items: stretch; flex-direction: column; }

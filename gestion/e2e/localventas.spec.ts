@@ -118,6 +118,7 @@ test('personalizados usa artículos de base para mate, matera y bombilla y guard
   await page.setViewportSize({ width: 2048, height: 1152 });
   const { fixture, writes } = await mockCommerce(page, { writable: true });
   fixture.products[0].commerce_variants[0].name = 'Natural · Tamaño Todos los tamaños';
+  fixture.products[0].attributes = { ...fixture.products[0].attributes, 'tipo-mate': 'imperial', tamano: 'todos', interior: 'todos' };
   fixture.products[0].commerce_product_images.push({ id: 'image-custom-mate', storage_path: 'test.png', alt_text: 'Mate', sort_order: 0, variant_id: null });
   fixture.products.push({
     ...fixture.products[0], id: 'product-custom-matera', name: 'Matera de catálogo', category: 'materas', category_code: 'materas', commerce_product_images: [],
@@ -140,7 +141,12 @@ test('personalizados usa artículos de base para mate, matera y bombilla y guard
   await expect(page.getByLabel('Variante')).not.toContainText('Todos los tamaños');
   await page.getByRole('button', { name: 'Agregar personalizado' }).click();
   await expect(page.locator('.local-sale-photo-panel')).not.toContainText('Todos los tamaños');
+  await page.getByRole('navigation', { name: 'Pasos del diseño de Mate de catálogo' }).getByRole('button', { name: /Tamaño e interior/ }).click();
+  await page.getByRole('group', { name: 'Tamaño' }).getByRole('button', { name: 'Grande' }).click();
+  await page.getByRole('group', { name: 'Interior' }).getByRole('button', { name: 'Calabaza' }).click();
+  await page.getByRole('navigation', { name: 'Pasos del diseño de Mate de catálogo' }).getByRole('button', { name: /Virola/ }).click();
   await page.getByLabel('Texto de virola de Mate de catálogo').fill('ENZO');
+  await page.getByRole('navigation', { name: 'Pasos del diseño de Mate de catálogo' }).getByRole('button', { name: /Resumen/ }).click();
   await expect(page.getByLabel('Precio unitario de Mate de catálogo')).toHaveValue(/1\.120,5/);
   await expect(page.getByLabel('Precio de Mate de catálogo')).toContainText('Grabado de texto en virola');
   await expect(page.locator('.local-personalization-card-heading').first().locator('svg, p')).toHaveCount(0);
@@ -177,6 +183,7 @@ test('personalizados usa artículos de base para mate, matera y bombilla y guard
   expect(write?.body.p_items[0].unit_price_minor).toBe(112050);
   expect(write?.body.p_items[0].customization.localPricing).toMatchObject({ source: 'published-personalizer', versionId: 'pricing-test', extrasUnitPriceMinor: 12000 });
   expect(write?.body.p_items[0].customization.configuration.rim.texts[0].text).toBe('ENZO');
+  expect(write?.body.p_items[0].customization.configuration.selectedOptions).toEqual({ tamano: 'grande', interior: 'calabaza' });
   expect(write?.body.p_items[1].unit_price_minor).toBe(160050);
   expect(write?.body.p_items[1].customization.localPricing).toMatchObject({ source: 'published-personalizer', versionId: 'pricing-test', extrasUnitPriceMinor: 60000 });
   expect(write?.body.p_items[1].customization.localPersonalization).toMatchObject({ kind: 'matera', placement: 'front-lid', logoName: 'logo-cliente.svg' });
@@ -186,12 +193,14 @@ test('personalizados usa artículos de base para mate, matera y bombilla y guard
 
   await page.goto('/produccion/personalizados');
   const row = page.getByRole('row').filter({ hasText: '#L001' });
-  await expect(row).toContainText('3 personalizados');
+  await expect(row).toContainText('Mates, Materas, Bombillas');
   await row.getByRole('button', { name: 'Ver detalle del pedido #L001' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('heading', { name: 'Mate de catálogo' })).toBeVisible();
   await expect(dialog.getByRole('heading', { name: 'Matera de catálogo' })).toBeVisible();
   await expect(dialog.getByRole('heading', { name: 'Bombilla de alpaca' })).toBeVisible();
+  await dialog.getByRole('tab', { name: 'Producción' }).click();
+  await expect(dialog.getByText('Calabaza', { exact: true })).toBeVisible();
   await expect(dialog.getByText('Frente y tapa')).toBeVisible();
   await expect(dialog.getByText('logo-cliente.svg').first()).toBeVisible();
 });

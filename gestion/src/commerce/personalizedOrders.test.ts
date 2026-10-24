@@ -4,6 +4,9 @@ import {
   getPaymentStatusValue,
   normalizeWhatsappPhone,
   paymentStatusLabel,
+  personalizedItemProductionStatus,
+  personalizedItemPriceDetail,
+  personalizedOrderTotals,
   personalizedProductionStatus,
   summarizePersonalization,
   whatsappContactUrl,
@@ -23,6 +26,51 @@ const item = (snapshot: Record<string, unknown>): PersonalizedOrderItem => ({
   immutable_snapshot: snapshot,
 });
 
+describe('desglose cobrado del pedido personalizado', () => {
+  const snapshot = {
+    configuration: {
+      pricingSnapshot: {
+        totalUYU: 3300,
+        basePriceUYU: 1800,
+        components: [{ kind: 'family', label: 'Camionero', valueUYU: 1800 }],
+        items: [
+          { label: 'Grabado láser de texto en virola', quantity: 1, unitPriceUYU: 300, totalUYU: 300 },
+          { label: 'Imágenes o escudos en virola', quantity: 3, unitPriceUYU: 400, totalUYU: 1200 },
+        ],
+      },
+    },
+  };
+
+  it('usa el precio histórico de base, letras e imágenes para cada unidad comprada', () => {
+    const detail = personalizedItemPriceDetail({ ...item(snapshot), quantity: 2, unit_price_minor: 330_000, total_minor: 660_000 });
+    expect(detail.notice).toBe('');
+    expect(detail.lines.map(({ label, quantity, unitPriceMinor, totalMinor }) => ({ label, quantity, unitPriceMinor, totalMinor }))).toEqual([
+      { label: 'Mate Camionero', quantity: 2, unitPriceMinor: 180_000, totalMinor: 360_000 },
+      { label: 'Grabado láser de texto en virola', quantity: 2, unitPriceMinor: 30_000, totalMinor: 60_000 },
+      { label: 'Imágenes o escudos en virola', quantity: 6, unitPriceMinor: 40_000, totalMinor: 240_000 },
+    ]);
+  });
+
+  it('no atribuye importes incorrectos cuando el diseño guardado difiere del cobrado', () => {
+    const detail = personalizedItemPriceDetail({ ...item(snapshot), unit_price_minor: 350_000, total_minor: 350_000 });
+    expect(detail.lines).toHaveLength(1);
+    expect(detail.lines[0].totalMinor).toBe(350_000);
+    expect(detail.notice).toContain('no coincide');
+  });
+
+  it('concilia subtotal, descuento, envío y cargo con el total del pedido', () => {
+    const order: PersonalizedOrder = {
+      id: 'order-1', order_number: 1, status: 'ready_for_production', created_at: '2026-10-23', paid_at: null,
+      customer_snapshot: {}, order_items: [{ ...item(snapshot), quantity: 2, unit_price_minor: 330_000, total_minor: 660_000 }],
+      items_subtotal_minor: 660_000, discount_minor: 10_000, shipping_minor: 20_000, payment_fee_minor: 5_000, total_minor: 675_000,
+    };
+    expect(personalizedOrderTotals(order)).toEqual({
+      itemsSubtotalMinor: 660_000, discountMinor: 10_000, shippingMinor: 20_000,
+      paymentFeeMinor: 5_000, otherAdjustmentMinor: 0, totalMinor: 675_000,
+    });
+  });
+});
+
 describe('summarizePersonalization', () => {
   it('separa claramente la virola y el frente/reverso del fleje', () => {
     const summary = summarizePersonalization(item({
@@ -33,7 +81,7 @@ describe('summarizePersonalization', () => {
         engravingTypeId: 'laser',
         flejeEngravingTypeId: 'aplique-bronce',
         capabilities: { hasFleje: true },
-        selectionLabels: { family: 'Imperial', texture: 'Clásico', color: 'Marrón', metal: 'Plata 900', size: 'Grande', engraving: 'Láser' },
+        selectionLabels: { family: 'Imperial', texture: 'Clásico', color: 'Marrón', metal: 'Plata 900', size: 'Grande', interior: 'Calabaza', characteristics: { 'diseno-fleje': 'Griego' }, engraving: 'Láser' },
         rim: {
           finishMode: 'finish',
           finishId: 'finish-1',
@@ -52,7 +100,7 @@ describe('summarizePersonalization', () => {
       },
     }));
 
-    expect(summary.mate).toMatchObject({ model: 'Imperial', size: 'Grande', color: 'Marrón', metal: 'Plata 900' });
+    expect(summary.mate).toMatchObject({ model: 'Imperial', size: 'Grande', interior: 'Calabaza', color: 'Marrón', metal: 'Plata 900', characteristics: { 'diseno-fleje': 'Griego' } });
     expect(summary.rim).toMatchObject({ technique: 'Láser', finish: 'Laureles', texts: ['RICHARD', 'MATEARTE'], images: ['Sol'], personalized: true });
     expect(summary.fleje).toMatchObject({
       available: true,
@@ -182,5 +230,13 @@ describe('personalizedProductionStatus', () => {
     const mixed = order(['pending']);
     mixed.order_items.push({ ...item({}), id: 'catalog', item_type: 'catalog', requires_review: false, production_status: 'completed' });
     expect(personalizedProductionStatus(mixed)).toBe('Pendiente');
+  });
+
+  it('muestra como terminado un personalizado enviado aunque su artículo siga pendiente', () => {
+    const shipped = order(['pending']);
+    shipped.status = 'shipped';
+    expect(personalizedProductionStatus(shipped)).toBe('Terminado');
+    expect(personalizedItemProductionStatus(shipped, shipped.order_items[0])).toBe('Terminado');
+    expect(personalizedProductionStatus(order(['pending']))).toBe('Pendiente');
   });
 });

@@ -12,6 +12,7 @@ import {
   type PriceRangeId,
 } from "@/lib/catalog-filters";
 import type { CatalogCollectionId, CatalogColorId, CatalogMaterialId, CatalogProductTypeId } from "@/types/catalog";
+import type { CatalogFootwearClosureId } from "../../../../shared/catalog-taxonomy";
 
 export function useCatalogFilters() {
   const router = useRouter();
@@ -40,6 +41,7 @@ export function useCatalogFilters() {
     setSort: (sort: CatalogSort) => commit({ ...filters, sort }),
     togglePrice: (value: PriceRangeId) => commit({ ...filters, prices: toggleFilterValue(filters.prices, value) }),
     toggleMaterial: (value: CatalogMaterialId) => commit({ ...filters, materials: toggleFilterValue(filters.materials, value) }),
+    toggleClosure: (value: CatalogFootwearClosureId) => commit({ ...filters, closures: toggleFilterValue(filters.closures, value) }),
     toggleProductType: (value: CatalogProductTypeId) => commit({ ...filters, productTypes: toggleFilterValue(filters.productTypes, value) }),
     toggleColor: (value: CatalogColorId) => commit({ ...filters, colors: toggleFilterValue(filters.colors, value) }),
     setPrice: (value: PriceRangeId | "") => commit({ ...filters, prices: value ? [value] : [] }),
@@ -47,6 +49,6 @@ export function useCatalogFilters() {
     setProductType: (value: CatalogProductTypeId | "") => commit({ ...filters, productTypes: value ? [value] : [] }),
     setColor: (value: CatalogColorId | "") => commit({ ...filters, colors: value ? [value] : [] }),
     setCollection: (value: CatalogCollectionId | "") => commit({ ...filters, collections: value ? [value] : [] }),
-    clearFilters: () => commit({ ...filters, search: "", category: "todas", collections: [], prices: [], materials: [], productTypes: [], colors: [] }),
+    clearFilters: () => commit({ ...filters, search: "", category: "todas", collections: [], prices: [], materials: [], closures: [], productTypes: [], colors: [] }),
   };
 }

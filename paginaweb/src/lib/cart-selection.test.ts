@@ -64,7 +64,7 @@ describe("selección comercial del carrito", () => {
   });
 
   it("acepta varios talles de botas y zuecos sin mezclar las líneas del carrito", () => {
-    for (const category_code of ["botas", "zuecos"]) {
+    for (const category_code of ["botas", "zuecos", "zapatos"]) {
       const product = { category_code, attributes: { talle: ["36", "38", "40"] } };
       const size36 = validatedCatalogSelection(defaultCatalogTaxonomy, product, variant, { color: "natural", talle: "36" });
       const size40 = validatedCatalogSelection(defaultCatalogTaxonomy, product, variant, { color: "natural", talle: "40" });

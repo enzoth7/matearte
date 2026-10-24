@@ -60,6 +60,7 @@ type CatalogVariant = {
   sku: string
   name: string
   base_price_minor: number
+  price_minor: number
   active: boolean
   available_local?: boolean
   option_values?: Record<string, unknown>
@@ -419,7 +420,7 @@ function App() {
       const [productsRequest, categoriesRequest] = await Promise.all([
         supabase
           .from('commerce_products')
-          .select('id,name,category,category_code,published,commerce_variants(id,sku,name,base_price_minor,active,available_local,option_values)')
+          .select('id,name,category,category_code,published,commerce_variants(id,sku,name,base_price_minor,price_minor,active,available_local,option_values)')
           .neq('category', 'sandbox')
           .order('name'),
         supabase
@@ -532,7 +533,7 @@ function App() {
       if (!b.variant) return -1
       const comparison = catalogSort === 'sku'
         ? skuCollator.compare(a.variant.sku, b.variant.sku)
-        : a.variant.base_price_minor - b.variant.base_price_minor || skuCollator.compare(a.variant.sku, b.variant.sku)
+        : a.variant.price_minor - b.variant.price_minor || skuCollator.compare(a.variant.sku, b.variant.sku)
       return catalogSortDirection === 'asc' ? comparison : -comparison
     })
   }, [catalogTableRows, catalogSearch, catalogCategoryFilter, catalogSort, catalogSortDirection])
@@ -601,7 +602,7 @@ function App() {
   const chooseVariant = (variantId: string) => {
     setSelectedVariantId(variantId)
     const row = catalogRows.find(({ variant }) => variant.id === variantId)
-    setPrice(row ? String(row.variant.base_price_minor / 100) : '')
+    setPrice(row ? String(row.variant.price_minor / 100) : '')
     setRegisterProductSearch(row ? `${row.variant.sku} · ${row.product.name}` : '')
     setShowRegisterProductResults(false)
     setItemsError('')
@@ -610,7 +611,7 @@ function App() {
   const chooseSearchedProduct = (row: { product: CatalogProduct; variant: CatalogVariant }) => {
     setSelectedCategory(row.product.category_code || row.product.category)
     setSelectedVariantId(row.variant.id)
-    setPrice(String(row.variant.base_price_minor / 100))
+    setPrice(String(row.variant.price_minor / 100))
     setRegisterProductSearch(`${row.variant.sku} · ${row.product.name}`)
     setShowRegisterProductResults(false)
     setItemsError('')
@@ -757,7 +758,7 @@ function App() {
         active: true,
         option_values: {},
       })
-      .select('id,sku,name,base_price_minor,active,option_values')
+      .select('id,sku,name,base_price_minor,price_minor,active,option_values')
       .single()
 
     if (variantResult.error || !variantResult.data) {
@@ -834,8 +835,8 @@ function App() {
       p_active: hasVariant ? editProductActive : null,
     })
 
-    setEditProductBusy(false)
     if (error) {
+      setEditProductBusy(false)
       setEditProductError(error.code === '23505'
         ? 'Ese SKU ya existe. Usá otro código.'
         : error.code === '42501'
@@ -845,6 +846,15 @@ function App() {
     }
 
     const variantId = editingCatalogRow.variant?.id
+    const updatedVariant = variantId
+      ? await supabase.from('commerce_variants').select('id,sku,name,base_price_minor,price_minor,active,available_local,option_values').eq('id', variantId).single()
+      : null
+    if (updatedVariant?.error || (variantId && !updatedVariant?.data)) {
+      setEditProductBusy(false)
+      setEditProductError('El producto se guardó, pero no se pudo verificar el precio publicado. Recargá el catálogo antes de registrar una venta.')
+      return
+    }
+    const refreshedVariant = updatedVariant?.data as CatalogVariant | undefined
     setCatalog((current) => current.map((product) => product.id === editingCatalogRow.product.id
       ? {
           ...product,
@@ -852,10 +862,12 @@ function App() {
           category,
           category_code: category,
           commerce_variants: product.commerce_variants.map((variant) => variant.id === variantId
-            ? { ...variant, sku, name: variantName, base_price_minor: Math.round(parsedPrice * 100), active: editProductActive }
+            ? refreshedVariant || variant
             : variant),
         }
       : product).sort((a, b) => a.name.localeCompare(b.name, 'es')))
+    if (selectedVariantId === variantId && refreshedVariant) setPrice(String(refreshedVariant.price_minor / 100))
+    setEditProductBusy(false)
     setEditingCatalogRow(null)
     setCatalogNotice('Producto actualizado correctamente.')
   }
@@ -1361,8 +1373,9 @@ function App() {
                         <th>Producto</th>
                         <th>Variante</th>
                         <th>Categoría</th>
+                        <th>Precio Base</th>
                         <th>Estado</th>
-                        <th aria-sort={catalogSort === 'price' ? (catalogSortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}><button className="catalog-sort-button catalog-sort-price" type="button" onClick={() => toggleCatalogSort('price')}>Precio base {sortIcon('price')}</button></th>
+                        <th aria-sort={catalogSort === 'price' ? (catalogSortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}><button className="catalog-sort-button catalog-sort-price" type="button" onClick={() => toggleCatalogSort('price')}>Precio {sortIcon('price')}</button></th>
                         <th><span className="sr-only">Acciones</span></th>
                       </tr>
                     </thead>
@@ -1373,8 +1386,9 @@ function App() {
                           <td>{item.name}</td>
                           <td>{variant?.name || 'Sin variantes'}</td>
                           <td>{catalogCategoryLabels.get(item.category_code || item.category) || item.category_code || item.category}</td>
+                          <td>{variant ? formatMoney(variant.base_price_minor / 100) : '—'}</td>
                           <td><small className={`catalog-state ${variant?.active ? 'is-active' : 'is-inactive'}`}>{variant?.active ? 'Activo' : 'Inactivo'}</small></td>
-                          <td><strong>{variant ? formatMoney(variant.base_price_minor / 100) : '—'}</strong></td>
+                          <td><strong>{variant ? formatMoney(variant.price_minor / 100) : '—'}</strong></td>
                           <td><button className="catalog-edit-button" type="button" onClick={() => beginEditProduct({ product: item, variant })} disabled={!canCreateProducts} aria-label={`Editar ${item.name}`} title={canCreateProducts ? `Editar ${item.name}` : 'Solo los administradores del catálogo pueden editar productos'}><PencilSimple weight="bold" /></button></td>
                         </tr>
                       ))}

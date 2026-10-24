@@ -33,7 +33,7 @@ function product(id: string, priceUYU: number, overrides: Partial<Product["filte
   };
 }
 
-const defaults: CatalogFilters = { search: "", category: "todas", collections: [], prices: [], materials: [], productTypes: [], colors: [], sort: "nuevo" };
+const defaults: CatalogFilters = { search: "", category: "todas", collections: [], prices: [], materials: [], closures: [], productTypes: [], colors: [], sort: "nuevo" };
 
 describe("filtros del catálogo", () => {
   it("respeta los límites sin superponer rangos", () => {
@@ -146,6 +146,21 @@ describe("filtros del catálogo", () => {
     expect(filterAndSortCatalog([{ product: zueco }, { product: bota }], filters).map(item => item.product.id)).toEqual(["zueco"]);
   });
 
+  it("filtra zapatos por varias formas de cierre y conserva la selección en la URL", () => {
+    const zapato: Product = product("zapato", 3800).product;
+    zapato.category = "zapatos";
+    zapato.attributes = { "tipo-cierre": ["con-cordones", "con-elastico"] };
+    const bota: Product = product("bota", 4200).product;
+    bota.category = "botas";
+    bota.attributes = { "tipo-cierre": ["con-hebilla"] };
+    const filters = parseCatalogFilters(new URLSearchParams("categoria=zapatos&cierre=con-cierre&cierre=con-cordones"));
+    expect(filters).toMatchObject({ category: "zapatos", closures: ["con-cierre", "con-cordones"] });
+    expect(writeCatalogFilters(filters).getAll("cierre")).toEqual(["con-cierre", "con-cordones"]);
+    expect(filterAndSortCatalog([{ product: zapato }, { product: bota }], filters).map(item => item.product.id)).toEqual(["zapato"]);
+    expect(filterAndSortCatalog([{ product: zapato }, { product: bota }], { ...defaults, closures: ["con-hebilla", "con-elastico"] })).toHaveLength(2);
+    expect(filterAndSortCatalog([{ product: zapato }], { ...defaults, search: "cordones" })).toHaveLength(1);
+  });
+
   it("muestra primero los productos modificados más recientemente y resuelve empates por nombre", () => {
     const entries: Array<{ product: Product }> = [
       { product: { ...product("Termo Stanley", 3500).product, lastModifiedAt: 100 } },
@@ -186,6 +201,13 @@ describe("filtros del catálogo", () => {
     const fromPlural = parseCatalogFilters(new URLSearchParams("categoria=cuchillos"));
     expect(fromSingular.category).toBe("cuchillos");
     expect(fromPlural.category).toBe("cuchillos");
+  });
+
+  it("filtra tarjeteros como categoría propia", () => {
+    expect(parseCatalogFilters(new URLSearchParams("categoria=tarjetero")).category).toBe("tarjeteros");
+    const cardHolder = { product: { ...product("tarjetero", 2500).product, category: "tarjeteros" as const } };
+    const wallet = { product: { ...product("billetera", 3000).product, category: "billeteras" as const } };
+    expect(filterAndSortCatalog([cardHolder, wallet], { ...defaults, category: "tarjeteros" }).map(item => item.product.id)).toEqual(["tarjetero"]);
   });
 
   it("filtra los nuevos productos por categoría, material y color", () => {
@@ -257,6 +279,32 @@ describe("filtros del catálogo", () => {
     expect(getColorSwatchBackground("chocolate")).toBe("#4b2e24");
     expect(filterAndSortCatalog([{ product: mate }], { ...defaults, colors: ["chocolate"] })).toHaveLength(1);
     expect(filterAndSortCatalog([{ product: mate }], { ...defaults, colors: ["marron"] })).toHaveLength(0);
+  });
+
+  it("reconoce Mostaza y los nuevos colores combinados sin mezclarlos con sus componentes", () => {
+    expect(getVariantColorId("Mostaza")).toBe("mostaza");
+    expect(getVariantColorId("Chocolate/Mostaza")).toBe("mostaza-chocolate");
+    expect(getVariantColorId("Beige/Marrón")).toBe("marron-beige");
+    expect(matchVariantWithColor("Mostaza/Chocolate", "mostaza-chocolate")).toBe(true);
+    expect(matchVariantWithColor("Mostaza/Chocolate", "mostaza")).toBe(false);
+    expect(matchVariantWithColor("Mostaza/Chocolate", "chocolate")).toBe(false);
+    expect(matchVariantWithColor("Marrón/Beige", "marron-beige")).toBe(true);
+    expect(matchVariantWithColor("Marrón/Beige", "marron")).toBe(false);
+    expect(matchVariantWithColor("Marrón/Beige", "beige")).toBe(false);
+    expect(getColorSwatchBackground("mostaza-chocolate")).toBe("linear-gradient(90deg, #c49632 0 50%, #4b2e24 50% 100%)");
+    expect(getColorSwatchBackground("marron-beige")).toBe("linear-gradient(90deg, #6c4530 0 50%, #dfd1b8 50% 100%)");
+  });
+
+  it("distingue Plateado de Blanco/Plateado", () => {
+    const mate: Product = product("mate-plateado", 4500).product;
+    mate.variants = [{ id: "plateado", label: "Plateado", value: "Plateado", color: "plateado", available: true }];
+    expect(getVariantColorId("Plateado")).toBe("plateado");
+    expect(getVariantColorId("Plateado/Blanco")).toBe("blanco-plateado");
+    expect(matchVariantWithColor("Plateado", "plateado")).toBe(true);
+    expect(matchVariantWithColor("Blanco/Plateado", "plateado")).toBe(false);
+    expect(getColorSwatchBackground("plateado")).toBe("#c0c0c0");
+    expect(filterAndSortCatalog([{ product: mate }], { ...defaults, colors: ["plateado"] })).toHaveLength(1);
+    expect(filterAndSortCatalog([{ product: mate }], { ...defaults, colors: ["blanco-plateado"] })).toHaveLength(0);
   });
 
   it("reconoce Dorado/Natural como un solo color combinado", () => {
@@ -351,6 +399,7 @@ describe("filtros del catálogo", () => {
     expect(hasActiveCatalogFilters({ ...defaults, materials: ["cuero"] })).toBe(true);
     expect(hasActiveCatalogFilters({ ...defaults, productTypes: ["imperial"] })).toBe(true);
     expect(hasActiveCatalogFilters({ ...defaults, colors: ["negro"] })).toBe(true);
+    expect(hasActiveCatalogFilters({ ...defaults, closures: ["con-cierre"] })).toBe(true);
   });
 
   it("reconoce formas femeninas y variantes reales como Ovalada Negra y Celeste", () => {

@@ -9,6 +9,7 @@ export type PersonalizedOrderItem = {
   source_variant_id?: string | null;
   title: string;
   quantity: number;
+  unit_price_minor?: number | null;
   total_minor: number;
   requires_review: boolean;
   review_status: string | null;
@@ -23,6 +24,11 @@ export type PersonalizedOrder = {
   order_number: number;
   reference_code?: string | null;
   status: string;
+  items_subtotal_minor?: number | null;
+  shipping_minor?: number | null;
+  payment_fee_minor?: number | null;
+  discount_minor?: number | null;
+  discount_code?: string | null;
   total_minor: number;
   created_at: string;
   paid_at: string | null;
@@ -30,6 +36,98 @@ export type PersonalizedOrder = {
   customer_snapshot: JsonRecord;
   order_items: PersonalizedOrderItem[];
 };
+
+export type PersonalizedPriceLine = {
+  key: string;
+  label: string;
+  quantity: number;
+  unitPriceMinor: number;
+  totalMinor: number;
+};
+
+const finiteNumber = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null;
+const uyuMinor = (value: unknown): number | null => {
+  const amount = finiteNumber(value);
+  return amount === null ? null : Math.round(amount * 100);
+};
+
+export function personalizedItemPriceDetail(item: PersonalizedOrderItem): {
+  lines: PersonalizedPriceLine[];
+  unitPriceMinor: number;
+  totalMinor: number;
+  notice: string;
+} {
+  const quantity = Math.max(1, item.quantity || 1);
+  const totalMinor = item.total_minor;
+  const unitPriceMinor = finiteNumber(item.unit_price_minor) ?? Math.round(totalMinor / quantity);
+  const snapshot = asRecord(asRecord(item.immutable_snapshot).configuration);
+  const pricing = asRecord(snapshot.pricingSnapshot);
+  const components = Array.isArray(pricing.components) ? pricing.components : [];
+  const extras = Array.isArray(pricing.items) ? pricing.items : [];
+  const lines: PersonalizedPriceLine[] = [];
+
+  for (const [index, raw] of components.entries()) {
+    const component = asRecord(raw);
+    const price = uyuMinor(component.valueUYU);
+    if (price === null) continue;
+    const name = typeof component.label === 'string' && component.label.trim() ? component.label.trim() : 'Mate base';
+    lines.push({
+      key: `component-${index}`,
+      label: component.kind === 'family' && !/^mate\b/i.test(name) ? `Mate ${name}` : name,
+      quantity,
+      unitPriceMinor: price,
+      totalMinor: price * quantity,
+    });
+  }
+
+  if (!lines.length) {
+    const basePrice = uyuMinor(pricing.basePriceUYU);
+    if (basePrice !== null) lines.push({ key: 'base', label: 'Mate base', quantity, unitPriceMinor: basePrice, totalMinor: basePrice * quantity });
+  }
+
+  for (const [index, raw] of extras.entries()) {
+    const extra = asRecord(raw);
+    const count = finiteNumber(extra.quantity);
+    const unitPrice = uyuMinor(extra.unitPriceUYU);
+    const savedTotal = uyuMinor(extra.totalUYU);
+    if (count === null || count <= 0 || unitPrice === null || savedTotal === null || unitPrice * count !== savedTotal) continue;
+    lines.push({
+      key: `extra-${index}`,
+      label: typeof extra.label === 'string' && extra.label.trim() ? extra.label.trim() : 'Personalización',
+      quantity: count * quantity,
+      unitPriceMinor: unitPrice,
+      totalMinor: savedTotal * quantity,
+    });
+  }
+
+  const snapshotTotal = uyuMinor(pricing.totalUYU);
+  const matchesCharge = lines.length > 0
+    && snapshotTotal === unitPriceMinor
+    && lines.reduce((sum, line) => sum + line.totalMinor, 0) === totalMinor;
+  if (matchesCharge) return { lines, unitPriceMinor, totalMinor, notice: '' };
+
+  const isDesign = item.item_type === 'design' || item.item_type === 'local_design' || item.requires_review;
+  const notice = !isDesign ? '' : snapshotTotal === null
+    ? 'Este pedido no guardó el desglose de la personalización. Se muestra el importe cobrado.'
+    : 'El desglose guardado no coincide con el importe final. Se muestra el total cobrado para evitar un detalle incorrecto.';
+  return {
+    lines: [{ key: 'charged', label: item.title, quantity, unitPriceMinor, totalMinor }],
+    unitPriceMinor,
+    totalMinor,
+    notice,
+  };
+}
+
+export function personalizedOrderTotals(order: PersonalizedOrder) {
+  const itemsSubtotalMinor = finiteNumber(order.items_subtotal_minor)
+    ?? order.order_items.reduce((sum, item) => sum + item.total_minor, 0);
+  const discountMinor = finiteNumber(order.discount_minor) ?? 0;
+  const shippingMinor = finiteNumber(order.shipping_minor) ?? 0;
+  const paymentFeeMinor = finiteNumber(order.payment_fee_minor) ?? 0;
+  const otherAdjustmentMinor = order.total_minor - (itemsSubtotalMinor - discountMinor + shippingMinor + paymentFeeMinor);
+  return { itemsSubtotalMinor, discountMinor, shippingMinor, paymentFeeMinor, otherAdjustmentMinor, totalMinor: order.total_minor };
+}
 
 export type PrivateAsset = {
   key: string;
@@ -56,6 +154,8 @@ export type PersonalizationSummary = {
     color: string;
     texture: string;
     metal: string;
+    interior: string;
+    characteristics: Record<string, string>;
   };
   rim: {
     technique: string;
@@ -296,6 +396,8 @@ export function summarizePersonalization(item: PersonalizedOrderItem): Personali
       color: asString(labels.color) || humanizeId(configuration.colorId),
       texture: asString(labels.texture) || 'No especificada',
       metal: asString(labels.metal) || humanizeId(rim.rimId),
+      interior: asString(labels.interior),
+      characteristics: Object.fromEntries(Object.entries(asRecord(labels.characteristics)).filter((entry): entry is [string, string] => typeof entry[1] === 'string')),
     },
     rim: {
       technique: rimTechnique,
@@ -393,10 +495,20 @@ export function paymentStatusLabel(order: Pick<PersonalizedOrder, 'paid_at' | 's
   return order.payment_label || 'Pendiente';
 }
 
+export function personalizedItemProductionStatus(
+  order: Pick<PersonalizedOrder, 'status'>,
+  item: Pick<PersonalizedOrderItem, 'production_status'>,
+): 'Pendiente' | 'En producción' | 'Terminado' {
+  // Un pedido enviado ya terminó producción, aunque su estado histórico por artículo no se haya actualizado.
+  if (order.status === 'shipped' || ['completed', 'Completado', 'Terminado'].includes(item.production_status || '')) return 'Terminado';
+  if (['in_production', 'En producción'].includes(item.production_status || '')) return 'En producción';
+  return 'Pendiente';
+}
+
 export function personalizedProductionStatus(order: PersonalizedOrder): 'Pendiente' | 'En producción' | 'Terminado' {
   const items = getPersonalizedItems(order);
-  if (items.length && items.every((item) => ['completed', 'Completado', 'Terminado'].includes(item.production_status || ''))) return 'Terminado';
-  if (items.some((item) => ['in_production', 'En producción'].includes(item.production_status || ''))) return 'En producción';
+  if (items.length && items.every((item) => personalizedItemProductionStatus(order, item) === 'Terminado')) return 'Terminado';
+  if (items.some((item) => personalizedItemProductionStatus(order, item) === 'En producción')) return 'En producción';
   return 'Pendiente';
 }
 

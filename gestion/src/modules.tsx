@@ -104,6 +104,7 @@ export function Products({ s, mode, notify, refresh, commerce }: PageProps & { m
       { label: "Producto", render: (p) => <button className="text-button" onClick={() => selectProduct(p.wholesaleProductId ? p.id : p.sourceProductId || p.id, p.id)}>{p.name}</button> },
       { label: "Variante", render: (p) => p.wholesaleProductId ? "—" : p.variant },
       { label: "Categoría", render: (p) => p.family },
+      { label: "Precio Base", render: (p) => p.basePrice == null ? "—" : money(p.basePrice) },
       { label: "Local", render: (p) => price(p, "Local") },
       { label: "Web", headerClassName: "channel-web-text", render: (p) => price(p, "Web") },
       { label: "Mayorista", render: (p) => price(p, "Mayorista") },

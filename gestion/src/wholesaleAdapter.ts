@@ -108,7 +108,7 @@ export function adaptWholesale(state: State, snapshot: WholesaleSnapshot, imageU
     rim: source.rim_type || "", leather: source.leather_type || "", cost: 0,
     imageUrl: cover ? imageUrl(cover.storage_path) : undefined,
     imageCrop: cover ? { x: Number(crop.cover_x) || 0, y: Number(crop.cover_y) || 0, zoom: Number(crop.cover_zoom) || 1 } : undefined,
-    prices: { Local: 0, Web: 0, Mayorista: Number(source.price_uyu) }, priceArg: Number(source.price_arg),
+    prices: { Local: 0, Web: 0, Mayorista: Number(source.price_uyu) }, basePrice: Number(source.price_uyu), priceArg: Number(source.price_arg),
     stock: 0, min: 0, published: source.available_web === true, active: true, availableChannels: [
       ...(source.available_local === true ? ["Local" as const] : []),
       ...(source.available_web === true ? ["Web" as const] : []),

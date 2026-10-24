@@ -1,14 +1,16 @@
 /** Stable storage/query contracts shared by Commerce Admin and the storefront. */
 export const catalogCategoryIds = [
   "bandolera", "billeteras", "bombillas", "botas", "carteras", "cintos", "cuchillos",
-  "kits-materos", "materas", "mates", "personalizados", "servicios", "termos", "zuecos",
+  "kits-materos", "materas", "mates", "personalizados", "servicios", "tarjeteros", "termos", "zapatos", "zuecos",
 ] as const;
+export const catalogFootwearClosureIds = ["con-cierre", "con-cordones", "con-hebilla", "con-elastico"] as const;
 export const catalogMaterialIds = ["cuero", "plata", "alpaca", "acero-inoxidable", "otros-metales", "madera", "estampado", "cuero-crudo", "croco", "pelos", "gamuza", "charol"] as const;
 export const catalogProductTypeIds = ["imperial", "camionero", "criollo", "torpedo"] as const;
-export const catalogColorIds = ["marron", "negro", "natural", "cuero-crudo", "rojo", "blanco", "rosado", "gris", "dorado", "celeste", "azul", "beige", "metalico", "marron-claro", "chocolate", "negro-dorado", "marron-dorado", "blanco-plateado", "blanco-dorado", "marron-blanco", "negro-marron", "beige-dorado", "negro-blanco", "dorado-natural", "marron-rojo"] as const;
+export const catalogColorIds = ["marron", "negro", "natural", "cuero-crudo", "rojo", "blanco", "rosado", "gris", "dorado", "celeste", "azul", "beige", "metalico", "marron-claro", "chocolate", "mostaza", "plateado", "negro-dorado", "marron-dorado", "blanco-plateado", "blanco-dorado", "marron-blanco", "negro-marron", "beige-dorado", "negro-blanco", "dorado-natural", "marron-rojo", "mostaza-chocolate", "marron-beige"] as const;
 export const catalogCollectionIds = ["estribo", "uruguay", "alfonsina", "sonia"] as const;
 
 export type CatalogCategoryId = (typeof catalogCategoryIds)[number];
+export type CatalogFootwearClosureId = (typeof catalogFootwearClosureIds)[number];
 export type CatalogMaterialId = (typeof catalogMaterialIds)[number];
 export type CatalogProductTypeId = (typeof catalogProductTypeIds)[number];
 export type CatalogColorId = (typeof catalogColorIds)[number];
@@ -52,10 +54,10 @@ export function normalizeCatalogValueMap(value: unknown): CatalogValueMap {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, CatalogValue] =>
     ["string", "number", "boolean"].includes(typeof entry[1])
-    || (entry[0] === "talle" && Array.isArray(entry[1]) && entry[1].every(item => typeof item === "string"))));
+    || (["talle", "tipo-cierre"].includes(entry[0]) && Array.isArray(entry[1]) && entry[1].every(item => typeof item === "string"))));
 }
 export function canonicalCategoryCode(value: string) {
-  return ({ bombillones: "bombillas", "kit-matero": "kits-materos", cuchillo: "cuchillos", calzado: "botas", marroquineria: "cintos", "mates-personalizados": "personalizados", "materas-personalizadas": "personalizados" } as Record<string, string>)[value] ?? value;
+  return ({ bombillones: "bombillas", "kit-matero": "kits-materos", cuchillo: "cuchillos", tarjetero: "tarjeteros", calzado: "botas", marroquineria: "cintos", "mates-personalizados": "personalizados", "materas-personalizadas": "personalizados" } as Record<string, string>)[value] ?? value;
 }
 export function taxonomyRulesForCategory(taxonomy: CatalogTaxonomy, categoryCode: string, scope?: CatalogAttributeScope) {
   const lineage: string[] = [];
@@ -136,7 +138,7 @@ export function catalogAttributeDetails(taxonomy: CatalogTaxonomy, attributes: C
       const definition = taxonomy.attributes.find(item => item.code === code);
       const options = taxonomyOptionsFor(taxonomy, code).filter(item => item.code !== "todos");
       const resolved = typeof rawValue === "boolean" ? rawValue ? "Sí" : "No" : catalogValueLabel(taxonomy, code, rawValue);
-      const values = code === "talle" && Array.isArray(rawValue)
+      const values = Array.isArray(rawValue)
         ? options.filter(item => rawValue.includes(item.code)).map(item => item.label_es)
         : rawValue === "todos" && options.length
         ? options.map(item => item.label_es)
@@ -177,13 +179,13 @@ const option = (attribute_code: string, code: string, label_es: string, sort_ord
 const rule = (category_code: string, attribute_code: string, scope: CatalogAttributeScope, sort_order: number, required = false, filterable = true, purchase_selectable = false): CatalogCategoryAttribute => ({ category_code, attribute_code, scope, sort_order, required, filterable, purchase_selectable });
 const labels = {
   material: { cuero: "Cuero", plata: "Plata", alpaca: "Alpaca", "acero-inoxidable": "Acero inoxidable", "otros-metales": "Otros metales", madera: "Madera", estampado: "Estampado", "cuero-crudo": "Cuero Crudo", croco: "Croco", pelos: "Pelos", gamuza: "Gamuza", charol: "Charol" },
-  color: { marron: "Marrón", negro: "Negro", natural: "Natural", "cuero-crudo": "Cuero crudo", rojo: "Rojo", blanco: "Blanco", rosado: "Rosado", gris: "Gris", dorado: "Dorado", celeste: "Celeste", azul: "Azul", beige: "Beige", metalico: "Metálico", "marron-claro": "Marrón claro", chocolate: "Chocolate", "negro-dorado": "Negro/Dorado", "marron-dorado": "Marrón/Dorado", "blanco-plateado": "Blanco/Plateado", "blanco-dorado": "Blanco/Dorado", "marron-blanco": "Marrón/Blanco", "negro-marron": "Negro/Marrón", "beige-dorado": "Beige/Dorado", "negro-blanco": "Negro/Blanco", "dorado-natural": "Dorado/Natural", "marron-rojo": "Marrón/Rojo" },
-  swatch: { marron: "#6C4530", negro: "#241D1A", natural: "#CFAF79", "cuero-crudo": "#E8D9BB", rojo: "#A83232", blanco: "#F5F5F5", rosado: "#E8A4A4", gris: "#8C8C8C", dorado: "#C9A859", celeste: "#74ACDF", azul: "#1E3A8A", beige: "#DFD1B8", metalico: "#9B9B95", "marron-claro": "#A67B5B", chocolate: "#4B2E24", "negro-dorado": "#241D1A", "marron-dorado": "#6C4530", "blanco-plateado": "#F5F5F5", "blanco-dorado": "#F5F5F5", "marron-blanco": "#6C4530", "negro-marron": "#241D1A", "beige-dorado": "#DFD1B8", "negro-blanco": "#241D1A", "dorado-natural": "#C9A859", "marron-rojo": "#6C4530" },
+  color: { marron: "Marrón", negro: "Negro", natural: "Natural", "cuero-crudo": "Cuero crudo", rojo: "Rojo", blanco: "Blanco", rosado: "Rosado", gris: "Gris", dorado: "Dorado", celeste: "Celeste", azul: "Azul", beige: "Beige", metalico: "Metálico", "marron-claro": "Marrón claro", chocolate: "Chocolate", mostaza: "Mostaza", plateado: "Plateado", "negro-dorado": "Negro/Dorado", "marron-dorado": "Marrón/Dorado", "blanco-plateado": "Blanco/Plateado", "blanco-dorado": "Blanco/Dorado", "marron-blanco": "Marrón/Blanco", "negro-marron": "Negro/Marrón", "beige-dorado": "Beige/Dorado", "negro-blanco": "Negro/Blanco", "dorado-natural": "Dorado/Natural", "marron-rojo": "Marrón/Rojo", "mostaza-chocolate": "Mostaza/Chocolate", "marron-beige": "Marrón/Beige" },
+  swatch: { marron: "#6C4530", negro: "#241D1A", natural: "#CFAF79", "cuero-crudo": "#E8D9BB", rojo: "#A83232", blanco: "#F5F5F5", rosado: "#E8A4A4", gris: "#8C8C8C", dorado: "#C9A859", celeste: "#74ACDF", azul: "#1E3A8A", beige: "#DFD1B8", metalico: "#9B9B95", "marron-claro": "#A67B5B", chocolate: "#4B2E24", mostaza: "#C49632", plateado: "#C0C0C0", "negro-dorado": "#241D1A", "marron-dorado": "#6C4530", "blanco-plateado": "#F5F5F5", "blanco-dorado": "#F5F5F5", "marron-blanco": "#6C4530", "negro-marron": "#241D1A", "beige-dorado": "#DFD1B8", "negro-blanco": "#241D1A", "dorado-natural": "#C9A859", "marron-rojo": "#6C4530", "mostaza-chocolate": "#C49632", "marron-beige": "#6C4530" },
 } as const;
 
 export const defaultCatalogTaxonomy: CatalogTaxonomy = {
   categories: [
-    category("billeteras", "Billeteras", null, 10), category("bombillas", "Bombillas", null, 20), category("botas", "Botas", null, 30), category("zuecos", "Zuecos", null, 35),
+    category("billeteras", "Billeteras", null, 10), category("tarjeteros", "Tarjetero", null, 15), category("bombillas", "Bombillas", null, 20), category("botas", "Botas", null, 30), category("zuecos", "Zuecos", null, 35), category("zapatos", "Zapatos", null, 37),
     category("carteras", "Carteras", null, 40), category("bandolera", "Bandolera", null, 45), category("cintos", "Cintos", null, 50), category("cuchillos", "Cuchillos", null, 60),
     category("kits-materos", "Kits materos", null, 70), category("materas", "Materas", null, 80), category("mates", "Mates", null, 90),
     category("personalizados", "Personalizados", null, 100), category("servicios", "Servicios", null, 105), category("termos", "Termos", null, 110),
@@ -192,7 +194,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     attribute("coleccion", "Colección", "enum", "select"), attribute("tipo-personalizado", "Tipo", "enum", "select"), attribute("diseno-matera", "Diseño de la matera", "enum", "select"),
     attribute("tipo-mate", "Modelo de mate", "enum", "select"), attribute("material-mate", "Material del mate", "enum", "select"), attribute("tipo-virola", "Tipo de virola", "enum", "select"), attribute("tipo-cuero", "Tipo de cuero", "enum", "select"), attribute("diseno-fleje", "Diseño de fleje", "enum", "select"), attribute("posamate", "Posamate", "enum", "select"), attribute("pie", "Pie", "enum", "select"), attribute("material", "Material exterior", "enum", "select"),
     attribute("forma", "Forma", "enum", "select"), attribute("tamano", "Tamaño", "enum", "select"), attribute("interior", "Interior", "enum", "select"), attribute("acabado", "Acabado", "text", "text"),
-    attribute("color", "Color", "enum", "swatch"), attribute("talle", "Talle", "enum", "buttons"), attribute("capacidad-ml", "Capacidad", "number", "number", "ml"),
+    attribute("color", "Color", "enum", "swatch"), attribute("talle", "Talle", "enum", "buttons"), attribute("tipo-cierre", "Cierre y sujeción", "enum", "buttons"), attribute("capacidad-ml", "Capacidad", "number", "number", "ml"),
     attribute("tipo-bombilla", "Tipo de bombilla", "enum", "select"), attribute("diametro-cano-mm", "Diámetro del caño", "number", "number", "cm"),
     attribute("largo-mm", "Largo", "enum", "select"), attribute("material-cuerpo", "Material del cuerpo", "enum", "select"),
     attribute("forma-pico", "Forma del pico", "enum", "select"), attribute("material-pico", "Material del pico", "enum", "select"),
@@ -222,6 +224,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     option("interior", "todos", "Todos los interiores", 5), option("interior", "calabaza", "Calabaza", 10), option("interior", "ceramica", "Cerámica", 20),
     ...catalogColorIds.map((code, index) => option("color", code, labels.color[code], index * 10, labels.swatch[code])),
     option("talle", "todos", "Todos los tamaños", 5), ...Array.from({ length: 13 }, (_, index) => option("talle", String(index + 34), String(index + 34), (index + 1) * 10)),
+    ...catalogFootwearClosureIds.map((code, index) => option("tipo-cierre", code, ({ "con-cierre": "Con cierre", "con-cordones": "Con cordones", "con-hebilla": "Con hebilla", "con-elastico": "Con elástico" } as Record<string, string>)[code], (index + 1) * 10)),
     option("largo-cinto-cm", "todos", "Todos los tamaños", 5),
     ...Array.from({ length: 14 }, (_, index) => option("largo-cinto-cm", String(85 + index * 5), `${85 + index * 5} cm`, (index + 1) * 10)),
     option("genero", "hombre", "Hombre", 10), option("genero", "mujer", "Mujer", 20), option("genero", "unisex", "Unisex", 30),
@@ -246,10 +249,12 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     rule("materas","forma","product",10,true), rule("materas","material","product",20), rule("materas","acabado","product",40), rule("materas","color","variant",100,true),
     rule("kits-materos","material","product",10), rule("kits-materos","color","variant",100),
     rule("cuchillos","tipo-cuchillo","product",10,true), rule("cuchillos","largo-hoja-mm","product",20,true), rule("cuchillos","ancho-hoja-mm","product",30,false,false), rule("cuchillos","configuracion-filo","product",40,true), rule("cuchillos","tiene-gavilan","product",50), rule("cuchillos","forma-gavilan","product",60), rule("cuchillos","material-hoja","product",70), rule("cuchillos","material-cabo","product",80), rule("cuchillos","material-vaina","product",90), rule("cuchillos","acabado","product",100),
-    rule("botas","material","product",10), rule("botas","genero","product",20), rule("botas","talle","product",30,true,true,true), rule("botas","color","variant",100,true),
-    rule("zuecos","material","product",10), rule("zuecos","genero","product",20), rule("zuecos","talle","product",30,true,true,true), rule("zuecos","color","variant",100,true),
+    rule("botas","material","product",10), rule("botas","genero","product",20), rule("botas","tipo-cierre","product",25), rule("botas","talle","product",30,true,true,true), rule("botas","color","variant",100,true),
+    rule("zuecos","material","product",10), rule("zuecos","genero","product",20), rule("zuecos","tipo-cierre","product",25), rule("zuecos","talle","product",30,true,true,true), rule("zuecos","color","variant",100,true),
+    rule("zapatos","material","product",10), rule("zapatos","genero","product",20), rule("zapatos","tipo-cierre","product",25), rule("zapatos","talle","product",30,true,true,true), rule("zapatos","color","variant",100,true),
     rule("cintos","material","product",10), rule("cintos","largo-cinto-cm","product",20,false,true,true), rule("cintos","acabado","product",30), rule("cintos","color","variant",100,true),
-    rule("billeteras","material","product",10), rule("billeteras","acabado","product",30), rule("billeteras","color","variant",100,true),
+    rule("billeteras","material","product",10), rule("billeteras","genero","product",20), rule("billeteras","acabado","product",30), rule("billeteras","color","variant",100,true),
+    rule("tarjeteros","material","product",10), rule("tarjeteros","genero","product",20), rule("tarjeteros","acabado","product",30), rule("tarjeteros","color","variant",100,true),
     rule("carteras","material","product",10), rule("carteras","acabado","product",30), rule("carteras","color","variant",100,true),
     rule("bandolera","material","product",10), rule("bandolera","acabado","product",30), rule("bandolera","color","variant",100,true),
   ],

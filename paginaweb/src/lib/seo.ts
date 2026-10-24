@@ -269,7 +269,10 @@ export function productSeoCopy(product: Product, locale: AppLocale) {
       cintos: `${product.name} de cuero artesanal`,
       calzado: `${product.name} de cuero artesanal`,
       botas: `${product.name} de cuero artesanal`,
+      zuecos: `${product.name} artesanal`,
+      zapatos: `${product.name} artesanal`,
       billeteras: `${product.name} de cuero artesanal`,
+      tarjeteros: `${product.name} artesanal`,
       carteras: `${product.name} de cuero artesanal`,
     },
     en: {
@@ -285,7 +288,10 @@ export function productSeoCopy(product: Product, locale: AppLocale) {
       cintos: `${product.name}, handcrafted leather belt`,
       calzado: `${product.name}, handcrafted leather footwear`,
       botas: `${product.name}, handcrafted leather boots`,
+      zuecos: `${product.name}, handcrafted clogs`,
+      zapatos: `${product.name}, handcrafted shoes`,
       billeteras: `${product.name}, handcrafted leather wallet`,
+      tarjeteros: `${product.name}, handcrafted card holder`,
       carteras: `${product.name}, handcrafted leather bag`,
     },
     pt: {
@@ -301,7 +307,10 @@ export function productSeoCopy(product: Product, locale: AppLocale) {
       cintos: `${product.name}, cinto artesanal de couro`,
       calzado: `${product.name}, calçado artesanal de couro`,
       botas: `${product.name}, bota artesanal de couro`,
+      zuecos: `${product.name}, tamanco artesanal`,
+      zapatos: `${product.name}, sapato artesanal`,
       billeteras: `${product.name}, carteira artesanal de couro`,
+      tarjeteros: `${product.name}, porta-cartões artesanal`,
       carteras: `${product.name}, bolsa artesanal de couro`,
     },
   };

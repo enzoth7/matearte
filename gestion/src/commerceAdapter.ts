@@ -82,13 +82,15 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       weightGrams: Number(variant?.weight_grams) > 0 ? Number(variant?.weight_grams) : Number(product.peso) || 0,
       name: product.name, sku: variant?.sku ?? "", variant: variant?.name ?? "Sin variantes",
       options: variant ? { ...(variant.option_values || {}), ...(variant.color && !variant.option_values?.color ? { color: variant.color } : {}) } : undefined,
+      attributes: product.attributes || {},
       categoryCode, family: category, catalogType: catalogProductType(categoryCode, product.attributes), personalizationType: product.attributes?.["tipo-personalizado"] === "matera" ? "matera" : product.attributes?.["tipo-personalizado"] === "mate" ? "mate" : undefined, rim: variant?.rim_type || text(variant?.option_values, "virola", "rim"), leather: variant?.leather_type || text(variant?.option_values, "cuero", "leather"),
       imageUrl: cover ? imageUrl(cover.storage_path) : undefined,
       imageCrop: cover ? { x: Number(cover.option_values?.cover_x) || 0, y: Number(cover.option_values?.cover_y) || 0, zoom: Number(cover.option_values?.cover_zoom) || 1 } : undefined,
       cost: 0, stock: 0, min: 0,
       priceArg: variant?.wholesale_price_arg == null ? undefined : Number(variant.wholesale_price_arg),
+      basePrice: variant ? Number(variant.base_price_minor) / 100 : undefined,
       prices: {
-        Local: variant ? Number(variant.base_price_minor) / 100 : 0,
+        Local: variant ? Number(categoryCode === "servicios" ? variant.base_price_minor : variant.price_minor) / 100 : 0,
         Web: variant ? Number(variant.price_minor) / 100 : 0,
         Mayorista: variant?.legacy_product_id ? Number(variant.base_price_minor) / 100
           : variant && wholesaleCategory && snapshot.reference.settings.wholesale_mate_discount_enabled

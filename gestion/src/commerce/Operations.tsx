@@ -489,7 +489,7 @@ const orderStatus = (status: string) => ({
 }[status] || status.replaceAll('_', ' '));
 const normalizeSearch = (value:string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 const catalogCategoryLabels: Record<string,string> = {
-  mates:'Mate','mates-personalizados':'Personalizados',bombillas:'Bombilla',materas:'Matera',termos:'Termo','kits-materos':'Kit matero',cuchillos:'Cuchillo',cintos:'Cinto',calzado:'Calzado',botas:'Bota',zuecos:'Zueco',marroquineria:'Marroquinería',billeteras:'Billetera',carteras:'Cartera',bandolera:'Bandolera','posa-mates':'Posa mates',personalizados:'Personalizados',
+  mates:'Mate','mates-personalizados':'Personalizados',bombillas:'Bombilla',materas:'Matera',termos:'Termo','kits-materos':'Kit matero',cuchillos:'Cuchillo',cintos:'Cinto',calzado:'Calzado',botas:'Bota',zuecos:'Zueco',zapatos:'Zapato',marroquineria:'Marroquinería',billeteras:'Billetera',tarjeteros:'Tarjetero',carteras:'Cartera',bandolera:'Bandolera','posa-mates':'Posa mates',personalizados:'Personalizados',
 };
 const catalogMaterialLabels: Record<string,string> = {
   cuero:'Cuero',plata:'Plata',alpaca:'Alpaca','acero-inoxidable':'Acero inoxidable','otros-metales':'Otros metales',madera:'Madera',estampado:'Estampado',
@@ -512,6 +512,7 @@ export const catalogColorLabels: Record<string, string> = {
 };
 
 const footwearOnlyMaterialCodes = new Set(['gamuza', 'charol']);
+const footwearCategoryCodes = new Set(['botas', 'zuecos', 'zapatos']);
 
 function TaxonomyValueField({ definition, taxonomy, value, required, onChange, compact = false, allowedOptionCodes }:{ definition:CatalogAttributeDefinition;taxonomy:CatalogTaxonomy;value:CatalogValue|undefined;required:boolean;onChange:(value:CatalogValue|undefined)=>void;compact?:boolean;allowedOptionCodes?:string[] }) {
   const label = <div className={compact ? 'sr-only' : 'field-label'}>{definition.label_es}{definition.unit ? ` (${definition.unit})` : ''}{required&&<div className="field-required" aria-hidden="true">*</div>}</div>;
@@ -534,14 +535,31 @@ export function DynamicAttributeFields({taxonomy,category,scope,values,onChange,
       return <fieldset className="material-field" key="material">
         <legend>Materiales</legend>
         <div className="material-options">{taxonomyOptionsFor(taxonomy,'material')
-          .filter(option=>catalogMaterialIds.includes(option.code as CatalogMaterialId) && (!footwearOnlyMaterialCodes.has(option.code) || ['botas','zuecos'].includes(canonicalCategoryCode(category))))
+          .filter(option=>catalogMaterialIds.includes(option.code as CatalogMaterialId) && (!footwearOnlyMaterialCodes.has(option.code) || footwearCategoryCodes.has(canonicalCategoryCode(category))))
           .map(option=><label key={option.code} className="material-option">
             <input type="checkbox" checked={materials.includes(option.code as CatalogMaterialId)} onChange={event=>onMaterialsChange(event.target.checked?[...materials,option.code as CatalogMaterialId]:materials.filter(item=>item!==option.code))}/>
             {option.label_es}
           </label>)}</div>
       </fieldset>;
     }
-    if (scope==='product' && definition.code==='talle' && ['botas','zuecos'].includes(canonicalCategoryCode(category))) {
+    if (scope==='product' && definition.code==='tipo-cierre' && footwearCategoryCodes.has(canonicalCategoryCode(category))) {
+      const choices = taxonomyOptionsFor(taxonomy,'tipo-cierre');
+      const raw = values['tipo-cierre'];
+      const selected = Array.isArray(raw) ? raw : typeof raw==='string' ? [raw] : [];
+      return <fieldset className="material-field" key="tipo-cierre">
+        <legend>Cierre y sujeción</legend>
+        <div className="material-options">{choices.map(option=><label key={option.code} className="material-option">
+          <input type="checkbox" checked={selected.includes(option.code)} onChange={event=>{
+            const next = event.target.checked ? [...selected,option.code] : selected.filter(code=>code!==option.code);
+            const attributes = {...values};
+            if (next.length) attributes['tipo-cierre'] = next;
+            else delete attributes['tipo-cierre'];
+            onChange(attributes);
+          }}/>{option.label_es}
+        </label>)}</div>
+      </fieldset>;
+    }
+    if (scope==='product' && definition.code==='talle' && footwearCategoryCodes.has(canonicalCategoryCode(category))) {
       const sizes = taxonomyOptionsFor(taxonomy,'talle').filter(option=>option.code!=='todos');
       const raw = values.talle;
       const selected = raw==='todos' ? sizes.map(option=>option.code) : Array.isArray(raw) ? raw : typeof raw==='string' ? [raw] : [];
@@ -552,7 +570,7 @@ export function DynamicAttributeFields({taxonomy,category,scope,values,onChange,
         onChange(attributes);
       };
       return <fieldset className="material-field" key="talle">
-        <legend>{category==='zuecos'?'Números de zueco':'Números de bota'} <span className="field-required" aria-hidden="true">*</span></legend>
+        <legend>{category==='zuecos'?'Números de zueco':category==='zapatos'?'Números de zapato':'Números de bota'} <span className="field-required" aria-hidden="true">*</span></legend>
         <div className="material-options">
           <label className="material-option"><input type="checkbox" checked={raw==='todos'} onChange={event=>event.target.checked?onChange({...values,talle:'todos'}):setSizes(undefined)}/>Todos los talles</label>
           {sizes.map(option=><label key={option.code} className="material-option"><input type="checkbox" checked={selected.includes(option.code)} onChange={event=>setSizes(event.target.checked?[...selected,option.code]:selected.filter(code=>code!==option.code))}/>{option.label_es}</label>)}
@@ -560,7 +578,7 @@ export function DynamicAttributeFields({taxonomy,category,scope,values,onChange,
         <small className="field-help">Elegí uno o varios números para este producto.</small>
       </fieldset>;
     }
-    return <TaxonomyValueField key={definition.code} definition={definition} taxonomy={taxonomy} value={values[definition.code]} required={rule.required} allowedOptionCodes={definition.code==='interior'?mateInteriorChoices(category,values,productName):definition.code==='material' && !['botas','zuecos'].includes(canonicalCategoryCode(category))?taxonomyOptionsFor(taxonomy,'material').filter(option=>!footwearOnlyMaterialCodes.has(option.code)).map(option=>option.code):undefined} onChange={value=>{
+    return <TaxonomyValueField key={definition.code} definition={definition} taxonomy={taxonomy} value={values[definition.code]} required={rule.required} allowedOptionCodes={definition.code==='interior'?mateInteriorChoices(category,values,productName):definition.code==='material' && !footwearCategoryCodes.has(canonicalCategoryCode(category))?taxonomyOptionsFor(taxonomy,'material').filter(option=>!footwearOnlyMaterialCodes.has(option.code)).map(option=>option.code):undefined} onChange={value=>{
       const next={...values};
       if(value===undefined) delete next[definition.code];
       else next[definition.code]=value;
@@ -582,7 +600,7 @@ export function DynamicAttributeFields({taxonomy,category,scope,values,onChange,
 }
 
 function hasConfiguredFootwearSizes(taxonomy:CatalogTaxonomy,category:string,attributes:CatalogValueMap) {
-  if (!['botas','zuecos'].includes(canonicalCategoryCode(category))) return true;
+  if (!footwearCategoryCodes.has(canonicalCategoryCode(category))) return true;
   return Boolean(catalogPurchaseAxes(taxonomy,category,attributes).find(axis=>axis.code==='talle'&&axis.values.length>0));
 }
 

@@ -15,6 +15,7 @@ const categoryAliases: Record<string, string> = {
   termo: "termos",
   matera: "materas",
   billetera: "billeteras",
+  tarjetero: "tarjeteros",
   bota: "botas",
   cartera: "carteras",
   cinto: "cintos",

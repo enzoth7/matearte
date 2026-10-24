@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Product } from "./data";
-import { buildLocalPersonalizationSnapshot, createPersonalizationDraft, personalizationKind, productHasFleje, validatePersonalization } from "./localPersonalization";
+import { buildLocalPersonalizationSnapshot, createPersonalizationDraft, matePurchaseAxes, personalizationKind, productHasFleje, validatePersonalization } from "./localPersonalization";
 
 const product = (changes: Partial<Product> = {}): Product => ({
   id: "variant", name: "Mate Imperial Personalizado", sku: "P-1", categoryCode: "mates-personalizados", family: "Mates personalizados",
@@ -37,6 +37,19 @@ describe("personalización de ventas locales", () => {
     expect(snapshot.configuration.selectionLabels.family).toBe("Mate Imperial Personalizado");
     expect(snapshot.configuration.rim.texts[0].text).toBe("ENZO");
     expect(snapshot.flejeConfiguration.sides.front.text).toBe("MATE");
+  });
+
+  it("exige tamaño e interior cuando el mate base ofrece todos y los conserva en el pedido", () => {
+    const mate = product({ categoryCode: "mates", attributes: { "tipo-mate": "imperial", "tipo-cuero": "vaqueta", "tipo-virola": "alpaca", tamano: "todos", interior: "todos" }, options: { color: "marron" } });
+    const draft = createPersonalizationDraft("mate", mate);
+    draft.rimText = "ENZO";
+    expect(matePurchaseAxes(mate).map(axis => axis.code)).toEqual(expect.arrayContaining(["interior", "tamano"]));
+    expect(validatePersonalization(draft, mate)).toMatch(/tamaño|interior/i);
+    draft.selectedOptions = { tamano: "grande", interior: "ceramica" };
+    expect(validatePersonalization(draft, mate)).toBe("");
+    const snapshot = buildLocalPersonalizationSnapshot(draft, mate) as any;
+    expect(snapshot.configuration.selectedOptions).toEqual({ interior: "ceramica", tamano: "grande" });
+    expect(snapshot.configuration.selectionLabels).toMatchObject({ size: "Grande", interior: "Cerámica", color: "Marrón" });
   });
 
   it("valida y guarda el diseño de una bombilla y las indicaciones para taller", () => {

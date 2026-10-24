@@ -1,4 +1,5 @@
 import type { Product } from "./data";
+import { catalogAttributeDetails, catalogPurchaseAxes, catalogValueLabel, defaultCatalogTaxonomy, normalizeCatalogValueMap } from "../../shared/catalog-taxonomy";
 
 export type PersonalizationKind = "mate" | "matera" | "bombilla";
 export type PersonalizationTechnique = "none" | "laser" | "bronze-applique" | "alpaca-applique";
@@ -24,6 +25,7 @@ export type LocalPersonalizationDraft = {
   bombillaPlacement: string;
   bombillaText: string;
   instructions: string;
+  selectedOptions: Record<string, string>;
   rimLogoFile: File | null;
   flejeLogoFile: File | null;
   materaLogoFile: File | null;
@@ -54,7 +56,20 @@ export function personalizationKind(product: Product): PersonalizationKind | nul
   return null;
 }
 
-export function createPersonalizationDraft(kind: PersonalizationKind): LocalPersonalizationDraft {
+export function matePurchaseAxes(product: Product) {
+  return catalogPurchaseAxes(defaultCatalogTaxonomy, product.categoryCode || "mates", normalizeCatalogValueMap(product.attributes), product.name)
+    .filter(axis => axis.code === "tamano" || axis.code === "interior");
+}
+
+export function mateCharacteristicDetails(product: Product) {
+  return catalogAttributeDetails(defaultCatalogTaxonomy, normalizeCatalogValueMap(product.attributes));
+}
+
+export function createPersonalizationDraft(kind: PersonalizationKind, product?: Product): LocalPersonalizationDraft {
+  const selectedOptions: Record<string, string> = {};
+  if (kind === "mate" && product) for (const axis of matePurchaseAxes(product)) {
+    if (axis.values.length === 1) selectedOptions[axis.code] = axis.values[0].value;
+  }
   return {
     kind,
     rimTechnique: "laser",
@@ -75,6 +90,7 @@ export function createPersonalizationDraft(kind: PersonalizationKind): LocalPers
     bombillaPlacement: "Cuerpo",
     bombillaText: "",
     instructions: "",
+    selectedOptions,
     rimLogoFile: null,
     flejeLogoFile: null,
     materaLogoFile: null,
@@ -83,6 +99,7 @@ export function createPersonalizationDraft(kind: PersonalizationKind): LocalPers
 }
 
 export function productHasFleje(product: Product): boolean {
+  if (normalizeCatalogValueMap(product.attributes)["diseno-fleje"]) return true;
   const value = normalize(`${product.name} ${product.variant} ${String(product.options?.modelo || "")}`);
   return value.includes("imperial") || value.includes("fleje");
 }
@@ -98,6 +115,11 @@ export function validatePersonalization(draft: LocalPersonalizationDraft, produc
     if (hasText(draft.materaContent) && !draft.materaText.trim()) return `Ingresá el texto para ${product.name}.`;
     if (hasLogo(draft.materaContent) && !draft.materaLogoFile) return `Adjuntá el logo para ${product.name}.`;
     return "";
+  }
+
+  for (const axis of matePurchaseAxes(product)) {
+    if (!axis.values.length) return `Configurá ${axis.label.toLowerCase()} en el catálogo para ${product.name}.`;
+    if (!axis.values.some(option => option.value === draft.selectedOptions[axis.code])) return `Elegí ${axis.label.toLowerCase()} para ${product.name}.`;
   }
 
   if (draft.rimTechnique === "none" && (!productHasFleje(product) || draft.flejeTechnique === "none")) {
@@ -217,25 +239,33 @@ export function buildLocalPersonalizationSnapshot(
   const hasRimLogo = draft.rimTechnique !== "none" && hasLogo(draft.rimContent);
   const hasFlejeLogo = draft.flejeTechnique !== "none" && hasLogo(draft.flejeContent);
   const flejeAvailable = productHasFleje(product);
+  const selectedOptions = Object.fromEntries(matePurchaseAxes(product).map(axis => [axis.code, draft.selectedOptions[axis.code]]));
+  const attributes = normalizeCatalogValueMap(product.attributes);
+  const detailLabels = Object.fromEntries(mateCharacteristicDetails(product).map(detail => [detail.code, detail.values.join(", ")]));
+  const color = typeof product.options?.color === "string" ? catalogValueLabel(defaultCatalogTaxonomy, "color", product.options.color) : product.variant;
   return {
     schemaVersion: 1,
     source: "local",
     assets,
-    localPersonalization: { kind: "mate", instructions: draft.instructions.trim() },
+    localPersonalization: { kind: "mate", instructions: draft.instructions.trim(), selectedOptions },
     configuration: {
+      selectedOptions,
+      productAttributes: attributes,
       selectionLabels: {
         family: product.name,
-        color: product.variant,
-        texture: product.leather || "No especificada",
-        metal: product.rim || "No especificada",
-        size: optionText(product, "tamaño", "tamano", "size"),
+        color,
+        texture: detailLabels["tipo-cuero"] || detailLabels["material-mate"] || product.leather || "No especificada",
+        metal: detailLabels["tipo-virola"] || product.rim || "No especificada",
+        size: selectedOptions.tamano ? catalogValueLabel(defaultCatalogTaxonomy, "tamano", selectedOptions.tamano) : optionText(product, "tamaño", "tamano", "size"),
+        interior: selectedOptions.interior ? catalogValueLabel(defaultCatalogTaxonomy, "interior", selectedOptions.interior) : detailLabels.interior || "No especificado",
+        characteristics: detailLabels,
         engraving: techniqueLabel(draft.rimTechnique),
       },
       engravingTypeId: draft.rimTechnique === "none" ? null : draft.rimTechnique,
       flejeEngravingTypeId: draft.flejeTechnique === "none" ? null : draft.flejeTechnique,
       capabilities: { hasRim: true, hasFleje: flejeAvailable },
       rim: {
-        rimId: product.rim,
+        rimId: String(attributes["tipo-virola"] || product.rim || ""),
         finishMode: draft.rimTechnique !== "none" && draft.rimFinish !== "none" ? "finish" : "none",
         finishId: draft.rimFinish === "none" ? "finish-1" : draft.rimFinish,
         textMode: draft.rimTechnique !== "none" && hasText(draft.rimContent) ? "text" : "none",

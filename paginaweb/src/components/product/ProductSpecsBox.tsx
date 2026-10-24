@@ -28,6 +28,7 @@ const labels: Record<string, Partial<Record<Locale, string>>> = {
   "tamano": { en: "Size", pt: "Tamanho" },
   "interior": { en: "Interior", pt: "Interior" },
   "talle": { es: "Talle", en: "Boot size", pt: "Número da bota" },
+  "tipo-cierre": { es: "Cierre y sujeción", en: "Fastening", pt: "Fecho e ajuste" },
   "largo-mm": { en: "Length", pt: "Comprimento" },
   "largo-cinto-cm": { en: "Belt length", pt: "Comprimento do cinto" },
   "capacidad-ml": { en: "Capacity", pt: "Capacidade" },
@@ -48,6 +49,10 @@ const sizeNames: Record<string, Record<Locale, string>> = {
   "Cerámica": { es: "Cerámica", en: "Ceramic", pt: "Cerâmica" },
   "Larga (19 cm)": { es: "Larga (19 cm)", en: "Long (19 cm)", pt: "Longa (19 cm)" },
   "Corta (16 cm)": { es: "Corta (16 cm)", en: "Short (16 cm)", pt: "Curta (16 cm)" },
+  "Con cierre": { es: "Con cierre", en: "With zipper", pt: "Com zíper" },
+  "Con cordones": { es: "Con cordones", en: "With laces", pt: "Com cadarços" },
+  "Con hebilla": { es: "Con hebilla", en: "With buckle", pt: "Com fivela" },
+  "Con elástico": { es: "Con elástico", en: "With elastic", pt: "Com elástico" },
 };
 
 function displayValue(detail: CatalogAttributeDetail, locale: Locale) {
@@ -84,7 +89,7 @@ export function ProductSpecsBox({ product, selectedOptions, activeVariant }: Pro
       <ul className="product-specs-list">
         {visibleDetails.map(detail => (
           <li key={detail.code} className="product-specs-item">
-            <strong className="product-specs-label">{detail.code === "talle" && product.category === "zuecos" ? ({ es: "Número de zueco", en: "Clog size", pt: "Número do tamanco" })[locale] : labels[detail.code]?.[locale] ?? detail.label}:</strong>{" "}
+            <strong className="product-specs-label">{detail.code === "talle" && product.category === "zuecos" ? ({ es: "Número de zueco", en: "Clog size", pt: "Número do tamanco" })[locale] : detail.code === "talle" && product.category === "zapatos" ? ({ es: "Número de zapato", en: "Shoe size", pt: "Número do sapato" })[locale] : labels[detail.code]?.[locale] ?? detail.label}:</strong>{" "}
             <span className="product-specs-value">{displayValue(detail, locale)}</span>
           </li>
         ))}

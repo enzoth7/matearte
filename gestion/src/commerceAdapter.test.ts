@@ -99,11 +99,14 @@ describe("integración de commerce en el estado compartido", () => {
     const item = adaptCommerce(fixture).orders[0].items?.[0];
     expect(item).toMatchObject({ family: "Personalizados", orderType: "design" });
   });
-  it("usa el precio base del catálogo en Local y no inventa descuentos mayoristas desactivados", () => {
-    const state = adaptCommerce(commerceFixture());
+  it("usa el precio publicado en Local y conserva el precio base original", () => {
+    const fixture = commerceFixture();
+    fixture.products[0].commerce_variants[0].base_price_minor = 88000;
+    const state = adaptCommerce(fixture);
     expect(state.products[0].availableChannels).toEqual(["Local", "Web"]);
     expect(state.products[0].prices.Local).toBe(1000.5);
     expect(state.products[0].prices.Web).toBe(1000.5);
+    expect(state.products[0].basePrice).toBe(880);
     expect(state.expenses).toEqual([]); expect(state.hours).toEqual([]); expect(state.draft).toEqual({});
     expect(state.records["marketing/descuentos"][0].valor).toBe(150);
     expect(buildRevenueForecast(state, { asOf: "2026-10-13" }).months).toEqual([]);
@@ -124,7 +127,8 @@ describe("integración de commerce en el estado compartido", () => {
     fixture.reference.settings.wholesale_mate_discount_percent = 30;
     fixture.products[0].commerce_variants[0].base_price_minor = 88000;
     const [mate] = adaptCommerce(fixture).products;
-    expect(mate.prices.Local).toBe(880);
+    expect(mate.prices.Local).toBe(1000.5);
+    expect(mate.basePrice).toBe(880);
     expect(mate.prices.Web).toBe(1000.5);
     expect(mate.prices.Mayorista).toBe(616);
     expect(mate.wholesaleThreshold).toBe(30);

@@ -7,14 +7,16 @@ import type {
   Product,
   ProductVariant,
 } from "@/types/catalog";
-import { catalogAttributeDetails, defaultCatalogTaxonomy } from "../../../shared/catalog-taxonomy";
+import { catalogAttributeDetails, catalogFootwearClosureIds, defaultCatalogTaxonomy, type CatalogFootwearClosureId } from "../../../shared/catalog-taxonomy";
 
 export const categoryOptions = [
   { value: "todas", labelKey: "all" },
   { value: "billeteras", labelKey: "wallets" },
+  { value: "tarjeteros", labelKey: "cardHolder" },
   { value: "bombillas", labelKey: "bombillas" },
   { value: "botas", labelKey: "boots" },
   { value: "zuecos", labelKey: "clogs" },
+  { value: "zapatos", labelKey: "shoes" },
   { value: "carteras", labelKey: "bags" },
   { value: "cintos", labelKey: "belts" },
   { value: "cuchillos", labelKey: "knives" },
@@ -51,6 +53,13 @@ export const productTypeOptions: ReadonlyArray<{ value: CatalogProductTypeId; la
   { value: "torpedo", labelKey: "torpedo" },
 ];
 
+export const footwearClosureOptions: ReadonlyArray<{ value: CatalogFootwearClosureId; labelKey: "withZipper" | "withLaces" | "withBuckle" | "withElastic" }> = [
+  { value: "con-cierre", labelKey: "withZipper" },
+  { value: "con-cordones", labelKey: "withLaces" },
+  { value: "con-hebilla", labelKey: "withBuckle" },
+  { value: "con-elastico", labelKey: "withElastic" },
+];
+
 export type CatalogColorOption = { value: CatalogColorId; labelKey: string; color: string; secondaryColor?: string; showWhenAvailable?: boolean };
 
 export const colorOptions: ReadonlyArray<CatalogColorOption> = [
@@ -69,6 +78,8 @@ export const colorOptions: ReadonlyArray<CatalogColorOption> = [
   { value: "metalico", labelKey: "metallic", color: "#9b9b95" },
   { value: "marron-claro", labelKey: "lightBrown", color: "#a67b5b", showWhenAvailable: true },
   { value: "chocolate", labelKey: "chocolate", color: "#4b2e24", showWhenAvailable: true },
+  { value: "mostaza", labelKey: "mustard", color: "#c49632", showWhenAvailable: true },
+  { value: "plateado", labelKey: "silverColor", color: "#c0c0c0", showWhenAvailable: true },
   { value: "negro-dorado", labelKey: "blackGold", color: "#241d1a", secondaryColor: "#c9a859", showWhenAvailable: true },
   { value: "marron-dorado", labelKey: "brownGold", color: "#6c4530", secondaryColor: "#c9a859", showWhenAvailable: true },
   { value: "blanco-plateado", labelKey: "whiteSilver", color: "#f5f5f5", secondaryColor: "#9b9b95", showWhenAvailable: true },
@@ -79,6 +90,8 @@ export const colorOptions: ReadonlyArray<CatalogColorOption> = [
   { value: "negro-blanco", labelKey: "blackWhite", color: "#241d1a", secondaryColor: "#f5f5f5", showWhenAvailable: true },
   { value: "dorado-natural", labelKey: "goldNatural", color: "#c9a859", secondaryColor: "#cfaf79", showWhenAvailable: true },
   { value: "marron-rojo", labelKey: "brownRed", color: "#6c4530", secondaryColor: "#a83232", showWhenAvailable: true },
+  { value: "mostaza-chocolate", labelKey: "mustardChocolate", color: "#c49632", secondaryColor: "#4b2e24", showWhenAvailable: true },
+  { value: "marron-beige", labelKey: "brownBeige", color: "#6c4530", secondaryColor: "#dfd1b8", showWhenAvailable: true },
 ];
 
 export function getColorSwatchBackground(colorId: string): string | undefined {
@@ -105,6 +118,7 @@ export type CatalogFilters = {
   collections: CatalogCollectionId[];
   prices: PriceRangeId[];
   materials: CatalogMaterialId[];
+  closures: CatalogFootwearClosureId[];
   productTypes: CatalogProductTypeId[];
   colors: CatalogColorId[];
   sort: CatalogSort;
@@ -113,6 +127,7 @@ export type CatalogFilters = {
 const categoryIds: ReadonlySet<string> = new Set(categoryOptions.map((option) => option.value));
 const priceIds: ReadonlySet<string> = new Set(priceRangeOptions.map((option) => option.value));
 const materialIds: ReadonlySet<string> = new Set(materialOptions.map((option) => option.value));
+const closureIds: ReadonlySet<string> = new Set(catalogFootwearClosureIds);
 const productTypeIds: ReadonlySet<string> = new Set(productTypeOptions.map((option) => option.value));
 const colorIds: ReadonlySet<string> = new Set(colorOptions.map((option) => option.value));
 const collectionIds: ReadonlySet<string> = new Set(collectionOptions.map((option) => option.value));
@@ -124,7 +139,7 @@ function validValues<T extends string>(params: URLSearchParams, key: string, all
 
 export function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
   const rawCategory = params.get("categoria") ?? "todas";
-  const categoryValue = rawCategory === "kit-matero" ? "kits-materos" : rawCategory === "cuchillo" ? "cuchillos" : rawCategory === "mates-personalizados" || rawCategory === "materas-personalizadas" ? "personalizados" : rawCategory;
+  const categoryValue = rawCategory === "kit-matero" ? "kits-materos" : rawCategory === "cuchillo" ? "cuchillos" : rawCategory === "tarjetero" ? "tarjeteros" : rawCategory === "mates-personalizados" || rawCategory === "materas-personalizadas" ? "personalizados" : rawCategory;
   const requestedSort = params.get("orden") ?? "nuevo";
   const sortValue = requestedSort === "precio" ? "precio-asc" : requestedSort === "nombre" ? "nombre-asc" : requestedSort;
   return {
@@ -133,6 +148,7 @@ export function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
     collections: validValues<CatalogCollectionId>(params, "coleccion", collectionIds),
     prices: validValues<PriceRangeId>(params, "precio", priceIds),
     materials: validValues<CatalogMaterialId>(params, "material", materialIds),
+    closures: validValues<CatalogFootwearClosureId>(params, "cierre", closureIds),
     productTypes: validValues<CatalogProductTypeId>(params, "tipo", productTypeIds),
     colors: validValues<CatalogColorId>(params, "color", colorIds),
     sort: sortIds.has(sortValue as CatalogSort) ? sortValue as CatalogSort : "nuevo",
@@ -147,6 +163,7 @@ export function writeCatalogFilters(filters: CatalogFilters) {
   if (filters.sort !== "nuevo") params.set("orden", filters.sort);
   filters.prices.forEach((value) => params.append("precio", value));
   filters.materials.forEach((value) => params.append("material", value));
+  filters.closures.forEach((value) => params.append("cierre", value));
   filters.productTypes.forEach((value) => params.append("tipo", value));
   filters.colors.forEach((value) => params.append("color", value));
   return params;
@@ -174,15 +191,24 @@ export function matchVariantWithColor(variantLabel: string, color: CatalogColorI
   const norm = variantLabel.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const goldNatural = (norm.includes("dorad") && norm.includes("natural"));
   const brownRed = (norm.includes("marr") && norm.includes("roj")) || (norm.includes("brown") && norm.includes("red"));
+  const mustardChocolate = norm.includes("mostaza") && norm.includes("chocolate") || norm.includes("mustard") && norm.includes("chocolate");
+  const brownBeige = norm.includes("marr") && norm.includes("beige") || norm.includes("brown") && norm.includes("beige");
+  const whiteSilver = (norm.includes("blanc") || norm.includes("white")) && (norm.includes("platead") || norm.includes("silver"));
   switch (color) {
     case "negro":
       return norm.includes("negr") || norm.includes("black");
     case "marron":
-      return (norm.includes("marr") || norm.includes("brown") || norm.includes("suela") || norm.includes("cafe")) && !brownRed;
+      return (norm.includes("marr") || norm.includes("brown") || norm.includes("suela") || norm.includes("cafe")) && !brownRed && !brownBeige;
     case "marron-rojo":
       return brownRed;
+    case "marron-beige":
+      return brownBeige;
     case "chocolate":
-      return norm.includes("chocolate");
+      return norm.includes("chocolate") && !mustardChocolate;
+    case "mostaza":
+      return (norm.includes("mostaza") || norm.includes("mustard")) && !mustardChocolate;
+    case "mostaza-chocolate":
+      return mustardChocolate;
     case "natural":
       return norm.includes("natural") && !goldNatural;
     case "cuero-crudo":
@@ -190,7 +216,9 @@ export function matchVariantWithColor(variantLabel: string, color: CatalogColorI
     case "rojo":
       return (norm.includes("roj") || norm.includes("red") || norm.includes("bordo")) && !brownRed;
     case "blanco":
-      return norm.includes("blanc") || norm.includes("white");
+      return (norm.includes("blanc") || norm.includes("white")) && !whiteSilver;
+    case "plateado":
+      return (norm.includes("platead") || norm.includes("silver")) && !whiteSilver;
     case "rosado":
       return norm.includes("rosad") || norm.includes("rosa") || norm.includes("pink");
     case "gris":
@@ -204,7 +232,7 @@ export function matchVariantWithColor(variantLabel: string, color: CatalogColorI
     case "azul":
       return norm.includes("azul") || norm.includes("blue") || norm.includes("marino");
     case "beige":
-      return norm.includes("beige") || norm.includes("arena") || norm.includes("crema") || norm.includes("nude") || norm.includes("camel");
+      return (norm.includes("beige") || norm.includes("arena") || norm.includes("crema") || norm.includes("nude") || norm.includes("camel")) && !brownBeige;
     case "metalico":
       return norm.includes("metalico") || norm.includes("metallic");
     default:
@@ -231,7 +259,12 @@ export function getVariantColorId(
   const directCode = norm.trim().replace(/[\s/]+/g, "-");
   if (colorIds.has(directCode)) return directCode as CatalogColorId;
   if (directCode === "rojo-marron" || (norm.includes("marr") && norm.includes("roj")) || (norm.includes("brown") && norm.includes("red"))) return "marron-rojo";
+  if (directCode === "chocolate-mostaza" || directCode === "chocolate-mustard" || ((norm.includes("mostaza") || norm.includes("mustard")) && norm.includes("chocolate"))) return "mostaza-chocolate";
+  if (directCode === "beige-marron" || directCode === "beige-brown" || ((norm.includes("marr") || norm.includes("brown")) && norm.includes("beige"))) return "marron-beige";
+  if (directCode === "plateado-blanco" || directCode === "silver-white" || ((norm.includes("blanc") || norm.includes("white")) && (norm.includes("platead") || norm.includes("silver")))) return "blanco-plateado";
   if (directCode === "natural-dorado" || (norm.includes("dorad") && norm.includes("natural"))) return "dorado-natural";
+  if (norm.includes("platead") || norm.includes("silver")) return "plateado";
+  if (norm.includes("mostaza") || norm.includes("mustard")) return "mostaza";
   if (norm.includes("chocolate")) return "chocolate";
   if (norm.includes("negr") || norm.includes("black")) return "negro";
   if (norm.includes("marr") || norm.includes("brown") || norm.includes("suela") || norm.includes("cafe")) return "marron";
@@ -330,7 +363,7 @@ export function filterAndSortCatalog<T extends { product: Product }>(entries: T[
       : data.priceUYU !== undefined
         ? [data.priceUYU]
         : [];
-    const categoryParent: Record<string,string> = { botas:"calzado", cintos:"marroquineria", billeteras:"marroquineria", carteras:"marroquineria" };
+    const categoryParent: Record<string,string> = { botas:"calzado", zuecos:"calzado", zapatos:"calzado", cintos:"marroquineria", billeteras:"marroquineria", tarjeteros:"marroquineria", carteras:"marroquineria" };
     const matchesCategory = filters.category === "todas" || product.category === filters.category || categoryParent[product.category] === filters.category;
     const matchesCollection = filters.collections.length === 0 || Boolean(data.collection && filters.collections.includes(data.collection));
     const matchesPrice = filters.prices.length === 0 || prices.some((price) => (
@@ -340,6 +373,9 @@ export function filterAndSortCatalog<T extends { product: Product }>(entries: T[
       })
     ));
     const matchesMaterial = filters.materials.length === 0 || data.materials.some((material) => filters.materials.includes(material));
+    const closureValue = product.attributes?.["tipo-cierre"];
+    const productClosures = Array.isArray(closureValue) ? closureValue : typeof closureValue === "string" ? [closureValue] : [];
+    const matchesClosure = filters.closures.length === 0 || productClosures.some(value => filters.closures.includes(value as CatalogFootwearClosureId));
     const matchesProductType = filters.productTypes.length === 0 || getProductTypes(product).some((type) => filters.productTypes.includes(type));
     const productColors = getProductColors(product);
     const matchesColor = filters.colors.length === 0 || productColors.some((color) => filters.colors.includes(color));
@@ -360,7 +396,7 @@ export function filterAndSortCatalog<T extends { product: Product }>(entries: T[
       ...attributeDetails.flatMap(detail => [detail.code, detail.label, String(detail.rawValue), ...detail.values]),
     ].join(" "));
     const matchesSearch = searchTerms.length === 0 || searchTerms.every((term) => searchableText.includes(term));
-    return matchesSearch && matchesCategory && matchesCollection && matchesPrice && matchesMaterial && matchesProductType && matchesColor;
+    return matchesSearch && matchesCategory && matchesCollection && matchesPrice && matchesMaterial && matchesClosure && matchesProductType && matchesColor;
   });
 
   const byName = (a: T, b: T) => a.product.name.localeCompare(b.product.name, locale);
@@ -398,6 +434,7 @@ export function hasActiveCatalogFilters(filters: CatalogFilters): boolean {
     filters.collections.length > 0 ||
     filters.prices.length > 0 ||
     filters.materials.length > 0 ||
+    filters.closures.length > 0 ||
     filters.productTypes.length > 0 ||
     filters.colors.length > 0
   );

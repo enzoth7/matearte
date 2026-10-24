@@ -35,7 +35,7 @@ test('el catálogo se reacomoda en dos paneles y conserva cambios sin guardar', 
   await expect(page.locator('.catalog-editor-column h3').first()).toHaveText('Mate de catálogo');
 });
 
-test('materiales múltiples, cierre de ficha y nueva variante alineada', async ({page}) => {
+test('material del mate, cierre de ficha y nueva variante alineada', async ({page}) => {
   const {fixture,tables} = await mockCommerce(page,{writable:true});
   fixture.products[0].attributes = {acabado:'valor anterior','material-mate':'calabaza','tipo-virola':'acero','tipo-cuero':'liso',posamate:'sin-posamate'};
   tables.commerce_attribute_definitions = defaultCatalogTaxonomy.attributes;
@@ -43,14 +43,13 @@ test('materiales múltiples, cierre de ficha y nueva variante alineada', async (
   tables.commerce_category_attributes = defaultCatalogTaxonomy.rules;
   await page.goto('/productos/catalogo');
   await page.locator('.product-card').first().click();
-  const materials = page.getByRole('group',{name:'Materiales'});
-  await expect(materials).toBeVisible();
-  await materials.getByRole('checkbox',{name:'Cuero'}).check();
-  await materials.getByRole('checkbox',{name:'Alpaca'}).check();
+  const mateMaterial = page.locator('.product-details').getByRole('combobox',{name:'Material del mate'});
+  await expect(mateMaterial).toHaveValue('calabaza');
+  await mateMaterial.selectOption('ceramica');
   await expect(page.locator('.product-details')).not.toContainText('Acabado');
   await page.locator('.product-details').screenshot({path:'artifacts/catalogo-materiales.png'});
   await page.getByRole('button',{name:'Guardar cambios'}).click();
-  await expect.poll(()=>fixture.products[0].catalog_filters.materials).toEqual(['cuero','alpaca']);
+  await expect.poll(()=>fixture.products[0].attributes?.['material-mate']).toBe('ceramica');
   expect(fixture.products[0].attributes?.acabado).toBe('valor anterior');
   const variantForm = page.locator('.variant-create');
   const sku = await variantForm.getByRole('textbox',{name:'SKU'}).boundingBox();
@@ -62,17 +61,14 @@ test('materiales múltiples, cierre de ficha y nueva variante alineada', async (
   await page.getByRole('button',{name:'Cerrar ficha'}).click();
   await expect(page.locator('.catalog-split-view')).toHaveCount(0);
   await page.getByRole('button',{name:'Nuevo producto'}).click();
-  await page.getByRole('textbox',{name:'Nombre del producto'}).fill('Mate de dos materiales');
+  await page.locator('.new-product-panel').getByRole('textbox',{name:'Nombre',exact:true}).fill('Mate de dos materiales');
   await page.locator('.new-product-panel').getByRole('combobox',{name:'Material del mate'}).selectOption('calabaza');
   await page.locator('.new-product-panel').getByRole('combobox',{name:'Tipo de virola'}).selectOption('acero');
   await page.locator('.new-product-panel').getByRole('combobox',{name:'Tipo de cuero'}).selectOption('liso');
   await page.locator('.new-product-panel').getByRole('combobox',{name:'Posamate'}).selectOption('sin-posamate');
-  const newMaterials = page.locator('.new-product-panel').getByRole('group',{name:'Materiales'});
-  await newMaterials.getByRole('checkbox',{name:'Cuero'}).check();
-  await newMaterials.getByRole('checkbox',{name:'Plata'}).check();
   await expect(page.locator('.new-product-panel')).not.toContainText('Acabado');
   await page.getByRole('button',{name:'Crear producto',exact:true}).click();
-  await expect.poll(()=>fixture.products.find(product=>product.name==='Mate de dos materiales')?.catalog_filters.materials).toEqual(['cuero','plata']);
+  await expect.poll(()=>fixture.products.find(product=>product.name==='Mate de dos materiales')?.attributes?.['material-mate']).toBe('calabaza');
 });
 
 test('cada variante toma su foto al asociar las imágenes por color', async ({page}) => {
@@ -101,6 +97,7 @@ test('editar producto y precio persiste en las pantallas existentes', async ({pa
   await form.getByRole('button',{name:'Guardar cambios',exact:true}).click();
   await expect.poll(()=>fixture.products[0].name).toBe('Mate actualizado');
   const row = page.locator('.variants-section tbody tr').first();
+  await row.getByRole('button',{name:'Editar',exact:true}).click();
   await expect(row.getByRole('button',{name:'Guardar',exact:true})).toBeVisible();
   await row.getByLabel('Precio',{exact:true}).fill('1750.25');
   await row.getByRole('button',{name:'Guardar',exact:true}).click();
@@ -117,6 +114,7 @@ test('la disponibilidad Web se guarda por variante sin cambiar el precio', async
   await page.goto('/productos/catalogo');
   await page.locator('.product-card').first().click();
   const row = page.locator('.variants-section tbody tr').first();
+  await row.getByRole('button',{name:'Editar',exact:true}).click();
   await expect(row.getByRole('button',{name:'Guardar',exact:true})).toBeVisible();
   const channels = page.locator('.catalog-variant-details').first();
   await channels.getByRole('checkbox',{name:'Web'}).uncheck();
@@ -259,7 +257,7 @@ test('comprobante bancario utiliza el servicio existente con sesión y actualiza
 test('configuración de pagos y cuenta bancaria se guarda sin cambiar contratos',async({page})=>{
   const {tables}=await mockCommerce(page,{writable:true});
   await page.goto('/administracion/canales');
-  await page.getByRole('checkbox',{name:'Habilitar PayPal',exact:true}).uncheck();
+  await page.getByRole('switch',{name:'Habilitar PayPal',exact:true}).uncheck();
   await expect.poll(()=>tables.commerce_settings.paypal_enabled).toBe(false);
   await page.getByRole('textbox',{name:'Titular',exact:true}).fill('Titular corregido');
   await page.getByRole('button',{name:'Guardar datos bancarios',exact:true}).click();
@@ -270,14 +268,83 @@ test('configuración de pagos y cuenta bancaria se guarda sin cambiar contratos'
 
 test('personalizaciones abre los archivos privados y sus descargas',async({page})=>{
   const {fixture,writes}=await mockCommerce(page,{writable:true});
-  fixture.orders[0].order_items[0].item_type='design';
-  fixture.orders[0].order_items[0].requires_review=true;
-  fixture.orders[0].order_items[0].immutable_snapshot={assets:[{bucket_id:'design-assets',object_path:'customer/design/logo.png',original_name:'logo.png',mime_type:'image/png',byte_size:128}]};
+  const order=fixture.orders[0];
+  const design=order.order_items[0];
+  order.order_items=[design];
+  order.items_subtotal_minor=330000;
+  order.shipping_minor=0;
+  order.payment_fee_minor=0;
+  order.discount_minor=0;
+  order.total_minor=330000;
+  design.item_type='design';
+  design.title='Mate Camionero alpaca común con patas';
+  design.quantity=1;
+  design.unit_price_minor=330000;
+  design.total_minor=330000;
+  design.requires_review=true;
+  design.immutable_snapshot={
+    assets:[{bucket_id:'design-assets',object_path:'customer/design/logo.png',original_name:'logo.png',mime_type:'image/png',byte_size:128}],
+    configuration:{pricingSnapshot:{totalUYU:3300,basePriceUYU:1800,components:[{kind:'family',label:'Camionero',valueUYU:1800}],items:[{label:'Grabado láser de texto en virola',quantity:1,unitPriceUYU:300,totalUYU:300},{label:'Imágenes o escudos en virola',quantity:3,unitPriceUYU:400,totalUYU:1200}]}}
+  };
   await page.goto('/produccion/personalizados');
   await page.getByRole('button',{name:'Ver detalle del pedido #9001'}).click();
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(page.getByRole('link',{name:'Descargar original'})).toBeVisible();
+  const dialog=page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('tab',{name:'Detalle del pedido'})).toHaveAttribute('aria-selected','true');
+  const detail=dialog.getByRole('tabpanel',{name:'Detalle del pedido'});
+  await expect(detail).toContainText('Desglose del pedido');
+  await expect(detail).toContainText('Mate Camionero');
+  await expect(detail).toContainText('Grabado láser de texto en virola');
+  await expect(detail).toContainText('Imágenes o escudos en virola');
+  await expect(detail).toContainText('3.300');
+  await expect(detail).not.toContainText('1 unidad · Pendiente');
+  await expect(detail).not.toContainText('Subtotal de artículos');
+  await expect(detail.getByRole('row',{name:/Imágenes o escudos en virola/})).toContainText('1.200');
+  await detail.screenshot({path:'artifacts/personalizados-precio-desktop.png'});
+  await dialog.getByRole('tab',{name:'Producción'}).click();
+  const production=dialog.getByRole('tabpanel',{name:'Producción'});
+  await expect(production.getByRole('link',{name:'Descargar original'})).toBeVisible();
+  await expect(production).not.toContainText('$');
+  await dialog.screenshot({path:'artifacts/personalizados-produccion-desktop.png'});
+  await page.emulateMedia({media:'print'});
+  await expect(page.locator('#root')).toBeHidden();
+  await expect(dialog.getByRole('tabpanel',{name:'Producción'})).toBeVisible();
+  await expect(dialog.getByRole('tabpanel',{name:'Detalle del pedido'})).toBeHidden();
+  await expect(dialog.getByRole('button',{name:'Imprimir para producción'})).toBeHidden();
+  await page.pdf({path:'artifacts/personalizados-produccion.pdf',printBackground:true});
+  await page.emulateMedia({media:'screen'});
+  await page.evaluate(() => { (window as typeof window & { printCalled?: boolean }).print = () => { (window as typeof window & { printCalled?: boolean }).printCalled = true; }; });
+  await dialog.getByRole('button',{name:'Imprimir para producción'}).click();
+  await expect.poll(() => page.evaluate(() => (window as typeof window & { printCalled?: boolean }).printCalled)).toBe(true);
+  await page.setViewportSize({width:390,height:844});
+  await expect(dialog.getByRole('tab',{name:'Producción'})).toBeVisible();
+  await dialog.screenshot({path:'artifacts/personalizados-produccion-mobile.png'});
+  await dialog.getByRole('tab',{name:'Detalle del pedido'}).click();
+  await expect(detail).toContainText('3.300');
+  await detail.screenshot({path:'artifacts/personalizados-precio-mobile.png'});
+  await dialog.locator('.personalized-price-item').screenshot({path:'artifacts/personalizados-desglose-mobile.png'});
   expect(writes.filter(write=>write.body.expiresIn===900)).toHaveLength(2);
+});
+
+test('personalizados y ventas coinciden cuando el pedido enviado conserva una pieza pendiente', async ({page}) => {
+  const {fixture} = await mockCommerce(page);
+  const order = fixture.orders[0];
+  order.reference_code = '#W003';
+  order.status = 'shipped';
+  order.order_items = [{...order.order_items[0], item_type: 'design', requires_review: true, production_status: 'pending'}];
+
+  await page.goto('/comercial/pedidos');
+  const sale = page.getByRole('row').filter({hasText:'#W003'});
+  await expect(sale).toContainText('Terminado');
+  await expect(sale).toContainText('Enviado');
+
+  await page.goto('/produccion/personalizados');
+  const personalized = page.getByRole('row').filter({hasText:'#W003'});
+  await expect(personalized).toContainText('Terminado');
+  await personalized.getByRole('button', {name:'Ver detalle del pedido #W003'}).click();
+  const detail = page.getByRole('tabpanel', {name:'Detalle del pedido'});
+  await expect(detail).toContainText('Terminado');
+  await expect(detail).not.toContainText('Pendiente');
 });
 
 test('editores utilizables en móvil y sin desbordamiento del documento',async({page})=>{

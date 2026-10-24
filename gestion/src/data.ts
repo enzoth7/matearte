@@ -11,6 +11,7 @@ export type Product = {
   searchText?: string;
   wholesaleProductId?: string;
   priceArg?: number;
+  basePrice?: number;
   imageUrl?: string;
   imageCrop?: { x: number; y: number; zoom: number };
   weightGrams?: number;
@@ -25,6 +26,7 @@ export type Product = {
   family: string;
   variant: string;
   options?: Record<string, unknown>;
+  attributes?: Record<string, unknown>;
   rim: string;
   leather: string;
   cost: number;

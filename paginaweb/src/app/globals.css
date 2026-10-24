@@ -7420,6 +7420,14 @@ img {
   gap: 4px;
 }
 
+.catalog-mobile-footwear-filter {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 .catalog-mobile-filter-select-label {
   font-size: 11px;
   font-weight: 600;

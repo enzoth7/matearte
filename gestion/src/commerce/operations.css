@@ -1344,3 +1344,106 @@ td small { display: block; }
   body:has(.catalog-list-table) main { padding: 0 !important; }
   body:has(.catalog-list-table) .commerce-tools { overflow: visible; }
 }
+
+/* A single neutral reading surface for personalized orders and workshop details. */
+.personalized-dialog { background: #fff; color: #171412; }
+.personalized-dialog .dialog-header { background: #171412; border-color: #171412; }
+.personalized-dialog-tabs { display: flex; flex: 0 0 auto; gap: 1.5rem; padding: 0 1.25rem; border-bottom: 1px solid #e6e0d9; background: #fff; }
+.personalized-dialog-tabs button { min-height: 3.2rem; padding: .75rem .2rem; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: #6c625b; font-weight: 600; }
+.personalized-dialog-tabs button[aria-selected="true"] { border-color: #794c32; color: #171412; }
+.personalized-dialog-tabs button:focus-visible { outline: 2px solid #794c32; outline-offset: -3px; }
+.personalized-tab-panel { display: none; }
+.personalized-tab-panel.is-active { display: block; }
+.personalized-panel-intro { padding: 1.4rem 1.25rem .5rem; }
+.personalized-panel-intro h3 { margin: 0 0 .25rem; font-size: 1.4rem; }
+.personalized-panel-intro p, .personalized-dialog .personalization-images p { margin: 0; color: #6c625b; font-size: .8rem; }
+.personalized-dialog .order-status-grid { margin: .8rem 1.25rem 1.3rem; border: 1px solid #e6e0d9; border-radius: .55rem; background: #fff; overflow: hidden; }
+.personalized-dialog .order-status-grid > div { border-color: #e6e0d9; }
+.personalized-order-lines { padding: 0 1.25rem 1.5rem; }
+.personalized-order-lines h4 { margin: .2rem 0 .9rem; font-size: .95rem; }
+.personalized-price-item { margin-bottom: 1.2rem; border: 1px solid #e6e0d9; border-radius: .55rem; overflow: hidden; }
+.personalized-price-item-head { display: flex; align-items: start; justify-content: space-between; gap: 1rem; padding: .9rem 1rem; }
+.personalized-price-item-head h5 { margin: 0; color: #171412; font-size: .94rem; }
+.personalized-price-item-head small { display: block; margin-top: .25rem; color: #6c625b; }
+.personalized-price-item-head > span { flex: 0 0 auto; color: #6c625b; font-size: .73rem; }
+.personalized-price-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: .78rem; }
+.personalized-price-table th, .personalized-price-table td { padding: .65rem 1rem; border-top: 1px solid #ece7e1; text-align: right; }
+.personalized-price-table th { color: #6c625b; font-size: .66rem; font-weight: 700; }
+.personalized-price-table th:first-child, .personalized-price-table td:first-child { width: 49%; text-align: left; }
+.personalized-price-table td:last-child { font-weight: 650; }
+.personalized-price-mobile-label { display: none; }
+.personalized-price-notice { margin: .6rem 1rem; color: #6c625b; font-size: .72rem; }
+.personalized-price-item-total { display: flex; justify-content: space-between; gap: 1rem; padding: .8rem 1rem; border-top: 1px solid #e6e0d9; font-size: .81rem; }
+.personalized-order-totals { display: grid; gap: .55rem; max-width: 29rem; margin-left: auto; padding: 1rem 0 0; border-top: 1px solid #d8cec5; font-size: .8rem; }
+.personalized-order-totals > div { display: flex; justify-content: space-between; gap: 1rem; }
+.personalized-order-totals strong { white-space: nowrap; }
+.personalized-order-totals .personalized-order-grand-total { padding-top: .8rem; border-top: 1px solid #d8cec5; color: #171412; font-size: 1rem; font-weight: 700; }
+.personalized-dialog .personalization-images { padding: 1.4rem 1.25rem .8rem; border: 0; background: #fff; }
+.personalized-dialog .section-heading { align-items: baseline; margin-bottom: .25rem; }
+.personalized-dialog .section-heading > strong { background: #f5f1ec; color: #794c32; }
+.production-brief { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 1rem; margin: .4rem 1.25rem 0; padding: .85rem 0; border-top: 1px solid #e6e0d9; border-bottom: 1px solid #e6e0d9; }
+.production-brief > div { display: grid; align-content: start; gap: .2rem; min-width: 0; }
+.production-brief small { color: #6c625b; font-size: .64rem; text-transform: uppercase; letter-spacing: .05em; }
+.production-brief strong { overflow-wrap: anywhere; font-size: .78rem; }
+.personalized-dialog .personalized-item { padding-block: 1.4rem; }
+.personalized-dialog .personalized-item-head > strong { color: #6c625b; white-space: nowrap; }
+.personalized-dialog .design-artifact-group { padding: .9rem 0 0; border: 0; border-radius: 0; background: #fff; }
+.personalized-dialog .customer-asset, .personalized-dialog .personalization-card { border-color: #ded8d1; }
+.personalized-dialog .asset-preview { background: #f5f3f0; }
+.personalized-dialog .empty-files { border-color: #ded8d1; background: #faf9f7; }
+.personalized-dialog .mate-specs { border-color: #ded8d1; }
+.personalized-dialog .mate-specs > div { background: #fff; }
+.personalized-dialog .personalization-card-head, .personalized-dialog .surface-side h5, .personalized-dialog .personalization-card.unavailable, .personalized-dialog .plain-note { border-color: #e6e0d9; background: #faf9f7; }
+.personalized-dialog .custom-state.active { background: #794c32; }
+.personalized-dialog .dialog-footer { background: #fff; }
+.personalized-dialog .dialog-footer .personalized-dialog-actions { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.personalized-dialog-actions .production-print-button { color: #171412; background: #fff; border: 1px solid #b9ada2; }
+.personalized-dialog-actions .production-print-button:hover { background: #f5f1ec; }
+@media (max-width: 850px) {
+  .production-brief { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 560px) {
+  .personalized-dialog-tabs { gap: 1rem; padding: 0 1rem; }
+  .personalized-dialog-tabs button { font-size: .78rem; }
+  .personalized-dialog .order-status-grid { grid-template-columns: repeat(2,minmax(0,1fr)); margin-inline: 1rem; }
+  .personalized-dialog .order-status-grid > div:nth-child(odd) { border-right: 1px solid #e6e0d9; }
+  .personalized-dialog .order-status-grid > div:nth-child(n+3) { border-bottom: 0; }
+  .personalized-order-lines { padding-inline: 1rem; }
+  .personalized-price-item-head { display: block; }
+  .personalized-price-item-head > span { display: block; margin-top: .4rem; }
+  .personalized-price-table, .personalized-price-table tbody { display: block; }
+  .personalized-price-table thead { display: none; }
+  .personalized-price-table tr { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); padding: .55rem 1rem; border-top: 1px solid #ece7e1; }
+  .personalized-price-table td, .personalized-price-table td:first-child { display: grid; width: auto; padding: .2rem 0; border: 0; text-align: left; }
+  .personalized-price-table td:first-child { grid-column: 1 / -1; font-weight: 600; }
+  .personalized-price-table td:last-child { grid-column: 1 / -1; display: flex; justify-content: space-between; margin-top: .3rem; }
+  .personalized-price-mobile-label { display: block; margin-bottom: .15rem; color: #6c625b; font-size: .66rem; font-weight: 500; }
+  .personalized-order-totals { max-width: none; }
+  .production-brief { margin-inline: 1rem; }
+  .personalized-dialog-actions, .personalized-dialog-actions > * { width: 100%; }
+}
+@media print {
+  @page { size: A4 portrait; margin: 12mm; }
+  body:has(.personalized-dialog[open]) { background: #fff !important; }
+  body:has(.personalized-dialog[open]) > #root { display: none !important; }
+  .personalized-dialog[open] { position: static !important; display: block !important; width: 100% !important; max-width: none !important; max-height: none !important; height: auto !important; margin: 0 !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; overflow: visible !important; }
+  .personalized-dialog .dialog-surface { display: block; max-height: none !important; }
+  .personalized-dialog .dialog-body { overflow: visible !important; }
+  .personalized-dialog .dialog-header { padding: 0 0 8mm; border-bottom: 1px solid #171412; background: #fff !important; color: #171412 !important; }
+  .personalized-dialog .dialog-header h2, .personalized-dialog .dialog-header > div > div { color: #171412 !important; }
+  .personalized-dialog .dialog-close, .personalized-dialog-tabs, .personalized-dialog .dialog-footer, .personalized-dialog .asset-caption a, .personalized-tab-panel--detail { display: none !important; }
+  .personalized-tab-panel--production { display: block !important; }
+  .personalized-dialog .personalization-images { padding: 6mm 0 3mm; }
+  .personalized-dialog .section-heading > strong { display: none; }
+  .personalized-dialog .production-brief { grid-template-columns: repeat(4,minmax(0,1fr)); margin: 0 0 5mm; }
+  .personalized-dialog .personalized-item { padding: 5mm 0; }
+  .personalized-dialog .personalized-item-head { break-after: avoid-page; page-break-after: avoid; }
+  .personalized-dialog .mate-specs { grid-template-columns: repeat(5,minmax(0,1fr)); }
+  .personalized-dialog .mate-specs > div { border-bottom: 0; }
+  .personalized-dialog .surface-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .personalized-dialog .personalized-item-head, .personalized-dialog .customer-asset, .personalized-dialog .personalization-card, .personalized-dialog .mate-specs, .personalized-dialog .compact-specs > div { break-inside: avoid; }
+  .personalized-dialog .asset-preview { height: 48mm; }
+  .personalized-dialog .customer-assets { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .personalized-dialog .asset-caption { padding: 2mm 3mm; }
+  .personalized-dialog .asset-caption small { display: none; }
+}

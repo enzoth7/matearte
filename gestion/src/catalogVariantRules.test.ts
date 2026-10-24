@@ -22,17 +22,35 @@ describe("regla de variantes del catálogo", () => {
     const mates = taxonomyRulesForCategory(defaultCatalogTaxonomy, "mates", "product").map(rule => rule.attribute_code);
     const botas = taxonomyRulesForCategory(defaultCatalogTaxonomy, "botas", "product").map(rule => rule.attribute_code);
     const zuecos = taxonomyRulesForCategory(defaultCatalogTaxonomy, "zuecos", "product").map(rule => rule.attribute_code);
+    const zapatos = taxonomyRulesForCategory(defaultCatalogTaxonomy, "zapatos", "product").map(rule => rule.attribute_code);
     const termos = taxonomyRulesForCategory(defaultCatalogTaxonomy, "termos", "product").map(rule => rule.attribute_code);
 
     expect(mates).toEqual(expect.arrayContaining(["tipo-virola", "tipo-cuero", "posamate", "tamano", "interior"]));
     expect(botas).toContain("talle");
     expect(zuecos).toEqual(botas);
+    expect(zapatos).toEqual(botas);
+    expect(botas).toContain("tipo-cierre");
+    expect(catalogPurchaseAxes(defaultCatalogTaxonomy, "zapatos", { talle: ["36", "38"], "tipo-cierre": ["con-cordones"] }).map(axis => axis.code)).toEqual(["talle"]);
+    expect(catalogAttributeDetails(defaultCatalogTaxonomy, { "tipo-cierre": ["con-cordones", "con-elastico"] }).find(detail => detail.code === "tipo-cierre")?.values).toEqual(["Con cordones", "Con elástico"]);
     expect(catalogPurchaseAxes(defaultCatalogTaxonomy, "zuecos", { talle: "todos" }).find(axis => axis.code === "talle")?.values).toHaveLength(13);
     expect(termos).toContain("capacidad-ml");
   });
 
+  it("permite indicar género en billeteras sin convertirlo en variante de compra", () => {
+    const productRules = taxonomyRulesForCategory(defaultCatalogTaxonomy, "billeteras", "product");
+    expect(productRules.find(rule => rule.attribute_code === "genero")).toMatchObject({ required: false, filterable: true, purchase_selectable: false });
+    expect(taxonomyRulesForCategory(defaultCatalogTaxonomy, "billeteras", "variant").map(rule => rule.attribute_code)).toEqual(["color"]);
+    expect(catalogAttributeDetails(defaultCatalogTaxonomy, { genero: "mujer" }).find(detail => detail.code === "genero")?.values).toEqual(["Mujer"]);
+  });
+
+  it("ofrece en tarjeteros los atributos de billeteras y solo color como variante", () => {
+    expect(taxonomyRulesForCategory(defaultCatalogTaxonomy, "tarjeteros", "product").map(rule => rule.attribute_code))
+      .toEqual(taxonomyRulesForCategory(defaultCatalogTaxonomy, "billeteras", "product").map(rule => rule.attribute_code));
+    expect(taxonomyRulesForCategory(defaultCatalogTaxonomy, "tarjeteros", "variant").map(rule => rule.attribute_code)).toEqual(["color"]);
+  });
+
   it("limita los talles de botas y zuecos a varios números cargados en el mismo producto", () => {
-    for (const category of ["botas", "zuecos"]) {
+    for (const category of ["botas", "zuecos", "zapatos"]) {
       const sizes = catalogPurchaseAxes(defaultCatalogTaxonomy, category, { talle: ["36", "38", "40"] })
         .find(axis => axis.code === "talle")?.values.map(option => option.value);
       expect(sizes).toEqual(["36", "38", "40"]);
