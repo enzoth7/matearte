@@ -19,6 +19,7 @@ export type CommerceSnapshot = {
   localCustomers?: LocalCustomer[]; localSales?: LocalSale[]; localReceipts?: LocalSaleReceipt[];
   /** Origen calculado en la base (primer canal de entrada); es el mismo que usa Marketing → Contactos. */
   contactOrigins?: { contact_key: string; origin: string }[];
+  contactFirstSeen?: { contact_key: string; first_seen_at: string | null }[];
   ruralRaffleEntries?: RuralRaffleEntry[];
   webLeads?: WebLead[];
   wholesale?: WholesaleSnapshot;
@@ -36,6 +37,8 @@ const flattenSearch = (value: unknown, depth = 0): string[] => {
 };
 export const buildSearchText = (...sources: unknown[]) => sources.flatMap((source) => flattenSearch(source)).join(" ");
 const object = (value: unknown): Record<string, unknown> => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+const earliestTimestamp = (...values: (string | null | undefined)[]) => values.filter((value): value is string => Boolean(value && Number.isFinite(Date.parse(value))))
+  .reduce<string | undefined>((earliest, value) => !earliest || Date.parse(value) < Date.parse(earliest) ? value : earliest, undefined);
 export function commerceDate(iso: string) {
   if (!iso) return "";
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Montevideo", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(iso));
@@ -134,7 +137,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       segment: wholesale ? "Mayorista" : "Minorista",
       originChannel: "Web", createdAt: source.created_at,
     });
-    else { if (wholesale) previous.segment = "Mayorista"; if (!previous.birthDate && birthDate) previous.birthDate = birthDate; }
+    else { if (wholesale) previous.segment = "Mayorista"; if (!previous.birthDate && birthDate) previous.birthDate = birthDate; previous.createdAt = earliestTimestamp(previous.createdAt, source.created_at); }
     const items: OrderLine[] = source.order_items.map((item) => {
       const catalog = products.find((product) => product.id === item.source_variant_id);
       const historical = object(item.immutable_snapshot);
@@ -230,8 +233,8 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       const linkedCopy = !!source.linked_customer_id;
       if (linkedCopy || source.origin_channel === "Agenda" || (!existing.createdAt || (source.created_at && source.created_at < existing.createdAt))) {
         existing.originChannel = source.origin_channel || (source.agenda_import_key ? "Agenda" : "Local");
-        existing.createdAt = source.created_at || existing.createdAt;
       }
+      existing.createdAt = earliestTimestamp(existing.createdAt, source.created_at);
       existing.localCustomerId = source.id;
       if (!linkedCopy) existing.name = source.full_name ? formatContactName(source.full_name) : existing.name;
       if (!linkedCopy || !existing.companyName) existing.companyName = source.company_name || undefined;
@@ -316,11 +319,13 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
   }
   // El origen es el primer canal por el que entró la persona: lo calcula la base para que Clientes y Marketing coincidan.
   const originByContact = new Map((snapshot.contactOrigins || []).map((row) => [row.contact_key, row.origin as CustomerSourceChannel]));
+  const firstSeenByContact = new Map((snapshot.contactFirstSeen || []).map((row) => [row.contact_key, row.first_seen_at]));
   for (const customer of customers.values()) {
     const email = customer.email?.trim().toLowerCase();
     const phone = (customer.phone || "").replace(/[^0-9]+/g, "");
     const origin = (email && originByContact.get(`email:${email}`)) || (!email && phone ? originByContact.get(`phone:${phone}`) : undefined);
     if (origin) customer.originChannel = origin;
+    customer.createdAt = earliestTimestamp(customer.createdAt, email ? firstSeenByContact.get(`email:${email}`) : undefined, phone ? firstSeenByContact.get(`phone:${phone}`) : undefined);
   }
   const localOrders: Order[] = (snapshot.localSales || []).map((source) => {
     if (source.currency !== "UYU") throw new Error(`La venta local #${source.sale_number} requiere conversión de ${source.currency}.`);

@@ -41,7 +41,7 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
     commerce_attribute_definitions: [], commerce_attribute_options: [], commerce_category_attributes: [], commerce_bank_transfer_settings: { account_holder: 'Titular', transfer_account: '111', cash_deposit_account: '222', cash_deposit_label: 'Depósito' },
     commerce_categories: fixture.reference.categories, commerce_settings: fixture.reference.settings, shipping_rates: fixture.nationalRates, purchases: [], fixed_expenses: [], fixed_expense_payments: [], expense_categories: [],
     local_sales_customers: [], local_sales: [], local_sale_receipts: [], rural_raffle_entries: [],
-    site_announcements: [], web_leads: [],
+    site_announcements: [], web_leads: [], contact_first_seen: [],
     products: [], wholesale_product_images: [], customers: [], order_lines: [], settings: { id: 1, exchange_rate: 0.027 },
   };
   await page.route("https://*.supabase.co/**", async (route) => {
@@ -72,6 +72,7 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
     if (table === 'gestion_next_wholesale_order_code') return respond(`#M${String(tables.order_lines.length + 96).padStart(3, '0')}`);
     if (table === 'gestion_web_leads') return respond(tables.web_leads);
     if (table === 'gestion_contact_origins') return respond([]);
+    if (table === 'gestion_customer_first_seen') return respond(tables.contact_first_seen.slice(Number(route.request().postDataJSON()?.p_offset || 0), Number(route.request().postDataJSON()?.p_offset || 0) + Number(route.request().postDataJSON()?.p_limit || 500)));
     if (table === 'get_published_pricing_catalog') return respond({ versionId: 'pricing-test', version: 7, publishedAt: '2026-10-20T12:00:00Z', rules: {
       ...Object.fromEntries(mateAssemblyFields.flatMap(field => field.options.map(option => [option.ruleKey, option.initialPrice]))),
       'leather:raw-posa-mate': 650,

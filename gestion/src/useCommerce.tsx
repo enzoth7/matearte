@@ -109,7 +109,7 @@ export function useCommerce() {
     busyRef.current = true;
     setLoading(true);
     try {
-      const [products, orders, payments, reference, shipping, customerProfiles, localCustomerResult, localSales, localReceipts, ruralRaffleEntries, wholesale, webLeads, membership, expenseSources, contactOrigins] = await Promise.all([
+      const [products, orders, payments, reference, shipping, customerProfiles, localCustomerResult, localSales, localReceipts, ruralRaffleEntries, wholesale, webLeads, membership, expenseSources, contactOrigins, contactFirstSeen] = await Promise.all([
         readAllPages((page) => readCommerceProducts(client, page)),
         readAllPages((page) => readCommerceOrders(client, page)),
         readAllPages<CommercePayment>(async (page) => {
@@ -158,13 +158,19 @@ export function useCommerce() {
         client.from("commerce_admin_users").select("display_name,access_user_id,allowed_paths").eq("user_id", session!.user.id).eq("active", true).maybeSingle(),
         readExpenseSources(client),
         client.rpc("gestion_contact_origins"),
+        readAllPages<{ contact_key: string; first_seen_at: string | null }>(async (page) => {
+          const { data, error } = await client.rpc("gestion_customer_first_seen", { p_offset: page * 500, p_limit: 500 });
+          if (error) throw error;
+          const rows = (data || []) as { contact_key: string; first_seen_at: string | null }[];
+          return { rows, count: rows.length < 500 ? page * 500 + rows.length : (page + 2) * 500 };
+        }),
       ]);
       if (requestEpoch !== epoch.current) return;
       if (shipping.error) throw shipping.error;
       if (membership.error) throw membership.error;
       localCustomerCache.current = localCustomerResult;
       const localCustomers = localCustomerResult.rows;
-      const next: CommerceSnapshot = { products, orders, payments, reference, nationalRates: (shipping.data || []) as NationalRate[], customerProfiles, localCustomers, localSales, localReceipts, ruralRaffleEntries, wholesale, webLeads, contactOrigins: contactOrigins.error ? undefined : (contactOrigins.data || []) as { contact_key: string; origin: string }[] };
+      const next: CommerceSnapshot = { products, orders, payments, reference, nationalRates: (shipping.data || []) as NationalRate[], customerProfiles, localCustomers, localSales, localReceipts, ruralRaffleEntries, wholesale, webLeads, contactOrigins: contactOrigins.error ? undefined : (contactOrigins.data || []) as { contact_key: string; origin: string }[], contactFirstSeen };
       const base = adaptWholesale(adaptCommerce(next, (path) => client.storage.from("product-images").getPublicUrl(path).data.publicUrl), wholesale);
       const rates = Object.fromEntries(reference.exchangeRates.map((rate) => [rate.currency_code, Number(rate.rate_to_uyu)]));
       // Sin ningún egreso cargado no se calcula ganancia: se vería como si no hubiera gastos.

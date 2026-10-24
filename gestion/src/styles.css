@@ -1254,27 +1254,11 @@ td small {
 .orders-page-toolbar .table-actions { flex-wrap: wrap; justify-content: flex-end; }
 .order-toolbar-search { width: 230px; max-width: 100%; min-height: 44px; }
 .order-toolbar-search input { min-width: 0; }
-dialog.unified-order-modal, .shipment-modal.web-order-modal { width: min(1120px, calc(100% - 24px)); max-height: 90dvh; padding: 0; }
-.shipment-modal.web-order-modal { width: min(1120px, 100%); border-radius: 20px; background: var(--white); color: var(--black); }
+dialog.unified-order-modal.order-detail-modal { width: min(1120px, calc(100vw - 24px)); max-width: none; max-height: 90dvh; padding: 0; }
 .unified-order-modal .modal-head { margin: 0; padding: 24px 28px 18px; border-bottom: 1px solid var(--line); }
-.unified-order-modal .modal-head h2 { font-size: clamp(26px, 3vw, 32px); line-height: 1.1; }
+.unified-order-modal .modal-head h2 { font-family: Newsreader, Georgia, serif; font-size: clamp(26px, 3vw, 32px); line-height: 1.1; }
 .unified-order-modal .modal-head .icon-button { min-width: 44px; min-height: 44px; }
-.unified-order-modal > section:not(.unified-order-actions) { margin: 20px 28px 0; }
-.web-order-modal .web-order-modal__body > section { margin: 20px 28px 0; }
-.web-order-modal .web-order-modal__body > section:last-child { margin-bottom: 4px; }
-.web-order-modal .order-delivery-summary, .web-order-modal .bank-receipt-card { padding: 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--white); }
-.web-order-modal .order-delivery-summary small { color: var(--muted); font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none; }
-.web-order-modal .order-delivery-summary__heading { padding-bottom: 14px; }
-.web-order-modal .order-delivery-summary__heading strong { font-size: 17px; }
-.web-order-modal .order-delivery-grid { gap: 24px; padding-top: 16px; }
-.web-order-modal .order-delivery-grid > div { gap: 5px; }
-.web-order-modal .order-delivery-grid strong { font-size: 15px; }
-.web-order-modal .order-delivery-phone-text, .web-order-modal .order-delivery-grid .order-delivery-phone-text { font-size: 14px; }
-.web-order-modal .order-delivery-wa-link { font-size: 13px; }
-.web-order-modal .order-detail-items ul { gap: 0; }
-.web-order-modal .unified-order-items h3 { color: var(--black); font-size: 17px; font-weight: 600; letter-spacing: 0; text-transform: none; }
-.web-order-modal .order-detail-item-amount { font-size: 13px; }
-.web-order-modal .unified-order-actions { margin-top: 24px; }
+.unified-order-modal .order-detail-content > section { margin: 20px 28px 0; }
 .unified-order-modal small { display: block; color: var(--muted); font-size: 12px; line-height: 1.35; }
 .unified-order-identity { display: grid; grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr)); gap: 16px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-warm); }
 .unified-order-identity > div { display: grid; align-content: start; justify-items: start; gap: 6px; min-width: 0; }
@@ -1320,8 +1304,7 @@ dialog.unified-order-modal, .shipment-modal.web-order-modal { width: min(1120px,
   .orders-page-toolbar .table-actions { width: 100%; justify-content: flex-start; }
   .order-toolbar-search { flex: 1 1 100%; width: 100%; }
   .unified-order-modal .modal-head { padding: 18px 20px 14px; }
-  .unified-order-modal > section:not(.unified-order-actions) { margin: 16px 20px 0; }
-  .web-order-modal .web-order-modal__body > section { margin: 16px 20px 0; }
+  .unified-order-modal .order-detail-content > section { margin: 16px 20px 0; }
   .unified-order-identity { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 16px; }
   .unified-order-facts { gap: 16px; }
   .unified-order-modal .unified-order-actions { padding: 16px 20px; }
@@ -1366,6 +1349,7 @@ dialog.unified-order-modal, .shipment-modal.web-order-modal { width: min(1120px,
 .unified-order-modal .order-contact-phone__number small { display: inline; font-size: 12px; }
 .unified-order-modal .order-contact-phone a { color: var(--brown); font-size: 13px; font-weight: 600; text-underline-offset: 2px; }
 .unified-order-modal .order-detail-section-heading { padding-bottom: 14px; border-bottom: 0; }
+.unified-order-modal .unified-order-items .order-detail-section-heading h3 { color: var(--black); font-size: 17px; font-weight: 600; letter-spacing: normal; text-transform: none; }
 .unified-order-modal .order-detail-columns,
 .unified-order-modal .unified-order-items li.order-detail-item-row { display: grid; grid-template-columns: minmax(180px, 1fr) 78px 104px 140px 90px 74px 120px; align-items: start; gap: 12px; }
 .unified-order-modal .order-detail-columns { padding: 0 0 10px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 11px; font-weight: 600; }
@@ -3132,10 +3116,11 @@ details.org-node {
   .catalog-filter-actions .catalog-sort { width: 100%; }
   .catalog-filter-actions .catalog-sort select { flex: 1; min-width: 0; }
 }
-.customer-local-facts { display: flex; flex-wrap: wrap; gap: 14px 32px; padding: 0 0 20px; }
-.customer-local-facts > div { display: grid; gap: 3px; }
-.customer-local-facts .wide { flex-basis: 100%; }
-.customer-local-facts .wide > div { white-space: pre-wrap; }
+.customer-purchase-facts { display: flex; flex-wrap: wrap; gap: 14px 32px; padding: 0 0 20px; }
+.customer-purchase-facts > div { display: grid; gap: 3px; }
+.customer-purchase-facts small { color: var(--muted); }
+.customer-identity-grid .customer-identity-note { grid-column: 1 / -1; }
+.customer-identity-note strong { white-space: pre-wrap; }
 .local-sale-section { padding: 26px; background: var(--surface-warm); border-radius: 16px; }
 .local-sale-section h2 { font-size: 23px; margin-bottom: 20px; }
 .local-personalization-section { overflow: hidden; border: 1px solid rgb(121 76 50 / .16); background: linear-gradient(145deg, #f8f4ed 0%, #f3eee5 100%); }
@@ -3750,7 +3735,25 @@ dialog.wholesale-order-dialog{width:min(1120px,calc(100% - 24px));max-height:90d
 .local-sale-line-notes textarea { width: 100%; resize: vertical; }
 .unified-order-modal .order-detail-item-notes { margin-top: 6px; padding: 8px 10px; border-radius: 8px; background: var(--cream, #f5f1ea); font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; white-space: pre-wrap; }
 .unified-order-modal .order-detail-item-notes small { display: block; color: var(--muted); font-size: 11px; margin-bottom: 2px; }
-.order-detail-item-link{max-width:100%;padding:0;text-align:left;font:inherit;font-weight:inherit;overflow-wrap:anywhere}
+.unified-order-modal button.order-detail-item-link,
+.unified-order-modal button.order-detail-item-link:hover {
+  display: inline;
+  max-width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--brown);
+  text-align: left;
+  font: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  overflow-wrap: anywhere;
+}
+.unified-order-modal button.order-detail-item-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.unified-order-modal button.order-detail-item-link:focus-visible { outline: 2px solid var(--brown); outline-offset: 3px; border-radius: 2px; }
 
 .unified-order-sale-tools { display: flex; gap: 10px; margin-right: auto; }
 .unified-order-icon-action { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); color: var(--brown); cursor: pointer; }

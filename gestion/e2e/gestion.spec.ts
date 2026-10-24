@@ -311,6 +311,11 @@ test("ventas resume categorías y deja los datos del artículo dentro del detall
   expect(columnPositions[1].x).toBeLessThan(columnPositions[2].x);
   expect(Math.max(...columnPositions.map(position => position.y)) - Math.min(...columnPositions.map(position => position.y))).toBeLessThan(2);
   await expect(page.getByRole("dialog").getByRole("region", { name: "Totales del pedido" })).not.toContainText("Artículos");
+  const skuStyle = await item.getByRole("button", { name: "SKU-1" }).evaluate(element => {
+    const style = getComputedStyle(element);
+    return { background: style.backgroundColor, color: style.color, border: style.borderTopWidth, minHeight: style.minHeight };
+  });
+  expect(skuStyle).toEqual({ background: "rgba(0, 0, 0, 0)", color: "rgb(121, 76, 50)", border: "0px", minHeight: "0px" });
   await item.getByRole("button", { name: "SKU-1" }).click();
   await expect(page).toHaveURL(/\/productos\/catalogo\?producto=product-1&variante=variant-1$/);
 });
@@ -329,19 +334,22 @@ test("los detalles web y local comparten estructura y ancho sin perder datos de 
   await page.getByRole("row").filter({ hasText: "#9001" }).getByRole("button", { name: "Ver detalle del pedido #9001" }).click();
   const web = page.getByRole("dialog", { name: "Detalle del pedido" });
   await expect(web).toHaveClass(/unified-order-modal/);
-  for (const section of ["Identificación del pedido", "Resumen del pedido", "Datos de entrega", "Totales del pedido"]) {
+  for (const section of ["Identificación del pedido", "Resumen del pedido", "Entrega y contacto", "Totales del pedido"]) {
     await expect(web.getByRole("region", { name: section })).toBeVisible();
   }
   await expect(web.getByText("25 de mayo 626")).toBeVisible();
+  await expect(web.getByRole("region", { name: "Entrega y contacto" })).toContainText("Medio de pagoMercado Pago");
   await expect(web.getByRole("link", { name: "WhatsApp" })).toBeVisible();
   await expect(web.locator(".order-contact-phone__prefix")).toHaveText("+598");
   await expect(web.getByRole("button", { name: "Marcar enviado" })).toBeVisible();
+  await expect(web.locator(".order-detail-content > section")).toHaveCount(5);
+  await web.screenshot({ path: "artifacts/pedido-web-unificado-desktop.png" });
   const webActionStyle = await web.getByRole("button", { name: "Ver ficha del cliente" }).evaluate(element => ({ height: getComputedStyle(element).height, radius: getComputedStyle(element).borderRadius, color: getComputedStyle(element).color }));
   const webWidth = (await web.boundingBox())!.width;
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await web.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
   await page.setViewportSize({ width: 1440, height: 900 });
-  await web.getByRole("button", { name: "Cerrar", exact: true }).click();
+  await web.getByRole("button", { name: "Cerrar", exact: true }).last().click();
 
   await page.getByRole("row").filter({ hasText: "Comprador local" }).getByRole("button", { name: /Ver detalle del pedido/ }).click();
   const local = page.getByRole("dialog", { name: "Detalle del pedido" });
@@ -354,12 +362,35 @@ test("los detalles web y local comparten estructura y ancho sin perder datos de 
   await expect(local.locator(".order-contact-phone__prefix")).toHaveText("+598");
   await expect(local.locator(".order-contact-phone__number")).toContainText("Uruguay");
   await expect(local.getByRole("region", { name: "Totales del pedido" })).toBeVisible();
+  await expect(local.locator(".order-detail-content > section")).toHaveCount(5);
   await expect(local.getByRole("region", { name: "Totales del pedido" })).toHaveText(/^Total\s*\$\s*2\.000$/);
   const localActionStyle = await local.getByRole("button", { name: "Ver ficha del cliente" }).evaluate(element => ({ height: getComputedStyle(element).height, radius: getComputedStyle(element).borderRadius, color: getComputedStyle(element).color }));
   expect(localActionStyle).toEqual(webActionStyle);
   expect(Math.abs((await local.boundingBox())!.width - webWidth)).toBeLessThan(16);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await local.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+});
+test("las fichas web y local muestran los mismos datos y la primera alta registrada", async ({ page }) => {
+  const { fixture, tables } = await mockCommerce(page);
+  fixture.orders[0].reference_code = "#W011";
+  fixture.orders[0].created_at = "2026-10-24T18:23:04Z";
+  fixture.orders[0].customer_snapshot = { ...fixture.orders[0].customer_snapshot, fullName: "Persona web" };
+  tables.web_leads.push({ source_kind: "account", source_id: "customer-1", full_name: "Persona web", email: "test@example.invalid", phone: "099000000", city: "Montevideo", country_code: "UY", birth_date: null, company: null, origin_channel: "Web", customer_type: "Minorista", created_at: "2026-10-24T16:15:00Z" });
+  tables.contact_first_seen.push({ contact_key: "email:test@example.invalid", first_seen_at: "2026-10-24T16:14:43Z" });
+  tables.local_sales_customers.push({ id: "customer-first-seen-local", full_name: "Persona local", email: null, phone: "+59899123456", city: null, country: "Uruguay", birth_date: null, first_purchase_date: "2026-10-24", last_purchase_date: "2026-10-24", source_user_id: null, created_at: "2026-10-24T17:15:24Z" });
+  tables.local_sales.push({ id: "sale-first-seen-local", sale_number: 36, customer_id: "customer-first-seen-local", customer_name: "Persona local", sold_on: "2026-10-24", payment_method: "Efectivo", total_minor: 200000, currency: "UYU", created_at: "2026-10-24T17:15:24Z", local_sale_items: [{ id: "item-first-seen-local", variant_id: "variant-2", sku: "SKU-2", product_name: "Mate de catálogo", variant_name: "Marrón", quantity: 1, unit_price_minor: 200000, line_total_minor: 200000 }] });
+
+  await page.goto("/comercial/pedidos");
+  for (const [name, firstSeen] of [["Persona web", "24/10/2026 13:14"], ["Persona local", "24/10/2026 14:15"]]) {
+    await page.getByRole("row").filter({ hasText: name }).getByRole("button", { name: `Ver ficha de ${name}` }).click();
+    const card = page.getByRole("dialog", { name });
+    for (const field of ["Nombre", "Fecha de alta", "Fecha de nacimiento", "País", "Ciudad", "Dirección", "Teléfono", "Correo", "Otros celulares", "Notas", "Primera compra", "Última compra"]) {
+      await expect(card.getByText(field, { exact: true })).toBeVisible();
+    }
+    await expect(card.locator(".customer-identity-grid > div").filter({ hasText: "Fecha de alta" })).toContainText(firstSeen);
+    await expect(card.locator(".customer-purchase-facts")).toContainText("24/10/2026");
+    await card.getByRole("button", { name: "Cerrar" }).click();
+  }
 });
 test("todos los canales de venta muestran el mismo detalle de pedido", async ({ page }) => {
   const { tables } = await mockCommerce(page);
@@ -379,7 +410,7 @@ test("todos los canales de venta muestran el mismo detalle de pedido", async ({ 
   await expect(webDialog.locator(".order-detail-columns")).toContainText("SKU");
   await expect(webDialog.locator(".order-contact-phone__prefix")).toHaveText("+598");
   await expect(webDialog.getByRole("button", { name: "Ver ficha del cliente" })).toHaveClass(/unified-order-action/);
-  await webDialog.getByRole("button", { name: "Cerrar", exact: true }).click();
+  await webDialog.getByRole("button", { name: "Cerrar", exact: true }).last().click();
   for (const [index, channel] of channels.entries()) {
     const reference = `#TEST-${index}`;
     await page.getByRole("row").filter({ hasText: reference }).getByRole("button", { name: `Ver detalle del pedido ${reference}` }).click();

@@ -312,6 +312,16 @@ describe("integración de commerce en el estado compartido", () => {
     fixture.contactOrigins = [{ contact_key: `email:${before.email.toLowerCase()}`, origin: "Agenda" }];
     expect(adaptCommerce(fixture).customers[0].originChannel).toBe("Agenda");
   });
+  it("conserva la primera alta real aunque una ficha local vinculada se haya creado después", () => {
+    const fixture = commerceFixture();
+    fixture.orders[0].created_at = "2026-10-24T18:23:04Z";
+    fixture.webLeads = [{ source_kind: "account", source_id: "customer-1", full_name: "Cliente de prueba", email: "test@example.invalid", phone: "099000000", city: null, country_code: "UY", birth_date: null, company: null, origin_channel: "Web", customer_type: "Minorista", created_at: "2026-10-24T16:15:00Z" }];
+    fixture.localCustomers = [{ id: "linked-local", full_name: "Cliente de prueba", email: "test@example.invalid", phone: "099000000", city: null, country: "Uruguay", birth_date: null, first_purchase_date: null, last_purchase_date: null, source_user_id: "customer-1", linked_customer_id: "customer-1", notes: "", origin_channel: "Local", created_at: "2026-10-24T17:15:24Z" }];
+    fixture.contactFirstSeen = [{ contact_key: "email:test@example.invalid", first_seen_at: "2026-10-24T16:14:43Z" }];
+    expect(adaptCommerce(fixture).customers.find((entry) => entry.id === "customer-1")?.createdAt).toBe("2026-10-24T16:14:43Z");
+    fixture.contactFirstSeen = [];
+    expect(adaptCommerce(fixture).customers.find((entry) => entry.id === "customer-1")?.createdAt).toBe("2026-10-24T16:15:00Z");
+  });
   it("respeta paid_at sin fabricar una transacción de pago", () => {
     const fixture = commerceFixture(); fixture.payments = [];
     const state = adaptCommerce(fixture);

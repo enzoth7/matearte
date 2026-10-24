@@ -59,3 +59,9 @@ export function latestCustomerPurchase(customer: Customer, orders: Order[], prod
   }).filter(Boolean))].join(", ");
   return { date: latest.date, category, inferred: false };
 }
+
+export function customerPurchaseDates(customer: Customer, orders: Order[]) {
+  const dates = [...orders.filter(isSale).map((order) => order.date), customer.firstPurchaseDate, customer.lastPurchaseDate]
+    .filter((date): date is string => Boolean(date && /^\d{4}-\d{2}-\d{2}$/.test(date))).sort();
+  return { first: dates[0] || "", last: dates[dates.length - 1] || "" };
+}

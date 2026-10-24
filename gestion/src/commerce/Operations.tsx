@@ -15,7 +15,9 @@ import { CatalogVariantDetails } from '../CatalogVariantDetails';
 import { CatalogProductCoreFields } from '../CatalogProductCoreFields';
 import { purchaseCategoryLabel } from '../customerPurchase';
 import { compactOrderItemName, orderColorLabel, orderSizeLabel } from '../orderItemPresentation';
-import { OrderDetailItems, type OrderDetailRow } from '../OrderDetailItems';
+import type { OrderDetailRow } from '../OrderDetailItems';
+import { OrderDetailContent, type OrderDetailView } from '../OrderDetailContent';
+import { Modal } from '../ui';
 import type { Product as CatalogProduct } from '../data';
 import { OrderContactPhone } from '../OrderContactPhone';
 import {
@@ -94,7 +96,7 @@ type VariantForm = {sku:string;price:string;priceArg:string;options:CatalogValue
 const emptyVariantForm = (service = false): VariantForm => ({sku:'',price:'',priceArg:'',options:{},local:true,web:!service,wholesale:false,servicePriceMode:service?'variable':'fixed'});
 export type OrderItem = {id:string;item_type:'catalog'|'design';title:string;quantity:number;requires_review:boolean;review_status:string|null;immutable_snapshot:Record<string,unknown>;sku?:string|null;source_variant_id?:string|null;unit_price_minor?:number|null;total_minor?:number|null;source_variant?:{product?:{peso?:number}}};
 export type BankTransferReceipt = {id:string;original_name:string;mime_type:string;byte_size:number;status:'pending'|'approved'|'rejected';rejection_reason:string|null;submitted_at:string;reviewed_at:string|null};
-export type Order = { id:string;order_number:number;reference_code?:string|null;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;items_subtotal_minor?:number;shipping_minor?:number;payment_fee_minor?:number;discount_code?:string|null;discount_minor?:number;total_minor:number;paypal_amount_usd_minor?:number|null;created_at:string;customer_snapshot:Record<string,unknown>;peso?:number|null;order_items:OrderItem[];commerce_bank_transfer_receipts?:BankTransferReceipt[] };
+export type Order = { id:string;order_number:number;reference_code?:string|null;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;items_subtotal_minor?:number;shipping_minor?:number;payment_fee_minor?:number;payment_method?:string|null;discount_code?:string|null;discount_minor?:number;total_minor:number;paypal_amount_usd_minor?:number|null;created_at:string;customer_snapshot:Record<string,unknown>;peso?:number|null;order_items:OrderItem[];commerce_bank_transfer_receipts?:BankTransferReceipt[] };
 type SupabaseOrder = Omit<Order,'commerce_bank_transfer_receipts'> & {commerce_bank_transfer_receipts?:BankTransferReceipt[]|BankTransferReceipt|null};
 export const normalizeBankTransferReceipts = (value:SupabaseOrder['commerce_bank_transfer_receipts']):BankTransferReceipt[] => Array.isArray(value) ? value : value ? [value] : [];
 const money=(minor:number)=>new Intl.NumberFormat('es-UY',{style:'currency',currency:'UYU',minimumFractionDigits:0,maximumFractionDigits:2}).format(minor/100);
@@ -1742,7 +1744,7 @@ function OrderDeliverySummary({order,compact=false}:{order:Order;compact?:boolea
   </section>;
 }
 
-export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProducts=[],onProduct}:{session:Session;onNotice:(v:string)=>void;orderId?:string;onClose?:()=>void;onCustomer?:()=>void;catalogProducts?:Pick<CatalogProduct,'id'|'sku'|'sourceProductId'|'wholesaleProductId'>[];onProduct?:(productId:string,variantId:string)=>void}) {
+export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProducts=[],onProduct,paymentProvider}:{session:Session;onNotice:(v:string)=>void;orderId?:string;onClose?:()=>void;onCustomer?:()=>void;catalogProducts?:Pick<CatalogProduct,'id'|'sku'|'sourceProductId'|'wholesaleProductId'>[];onProduct?:(productId:string,variantId:string)=>void;paymentProvider?:string}) {
   const [orders,setOrders] = useState<Order[]>([]);
   const [taxonomy,setTaxonomy] = useState<CatalogTaxonomy>(defaultCatalogTaxonomy);
   const [busy,setBusy] = useState('');
@@ -1765,14 +1767,14 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
   const load = useCallback(async() => {
     let {data,error}:{data:unknown;error:{message:string;code?:string}|null} = await supabase
       .from('orders')
-      .select('id,order_number,reference_code,status,peso,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,discount_code,discount_minor,total_minor,paypal_amount_usd_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,source_variant_id,requires_review,review_status,immutable_snapshot,source_variant:commerce_variants(product:commerce_products(peso)))')
+      .select('id,order_number,reference_code,status,peso,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,payment_method,discount_code,discount_minor,total_minor,paypal_amount_usd_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,source_variant_id,requires_review,review_status,immutable_snapshot,source_variant:commerce_variants(product:commerce_products(peso)))')
       .not('channel','in',INTERNAL_ORDER_CHANNELS)
       .order('created_at',{ascending:false})
       .limit(orderId ? 1 : 100).match(orderId ? { id: orderId } : {});
     if (error && (error.code === '42703' || /peso|source_variant/i.test(error.message))) {
       ({data,error} = await supabase
         .from('orders')
-        .select('id,order_number,reference_code,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,discount_code,discount_minor,total_minor,paypal_amount_usd_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,source_variant_id,requires_review,review_status,immutable_snapshot)')
+        .select('id,order_number,reference_code,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,payment_method,discount_code,discount_minor,total_minor,paypal_amount_usd_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,source_variant_id,requires_review,review_status,immutable_snapshot)')
         .not('channel','in',INTERNAL_ORDER_CHANNELS)
         .order('created_at',{ascending:false})
         .limit(orderId ? 1 : 100).match(orderId ? { id: orderId } : {}));
@@ -2015,13 +2017,6 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
     return () => window.removeEventListener('keydown',onKeyDown);
   },[shipmentOrder,busy]);
 
-  useEffect(() => {
-    if (!detailOrder) return;
-    const onKeyDown = (event:KeyboardEvent) => { if (event.key === 'Escape') closeDetails(); };
-    window.addEventListener('keydown',onKeyDown);
-    return () => window.removeEventListener('keydown',onKeyDown);
-  },[detailOrder]);
-
   const detailCategories = detailOrder ? Array.from(new Set(detailOrder.order_items.map(item => {
     const snapshot = recordValue(item.immutable_snapshot);
     const product = recordValue(snapshot.product);
@@ -2069,6 +2064,54 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
       extra: [isCustom ? 'Personalizado' : '', ...extra.map(option => `${option.label}: ${option.value}`)].filter(Boolean).join(' · '),
     };
   }) || [];
+
+  const detailDelivery = detailOrder ? getOrderDeliveryDetails(detailOrder) : null;
+  const detailView: OrderDetailView | null = detailOrder && detailDelivery ? {
+    reference: detailOrder.reference_code || `#${detailOrder.order_number}`,
+    date: formatDate(detailOrder.created_at), channel: 'Web',
+    shipping: detailOrder.shipping_method === 'pickup' ? 'Retiro' : detailOrder.status === 'shipped' ? 'Enviado' : 'No enviado',
+    customer: orderCustomer(detailOrder.customer_snapshot), products: detailCategories,
+    payment: detailPayment, paymentNote: orderStatus(detailOrder.status), production: detailProduction,
+    delivery: {
+      method: detailDelivery.methodLabel,
+      paymentMethod: detailOrder.payment_method && detailOrder.payment_method !== 'Seña' ? detailOrder.payment_method
+        : ['mercadopago', 'mercado_pago'].includes(paymentProvider || '') ? 'Mercado Pago'
+        : paymentProvider === 'paypal' || detailOrder.paypal_amount_usd_minor != null ? 'PayPal'
+        : detailOrder.commerce_bank_transfer_receipts?.length ? 'Transferencia' : 'No registrado',
+      customer: detailDelivery.contactName,
+      phone: detailDelivery.phoneInfo
+        ? <OrderContactPhone prefix={detailDelivery.phoneInfo.prefix} number={detailDelivery.phoneInfo.number || detailDelivery.phone} country={detailDelivery.phoneInfo.country} whatsappDigits={detailDelivery.phoneInfo.whatsappDigits} />
+        : detailDelivery.phone || undefined,
+      email: detailDelivery.email, address: detailDelivery.address,
+      locality: [detailDelivery.city, detailDelivery.department].filter((value,index,all) => value && all.indexOf(value) === index).join(', '),
+      country: detailDelivery.country, zone: detailDelivery.zone, pickup: detailDelivery.isPickup,
+    },
+    rows: detailItemRows,
+    receipt: detailOrder.commerce_bank_transfer_receipts?.[0] ? <section className="bank-receipt-card" aria-labelledby="bank-receipt-title">
+      <div className="order-detail-section-heading">
+        <div><h3 id="bank-receipt-title">Comprobante de pago</h3></div>
+        <div className={`receipt-status receipt-status--${detailOrder.commerce_bank_transfer_receipts[0].status}`}>{detailOrder.commerce_bank_transfer_receipts[0].status==='pending'?'Pendiente':detailOrder.commerce_bank_transfer_receipts[0].status==='approved'?'Aprobado':'Rechazado'}</div>
+      </div>
+      <div>{detailOrder.commerce_bank_transfer_receipts[0].original_name} · {(detailOrder.commerce_bank_transfer_receipts[0].byte_size/1024/1024).toFixed(2)} MB</div>
+      {receiptLoading && <div className="receipt-loading" role="status">Cargando comprobante…</div>}
+      {receiptError && <div className="modal-error" role="alert">{receiptError}</div>}
+      {receiptPreview && (receiptPreview.mimeType === 'application/pdf'
+        ? <iframe className="receipt-preview receipt-preview--pdf" src={receiptPreview.url} title={`Comprobante ${receiptPreview.name}`}/>
+        : <img className="receipt-preview receipt-preview--image" src={receiptPreview.url} alt={`Comprobante ${receiptPreview.name}`}/>)}
+      {detailOrder.commerce_bank_transfer_receipts[0].rejection_reason && <div className="receipt-rejection"><strong>Motivo del rechazo:</strong> {detailOrder.commerce_bank_transfer_receipts[0].rejection_reason}</div>}
+      {!receiptLoading && <button type="button" className="secondary-button receipt-refresh" onClick={() => void loadReceiptPreview(detailOrder)}>{receiptPreview?'Renovar acceso':'Abrir comprobante'}</button>}
+    </section> : undefined,
+    totals: <>
+      {(Number(detailOrder.discount_minor) > 0 || Number(detailOrder.shipping_minor) > 0 || Number(detailOrder.payment_fee_minor) > 0) && <div className="line-item"><div>Subtotal</div><strong>{money(detailItemsSubtotal)}</strong></div>}
+      {Number(detailOrder.discount_minor) > 0 && <div className="line-item"><div>Descuento{detailOrder.discount_code ? ` · ${detailOrder.discount_code}` : ''}</div><strong>−{money(Number(detailOrder.discount_minor))}</strong></div>}
+      {Number(detailOrder.shipping_minor) > 0 && <div className="line-item"><div>Envío</div><strong>{money(Number(detailOrder.shipping_minor))}</strong></div>}
+      {Number(detailOrder.payment_fee_minor) > 0 && <div className="line-item"><div>Cargos</div><strong>{money(Number(detailOrder.payment_fee_minor))}</strong></div>}
+      <div className="line-item"><div>Total UYU</div><strong>{money(detailOrder.total_minor)}</strong></div>
+      {detailOrder.paypal_amount_usd_minor != null && <div className="line-item"><div>Importe de compra PayPal</div><strong>{usdMoney(detailOrder.paypal_amount_usd_minor / 100)}</strong></div>}
+      {detailOrder.status === 'manual_review' && detailOrder.order_items.some(item => item.review_status === 'rejected') && <div className="data-note">Reembolso pendiente de confirmación. Si pagó por transferencia, requiere devolución manual.</div>}
+    </>,
+    tracking: detailOrder.status === 'shipped' ? { carrier: detailOrder.shipping_carrier || '', code: detailOrder.tracking_code || '' } : undefined,
+  } : null;
 
   return (
     <>
@@ -2125,67 +2168,17 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
         </div>
       </section>
 
-      {detailOrder&&<div className="modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)closeDetails()}}>
-        <section className="shipment-modal order-detail-modal unified-order-modal web-order-modal" role="dialog" aria-modal="true" aria-labelledby="order-detail-modal-title">
-          <header className="modal-head">
-            <h2 id="order-detail-modal-title">Detalle del pedido</h2>
-            <button type="button" className="icon-button" aria-label="Cerrar detalle del pedido" onClick={closeDetails}><X size={22}/></button>
-          </header>
-          <div className="web-order-modal__body">
-            <section className="unified-order-identity" aria-label="Identificación del pedido">
-              <div className="unified-order-reference"><small>Pedido</small><strong>{detailOrder.reference_code || `#${detailOrder.order_number}`}</strong></div>
-              <div><small>Fecha</small><strong>{formatDate(detailOrder.created_at)}</strong></div>
-              <div><small>Canal</small><div className="badge channel-web">Web</div></div>
-              <div><small>Envío</small><div className="badge">{detailOrder.shipping_method === 'pickup' ? 'Retiro' : detailOrder.status === 'shipped' ? 'Enviado' : 'No enviado'}</div></div>
-            </section>
-            <section className="unified-order-overview" aria-label="Resumen del pedido">
-              <h3>Resumen</h3>
-              <div className="unified-order-facts">
-                <div><small>Cliente</small><strong>{orderCustomer(detailOrder.customer_snapshot)}</strong></div>
-                <div><small>Productos</small><strong>{detailCategories}</strong></div>
-                <div><small>Pago</small><strong>{detailPayment}</strong><span>{orderStatus(detailOrder.status)}</span></div>
-                <div><small>Producción</small><strong>{detailProduction}</strong></div>
-              </div>
-            </section>
-            <OrderDeliverySummary order={detailOrder}/>
-            {detailOrder.commerce_bank_transfer_receipts?.[0]&&<section className="bank-receipt-card" aria-labelledby="bank-receipt-title">
-              <div className="order-detail-section-heading">
-                <div><h3 id="bank-receipt-title">Comprobante de pago</h3></div>
-                <div className={`receipt-status receipt-status--${detailOrder.commerce_bank_transfer_receipts[0].status}`}>{detailOrder.commerce_bank_transfer_receipts[0].status==='pending'?'Pendiente':detailOrder.commerce_bank_transfer_receipts[0].status==='approved'?'Aprobado':'Rechazado'}</div>
-              </div>
-              <div>{detailOrder.commerce_bank_transfer_receipts[0].original_name} · {(detailOrder.commerce_bank_transfer_receipts[0].byte_size/1024/1024).toFixed(2)} MB</div>
-              {receiptLoading&&<div className="receipt-loading" role="status">Cargando comprobante…</div>}
-              {receiptError&&<div className="modal-error" role="alert">{receiptError}</div>}
-              {receiptPreview&&(
-                receiptPreview.mimeType==='application/pdf'
-                  ? <iframe className="receipt-preview receipt-preview--pdf" src={receiptPreview.url} title={`Comprobante ${receiptPreview.name}`}/>
-                  : <img className="receipt-preview receipt-preview--image" src={receiptPreview.url} alt={`Comprobante ${receiptPreview.name}`}/>
-              )}
-              {detailOrder.commerce_bank_transfer_receipts[0].rejection_reason&&<div className="receipt-rejection"><strong>Motivo del rechazo:</strong> {detailOrder.commerce_bank_transfer_receipts[0].rejection_reason}</div>}
-              {!receiptLoading&&<button type="button" className="secondary-button receipt-refresh" onClick={()=>void loadReceiptPreview(detailOrder)}>{receiptPreview?'Renovar acceso':'Abrir comprobante'}</button>}
-            </section>}
-            <OrderDetailItems rows={detailItemRows}/>
-            <section className="order-breakdown unified-order-breakdown" aria-label="Totales del pedido">
-              {(Number(detailOrder.discount_minor) > 0 || Number(detailOrder.shipping_minor) > 0 || Number(detailOrder.payment_fee_minor) > 0) && <div className="line-item"><div>Subtotal</div><strong>{money(detailItemsSubtotal)}</strong></div>}
-              {Number(detailOrder.discount_minor) > 0&&<div className="line-item"><div>Descuento{detailOrder.discount_code ? ` · ${detailOrder.discount_code}` : ''}</div><strong>−{money(Number(detailOrder.discount_minor))}</strong></div>}
-              {Number(detailOrder.shipping_minor) > 0&&<div className="line-item"><div>Envío</div><strong>{money(Number(detailOrder.shipping_minor))}</strong></div>}
-              {Number(detailOrder.payment_fee_minor) > 0&&<div className="line-item"><div>Cargos</div><strong>{money(Number(detailOrder.payment_fee_minor))}</strong></div>}
-              <div className="line-item"><div>Total UYU</div><strong>{money(detailOrder.total_minor)}</strong></div>
-              {detailOrder.paypal_amount_usd_minor != null && <div className="line-item"><div>Importe de compra PayPal</div><strong>{usdMoney(detailOrder.paypal_amount_usd_minor / 100)}</strong></div>}
-              {detailOrder.status === "manual_review" && detailOrder.order_items.some(item => item.review_status === "rejected") && <div className="data-note">Reembolso pendiente de confirmación. Si pagó por transferencia, requiere devolución manual.</div>}
-            </section>
-            {detailOrder.status==='shipped'&&<section className="order-tracking-detail" aria-label="Seguimiento guardado"><small>Envío registrado</small><strong>{detailOrder.shipping_carrier}</strong><div>{detailOrder.tracking_code}</div></section>}
-          </div>
-            <footer className="form-actions unified-order-actions">
+      {detailOrder && detailView && <Modal title="Detalle del pedido" className="order-detail-modal unified-order-modal" onClose={closeDetails}>
+          <OrderDetailContent detail={detailView}/>
+            <div className="form-actions unified-order-actions">
               <button type="button" className="unified-order-action" autoFocus onClick={closeDetails}>Cerrar</button>
               {onCustomer && <button type="button" className="unified-order-action" onClick={onCustomer}>Ver ficha del cliente</button>}
               {detailOrder.status==='payment_verification_pending'&&<><button type="button" className="unified-order-action unified-order-action--danger" disabled={busy===detailOrder.id||!receiptPreview} onClick={()=>void reviewBankTransfer(detailOrder,'reject')}>Rechazar y cancelar</button><button type="button" className="unified-order-action unified-order-action--primary" disabled={busy===detailOrder.id||!receiptPreview} onClick={()=>void reviewBankTransfer(detailOrder,'approve')}>{busy===detailOrder.id?'Procesando…':'Aprobar pago'}</button></>}
               {detailOrder.shipping_method!=='pickup'&&['ready_for_fulfillment','ready_for_production','manual_review'].includes(detailOrder.status)&&<button type="button" className="unified-order-action unified-order-action--primary" onClick={()=>{const order=detailOrder;setDetailOrder(null);openShipment(order)}}>Marcar enviado</button>}
               {detailOrder.status==='shipped'&&<button type="button" className="unified-order-action" onClick={()=>{if(window.confirm('¿Volver este pedido a preparación?'))void updateFulfillment(detailOrder,'restore')}}>Volver a preparación</button>}
               {detailOrder.status==='shipped'&&<button type="button" className="unified-order-action unified-order-action--primary" onClick={()=>{const order=detailOrder;setDetailOrder(null);openShipment(order)}}>Editar envío</button>}
-            </footer>
-        </section>
-      </div>}
+            </div>
+      </Modal>}
 
       {shipmentOrder&&<div className="modal-backdrop">
         <section className="shipment-modal" role="dialog" aria-modal="true" aria-labelledby="shipment-modal-title" aria-describedby="shipment-modal-description">

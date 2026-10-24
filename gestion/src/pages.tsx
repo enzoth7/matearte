@@ -6,7 +6,7 @@ import { LocalSaleRegister } from "./LocalSaleRegister";
 import { WholesaleRegister, WholesaleCustomerEditor, WholesaleProduction, WholesaleSummary } from "./WholesaleScreens";
 import { exportWholesalePdf } from "./wholesaleExports";
 import { summarizeWholesaleCustomer } from "./wholesaleAdapter";
-import { latestCustomerPurchase } from "./customerPurchase";
+import { customerPurchaseDates, latestCustomerPurchase } from "./customerPurchase";
 import { callMarketing } from "./marketingApi";
 import { topRetailProducts, topViewedProducts, type ProductView, type RankingItem } from "./overviewRankings";
 import { customerDisplayChannel, customerOriginLabel, customerOriginOptions } from "./customerChannel";
@@ -15,7 +15,8 @@ import { OrderContactPhone } from "./OrderContactPhone";
 import { exportCustomersXlsx } from "./customerExports";
 import { compactOrderItemName, orderItemColor, orderItemDetailRows } from "./orderItemPresentation";
 import { orderCategoryLabels, orderShippingStatus } from "./orderListPresentation";
-import { OrderDetailItems, type OrderDetailRow } from "./OrderDetailItems";
+import type { OrderDetailRow } from "./OrderDetailItems";
+import { OrderDetailContent, type OrderDetailView } from "./OrderDetailContent";
 import { PersonalizedOrders } from "./commerce/PersonalizedOrdersView";
 import { naturalCaseName, workshopOrderRows } from "./productionPresentation";
 import type { Session } from "@supabase/supabase-js";
@@ -68,7 +69,7 @@ import {
   AddButton,
   Export,
 } from "./ui";
-import { formatDate } from "./dateFormat";
+import { formatDate, formatDateTime } from "./dateFormat";
 export type PageProps = {
   session?: Session | null;
   refresh?: (forceFullCustomers?: boolean) => Promise<void>;
@@ -507,7 +508,6 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
   const country = contact?.country || (contact?.city ? countryForCity(contact.city) : "") || (/^0?9\d{7}$/.test(phone.replace(/\D/g, "")) ? "Uruguay" : "");
   const phoneParts = splitCustomerPhone(phone, country);
   const whatsappDigits = phoneParts.prefix ? joinCustomerPhone(phoneParts.prefix, phoneParts.number).replace(/\D/g, "") : "";
-  const hasContactOrDelivery = Boolean(phone || contact?.email || contact?.address || contact?.city || order.method === "Envío" || order.source === "local");
   const wholesaleLines = order.source === "wholesale"
     ? props.commerce?.wholesale?.lines.filter((line) => items.some((item) => item.wholesaleLineId === line.line_id)) || []
     : [];
@@ -526,37 +526,23 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       extra: wholesaleItem ? "" : extra.map((detail) => `${detail.label}: ${detail.value}`).join(" · "), notes: item.productionNotes,
     };
   }) : [{ id: order.id, name: product(s, order).name, quantity: order.quantity, amount: showAmounts ? money(total(order)) : undefined }];
-  return <Modal title="Detalle del pedido" className="order-detail-modal unified-order-modal" onClose={onClose}>
-    <section className="unified-order-identity" aria-label="Identificación del pedido">
-      <div className="unified-order-reference"><small>Pedido</small><strong>{orderName(order)}</strong></div>
-      <div className="unified-order-identity-fact"><small>Fecha</small><strong>{orderDate(order.date)}</strong></div>
-      <div className="unified-order-identity-fact"><small>Canal</small><Badge>{order.channel}</Badge></div>
-      <div className="unified-order-identity-fact"><small>Envío</small><Badge>{shipping}</Badge></div>
-    </section>
-    <section className="unified-order-overview" aria-label="Resumen del pedido">
-      <h3>Resumen</h3>
-      <div className="unified-order-facts">
-        <div><small>Cliente</small><strong>{naturalCaseName(customer(s, order).name)}</strong></div>
-        <div><small>Productos</small><strong>{orderCategoryLabels(order, s.products)}</strong></div>
-        {showAmounts && <div><small>Pago</small><strong>{paymentStatus(s, order)}</strong><span>{localDeposit ? "Saldo de la seña" : "Saldo pendiente"}: {money(balance(s, order))}</span></div>}
-        <div><small>Producción</small><strong>{order.production}</strong></div>
-      </div>
-    </section>
-    {hasContactOrDelivery && <section className="unified-order-contact order-delivery-summary" aria-label="Entrega y contacto">
-      <div className={`order-delivery-summary__heading${order.source === "local" ? " order-delivery-summary__heading--with-payment" : ""}`}>
-        <div><small>Entrega</small><strong>{order.method === "Envío" ? "Envío" : order.method === "Retiro" ? "Retiro en el local" : "Venta en el local"}</strong></div>
-        {order.source === "local" && <div><small>Medio de pago</small><strong>{localPaymentMethods}</strong></div>}
-      </div>
-      <div className="order-delivery-grid">
-        <div><small>Cliente</small><strong>{naturalCaseName(contact?.name || order.customerName || "Cliente sin nombre")}</strong>
-          {phone && <OrderContactPhone prefix={phoneParts.prefix} number={phoneParts.number} country={country} whatsappDigits={whatsappDigits} />}
-          {contact?.email && <div className="unified-order-contact-line">{contact.email}</div>}
-        </div>
-        {order.method === "Envío" && <div><small>Enviar a</small><strong>{contact?.address || "Dirección no registrada"}</strong><div className="unified-order-contact-line">{[contact?.city, contact?.department, country].filter(Boolean).join(", ")}</div></div>}
-      </div>
-    </section>}
-    <OrderDetailItems rows={detailRows} />
-    {showAmounts && <section className="order-breakdown unified-order-breakdown" aria-label="Totales del pedido">
+  const detail: OrderDetailView = {
+    reference: orderName(order), date: orderDate(order.date), channel: order.channel, shipping,
+    customer: naturalCaseName(customer(s, order).name), products: orderCategoryLabels(order, s.products),
+    payment: showAmounts ? paymentStatus(s, order) : undefined,
+    paymentNote: showAmounts ? `${localDeposit ? "Saldo de la seña" : "Saldo pendiente"}: ${money(balance(s, order))}` : undefined,
+    production: order.production, rows: detailRows,
+    delivery: {
+      method: order.method === "Envío" ? "Envío" : order.method === "Retiro" ? "Retiro en el local" : "Venta en el local",
+      paymentMethod: localPaymentMethods,
+      customer: naturalCaseName(contact?.name || order.customerName || "Cliente sin nombre"),
+      phone: phone ? <OrderContactPhone prefix={phoneParts.prefix} number={phoneParts.number} country={country} whatsappDigits={whatsappDigits} /> : undefined,
+      email: contact?.email,
+      address: contact?.address,
+      locality: [contact?.city, contact?.department].filter(Boolean).join(", "),
+      country, pickup: order.method !== "Envío",
+    },
+    totals: showAmounts ? <>
       {(!!order.discountAmount || !!order.shippingAmount || !!order.feeAmount) && <div className="line-item"><div>Subtotal</div><strong>{money(items.length ? items.reduce((sum, item) => sum + item.amount, 0) : total(order))}</strong></div>}
       {!!order.discountAmount && <div className="line-item"><div>Descuento</div><strong>{money(-order.discountAmount)}</strong></div>}
       {!!order.shippingAmount && <div className="line-item"><div>Envío</div><strong>{money(order.shippingAmount)}</strong></div>}
@@ -570,8 +556,11 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
         <div className="line-item"><div>Total</div><strong>{money(total(order))}</strong></div>
         {orderPayments.filter((payment) => payment.sourceCurrency === "USD").map((payment) => <div className="line-item" key={payment.id}><div>Cobro PayPal</div><strong>{paymentMoney(payment)}</strong></div>)}
       </>}
-    </section>}
-    {order.method === "Envío" && (order.carrier || order.tracking) && <section className="order-tracking-detail" aria-label="Seguimiento guardado"><small>Envío registrado</small><strong>{order.carrier || "Sin transportista"}</strong><span>{order.tracking || "Sin código"}</span></section>}
+    </> : undefined,
+    tracking: order.method === "Envío" && (order.carrier || order.tracking) ? { carrier: order.carrier || "", code: order.tracking || "" } : undefined,
+  };
+  return <Modal title="Detalle del pedido" className="order-detail-modal unified-order-modal" onClose={onClose}>
+    <OrderDetailContent detail={detail} />
     {saleError && <div className="error" role="alert">{saleError}</div>}
     <div className="form-actions unified-order-actions">
       {canEditLocalSale(order) && <div className="unified-order-sale-tools">
@@ -772,7 +761,7 @@ export function Orders(
       {selectedCustomer && <CustomerDetailModal customer={selectedCustomer} s={s} go={go} commerce={props.commerce} onClose={() => setSelectedCustomer(null)} />}
       {mode === "historico" && <WholesaleProduction props={props} history />}
       {o && (o.source === "local" || o.source === "wholesale" || !props.session) && <UnifiedOrderDetailModal order={o} props={props} showAmounts={showAmounts} onClose={() => setSelected(null)} />}
-      {o && o.source !== "local" && o.source !== "wholesale" && props.session && <div className="commerce-tools order-tools"><CommerceOrderDetails key={o.id} session={props.session} onNotice={props.notify} orderId={o.id} catalogProducts={s.products} onProduct={(productId, variantId) => go(`/productos/catalogo?producto=${encodeURIComponent(productId)}&variante=${encodeURIComponent(variantId)}`)} onCustomer={() => go(`/clientes/base?cliente=${o.customerId}`)} onClose={() => { setSelected(null); void props.refresh?.(); }} /></div>}
+      {o && o.source !== "local" && o.source !== "wholesale" && props.session && <div className="commerce-tools order-tools"><CommerceOrderDetails key={o.id} session={props.session} onNotice={props.notify} orderId={o.id} catalogProducts={s.products} paymentProvider={s.payments.find((payment) => payment.orderId === o.id)?.method} onProduct={(productId, variantId) => go(`/productos/catalogo?producto=${encodeURIComponent(productId)}&variante=${encodeURIComponent(variantId)}`)} onCustomer={() => go(`/clientes/base?cliente=${o.customerId}`)} onClose={() => { setSelected(null); void props.refresh?.(); }} /></div>}
     </>
   );
 }
@@ -781,6 +770,7 @@ export function CustomerDetailModal({ customer: c, s, go, commerce, onClose }: {
   const orders = visibleOrders(s);
   const customerOrders = orders.filter((order) => order.customerId === c.id);
   const wholesaleHistory = c.wholesaleName ? summarizeWholesaleCustomer(orders, c.id) : undefined;
+  const purchaseDates = customerPurchaseDates(c, customerOrders);
   const birthDate = c.birthDate ? /^\d{4}$/.test(c.birthDate) ? c.birthDate : formatDate(c.birthDate) : "";
   const country = countryDisplayName(c.country || countryForCity(c.city));
   return <Modal title={c.name} className="customer-detail-modal" onClose={onClose}>
@@ -788,18 +778,17 @@ export function CustomerDetailModal({ customer: c, s, go, commerce, onClose }: {
       <h3>Datos del cliente</h3>
       <div className="customer-identity-grid">
         {([
-          ["Nombre", c.name], ["Fecha de nacimiento", birthDate], ["País", country],
+          ["Nombre", c.name], ["Fecha de alta", formatDateTime(c.createdAt, "Sin datos")], ["Fecha de nacimiento", birthDate], ["País", country],
           ["Ciudad", c.city], ["Dirección", [c.address, c.department, c.postalCode].filter(Boolean).join(", ")],
           ["Teléfono", c.phone], ["Correo", c.email],
-        ] as [string, string | undefined][]).map(([label, value]) => <div key={label}><small>{label}</small><strong>{value?.trim() || "Sin datos"}</strong></div>)}
+          ["Otros celulares", c.agendaAdditionalPhones?.join(" · ")], ["Notas", c.notes],
+        ] as [string, string | undefined][]).map(([label, value]) => <div className={label === "Notas" ? "customer-identity-note" : undefined} key={label}><small>{label}</small><strong>{value?.trim() || "Sin datos"}</strong></div>)}
       </div>
     </section>
-    {c.localCustomerId && <div className="customer-local-facts">
-      {!!c.agendaAdditionalPhones?.length && <div className="wide"><small>Otros celulares</small><strong>{c.agendaAdditionalPhones.join(" · ")}</strong></div>}
-      {c.firstPurchaseDate && <div><small>Primera compra en el local</small><strong>{c.firstPurchaseDate}</strong></div>}
-      {c.lastPurchaseDate && <div><small>Última compra en el local</small><strong>{c.lastPurchaseDate}</strong></div>}
-      {c.notes && <div className="wide"><small>Notas</small><div>{c.notes}</div></div>}
-    </div>}
+    <div className="customer-purchase-facts">
+      <div><small>Primera compra</small><strong>{formatDate(purchaseDates.first, "Sin datos")}</strong></div>
+      <div><small>Última compra</small><strong>{formatDate(purchaseDates.last, "Sin datos")}</strong></div>
+    </div>
     <Stats items={[
       { label: "Compras", value: money(customerOrders.filter(isSale).reduce((sum, order) => sum + total(order), 0)) },
       { label: "Saldo", value: money(customerOrders.reduce((sum, order) => sum + balance(s, order), 0)) },
