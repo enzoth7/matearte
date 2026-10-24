@@ -1,0 +1,1815 @@
+import { lazy, Suspense, useCallback, useState, useEffect, useRef } from "react";
+import type { ReactNode } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import type { UserData, WizardStep, SavedDesignItem } from "./types/user";
+import { consumeMainSiteHandoff, createMainSiteHandoff, createProfileAvatarSignedUrl, getUserProfileFromSupabase, isSupabaseConfigured, saveUserProfileToSupabase, supabase, saveDesignToSupabase } from "./lib/supabase";
+import { WelcomeStep } from "./components/WelcomeStep";
+import { PersonalizerIntroStep } from "./components/PersonalizerIntroStep";
+import { MateSelectionStep } from "./components/MateSelectionStep";
+import { BrandHeader } from "./components/BrandHeader";
+import { SummaryStep } from "./components/SummaryStep";
+import { SuccessStep } from "./components/SuccessStep";
+import { ProfileStep } from "./components/ProfileStep";
+import { ConfiguratorPreview } from "./components/ConfiguratorPreview";
+import { FlatFlejePreview } from "./components/FlatFlejePreview";
+import { FlejeFinishSelector } from "./components/FlejeFinishSelector";
+import { RimFinishSelector } from "./components/RimFinishSelector";
+import { RimFinishModeSelector } from "./components/RimFinishModeSelector";
+import { RimImageModeSelector } from "./components/RimImageModeSelector";
+import { RimTextEditor } from "./components/RimTextEditor";
+import { RimTextFields } from "./components/RimTextFields";
+import { RimTextModeSelector } from "./components/RimTextModeSelector";
+import { CustomImageUpload } from "./components/CustomImageUpload";
+import { CheckoutStep } from "./components/CheckoutStep";
+import { DesignExportRenderer, type DesignExportRendererHandle } from "./components/DesignExportRenderer";
+import { VirolaIconSelector } from "./components/VirolaIconSelector";
+import { BrandFooter } from "./components/BrandFooter";
+import { StyleTransitionStep } from "./components/StyleTransitionStep";
+import { usePricing } from "./context/PricingContext";
+import { getDefaultColor, getDefaultVariant, getModelDefinition, getVariantDefinition, mateVariants, type EngravingArea, type MateSize, type MateVariant } from "./catalog/mateCatalog";
+import {
+  EMPTY_MATE_SELECTION,
+  getFirstIncompleteStage,
+  getSelectedTexture,
+  getSelectionPreviewImage,
+  getSelectionFromLegacyVariant,
+  getSelectionLabels,
+  resolveMateSelection,
+  sanitizeMateSelection,
+  shouldReturnToIncompleteStage,
+  shouldAskForMetal,
+  engravingTypeOptions,
+  getEngravingCapabilities,
+  type MateSelection,
+  type MateSelectionStage,
+  type ResolvedMateProduct,
+} from "./catalog/mateDecisionCatalog";
+import { createDefaultRimSelection, MAX_RIM_ICONS, normalizeRimIcons, normalizeRimSelection } from "./catalog/rimCatalog";
+import { getRimFinish, getRimFinishCatalogForEngravingType } from "./catalog/rimFinishCatalog";
+import { getFlejeFinish } from "./catalog/flejeFinishCatalog";
+import { calculateOrderPricing, countChargeableCharacters, formatUYU, getCustomizationPrice } from "./catalog/pricingCatalog";
+import { createDefaultFlejeCustomization, normalizeFlejeCustomization, type CustomImageAsset, type EditableElement, type FlejeCustomization, type FlejeSide, type MateConfiguration } from "./types/personalizer";
+import { loadGuestDraft, loadGuestDraftIdentity, saveGuestDraft, saveGuestDraftIdentity, syncDesignAssets } from "./services/guestDraftStorage";
+import { saveDesignPreviews } from "./services/designPreviews";
+import { shouldCompleteProfileInPersonalizer, shouldLeaveAccessAfterAuthentication } from "./lib/authRedirect";
+
+type CustomizationPhase = "mate" | "virola" | "fleje";
+type PreviewView = "mate" | "virola" | "fleje";
+type PendingAuthAction = "save-personalizer" | "save-summary" | "checkout" | "profile" | "edit-contact" | "main-profile";
+
+const PricingDashboard = lazy(() => import("./components/PricingDashboard").then((module) => ({ default: module.PricingDashboard })));
+
+interface BaseImageProps {
+  src: string;
+  alt: string;
+}
+
+interface PhaseAccordionProps {
+  number: number;
+  title: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}
+
+function BaseImage({ src, alt }: BaseImageProps) {
+  return <img src={src} alt={alt} className="mate-product-photo absolute inset-0 h-full w-full" draggable={false} />;
+}
+
+function FlejeTextLayer({ text, engravingArea }: { text: string; engravingArea: EngravingArea | null }) {
+  if (!text.trim() || !engravingArea) return null;
+
+  const fontSize = Math.max(60, 140 - Math.max(0, text.length - 4) * 5.5);
+  const letterSpacing = text.length > 12 ? 4 : 6;
+  const textLength = Math.min(860, Math.max(300, text.length * fontSize * 0.62 + Math.max(0, text.length - 1) * letterSpacing));
+
+  return (
+    <div
+      data-layer="fleje-text"
+      className="pointer-events-none absolute overflow-hidden"
+      style={{
+        left: `${engravingArea.x}%`,
+        top: `${engravingArea.y}%`,
+        width: `${engravingArea.width}%`,
+        height: `${engravingArea.height}%`,
+      }}
+    >
+      <svg viewBox="0 0 1000 160" preserveAspectRatio="none" className="h-full w-full" aria-hidden="true">
+        <text
+          x="500"
+          y="84"
+          textAnchor="middle"
+          dominantBaseline="middle"
+          textLength={textLength}
+          lengthAdjust="spacingAndGlyphs"
+          fill="#2d1d14"
+          stroke="#b8ae9d"
+          strokeWidth="1.2"
+          paintOrder="stroke"
+          fontFamily="Georgia, 'Times New Roman', serif"
+          fontSize={fontSize}
+          fontWeight="700"
+          letterSpacing={letterSpacing}
+          style={{ mixBlendMode: "multiply" }}
+        >
+          {text.toUpperCase()}
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+function FlejePreview({ mate, text, image }: { mate: MateVariant; text: string; image?: string }) {
+  const model = getModelDefinition(mate.model);
+  return (
+    <div className="relative aspect-square w-full max-w-[540px]" aria-label={`Vista lateral del mate ${mate.name}`}>
+      <BaseImage src={image ?? mate.image} alt={`Mate ${mate.name} visto de frente`} />
+      <FlejeTextLayer text={model.hasFleje ? text : ""} engravingArea={model.engravingArea} />
+    </div>
+  );
+}
+
+function PhaseAccordion({ number, title, isOpen, onToggle, children }: PhaseAccordionProps) {
+  const panelId = `personalizer-phase-${title.toLowerCase()}`;
+  return (
+    <section className="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        aria-controls={panelId}
+        className="flex min-h-11 w-full items-center justify-between p-4 text-left transition-colors hover:bg-zinc-50/50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#7a4a31]"
+      >
+        <div className="flex items-center gap-3">
+          <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-mono font-bold ${isOpen ? "bg-[#7a4a31] text-white" : "bg-zinc-100 text-zinc-500"}`}>{number}</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-zinc-800">{title}</span>
+        </div>
+        <span className="text-[10px] text-zinc-400">{isOpen ? "−" : "＋"}</span>
+      </button>
+      <div
+        id={panelId}
+        aria-hidden={!isOpen}
+        inert={!isOpen}
+        className={`grid transition-all duration-300 ${isOpen ? "grid-rows-[1fr] border-t border-zinc-100 opacity-100" : "grid-rows-[0fr] pointer-events-none opacity-0"}`}
+      >
+        <div className="overflow-hidden p-4">{children}</div>
+      </div>
+    </section>
+  );
+}
+
+const SELECTION_SESSION_KEY = "matearte_selection_v2";
+const ACTIVE_DRAFT_SESSION_KEY = "matearte_active_draft_id";
+
+function createDraftIdentity() {
+  return crypto.randomUUID();
+}
+
+function selectionStageFromPath(path: string): MateSelectionStage {
+  if (path.endsWith("/texture")) return "texture";
+  if (path.endsWith("/metal")) return "metal";
+  if (path.endsWith("/size")) return "size";
+  if (path.endsWith("/fleje-engraving")) return "fleje-engraving";
+  if (path.endsWith("/engraving")) return "engraving";
+  return "model";
+}
+
+function createConfigurationFromResolved(
+  product: ResolvedMateProduct,
+  current?: Partial<MateConfiguration> | null,
+): MateConfiguration {
+  const variant = getVariantDefinition(product.legacyVariantId) ?? getDefaultVariant(product.shapeId);
+  const rim = normalizeRimSelection(variant, current?.rim);
+  rim.rimId = product.rimId;
+  const availableRimFinishes = getRimFinishCatalogForEngravingType(product.engravingTypeId);
+  if (!availableRimFinishes.some((finish) => finish.id === rim.finishId)) {
+    rim.finishId = availableRimFinishes[0]?.id ?? rim.finishId;
+  }
+  const selection: MateSelection = {
+    familyId: product.familyId,
+    textureId: product.textureId,
+    colorId: product.colorId,
+    metalId: product.metalId,
+    sizeId: product.sizeId,
+    engravingTypeId: product.engravingTypeId,
+    flejeEngravingTypeId: product.flejeEngravingTypeId,
+  };
+
+  return {
+    schemaVersion: 2,
+    productId: product.productId,
+    skuId: product.skuId,
+    selection,
+    selectionLabels: getSelectionLabels(selection),
+    engravingTypeId: product.engravingTypeId,
+    flejeEngravingTypeId: product.flejeEngravingTypeId,
+    capabilities: product.capabilities,
+    isLegacy: false,
+    modelId: product.shapeId,
+    variantId: variant.id,
+    size: product.sizeId,
+    colorId: product.colorId,
+    rim,
+  };
+}
+
+function createMateConfiguration(variant: MateVariant): MateConfiguration {
+  const selection = getSelectionFromLegacyVariant(variant.id, variant.defaultSize);
+  const resolved = selection ? resolveMateSelection(selection) : null;
+  if (resolved) return createConfigurationFromResolved(resolved);
+  const model = getModelDefinition(variant.model);
+  return {
+    schemaVersion: 2,
+    productId: null,
+    skuId: variant.id,
+    selection: { ...EMPTY_MATE_SELECTION },
+    selectionLabels: {
+      family: model.name,
+      texture: variant.name,
+      color: getDefaultColor(variant).name,
+      metal: "Configuración anterior",
+      size: variant.defaultSize,
+      engraving: "Sin definir",
+    },
+    engravingTypeId: null,
+    flejeEngravingTypeId: null,
+    capabilities: { hasRim: true, hasFleje: model.hasFleje },
+    isLegacy: true,
+    modelId: variant.model,
+    variantId: variant.id,
+    size: variant.defaultSize,
+    colorId: getDefaultColor(variant).id,
+    rim: createDefaultRimSelection(variant),
+  };
+}
+
+function normalizeMateConfiguration(value: Partial<MateConfiguration> | null | undefined): MateConfiguration {
+  const variant = mateVariants.find((item) => item.id === value?.variantId)
+    ?? getDefaultVariant(value?.modelId ?? "imperial");
+  const size: MateSize = variant.availableSizes.includes(value?.size as MateSize) ? value?.size as MateSize : variant.defaultSize;
+  const storedSelection = sanitizeMateSelection(value?.selection);
+  const migratedSelection = resolveMateSelection(storedSelection)
+    ? storedSelection
+    : getSelectionFromLegacyVariant(variant.id, size);
+  const resolved = migratedSelection ? resolveMateSelection(migratedSelection) : null;
+  if (resolved) return createConfigurationFromResolved(resolved, value);
+
+  const model = getModelDefinition(variant.model);
+  const colorId = variant.colors.some((color) => color.id === value?.colorId) ? value?.colorId as string : getDefaultColor(variant).id;
+  return {
+    schemaVersion: 2,
+    productId: null,
+    skuId: variant.id,
+    selection: { ...EMPTY_MATE_SELECTION },
+    selectionLabels: value?.selectionLabels ?? {
+      family: model.name,
+      texture: variant.name,
+      color: variant.colors.find((color) => color.id === colorId)?.name ?? colorId,
+      metal: "Configuración anterior",
+      size,
+      engraving: value?.selectionLabels?.engraving ?? "Sin definir",
+    },
+    engravingTypeId: value?.engravingTypeId ?? storedSelection.engravingTypeId ?? null,
+    flejeEngravingTypeId: value?.flejeEngravingTypeId ?? storedSelection.flejeEngravingTypeId ?? null,
+    capabilities: value?.capabilities ?? { hasRim: true, hasFleje: model.hasFleje },
+    isLegacy: true,
+    modelId: variant.model,
+    variantId: variant.id,
+    size,
+    colorId,
+    rim: normalizeRimSelection(variant, value?.rim),
+  };
+}
+
+function PersonalizerApp() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { catalog: pricingCatalog, refresh: refreshPricing } = usePricing();
+  const customizationPriceLabel = (id: string) => {
+    const value = getCustomizationPrice(pricingCatalog, configuration.engravingTypeId, id);
+    if (value === null) return "Precio no disponible";
+    const unit = id.endsWith("_text")
+      ? configuration.engravingTypeId === "laser" ? " en total" : " por letra"
+      : id.endsWith("_image") ? " por imagen" : "";
+    return `${formatUYU(value)}${unit}`;
+  };
+
+  // Load user data from localStorage if available
+  const [userData, setUserData] = useState<UserData | null>(null);
+
+  // Helper to convert route to wizard step
+  const getStepFromPath = (path: string): WizardStep => {
+    if (path.startsWith("/selection")) return "product_selection";
+    switch (path) {
+      case "/access":
+        return "access";
+      case "/profile":
+        return "profile";
+      case "/product-selection":
+        return "product_selection";
+      case "/personalizer":
+        return "personalizer";
+      case "/summary":
+        return "summary";
+      case "/checkout":
+        return "checkout";
+      case "/success":
+        return "success";
+      default:
+        return "welcome";
+    }
+  };
+
+  const [wizardStep, setWizardStepState] = useState<WizardStep>(() => getStepFromPath(location.pathname));
+  const [incomingHandoffCode, setIncomingHandoffCode] = useState(() => new URLSearchParams(window.location.search).get("handoff") || "");
+  const [handoffPending, setHandoffPending] = useState(Boolean(incomingHandoffCode));
+  const [handoffUserId, setHandoffUserId] = useState("");
+  const [handoffError, setHandoffError] = useState("");
+  const handoffRequestRef = useRef<Promise<string> | null>(null);
+  const [pendingAuthAction, setPendingAuthAction] = useState<PendingAuthAction | null>(() => {
+    const saved = sessionStorage.getItem("matearte_pending_auth_action");
+    return saved as PendingAuthAction | null;
+  });
+
+  // Sync route changes with state
+  useEffect(() => {
+    setWizardStepState(getStepFromPath(location.pathname));
+  }, [location.pathname]);
+
+  const changeStep = useCallback((step: WizardStep) => {
+    setWizardStepState(step);
+    switch (step) {
+      case "profile":
+        navigate("/profile");
+        break;
+      case "access":
+        navigate("/access");
+        break;
+      case "product_selection":
+        navigate("/selection/model");
+        break;
+      case "personalizer":
+        navigate("/personalizer");
+        break;
+      case "summary":
+        navigate("/summary");
+        break;
+      case "checkout":
+        navigate("/checkout");
+        break;
+      case "success":
+        navigate("/success");
+        break;
+      default:
+        navigate("/");
+        break;
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth") !== "login" || params.get("next") !== "profile") return;
+    sessionStorage.setItem("matearte_pending_auth_action", "main-profile");
+    setPendingAuthAction("main-profile");
+    changeStep("access");
+  }, [changeStep]);
+
+  useEffect(() => {
+    if (!incomingHandoffCode) return;
+    let active = true;
+    handoffRequestRef.current ??= consumeMainSiteHandoff(incomingHandoffCode);
+    void handoffRequestRef.current
+      .then((userId) => {
+        if (!active) return;
+        setIncomingHandoffCode("");
+        setHandoffUserId(userId);
+      })
+      .catch((reason) => {
+        if (!active) return;
+        setIncomingHandoffCode("");
+        window.history.replaceState(null, '', '/access');
+        setHandoffError(reason instanceof Error ? reason.message : 'No pudimos conectar tu cuenta.');
+        setHandoffPending(false);
+        sessionStorage.setItem("matearte_pending_auth_action", "profile");
+        setPendingAuthAction("profile");
+        changeStep('access');
+      });
+    return () => { active = false; };
+  }, [changeStep, incomingHandoffCode]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
+    let active = true;
+    let lastSessionToken = "";
+    let syncVersion = 0;
+
+    if (new URLSearchParams(window.location.search).get('logout') === '1') {
+      void supabase.auth.signOut({ scope: 'local' }).finally(() => {
+        localStorage.removeItem('matearte_user');
+        window.history.replaceState(null, '', '/');
+        setUserData(null);
+      });
+    }
+
+    const syncSession = async (session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']) => {
+      const sessionToken = session?.access_token || "";
+      if (sessionToken && sessionToken === lastSessionToken) return;
+      lastSessionToken = sessionToken;
+      const currentSyncVersion = ++syncVersion;
+
+      if (session?.user) {
+        const email = session.user.email || "";
+        const { data: profile } = await getUserProfileFromSupabase(session.user.id, session.access_token)
+          .catch(() => ({ data: null }));
+        if (!active || currentSyncVersion !== syncVersion) return;
+        let cachedProfile: Partial<UserData> = {};
+        try {
+          const cached = JSON.parse(localStorage.getItem("matearte_user") || "null") as Partial<UserData> | null;
+          if (cached?.id === session.user.id) cachedProfile = cached;
+        } catch {
+          localStorage.removeItem("matearte_user");
+        }
+        const name = profile?.full_name || cachedProfile.name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split("@")[0] || "Cliente MateArte";
+        const signedAvatar = profile?.avatar_path
+          ? await createProfileAvatarSignedUrl(profile.avatar_path).catch(() => null)
+          : null;
+        if (!active || currentSyncVersion !== syncVersion) return;
+        const userObj: UserData = {
+          id: session.user.id,
+          name,
+          email,
+          phone: profile?.phone ?? cachedProfile.phone ?? "",
+          company: profile?.company ?? cachedProfile.company ?? "",
+          birthDate: profile?.birth_date ?? cachedProfile.birthDate ?? "",
+          countryCode: profile?.country_code ?? cachedProfile.countryCode ?? "UY",
+          department: profile?.department ?? cachedProfile.department ?? "",
+          city: profile?.city ?? cachedProfile.city ?? "",
+          addressLine1: profile?.address_line1 ?? cachedProfile.addressLine1 ?? "",
+          postalCode: profile?.postal_code ?? cachedProfile.postalCode ?? "",
+          avatarPath: profile?.avatar_path ?? cachedProfile.avatarPath ?? "",
+          avatarUrl: signedAvatar?.data?.signedUrl || cachedProfile.avatarUrl || "",
+          profileComplete: profile ? Boolean(profile.profile_completed_at) : Boolean(cachedProfile.profileComplete),
+        };
+        setUserData(userObj);
+        localStorage.setItem("matearte_user", JSON.stringify(userObj));
+        const pendingAction = sessionStorage.getItem("matearte_pending_auth_action");
+        if (shouldCompleteProfileInPersonalizer(userObj.profileComplete, pendingAction)) changeStep("profile");
+        if (window.location.search.includes('error') || window.location.hash.includes('access_token') || window.location.search.includes('code')) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      } else {
+        if (!active || currentSyncVersion !== syncVersion) return;
+        setUserData(null);
+        localStorage.removeItem('matearte_user');
+      }
+    };
+    void supabase.auth.getSession().then(({ data }) => syncSession(data.session));
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => { setTimeout(() => void syncSession(session), 0); });
+
+    return () => {
+      active = false;
+      authListener?.subscription.unsubscribe();
+    };
+  }, [changeStep]);
+
+  useEffect(() => {
+    if (wizardStep === "summary" || wizardStep === "checkout") void refreshPricing(true);
+  }, [refreshPricing, wizardStep]);
+
+  const [activePhase, setActivePhase] = useState<CustomizationPhase | null>("virola");
+  const [previewView, setPreviewView] = useState<PreviewView>("virola");
+  const initialVariant = getDefaultVariant("imperial");
+  const [configuration, setConfiguration] = useState<MateConfiguration>(() => createMateConfiguration(initialVariant));
+  const [selection, setSelection] = useState<MateSelection>(() => {
+    try {
+      const saved = sessionStorage.getItem(SELECTION_SESSION_KEY);
+      return saved ? sanitizeMateSelection(JSON.parse(saved)) : { ...EMPTY_MATE_SELECTION };
+    } catch {
+      return { ...EMPTY_MATE_SELECTION };
+    }
+  });
+  const selectionStage = selectionStageFromPath(location.pathname);
+  const selectedDecisionTexture = getSelectedTexture(selection);
+  const selectionHasFleje = selectedDecisionTexture?.capabilities.hasFleje
+    ?? (selection.familyId === "camionero" || selection.familyId === "torpedo" ? false : configuration.capabilities.hasFleje);
+  const indicatorHasFleje = wizardStep === "product_selection"
+    ? selectionHasFleje
+    : configuration.capabilities.hasFleje;
+  const selectedMate = mateVariants.find((variant) => variant.id === configuration.variantId) ?? initialVariant;
+  const [flejeConfig, setFlejeConfig] = useState<FlejeCustomization>(() => createDefaultFlejeCustomization());
+  const [guestDraftHydrated, setGuestDraftHydrated] = useState(false);
+  const ignoreGuestDraftRestoreRef = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    void loadGuestDraft().then((draft) => {
+      if (!active) return;
+      if (!ignoreGuestDraftRestoreRef.current && draft?.configuration) {
+        const normalized = normalizeMateConfiguration(draft.configuration);
+        setConfiguration(normalized);
+        if (!normalized.isLegacy) setSelection(normalized.selection);
+      }
+      if (!ignoreGuestDraftRestoreRef.current && draft?.flejeConfiguration) setFlejeConfig(normalizeFlejeCustomization(draft.flejeConfiguration));
+      setGuestDraftHydrated(true);
+    }).catch(() => setGuestDraftHydrated(true));
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!guestDraftHydrated) return;
+    const timer = window.setTimeout(() => { void saveGuestDraft(configuration, flejeConfig); }, 500);
+    return () => window.clearTimeout(timer);
+  }, [configuration, flejeConfig, guestDraftHydrated]);
+  const [activeFlejeSide, setActiveFlejeSide] = useState<FlejeSide>("front");
+  const [selectedRimElement, setSelectedRimElement] = useState<string | null>("text");
+  const [placingRimIconId, setPlacingRimIconId] = useState<string | null>(null);
+  const [selectedFlejeElement, setSelectedFlejeElement] = useState<EditableElement | null>("text");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [showStyleIntro, setShowStyleIntro] = useState(false);
+  const [allowIncompletePhaseNavigation, setAllowIncompletePhaseNavigation] = useState(false);
+  const [localDesigns] = useState<SavedDesignItem[]>([]);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const designExportRef = useRef<DesignExportRendererHandle>(null);
+  const uploadedRimIcon = configuration.rim.icons.find((icon) => icon.customImage) ?? null;
+
+  const updateUploadedRimIcon = (asset: CustomImageAsset | null) => {
+    const existingId = uploadedRimIcon?.id ?? null;
+
+    if (!asset) {
+      setConfiguration((current) => ({
+        ...current,
+        rim: {
+          ...current.rim,
+          icons: current.rim.icons.filter((icon) => icon.id !== existingId),
+        },
+      }));
+      if (selectedRimElement === existingId) setSelectedRimElement(null);
+      if (placingRimIconId === existingId) setPlacingRimIconId(null);
+      return;
+    }
+
+    const iconId = existingId ?? crypto.randomUUID();
+    const count = configuration.rim.icons.length;
+    const angles = [90, 45, 135];
+    const angle = angles[count] ?? 90;
+    const rad = angle * (Math.PI / 180);
+    const initialPos = {
+      x: Math.round((0.5 + Math.cos(rad) * 0.378) * 1000) / 1000,
+      y: Math.round((0.5 + Math.sin(rad) * 0.378) * 1000) / 1000,
+    };
+
+    setConfiguration((current) => {
+      const existing = current.rim.icons.find((icon) => icon.id === existingId);
+      const uploadedIcon = {
+        id: iconId,
+        selectedImageId: asset.id,
+        customImage: asset,
+        transform: existing?.transform ?? { x: initialPos.x, y: initialPos.y, scale: 1, rotation: 0, side: "rim" as const },
+      };
+
+      return {
+        ...current,
+        rim: {
+          ...current.rim,
+          icons: existing
+            ? current.rim.icons.map((icon) => icon.id === existing.id ? uploadedIcon : icon)
+            : [...current.rim.icons, uploadedIcon],
+        },
+      };
+    });
+    setSelectedRimElement(iconId);
+    setPreviewView("virola");
+  };
+
+  const locateUploadedRimIcon = () => {
+    if (!uploadedRimIcon) return;
+    setSelectedRimElement(uploadedRimIcon.id);
+    setPlacingRimIconId((current) => current === uploadedRimIcon.id ? null : uploadedRimIcon.id);
+    setPreviewView("virola");
+    window.requestAnimationFrame(() => previewContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  };
+
+  useEffect(() => {
+    if (!placingRimIconId) return;
+    const cancelPlacement = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPlacingRimIconId(null);
+    };
+    window.addEventListener("keydown", cancelPlacement);
+    return () => window.removeEventListener("keydown", cancelPlacement);
+  }, [placingRimIconId]);
+
+  useEffect(() => {
+    if (previewView !== "virola") setPlacingRimIconId(null);
+  }, [previewView]);
+
+  useEffect(() => {
+    sessionStorage.setItem(SELECTION_SESSION_KEY, JSON.stringify(selection));
+  }, [selection]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [location.pathname, showStyleIntro, activePhase]);
+
+  useEffect(() => {
+    const resolved = resolveMateSelection(selection);
+    if (!resolved) return;
+    if (configuration.productId !== resolved.productId && (wizardStep === "personalizer" || wizardStep === "summary" || wizardStep === "checkout")) {
+      setConfiguration((current) => createConfigurationFromResolved(resolved, current));
+    }
+    if (wizardStep === "checkout" && !resolved.skuId) {
+      navigate("/summary", { replace: true });
+    }
+  }, [configuration.productId, navigate, selection, wizardStep]);
+
+  useEffect(() => {
+    const incomplete = getFirstIncompleteStage(selection);
+    if ((wizardStep === "personalizer" || wizardStep === "summary" || wizardStep === "checkout") && incomplete && !configuration.isLegacy && !allowIncompletePhaseNavigation) {
+      navigate(`/selection/${incomplete}`, { replace: true });
+      return;
+    }
+    if (wizardStep !== "product_selection") return;
+    if (selectionStage === "metal" && !shouldAskForMetal(selection) && (incomplete === "size" || incomplete === "engraving" || incomplete === null)) {
+      navigate("/selection/size", { replace: true });
+      return;
+    }
+    if (!incomplete) return;
+    if (shouldReturnToIncompleteStage(selectionStage, incomplete)) {
+      navigate(`/selection/${incomplete}`, { replace: true });
+    }
+  }, [allowIncompletePhaseNavigation, configuration.isLegacy, navigate, selection, selectionStage, wizardStep]);
+
+  const [lastSavedDesignId, setLastSavedDesignId] = useState<string | null>(null);
+  const [currentDraftKey, setCurrentDraftKey] = useState<string>(() => {
+    const existing = sessionStorage.getItem(ACTIVE_DRAFT_SESSION_KEY);
+    const value = existing || createDraftIdentity();
+    sessionStorage.setItem(ACTIVE_DRAFT_SESSION_KEY, value);
+    return value;
+  });
+
+  const setDraftIdentity = useCallback((value: string) => {
+    setCurrentDraftKey(value);
+    sessionStorage.setItem(ACTIVE_DRAFT_SESSION_KEY, value);
+  }, []);
+
+  const startNewDraft = useCallback(() => {
+    ignoreGuestDraftRestoreRef.current = true;
+    setLastSavedDesignId(null);
+    setDraftIdentity(createDraftIdentity());
+    setConfiguration(createMateConfiguration(initialVariant));
+    setFlejeConfig(createDefaultFlejeCustomization());
+    setSelectedRimElement("text");
+    setSelectedFlejeElement("text");
+    setPlacingRimIconId(null);
+  }, [initialVariant, setDraftIdentity]);
+
+  useEffect(() => {
+    let active = true;
+    void loadGuestDraftIdentity().then((storedIdentity) => {
+      if (active && storedIdentity) setDraftIdentity(storedIdentity);
+    });
+    return () => { active = false; };
+  }, [setDraftIdentity]);
+
+  useEffect(() => {
+    void saveGuestDraftIdentity(currentDraftKey);
+  }, [currentDraftKey]);
+
+  const configurationWithPricingSnapshot = () => {
+    const pricing = calculateOrderPricing(configuration, flejeConfig, pricingCatalog);
+    if (!pricing.isPriceReady || pricing.catalogVersion === null || !pricing.catalogVersionId) return configuration;
+    return {
+      ...configuration,
+      pricingSnapshot: {
+        catalogVersion: pricing.catalogVersion,
+        catalogVersionId: pricing.catalogVersionId,
+        basePriceUYU: pricing.basePriceUYU,
+        breakdown: pricing.breakdown!,
+        components: pricing.components,
+        extrasUYU: pricing.extrasUYU,
+        totalUYU: pricing.totalUYU,
+        subtotalUYU: pricing.totalUYU,
+        paymentMethod: null,
+        mercadoPagoCommissionPercent: null,
+        mercadoPagoCommissionUYU: 0,
+        items: pricing.items.map(({ id, ruleKey, label, quantity, unitPriceUYU, totalUYU }) => ({ id, ruleKey, label, quantity, unitPriceUYU, totalUYU })),
+      },
+    };
+  };
+
+  const handleSaveDesign = async () => {
+    if (saveStatus !== "idle") return;
+    setSaveStatus("saving");
+    try {
+      const configurationForSave = configurationWithPricingSnapshot();
+      const { data, error } = await saveDesignToSupabase({
+        designId: lastSavedDesignId,
+        clientDraftId: currentDraftKey,
+        userId: userData?.id,
+        configuration: configurationForSave,
+        flejeConfig,
+        title: `Mate ${configuration.selectionLabels.texture}`,
+        status: 'draft',
+      });
+      if (error || !data?.[0]?.id) throw error || new Error('No se pudo guardar el diseño.');
+      const design = data[0];
+      setLastSavedDesignId(design.id);
+      setDraftIdentity(design.client_draft_id);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session || !userData?.id) throw new Error('La sesión venció. Volvé a ingresar.');
+      const synced = await syncDesignAssets(configurationForSave, flejeConfig, design.id, session.access_token);
+      if (synced.changed) {
+        setConfiguration(normalizeMateConfiguration(synced.configuration));
+        setFlejeConfig(normalizeFlejeCustomization(synced.flejeConfiguration));
+        const persisted = await saveDesignToSupabase({ designId: design.id, clientDraftId: design.client_draft_id, userId: userData.id, configuration: synced.configuration, flejeConfig: synced.flejeConfiguration, title: `Mate ${configuration.selectionLabels.texture}`, status: 'draft' });
+        if (persisted.error) throw persisted.error;
+      }
+      const targets = designExportRef.current?.getTargets();
+      if (!targets) throw new Error('No se pudieron preparar las vistas del diseño.');
+      await saveDesignPreviews({ designId: design.id, userId: userData.id, hasFleje: configuration.capabilities.hasFleje, targets });
+
+      setTimeout(() => {
+        setSaveStatus("saved");
+        setTimeout(() => {
+          setSaveStatus("idle");
+          changeStep("summary");
+        }, 800);
+      }, 800);
+    } catch (reason) {
+      setSaveStatus("idle");
+      window.alert(reason instanceof Error ? reason.message : 'No se pudo guardar el diseño.');
+    }
+  };
+
+  const handleSaveDraftFromSummary = async () => {
+    try {
+      const configurationForSave = configurationWithPricingSnapshot();
+      const { data, error } = await saveDesignToSupabase({
+        designId: lastSavedDesignId,
+        clientDraftId: currentDraftKey,
+        userId: userData?.id,
+        configuration: configurationForSave,
+        flejeConfig,
+        title: `Mate ${configuration.selectionLabels.texture}`,
+        status: 'draft',
+      });
+      if (error || !data?.[0]?.id) throw error || new Error('No se pudo guardar el diseño.');
+      const design = data[0];
+      setLastSavedDesignId(design.id);
+      setDraftIdentity(design.client_draft_id);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session || !userData?.id) throw new Error('La sesión venció. Volvé a ingresar.');
+      const synced = await syncDesignAssets(configurationForSave, flejeConfig, design.id, session.access_token);
+      if (synced.changed) {
+        const persisted = await saveDesignToSupabase({ designId: design.id, clientDraftId: design.client_draft_id, userId: userData.id, configuration: synced.configuration, flejeConfig: synced.flejeConfiguration, title: `Mate ${configuration.selectionLabels.texture}`, status: 'draft' });
+        if (persisted.error) throw persisted.error;
+      }
+      const targets = designExportRef.current?.getTargets();
+      if (!targets) throw new Error('No se pudieron preparar las vistas del diseño.');
+      await saveDesignPreviews({ designId: design.id, userId: userData.id, hasFleje: configuration.capabilities.hasFleje, targets });
+      changeStep("profile");
+    } catch (reason) {
+      window.alert(reason instanceof Error ? reason.message : 'No se pudo guardar el diseño.');
+    }
+  };
+
+  const handleCheckoutComplete = async () => {
+    let stage = 'guardar el borrador';
+    try {
+      const configurationForSave = configurationWithPricingSnapshot();
+      const { data, error } = await saveDesignToSupabase({
+        designId: lastSavedDesignId,
+        clientDraftId: currentDraftKey,
+        userId: userData?.id,
+        configuration: configurationForSave,
+        flejeConfig,
+        title: `Mate ${configuration.selectionLabels.texture}`,
+        status: "draft",
+      });
+      const designId = data?.[0]?.id;
+      if (error || !designId) throw error || new Error('No se pudo guardar el diseño.');
+      setLastSavedDesignId(designId);
+      setDraftIdentity(data[0].client_draft_id);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('La sesión venció. Volvé a ingresar.');
+
+      stage = 'subir los archivos originales';
+      const synced = await syncDesignAssets(configurationForSave, flejeConfig, designId, session.access_token);
+      if (synced.changed) {
+        stage = 'registrar los archivos originales';
+        const persisted = await saveDesignToSupabase({ designId, clientDraftId: data[0].client_draft_id, userId: userData?.id, configuration: synced.configuration, flejeConfig: synced.flejeConfiguration, title: `Mate ${configuration.selectionLabels.texture}`, status: 'draft' });
+        if (persisted.error) throw persisted.error;
+      }
+      if (!userData?.id) throw new Error('La sesión venció. Volvé a ingresar.');
+      const targets = designExportRef.current?.getTargets();
+      if (!targets) throw new Error('No se pudieron preparar las vistas del diseño.');
+
+      stage = 'generar las vistas finales';
+      await saveDesignPreviews({ designId, userId: userData.id, hasFleje: configuration.capabilities.hasFleje, targets });
+
+      stage = 'conectar el diseño con el carrito';
+      const redirectUrl = await createMainSiteHandoff('add_design', '/carrito', { designId });
+
+      stage = 'finalizar el diseño';
+      const finalized = await saveDesignToSupabase({
+        designId,
+        clientDraftId: data[0].client_draft_id,
+        userId: userData?.id,
+        configuration: synced.configuration,
+        flejeConfig: synced.flejeConfiguration,
+        title: `Mate ${configuration.selectionLabels.texture}`,
+        status: 'saved',
+      });
+      if (finalized.error) throw finalized.error;
+      window.location.assign(redirectUrl);
+    } catch (reason) {
+      const detail = reason instanceof Error && reason.message ? ` ${reason.message}` : '';
+      throw new Error(`No se pudo ${stage}.${detail}`);
+    }
+  };
+
+  useEffect(() => {
+    if (!lastSavedDesignId || !userData?.id || saveStatus === 'saving') return;
+    const timer = window.setTimeout(async () => {
+      setSaveStatus('saving');
+      const { error } = await saveDesignToSupabase({
+        designId: lastSavedDesignId, clientDraftId: currentDraftKey, userId: userData.id,
+        configuration: configurationWithPricingSnapshot(), flejeConfig,
+        title: `Mate ${configuration.selectionLabels.texture}`, status: 'draft',
+      });
+      setSaveStatus(error ? 'idle' : 'saved');
+      if (!error) window.setTimeout(() => setSaveStatus('idle'), 1200);
+    }, 900);
+    return () => window.clearTimeout(timer);
+    // The first explicit save enables autosave for this design.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configuration, flejeConfig, lastSavedDesignId, currentDraftKey, userData?.id]);
+
+  const runAuthenticatedAction = (action: PendingAuthAction) => {
+    switch (action) {
+      case "save-personalizer":
+        void handleSaveDesign();
+        break;
+      case "save-summary":
+        void handleSaveDraftFromSummary();
+        break;
+      case "checkout":
+        changeStep("checkout");
+        break;
+      case "profile":
+      case "edit-contact":
+        changeStep("profile");
+        break;
+      case "main-profile":
+        void createMainSiteHandoff("continue", "/perfil").then((redirectUrl) => {
+          window.location.assign(redirectUrl);
+        }).catch(() => {
+          sessionStorage.setItem("matearte_pending_auth_action", "main-profile");
+          setPendingAuthAction("main-profile");
+          changeStep("profile");
+        });
+        break;
+    }
+  };
+
+  const requireAuthentication = (action: PendingAuthAction) => {
+    if (isSupabaseConfigured && userData?.id && !userData.isGuest) {
+      if (shouldCompleteProfileInPersonalizer(userData.profileComplete, action)) {
+        sessionStorage.setItem("matearte_pending_auth_action", action);
+        setPendingAuthAction(action);
+        changeStep("profile");
+        return;
+      }
+      runAuthenticatedAction(action);
+      return;
+    }
+    sessionStorage.setItem("matearte_pending_auth_action", action);
+    setPendingAuthAction(action);
+    changeStep("access");
+  };
+
+  useEffect(() => {
+    if (!pendingAuthAction || !userData?.id || userData.isGuest) return;
+    if (shouldCompleteProfileInPersonalizer(userData.profileComplete, pendingAuthAction)) return;
+    sessionStorage.removeItem("matearte_pending_auth_action");
+    setPendingAuthAction(null);
+    runAuthenticatedAction(pendingAuthAction);
+    // runAuthenticatedAction intentionally uses the current design state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAuthAction, userData]);
+
+  useEffect(() => {
+    if (!shouldLeaveAccessAfterAuthentication({
+      step: wizardStep,
+      handoffPending,
+      pendingAuthAction,
+      authenticated: Boolean(userData?.id && !userData.isGuest),
+    })) return;
+    changeStep("profile");
+  }, [changeStep, handoffPending, pendingAuthAction, userData, wizardStep]);
+
+  useEffect(() => {
+    if (!handoffPending || !handoffUserId || userData?.id !== handoffUserId) return;
+    window.history.replaceState(null, '', '/profile');
+    setHandoffPending(false);
+    changeStep('profile');
+  }, [changeStep, handoffPending, handoffUserId, userData?.id]);
+
+  useEffect(() => {
+    if (handoffPending || wizardStep !== "profile" || (isSupabaseConfigured && userData?.id && !userData.isGuest)) return;
+    sessionStorage.setItem("matearte_pending_auth_action", "profile");
+    setPendingAuthAction("profile");
+    changeStep("access");
+  }, [changeStep, handoffPending, userData, wizardStep]);
+
+  const handleLoadDesignFromProfile = (item: SavedDesignItem) => {
+    if (item.configuration) {
+      const normalized = normalizeMateConfiguration(item.configuration);
+      setConfiguration(normalized);
+      setSelection(normalized.isLegacy ? { ...EMPTY_MATE_SELECTION } : normalized.selection);
+    }
+    if (item.fleje_config) {
+      setFlejeConfig(normalizeFlejeCustomization(item.fleje_config));
+    }
+    if (item.status === 'draft') {
+      setLastSavedDesignId(item.id);
+      setDraftIdentity(item.client_draft_id);
+    } else {
+      startNewDraft();
+    }
+    setActivePhase("virola");
+    setPreviewView("virola");
+    setShowStyleIntro(false);
+    changeStep("personalizer");
+  };
+
+  const handleReset = () => {
+    startNewDraft();
+    changeStep("profile");
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut({ scope: 'global' });
+    try {
+      localStorage.removeItem("matearte_user");
+    } catch (e) {
+      console.warn("Could not remove user from localStorage", e);
+    }
+    setUserData(null);
+    setLastSavedDesignId(null);
+    setDraftIdentity(createDraftIdentity());
+    changeStep("welcome");
+  };
+
+  const baseModelDefinition = getModelDefinition(configuration.modelId);
+  const selectedModelDefinition = {
+    ...baseModelDefinition,
+    hasFleje: configuration.capabilities.hasFleje,
+  };
+
+  const goToSelectionStage = (stage: MateSelectionStage) => navigate(`/selection/${stage}`);
+
+  const handleSelectionBack = () => {
+    const previous: Record<MateSelectionStage, MateSelectionStage | null> = {
+      model: null,
+      texture: "model",
+      metal: "texture",
+      size: shouldAskForMetal(selection) ? "metal" : "texture",
+      engraving: "size",
+      "fleje-engraving": "engraving",
+    };
+    const target = previous[selectionStage];
+    if (target) goToSelectionStage(target);
+    else changeStep("welcome");
+  };
+
+  const hasConfiguredFleje = () => {
+    if (flejeConfig.finishMode === "finish") return true;
+    return Object.values(flejeConfig.sides).some((side) => (
+      Boolean(side.text.trim())
+      || Boolean(side.selectedImageId)
+    ));
+  };
+
+  const commitResolvedSelection = (product: ResolvedMateProduct) => {
+    if (configuration.capabilities.hasFleje && !product.capabilities.hasFleje && hasConfiguredFleje()) {
+      const confirmed = window.confirm(
+        "El mate elegido no admite fleje. Si continuás se eliminarán los textos, imágenes y terminaciones configurados en el fleje. La personalización compatible de la virola se conservará.",
+      );
+      if (!confirmed) return;
+    }
+
+    setConfiguration((current) => createConfigurationFromResolved(product, current));
+    if (!product.capabilities.hasFleje) setFlejeConfig(createDefaultFlejeCustomization());
+    setActivePhase("virola");
+    setPreviewView("virola");
+    setShowStyleIntro(true);
+    changeStep("personalizer");
+  };
+
+  const handleSelectionContinue = () => {
+    const next: Record<MateSelectionStage, MateSelectionStage | null> = {
+      model: "texture",
+      texture: shouldAskForMetal(selection) ? "metal" : "size",
+      metal: "size",
+      size: "engraving",
+      engraving: getSelectedTexture(selection)?.capabilities.hasFleje ? "fleje-engraving" : null,
+      "fleje-engraving": null,
+    };
+    const target = next[selectionStage];
+    if (target) {
+      goToSelectionStage(target);
+      return;
+    }
+    const product = resolveMateSelection(selection);
+    if (product) commitResolvedSelection(product);
+  };
+
+  const editMateSelection = () => {
+    setSelection(configuration.isLegacy ? { ...EMPTY_MATE_SELECTION } : sanitizeMateSelection(configuration.selection));
+    changeStep("product_selection");
+  };
+
+  const activatePhase = (phase: CustomizationPhase) => {
+    setActivePhase((currentPhase) => currentPhase === phase ? null : phase);
+    setPreviewView(phase);
+  };
+
+  const handlePersonalizerBack = () => {
+    if (activePhase === "fleje") {
+      setActivePhase("virola");
+      setPreviewView("virola");
+      return;
+    }
+    goToSelectionStage("engraving");
+  };
+
+  const handlePersonalizerNext = () => {
+    if (activePhase !== "fleje" && selectedModelDefinition.hasFleje) {
+      setActivePhase("fleje");
+      setPreviewView("fleje");
+      return;
+    }
+    changeStep("summary");
+  };
+
+  const updateFlejeSide = (
+    side: FlejeSide,
+    updates: Partial<FlejeCustomization["sides"][FlejeSide]>,
+  ) => {
+    setFlejeConfig((current) => ({
+      ...current,
+      sides: {
+        ...current.sides,
+        [side]: { ...current.sides[side], ...updates },
+      },
+    }));
+  };
+
+  const handleUpdateUserData = async (newUserData: UserData) => {
+    const { profile, error } = newUserData.isGuest
+      ? { profile: null, error: null }
+      : await saveUserProfileToSupabase(newUserData);
+    if (!newUserData.isGuest && !profile) throw error || new Error('No se pudieron guardar tus datos.');
+    const mergedUser = profile ? { ...newUserData, ...profile, email: newUserData.email, avatarUrl: newUserData.avatarUrl } : newUserData;
+    setUserData(mergedUser);
+    localStorage.setItem("matearte_user", JSON.stringify(mergedUser));
+  };
+
+  const effectiveUserData = userData || {
+    name: "Invitado Matearte",
+    email: "invitado@matearte.com",
+    phone: "",
+    company: "",
+    birthDate: "",
+    countryCode: "UY",
+    department: "",
+    city: "",
+    addressLine1: "",
+    postalCode: "",
+    avatarPath: "",
+    avatarUrl: "",
+    profileComplete: false,
+  };
+
+  const handleDraftCheckoutFromProfile = async (design: SavedDesignItem) => {
+    const normalized = normalizeMateConfiguration(design.configuration);
+    setConfiguration(normalized);
+    setSelection(normalized.isLegacy ? { ...EMPTY_MATE_SELECTION } : normalized.selection);
+    setFlejeConfig(normalizeFlejeCustomization(design.fleje_config));
+    setLastSavedDesignId(design.id);
+    setDraftIdentity(design.client_draft_id);
+    changeStep("checkout");
+  };
+
+  if (handoffPending) return (
+    <div className="brand-app brand-desktop-note">
+      <main id="main-content" className="pricing-loading" role="status" aria-live="polite">Conectando tu cuenta y cargando tus diseños…</main>
+    </div>
+  );
+
+  return (
+    <div className="brand-app brand-desktop-note">
+      <DesignExportRenderer ref={designExportRef} configuration={configuration} flejeConfig={flejeConfig} />
+      <a className="brand-skip-link" href="#main-content">Saltar al contenido</a>
+      <BrandHeader
+        currentStep={wizardStep}
+        hasFleje={indicatorHasFleje}
+        customizationPhase={activePhase}
+        onStepClick={wizardStep === "profile" || wizardStep === "access" ? undefined : (step, phase) => {
+            setAllowIncompletePhaseNavigation(step !== "product_selection");
+            if (phase) {
+              setActivePhase(phase);
+              setPreviewView(phase);
+              setShowStyleIntro(false);
+            }
+            changeStep(step);
+          }}
+      />
+
+      <div className="brand-main">
+        {wizardStep === "welcome" && (
+          <PersonalizerIntroStep onStart={() => {
+            startNewDraft();
+            setSelection({ ...EMPTY_MATE_SELECTION });
+            changeStep("product_selection");
+          }} />
+        )}
+
+        {wizardStep === "access" && (
+          <>
+            {handoffError && <p role="alert" className="mx-auto mt-6 max-w-xl border border-red-300 bg-red-50 px-5 py-4 text-sm font-semibold text-red-800">{handoffError} Podés continuar con Google o volver al personalizador.</p>}
+            <WelcomeStep onBack={() => {
+              sessionStorage.removeItem("matearte_pending_auth_action");
+              setPendingAuthAction(null);
+              setHandoffError("");
+              changeStep(getFirstIncompleteStage(selection) === null ? "summary" : "welcome");
+            }} />
+          </>
+        )}
+
+        {wizardStep === "product_selection" && (
+          <MateSelectionStep
+            stage={selectionStage}
+            selection={selection}
+            onChange={setSelection}
+            onBack={handleSelectionBack}
+            onContinue={handleSelectionContinue}
+          />
+        )}
+
+        {wizardStep === "personalizer" && showStyleIntro && (
+          <StyleTransitionStep onContinue={() => setShowStyleIntro(false)} />
+        )}
+
+        {wizardStep === "personalizer" && !showStyleIntro && (
+          <main id="main-content" className="brand-personalizer" data-phase={activePhase ?? "virola"}>
+            <div className="brand-personalizer__topbar">
+              <aside className="personalizer-disclaimer" aria-label="Cómo activar una personalización">
+                <span className="personalizer-disclaimer__switch" aria-hidden="true"><span /></span>
+                <p>
+                  <strong>Virola y fleje:</strong> activá las pastillas verdes para personalizar. Todo lo que dejes desactivado queda liso, sin personalización y sin costo adicional.
+                </p>
+              </aside>
+              <div className="brand-personalizer__actions">
+                <button type="button" onClick={handlePersonalizerBack} className="brand-button">Atrás</button>
+                <button type="button" onClick={handlePersonalizerNext} disabled={saveStatus !== "idle"} className="brand-button">
+                  {saveStatus === "saving" ? "Guardando…" : "Siguiente"}
+                </button>
+              </div>
+            </div>
+            <div className="personalizer-layout grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+              
+              {/* PANEL 1: IZQUIERDA (Acordeón de Personalización) */}
+              <aside className="personalizer-controls order-2 flex flex-col gap-3 lg:order-1 lg:col-span-4">
+                <PhaseAccordion number={1} title="Mate" isOpen={activePhase === "mate"} onToggle={() => activatePhase("mate")}>
+                  <div className="space-y-3 text-xs">
+                    <dl className="space-y-2 rounded-xl border border-[#e7d7c1] bg-[#fdf7e9] p-3">
+                      <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Familia</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.family}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Textura</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.texture}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Color</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.color}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Metal</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.metal}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Tamaño</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.size}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Grabado</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.engraving}</dd></div>
+                    </dl>
+                    <button type="button" onClick={editMateSelection} className="min-h-11 w-full rounded-xl border border-[#7a4a31] bg-white px-3 font-bold text-[#7a4a31] transition-colors hover:bg-[#fbf3de] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7a4a31]">
+                      Cambiar mate
+                    </button>
+                  </div>
+                </PhaseAccordion>
+
+                <PhaseAccordion number={2} title="Virola" isOpen={activePhase === "virola"} onToggle={() => activatePhase("virola")}>
+                  <div className="personalizer-card-grid">
+                    {configuration.engravingTypeId === "laser" && (() => {
+                      const price = getCustomizationPrice(pricingCatalog, "laser", "rim_text");
+                      const hasText = configuration.rim.textMode === "text" && countChargeableCharacters((configuration.rim.texts ?? []).map((item) => item.text).join("") || configuration.rim.text) > 0;
+                      const hasIcon = configuration.rim.imageMode === "image" && configuration.rim.icons.some((icon) => icon.selectedImageId || icon.customImage);
+                      if (price === null) return <p className="personalizer-inline-price">Precio no disponible</p>;
+                      return <div className="personalizer-laser-price"><p>Grabado láser en virola, con cualquier combinación de texto e íconos: <strong>$ {price.toLocaleString("es-UY")} en total</strong></p>{(hasText || hasIcon) && <span className="personalizer-laser-price__total">$ {price.toLocaleString("es-UY")}</span>}</div>;
+                    })()}
+                    <section className="personalizer-control-card">
+                      <h3>Texto</h3>
+                      <RimTextModeSelector
+                        mode={configuration.rim.textMode}
+                        onSelect={(textMode) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, textMode } }))}
+                      />
+                      {configuration.rim.textMode === "text" && (
+                        <RimTextFields
+                          texts={configuration.rim.texts}
+                          selectedElement={selectedRimElement}
+                          onSelectElement={setSelectedRimElement}
+                          onChange={(texts) => setConfiguration((current) => ({
+                            ...current,
+                            rim: {
+                              ...current.rim,
+                              text: texts[0]?.text ?? "",
+                              textTransform: texts[0]?.transform ?? current.rim.textTransform,
+                              texts,
+                            },
+                          }))}
+                        />
+                      )}
+                      {configuration.rim.textMode === "text" && configuration.engravingTypeId !== "laser" && (() => {
+                        const engravingType = configuration.engravingTypeId;
+                        if (!engravingType) return null;
+                        const allText = (configuration.rim.texts ?? []).map((t) => t.text).join("") || configuration.rim.text;
+                        const charCount = countChargeableCharacters(allText);
+                        const textPrice = getCustomizationPrice(pricingCatalog, engravingType, "rim_text");
+                        if (textPrice === null) return <p className="personalizer-inline-price">Precio no disponible</p>;
+                        const total = charCount * textPrice;
+                        return (
+                          <div className="personalizer-price-bar">
+                            <p className="personalizer-price-bar__label">
+                              El precio por cada letra en apliques es de {" "}
+                              <strong>$ {textPrice.toLocaleString("es-UY")}</strong>
+                            </p>
+                            {charCount > 0 && (
+                              <span className="personalizer-price-bar__total">$ {total.toLocaleString("es-UY")}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </section>
+
+                    <section className="personalizer-control-card">
+                      <h3>Íconos</h3>
+                      <RimImageModeSelector
+                        mode={configuration.rim.imageMode}
+                        onSelect={(imageMode) => setConfiguration((current) => ({
+                          ...current,
+                          rim: {
+                            ...current.rim,
+                            imageMode,
+                            icons: imageMode === "none" ? [] : current.rim.icons,
+                          },
+                        }))}
+                      />
+                      {configuration.rim.imageMode === "image" && (
+                        <div className="personalizer-card-body personalizer-card-body--icons">
+                          <VirolaIconSelector
+                            icons={configuration.rim.icons}
+                            onChange={(icons) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, icons: normalizeRimIcons(icons) } }))}
+                            selectedElementId={selectedRimElement}
+                            onSelectElement={(id) => {
+                              setSelectedRimElement(id);
+                              setPreviewView("virola");
+                            }}
+                          />
+                          <div className="personalizer-upload">
+                            <CustomImageUpload
+                              value={uploadedRimIcon?.customImage ?? null}
+                              onChange={updateUploadedRimIcon}
+                              onPlace={locateUploadedRimIcon}
+                              isPlacing={placingRimIconId === uploadedRimIcon?.id}
+                              disabled={!uploadedRimIcon && configuration.rim.icons.length >= MAX_RIM_ICONS}
+                              disabledMessage="Ya elegiste 3 íconos. Quitá uno para subir tu propio diseño."
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {configuration.rim.imageMode === "image" && configuration.engravingTypeId !== "laser" && (() => {
+                        const engravingType = configuration.engravingTypeId;
+                        if (!engravingType) return null;
+                        const iconCount = configuration.rim.icons.filter((icon) => icon.selectedImageId || icon.customImage).length;
+                        const pricePerIcon = getCustomizationPrice(pricingCatalog, engravingType, "rim_image");
+                        if (pricePerIcon === null) return <p className="personalizer-inline-price">Precio no disponible</p>;
+                        const total = iconCount * pricePerIcon;
+                        return (
+                          <div className="personalizer-price-bar">
+                            <p className="personalizer-price-bar__label">
+                              El precio por cada ícono o escudo en apliques es de <strong>$ {pricePerIcon.toLocaleString("es-UY")}</strong>
+                            </p>
+                            {iconCount > 0 && (
+                              <span className="personalizer-price-bar__total">$ {total.toLocaleString("es-UY")}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </section>
+
+                    <section className="personalizer-control-card">
+                      <h3>Terminación</h3>
+                      <RimFinishModeSelector mode={configuration.rim.finishMode || "none"} onSelect={(finishMode) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, finishMode } }))} />
+                      {configuration.rim.finishMode === "finish" && (
+                        <div className="personalizer-card-body personalizer-card-body--finish">
+                          <RimFinishSelector
+                            selectedFinishId={configuration.rim.finishId}
+                            catalog={getRimFinishCatalogForEngravingType(configuration.engravingTypeId)}
+                            onSelect={(finishId) => setConfiguration((current) => ({ ...current, rim: { ...current.rim, finishId } }))}
+                          />
+                        </div>
+                      )}
+                    </section>
+                  </div>
+                </PhaseAccordion>
+
+                {selectedModelDefinition.hasFleje && (
+                <PhaseAccordion number={3} title="Fleje" isOpen={activePhase === "fleje"} onToggle={() => activatePhase("fleje")}>
+                  {selectedModelDefinition.hasFleje ? (
+                    <div className="personalizer-card-grid">
+                      <section className="personalizer-control-card">
+                        <h3>Tipo de aplique</h3>
+                        <div className="flex flex-col gap-2">
+                          {engravingTypeOptions
+                            .filter((option) => getEngravingCapabilities(configuration.selection.familyId, configuration.selection.textureId).flejeEngravingTypes.includes(option.id))
+                            .map((option) => (
+                              <button
+                                key={option.id}
+                                type="button"
+                                onClick={() => setConfiguration((current) => ({ ...current, flejeEngravingTypeId: option.id }))}
+                                aria-pressed={configuration.flejeEngravingTypeId === option.id}
+                                className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${configuration.flejeEngravingTypeId === option.id ? "border-[#5f3826] bg-[#5f3826] text-white" : "border-zinc-200 bg-white hover:border-zinc-300"}`}
+                              >
+                                <img
+                                  src={option.flejeImage ?? option.image}
+                                  alt={`Referencia de ${option.label} en el fleje`}
+                                  className="h-16 w-16 shrink-0 rounded-md object-cover"
+                                  loading="lazy"
+                                  draggable={false}
+                                />
+                                <span className="font-medium">{option.label}</span>
+                              </button>
+                            ))}
+                        </div>
+                      </section>
+
+                      <section className="personalizer-control-card">
+                        <h3>Texto</h3>
+                        <RimTextModeSelector
+                          mode={flejeConfig.sides.front.textMode === "text" || flejeConfig.sides.back.textMode === "text" ? "text" : "none"}
+                          onSelect={(textMode) => setFlejeConfig((current) => ({
+                            ...current,
+                            sides: {
+                              front: { ...current.sides.front, textMode },
+                              back: { ...current.sides.back, textMode },
+                            },
+                          }))}
+                        />
+                        {(flejeConfig.sides.front.textMode === "text" || flejeConfig.sides.back.textMode === "text") && (
+                          <div className="fleje-side-stack">
+                            {(["front", "back"] as FlejeSide[]).map((side) => (
+                              <section
+                                className="fleje-side-panel fleje-text-side"
+                                key={side}
+                                onFocusCapture={() => {
+                                  setActiveFlejeSide(side);
+                                  setSelectedFlejeElement("text");
+                                }}
+                                onPointerDownCapture={() => setActiveFlejeSide(side)}
+                              >
+                                <h4>{side === "front" ? "Frente" : "Dorso"}</h4>
+                                <RimTextEditor
+                                  label={`Texto del ${side === "front" ? "frente" : "dorso"}`}
+                                  value={flejeConfig.sides[side].text}
+                                  disabled={false}
+                                  maxLength={7}
+                                  compact
+                                  onChange={(text) => updateFlejeSide(side, { text, textMode: "text" })}
+                                />
+                              </section>
+                            ))}
+                          </div>
+                        )}
+                        {(flejeConfig.sides.front.textMode === "text" || flejeConfig.sides.back.textMode === "text") && (() => {
+                          const engravingType = configuration.flejeEngravingTypeId;
+                          if (!engravingType) return null;
+                          const allText = (["front", "back"] as FlejeSide[])
+                            .map((s) => flejeConfig.sides[s].text)
+                            .join("");
+                          const charCount = countChargeableCharacters(allText);
+                          const pricePerChar = getCustomizationPrice(pricingCatalog, engravingType, "fleje_text");
+                          if (pricePerChar === null) return <p className="personalizer-inline-price">Precio no disponible</p>;
+                          const total = charCount * pricePerChar;
+                          return (
+                            <div className="personalizer-price-bar">
+                              <p className="personalizer-price-bar__label">
+                                El precio por cada letra en apliques es de <strong>$ {pricePerChar.toLocaleString("es-UY")}</strong>
+                              </p>
+                              {charCount > 0 && (
+                                <span className="personalizer-price-bar__total">$ {total.toLocaleString("es-UY")}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </section>
+
+                      <section className="personalizer-control-card">
+                        <h3>Íconos</h3>
+                        <RimImageModeSelector
+                          mode={flejeConfig.sides.front.imageMode === "image" || flejeConfig.sides.back.imageMode === "image" ? "image" : "none"}
+                          onSelect={(imageMode) => setFlejeConfig((current) => ({
+                            ...current,
+                            sides: {
+                              front: { ...current.sides.front, imageMode },
+                              back: { ...current.sides.back, imageMode },
+                            },
+                          }))}
+                        />
+                        {(flejeConfig.sides.front.imageMode === "image" || flejeConfig.sides.back.imageMode === "image") && (
+                          <div className="fleje-side-stack">
+                            {(["front", "back"] as FlejeSide[]).map((side) => {
+                              const otherSide = side === "front" ? "back" : "front";
+                              const otherCount = flejeConfig.sides[otherSide].icons?.filter((icon) => icon.selectedImageId || icon.customImage).length ?? 0;
+                              const remainingLimit = Math.max(0, 14 - otherCount);
+                              return (
+                                <section
+                                  className="fleje-side-panel"
+                                  key={side}
+                                  onFocusCapture={() => {
+                                    setActiveFlejeSide(side);
+                                    setSelectedFlejeElement("image");
+                                  }}
+                                  onPointerDownCapture={() => setActiveFlejeSide(side)}
+                                >
+                                  <h4>{side === "front" ? "Frente" : "Dorso"}</h4>
+                                  <VirolaIconSelector
+                                    limit={remainingLimit}
+                                    icons={flejeConfig.sides[side].icons || []}
+                                    onChange={(icons) => updateFlejeSide(side, { icons, imageMode: "image" })}
+                                    selectedElementId={selectedFlejeElement === "image" ? flejeConfig.sides[side].icons[0]?.id : null}
+                                    onSelectElement={() => {
+                                      setActiveFlejeSide(side);
+                                      setSelectedFlejeElement("image");
+                                    }}
+                                  />
+                                  {(flejeConfig.sides[side].icons?.length < 14) && (
+                                    <div className="personalizer-upload mt-4">
+                                      <CustomImageUpload
+                                        value={null}
+                                        onChange={(asset) => {
+                                          if (asset) {
+                                            updateFlejeSide(side, {
+                                              icons: [...(flejeConfig.sides[side].icons || []), { id: crypto.randomUUID(), selectedImageId: null, customImage: asset, transform: { x: 0.5, y: 0.5, scale: 1, rotation: 0, side } }],
+                                              imageMode: "image"
+                                            });
+                                          }
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                </section>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {(flejeConfig.sides.front.imageMode === "image" || flejeConfig.sides.back.imageMode === "image") && (() => {
+                          const engravingType = configuration.flejeEngravingTypeId;
+                          if (!engravingType) return null;
+                          const iconCount = (["front", "back"] as FlejeSide[])
+                            .reduce((total, s) => {
+                              const side = flejeConfig.sides[s];
+                              const icons = side.icons?.filter((icon) => icon.selectedImageId || icon.customImage).length ?? 0;
+                              return total + (icons > 0 ? icons : side.selectedImageId || side.customImage ? 1 : 0);
+                            }, 0);
+                          const pricePerIcon = getCustomizationPrice(pricingCatalog, engravingType, "fleje_image");
+                          if (pricePerIcon === null) return <p className="personalizer-inline-price">Precio no disponible</p>;
+                          const total = iconCount * pricePerIcon;
+                          return (
+                            <div className="personalizer-price-bar">
+                              <p className="personalizer-price-bar__label">
+                                El precio por cada ícono o escudo en apliques es de <strong>$ {pricePerIcon.toLocaleString("es-UY")}</strong>
+                              </p>
+                              {iconCount > 0 && (
+                                <span className="personalizer-price-bar__total">$ {total.toLocaleString("es-UY")}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </section>
+
+                      <section className="personalizer-control-card">
+                        <h3>Terminación</h3>
+                        <RimFinishModeSelector mode={flejeConfig.finishMode || "none"} onSelect={(finishMode) => setFlejeConfig((current) => ({ ...current, finishMode }))} />
+                        {flejeConfig.finishMode === "finish" && <FlejeFinishSelector selectedFinishId={flejeConfig.finishId} onSelect={(finishId) => setFlejeConfig((current) => ({ ...current, finishId }))} />}
+                      </section>
+                    </div>
+                  ) : (
+                    <p className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-[10px] leading-relaxed text-zinc-500">El mate Camionero no tiene fleje metálico para grabado.</p>
+                  )}
+                </PhaseAccordion>
+                )}
+
+                <div className="mt-2 pt-4 border-t border-zinc-200/80">
+                  <button
+                    type="button"
+                    onClick={() => requireAuthentication("save-personalizer")}
+                    disabled={saveStatus !== "idle"}
+                    className={`flex w-full items-center justify-center gap-2 rounded-xl py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg transition-all active:scale-[0.98] cursor-pointer ${
+                      saveStatus === "saved"
+                        ? "bg-emerald-600 hover:bg-emerald-700"
+                        : saveStatus === "saving"
+                        ? "bg-zinc-400 cursor-not-allowed"
+                        : "bg-[#7a4a31] hover:bg-[#5f3826]"
+                    }`}
+                  >
+                    {saveStatus === "saving" && (
+                      <svg className="h-5 w-5 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    )}
+                    {saveStatus === "saved" && (
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    )}
+                    {saveStatus === "idle" && "Guardar diseño y continuar"}
+                    {saveStatus === "saving" && "Guardando diseño..."}
+                    {saveStatus === "saved" && "¡Diseño Guardado! Avanzando..."}
+                  </button>
+                </div>
+              </aside>
+
+              {/* PANEL 2: CENTRO (Personalizador 3D / Preview) */}
+              <section className="personalizer-preview order-1 flex min-h-[540px] w-full flex-col lg:order-2 lg:col-span-5">
+                <div ref={previewContainerRef} className="flex min-h-[500px] max-h-[540px] flex-1 items-center justify-center rounded-3xl border border-[#e7d7c1] bg-white/60 p-6 shadow-xs" aria-label="Vista previa del mate">
+                  {previewView === "mate" ? (
+                    <FlejePreview mate={selectedMate} text="" image={getSelectionPreviewImage(configuration.selection)} />
+                  ) : previewView === "virola" ? (
+                    <ConfiguratorPreview
+                      rim={configuration.rim}
+                      model={configuration.modelId}
+                      engravingTypeId={configuration.engravingTypeId}
+                      editable
+                      selectedElement={selectedRimElement}
+                      placingElementId={placingRimIconId}
+                      onPlacementComplete={() => setPlacingRimIconId(null)}
+                      onSelectElement={setSelectedRimElement}
+                      onToggleInvert={(element) => setConfiguration((current) => {
+                        const updatedTexts = current.rim.texts.map((t, idx) => {
+                          if (t.id === element || (element === "text" && idx === 0)) {
+                            return { ...t, inverted: !t.inverted };
+                          }
+                          return t;
+                        });
+                        return {
+                          ...current,
+                          rim: {
+                            ...current.rim,
+                            texts: updatedTexts,
+                          },
+                        };
+                      })}
+                      onTransformChange={(element, transform) => setConfiguration((current) => {
+                        if (element === "text" || element === "text-1") {
+                          const updatedTexts = current.rim.texts.map((t, idx) =>
+                            idx === 0 || t.id === "text-1" ? { ...t, transform } : t
+                          );
+                          return {
+                            ...current,
+                            rim: {
+                              ...current.rim,
+                              textTransform: transform,
+                              texts: updatedTexts,
+                            },
+                          };
+                        }
+                        if (element === "text-2") {
+                          const updatedTexts = current.rim.texts.map((t, idx) =>
+                            idx === 1 || t.id === "text-2" ? { ...t, transform } : t
+                          );
+                          return {
+                            ...current,
+                            rim: {
+                              ...current.rim,
+                              texts: updatedTexts,
+                            },
+                          };
+                        }
+                        return {
+                          ...current,
+                          rim: {
+                            ...current.rim,
+                            icons: current.rim.icons.map((icon) => icon.id === element ? { ...icon, transform } : icon),
+                          },
+                        };
+                      })}
+                    />
+                  ) : selectedModelDefinition.hasFleje ? (
+                    <FlatFlejePreview
+                      flejeConfig={flejeConfig}
+                      engravingTypeId={configuration.engravingTypeId}
+                      activeSide={activeFlejeSide}
+                      editable
+                      selectedElement={selectedFlejeElement}
+                      onSelectSide={setActiveFlejeSide}
+                      onSelectElement={setSelectedFlejeElement}
+                      onTransformChange={(side, element, transform) => updateFlejeSide(side, {
+                        ...(element === "text" && { textTransform: transform }),
+                        ...(element === "image" && { imageTransform: transform }),
+                        ...(element === "finish" && { finishTransform: transform }),
+                        icons: flejeConfig.sides[side].icons?.map(icon => icon.id === element ? { ...icon, transform } : icon) ?? [],
+                      })}
+                    />
+                  ) : (
+                    <p className="text-sm font-medium text-zinc-500">Este modelo no tiene fleje para visualizar.</p>
+                  )}
+                </div>
+
+                {/* Minimalist Product Specification Bar */}
+                {(() => {
+                  return (
+                    <div className="mt-3 flex flex-col items-center justify-center gap-2 rounded-2xl border border-[#e7d7c1]/90 bg-white/95 px-6 py-3.5 text-center shadow-xs">
+                      <span className="text-base md:text-lg font-black tracking-tight text-[#2d1d14] font-serif">
+                        {configuration.selectionLabels.texture}
+                      </span>
+                      <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-xs md:text-sm">
+                        <span><strong className="font-black uppercase tracking-wider text-[#7a4a31]">Metal:</strong> <span className="font-semibold text-zinc-800">{configuration.selectionLabels.metal}</span></span>
+                        <span className="font-bold text-[#a48e78]">•</span>
+                        <span><strong className="font-black uppercase tracking-wider text-[#7a4a31]">Cuero:</strong> <span className="font-semibold text-zinc-800">{configuration.selectionLabels.color}</span></span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </section>
+
+              {/* PANEL 3: DERECHA (Resumen del Pedido & Totales) */}
+              <aside className="personalizer-order-summary order-3 flex flex-col gap-4 lg:order-3 lg:col-span-3">
+                {(() => {
+                  const pricing = calculateOrderPricing(configuration, flejeConfig, pricingCatalog);
+                  const rimFin = getRimFinish(configuration.rim.finishId);
+                  const flejeFin = getFlejeFinish(flejeConfig.finishId);
+
+                  const totalExtraVirolaUYU = pricing.items.filter((item) => item.id.startsWith("rim_")).reduce((total, item) => total + item.totalUYU, 0);
+
+                  const totalExtraFlejeUYU = pricing.items.filter((item) => item.id.startsWith("fleje_")).reduce((total, item) => total + item.totalUYU, 0);
+
+                  const totalUYU = pricing.totalUYU;
+
+                  return (
+                    <div className="rounded-3xl border border-[#e7d7c1] bg-white/95 p-5 shadow-xl shadow-[#7a4a31]/5 space-y-5 sticky top-20">
+                      <div className="flex items-center justify-between border-b border-[#e7d7c1]/60 pb-3">
+                        <h3 className="text-base font-black text-[#2d1d14] font-serif uppercase tracking-tight flex items-center gap-2">
+                          <span>Resumen del pedido</span>
+                        </h3>
+                      </div>
+
+                      {/* Desglose de Items */}
+                      <div className="space-y-3 text-xs">
+                        {/* Mate Base */}
+                        <div className="space-y-1 border-b border-[#e7d7c1]/50 pb-2.5">
+                          <div className="flex justify-between items-baseline font-bold text-[#2d1d14]">
+                            <span>Mate ({configuration.selectionLabels.family}):</span>
+                            <span className="text-[#7a4a31] text-sm">{pricing.isPriceReady ? `$ ${pricing.basePriceUYU.toLocaleString('es-UY')} UYU` : "Precio pendiente"}</span>
+                          </div>
+                          <p className="text-[11px] text-[#5f3826]/70 font-medium">
+                            {configuration.selectionLabels.texture} · {configuration.selectionLabels.color}
+                          </p>
+                        </div>
+
+                        {/* Virola Desglose */}
+                        <div className="space-y-1 border-b border-[#e7d7c1]/50 pb-2.5">
+                          <div className="flex justify-between items-baseline font-bold text-[#2d1d14]">
+                            <span>Virola:</span>
+                            <span className="text-[#7a4a31]">
+                              {totalExtraVirolaUYU > 0 ? `+ $ ${totalExtraVirolaUYU} UYU` : "Incluida ($0)"}
+                            </span>
+                          </div>
+                          
+                          <div className="space-y-0.5 text-[11px] text-zinc-600 font-medium">
+                            <p>
+                                Terminación: {configuration.rim.finishMode === "finish" ? (rimFin?.name || 'Cincelado') : "Sin terminación"}
+                            </p>
+                            <p>
+                              • Grabado de texto: {configuration.rim.textMode === "text" ? (() => {
+                                const activeTexts = configuration.rim.texts?.filter(t => t.text.trim()) ?? (configuration.rim.text ? [{ id: "text-1", text: configuration.rim.text }] : []);
+                                if (activeTexts.length === 0) return "Sin texto";
+                                return activeTexts.map((t, idx) => `T${idx + 1}: "${t.text}"`).join(" + ") + (configuration.engravingTypeId === "laser" ? "" : ` (+${customizationPriceLabel("rim_text")})`);
+                              })() : "Sin texto"}
+                            </p>
+                            <p>
+                              • Grabado de imagen: {configuration.rim.imageMode === "image" ? configuration.engravingTypeId === "laser" ? "Con imagen" : `Con imagen (+${customizationPriceLabel("rim_image")})` : "Sin imagen"}
+                            </p>
+                            {configuration.engravingTypeId === "laser" && totalExtraVirolaUYU > 0 && <p>• Grabado láser en virola: +{formatUYU(totalExtraVirolaUYU)} en total</p>}
+                          </div>
+                        </div>
+
+                        {/* Fleje Desglose */}
+                        {selectedModelDefinition.hasFleje && (
+                          <div className="space-y-1 border-b border-[#e7d7c1]/50 pb-2.5">
+                            <div className="flex justify-between items-baseline font-bold text-[#2d1d14]">
+                              <span>Fleje:</span>
+                              <span className="text-[#7a4a31]">
+                                {totalExtraFlejeUYU > 0 ? `+ $ ${totalExtraFlejeUYU} UYU` : "Incluido ($0)"}
+                              </span>
+                            </div>
+                            <div className="space-y-0.5 text-[11px] text-zinc-600 font-medium">
+                              <p>
+                                • Terminación: {flejeConfig.finishMode === "finish" ? (flejeFin?.name || 'Cincelado') : "Sin terminación (Liso)"}
+                              </p>
+                              <p>
+                                • Textos configurados: {(["front", "back"] as FlejeSide[]).filter((side) => flejeConfig.sides[side].textMode === "text" && flejeConfig.sides[side].text.trim()).length}
+                              </p>
+                              <p>
+                                • Imágenes configuradas: {(["front", "back"] as FlejeSide[]).filter((side) => flejeConfig.sides[side].imageMode === "image" && flejeConfig.sides[side].selectedImageId).length}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Caja de Total Pedido */}
+                      <div className="rounded-2xl bg-[#fbf3de] border-2 border-[#7a4a31]/30 p-4 space-y-1 shadow-xs">
+                        <div className="flex justify-between items-baseline">
+                          <span className="text-xs font-black uppercase tracking-wider text-[#7a4a31]">
+                            Total Pedido
+                          </span>
+                          <span className="text-right text-2xl font-black text-[#2d1d14] font-serif leading-none">
+                            {pricing.isPriceReady ? `$ ${totalUYU.toLocaleString('es-UY')} UYU` : "Pendiente"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </aside>
+
+            </div>
+          </main>
+        )}
+
+        {wizardStep === "summary" && (
+          <SummaryStep
+            userData={userData}
+            configuration={configuration}
+            flejeConfig={flejeConfig}
+            previewRef={previewContainerRef}
+            onEditDesign={() => changeStep("personalizer")}
+            onGoToProfile={() => requireAuthentication("profile")}
+            onEditContact={() => requireAuthentication("edit-contact")}
+            onProceedToCheckout={() => requireAuthentication("checkout")}
+            onSaveDraft={() => requireAuthentication("save-summary")}
+          />
+        )}
+
+        {wizardStep === "checkout" && (
+          <CheckoutStep
+            subtotalUYU={calculateOrderPricing(configuration, flejeConfig, pricingCatalog).totalUYU}
+            pricingReady={calculateOrderPricing(configuration, flejeConfig, pricingCatalog).isCheckoutReady}
+            onBack={() => changeStep("summary")}
+            onContinue={() => handleCheckoutComplete()}
+          />
+        )}
+
+        {wizardStep === "success" && (
+          <SuccessStep userData={effectiveUserData} onReset={handleReset} mockPayment />
+        )}
+
+        {wizardStep === "profile" && (
+          <ProfileStep
+            userData={effectiveUserData}
+            localDesigns={localDesigns}
+            onLoadDesign={handleLoadDesignFromProfile}
+            onNewDesign={() => {
+              startNewDraft();
+              setSelection({ ...EMPTY_MATE_SELECTION });
+              changeStep("product_selection");
+            }}
+            onUpdateUserData={handleUpdateUserData}
+            onLogout={handleLogout}
+            onSendDraftToProduction={handleDraftCheckoutFromProfile}
+          />
+        )}
+      </div>
+
+      <BrandFooter />
+
+      {/* Save Success Toast */}
+      {saveStatus === "saved" && (
+        <div className="fixed bottom-6 right-6 z-50 flex animate-bounce items-center gap-4 rounded-2xl bg-white p-4 shadow-xl shadow-zinc-200/50 ring-1 ring-zinc-100 transition-all duration-300">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+            <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-zinc-800">¡Guardado con éxito!</p>
+            <p className="text-xs font-medium text-zinc-500">Avanzando al resumen de producción...</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function App() {
+  const location = useLocation();
+  return location.pathname.startsWith("/dashboard") ? (
+    <Suspense fallback={<main className="pricing-loading" id="main-content">Cargando administración…</main>}>
+      <PricingDashboard />
+    </Suspense>
+  ) : <PersonalizerApp />;
+}

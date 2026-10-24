@@ -1,27 +1,27 @@
 # MateArte
 
-Monorepo de la plataforma digital de MateArte. La operativa administrativa se realiza en Gestión; la tienda y el visualizador siguen funcionando como aplicaciones públicas independientes.
+Monorepo de la plataforma digital de MateArte. La operativa administrativa se realiza en Gestión; la tienda y el personalizador siguen funcionando como aplicaciones públicas independientes.
 
 | Aplicación | Carpeta | URL productiva |
 | --- | --- | --- |
 | Sitio, catálogo y checkout | `paginaweb` | <https://www.matearteuruguay.com> |
-| Personalizador | `visualizador` | <https://matearte-visualizador.vercel.app> |
+| Personalizador | `personalizador` | <https://personalizador.matearteuruguay.com> |
 | Administración, ventas y producción | `gestion` | <https://matearte-gestion.vercel.app> |
 
 ## Arquitectura actual
 
 - `paginaweb`: sitio público multilingüe, catálogo, cuentas de clientes, carrito, checkout nacional con Mercado Pago, pedidos internacionales por WhatsApp y consulta de pedidos.
-- `visualizador`: creación de mates personalizados, biblioteca “Mis diseños”, precios publicados, carga de imágenes, generación de vistas finales y traspaso autenticado al carrito.
+- `personalizador`: creación de mates personalizados, biblioteca “Mis diseños”, precios publicados, carga de imágenes, generación de vistas finales y traspaso autenticado al carrito.
 - `gestion`: catálogo, variantes, precios, ventas locales y mayoristas, pedidos web, envíos, producción, clientes y finanzas.
 - `dashboard`, `localventas` y `commerce-admin`: código histórico conservado; sus proyectos de Vercel están pausados y desconectados de Git. No son puntos de entrada operativos.
 
-`matearte-visualizador.vercel.app/dashboard` administra los precios del personalizador; no es el antiguo panel de producción.
+`personalizador.matearteuruguay.com/dashboard` administra los precios del personalizador; no es el antiguo panel de producción.
 
 ## Datos y autenticación
 
 Supabase centraliza cuentas, perfiles, diseños, archivos privados, catálogo, carritos, pedidos, pagos y datos operativos. Las migraciones versionadas están en `supabase/migrations`.
 
-El sitio, el visualizador y Gestión usan Supabase Auth. El traspaso de sesión entre dominios usa códigos opacos de un solo uso; no coloca tokens en la URL.
+El sitio, el personalizador y Gestión usan Supabase Auth. El traspaso de sesión entre dominios usa códigos opacos de un solo uso; no coloca tokens en la URL.
 
 ## Diseños personalizados
 
@@ -40,7 +40,7 @@ Cada carpeta tiene su propio `package.json`, variables y comandos. Consultá su 
 Los proyectos activos de Vercel usan estos Root Directory:
 
 1. `paginaweb`
-2. `visualizador`
+2. `personalizador`
 3. `gestion`
 
 La configuración de Supabase, Mercado Pago, correo y activación comercial está documentada en [COMMERCE_RUNBOOK.md](COMMERCE_RUNBOOK.md). Nunca deben exponerse `service_role`, secretos de webhooks ni credenciales de Mercado Pago mediante variables `VITE_` o `NEXT_PUBLIC_`.

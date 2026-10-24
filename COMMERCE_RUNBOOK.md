@@ -3,7 +3,7 @@
 ## Arquitectura
 
 - Supabase único: `agdkljuulwjwjasftcce`.
-- Registro, login, Google OAuth, recuperación y biblioteca de diseños: `visualizador`.
+- Registro, login, Google OAuth, recuperación y biblioteca de diseños: `personalizador`.
 - Catálogo, carrito, checkout, sesión SSR, pedidos y webhook: `paginaweb`.
 - Catálogo, zonas, revisión de personalizados y reembolsos: `commerce-admin`.
 - El traspaso entre dominios usa un código opaco de un solo uso, expira en cinco minutos y nunca coloca tokens de Supabase en la URL.
@@ -36,14 +36,14 @@ La función `commerce-email` procesa la cola privada `commerce_email_outbox`. Lo
 
 La función `lifecycle-email` crea el beneficio de cumpleaños diez días antes de la fecha guardada en el perfil. Cada cuenta recibe un código anual aleatorio, válido durante treinta días, utilizable una sola vez y únicamente sobre artículos `design` creados en el personalizador. El código queda reservado durante un intento de pago y se consume recién cuando el pago se confirma.
 
-Los ejemplos completos, sin credenciales reales, están en `paginaweb/.env.example`, `visualizador/.env.example` y `commerce-admin/.env.example`.
+Los ejemplos completos, sin credenciales reales, están en `paginaweb/.env.example`, `personalizador/.env.example` y `commerce-admin/.env.example`.
 
 ## Supabase Auth
 
 Configurar el sitio y redirects permitidos para producción y desarrollo:
 
-- `https://matearte-visualizador.vercel.app`
-- `https://matearte-visualizador.vercel.app/**`
+- `https://personalizador.matearteuruguay.com`
+- `https://personalizador.matearteuruguay.com/**`
 - `http://localhost:5173/**`
 - `https://matearte.vercel.app/auth/handoff`
 
@@ -104,7 +104,7 @@ npm run typecheck
 npx vitest run --pool=threads --maxWorkers=1
 npm run build
 
-cd ..\visualizador
+cd ..\personalizador
 npm test
 npm run build
 

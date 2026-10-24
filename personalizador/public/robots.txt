@@ -1,0 +1,5 @@
+# Herramienta de diseño de MateArte: no se indexa (cabecera X-Robots-Tag y meta robots con noindex).
+# La página que posiciona en buscadores es https://www.matearteuruguay.com/personalizados.
+# El rastreo queda permitido a propósito para que los buscadores lean el noindex.
+User-agent: *
+Allow: /
