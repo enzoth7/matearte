@@ -1,4 +1,6 @@
+import type { ElementTransform } from "../../visualizador/src/types/customizer";
 import type { Product } from "./data";
+import { assemblyFieldsFor, assemblyLabels, assemblyHasFleje, validateMateAssembly } from "../../shared/mate-assembly";
 import { catalogAttributeDetails, catalogPurchaseAxes, catalogValueLabel, defaultCatalogTaxonomy, normalizeCatalogValueMap } from "../../shared/catalog-taxonomy";
 
 export type PersonalizationKind = "mate" | "matera" | "bombilla";
@@ -7,6 +9,11 @@ export type PersonalizationContent = "text" | "logo" | "text-logo";
 
 export type LocalPersonalizationDraft = {
   kind: PersonalizationKind;
+  rimIconId?: string;
+  flejeIconId?: string;
+  rimIcons?: { id: string; selectedImageId: string }[];
+  flejeIcons?: { id: string; selectedImageId: string }[];
+  designTransforms?: Record<string, ElementTransform>;
   rimTechnique: PersonalizationTechnique;
   rimContent: PersonalizationContent;
   rimText: string;
@@ -44,6 +51,21 @@ const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u0
 const hasText = (content: PersonalizationContent) => content === "text" || content === "text-logo";
 const hasLogo = (content: PersonalizationContent) => content === "logo" || content === "text-logo";
 
+export function localDesignIcons(draft: LocalPersonalizationDraft, part: "rim" | "fleje") {
+  const legacy = part === "rim" ? draft.rimIconId : draft.flejeIconId;
+  return (part === "rim" ? draft.rimIcons : draft.flejeIcons) ?? (legacy ? [{ id: `${part}-icon`, selectedImageId: legacy }] : []);
+}
+
+export function localDesignTransform(draft: LocalPersonalizationDraft, key: string, side: "rim" | "front" | "back"): ElementTransform {
+  const iconIndex = localDesignIcons(draft, side === "rim" ? "rim" : "fleje").findIndex(icon => icon.id === key);
+  if (iconIndex >= 0 && !draft.designTransforms?.[key]) {
+    const angle = Math.PI / 2 + iconIndex * Math.PI / 4;
+    return { x: side === "rim" ? .5 + .35 * Math.cos(angle) : .2 + (iconIndex % 4) * .2, y: side === "rim" ? .5 + .35 * Math.sin(angle) : .5, scale: 1, rotation: 0, side };
+  }
+  const position = key === "rim-icon" ? { x: .5, y: .85 } : key === "rim-upload" ? { x: .85, y: .5 } : key === "fleje-icon" ? { x: .8, y: .5 } : key === "fleje-upload" ? { x: .2, y: .5 } : { x: .5, y: .5 };
+  return draft.designTransforms?.[key] || { ...position, scale: 1, rotation: 0, side };
+}
+
 export function personalizationKind(product: Product): PersonalizationKind | null {
   if (product.personalizationType) return product.personalizationType;
   const category = normalize(product.categoryCode || product.family || "");
@@ -57,11 +79,13 @@ export function personalizationKind(product: Product): PersonalizationKind | nul
 }
 
 export function matePurchaseAxes(product: Product) {
+  if (product.assembly) return assemblyFieldsFor(product.assembly).filter(f => f.code === "tamano" || f.code === "interior").map(f => ({ code: f.code, label: f.label, values: f.options.map(o => ({ value: o.value, label: o.label })) }));
   return catalogPurchaseAxes(defaultCatalogTaxonomy, product.categoryCode || "mates", normalizeCatalogValueMap(product.attributes), product.name)
     .filter(axis => axis.code === "tamano" || axis.code === "interior");
 }
 
 export function mateCharacteristicDetails(product: Product) {
+  if (product.assembly) return assemblyFieldsFor(product.assembly).map(f => ({ code: f.code, label: f.label, values: [assemblyLabels(product.assembly!)[f.code]], rawValue: product.assembly![f.code] }));
   return catalogAttributeDetails(defaultCatalogTaxonomy, normalizeCatalogValueMap(product.attributes));
 }
 
@@ -70,9 +94,10 @@ export function createPersonalizationDraft(kind: PersonalizationKind, product?: 
   if (kind === "mate" && product) for (const axis of matePurchaseAxes(product)) {
     if (axis.values.length === 1) selectedOptions[axis.code] = axis.values[0].value;
   }
+  if (product?.assembly) Object.assign(selectedOptions, { tamano: product.assembly.tamano, interior: product.assembly.interior });
   return {
     kind,
-    rimTechnique: "laser",
+    rimTechnique: product?.assembly?.["tipo-virola"] === "sin-virola" ? "none" : "laser",
     rimContent: "text",
     rimText: "",
     rimFinish: "none",
@@ -99,12 +124,14 @@ export function createPersonalizationDraft(kind: PersonalizationKind, product?: 
 }
 
 export function productHasFleje(product: Product): boolean {
+  if (product.assembly) return assemblyHasFleje(product.assembly);
   if (normalizeCatalogValueMap(product.attributes)["diseno-fleje"]) return true;
   const value = normalize(`${product.name} ${product.variant} ${String(product.options?.modelo || "")}`);
   return value.includes("imperial") || value.includes("fleje");
 }
 
 export function validatePersonalization(draft: LocalPersonalizationDraft, product: Product): string {
+  if (product.assembly && validateMateAssembly(product.assembly)) return `Elegí ${validateMateAssembly(product.assembly)} para completar el armado.`;
   if (draft.kind === "bombilla") {
     if (hasText(draft.bombillaContent) && !draft.bombillaText.trim()) return `Ingresá el texto para ${product.name}.`;
     if (hasLogo(draft.bombillaContent) && !draft.bombillaLogoFile) return `Adjuntá el logo para ${product.name}.`;
@@ -122,16 +149,16 @@ export function validatePersonalization(draft: LocalPersonalizationDraft, produc
     if (!axis.values.some(option => option.value === draft.selectedOptions[axis.code])) return `Elegí ${axis.label.toLowerCase()} para ${product.name}.`;
   }
 
-  if (draft.rimTechnique === "none" && (!productHasFleje(product) || draft.flejeTechnique === "none")) {
+  if (!product.assembly && draft.rimTechnique === "none" && (!productHasFleje(product) || draft.flejeTechnique === "none")) {
     return `Elegí qué parte se personaliza en ${product.name}.`;
   }
   if (draft.rimTechnique !== "none") {
     if (hasText(draft.rimContent) && !draft.rimText.trim()) return `Ingresá el texto de la virola para ${product.name}.`;
-    if (hasLogo(draft.rimContent) && !draft.rimLogoFile) return `Adjuntá el logo de la virola para ${product.name}.`;
+    if (hasLogo(draft.rimContent) && !draft.rimLogoFile && !localDesignIcons(draft, "rim").length) return `Adjuntá el logo de la virola para ${product.name}.`;
   }
   if (productHasFleje(product) && draft.flejeTechnique !== "none") {
     if (hasText(draft.flejeContent) && !draft.flejeFrontText.trim() && !draft.flejeBackText.trim()) return `Ingresá el texto del fleje para ${product.name}.`;
-    if (hasLogo(draft.flejeContent) && !draft.flejeLogoFile) return `Adjuntá el logo del fleje para ${product.name}.`;
+    if (hasLogo(draft.flejeContent) && !draft.flejeLogoFile && !localDesignIcons(draft, "fleje").length) return `Adjuntá el logo del fleje para ${product.name}.`;
   }
   return "";
 }
@@ -243,11 +270,18 @@ export function buildLocalPersonalizationSnapshot(
   const attributes = normalizeCatalogValueMap(product.attributes);
   const detailLabels = Object.fromEntries(mateCharacteristicDetails(product).map(detail => [detail.code, detail.values.join(", ")]));
   const color = typeof product.options?.color === "string" ? catalogValueLabel(defaultCatalogTaxonomy, "color", product.options.color) : product.variant;
+  const transform = (key: string, side: "rim" | "front" | "back") => localDesignTransform(draft, key, side);
+  const designIcons = (part: "rim" | "fleje", asset?: StoredPersonalizationAsset) => {
+    const side = part === "rim" ? "rim" : "front";
+    const selectedIcons = localDesignIcons(draft, part);
+    return [...icon(asset, side).map(item => ({ ...item, id: `${part}-upload`, transform: transform(`${part}-upload`, side) })), ...selectedIcons.map(item => ({ ...item, customImage: null, transform: transform(item.id, side) }))];
+  };
   return {
     schemaVersion: 1,
     source: "local",
     assets,
     localPersonalization: { kind: "mate", instructions: draft.instructions.trim(), selectedOptions },
+    ...(product.assembly ? { assembly: { schemaVersion: 1, selections: product.assembly, labels: assemblyLabels(product.assembly) } } : {}),
     configuration: {
       selectedOptions,
       productAttributes: attributes,
@@ -263,16 +297,17 @@ export function buildLocalPersonalizationSnapshot(
       },
       engravingTypeId: draft.rimTechnique === "none" ? null : draft.rimTechnique,
       flejeEngravingTypeId: draft.flejeTechnique === "none" ? null : draft.flejeTechnique,
-      capabilities: { hasRim: true, hasFleje: flejeAvailable },
+      capabilities: { hasRim: product.assembly?.["tipo-virola"] !== "sin-virola", hasFleje: flejeAvailable },
       rim: {
         rimId: String(attributes["tipo-virola"] || product.rim || ""),
         finishMode: draft.rimTechnique !== "none" && draft.rimFinish !== "none" ? "finish" : "none",
         finishId: draft.rimFinish === "none" ? "finish-1" : draft.rimFinish,
         textMode: draft.rimTechnique !== "none" && hasText(draft.rimContent) ? "text" : "none",
         text: draft.rimText.trim(),
-        texts: draft.rimTechnique !== "none" && hasText(draft.rimContent) ? [{ id: "text-1", text: draft.rimText.trim() }] : [],
+        texts: draft.rimTechnique !== "none" && hasText(draft.rimContent) ? [{ id: "text-1", text: draft.rimText.trim(), transform: transform("rim-text", "rim") }] : [],
         imageMode: hasRimLogo ? "image" : "none",
-        icons: hasRimLogo ? icon(stored.rim) : [],
+        icons: hasRimLogo ? designIcons("rim", stored.rim) : [],
+        textTransform: transform("rim-text", "rim"),
       },
     },
     flejeConfiguration: {
@@ -285,11 +320,13 @@ export function buildLocalPersonalizationSnapshot(
           imageMode: hasFlejeLogo ? "image" : "none",
           selectedImageId: null,
           customImage: hasFlejeLogo ? customImage(stored.fleje) : null,
-          icons: hasFlejeLogo ? icon(stored.fleje, "front") : [],
+          icons: hasFlejeLogo ? designIcons("fleje", stored.fleje) : [],
+          textTransform: transform("front-text", "front"),
         },
         back: {
           textMode: flejeAvailable && draft.flejeTechnique !== "none" && hasText(draft.flejeContent) && draft.flejeBackText.trim() ? "text" : "none",
           text: draft.flejeBackText.trim(),
+          textTransform: transform("back-text", "back"),
           imageMode: "none",
           selectedImageId: null,
           customImage: null,

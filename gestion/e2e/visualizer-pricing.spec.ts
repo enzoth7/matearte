@@ -8,6 +8,7 @@ test('Configurador Visualizador configura y publica los precios del mismo Visual
     definitions: [
       { rule_key: 'family:camionero', rule_type: 'family', label: 'Camionero', value_kind: 'uyu', family_id: 'camionero', texture_id: null, customization_id: null, required: true, active: true, sort_order: 1 },
       { rule_key: 'leather:raw', rule_type: 'texture', label: 'Cuero crudo', value_kind: 'uyu', family_id: null, texture_id: null, customization_id: null, required: true, active: true, sort_order: 2 },
+      { rule_key: 'assembly:color:negro', rule_type: 'texture', label: 'Color: Negro', value_kind: 'uyu', family_id: null, texture_id: null, customization_id: null, required: true, active: true, sort_order: 3 },
       { rule_key: 'customization:laser:rim_text', rule_type: 'customization', label: 'Texto láser', value_kind: 'uyu', family_id: null, texture_id: null, customization_id: 'laser:rim_text', required: true, active: true, sort_order: 3 },
     ],
     draft: { id: 'draft-1', version: 2, status: 'draft', updatedAt: '2026-10-20T10:00:00Z', publishedAt: null, values: { 'family:camionero': 1000, 'leather:raw': 100, 'customization:laser:rim_text': 300 } },
@@ -39,16 +40,27 @@ test('Configurador Visualizador configura y publica los precios del mismo Visual
   await expect(page.getByRole('link', { name: 'Abrir Visualizador' })).toHaveCount(0);
   await expect(page.locator('.visualizer-pricing__summary')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Todos los parámetros' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Colores/ })).toHaveCount(0);
   await expect(page.locator('.visualizer-configurator span, .visualizer-configurator p, .visualizer-configurator [class*="eyebrow"]')).toHaveCount(0);
+  const camioneroGroup = page.getByRole('button', { name: /^Camionero 1 regla$/ });
+  const cueroGroup = page.getByRole('button', { name: /^Cueros compartidos 1 regla$/ });
+  await expect(camioneroGroup).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByLabel('Cuero crudo')).toBeHidden();
+  await cueroGroup.click();
+  await expect(cueroGroup).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByLabel('Cuero crudo')).toBeVisible();
-  await expect(page.getByLabel('Texto láser')).toBeVisible();
+  await cueroGroup.click();
+  await expect(page.getByLabel('Cuero crudo')).toBeHidden();
   await expect(page.getByLabel('Mercado Pago')).toHaveCount(0);
-  const pricingLayout = await page.locator('.visualizer-pricing__groups').evaluate((element) => getComputedStyle(element).display);
-  expect(pricingLayout).toBe('grid');
+  const pricingLayout = await page.locator('.visualizer-pricing__groups').evaluate((element) => ({ display: getComputedStyle(element).display, columns: getComputedStyle(element).gridTemplateColumns }));
+  expect(pricingLayout.display).toBe('grid');
+  expect(pricingLayout.columns.trim().split(/\s+/)).toHaveLength(1);
   await page.getByRole('searchbox', { name: 'Buscar precios del Visualizador' }).fill('cuero');
   await expect(page.getByLabel('Cuero crudo')).toBeVisible();
   await expect(page.getByLabel('Texto láser')).toHaveCount(0);
   await page.getByRole('button', { name: 'Limpiar búsqueda' }).click();
+  await expect(camioneroGroup).toHaveAttribute('aria-expanded', 'false');
+  await camioneroGroup.click();
   await page.getByRole('spinbutton', { name: 'Camionero' }).fill('1500');
   await expect(page.getByRole('button', { name: 'Publicar precios' })).toBeDisabled();
   await page.getByRole('button', { name: 'Guardar borrador' }).click();
@@ -138,13 +150,35 @@ test('permite editar y publicar opciones del catálogo sin alterar los IDs', asy
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(catalog) });
   });
   await page.goto('/productos/personalizador');
-  await page.getByRole('button', { name: 'Modelos, colores e imágenes' }).click();
+  const configuratorTabs = page.getByRole('navigation', { name: 'Configuración del Visualizador' });
+  await expect(configuratorTabs.getByRole('button')).toHaveCount(3);
+  await configuratorTabs.getByRole('button', { name: 'Modelos, colores y metales' }).click();
+  await expect(page.getByRole('tablist', { name: 'Secciones del catálogo' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Opciones del Visualizador' })).toHaveCount(0);
   await expect(page.locator('.visualizer-pricing__summary')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Abrir Visualizador' })).toBeVisible();
-  await expect(page.locator('.visualizer-configurator span, .visualizer-configurator p, .visualizer-configurator [class*="eyebrow"]')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Modelos, colores e imágenes', level: 2 })).toBeVisible();
+  await expect(page.locator('.visualizer-catalog span, .visualizer-catalog p, .visualizer-catalog [class*="eyebrow"]')).toHaveCount(0);
+  await page.getByRole('combobox', { name: 'Modelo', exact: true }).selectOption('imperial');
+  await expect(page.getByRole('combobox', { name: 'Construcción', exact: true })).toHaveValue('cincelado-premium');
+  const imperialColors = page.locator('.visualizer-catalog__color-row');
+  await expect(imperialColors).toHaveCount(8);
+  const colorNames = await imperialColors.getByRole('textbox', { name: 'Nombre del color' }).evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
+  expect(new Set(colorNames.map((name) => name.toLocaleLowerCase('es-UY'))).size).toBe(colorNames.length);
+  await expect(page.getByText('Muestra', { exact: true })).toHaveCount(0);
+  await imperialColors.first().locator('input[type="color"]').fill('#aa6644');
+  await expect(imperialColors.first().locator('.visualizer-catalog__swatch')).toHaveCSS('background-color', 'rgb(170, 102, 68)');
+  const colorColumns = await imperialColors.first().evaluate((row) => getComputedStyle(row).gridTemplateColumns.trim().split(/\s+/).length);
+  expect(colorColumns).toBe(3);
+  const metalColumns = await page.locator('.visualizer-catalog__metal-row').first().evaluate((row) => getComputedStyle(row).gridTemplateColumns.trim().split(/\s+/).length);
+  expect(metalColumns).toBe(3);
+  await page.getByRole('combobox', { name: 'Modelo', exact: true }).selectOption('camionero');
   await expect.poll(() => page.locator('.visualizer-catalog__image img').first().evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
-  await expect(page.getByRole('heading', { name: 'Colores' })).toBeVisible();
+  await expect.poll(() => page.locator('.visualizer-catalog__card .visualizer-catalog__image img').evaluateAll(images => images.every(image => (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
+  await expect(page.locator('.visualizer-catalog__card .visualizer-catalog__image').first()).toHaveClass(/is-loaded/);
+  await page.locator('.visualizer-catalog__card .visualizer-catalog__image').first().screenshot({path:'test-results/model-image.png'});
+  await page.screenshot({ path: 'test-results/visualizer-catalog-desktop.png', fullPage: true });
+  await expect(page.getByRole('heading', { name: 'Colores', exact: true })).toBeVisible();
   const colorRows = page.locator('.visualizer-catalog__color-row');
   expect(await colorRows.count()).toBeGreaterThan(1);
   const firstColor = await colorRows.nth(0).boundingBox();
@@ -153,14 +187,31 @@ test('permite editar y publicar opciones del catálogo sin alterar los IDs', asy
   expect(secondColor).not.toBeNull();
   expect(secondColor!.x).toBe(firstColor!.x);
   expect(secondColor!.y).toBeGreaterThan(firstColor!.y + firstColor!.height);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/visualizer-catalog-mobile.png', fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1100 });
   const model = page.locator('.visualizer-catalog__card').first();
   await model.getByRole('textbox', { name: 'Nombre' }).fill('Camionero especial');
   await model.locator('input[type="file"]').setInputFiles({
     name: 'camionero.png', mimeType: 'image/png',
     buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/X1cAAAAASUVORK5CYII=', 'base64'),
   });
-  await page.getByRole('tab', { name: 'Técnicas de personalización' }).click();
-  await page.locator('.visualizer-catalog__technique-card').first().getByRole('checkbox', { name: 'Láser' }).first().uncheck();
+  await configuratorTabs.getByRole('button', { name: 'Técnicas de personalización' }).click();
+  await expect(page.locator('.visualizer-catalog__availability-panel')).toHaveCount(2);
+  const virolaTable = page.getByRole('region', { name: 'Disponibilidad de virola' }).getByRole('table');
+  const flejeTable = page.getByRole('region', { name: 'Disponibilidad de fleje' }).getByRole('table');
+  await expect(virolaTable.locator('thead th')).toHaveText(['Mate y construcción', 'Láser', 'Aplique de bronce', 'Aplique de alpaca']);
+  await expect(flejeTable.locator('thead th')).toHaveText(['Mate y construcción', 'Láser', 'Aplique de bronce', 'Aplique de alpaca']);
+  await expect(virolaTable.locator('tbody tr').first().getByRole('rowheader')).toContainText('Camionero');
+  await expect(flejeTable.locator('tbody tr').first().getByRole('checkbox')).toHaveCount(0);
+  await expect(flejeTable.locator('tbody tr').nth(1).getByRole('checkbox')).toHaveCount(3);
+  await page.screenshot({ path: 'test-results/visualizer-techniques-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/visualizer-techniques-mobile.png', fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await virolaTable.locator('tbody tr').first().getByRole('checkbox', { name: /Láser/ }).uncheck();
   await expect(page.getByRole('button', { name: 'Publicar catálogo' })).toBeDisabled();
   await page.getByRole('button', { name: 'Guardar borrador' }).click();
   await page.getByRole('button', { name: 'Publicar catálogo' }).click();
@@ -171,5 +222,6 @@ test('permite editar y publicar opciones del catálogo sin alterar los IDs', asy
   await expect(page.getByRole('heading', { name: 'Disponibilidad por construcción' })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
+
   expect(calls).toEqual(['get_visualizer_catalog_admin_state', 'save_visualizer_catalog_draft', 'publish_visualizer_catalog_draft']);
 });

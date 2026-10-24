@@ -114,7 +114,7 @@ test('un servicio de precio variable se cobra en el local con el importe acordad
   expect(writes.find((write) => write.table === 'gestion_create_local_sale_with_items')?.body.p_channel).toBe('Local');
 });
 
-test('personalizados usa artículos de base para mate, matera y bombilla y guarda los diseños', async ({ page }) => {
+test('personalizados combina un mate armado, matera y bombilla y guarda los diseños', async ({ page }) => {
   await page.setViewportSize({ width: 2048, height: 1152 });
   const { fixture, writes } = await mockCommerce(page, { writable: true });
   fixture.products[0].commerce_variants[0].name = 'Natural · Tamaño Todos los tamaños';
@@ -131,48 +131,40 @@ test('personalizados usa artículos de base para mate, matera y bombilla y guard
   await page.goto('/comercial/registrar-min');
   await expect(page.getByRole('tab', { name: 'Artículos' })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('tab', { name: 'Personalizados' }).click();
-  await page.getByLabel('Tipo de artículo').selectOption('mate');
-  await page.getByLabel('Buscar personalizado').fill('de catá');
-  await expect(page.getByLabel('Modelo').locator('option')).toHaveCount(2);
-  await expect(page.getByRole('region', { name: 'Resultados de personalizados' })).not.toContainText('Todos los tamaños');
-  await page.getByRole('region', { name: 'Resultados de personalizados' }).getByRole('button', { name: /SKU-1 · Mate de catálogo/ }).click();
-  await expect(page.getByLabel('Modelo')).toHaveValue('Mate de catálogo');
-  await expect(page.getByLabel('Variante')).toHaveValue('variant-1');
-  await expect(page.getByLabel('Variante')).not.toContainText('Todos los tamaños');
-  await page.getByRole('button', { name: 'Agregar personalizado' }).click();
+  await page.getByLabel('Categoría de artículo').selectOption('mate');
+  await page.getByLabel('Modelo', { exact: true }).selectOption('imperial');
+  await page.locator('.local-custom-builder').getByLabel('Color', { exact: true }).selectOption('natural');
+  await page.locator('.local-custom-builder').getByLabel('Interior', { exact: true }).selectOption('calabaza');
+  await page.locator('.local-custom-builder').getByLabel('Tamaño', { exact: true }).selectOption('grande');
+  for (const [label,value] of [['Cuero o textura','liso'],['Virola','imperial'],['Diseño del fleje','liso'],['Posamate','sin-posamate'],['Pie','comun']]) await page.locator('#local-panel-custom > .local-custom-builder').getByLabel(label,{exact:true}).selectOption(value);
+  await page.getByRole('button', { name: /Agregar personalizado/ }).click();
   await expect(page.locator('.local-sale-photo-panel')).not.toContainText('Todos los tamaños');
-  await page.getByRole('navigation', { name: 'Pasos del diseño de Mate de catálogo' }).getByRole('button', { name: /Tamaño e interior/ }).click();
-  await page.getByRole('group', { name: 'Tamaño' }).getByRole('button', { name: 'Grande' }).click();
-  await page.getByRole('group', { name: 'Interior' }).getByRole('button', { name: 'Calabaza' }).click();
-  await page.getByRole('navigation', { name: 'Pasos del diseño de Mate de catálogo' }).getByRole('button', { name: /Virola/ }).click();
-  await page.getByLabel('Texto de virola de Mate de catálogo').fill('ENZO');
-  await page.getByRole('navigation', { name: 'Pasos del diseño de Mate de catálogo' }).getByRole('button', { name: /Resumen/ }).click();
-  await expect(page.getByLabel('Precio unitario de Mate de catálogo')).toHaveValue(/1\.120,5/);
-  await expect(page.getByLabel('Precio de Mate de catálogo')).toContainText('Grabado de texto en virola');
+  await page.getByRole('navigation', { name: 'Pasos del diseño de Mate Imperial personalizado' }).getByRole('button', { name: /Virola/ }).click();
+  await page.getByLabel('Texto de virola de Mate Imperial personalizado').fill('ENZO');
+  await page.getByRole('navigation', { name: 'Pasos del diseño de Mate Imperial personalizado' }).getByRole('button', { name: /Resumen/ }).click();
+  await expect(page.getByLabel('Precio unitario de Mate Imperial personalizado')).toHaveValue(/2\.720/);
+  await expect(page.getByLabel('Precio de Mate Imperial personalizado')).toContainText('Grabado láser en virola');
   await expect(page.locator('.local-personalization-card-heading').first().locator('svg, p')).toHaveCount(0);
-  await expect(page.getByRole('img', { name: 'Foto de Mate de catálogo' })).toBeVisible();
   const productBox = await page.locator('.local-sale-product-section').boundingBox();
   const photosBox = await page.locator('.local-sale-photo-panel').boundingBox();
   expect(productBox && photosBox && photosBox.x >= productBox.x + productBox.width).toBeTruthy();
 
-  await page.getByLabel('Tipo de artículo').selectOption('matera');
-  await page.getByLabel('Modelo').selectOption('Matera de catálogo');
-  await page.getByLabel('Variante').selectOption('variant-custom-matera');
-  await page.getByRole('button', { name: 'Agregar personalizado' }).click();
+  await page.getByLabel('Categoría de artículo').selectOption('matera');
+  await page.getByLabel('Modelo', { exact: true }).selectOption({ index: 1 });
+  await page.getByRole('button', { name: /Agregar personalizado/ }).click();
   await expect(page.getByText('El logo es la opción habitual; también podés registrar texto')).toBeVisible();
   await page.getByLabel('Ubicación de Matera de catálogo').selectOption('front-lid');
   await page.getByLabel('Logo de Matera de catálogo').setInputFiles({ name: 'logo-cliente.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>') });
   await expect(page.getByText('logo-cliente.svg')).toBeVisible();
-  await expect(page.getByLabel('Precio unitario de Matera de catálogo')).toHaveValue(/1\.600,5/);
-  await expect(page.getByLabel('Precio de Matera de catálogo')).toContainText('Logo en matera');
+  await expect(page.getByLabel('Precio unitario de Matera de catálogo')).toHaveValue(/1\.240,5/);
+  await expect(page.getByLabel('Precio de Matera de catálogo')).toContainText('Grabado láser en matera');
 
-  await page.getByLabel('Tipo de artículo').selectOption('bombilla');
-  await page.getByLabel('Modelo').selectOption('Bombilla de alpaca');
-  await page.getByLabel('Variante').selectOption('variant-custom-bombilla');
-  await page.getByRole('button', { name: 'Agregar personalizado' }).click();
+  await page.getByLabel('Categoría de artículo').selectOption('bombilla');
+  await page.getByLabel('Modelo', { exact: true }).selectOption({ index: 1 });
+  await page.getByRole('button', { name: /Agregar personalizado/ }).click();
   await page.getByLabel('Texto de Bombilla de alpaca').fill('ANA');
   await expect(page.getByLabel('Precio unitario de Bombilla de alpaca')).toHaveValue(/1\.120,5/);
-  await expect(page.getByLabel('Precio de Bombilla de alpaca')).toContainText('Texto en bombilla');
+  await expect(page.getByLabel('Precio de Bombilla de alpaca')).toContainText('Grabado láser en bombilla');
   await page.getByLabel('Indicaciones para Bombilla de alpaca').fill('Letra cursiva');
   await expect(page.locator('.local-sale-photo-item')).toHaveCount(3);
   await page.getByRole('button', { name: 'Guardar venta' }).click();
@@ -180,12 +172,12 @@ test('personalizados usa artículos de base para mate, matera y bombilla y guard
 
   const write = writes.find((entry) => entry.table === 'gestion_create_local_sale_with_items');
   expect(write?.body.p_items).toHaveLength(3);
-  expect(write?.body.p_items[0].unit_price_minor).toBe(112050);
+  expect(write?.body.p_items[0].unit_price_minor).toBe(272000);
   expect(write?.body.p_items[0].customization.localPricing).toMatchObject({ source: 'published-personalizer', versionId: 'pricing-test', extrasUnitPriceMinor: 12000 });
   expect(write?.body.p_items[0].customization.configuration.rim.texts[0].text).toBe('ENZO');
   expect(write?.body.p_items[0].customization.configuration.selectedOptions).toEqual({ tamano: 'grande', interior: 'calabaza' });
-  expect(write?.body.p_items[1].unit_price_minor).toBe(160050);
-  expect(write?.body.p_items[1].customization.localPricing).toMatchObject({ source: 'published-personalizer', versionId: 'pricing-test', extrasUnitPriceMinor: 60000 });
+  expect(write?.body.p_items[1].unit_price_minor).toBe(124050);
+  expect(write?.body.p_items[1].customization.localPricing).toMatchObject({ source: 'published-personalizer', versionId: 'pricing-test', extrasUnitPriceMinor: 24000 });
   expect(write?.body.p_items[1].customization.localPersonalization).toMatchObject({ kind: 'matera', placement: 'front-lid', logoName: 'logo-cliente.svg' });
   expect(write?.body.p_items[2].unit_price_minor).toBe(112050);
   expect(write?.body.p_items[2].customization.localPricing).toMatchObject({ source: 'published-personalizer', versionId: 'pricing-test', extrasUnitPriceMinor: 12000 });
@@ -196,7 +188,7 @@ test('personalizados usa artículos de base para mate, matera y bombilla y guard
   await expect(row).toContainText('Mates, Materas, Bombillas');
   await row.getByRole('button', { name: 'Ver detalle del pedido #L001' }).click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByRole('heading', { name: 'Mate de catálogo' })).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: 'Mate Imperial personalizado' })).toBeVisible();
   await expect(dialog.getByRole('heading', { name: 'Matera de catálogo' })).toBeVisible();
   await expect(dialog.getByRole('heading', { name: 'Bombilla de alpaca' })).toBeVisible();
   await dialog.getByRole('tab', { name: 'Producción' }).click();

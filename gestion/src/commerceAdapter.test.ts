@@ -138,7 +138,7 @@ describe("integración de commerce en el estado compartido", () => {
     expect(adaptCommerce(fixture).products[0].prices.Mayorista).toBe(616);
     expect(adaptCommerce(fixture).products[0].availableChannels).toEqual(["Local", "Web"]);
   });
-  it("conserva el precio ARS de un artículo mayorista migrado sin volver a descontarlo", () => {
+  it("descuenta también el artículo mayorista migrado y conserva su precio ARS", () => {
     const fixture = commerceFixture();
     fixture.reference.settings.wholesale_mate_discount_enabled = true;
     fixture.reference.settings.wholesale_mate_discount_percent = 30;
@@ -148,8 +148,10 @@ describe("integración de commerce en el estado compartido", () => {
     });
     const [product] = adaptCommerce(fixture).products;
     expect(product.priceArg).toBe(10500);
-    expect(product.prices.Mayorista).toBe(1000.5);
+    expect(product.prices.Mayorista).toBe(700.35);
     expect(product.availableChannels).toEqual(["Mayorista"]);
+    fixture.products[0].category_code = "materas";
+    expect(adaptCommerce(fixture).products[0].prices.Mayorista).toBe(1000.5);
   });
   it("elige la imagen vinculada a cada variante y evita mostrar la foto de otro color", () => {
     const fixture = commerceFixture();

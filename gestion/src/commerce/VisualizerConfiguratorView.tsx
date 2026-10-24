@@ -3,7 +3,7 @@ import { VisualizerCatalogView } from "./VisualizerCatalogView";
 import { VisualizerPricingView } from "./VisualizerPricingView";
 
 export function VisualizerConfiguratorView() {
-  const [tab, setTab] = useState<"catalog" | "prices">("prices");
+  const [tab, setTab] = useState<"prices" | "models" | "techniques">("prices");
   return (
     <div className="visualizer-configurator">
       <nav
@@ -17,16 +17,11 @@ export function VisualizerConfiguratorView() {
         >
           Precios
         </button>
-        <button
-          type="button"
-          aria-current={tab === "catalog" ? "page" : undefined}
-          onClick={() => setTab("catalog")}
-        >
-          Modelos, colores e imágenes
-        </button>
+        <button type="button" aria-current={tab === "models" ? "page" : undefined} onClick={() => setTab("models")}>Modelos, colores y metales</button>
+        <button type="button" aria-current={tab === "techniques" ? "page" : undefined} onClick={() => setTab("techniques")}>Técnicas de personalización</button>
       </nav>
-      {tab === "catalog" ? (
-        <VisualizerCatalogView />
+      {tab === "models" || tab === "techniques" ? (
+        <VisualizerCatalogView section={tab} />
       ) : (
         <VisualizerPricingView />
       )}

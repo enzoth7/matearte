@@ -83,6 +83,7 @@ export function Stats({
     label: string;
     value: string | number;
     note?: string;
+    help?: string;
     go?: () => void;
     pressed?: boolean;
     tone?: SignalTone | "brown";
@@ -101,12 +102,20 @@ export function Stats({
           </button>
         ) : (
           <div className={className} key={i.label} title={i.note}>
-            {content}
+            {content}{i.help && <StatHelp label={i.label} description={i.help} />}
           </div>
         );
       })}
     </div>
   );
+}
+function StatHelp({ label, description }: { label: string; description: string }) {
+  const tooltipId = useId();
+  const [open, setOpen] = useState(false);
+  return <span className="stat-help" data-open={open}>
+    <button type="button" className="stat-help-button" aria-label={`Qué significa ${label}`} aria-describedby={tooltipId} aria-expanded={open} onClick={() => setOpen((value) => !value)} onBlur={() => setOpen(false)} onKeyDown={(event) => { if (event.key === "Escape") setOpen(false); }}>?</button>
+    <span id={tooltipId} className="stat-help-tooltip" role="tooltip">{description}</span>
+  </span>;
 }
 export function Modal({
   title,

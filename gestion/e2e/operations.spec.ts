@@ -183,6 +183,15 @@ test('una ficha Local vinculada a Web conserva ambos historiales al intentar bor
 
 test('seguimiento de pedido se guarda en Entregas y conserva el importe',async({page})=>{
   const {fixture}=await mockCommerce(page,{writable:true});
+  const fulfillmentCalls: Array<{authorization:string|undefined;body:Record<string,string>}> = [];
+  await page.route(/\/api\/admin\/orders\/[^/]+\/fulfillment$/,async route=>{
+    const body=route.request().postDataJSON() as Record<string,string>;
+    fulfillmentCalls.push({authorization:route.request().headers().authorization,body});
+    Object.assign(fixture.orders[0],{
+      status:'shipped',shipping_carrier:body.shippingCarrier,tracking_code:body.trackingCode,shipped_at:new Date().toISOString(),
+    });
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,order:fixture.orders[0]})});
+  });
   await page.goto('/entregas/envios');
   await page.getByRole('row').filter({hasText:'#9001'}).getByRole('button',{name:'Ver detalle del pedido #9001'}).click();
   await page.getByRole('button',{name:'Marcar enviado',exact:true}).click();
@@ -191,6 +200,10 @@ test('seguimiento de pedido se guarda en Entregas y conserva el importe',async({
   await page.getByLabel('Código de seguimiento').fill('TRACK-9001');
   await page.getByRole('button',{name:'Confirmar envío',exact:true}).click();
   await expect.poll(()=>fixture.orders[0].tracking_code).toBe('TRACK-9001');
+  expect(fulfillmentCalls).toEqual([{
+    authorization:'Bearer header.payload.signature',
+    body:{action:'ship',shippingCarrier:'Transportista',trackingCode:'TRACK-9001'},
+  }]);
   expect(fixture.orders[0].total_minor).toBe(410100);
   await page.reload();
   await page.getByRole('row').filter({hasText:'#9001'}).getByRole('button',{name:'Ver detalle del pedido #9001'}).click();
@@ -299,6 +312,7 @@ test('personalizaciones abre los archivos privados y sus descargas',async({page}
   await expect(detail).toContainText('3.300');
   await expect(detail).not.toContainText('1 unidad · Pendiente');
   await expect(detail).not.toContainText('Subtotal de artículos');
+  await expect(detail).not.toContainText('Total de este artículo');
   await expect(detail.getByRole('row',{name:/Imágenes o escudos en virola/})).toContainText('1.200');
   await detail.screenshot({path:'artifacts/personalizados-precio-desktop.png'});
   await dialog.getByRole('tab',{name:'Producción'}).click();
@@ -324,6 +338,35 @@ test('personalizaciones abre los archivos privados y sus descargas',async({page}
   await detail.screenshot({path:'artifacts/personalizados-precio-mobile.png'});
   await dialog.locator('.personalized-price-item').screenshot({path:'artifacts/personalizados-desglose-mobile.png'});
   expect(writes.filter(write=>write.body.expiresIn===900)).toHaveLength(2);
+});
+
+test('la vista antigua del mate extiende el gris sin mostrar el marco amarillo', async ({page}) => {
+  const {fixture} = await mockCommerce(page,{writable:true});
+  const design = fixture.orders[0].order_items[0];
+  design.item_type = 'design';
+  design.immutable_snapshot = {
+    previews: [{role:'mate',bucket_id:'design-previews',object_path:'customer/design/mate.png',mime_type:'image/png',byte_size:128}],
+  };
+  await page.route('https://*.supabase.co/storage/v1/object/public/product-images/test.png', route => route.fulfill({
+    status: 200,
+    contentType: 'image/svg+xml',
+    headers: {'access-control-allow-origin':'*'},
+    body: '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600"><rect width="600" height="600" fill="#fbf3de"/><rect x="120" y="30" width="360" height="540" fill="#dedede"/><ellipse cx="300" cy="330" rx="80" ry="150" fill="#a65e2f"/></svg>',
+  }));
+  await page.goto('/produccion/personalizados');
+  await page.getByRole('button',{name:'Ver detalle del pedido #9001'}).click();
+  await page.getByRole('dialog').getByRole('tab',{name:'Producción'}).click();
+  const image = page.getByRole('dialog').locator('.asset-preview--mate img');
+  await expect(image).toHaveAttribute('src', /^blob:/);
+  const corner = await image.evaluate(async (element: HTMLImageElement) => {
+    await element.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 600;
+    const context = canvas.getContext('2d')!;
+    context.drawImage(element, 0, 0);
+    return [...context.getImageData(5, 5, 1, 1).data].slice(0, 3);
+  });
+  expect(corner).toEqual([222, 222, 222]);
 });
 
 test('personalizados y ventas coinciden cuando el pedido enviado conserva una pieza pendiente', async ({page}) => {

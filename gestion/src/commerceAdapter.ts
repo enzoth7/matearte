@@ -92,10 +92,9 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       prices: {
         Local: variant ? Number(categoryCode === "servicios" ? variant.base_price_minor : variant.price_minor) / 100 : 0,
         Web: variant ? Number(variant.price_minor) / 100 : 0,
-        Mayorista: variant?.legacy_product_id ? Number(variant.base_price_minor) / 100
-          : variant && wholesaleCategory && snapshot.reference.settings.wholesale_mate_discount_enabled
+        Mayorista: variant && wholesaleCategory && snapshot.reference.settings.wholesale_mate_discount_enabled
           ? Math.round(Number(variant.base_price_minor) * (1 - Number(snapshot.reference.settings.wholesale_mate_discount_percent) / 100)) / 100
-          : 0,
+          : variant?.legacy_product_id ? Number(variant.base_price_minor) / 100 : 0,
       },
       availableChannels: variant ? [...(variant.available_local === false ? [] : ["Local" as const]), ...(variant.available_web === false ? [] : ["Web" as const]), ...(variant.available_wholesale === true ? ["Mayorista" as const] : [])] : [],
       wholesaleThreshold: variant && categoryCode.toLowerCase() === "mates" && snapshot.reference.settings.wholesale_mate_discount_enabled
@@ -327,7 +326,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
         id: item.id, productId: item.variant_id || item.id, title: item.product_name,
         productName: item.product_name, options: catalog?.options, personalization: item.customization || undefined, productionNotes: item.production_notes || undefined,
         weightGrams: catalog?.weightGrams,
-        sku: item.sku, quantity: item.quantity, unitPrice: Number(item.unit_price_minor) / 100,
+        sku: item.sku || "", quantity: item.quantity, unitPrice: Number(item.unit_price_minor) / 100,
         amount: Number(item.line_total_minor) / 100, family: item.customization ? "Personalizados" : catalog?.family || "",
         variant: item.variant_name, rim: catalog?.rim || "", leather: catalog?.leather || "",
         productionStatus: "", reviewStatus: null, orderType: item.customization ? "local_design" : undefined,

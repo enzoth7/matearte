@@ -11,7 +11,7 @@ import {
 export async function loadCatalogTaxonomy(includeInactive = true): Promise<CatalogTaxonomy> {
   const [categories, attributes, options, rules] = await Promise.all([
     supabase.from('commerce_categories').select('code,label_es,parent_code,active,sort_order').order('sort_order'),
-    supabase.from('commerce_attribute_definitions').select('code,label_es,data_type,unit,input_style,active').order('label_es'),
+    supabase.from('commerce_attribute_definitions').select('code,label_es,data_type,unit,input_style,active,sort_order').order('label_es'),
     supabase.from('commerce_attribute_options').select('attribute_code,code,label_es,swatch_hex,active,sort_order').order('sort_order'),
     supabase.from('commerce_category_attributes').select('category_code,attribute_code,scope,required,filterable,purchase_selectable,sort_order').order('sort_order'),
   ]);

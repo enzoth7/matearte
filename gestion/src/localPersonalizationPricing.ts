@@ -1,4 +1,4 @@
-import type { LocalPersonalizationDraft } from "./localPersonalization";
+import { localDesignIcons, type LocalPersonalizationDraft } from "./localPersonalization";
 
 export type PublishedLocalPricing = {
   versionId: string;
@@ -43,15 +43,21 @@ export function calculateLocalPersonalizationPrice(draft: LocalPersonalizationDr
   };
 
   if (draft.kind === "mate" && draft.rimTechnique !== "none") {
-    if (usesText(draft.rimContent)) {
-      const count = characterCount(draft.rimText);
-      add(draft.rimTechnique, "rim_text", draft.rimTechnique === "laser" ? "Grabado de texto en virola" : "Letras en virola", draft.rimTechnique === "laser" && count ? 1 : count);
+    if (draft.rimTechnique === "laser") {
+      if ((usesText(draft.rimContent) && characterCount(draft.rimText) > 0) || (usesLogo(draft.rimContent) && (draft.rimLogoFile || localDesignIcons(draft, "rim").length))) {
+        add("laser", "rim_text", "Grabado láser en virola", 1);
+      }
+    } else {
+      if (usesText(draft.rimContent)) {
+        const count = characterCount(draft.rimText);
+        add(draft.rimTechnique, "rim_text", "Letras en virola", count);
+      }
+      if (usesLogo(draft.rimContent) && (draft.rimLogoFile || localDesignIcons(draft, "rim").length)) add(draft.rimTechnique, "rim_image", "Logo en virola", Number(Boolean(draft.rimLogoFile)) + localDesignIcons(draft, "rim").length);
     }
-    if (usesLogo(draft.rimContent) && draft.rimLogoFile) add(draft.rimTechnique, "rim_image", "Logo en virola", 1);
   }
   if (draft.kind === "mate" && draft.flejeTechnique !== "none") {
     if (usesText(draft.flejeContent)) add(draft.flejeTechnique, "fleje_text", "Caracteres en fleje", characterCount(draft.flejeFrontText) + characterCount(draft.flejeBackText));
-    if (usesLogo(draft.flejeContent) && draft.flejeLogoFile) add(draft.flejeTechnique, "fleje_image", "Logo en fleje", 1);
+    if (usesLogo(draft.flejeContent) && (draft.flejeLogoFile || localDesignIcons(draft, "fleje").length)) add(draft.flejeTechnique, "fleje_image", "Logo en fleje", Number(Boolean(draft.flejeLogoFile)) + localDesignIcons(draft, "fleje").length);
   }
   if (draft.kind === "matera" || draft.kind === "bombilla") {
     // Las tres técnicas comparten las tarifas publicadas de texto e imagen de la virola.
@@ -62,11 +68,17 @@ export function calculateLocalPersonalizationPrice(draft: LocalPersonalizationDr
     const logo = matera ? draft.materaLogoFile : draft.bombillaLogoFile;
     const applications = matera && draft.materaPlacement === "front-lid" ? 2 : 1;
     const article = matera ? "matera" : "bombilla";
-    if (usesText(content)) {
-      const count = characterCount(text);
-      add(technique, "rim_text", `Texto en ${article}`, (technique === "laser" && count ? 1 : count) * applications);
+    if (technique === "laser") {
+      if ((usesText(content) && characterCount(text) > 0) || (usesLogo(content) && logo)) {
+        add("laser", "rim_text", `Grabado láser en ${article}`, applications);
+      }
+    } else {
+      if (usesText(content)) {
+        const count = characterCount(text);
+        add(technique, "rim_text", `Texto en ${article}`, count * applications);
+      }
+      if (usesLogo(content) && logo) add(technique, "rim_image", `Logo en ${article}`, applications);
     }
-    if (usesLogo(content) && logo) add(technique, "rim_image", `Logo en ${article}`, applications);
   }
   return { items, extrasMinor: items.reduce((sum, item) => sum + item.totalMinor, 0), missingRuleKeys };
 }

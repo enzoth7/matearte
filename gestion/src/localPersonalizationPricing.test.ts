@@ -4,7 +4,6 @@ import { calculateLocalPersonalizationPrice, parsePublishedLocalPricing } from "
 
 const catalog = parsePublishedLocalPricing({ versionId: "published-1", version: 3, rules: {
   "customization:laser:rim_text": 120,
-  "customization:laser:rim_image": 300,
   "customization:bronze-applique:rim_text": 25,
   "customization:bronze-applique:rim_image": 350,
   "customization:bronze-applique:fleje_text": 15,
@@ -14,10 +13,29 @@ const catalog = parsePublishedLocalPricing({ versionId: "published-1", version: 
 } });
 
 describe("precio de mates personalizados en ventas locales", () => {
+  it("incluye íconos de biblioteca y cuenta imagen e ícono por separado en apliques", () => {
+    const draft = createPersonalizationDraft("mate");
+    draft.rimContent = "logo";
+    draft.rimIconId = "corazon";
+    expect(calculateLocalPersonalizationPrice(draft, catalog).extrasMinor).toBe(12000);
+    draft.rimTechnique = "bronze-applique";
+    draft.rimLogoFile = {} as File;
+    expect(calculateLocalPersonalizationPrice(draft, catalog).extrasMinor).toBe(70000);
+  });
   it("cobra el texto láser de la virola una sola vez", () => {
     const draft = createPersonalizationDraft("mate");
     draft.rimText = "MATE 123";
     expect(calculateLocalPersonalizationPrice(draft, catalog)).toMatchObject({ extrasMinor: 12000, missingRuleKeys: [] });
+  });
+
+  it("cobra un único grabado láser por texto y logo juntos, o solo por logo", () => {
+    const draft = createPersonalizationDraft("mate");
+    draft.rimContent = "text-logo";
+    draft.rimText = "MATE";
+    draft.rimLogoFile = {} as File;
+    expect(calculateLocalPersonalizationPrice(draft, catalog).extrasMinor).toBe(12000);
+    draft.rimContent = "logo";
+    expect(calculateLocalPersonalizationPrice(draft, catalog).items.map((item) => item.ruleKey)).toEqual(["customization:laser:rim_text"]);
   });
 
   it("cobra cada carácter de aplique y cada logo según las reglas publicadas", () => {
@@ -64,8 +82,8 @@ describe("precio de materas y bombillas personalizadas en ventas locales", () =>
     draft.materaLogoFile = {} as File;
     draft.materaPlacement = "front-lid";
     expect(calculateLocalPersonalizationPrice(draft, catalog)).toMatchObject({
-      extrasMinor: 60000,
-      items: [{ ruleKey: "customization:laser:rim_image", quantity: 2 }],
+      extrasMinor: 24000,
+      items: [{ ruleKey: "customization:laser:rim_text", quantity: 2 }],
       missingRuleKeys: [],
     });
   });

@@ -329,7 +329,7 @@ export function collectPrivateAssets(snapshotValue: unknown): PrivateAsset[] {
     const role = asString(preview.role) as PrivateAsset['role'];
     const bucket = asString(preview.bucket_id) as PrivateAsset['bucket'];
     const path = asString(preview.object_path);
-    if (!role || !previewNames[role] || bucket !== 'design-previews' || !path) return [];
+    if (!role || !previewNames[role] || !['design-previews', 'order-assets'].includes(bucket) || !path) return [];
     return [{
       key: `${bucket}:${path}`,
       bucket,

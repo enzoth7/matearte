@@ -2,6 +2,35 @@ import { test, expect } from "@playwright/test";
 import { mockCommerce } from "./commerce-fixture";
 import { defaultCatalogTaxonomy } from "../../shared/catalog-taxonomy";
 
+test("materiales compartidos y categorías nuevas muestran solo opciones pertinentes", async ({ page }) => {
+  const { fixture, tables } = await mockCommerce(page);
+  tables.commerce_categories = defaultCatalogTaxonomy.categories;
+  tables.commerce_attribute_definitions = defaultCatalogTaxonomy.attributes;
+  tables.commerce_attribute_options = defaultCatalogTaxonomy.options;
+  tables.commerce_category_attributes = defaultCatalogTaxonomy.rules;
+  Object.assign(fixture.products[0], { category: "bandolera", category_code: "bandolera", attributes: {}, catalog_filters: { materials: ["cuero"] } });
+  await page.goto("/productos/catalogo?producto=product-1");
+  const category = page.getByRole("combobox", { name: /Categoría/ });
+  const materials = page.getByRole("group", { name: "Materiales" });
+  for (const code of ["bandolera", "materas", "billeteras", "zapatos", "vainas", "recado", "carona"]) {
+    await category.selectOption(code);
+    await expect(materials.getByLabel("Gamuza")).toBeVisible();
+    await expect(materials.getByLabel("Charol")).toBeVisible();
+    await expect(materials.getByLabel("Acero inoxidable")).toHaveCount(0);
+  }
+  await category.selectOption("termos");
+  await expect(materials.getByLabel("Acero inoxidable")).toBeVisible();
+  await category.selectOption("tablas-de-picar");
+  await expect(materials.getByLabel("Madera")).toBeVisible();
+  await expect(materials.getByLabel("Gamuza")).toHaveCount(0);
+  for (const code of ["pinchos", "servilleteros", "porta-rollos"]) {
+    await category.selectOption(code);
+    await expect(materials.getByLabel("Madera")).toBeVisible();
+    await expect(materials.getByLabel("Otros metales")).toBeVisible();
+    await expect(materials.getByLabel("Acero inoxidable")).toHaveCount(0);
+  }
+});
+
 for (const category of ["botas", "zuecos"] as const) {
   test(`${category} permite guardar varios números en un solo producto`, async ({ page }) => {
     const { fixture, tables, writes } = await mockCommerce(page, { writable: true });

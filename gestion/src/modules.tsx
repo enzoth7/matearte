@@ -7,6 +7,7 @@ import { collections } from "./collections";
 import { catalogImageOptions, catalogStatusOptions, matchesCatalogImage, matchesCatalogStatus, type CatalogImageFilter, type CatalogStatusFilter } from "./catalogListFilters";
 import { Card, Stats, Table, Badge, Modal, downloadCsv } from "./ui";
 import { formatDate } from "./dateFormat";
+import { FunnelX } from "@phosphor-icons/react";
 
 export function CollectionPage({ s, path }: PageProps & { path: string }) {
   const config = collections[path];
@@ -40,6 +41,13 @@ export function Products({ s, mode, notify, refresh, commerce }: PageProps & { m
   const [search, setSearch] = useState("");
   const [view, setView] = useState(() => new URLSearchParams(location.search).get("vista") === "lista" ? "Lista" : "Tarjetas");
   const [listOrder, setListOrder] = useState("sku-asc");
+  const hasCatalogFilters = filter !== "Todos" || statusFilter !== "Todos" || imageFilter !== "Todas" || search.trim() !== "";
+  const clearCatalogFilters = () => {
+    setFilter("Todos");
+    setStatusFilter("Todos");
+    setImageFilter("Todas");
+    setSearch("");
+  };
   const sectionProducts = s.products.filter((product) => mode === "servicios" ? product.categoryCode === "servicios" : product.categoryCode !== "servicios");
   const searchTerms = normalizeSearch(search).split(/\s+/).filter(Boolean);
   const rows = sectionProducts.filter((product) => {
@@ -48,6 +56,8 @@ export function Products({ s, mode, notify, refresh, commerce }: PageProps & { m
     const haystack = normalizeSearch(`${product.name} ${product.sku} ${product.variant} ${product.family} ${product.rim} ${product.leather} ${product.searchText || ""}`);
     return searchTerms.every((term) => haystack.includes(term));
   });
+  const activeRows = rows.filter((product) => product.active);
+  const webRows = activeRows.filter((product) => product.published && product.availableChannels?.includes("Web") && product.prices.Web > 0 && !["sandbox", "regalos"].includes(product.categoryCode || ""));
   const listRows = [...rows].sort((a, b) => {
     const bySku = a.sku.localeCompare(b.sku, "es", { numeric: true });
     const byPrice = a.prices.Local - b.prices.Local || bySku;
@@ -72,9 +82,9 @@ export function Products({ s, mode, notify, refresh, commerce }: PageProps & { m
   if (selectedId && mode !== "catalogo") return <><div className="toolbar"><button className="secondary" onClick={() => selectProduct(null)}>Volver al catálogo</button></div>{editor}</>;
   return <>
     {!selectedId && <Stats items={[
-      { label: mode === "servicios" ? "Servicios" : "Productos en catálogo", value: new Set(sectionProducts.map((p) => p.sourceProductId || p.id)).size },
-      { label: "Disponibles en web", value: new Set(sectionProducts.filter((p) => p.availableChannels?.includes("Web")).map((p) => p.sourceProductId || p.id)).size },
-      { label: "Artículos activos", value: sectionProducts.filter((p) => p.active).length },
+      { label: mode === "servicios" ? "Servicios visibles" : "Artículos visibles", value: rows.length, help: mode === "servicios" ? "Servicios que aparecen en esta lista después de aplicar los filtros y la búsqueda." : "Variantes que aparecen como tarjetas o filas después de aplicar los filtros y la búsqueda. Incluye artículos activos e inactivos." },
+      { label: mode === "servicios" ? "Con precio definido" : "Disponibles en web", value: mode === "servicios" ? rows.filter((product) => product.prices.Local > 0).length : webRows.length, help: mode === "servicios" ? "Servicios visibles que tienen un precio fijo cargado." : "Variantes visibles que pueden venderse en la web: están activas, el producto está publicado, tienen habilitado el canal Web y un precio web mayor a cero." },
+      { label: mode === "servicios" ? "Servicios activos" : "Artículos activos", value: activeRows.length, help: mode === "servicios" ? "Servicios visibles marcados como activos." : "Variantes visibles marcadas como activas. Pueden no estar publicadas en la web." },
     ]} />}
     <div className={`toolbar ${selectedId ? "catalog-toolbar-open" : ""}`}>
       {!selectedId && <div className="table-actions"><button className="primary" onClick={() => selectProduct("new")}>Nuevo producto</button></div>}
@@ -82,6 +92,7 @@ export function Products({ s, mode, notify, refresh, commerce }: PageProps & { m
         <label className="inline-label">Familia<select value={filter} onChange={(e) => setFilter(e.target.value)}>{["Todos", ...new Set(sectionProducts.map((p) => p.family))].map((family) => <option key={family}>{family}</option>)}</select></label>
         <label className="inline-label">Estado<select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as CatalogStatusFilter)}>{catalogStatusOptions.map((option) => <option key={option}>{option}</option>)}</select></label>
         <label className="inline-label">Imagen<select value={imageFilter} onChange={(e) => setImageFilter(e.target.value as CatalogImageFilter)}>{catalogImageOptions.map((option) => <option key={option}>{option}</option>)}</select></label>
+        {mode === "catalogo" && <button type="button" className="catalog-clear-filters" aria-label="Quitar filtros" title="Quitar filtros y búsqueda" onClick={clearCatalogFilters} disabled={!hasCatalogFilters}><FunnelX size={20} aria-hidden="true" /></button>}
         {mode === "catalogo" && !selectedId && <div className="tabs">{["Tarjetas", "Lista"].map((item) => <button key={item} className={item === view ? "active" : ""} onClick={() => setView(item)}>{item}</button>)}</div>}
       </div>
       <input aria-label="Buscar productos" placeholder="Buscar por nombre, SKU, material o característica" value={search} onChange={(e) => setSearch(e.target.value)} />

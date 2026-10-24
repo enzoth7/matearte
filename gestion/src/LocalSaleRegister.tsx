@@ -19,6 +19,12 @@ import {
   type StoredPersonalizationAsset,
 } from "./localPersonalization";
 import { calculateLocalPersonalizationPrice, parsePublishedLocalPricing, type PublishedLocalPricing } from "./localPersonalizationPricing";
+import { CustomArticlePicker } from "./CustomArticlePicker";
+import { MateAssemblyPicker } from "./MateAssemblyPicker";
+import { captureLocalDesign } from "./localDesignPreviews";
+import { mateAssemblyPresentation } from "./mateAssemblyPresentation";
+import { assemblyHasFleje, priceMateAssembly, type MateAssembly } from "../../shared/mate-assembly";
+import { LocalMateDesignPreview } from "./LocalMateDesignPreview";
 import { formatDate } from "./dateFormat";
 import { catalogValueLabel, defaultCatalogTaxonomy, normalizeCatalogValueMap } from "../../shared/catalog-taxonomy";
 
@@ -80,12 +86,13 @@ function PersonalizationFields({ line, index, update, replaceProduct, mateProduc
   reportError: (message: string) => void;
   pricing: PublishedLocalPricing | null;
   pricingLoading: boolean;
+  updateAssembly: (assembly: MateAssembly) => void;
 }) {
   const draft = line.personalization!;
-  const [mateStepIndex, setMateStepIndex] = useState(0);
-  const mateSteps = ["Modelo", "Textura y color", "Metal", "Tamaño e interior", "Virola", ...(productHasFleje(line.product) ? ["Fleje"] : []), "Resumen"];
-  useEffect(() => setMateStepIndex(current => Math.min(current, mateSteps.length - 1)), [mateSteps.length]);
-  const mateStep = mateSteps[mateStepIndex] || "Modelo";
+  const [mateStepIndex, setMateStepIndex] = useState(line.product.assembly ? 0 : 4);
+  const mateSteps = [...(line.product.assembly ? [] : ["Modelo", "Textura y color", "Metal", "Tamaño e interior"]), ...(line.product.assembly?.["tipo-virola"] === "sin-virola" ? [] : ["Virola"]), ...(productHasFleje(line.product) ? ["Fleje"] : []), ...(line.product.assembly ? [] : ["Resumen"])];
+  useEffect(() => setMateStepIndex(current => Math.max(0, Math.min(current, mateSteps.length - 1))), [mateSteps.length]);
+  const mateStep = mateSteps[mateStepIndex] || (line.product.assembly ? "" : "Modelo");
   const mateDetails = draft.kind === "mate" ? mateCharacteristicDetails(line.product) : [];
   const mateAxes = draft.kind === "mate" ? matePurchaseAxes(line.product) : [];
   const sameModel = mateProducts.filter(product => mateModel(product) === mateModel(line.product));
@@ -117,7 +124,7 @@ function PersonalizationFields({ line, index, update, replaceProduct, mateProduc
       {line.quantity > 1 && <strong>Se aplica a {line.quantity} unidades</strong>}
     </header>
 
-    {draft.kind === "mate" && <nav className="local-mate-steps" aria-label={`Pasos del diseño de ${line.product.name}`}>
+    {draft.kind === "mate" && mateSteps.length > 1 && <nav className="local-mate-steps" aria-label={`Pasos del diseño de ${line.product.name}`}>
       {mateSteps.map((label, step) => <button key={label} type="button" aria-current={mateStepIndex === step ? "step" : undefined} className={mateStepIndex === step ? "active" : ""} onClick={() => setMateStepIndex(step)}><span>{step + 1}</span>{label}</button>)}
     </nav>}
 
@@ -176,6 +183,7 @@ function PersonalizationFields({ line, index, update, replaceProduct, mateProduc
         </div>
       </section>}
 
+      {(mateStep === "Virola" || mateStep === "Fleje") && <LocalMateDesignPreview product={line.product} draft={draft} surface={mateStep === "Virola" ? "rim" : "fleje"} update={update} />}
       {needsMateLogo && (mateStep === "Virola" || mateStep === "Fleje") && <div className="local-personalization-uploads">
         {mateStep === "Virola" && draft.rimTechnique !== "none" && contentUsesLogo(draft.rimContent) && <label className="local-personalization-upload"><span><FileArrowUp size={21} /><span><strong>Logo de la virola</strong><small>PNG, JPG, SVG o PDF · hasta 10 MB</small></span></span><input aria-label={`Logo de virola de ${line.product.name}`} type="file" accept="image/png,image/jpeg,image/svg+xml,application/pdf" onChange={onFile("rimLogoFile")} /><b>{draft.rimLogoFile?.name || "Seleccionar archivo"}</b></label>}
         {mateStep === "Fleje" && draft.flejeTechnique !== "none" && contentUsesLogo(draft.flejeContent) && <label className="local-personalization-upload"><span><FileArrowUp size={21} /><span><strong>Logo del fleje</strong><small>Puede ser distinto al de la virola</small></span></span><input aria-label={`Logo de fleje de ${line.product.name}`} type="file" accept="image/png,image/jpeg,image/svg+xml,application/pdf" onChange={onFile("flejeLogoFile")} /><b>{draft.flejeLogoFile?.name || "Seleccionar archivo"}</b></label>}
@@ -203,13 +211,13 @@ function PersonalizationFields({ line, index, update, replaceProduct, mateProduc
       </section>
       {needsBombillaLogo && <label className="local-personalization-upload"><span><FileArrowUp size={21} /><span><strong>Logo o imagen</strong><small>PNG, JPG, SVG o PDF · hasta 10 MB</small></span></span><input aria-label={`Logo de ${line.product.name}`} type="file" accept="image/png,image/jpeg,image/svg+xml,application/pdf" onChange={onFile("bombillaLogoFile")} /><b>{draft.bombillaLogoFile?.name || "Seleccionar archivo"}</b></label>}
     </div>}
-    {draft.kind === "mate" && <div className="local-mate-step-actions"><button type="button" className="secondary" disabled={mateStepIndex === 0} onClick={() => setMateStepIndex(index => index - 1)}>Anterior</button><span>Paso {mateStepIndex + 1} de {mateSteps.length}</span><button type="button" className="secondary" disabled={mateStepIndex === mateSteps.length - 1} onClick={() => setMateStepIndex(index => index + 1)}>Siguiente</button></div>}
-    {(draft.kind !== "mate" || mateStep === "Resumen") && <><div className="local-personalization-price" aria-label={`Precio de ${line.product.name}`}>
+    {draft.kind === "mate" && !line.product.assembly && <div className="local-mate-step-actions"><button type="button" className="secondary" disabled={mateStepIndex === 0} onClick={() => setMateStepIndex(index => index - 1)}>Anterior</button><span>Paso {mateStepIndex + 1} de {mateSteps.length}</span><button type="button" className="secondary" disabled={mateStepIndex === mateSteps.length - 1} onClick={() => setMateStepIndex(index => index + 1)}>Siguiente</button></div>}
+    {(draft.kind !== "mate" || Boolean(line.product.assembly) || mateStep === "Resumen") && <>{!line.product.assembly && <div className="local-personalization-price" aria-label={`Precio de ${line.product.name}`}>
       <div><span>Precio del artículo</span><strong>{money(line.unitPriceMinor / 100)}</strong></div>
       {quote.items.map((item) => <div key={item.ruleKey}><span>{item.label} · {item.quantity} × {money(item.unitPriceMinor / 100)}</span><strong>{money(item.totalMinor / 100)}</strong></div>)}
       <div className="local-personalization-price-total"><span>Total unitario</span><strong>{pricing && !quote.missingRuleKeys.length ? money((line.unitPriceMinor + quote.extrasMinor) / 100) : pricingLoading ? "Cargando precios…" : "Precio no disponible"}</strong></div>
       {!!quote.missingRuleKeys.length && !pricingLoading && <small>Falta publicar un precio de personalización en Productos → Personalizador.</small>}
-    </div>
+    </div>}
     <label className="local-personalization-instructions">Indicaciones para el taller<textarea aria-label={`Indicaciones para ${line.product.name}`} value={draft.instructions} onChange={(event) => update({ instructions: event.target.value.slice(0, 1000) })} maxLength={1000} rows={3} placeholder="Ubicación precisa, tipografía, medidas u otro detalle acordado con el cliente" /></label></>}
   </article>;
 }
@@ -220,9 +228,6 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
   const [category, setCategory] = useState("");
   const [lines, setLines] = useState<SaleLine[]>([]);
   const [customKind, setCustomKind] = useState<PersonalizationKind | "">("");
-  const [customSearch, setCustomSearch] = useState("");
-  const [customModel, setCustomModel] = useState("");
-  const [customProductId, setCustomProductId] = useState("");
   const [pricing, setPricing] = useState<PublishedLocalPricing | null>(null);
   const [pricingLoading, setPricingLoading] = useState(false);
   const [pricingError, setPricingError] = useState("");
@@ -293,28 +298,22 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
   const resetPicker = () => { setPickType(""); setPickName(""); setSelectedProductId(""); };
   const customProducts = useMemo(() => s.products.filter((product) => sellable(product) && customizableKind(product) === customKind)
     .sort((a, b) => `${a.name} ${a.variant}`.localeCompare(`${b.name} ${b.variant}`, "es")), [s.products, customKind, channel]);
-  const customSearchResults = useMemo(() => {
-    const query = normalizeSearch(customSearch.trim());
-    return query ? customProducts.filter((product) => normalizeSearch(`${product.name} ${product.variant} ${product.sku}`).includes(query)).slice(0, 12) : [];
-  }, [customProducts, customSearch]);
-  const customModels = useMemo(() => {
-    const query = normalizeSearch(customSearch.trim());
-    return [...new Set(customProducts.filter((product) => !query || normalizeSearch(`${product.name} ${product.variant} ${product.sku}`).includes(query)).map((product) => product.name))];
-  }, [customProducts, customSearch]);
-  const customVariants = useMemo(() => {
-    const query = normalizeSearch(customSearch.trim());
-    return customProducts.filter((product) => product.name === customModel && (!query || normalizeSearch(product.name).includes(query) || normalizeSearch(`${product.variant} ${product.sku}`).includes(query)));
-  }, [customProducts, customModel, customSearch]);
   const articleLines = lines.filter((line) => !line.personalization);
-  const unitPriceMinor = (line: SaleLine) => line.unitPriceMinor + (line.personalization ? calculateLocalPersonalizationPrice(line.personalization, pricing).extrasMinor : 0);
+  const basePriceMinor = (line: SaleLine) => line.product.assembly ? priceMateAssembly(line.product.assembly, pricing?.rules).totalMinor : line.unitPriceMinor;
+  const unitPriceMinor = (line: SaleLine) => basePriceMinor(line) + (line.personalization ? calculateLocalPersonalizationPrice(line.personalization, pricing).extrasMinor : 0);
   const itemsMinor = lines.reduce((sum, line) => sum + line.quantity * unitPriceMinor(line), 0);
   const depositMinor = cents(deposit);
   const personalizedLines = lines.filter((line) => line.personalization);
-  const linePriceReady = (line: SaleLine) => !line.personalization || (Boolean(pricing) && !pricingLoading && !calculateLocalPersonalizationPrice(line.personalization, pricing).missingRuleKeys.length);
+  const linePriceReady = (line: SaleLine) => !line.personalization || (Boolean(pricing) && !pricingLoading && (!line.product.assembly || priceMateAssembly(line.product.assembly, pricing?.rules).ready) && !calculateLocalPersonalizationPrice(line.personalization, pricing).missingRuleKeys.length);
   const customPricesReady = lines.every(linePriceReady);
   const updatePersonalization = (lineId: string, changes: Partial<LocalPersonalizationDraft>) => setLines((current) => current.map((line) => line.id === lineId && line.personalization
     ? { ...line, personalization: { ...line.personalization, ...changes } }
     : line));
+  const updateAssembly = (lineId: string, assembly: MateAssembly) => setLines(current => current.map(line => {
+    if (line.id !== lineId || !line.personalization) return line;
+    const product = mateAssemblyPresentation(assembly, pricing?.rules);
+    return { ...line, product, unitPriceMinor: Math.round(product.prices.Local * 100), personalization: { ...line.personalization, selectedOptions: { tamano: assembly.tamano, interior: assembly.interior }, ...(assembly["tipo-virola"] === "sin-virola" ? { rimTechnique: "none" as const } : {}), ...(!assemblyHasFleje(assembly) ? { flejeTechnique: "none" as const } : {}) } };
+  }));
   const replaceCustomProduct = (lineId: string, product: Product) => setLines(current => current.map(line => {
     if (line.id !== lineId || !line.personalization || line.personalization.kind !== "mate") return line;
     const available = matePurchaseAxes(product);
@@ -331,11 +330,12 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
     });
     setSearch(""); setError("");
   };
-  const addCustom = () => {
-    const product = customVariants.find((entry) => entry.id === customProductId);
+  const addCustom = (product: Product, selectedOptions: Record<string, string> = {}) => {
     if (!product || !customKind) return;
-    setLines((current) => [...current, { id: crypto.randomUUID(), product, quantity: 1, unitPriceMinor: Math.round(product.prices.Local * 100), priceEntered: true, personalization: createPersonalizationDraft(customKind, product) }]);
-    setCustomSearch(""); setCustomModel(""); setCustomProductId(""); setError("");
+    const draft = createPersonalizationDraft(customKind, product);
+    draft.selectedOptions = { ...draft.selectedOptions, ...selectedOptions };
+    setLines((current) => [...current, { id: crypto.randomUUID(), product, quantity: 1, unitPriceMinor: Math.round(product.prices.Local * 100), priceEntered: true, personalization: draft }]);
+    setError("");
   };
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -408,14 +408,25 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
         if (line.personalization?.flejeLogoFile) await upload(line.personalization.flejeLogoFile, "fleje");
         if (line.personalization?.materaLogoFile) await upload(line.personalization.materaLogoFile, "matera");
         if (line.personalization?.bombillaLogoFile) await upload(line.personalization.bombillaLogoFile, "bombilla");
+        const snapshot = line.personalization ? buildLocalPersonalizationSnapshot(line.personalization, line.product, assets) : null;
+        const previews = [];
+        if (snapshot) for (const {role,blob} of await captureLocalDesign(snapshot)) {
+          const path = `local-sales/${authData.user!.id}/${crypto.randomUUID()}/${role}.png`;
+          const {error} = await source.storage.from("order-assets").upload(path, blob, {contentType:"image/png",upsert:false});
+          if (error) throw new Error("No se pudo guardar la imagen final del diseño. Intentá nuevamente.");
+          uploadedPaths.push(path);
+          previews.push({role,bucket_id:"order-assets",object_path:path,mime_type:"image/png",byte_size:blob.size});
+        }
         items.push({
-          variant_id: line.product.id,
+          item_kind: line.product.assembly ? "custom_mate" : "catalog",
+          variant_id: line.product.assembly ? null : line.product.id,
           ...(isService(line.product) && line.notes?.trim() ? { production_notes: line.notes.trim() } : {}),
           quantity: line.quantity,
           unit_price_minor: unitPriceMinor(line),
           customization: line.personalization ? {
-            ...buildLocalPersonalizationSnapshot(line.personalization, line.product, assets),
-            ...(pricing ? { localPricing: { source: "published-personalizer", versionId: pricing.versionId, version: pricing.version, baseUnitPriceMinor: line.unitPriceMinor, extrasUnitPriceMinor: calculateLocalPersonalizationPrice(line.personalization, pricing).extrasMinor, items: calculateLocalPersonalizationPrice(line.personalization, pricing).items } } : {}),
+            ...snapshot,
+            previews,
+            ...(pricing ? { localPricing: { source: "published-personalizer", versionId: pricing.versionId, version: pricing.version, baseUnitPriceMinor: basePriceMinor(line), extrasUnitPriceMinor: calculateLocalPersonalizationPrice(line.personalization, pricing).extrasMinor, assemblyItems: line.product.assembly ? priceMateAssembly(line.product.assembly, pricing.rules).items : undefined, items: calculateLocalPersonalizationPrice(line.personalization, pricing).items } } : {}),
           } : null,
         });
       }
@@ -425,7 +436,7 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
         p_deposit_minor: payment === "Seña" ? depositMinor : null,
         p_channel: channel,
       });
-      if (error) throw new Error("No se pudo guardar la venta. Revisá los datos e intentá nuevamente.");
+      if (error) throw new Error(error.code === "22023" ? error.message : "No se pudo guardar la venta. Revisá los datos e intentá nuevamente.");
       await refresh?.().catch(() => undefined);
       go(`/comercial/pedidos?pedido=${encodeURIComponent(String((data as { id: string }).id))}`);
     } catch (cause) {
@@ -462,25 +473,15 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
       </button>)}{!matches.length && <div className="empty">No hay variantes activas con esa búsqueda.</div>}</div>}
       {!!articleLines.length && <div className="local-sale-lines">{articleLines.map(renderLine)}</div>}
       </div> : <div id="local-panel-custom" role="tabpanel" aria-labelledby="local-tab-custom" className="local-sale-tab-panel">
-        <p className="local-sale-custom-intro">Elegí un artículo de base y registrá el diseño acordado con el cliente. No depende de los modelos fijos de Personalizados.</p>
-        <div className="local-sale-custom-picker">
-          <label>Tipo de artículo<select value={customKind} onChange={(event) => { setCustomKind(event.target.value as PersonalizationKind | ""); setCustomSearch(""); setCustomModel(""); setCustomProductId(""); }}><option value="">Elegir tipo</option><option value="mate">Mate</option><option value="matera">Matera</option><option value="bombilla">Bombilla</option></select></label>
-          <label>Buscar personalizado<span className="local-sale-custom-search"><MagnifyingGlass size={19} aria-hidden="true" /><input type="search" value={customSearch} disabled={!customKind} onChange={(event) => { setCustomSearch(event.target.value); setCustomModel(""); setCustomProductId(""); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); const first = customSearchResults[0]; if (first) { setCustomModel(first.name); setCustomProductId(first.id); } } }} placeholder="Modelo, variante o SKU" /></span></label>
-          <label>Modelo<select value={customModel} disabled={!customKind} onChange={(event) => { setCustomSearch(""); setCustomModel(event.target.value); setCustomProductId(""); }}><option value="">Elegir modelo</option>{customModels.map((model) => <option key={model} value={model}>{model}</option>)}</select></label>
-          <label>Variante<select value={customProductId} disabled={!customModel} onChange={(event) => setCustomProductId(event.target.value)}><option value="">Elegir variante</option>{customVariants.map((product) => <option key={product.id} value={product.id}>{[visibleVariant(product.variant), product.sku].filter(Boolean).join(" · ")}</option>)}</select></label>
-          <button type="button" className="secondary" disabled={!customProductId} onClick={addCustom}><Plus size={17} />Agregar personalizado</button>
-        </div>
-        {customSearch.trim() && !customProductId && !!customProducts.length && <div className="local-sale-results local-sale-custom-results" role="region" aria-label="Resultados de personalizados">
-          {customSearchResults.map((product) => <button type="button" key={product.id} onClick={() => { setCustomModel(product.name); setCustomProductId(product.id); }}>
-            <strong>{product.sku} · {product.name}</strong><small>{[visibleVariant(product.variant), money(product.prices.Local)].filter(Boolean).join(" · ")}</small>
-          </button>)}
-          {!customSearchResults.length && <div className="empty">No encontramos artículos con esa búsqueda.</div>}
-        </div>}
-        {customKind && !customProducts.length && <p className="local-sale-custom-empty">No hay {customKind === "mate" ? "mates" : customKind === "matera" ? "materas" : "bombillas"} activos para venta local en el catálogo.</p>}
+        <p className="local-sale-custom-intro">Armá el artículo por sus características y diseñá el grabado de la virola y el fleje.</p>
+        <label>Categoría de artículo<select value={customKind} onChange={event => setCustomKind(event.target.value as PersonalizationKind | "")}><option value="">Elegir categoría</option><option value="mate">Mate</option><option value="matera">Matera</option><option value="bombilla">Bombilla</option></select></label>
+        {customKind === "mate" ? <MateAssemblyPicker pricing={pricing} onAdd={assembly => addCustom(mateAssemblyPresentation(assembly, pricing?.rules))} /> : customKind && <CustomArticlePicker key={customKind} products={customProducts} onAdd={addCustom} />}
+        {customKind && customKind !== "mate" && !customProducts.length && <p className="local-sale-custom-empty">No hay {customKind === "matera" ? "materas" : "bombillas"} activos para venta local en el catálogo.</p>}
+        {pricingError && <p role="alert">{pricingError} <button type="button" onClick={() => setPricingRefresh(value => value + 1)}>Reintentar precios</button></p>}
         {!!personalizedLines.length && <>
           {pricingError && <p className="local-sale-custom-empty" role="alert">{pricingError} <button type="button" onClick={() => setPricingRefresh((value) => value + 1)}>Reintentar</button></p>}
           <div className="local-sale-lines">{personalizedLines.map(renderLine)}</div>
-          <div className="local-personalization-list">{personalizedLines.map((line, index) => <PersonalizationFields key={line.id} line={line} index={index} update={(changes) => updatePersonalization(line.id, changes)} replaceProduct={(product) => replaceCustomProduct(line.id, product)} mateProducts={s.products.filter((product) => sellable(product) && customizableKind(product) === "mate")} reportError={setError} pricing={pricing} pricingLoading={pricingLoading} />)}</div>
+          <div className="local-personalization-list">{personalizedLines.map((line, index) => <PersonalizationFields key={line.id} line={{ ...line, unitPriceMinor: basePriceMinor(line) }} index={index} update={(changes) => updatePersonalization(line.id, changes)} updateAssembly={assembly => updateAssembly(line.id, assembly)} replaceProduct={(product) => replaceCustomProduct(line.id, product)} mateProducts={s.products.filter((product) => sellable(product) && customizableKind(product) === "mate")} reportError={setError} pricing={pricing} pricingLoading={pricingLoading} />)}</div>
         </>}
       </div>}
     </section>
@@ -539,7 +540,7 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
     <footer className="local-sale-footer">
       <div><small>Artículos</small><strong>{customPricesReady ? money(itemsMinor / 100) : "Pendiente de precios"}</strong></div>
       {payment === "Seña" && <div><small>Seña cobrada</small><strong>{money(Number.isFinite(depositMinor) ? depositMinor / 100 : 0)}</strong></div>}
-      {error && <div className="error" role="alert">{error}</div>}
+      {error && <div className="error" role="alert">{error}{error.includes("tarifas") && <button type="button" onClick={() => setPricingRefresh(value => value + 1)}>Actualizar precios</button>}</div>}
       <button className="primary" disabled={busy || !lines.length || !customPricesReady}><Plus size={18} />{busy ? "Guardando…" : "Guardar venta"}</button>
     </footer>
     </div>
@@ -548,7 +549,14 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
       {!lines.length ? <p className="local-sale-photo-empty">Las fotos de los artículos que agregues aparecerán acá.</p> : <div className="local-sale-photo-list">{lines.map((line) => <article key={line.id} className="local-sale-photo-item">
         <div className="local-sale-photo-frame">{line.product.imageUrl ? <img src={line.product.imageUrl} alt={`Foto de ${line.product.name}`} style={line.product.imageCrop ? { transform: `translate(${line.product.imageCrop.x}%, ${line.product.imageCrop.y}%) scale(${line.product.imageCrop.zoom})` } : undefined} /> : <span>Sin foto</span>}</div>
         <div><strong>{line.product.name}</strong>{visibleVariant(line.product.variant) && <small>{visibleVariant(line.product.variant)}</small>}<small>{line.quantity} {line.quantity === 1 ? "unidad" : "unidades"}{line.personalization ? " · Personalizado" : ""}</small></div>
+        <div className="local-sale-cost-detail" aria-label={`Desglose de ${line.product.name}`}>
+          {line.product.assembly ? priceMateAssembly(line.product.assembly, pricing?.rules).items.map(item => <div key={item.ruleKey}><span>{item.label}</span><b>{money(item.totalMinor / 100)}</b></div>) : <div><span>Precio del artículo</span><b>{money(basePriceMinor(line) / 100)}</b></div>}
+          {line.personalization && calculateLocalPersonalizationPrice(line.personalization, pricing).items.map(item => <div key={item.ruleKey}><span>{item.label.replace("Logo", "Íconos / imágenes")}<small>{item.quantity} × {money(item.unitPriceMinor / 100)}</small></span><b>{money(item.totalMinor / 100)}</b></div>)}
+          <div className="local-sale-cost-total"><span>Total unitario</span><b>{linePriceReady(line) ? money(unitPriceMinor(line) / 100) : "Precio pendiente"}</b></div>
+          {line.quantity > 1 && <div><span>{line.quantity} unidades</span><b>{linePriceReady(line) ? money(line.quantity * unitPriceMinor(line) / 100) : "Precio pendiente"}</b></div>}
+        </div>
       </article>)}</div>}
+      {lines.length > 0 && <div className="local-sale-cost-detail local-sale-cost-grand" aria-live="polite"><div><strong>Total de la venta</strong><strong>{customPricesReady ? money(itemsMinor / 100) : "Precio pendiente"}</strong></div></div>}
     </aside>
   </form>;
 }

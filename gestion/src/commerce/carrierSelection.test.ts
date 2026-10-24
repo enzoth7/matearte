@@ -6,7 +6,7 @@ describe('CARRIER_OPTIONS', () => {
     const national = CARRIER_OPTIONS.filter(c => c.group === 'national').map(c => c.value);
     const international = CARRIER_OPTIONS.filter(c => c.group === 'international').map(c => c.value);
 
-    expect(national).toEqual(['DAC', 'Correo Uruguayo', 'Mirtrans', 'DePunta']);
+    expect(national).toEqual(['DAC', 'Correo Uruguayo', 'Copay', 'Mirtrans', 'DePunta']);
     expect(international).toEqual(['DHL Express', 'FedEx', 'UPS']);
   });
 });
@@ -17,6 +17,10 @@ describe('resolveCarrierSelection', () => {
     expect(dac.selectedCarrier).toBe('DAC');
     expect(dac.customCarrier).toBe('');
     expect(dac.shippingCarrier).toBe('DAC');
+
+    const copay = resolveCarrierSelection('Copay');
+    expect(copay.selectedCarrier).toBe('Copay');
+    expect(copay.shippingCarrier).toBe('Copay');
 
     const dhl = resolveCarrierSelection('DHL Express');
     expect(dhl.selectedCarrier).toBe('DHL Express');

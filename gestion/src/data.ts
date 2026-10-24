@@ -6,6 +6,7 @@ export type SalesChannel = "Local" | "Web" | "Feria" | "Instagram" | "Facebook" 
 export type OrderChannel = SalesChannel | "Mayorista";
 export type CustomerSourceChannel = SalesChannel | "Agenda" | "Sorteo" | "Suscripción" | "Suscripción con desc.";
 export type Product = {
+  assembly?: import("../../shared/mate-assembly").MateAssembly;
   id: string;
   sourceProductId?: string;
   searchText?: string;

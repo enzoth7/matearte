@@ -23,7 +23,11 @@ import {
   type CatalogSection,
 } from "./visualizerCatalog";
 
-const techniqueIds = engravingTypeOptions.map((option) => option.id);
+const uniqueOptions = <T extends { id: string }>(options: T[]): T[] =>
+  options.filter((option, index) => options.findIndex((candidate) => candidate.id === option.id) === index);
+const catalogFamilies = uniqueOptions(mateDecisionCatalog);
+const catalogTechniques = uniqueOptions(engravingTypeOptions);
+const techniqueIds = catalogTechniques.map((option) => option.id);
 const entryKey = (...parts: string[]) => parts.join("::");
 const effective = (
   document: CatalogDocument,
@@ -43,18 +47,18 @@ const errorMessage = (reason: unknown) =>
 export function catalogPublishIssues(document: CatalogDocument): string[] {
   const issues: string[] = [];
   const activeTechniques = new Set(
-    engravingTypeOptions
+    catalogTechniques
       .filter((item) => visible(document, "techniques", item.id))
       .map((item) => item.id),
   );
   if (
-    !mateDecisionCatalog.some((item) => visible(document, "families", item.id))
+    !catalogFamilies.some((item) => visible(document, "families", item.id))
   )
     issues.push("Dejá al menos un modelo visible.");
-  for (const family of mateDecisionCatalog.filter((item) =>
+  for (const family of catalogFamilies.filter((item) =>
     visible(document, "families", item.id),
   )) {
-    const activeTextures = family.textures.filter((item) =>
+    const activeTextures = uniqueOptions(family.textures).filter((item) =>
       visible(document, "textures", entryKey(family.id, item.id)),
     );
     if (!activeTextures.length)
@@ -64,13 +68,13 @@ export function catalogPublishIssues(document: CatalogDocument): string[] {
       const patch = effective(document, "textures", key);
       const baseline = getEngravingCapabilities(family.id, texture.id);
       if (
-        !texture.colors.some((item) =>
+        !uniqueOptions(texture.colors).some((item) =>
           visible(document, "colors", entryKey(key, item.id)),
         )
       )
         issues.push(`${texture.label}: dejá al menos un color visible.`);
       if (
-        !texture.metals.some((item) =>
+        !uniqueOptions(texture.metals).some((item) =>
           visible(document, "metals", entryKey(key, item.id)),
         )
       )
@@ -101,23 +105,32 @@ function ImageEditor({
   label,
   src,
   busy,
+  eager = false,
   onUpload,
 }: {
   label: string;
   src?: string;
   busy: boolean;
+  eager?: boolean;
   onUpload: (file: File) => void;
 }) {
+  const [loadedSrc, setLoadedSrc] = useState("");
+  const [failedSrc, setFailedSrc] = useState("");
   const previewUrl = src?.startsWith("/assets")
     ? `https://matearte-visualizador.vercel.app${src}`
     : src;
+  const imageLoaded = Boolean(previewUrl && loadedSrc === previewUrl);
+  const imageFailed = Boolean(previewUrl && failedSrc === previewUrl);
   return (
     <div className="visualizer-catalog__image-editor">
-      <div className="visualizer-catalog__image">
+      <div className={`visualizer-catalog__image${imageLoaded ? " is-loaded" : ""}`}>
         {previewUrl ? (
-          <img src={previewUrl} alt={label} loading="lazy" />
+          <>
+            {!imageLoaded && <div className="visualizer-catalog__image-state">{imageFailed ? "No se pudo cargar la foto" : "Cargando foto…"}</div>}
+            <img src={previewUrl} alt={label} loading={eager ? "eager" : "lazy"} onLoad={() => setLoadedSrc(previewUrl)} onError={() => setFailedSrc(previewUrl)} />
+          </>
         ) : (
-          <ImageSquare size={28} aria-hidden="true" />
+          <><ImageSquare size={28} aria-hidden="true" /><div className="visualizer-catalog__image-state">Sin foto</div></>
         )}
       </div>
       <label className="visualizer-catalog__upload">
@@ -138,14 +151,13 @@ function ImageEditor({
   );
 }
 
-export function VisualizerCatalogView() {
+export function VisualizerCatalogView({ section }: { section: "models" | "techniques" }) {
   const [state, setState] = useState<CatalogAdminState | null>(null);
   const [document, setDocument] = useState<CatalogDocument>({});
-  const [familyId, setFamilyId] = useState(mateDecisionCatalog[0].id);
+  const [familyId, setFamilyId] = useState(catalogFamilies[0].id);
   const [textureId, setTextureId] = useState(
-    mateDecisionCatalog[0].textures[0].id,
+    catalogFamilies[0].textures[0].id,
   );
-  const [section, setSection] = useState<"models" | "techniques">("models");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState("");
@@ -172,9 +184,15 @@ export function VisualizerCatalogView() {
     void reload();
   }, []);
 
-  const family = mateDecisionCatalog.find((item) => item.id === familyId)!;
+  const family = catalogFamilies.find((item) => item.id === familyId)!;
+  const familyTextures = uniqueOptions(family.textures);
   const texture =
-    family.textures.find((item) => item.id === textureId) ?? family.textures[0];
+    familyTextures.find((item) => item.id === textureId) ?? familyTextures[0];
+  const colors = uniqueOptions(texture.colors);
+  const metals = uniqueOptions(texture.metals);
+  const constructions = catalogFamilies.flatMap((item) =>
+    uniqueOptions(item.textures).map((variant) => ({ item, variant })),
+  );
   const textureKey = entryKey(family.id, texture.id);
   const dirty = state
     ? JSON.stringify(document) !== JSON.stringify(state.draft.document)
@@ -339,44 +357,25 @@ export function VisualizerCatalogView() {
           Antes de publicar: {publishIssues[0]}
         </div>
       )}
-      <div
-        className="visualizer-catalog__tabs"
-        role="tablist"
-        aria-label="Secciones del catálogo"
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={section === "models"}
-          onClick={() => setSection("models")}
-        >
-          Modelos, colores y metales
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={section === "techniques"}
-          onClick={() => setSection("techniques")}
-        >
-          Técnicas de personalización
-        </button>
-      </div>
       {section === "models" ? (
         <>
+          <div className="visualizer-catalog__intro">
+            <h2>Modelos, colores e imágenes</h2>
+          </div>
           <div className="visualizer-catalog__selectors">
             <label>
               Modelo
               <select
                 value={familyId}
                 onChange={(event) => {
-                  const next = mateDecisionCatalog.find(
+                  const next = catalogFamilies.find(
                     (item) => item.id === event.target.value,
                   )!;
                   setFamilyId(next.id);
                   setTextureId(next.textures[0].id);
                 }}
               >
-                {mateDecisionCatalog.map((item) => (
+                {catalogFamilies.map((item) => (
                   <option key={item.id} value={item.id}>
                     {effective(document, "families", item.id).label ??
                       item.label}
@@ -390,7 +389,7 @@ export function VisualizerCatalogView() {
                 value={texture.id}
                 onChange={(event) => setTextureId(event.target.value)}
               >
-                {family.textures.map((item) => (
+                {familyTextures.map((item) => (
                   <option key={item.id} value={item.id}>
                     {effective(
                       document,
@@ -405,12 +404,7 @@ export function VisualizerCatalogView() {
           <div className="visualizer-catalog__grid">
             <article className="visualizer-catalog__card">
               <div className="visualizer-catalog__card-head">
-                <div>
-                  <h3>
-                    {effective(document, "families", family.id).label ??
-                      family.label}
-                  </h3>
-                </div>
+                <h3>Modelo</h3>
                 <label className="visualizer-catalog__switch">
                   <input
                     type="checkbox"
@@ -429,6 +423,7 @@ export function VisualizerCatalogView() {
               </div>
               <ImageEditor
                 label={`Mate ${family.label}`}
+                eager
                 src={
                   effective(document, "families", family.id).image ??
                   getVariantDefinition(family.representativeVariantId)?.image
@@ -472,12 +467,7 @@ export function VisualizerCatalogView() {
             </article>
             <article className="visualizer-catalog__card">
               <div className="visualizer-catalog__card-head">
-                <div>
-                  <h3>
-                    {effective(document, "textures", textureKey).label ??
-                      texture.label}
-                  </h3>
-                </div>
+                <h3>Construcción</h3>
                 <label className="visualizer-catalog__switch">
                   <input
                     type="checkbox"
@@ -496,6 +486,7 @@ export function VisualizerCatalogView() {
               </div>
               <ImageEditor
                 label={texture.label}
+                eager
                 src={
                   effective(document, "textures", textureKey).image ??
                   texture.previewImage ??
@@ -540,39 +531,33 @@ export function VisualizerCatalogView() {
             </article>
           </div>
           <div className="visualizer-catalog__block">
-            <h3>Colores</h3>
+            <div className="visualizer-catalog__block-heading"><h3>Colores</h3></div>
             <div className="visualizer-catalog__option-grid visualizer-catalog__color-grid">
-              {texture.colors.map((color) => {
+              {colors.map((color) => {
                 const key = entryKey(family.id, texture.id, color.id);
                 const patch = effective(document, "colors", key);
+                const swatch = patch.swatch ?? color.swatch;
                 return (
                   <article
                     className="visualizer-catalog__option visualizer-catalog__color-row"
                     key={key}
                   >
-                    <div className="visualizer-catalog__option-head">
-                      <div className="visualizer-catalog__color-identity">
-                        <div
-                          className="visualizer-catalog__swatch"
-                          style={{ background: patch.swatch ?? color.swatch }}
-                          aria-hidden="true"
-                        />
-                        <strong>{patch.label ?? color.label}</strong>
-                      </div>
-                      <label className="visualizer-catalog__switch">
+                    <div className="visualizer-catalog__color-name">
+                      <label className="visualizer-catalog__swatch" style={{ background: swatch }}>
                         <input
-                          type="checkbox"
-                          checked={visible(document, "colors", key)}
-                          onChange={(event) =>
-                            change(
-                              "colors",
-                              key,
-                              "enabled",
-                              event.target.checked,
-                            )
-                          }
-                        />{" "}
-                        Visible
+                          type="color"
+                          aria-label={`Editar color de ${patch.label ?? color.label}`}
+                          value={/^#[0-9a-fA-F]{6}$/.test(swatch) ? swatch : "#8b6c55"}
+                          onChange={(event) => change("colors", key, "swatch", event.target.value)}
+                        />
+                      </label>
+                      <label className="visualizer-catalog__field">
+                        Nombre del color
+                        <input
+                          value={patch.label ?? color.label}
+                          maxLength={120}
+                          onChange={(event) => change("colors", key, "label", event.target.value)}
+                        />
                       </label>
                     </div>
                     <ImageEditor
@@ -590,30 +575,13 @@ export function VisualizerCatalogView() {
                         void upload("colors", key, "image", file)
                       }
                     />
-                    <label className="visualizer-catalog__field">
-                      Nombre
+                    <label className="visualizer-catalog__switch">
                       <input
-                        value={patch.label ?? color.label}
-                        maxLength={120}
-                        onChange={(event) =>
-                          change("colors", key, "label", event.target.value)
-                        }
-                      />
-                    </label>
-                    <label className="visualizer-catalog__field visualizer-catalog__field--color">
-                      Muestra de color
-                      <input
-                        type="color"
-                        value={
-                          patch.swatch ??
-                          (/^#[0-9a-fA-F]{6}$/.test(color.swatch)
-                            ? color.swatch
-                            : "#8b6c55")
-                        }
-                        onChange={(event) =>
-                          change("colors", key, "swatch", event.target.value)
-                        }
-                      />
+                        type="checkbox"
+                        checked={visible(document, "colors", key)}
+                        onChange={(event) => change("colors", key, "enabled", event.target.checked)}
+                      />{" "}
+                      Visible
                     </label>
                   </article>
                 );
@@ -621,31 +589,21 @@ export function VisualizerCatalogView() {
             </div>
           </div>
           <div className="visualizer-catalog__block">
-            <h3>Metales y virolas</h3>
-            <div className="visualizer-catalog__option-grid">
-              {texture.metals.map((metal) => {
+            <div className="visualizer-catalog__block-heading"><h3>Metales y virolas</h3></div>
+            <div className="visualizer-catalog__option-grid visualizer-catalog__metal-grid">
+              {metals.map((metal) => {
                 const key = entryKey(family.id, texture.id, metal.id);
                 const patch = effective(document, "metals", key);
                 return (
-                  <article className="visualizer-catalog__option" key={key}>
-                    <div className="visualizer-catalog__option-head">
-                      <strong>{patch.label ?? metal.label}</strong>
-                      <label className="visualizer-catalog__switch">
-                        <input
-                          type="checkbox"
-                          checked={visible(document, "metals", key)}
-                          onChange={(event) =>
-                            change(
-                              "metals",
-                              key,
-                              "enabled",
-                              event.target.checked,
-                            )
-                          }
-                        />{" "}
-                        Visible
-                      </label>
-                    </div>
+                  <article className="visualizer-catalog__option visualizer-catalog__metal-row" key={key}>
+                    <label className="visualizer-catalog__field">
+                      Nombre del metal
+                      <input
+                        value={patch.label ?? metal.label}
+                        maxLength={120}
+                        onChange={(event) => change("metals", key, "label", event.target.value)}
+                      />
+                    </label>
                     <ImageEditor
                       label={metal.label}
                       src={patch.image ?? metal.previewImage}
@@ -654,15 +612,13 @@ export function VisualizerCatalogView() {
                         void upload("metals", key, "image", file)
                       }
                     />
-                    <label className="visualizer-catalog__field">
-                      Nombre
+                    <label className="visualizer-catalog__switch">
                       <input
-                        value={patch.label ?? metal.label}
-                        maxLength={120}
-                        onChange={(event) =>
-                          change("metals", key, "label", event.target.value)
-                        }
-                      />
+                        type="checkbox"
+                        checked={visible(document, "metals", key)}
+                        onChange={(event) => change("metals", key, "enabled", event.target.checked)}
+                      />{" "}
+                      Visible
                     </label>
                   </article>
                 );
@@ -675,7 +631,7 @@ export function VisualizerCatalogView() {
           <div className="visualizer-catalog__block">
             <h3>Técnicas de personalización</h3>
             <div className="visualizer-catalog__option-grid">
-              {engravingTypeOptions.map((technique) => {
+              {catalogTechniques.map((technique) => {
                 const patch = effective(document, "techniques", technique.id);
                 return (
                   <article
@@ -683,7 +639,6 @@ export function VisualizerCatalogView() {
                     key={technique.id}
                   >
                     <div className="visualizer-catalog__option-head">
-                      <strong>{patch.label ?? technique.label}</strong>
                       <label className="visualizer-catalog__switch">
                         <input
                           type="checkbox"
@@ -784,72 +739,67 @@ export function VisualizerCatalogView() {
           </div>
           <div className="visualizer-catalog__block">
             <h3>Disponibilidad por construcción</h3>
-            <div className="visualizer-catalog__technique-grid">
-              {mateDecisionCatalog.flatMap((item) =>
-                item.textures.map((variant) => {
-                  const key = entryKey(item.id, variant.id);
-                  const baseline = getEngravingCapabilities(
-                    item.id,
-                    variant.id,
-                  );
-                  const patch = effective(document, "textures", key);
-                  return (
-                    <article
-                      className="visualizer-catalog__technique-card"
-                      key={key}
-                    >
-                      <h4>
-                        {item.label} · {patch.label ?? variant.label}
-                      </h4>
-                      {(["virola", "fleje"] as const).map((area) => (
-                        <fieldset
-                          key={area}
-                          disabled={
-                            area === "fleje" && !variant.capabilities.hasFleje
-                          }
-                        >
-                          <legend>
-                            {area === "virola" ? "Virola" : "Fleje"}
-                          </legend>
-                          {techniqueIds.map((id) => {
-                            const selected =
-                              patch[area] ??
-                              baseline[
-                                area === "virola"
-                                  ? "virolaEngravingTypes"
-                                  : "flejeEngravingTypes"
-                              ];
-                            return (
-                              <label key={id}>
-                                <input
-                                  type="checkbox"
-                                  checked={selected.includes(id)}
-                                  onChange={(event) =>
-                                    change(
-                                      "textures",
-                                      key,
-                                      area,
-                                      event.target.checked
-                                        ? [...selected, id]
-                                        : selected.filter(
-                                            (value) => value !== id,
-                                          ),
-                                    )
-                                  }
-                                />
-                                {effective(document, "techniques", id).label ??
-                                  engravingTypeOptions.find(
-                                    (option) => option.id === id,
-                                  )?.label}
-                              </label>
-                            );
-                          })}
-                        </fieldset>
-                      ))}
-                    </article>
-                  );
-                }),
-              )}
+            <div className="visualizer-catalog__availability">
+              {(["virola", "fleje"] as const).map((area) => (
+                <section className="visualizer-catalog__availability-panel" key={area}>
+                  <h4>{area === "virola" ? "Virola" : "Fleje"}</h4>
+                  <small className="visualizer-catalog__scroll-hint">Deslizá para ver todas las técnicas</small>
+                  <div className="visualizer-catalog__availability-scroll" role="region" aria-label={`Disponibilidad de ${area}`} tabIndex={0}>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th scope="col">Mate y construcción</th>
+                          {catalogTechniques.map((technique) => (
+                            <th scope="col" key={technique.id}>
+                              {effective(document, "techniques", technique.id).label ?? technique.label}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {constructions.map(({ item, variant }) => {
+                          const key = entryKey(item.id, variant.id);
+                          const patch = effective(document, "textures", key);
+                          const baseline = getEngravingCapabilities(item.id, variant.id);
+                          const selected = patch[area] ?? baseline[area === "virola" ? "virolaEngravingTypes" : "flejeEngravingTypes"];
+                          const unavailable = area === "fleje" && !variant.capabilities.hasFleje;
+                          return (
+                            <tr key={key}>
+                              <th scope="row">
+                                <strong>{effective(document, "families", item.id).label ?? item.label}</strong>
+                                <small>{patch.label ?? variant.label}</small>
+                              </th>
+                              {catalogTechniques.map((technique) => (
+                                <td key={technique.id}>
+                                  {unavailable ? (
+                                    <small aria-label="No lleva fleje" title="No lleva fleje">—</small>
+                                  ) : (
+                                    <input
+                                      type="checkbox"
+                                      aria-label={`${area === "virola" ? "Virola" : "Fleje"} · ${item.label} · ${patch.label ?? variant.label} · ${effective(document, "techniques", technique.id).label ?? technique.label}`}
+                                      checked={selected.includes(technique.id)}
+                                      onChange={(event) =>
+                                        change(
+                                          "textures",
+                                          key,
+                                          area,
+                                          event.target.checked
+                                            ? [...selected, technique.id]
+                                            : selected.filter((value) => value !== technique.id),
+                                        )
+                                      }
+                                    />
+                                  )}
+                                </td>
+                              ))}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              ))}
             </div>
           </div>
         </>

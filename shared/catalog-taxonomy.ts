@@ -2,9 +2,22 @@
 export const catalogCategoryIds = [
   "bandolera", "billeteras", "bombillas", "botas", "carteras", "cintos", "cuchillos",
   "kits-materos", "materas", "mates", "personalizados", "servicios", "tarjeteros", "termos", "zapatos", "zuecos",
+  "tablas-de-picar", "pinchos", "servilleteros", "porta-rollos", "vainas", "recado", "carona",
 ] as const;
 export const catalogFootwearClosureIds = ["con-cierre", "con-cordones", "con-hebilla", "con-elastico"] as const;
 export const catalogMaterialIds = ["cuero", "plata", "alpaca", "acero-inoxidable", "otros-metales", "madera", "estampado", "cuero-crudo", "croco", "pelos", "gamuza", "charol"] as const;
+const leatherGoodsCategories = new Set(["botas", "zuecos", "zapatos", "materas", "billeteras", "tarjeteros", "carteras", "bandolera", "cintos", "kits-materos", "vainas", "recado", "carona"]);
+const kitchenGoodsCategories = new Set(["tablas-de-picar", "pinchos", "servilleteros", "porta-rollos"]);
+
+/** Shared material palette for leather goods; special product families have their own materials. */
+export function catalogMaterialCodesForCategory(categoryCode: string): readonly string[] {
+  const category = canonicalCategoryCode(categoryCode);
+  if (category === "termos") return ["acero-inoxidable", "cuero", "cuero-crudo"];
+  if (category === "tablas-de-picar") return ["madera"];
+  if (kitchenGoodsCategories.has(category)) return ["madera", "otros-metales", "alpaca", "plata"];
+  if (leatherGoodsCategories.has(category)) return catalogMaterialIds.filter(code => code !== "acero-inoxidable");
+  return catalogMaterialIds.filter(code => code !== "acero-inoxidable");
+}
 export const catalogProductTypeIds = ["imperial", "camionero", "criollo", "torpedo"] as const;
 export const catalogColorIds = ["marron", "negro", "natural", "cuero-crudo", "rojo", "blanco", "rosado", "gris", "dorado", "celeste", "azul", "beige", "metalico", "marron-claro", "chocolate", "mostaza", "plateado", "negro-dorado", "marron-dorado", "blanco-plateado", "blanco-dorado", "marron-blanco", "negro-marron", "beige-dorado", "negro-blanco", "dorado-natural", "marron-rojo", "mostaza-chocolate", "marron-beige"] as const;
 export const catalogCollectionIds = ["estribo", "uruguay", "alfonsina", "sonia"] as const;
@@ -189,6 +202,8 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     category("carteras", "Carteras", null, 40), category("bandolera", "Bandolera", null, 45), category("cintos", "Cintos", null, 50), category("cuchillos", "Cuchillos", null, 60),
     category("kits-materos", "Kits materos", null, 70), category("materas", "Materas", null, 80), category("mates", "Mates", null, 90),
     category("personalizados", "Personalizados", null, 100), category("servicios", "Servicios", null, 105), category("termos", "Termos", null, 110),
+    category("tablas-de-picar", "Tablas de picar", null, 140), category("pinchos", "Pinchos", null, 150), category("servilleteros", "Servilleteros", null, 160), category("porta-rollos", "Porta rollos", null, 170),
+    category("vainas", "Vainas", null, 180), category("recado", "Recado", null, 190), category("carona", "Carona", null, 200),
   ],
   attributes: [
     attribute("coleccion", "Colección", "enum", "select"), attribute("tipo-personalizado", "Tipo", "enum", "select"), attribute("diseno-matera", "Diseño de la matera", "enum", "select"),
@@ -257,5 +272,6 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     rule("tarjeteros","material","product",10), rule("tarjeteros","genero","product",20), rule("tarjeteros","acabado","product",30), rule("tarjeteros","color","variant",100,true),
     rule("carteras","material","product",10), rule("carteras","acabado","product",30), rule("carteras","color","variant",100,true),
     rule("bandolera","material","product",10), rule("bandolera","acabado","product",30), rule("bandolera","color","variant",100,true),
+    ...["tablas-de-picar", "pinchos", "servilleteros", "porta-rollos", "vainas", "recado", "carona"].flatMap(code => [rule(code,"material","product",10), rule(code,"color","variant",100)]),
   ],
 };

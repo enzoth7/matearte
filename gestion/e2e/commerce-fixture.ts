@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { commerceFixture } from "../src/testing/commerce";
+import { assemblyName, assemblySummary, mateAssemblyFields } from "../../shared/mate-assembly";
 // Los productos mayoristas viven en el catálogo único: las pruebas los cargan en `tables.products` con el formato histórico.
 function wholesaleAsCatalog(rows: any[]) {
   return rows.map((row) => ({
@@ -72,6 +73,8 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
     if (table === 'gestion_web_leads') return respond(tables.web_leads);
     if (table === 'gestion_contact_origins') return respond([]);
     if (table === 'get_published_pricing_catalog') return respond({ versionId: 'pricing-test', version: 7, publishedAt: '2026-10-20T12:00:00Z', rules: {
+      ...Object.fromEntries(mateAssemblyFields.flatMap(field => field.options.map(option => [option.ruleKey, option.initialPrice]))),
+      'leather:raw-posa-mate': 650,
       'customization:laser:rim_text': 120, 'customization:laser:rim_image': 300,
       'customization:bronze-applique:rim_text': 25, 'customization:bronze-applique:rim_image': 350,
       'customization:alpaca-applique:rim_text': 30, 'customization:alpaca-applique:rim_image': 400,
@@ -126,6 +129,7 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
         const referenceNumber = tables.local_sales.filter((sale: any) => sale.reference_code?.startsWith(`#${prefix}`)).length + 1;
         const customer = tables.local_sales_customers.find((entry: any) => entry.id === body.p_customer_id);
         const items = body.p_items.map((item: any, index: number) => {
+          if (item.item_kind === 'custom_mate') return { id: `sale-item-${saleNumber}-${index}`, variant_id: null, sku: '', product_name: assemblyName(item.customization.assembly.selections), variant_name: assemblySummary(item.customization.assembly.selections), quantity: item.quantity, unit_price_minor: item.unit_price_minor, line_total_minor: item.unit_price_minor * item.quantity, customization: item.customization };
           const product = fixture.products.find((entry) => entry.commerce_variants.some((variant) => variant.id === item.variant_id))!;
           const variant = product.commerce_variants.find((entry) => entry.id === item.variant_id)!;
           return { id: `sale-item-${saleNumber}-${index}`, variant_id: item.variant_id, sku: variant.sku,

@@ -10,7 +10,7 @@ const internalChannels = ["Local", "Feria", "WhatsApp", "Instagram", "Facebook"]
 /** Solo las ventas registradas por el equipo (no Web ni Mayorista) se pueden corregir o eliminar. */
 export const canEditLocalSale = (order: Order) => order.source === "local" && !!commerceSource && internalChannels.includes(order.channel);
 
-type LineDraft = { id: string; name: string; sku: string; quantity: string; price: string; notes: string; service: boolean; personalized: boolean };
+type LineDraft = { id: string; name: string; sku: string; quantity: string; price: string; notes: string; service: boolean; personalized: boolean; assemblySummary?: string };
 
 const errorText = (error: unknown) => error instanceof Error ? error.message : "No se pudo completar la operación.";
 
@@ -25,6 +25,7 @@ export function LocalSaleEditor({ order, customers, depositAmount, onClose, onCh
   const [lines, setLines] = useState<LineDraft[]>((order.items || []).map((item) => ({
     id: item.id, name: item.productName || item.title, sku: item.sku, quantity: String(item.quantity), price: String(item.unitPrice),
     notes: item.productionNotes || "", service: item.family === "Servicios", personalized: Boolean(item.personalization),
+    assemblySummary: item.personalization?.assembly ? item.variant : undefined,
   })));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -62,7 +63,7 @@ export function LocalSaleEditor({ order, customers, depositAmount, onClose, onCh
       </div>
       <div className="local-sale-editor-lines">
         {lines.map((line) => <div className="local-sale-editor-line" key={line.id}>
-          <div className="local-sale-editor-name"><strong>{line.name}</strong><small>{line.sku}{line.personalized ? " · Personalizado" : ""}</small></div>
+          <div className="local-sale-editor-name"><strong>{line.name}</strong><small>{[line.sku, line.personalized ? "Personalizado" : ""].filter(Boolean).join(" · ")}</small>{line.assemblySummary && <small>{line.assemblySummary}</small>}</div>
           <label>Cantidad<input type="number" min="1" max="1000" step="1" value={line.quantity} onChange={(event) => patch(line.id, { quantity: event.target.value })} /></label>
           <label>Precio unitario<input type="number" min="0" step="0.01" value={line.price} onChange={(event) => patch(line.id, { price: event.target.value })} /></label>
           <button type="button" className="local-sale-remove" aria-label={`Quitar ${line.name}`} disabled={lines.length === 1} onClick={() => setLines((current) => current.filter((item) => item.id !== line.id))}><Trash size={18} /></button>

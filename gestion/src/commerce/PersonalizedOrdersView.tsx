@@ -1,3 +1,4 @@
+import { RecoveredDesignViews } from "../localDesignPreviews";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus } from '@phosphor-icons/react';
@@ -137,13 +138,81 @@ function SpecCard({ title, children, personalized }: { title: string; children: 
   );
 }
 
+function useMatePreviewWithoutFrame(source: string | undefined, enabled: boolean) {
+  const [preview, setPreview] = useState('');
+
+  useEffect(() => {
+    if (!source || !enabled) return;
+    setPreview('');
+    let cancelled = false;
+    let objectUrl = '';
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        if (!context) throw new Error('Canvas no disponible');
+        context.drawImage(image, 0, 0);
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+        const data = pixels.data;
+        const isOldFrame = (index: number) => Math.abs(data[index] - 251) <= 3
+          && Math.abs(data[index + 1] - 243) <= 3
+          && Math.abs(data[index + 2] - 222) <= 3;
+        if (!isOldFrame(0)) { if (!cancelled) setPreview(source); return; }
+
+        // Las vistas anteriores llevan el amarillo dentro del PNG. Extendemos
+        // el gris de la foto sin alterar el archivo original ni su descarga.
+        let gray = [222, 222, 222];
+        const sampleY = Math.floor(canvas.height * .15);
+        for (let x = Math.floor(canvas.width * .1); x < canvas.width * .5; x++) {
+          const index = (sampleY * canvas.width + x) * 4;
+          if (!isOldFrame(index) && Math.abs(data[index] - data[index + 1]) < 12
+            && Math.abs(data[index + 1] - data[index + 2]) < 12 && data[index] >= 150) {
+            gray = [data[index], data[index + 1], data[index + 2]];
+            break;
+          }
+        }
+        for (let index = 0; index < data.length; index += 4) {
+          if (!isOldFrame(index)) continue;
+          data[index] = gray[0];
+          data[index + 1] = gray[1];
+          data[index + 2] = gray[2];
+        }
+        context.putImageData(pixels, 0, 0);
+        canvas.toBlob((blob) => {
+          if (!blob || cancelled) return;
+          objectUrl = URL.createObjectURL(blob);
+          setPreview(objectUrl);
+        }, 'image/png');
+      } catch {
+        if (!cancelled) setPreview(source);
+      }
+    };
+    image.onerror = () => { if (!cancelled) setPreview(source); };
+    image.src = source;
+    return () => {
+      cancelled = true;
+      image.onload = null;
+      image.onerror = null;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [source, enabled]);
+
+  return enabled ? preview : source;
+}
+
 function AssetCard({ asset, link }: { asset: PrivateAsset; link?: AssetLink }) {
   const isImage = asset.mimeType.startsWith('image/');
+  const isMatePreview = asset.kind === 'preview' && asset.role === 'mate';
+  const imageUrl = useMatePreviewWithoutFrame(link?.viewUrl, isMatePreview);
   return (
-    <article className="customer-asset">
-      <div className="asset-preview">
-        {isImage && link?.viewUrl
-          ? <img src={link.viewUrl} alt={`Referencia de personalización: ${asset.name}`} loading="lazy" />
+    <article className="customer-asset" data-preview-role={asset.role}>
+      <div className={`asset-preview${isMatePreview ? ' asset-preview--mate' : ''}`}>
+        {isImage && imageUrl
+          ? <img src={imageUrl} alt={`Referencia de personalización: ${asset.name}`} loading="lazy" />
           : <div className="asset-placeholder">{isImage ? 'Cargando imagen…' : 'Archivo adjunto'}</div>}
       </div>
       <div className="asset-caption">
@@ -194,7 +263,7 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
   const selectedItems = useMemo(() => selected ? getPersonalizedItems(selected) : [], [selected]);
   const itemSummaries = useMemo(() => selectedItems.map((item) => ({ item, summary: summarizePersonalization(item) })), [selectedItems]);
   const files = useMemo(() => [...new Map(itemSummaries.flatMap(({ summary }) => summary.files).map((asset) => [asset.key, asset])).values()], [itemSummaries]);
-  const previewCount = itemSummaries.reduce((total, { summary }) => total + summary.previews.length, 0);
+  const previewCount = itemSummaries.reduce((total, { item, summary }) => { const c = asRecord(asRecord(item.immutable_snapshot).configuration); const caps = asRecord(c.capabilities); return total + (summary.previews.length || (c.rim ? (caps.hasRim === false ? 0 : 1) + (caps.hasFleje ? 2 : 0) : 0)); }, 0);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -321,7 +390,6 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
                       </tr>)}</tbody>
                     </table>
                     {price.notice && <p className="personalized-price-notice">{price.notice}</p>}
-                    <div className="personalized-price-item-total"><span>Total de este artículo</span><strong>{money(price.totalMinor)}</strong></div>
                   </section>;
                 })}
                 {selectedTotals && <div className="personalized-order-totals" aria-label="Totales del pedido">
@@ -349,8 +417,8 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
                 <section className="design-artifact-group" aria-label={`Archivos de ${itemTitle(item)}`}>
                   <div className="artifact-subheading"><strong>Vistas del diseño</strong></div>
                   {summary.previews.length
-                    ? <div className="customer-assets">{summary.previews.map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}</div>
-                    : <div className="empty-files">Vista final no disponible. Revisá las indicaciones escritas de la personalización.</div>}
+                    ? <div className={asRecord(item.immutable_snapshot).source === "local" ? "local-production-views" : "customer-assets"}>{summary.previews.map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}</div>
+                    : asRecord(item.immutable_snapshot).configuration ? <RecoveredDesignViews snapshot={item.immutable_snapshot} /> : <div className="empty-files">Vista final no disponible. Revisá las indicaciones escritas de la personalización.</div>}
                   <div className="artifact-subheading originals"><strong>Originales subidos por el cliente</strong><small>{summary.uploads.length ? `${summary.uploads.length} ${summary.uploads.length === 1 ? 'archivo' : 'archivos'}` : 'Sin archivos externos'}</small></div>
                   {summary.uploads.length
                     ? <div className="customer-assets customer-assets--uploads">{summary.uploads.map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}</div>

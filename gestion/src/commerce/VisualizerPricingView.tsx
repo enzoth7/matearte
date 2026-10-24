@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle, FloppyDisk, MagnifyingGlass, SlidersHorizontal, WarningCircle, X } from '@phosphor-icons/react';
+import { CaretDown, CheckCircle, FloppyDisk, MagnifyingGlass, SlidersHorizontal, WarningCircle, X } from '@phosphor-icons/react';
 import {
   editablePricingValues,
   groupVisualizerPricingDefinitions,
@@ -62,6 +62,7 @@ export function VisualizerPricingView() {
   const [state, setState] = useState<VisualizerPricingState | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [query, setQuery] = useState('');
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -123,6 +124,11 @@ export function VisualizerPricingView() {
     setConfirmPublish(false);
   };
 
+  const changeQuery = (next: string) => {
+    setQuery(next);
+    setExpandedGroups({});
+  };
+
   const save = async () => {
     if (!state || busy || draftIssues.length) return;
     setBusy(true);
@@ -173,15 +179,23 @@ export function VisualizerPricingView() {
 
     <div className="visualizer-pricing__catalog-header">
       <h3>Todos los parámetros</h3>
-      <label className="visualizer-pricing__search"><MagnifyingGlass size={19} aria-hidden="true" /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar un precio…" aria-label="Buscar precios del Visualizador" />{query && <button type="button" onClick={() => setQuery('')} aria-label="Limpiar búsqueda"><X size={17} /></button>}</label>
+      <label className="visualizer-pricing__search"><MagnifyingGlass size={19} aria-hidden="true" /><input type="search" value={query} onChange={(event) => changeQuery(event.target.value)} placeholder="Buscar un precio…" aria-label="Buscar precios del Visualizador" />{query && <button type="button" onClick={() => changeQuery('')} aria-label="Limpiar búsqueda"><X size={17} /></button>}</label>
     </div>
 
     {visibleGroups.length ? <div className="visualizer-pricing__groups">
-      {visibleGroups.map((group) => <section className="visualizer-pricing__group" key={group.id} aria-labelledby={`visualizer-group-${group.id}`}>
-        <header><h4 id={`visualizer-group-${group.id}`}>{group.title}</h4><small className="visualizer-pricing__count">{group.definitions.length} {group.definitions.length === 1 ? 'regla' : 'reglas'}</small></header>
-        <div className="visualizer-pricing__fields">{group.definitions.map((definition) => <PriceField key={definition.rule_key} definition={definition} value={values[definition.rule_key] ?? ''} published={state.published.values[definition.rule_key]} onChange={(value) => changeValue(definition.rule_key, value)} />)}</div>
-      </section>)}
-    </div> : <div className="visualizer-pricing__no-results">No encontramos precios para “{query}”. <button type="button" onClick={() => setQuery('')}>Ver todos</button></div>}
+      {visibleGroups.map((group) => {
+        const expanded = expandedGroups[group.id] ?? Boolean(normalizedQuery);
+        const headingId = `visualizer-group-${group.id}`;
+        const fieldsId = `visualizer-group-fields-${group.id}`;
+        return <section className="visualizer-pricing__group" key={group.id} aria-labelledby={headingId}>
+          <h4 id={headingId}><button type="button" className="visualizer-pricing__group-toggle" aria-expanded={expanded} aria-controls={fieldsId} onClick={() => setExpandedGroups((current) => ({ ...current, [group.id]: !(current[group.id] ?? Boolean(normalizedQuery)) }))}>
+            <strong className="visualizer-pricing__group-title">{group.title}</strong>
+            <div className="visualizer-pricing__group-meta"><small className="visualizer-pricing__count">{group.definitions.length} {group.definitions.length === 1 ? 'regla' : 'reglas'}</small><CaretDown size={19} aria-hidden="true" /></div>
+          </button></h4>
+          <div className="visualizer-pricing__fields" id={fieldsId} hidden={!expanded}>{group.definitions.map((definition) => <PriceField key={definition.rule_key} definition={definition} value={values[definition.rule_key] ?? ''} published={state.published.values[definition.rule_key]} onChange={(value) => changeValue(definition.rule_key, value)} />)}</div>
+        </section>;
+      })}
+    </div> : <div className="visualizer-pricing__no-results">No encontramos precios para “{query}”. <button type="button" onClick={() => changeQuery('')}>Ver todos</button></div>}
 
     {confirmPublish && <div className="visualizer-pricing__confirm" role="dialog" aria-modal="true" aria-labelledby="visualizer-publish-title">
       <div><h3 id="visualizer-publish-title">Publicar precios</h3><div>Se publicarán {publishedChangeCount} cambios. El Visualizador y el checkout usarán estos valores para nuevas compras.</div><div><button type="button" className="secondary" disabled={busy} onClick={() => setConfirmPublish(false)}>Cancelar</button><button type="button" className="primary" disabled={busy} onClick={() => void publish()}>{busy ? 'Publicando…' : 'Confirmar publicación'}</button></div></div>

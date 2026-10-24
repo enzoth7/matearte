@@ -22,6 +22,7 @@ import {
   catalogCategoryIds,
   catalogColorIds,
   catalogMaterialIds,
+  catalogMaterialCodesForCategory,
   catalogPurchaseAxes,
   catalogProductTypeIds,
   catalogValueLabel,
@@ -511,7 +512,6 @@ export const catalogColorLabels: Record<string, string> = {
   metalico: 'Metálico',
 };
 
-const footwearOnlyMaterialCodes = new Set(['gamuza', 'charol']);
 const footwearCategoryCodes = new Set(['botas', 'zuecos', 'zapatos']);
 
 function TaxonomyValueField({ definition, taxonomy, value, required, onChange, compact = false, allowedOptionCodes }:{ definition:CatalogAttributeDefinition;taxonomy:CatalogTaxonomy;value:CatalogValue|undefined;required:boolean;onChange:(value:CatalogValue|undefined)=>void;compact?:boolean;allowedOptionCodes?:string[] }) {
@@ -535,7 +535,7 @@ export function DynamicAttributeFields({taxonomy,category,scope,values,onChange,
       return <fieldset className="material-field" key="material">
         <legend>Materiales</legend>
         <div className="material-options">{taxonomyOptionsFor(taxonomy,'material')
-          .filter(option=>catalogMaterialIds.includes(option.code as CatalogMaterialId) && (!footwearOnlyMaterialCodes.has(option.code) || footwearCategoryCodes.has(canonicalCategoryCode(category))))
+          .filter(option=>catalogMaterialIds.includes(option.code as CatalogMaterialId) && catalogMaterialCodesForCategory(category).includes(option.code))
           .map(option=><label key={option.code} className="material-option">
             <input type="checkbox" checked={materials.includes(option.code as CatalogMaterialId)} onChange={event=>onMaterialsChange(event.target.checked?[...materials,option.code as CatalogMaterialId]:materials.filter(item=>item!==option.code))}/>
             {option.label_es}
@@ -578,7 +578,7 @@ export function DynamicAttributeFields({taxonomy,category,scope,values,onChange,
         <small className="field-help">Elegí uno o varios números para este producto.</small>
       </fieldset>;
     }
-    return <TaxonomyValueField key={definition.code} definition={definition} taxonomy={taxonomy} value={values[definition.code]} required={rule.required} allowedOptionCodes={definition.code==='interior'?mateInteriorChoices(category,values,productName):definition.code==='material' && !footwearCategoryCodes.has(canonicalCategoryCode(category))?taxonomyOptionsFor(taxonomy,'material').filter(option=>!footwearOnlyMaterialCodes.has(option.code)).map(option=>option.code):undefined} onChange={value=>{
+    return <TaxonomyValueField key={definition.code} definition={definition} taxonomy={taxonomy} value={values[definition.code]} required={rule.required} allowedOptionCodes={definition.code==='interior'?mateInteriorChoices(category,values,productName):definition.code==='material'? [...catalogMaterialCodesForCategory(category)] :undefined} onChange={value=>{
       const next={...values};
       if(value===undefined) delete next[definition.code];
       else next[definition.code]=value;
@@ -1664,6 +1664,7 @@ export function CatalogList({onNotice,onEdit}:{onNotice:(v:string)=>void;onEdit?
 export const CARRIER_OPTIONS = [
   { value: 'DAC', label: 'DAC', group: 'national' },
   { value: 'Correo Uruguayo', label: 'Correo Uruguayo', group: 'national' },
+  { value: 'Copay', label: 'Copay', group: 'national' },
   { value: 'Mirtrans', label: 'Mirtrans', group: 'national' },
   { value: 'DePunta', label: 'DePunta', group: 'national' },
   { value: 'DHL Express', label: 'DHL Express', group: 'international' },
@@ -1897,30 +1898,31 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer}:{session:Se
           return false;
         }
 
-        const isNewShipment = order.status !== 'shipped';
-        const shippedAt = order.status === 'shipped' && order.shipped_at ? order.shipped_at : new Date().toISOString();
-
-        const { error } = await supabase
-          .from('orders')
-          .update({
-            status: 'shipped',
-            shipping_carrier: carrier,
-            tracking_code: tracking,
-            shipped_at: shippedAt,
-          })
-          .eq('id', order.id).select('id').single();
-
-        if (error) {
-          setShipmentError(`No se pudo actualizar el envío: ${error.message}`);
-          return false;
+        const isWholesaleBankTransfer = textValue(order.customer_snapshot.purchaseFlow) === 'wholesale_bank_transfer';
+        if (isWholesaleBankTransfer) {
+          const shippedAt = order.status === 'shipped' && order.shipped_at ? order.shipped_at : new Date().toISOString();
+          const { error } = await supabase
+            .from('orders')
+            .update({ status: 'shipped', shipping_carrier: carrier, tracking_code: tracking, shipped_at: shippedAt })
+            .eq('id', order.id).select('id').single();
+          if (error) {
+            setShipmentError(`No se pudo actualizar el envío: ${error.message}`);
+            return false;
+          }
+        } else {
+          const response = await fetch(`${getStoreApiUrl()}/api/admin/orders/${order.id}/fulfillment`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify({ action: 'ship', shippingCarrier: carrier, trackingCode: tracking }),
+          });
+          const value = await response.json();
+          if (!response.ok) {
+            setShipmentError(value.error || 'No se pudo actualizar el envío.');
+            return false;
+          }
         }
 
-        if (isNewShipment && textValue(order.customer_snapshot.purchaseFlow) !== 'wholesale_bank_transfer') {
-          const email = await supabase.functions.invoke('commerce-email', { body: { orderId: order.id } });
-          if (email.error) { onNotice('Envío guardado. No se pudo confirmar el correo al cliente.'); await load(); return true; }
-        }
-
-        onNotice(order.status === 'shipped' ? 'Datos de envío actualizados.' : 'Pedido marcado como enviado.');
+        onNotice(order.status === 'shipped' ? 'Datos de envío actualizados.' : isWholesaleBankTransfer ? 'Pedido marcado como enviado.' : 'Pedido marcado como enviado. Aviso por correo en proceso.');
         await load();
         return true;
       }

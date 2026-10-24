@@ -1,7 +1,9 @@
+import { personalizationAssetsPlugin } from "./personalizationAssetsPlugin";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), personalizationAssetsPlugin()],
+  resolve: { dedupe: ["react", "react-dom"] },
   server: {
     proxy: {
       '/commerce-api/api/admin/orders/': {

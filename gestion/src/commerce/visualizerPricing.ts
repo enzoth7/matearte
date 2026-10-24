@@ -51,6 +51,9 @@ export function groupVisualizerPricingDefinitions(definitions: PricingRuleDefini
   for (const family of families) {
     add(family.id, family.title, 'Precio base y adicionales propios de este modelo.', 'modelos', take((definition) => definition.family_id === family.id));
   }
+  for (const [code, title] of Object.entries({ "tipo-cuero": "Cueros del armado", "tipo-virola": "Virolas del armado", pie: "Pies", posamate: "Posamate", interior: "Interiores", tamano: "Tamaños", "diseno-fleje": "Diseños del fleje" })) {
+    add(`assembly-${code}`, title, "Adicional por pieza del mate personalizado. Cero significa incluido en la base.", 'materiales', take(definition => definition.rule_key.startsWith(`assembly:${code}:`)));
+  }
   for (const familyId of [...new Set(remaining.map((definition) => definition.family_id).filter((id): id is string => Boolean(id)))]) {
     add(`modelo-${familyId}`, familyId, 'Reglas de este modelo.', 'modelos', take((definition) => definition.family_id === familyId));
   }
@@ -99,7 +102,7 @@ export function parsePricingState(value: unknown): VisualizerPricingState {
   const record = value as Record<string, unknown>;
   if (!Array.isArray(record.definitions)) throw new Error('No se encontraron las reglas de precios del Visualizador.');
   return {
-    definitions: (record.definitions as PricingRuleDefinition[]).filter((definition) => definition.active !== false),
+    definitions: (record.definitions as PricingRuleDefinition[]).filter((definition) => definition.active !== false && !definition.rule_key.startsWith('assembly:color:')),
     draft: parseVersion(record.draft),
     published: parseVersion(record.published),
   };

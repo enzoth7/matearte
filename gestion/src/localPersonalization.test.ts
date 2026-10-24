@@ -9,6 +9,15 @@ const product = (changes: Partial<Product> = {}): Product => ({
 });
 
 describe("personalización de ventas locales", () => {
+  it("conserva el ícono y la ubicación del diseño sin exigir un archivo adicional", () => {
+    const draft = createPersonalizationDraft("mate");
+    draft.rimContent = "logo";
+    draft.rimIconId = "corazon";
+    draft.designTransforms = { "rim-icon": { x: .6, y: .2, scale: .8, rotation: 25, side: "rim" } };
+    expect(validatePersonalization(draft, product())).toBe("");
+    const snapshot = buildLocalPersonalizationSnapshot(draft, product()) as any;
+    expect(snapshot.configuration.rim.icons[0]).toMatchObject({ selectedImageId: "corazon", transform: draft.designTransforms["rim-icon"] });
+  });
   it("distingue mates, materas y bombillas personalizadas", () => {
     expect(personalizationKind(product())).toBe("mate");
     expect(personalizationKind(product({ name: "Matera personalizada", categoryCode: "materas-personalizadas" }))).toBe("matera");
