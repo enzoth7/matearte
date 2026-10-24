@@ -136,8 +136,7 @@ export function buildCommerceEmail(
   gestionOrdersUrl = "https://matearte-gestion.vercel.app/comercial/pedidos",
 ) {
   const orderUrl = `${normalizedSiteUrl(siteUrl)}/pedidos/${order.id}${orderAccessToken ? `#access=${encodeURIComponent(orderAccessToken)}` : ""}`;
-  const adminUrl = new URL(safeHttpUrl(gestionOrdersUrl) || "https://matearte-gestion.vercel.app/comercial/pedidos");
-  adminUrl.searchParams.set("pedido", order.id);
+  const adminUrl = safeHttpUrl(gestionOrdersUrl) || "https://matearte-gestion.vercel.app/comercial/pedidos";
   const name = customerName(order);
   const greetingName = escapeHtml(name || "cliente");
   const trackingCode = String(job.payload?.trackingCode || "—").trim();
@@ -184,7 +183,7 @@ export function buildCommerceEmail(
       return {
         subject: `Pago confirmado · Pedido #${order.order_number}`,
         html: layout(
-          `${heading("Pago confirmado")}${copy(`Hola ${greetingName}! El pago del pedido fue aprobado y comenzaremos a prepararlo.`)}${orderRow}${products}${totalRow}${button("Gestionar pedido", adminUrl.toString())}`,
+          `${heading("Pago confirmado")}${copy(`Hola ${greetingName}! El pago del pedido fue aprobado y comenzaremos a prepararlo.`)}${orderRow}${products}${totalRow}${button("Gestionar pedido", adminUrl)}`,
           siteUrl,
         ),
       };

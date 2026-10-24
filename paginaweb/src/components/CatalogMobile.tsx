@@ -88,7 +88,6 @@ function CatalogMobileCard({
               className={emphasizeProductImage ? "catalog-mobile-product-image-estribo" : undefined}
               style={coverStyle}
               priority={index < 2}
-              unoptimized={!isEditorialFallback && (variantImage ?? defaultImage)?.source === "supabase"}
             />
           ) : null}
         </div>
