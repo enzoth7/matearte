@@ -1,5 +1,5 @@
 import { apiError, apiOk, readJson } from "@/lib/api";
-import { personalizerUrl, isAllowedPersonalizerOrigin, siteUrl, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
+import { isAllowedPersonalizerOrigin, siteUrl, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 import { createTokenSupabase } from "@/lib/supabase/server";
 
 const allowedTargets = new Set(["/", "/carrito", "/checkout", "/pedidos", "/perfil"]);
@@ -58,6 +58,3 @@ export async function POST(request: Request) {
 }
 
 export const dynamic = "force-dynamic";
-
-// Exported for UI links and tests; this value is never treated as an allowed request origin.
-export const loginUrl = `${personalizerUrl()}/?auth=login&next=profile`;

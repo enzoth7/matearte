@@ -35,14 +35,9 @@ function featureRank(code: string) {
   return index === -1 ? featureOrder.length : index;
 }
 
-/** Los textos generados son solo información: se quita la calificación comercial de las etiquetas. */
-function plainValue(value: string) {
-  return value.replace(/\bpremium\b/gi, "").replace(/\s{2,}/g, " ").trim();
-}
-
 function featureText(detail: CatalogAttributeDetail, locale: Locale, category: string) {
   if (skippedCodes.has(detail.code) || detail.rawValue === "todos") return null;
-  const value = detail.values.map(item => plainValue(specValue(item, locale))).filter(Boolean).join(", ");
+  const value = detail.values.map(item => specValue(item, locale)).filter(Boolean).join(", ");
   if (!value) return null;
   return `${specLabel(detail.code, detail.label, locale, category)}: ${value}`;
 }
@@ -59,7 +54,7 @@ export function buildProductDescription(input: ProductDescriptionInput, locale: 
     .sort((left, right) => featureRank(left.detail.code) - featureRank(right.detail.code) || left.index - right.index)
     .map(({ detail }) => featureText(detail, locale, input.category))
     .filter((item): item is string => Boolean(item));
-  const colors = input.colors.map(color => specValue(plainValue(color), locale)).filter(Boolean);
+  const colors = input.colors.map(color => specValue(color, locale)).filter(Boolean);
 
   const description = [
     `${input.name.trim()}.`,

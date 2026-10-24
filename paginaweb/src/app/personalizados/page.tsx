@@ -3,6 +3,7 @@ import Image from "next/image";
 import { getLocale, getTranslations } from "next-intl/server";
 import { JsonLd } from "@/components/JsonLd";
 import { localizedPageMetadata } from "@/i18n/metadata";
+import { Link } from "@/i18n/navigation";
 import { buildPageStructuredData } from "@/lib/seo";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -10,10 +11,10 @@ export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("customPage");
   return localizedPageMetadata(locale, "/personalizados", t("metadataTitle"), t("metadataDescription"), {
     image: {
-      url: "/assets/matearte/og/matearte-personalizados.jpg",
+      url: "/assets/matearte/og/matearte-personalizados-v2.jpg",
       width: 1200,
       height: 630,
-      alt: locale === "en" ? "Customize a mate online with MateArte" : locale === "pt" ? "Personalize sua cuia online com a MateArte" : "Personalizá tu mate online con MateArte",
+      alt: t("heroAlt"),
     },
   });
 }
@@ -153,6 +154,21 @@ export default async function PersonalizadosPage() {
           </div>
         </section>
       </div>
+
+      <section className="personalizados-steps" aria-labelledby="personalizados-steps-title">
+        <div className="personalizados-steps-inner">
+          <h2 id="personalizados-steps-title">{t("stepsTitle")}</h2>
+          <ol>
+            <li><h3>{t("stepOneTitle")}</h3><p>{t("stepOneBody")}</p></li>
+            <li><h3>{t("stepTwoTitle")}</h3><p>{t("stepTwoBody")}</p></li>
+            <li><h3>{t("stepThreeTitle")}</h3><p>{t("stepThreeBody")}</p></li>
+          </ol>
+          <div className="personalizados-steps-actions">
+            <a className="personalizados-steps-primary" href={personalizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
+            <Link className="personalizados-steps-secondary" href="/preguntas-frecuentes">{t("faqAction")}</Link>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }

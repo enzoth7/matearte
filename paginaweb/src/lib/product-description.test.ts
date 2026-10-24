@@ -60,13 +60,12 @@ describe("texto de respaldo para productos sin descripción en Gestión", () => 
     expect(description).toContain("Colors: Brown.");
   });
 
-  it("no incluye calificativos comerciales en los valores generados", () => {
+  it("mantiene Premium en los valores generados", () => {
     const { description } = buildProductDescription({
       ...mate,
       details: [detail("tipo-virola", "Tipo de virola", ["Alpaca grande cincelada Premium"])],
     }, "es");
-    expect(description).toContain("Tipo de virola: Alpaca grande cincelada.");
-    expect(description.toLowerCase()).not.toContain("premium");
+    expect(description).toContain("Tipo de virola: Alpaca grande cincelada Premium.");
   });
 
   it("los artículos de reventa no figuran como producción propia en los datos estructurados", () => {

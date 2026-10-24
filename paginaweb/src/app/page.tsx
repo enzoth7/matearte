@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
@@ -6,9 +7,35 @@ import { HomeFeaturedProducts } from "@/components/home/HomeFeaturedProducts";
 import { StorefrontAnnouncement } from "@/components/StorefrontAnnouncement";
 import { JsonLd } from "@/components/JsonLd";
 import { Link } from "@/i18n/navigation";
+import { localizedOpenGraph } from "@/i18n/metadata";
 import { buildSiteStructuredData } from "@/lib/seo";
 
 const assets = "/assets/matearte/home-v2";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  const t = await getTranslations("metadata");
+  const image = {
+    url: "/assets/matearte/og/matearte-portada-og.jpg",
+    width: 1200,
+    height: 630,
+    alt: locale === "en"
+      ? "MateArte's selection of handcrafted Uruguayan mate gourds"
+      : locale === "pt"
+        ? "Seleção de cuias artesanais uruguaias da MateArte"
+        : "Selección de mates artesanales uruguayos de MateArte",
+  };
+
+  return {
+    openGraph: localizedOpenGraph(locale, "/", t("title"), t("openGraphDescription"), image),
+    twitter: {
+      card: "summary_large_image",
+      title: t("title"),
+      description: t("twitterDescription"),
+      images: [image],
+    },
+  };
+}
 
 const categories = [
   { name: "categoryMates", copy: "categoryMatesCopy", image: "category-mates.png", category: "mates" },

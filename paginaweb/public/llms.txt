@@ -48,4 +48,4 @@ Cada producto tiene su página en https://www.matearteuruguay.com/producto/<nomb
 - Correo: matearte.ventas@gmail.com
 - Instagram: https://www.instagram.com/matearteuruguay/
 
-Los pedidos internacionales y sus envíos se coordinan directamente con MateArte. Las páginas legales y de condiciones de compra no se indexan hasta que su contenido esté aprobado.
+Los pedidos internacionales y sus envíos se coordinan directamente con MateArte. Las páginas de condiciones de compra, envíos, términos y privacidad son públicas e indexables.
