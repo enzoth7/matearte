@@ -50,7 +50,15 @@ const datasets = {
 
 const datasetNames = Object.keys(datasets) as [keyof typeof datasets, ...(keyof typeof datasets)[]];
 const readOnly = { readOnlyHint: true, openWorldHint: false, destructiveHint: false };
-const result = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value) }] });
+type ResultContent = { type: "text"; text: string } | { type: "image"; mimeType: string; data: string };
+const result = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value) }] as ResultContent[] });
+const imageUrl = (supabase: { storage: { from: (bucket: string) => { getPublicUrl: (path: string) => { data: { publicUrl: string } } } } }, path: string) =>
+  supabase.storage.from("product-images").getPublicUrl(path).data.publicUrl;
+function encodeImage(bytes: Uint8Array) {
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 32_768) binary += String.fromCharCode(...bytes.subarray(offset, offset + 32_768));
+  return btoa(binary);
+}
 type CatalogImage = { product_id: string; variant_id: string | null; storage_path: string; sort_order: number; option_values: { color?: string } | null };
 type CatalogRecord = { id: string; product_id?: string; color?: string | null; option_values?: { color?: string } | null; storage_path?: string };
 const catalogColor = (value: unknown) => typeof value === "string" ? value.trim().toLocaleLowerCase("es") : "";
@@ -97,7 +105,7 @@ Deno.serve(pipeline(
 
       server.registerTool("consultar_registros", {
         title: "Consultar registros de Gestión",
-        description: "Lee una página de una fuente permitida. Permite buscar por nombre o código, filtrar por fecha o buscar un identificador exacto. En catálogo y variantes incluye imagen_principal_url de la foto actual de Gestión; usá esa URL al mostrar una foto. Los importes con sufijo _minor están en centésimos. No modifica datos.",
+        description: "Lee una página de una fuente permitida. Permite buscar por nombre o código, filtrar por fecha o buscar un identificador exacto. En catálogo y variantes incluye la foto oficial de Gestión en image_url/images y, para un único resultado, como imagen adjunta. Mostrá solo esa foto; si no hay imagen oficial, no sustituyas por otra. Los importes con sufijo _minor están en centésimos. No modifica datos.",
         inputSchema: z.object({
           fuente: z.enum(datasetNames),
           id: z.string().min(1).max(120).optional(),
@@ -131,8 +139,9 @@ Deno.serve(pipeline(
         const { data, count, error } = await query.order(dataset.order, { ascending: false }).range(start, start + limite - 1);
         if (error) return result({ fuente, error: "No se pudo leer esta fuente con los permisos de la cuenta." });
         let registros = (data ?? []) as unknown as CatalogRecord[];
+        let selectedImagePath: string | undefined;
         if (fuente === "imagenes_catalogo") {
-          registros = registros.map((image) => ({ ...image, imagen_url: supabase.storage.from("product-images").getPublicUrl(image.storage_path!).data.publicUrl }));
+          registros = registros.map((image) => ({ ...image, image_url: imageUrl(supabase, image.storage_path!) }));
         }
         if ((fuente === "catalogo" || fuente === "variantes") && registros.length) {
           const productIds = [...new Set(registros.map((row) => fuente === "catalogo" ? row.id : row.product_id).filter((value): value is string => Boolean(value)))];
@@ -143,11 +152,25 @@ Deno.serve(pipeline(
             for (const image of (images ?? []) as unknown as CatalogImage[]) byProduct.set(image.product_id, [...(byProduct.get(image.product_id) ?? []), image]);
             registros = registros.map((row) => {
               const cover = catalogCover(byProduct.get(fuente === "catalogo" ? row.id : row.product_id!) ?? [], fuente === "variantes" ? row : undefined);
-              return { ...row, imagen_principal_url: cover ? supabase.storage.from("product-images").getPublicUrl(cover.storage_path).data.publicUrl : null };
+              if (registros.length === 1) selectedImagePath = cover?.storage_path;
+              const url = cover ? imageUrl(supabase, cover.storage_path) : null;
+              return { ...row, imagen_principal_url: url, image_url: url, images: url ? [url] : [] };
             });
           }
         }
-        return result({ fuente, pagina, limite, total: count ?? 0, siguiente_pagina: count != null && start + registros.length < count ? pagina + 1 : null, registros });
+        const response = result({ fuente, pagina, limite, total: count ?? 0, siguiente_pagina: count != null && start + registros.length < count ? pagina + 1 : null, registros });
+        if (selectedImagePath && (id || buscar)) {
+          try {
+            const photo = await fetch(imageUrl(supabase, selectedImagePath), { signal: AbortSignal.timeout(5_000) });
+            if (photo.ok && /^image\/(png|jpeg|webp)$/.test(photo.headers.get("content-type") || "") && Number(photo.headers.get("content-length") || 0) <= 3_000_000) {
+              const bytes = new Uint8Array(await photo.arrayBuffer());
+              if (bytes.length <= 3_000_000) response.content.push({ type: "image", mimeType: photo.headers.get("content-type")!, data: encodeImage(bytes) });
+            }
+          } catch {
+            // The verified URL remains in the text result if the image download fails.
+          }
+        }
+        return response;
       });
 
       server.registerTool("consultar_clientes_web", {
