@@ -6,6 +6,8 @@ El servidor MCP de Gestión está en `supabase/functions/gestion-mcp/`. Su URL e
 
 Ofrece herramientas para identificar la cuenta, enumerar fuentes y consultar registros comerciales, clientes, productos, producción, entregas, finanzas y Marketing. Las listas tienen paginación y límites. Los importes cuyo nombre termina en `_minor` están en centésimos. Las páginas de Gestión que todavía no tienen una fuente conectada tampoco tienen datos reales para consultar en el MCP.
 
+Las consultas de catálogo y variantes devuelven `imagen_principal_url` con la foto pública actual de Gestión, seleccionada por variante y color; `imagenes_catalogo` devuelve `imagen_url`. ChatGPT debe usar esas URLs al mostrar fotos de productos. Este ajuste se publicó en la versión 4 de `gestion-mcp` el 24/10/2026.
+
 **Estado (24/10/2026):** la función está publicada en Supabase. Responde `401` sin sesión y anuncia correctamente sus metadatos OAuth. La pantalla de consentimiento está publicada en `https://matearte-gestion.vercel.app/oauth/consent`. Supabase dirige la autorización a `https://www.matearteuruguay.com/oauth/consent`; esa ruta redirige a Gestión conservando `authorization_id`. Se registró un cliente OAuth público y se creó el complemento en la cuenta Free de Enzo Gaston. Una publicación posterior de Gestión había omitido la pantalla de consentimiento; se reincorporó a producción. Supabase Auth también requería incluir el origen de Gestión en **Redirect URLs** para aceptar el consentimiento. Tras ese ajuste, el usuario confirmó que la conexión funciona en ChatGPT Free. Falta configurar y probar la cuenta de ChatGPT de Richard.
 
 ## Acceso y alcance

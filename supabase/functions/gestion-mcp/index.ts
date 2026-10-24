@@ -51,6 +51,18 @@ const datasets = {
 const datasetNames = Object.keys(datasets) as [keyof typeof datasets, ...(keyof typeof datasets)[]];
 const readOnly = { readOnlyHint: true, openWorldHint: false, destructiveHint: false };
 const result = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value) }] });
+type CatalogImage = { product_id: string; variant_id: string | null; storage_path: string; sort_order: number; option_values: { color?: string } | null };
+type CatalogRecord = { id: string; product_id?: string; color?: string | null; option_values?: { color?: string } | null; storage_path?: string };
+const catalogColor = (value: unknown) => typeof value === "string" ? value.trim().toLocaleLowerCase("es") : "";
+
+function catalogCover(images: CatalogImage[], variant?: CatalogRecord) {
+  const ordered = [...images].sort((a, b) => a.sort_order - b.sort_order);
+  const color = catalogColor(variant?.option_values?.color || variant?.color);
+  return (variant && ordered.find((image) => image.variant_id === variant.id))
+    || (color && ordered.find((image) => !image.variant_id && catalogColor(image.option_values?.color) === color))
+    || ordered.find((image) => !image.variant_id && !catalogColor(image.option_values?.color))
+    || (!variant ? ordered[0] : undefined);
+}
 
 Deno.serve(pipeline(
   [withOAuthProtectedResource(), withSupabase({ auth: "user" })],
@@ -85,7 +97,7 @@ Deno.serve(pipeline(
 
       server.registerTool("consultar_registros", {
         title: "Consultar registros de Gestión",
-        description: "Lee una página de una fuente permitida. Permite buscar por nombre o código, filtrar por fecha o buscar un identificador exacto. Los importes con sufijo _minor están en centésimos. No modifica datos.",
+        description: "Lee una página de una fuente permitida. Permite buscar por nombre o código, filtrar por fecha o buscar un identificador exacto. En catálogo y variantes incluye imagen_principal_url de la foto actual de Gestión; usá esa URL al mostrar una foto. Los importes con sufijo _minor están en centésimos. No modifica datos.",
         inputSchema: z.object({
           fuente: z.enum(datasetNames),
           id: z.string().min(1).max(120).optional(),
@@ -118,7 +130,24 @@ Deno.serve(pipeline(
         const start = pagina * limite;
         const { data, count, error } = await query.order(dataset.order, { ascending: false }).range(start, start + limite - 1);
         if (error) return result({ fuente, error: "No se pudo leer esta fuente con los permisos de la cuenta." });
-        return result({ fuente, pagina, limite, total: count ?? 0, siguiente_pagina: count != null && start + (data?.length ?? 0) < count ? pagina + 1 : null, registros: data ?? [] });
+        let registros = (data ?? []) as unknown as CatalogRecord[];
+        if (fuente === "imagenes_catalogo") {
+          registros = registros.map((image) => ({ ...image, imagen_url: supabase.storage.from("product-images").getPublicUrl(image.storage_path!).data.publicUrl }));
+        }
+        if ((fuente === "catalogo" || fuente === "variantes") && registros.length) {
+          const productIds = [...new Set(registros.map((row) => fuente === "catalogo" ? row.id : row.product_id).filter((value): value is string => Boolean(value)))];
+          const { data: images, error: imageError } = await supabase.from("commerce_product_images")
+            .select("product_id,variant_id,storage_path,sort_order,option_values").in("product_id", productIds);
+          if (!imageError) {
+            const byProduct = new Map<string, CatalogImage[]>();
+            for (const image of (images ?? []) as unknown as CatalogImage[]) byProduct.set(image.product_id, [...(byProduct.get(image.product_id) ?? []), image]);
+            registros = registros.map((row) => {
+              const cover = catalogCover(byProduct.get(fuente === "catalogo" ? row.id : row.product_id!) ?? [], fuente === "variantes" ? row : undefined);
+              return { ...row, imagen_principal_url: cover ? supabase.storage.from("product-images").getPublicUrl(cover.storage_path).data.publicUrl : null };
+            });
+          }
+        }
+        return result({ fuente, pagina, limite, total: count ?? 0, siguiente_pagina: count != null && start + registros.length < count ? pagina + 1 : null, registros });
       });
 
       server.registerTool("consultar_clientes_web", {
