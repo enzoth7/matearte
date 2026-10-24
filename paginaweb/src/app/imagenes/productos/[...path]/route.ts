@@ -16,7 +16,8 @@ async function serveImage({ params }: ProductImageParams, method: "GET" | "HEAD"
   const upstreamUrl = `${supabaseUrl().replace(/\/$/, "")}/storage/v1/object/public/product-images/${encodedPath}`;
   let upstream: Response;
   try {
-    upstream = await fetch(upstreamUrl, { method, next: { revalidate: 3600 } });
+    // Product files can exceed Next's 2 MB data-cache limit; cache the public response at the CDN instead.
+    upstream = await fetch(upstreamUrl, { method, cache: "no-store" });
   } catch {
     return new Response(null, { status: 502 });
   }
