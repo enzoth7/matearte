@@ -206,7 +206,6 @@ function ExtrasEditor({ definitions, values, onChange }: {
 }) {
   const leathers = definitions.filter((definition) => definition.rule_key.startsWith("leather:"));
   const metals = definitions.filter((definition) => definition.rule_key.startsWith("metal:") && !definition.family_id);
-  const commission = definitions.filter((definition) => definition.rule_type === "commission");
 
   return (
     <section className="pricing-family-editor" aria-labelledby="pricing-extras">
@@ -223,7 +222,6 @@ function ExtrasEditor({ definitions, values, onChange }: {
             onChange={onChange}
           />
         ))}
-        <ExtrasTable title="Medio de pago" definitions={commission} values={values} onChange={onChange} />
       </div>
     </section>
   );

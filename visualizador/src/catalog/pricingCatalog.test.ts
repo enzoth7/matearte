@@ -31,7 +31,6 @@ const CURRENT_VALUES: Record<string, number> = {
   "customization:alpaca-applique:rim_image": 400,
   "customization:alpaca-applique:fleje_text": 150,
   "customization:alpaca-applique:fleje_image": 400,
-  "commission:mercado_pago": 12,
 };
 
 const catalog: PublishedPricingCatalog = {

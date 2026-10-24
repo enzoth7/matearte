@@ -85,7 +85,6 @@ export const LEATHER_RAW_POSA_MATE_RULE_KEY = "leather:raw-posa-mate";
 export const METAL_ALPACA_BRONZE_RULE_KEY = "metal:alpaca-bronce";
 export const METAL_ALPACA_GRANDE_RULE_KEY = "metal:alpaca-grande";
 export const SILVER_900_RULE_KEY = "metal:plata-900";
-export const COMMISSION_RULE_KEY = "commission:mercado_pago";
 
 const CUSTOMIZATION_RULES: ReadonlyArray<readonly [EngravingTypeId, EngravingCustomizationId]> = [
   ["laser", "rim_text"],
@@ -160,7 +159,6 @@ function collectCatalogRuleKeys() {
 export function getActivePricingRuleKeys() {
   const keys = collectCatalogRuleKeys();
   CUSTOMIZATION_RULES.forEach(([technique, id]) => keys.add(customizationRuleKey(technique, id)));
-  keys.add(COMMISSION_RULE_KEY);
   return [...keys];
 }
 
@@ -300,10 +298,6 @@ export function getTexturePricingRuleKeys(texture: DecisionTextureOption) {
 
 export function getCustomizationPrice(catalog: PublishedPricingCatalog | null, technique: EngravingTypeId | null, id: EngravingCustomizationId | string) {
   return technique ? readRule(catalog, customizationRuleKey(technique, id)) : null;
-}
-
-export function getMercadoPagoCommissionPercent(catalog: PublishedPricingCatalog | null) {
-  return readRule(catalog, COMMISSION_RULE_KEY);
 }
 
 export function formatUYU(value: number) {

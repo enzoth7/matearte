@@ -9,10 +9,9 @@ test('Configurador Visualizador configura y publica los precios del mismo Visual
       { rule_key: 'family:camionero', rule_type: 'family', label: 'Camionero', value_kind: 'uyu', family_id: 'camionero', texture_id: null, customization_id: null, required: true, active: true, sort_order: 1 },
       { rule_key: 'leather:raw', rule_type: 'texture', label: 'Cuero crudo', value_kind: 'uyu', family_id: null, texture_id: null, customization_id: null, required: true, active: true, sort_order: 2 },
       { rule_key: 'customization:laser:rim_text', rule_type: 'customization', label: 'Texto láser', value_kind: 'uyu', family_id: null, texture_id: null, customization_id: 'laser:rim_text', required: true, active: true, sort_order: 3 },
-      { rule_key: 'commission:mercado_pago', rule_type: 'commission', label: 'Mercado Pago', value_kind: 'percent', family_id: null, texture_id: null, customization_id: null, required: true, active: true, sort_order: 4 },
     ],
-    draft: { id: 'draft-1', version: 2, status: 'draft', updatedAt: '2026-10-20T10:00:00Z', publishedAt: null, values: { 'family:camionero': 1000, 'leather:raw': 100, 'customization:laser:rim_text': 300, 'commission:mercado_pago': 6 } },
-    published: { id: 'published-1', version: 1, status: 'published', updatedAt: '2026-10-19T10:00:00Z', publishedAt: '2026-10-19T10:00:00Z', values: { 'family:camionero': 1000, 'leather:raw': 100, 'customization:laser:rim_text': 300, 'commission:mercado_pago': 6 } },
+    draft: { id: 'draft-1', version: 2, status: 'draft', updatedAt: '2026-10-20T10:00:00Z', publishedAt: null, values: { 'family:camionero': 1000, 'leather:raw': 100, 'customization:laser:rim_text': 300 } },
+    published: { id: 'published-1', version: 1, status: 'published', updatedAt: '2026-10-19T10:00:00Z', publishedAt: '2026-10-19T10:00:00Z', values: { 'family:camionero': 1000, 'leather:raw': 100, 'customization:laser:rim_text': 300 } },
   };
   await page.route('**/rest/v1/rpc/*pricing*', async (route) => {
     const rpc = new URL(route.request().url()).pathname.split('/').at(-1)!;
@@ -43,7 +42,7 @@ test('Configurador Visualizador configura y publica los precios del mismo Visual
   await expect(page.locator('.visualizer-configurator span, .visualizer-configurator p, .visualizer-configurator [class*="eyebrow"]')).toHaveCount(0);
   await expect(page.getByLabel('Cuero crudo')).toBeVisible();
   await expect(page.getByLabel('Texto láser')).toBeVisible();
-  await expect(page.getByLabel('Mercado Pago')).toBeVisible();
+  await expect(page.getByLabel('Mercado Pago')).toHaveCount(0);
   const pricingLayout = await page.locator('.visualizer-pricing__groups').evaluate((element) => getComputedStyle(element).display);
   expect(pricingLayout).toBe('grid');
   await page.getByRole('searchbox', { name: 'Buscar precios del Visualizador' }).fill('cuero');

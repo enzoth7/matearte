@@ -9,7 +9,6 @@ import {
   familyRuleKey,
   getRequiredPricingRuleKeys,
   getCustomizationPrice,
-  getMercadoPagoCommissionPercent,
   getActivePricingRuleKeys,
   type PublishedPricingCatalog,
 } from "./pricingCatalog";
@@ -163,12 +162,12 @@ describe("precios centralizados", () => {
       "metal:alpaca-bronce",
       "metal:alpaca-grande",
       "customization:alpaca-applique:fleje_image",
-      "commission:mercado_pago",
     ]));
     expect(new Set(keys).size).toBe(keys.length);
     expect(keys.some((key) => key.includes(":color:"))).toBe(false);
     expect(keys.some((key) => key.includes("finish"))).toBe(false);
     expect(keys).toEqual(getActivePricingRuleKeys());
+    expect(keys).not.toContain("commission:mercado_pago");
   });
 
   it("aplica los importes requeridos y cobra cada cara configurada", () => {
@@ -249,13 +248,19 @@ describe("precios centralizados", () => {
       publishedAt: "2026-08-21T00:00:00.000Z",
       rules: { ...Object.fromEntries(productRuleKeys.map((key) => [key, key.startsWith("family:") ? 1000 : 0])), "commission:mercado_pago": 12 },
     };
-    expect(calculateOrderPricing(configuration, createDefaultFlejeCustomization(), catalog).isPriceReady).toBe(true);
+    const withLegacyCommission = calculateOrderPricing(configuration, createDefaultFlejeCustomization(), catalog);
+    const withoutLegacyCommission = calculateOrderPricing(configuration, createDefaultFlejeCustomization(), {
+      ...catalog,
+      rules: Object.fromEntries(Object.entries(catalog.rules).filter(([key]) => key !== "commission:mercado_pago")),
+    });
+    expect(withLegacyCommission.isPriceReady).toBe(true);
+    expect(withLegacyCommission.totalUYU).toBe(1000);
+    expect(withLegacyCommission.totalUYU).toBe(withoutLegacyCommission.totalUYU);
     configuration.rim.textMode = "text";
     configuration.rim.text = "A";
     const pending = calculateOrderPricing(configuration, createDefaultFlejeCustomization(), catalog);
     expect(pending.isPriceReady).toBe(false);
     expect(pending.missingRuleKeys).toContain(customizationRuleKey("bronze-applique", "rim_text"));
-    expect(getMercadoPagoCommissionPercent(catalog)).toBe(12);
   });
 
   it("bloquea el checkout si Supabase no entregó un catálogo publicado", () => {
