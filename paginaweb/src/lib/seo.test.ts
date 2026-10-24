@@ -2,18 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getLocalizedProduct } from "@/content/catalog-localization";
 import { products } from "@/data/catalog";
 import { localizedPageMetadata } from "@/i18n/metadata";
+import { categorySeo } from "@/content/category-seo";
+import { categoryPageSlugs, productInCategory } from "@/lib/catalog-filters";
 import { truncateForMeta } from "@/lib/product-description";
-import { buildEnterpriseStructuredData, buildProductStructuredData, buildSiteStructuredData, productSeoCopy } from "@/lib/seo";
+import { buildCategoryStructuredData, buildEnterpriseStructuredData, buildProductStructuredData, buildSiteStructuredData, productSeoCopy } from "@/lib/seo";
 import { buildManifestFile, buildRobotsFile, buildSitemapFile } from "@/lib/seo-files";
 
 describe("SEO técnico", () => {
   it("publica URLs únicas, localizadas y con imágenes en el sitemap", () => {
     const entries = buildSitemapFile();
+    const categoriesWithProducts = categoryPageSlugs.filter((categoria) => products.some((product) => productInCategory(product, categoria)));
     expect(new Set(entries.map((entry) => entry.url)).size).toBe(entries.length);
-    expect(entries).toHaveLength((7 + products.length) * 3);
+    expect(entries).toHaveLength((12 + categoriesWithProducts.length + products.length) * 3);
     expect(entries.every((entry) => Object.keys(entry.alternates?.languages ?? {}).sort().join(",") === "en,es-UY,pt-BR,x-default")).toBe(true);
     expect(entries.filter((entry) => entry.url.includes("/product") || entry.url.includes("/producto") || entry.url.includes("/produto")).every((entry) => (entry.images?.length ?? 0) > 0)).toBe(true);
-    expect(entries.some((entry) => /carrito|checkout|perfil|orders|pedidos|purchases|compras/.test(entry.url))).toBe(false);
+    expect(entries.some((entry) => /carrito|checkout|perfil|orders|pedidos/.test(entry.url))).toBe(false);
+    expect(entries.filter((entry) => /compras|purchases/.test(entry.url))).toHaveLength(12);
+    expect(entries.map((entry) => entry.url)).toEqual(expect.arrayContaining([
+      expect.stringMatching(/\/preguntas-frecuentes$/),
+      expect.stringMatching(/\/en\/faq$/),
+      expect.stringMatching(/\/pt\/perguntas-frequentes$/),
+    ]));
 
     const enterpriseEntries = entries.filter((entry) => /empresas|corporate-gifts/.test(entry.url));
     expect(enterpriseEntries).toHaveLength(3);
@@ -25,10 +34,43 @@ describe("SEO técnico", () => {
     expect(enterpriseEntries.every((entry) => entry.images?.length === 3)).toBe(true);
   });
 
+  it("publica una página por categoría con productos, localizada y con su breadcrumb", () => {
+    const [mate] = products.filter((product) => product.category === "mates");
+    const entries = buildSitemapFile([{ ...mate, lastModifiedAt: Date.parse("2026-10-20T12:00:00Z") }]);
+    const categoryUrls = entries.map((entry) => entry.url).filter((url) => /\/catalog(o)?\/[a-z-]+$/.test(url));
+    expect(categoryUrls).toEqual([
+      "https://www.matearteuruguay.com/catalogo/mates",
+      "https://www.matearteuruguay.com/en/catalog/mates",
+      "https://www.matearteuruguay.com/pt/catalogo/mates",
+    ]);
+    expect(entries.find((entry) => entry.url.endsWith("/catalogo/mates"))?.lastModified).toEqual(new Date("2026-10-20T12:00:00Z"));
+
+    const schema = buildCategoryStructuredData("en", "mates", [mate], "Mate gourds", "Intro", "Catalog", "MateArte");
+    const graph = schema["@graph"] as Array<Record<string, unknown>>;
+    expect(graph[0]).toMatchObject({ "@type": "CollectionPage", url: "https://www.matearteuruguay.com/en/catalog/mates" });
+    const breadcrumb = graph.find((node) => node["@type"] === "BreadcrumbList") as { itemListElement: Array<{ item: string }> };
+    expect(breadcrumb.itemListElement.map((item) => item.item)).toEqual([
+      "https://www.matearteuruguay.com/en",
+      "https://www.matearteuruguay.com/en/catalog",
+      "https://www.matearteuruguay.com/en/catalog/mates",
+    ]);
+  });
+
+  it("todas las categorías con página tienen texto en los tres idiomas", () => {
+    for (const categoria of categoryPageSlugs) {
+      for (const locale of ["es", "en", "pt"] as const) {
+        const copy = categorySeo[categoria][locale];
+        expect(copy.title.length).toBeGreaterThan(0);
+        expect(copy.title.length).toBeLessThanOrEqual(42);
+        expect(copy.intro.length).toBeLessThanOrEqual(155);      }
+    }
+  });
+
   it("permite rastrear HTML con noindex y reserva robots.txt para rutas técnicas", () => {
     const config = buildRobotsFile();
     expect(config.rules).toEqual({ userAgent: "*", allow: "/", disallow: ["/api/", "/auth/"] });
     expect(config.sitemap).toMatch(/\/sitemap\.xml$/);
+    expect(config).not.toHaveProperty("host");
     expect(JSON.stringify(config.rules)).not.toContain("empresas");
   });
 

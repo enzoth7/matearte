@@ -5,16 +5,24 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { CatalogDesktop } from "@/components/CatalogDesktop";
 import { CatalogMobile } from "@/components/CatalogMobile";
 import { JsonLd } from "@/components/JsonLd";
-import { localizedPageMetadata } from "@/i18n/metadata";
+import { localizedAlternates, localizedPageMetadata } from "@/i18n/metadata";
+import { isCategoryPageSlug } from "@/lib/catalog-filters";
 import { buildCatalogStructuredData } from "@/lib/seo";
 import { getStorefrontProducts, getExchangeRates } from "@/lib/storefront-catalog";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }): Promise<Metadata> {
   const locale = await getLocale();
   const t = await getTranslations("catalog");
-  return localizedPageMetadata(locale, "/catalogo", t("metadataTitle"), t("metadataDescription"));
+  const metadata = localizedPageMetadata(locale, "/catalogo", t("metadataTitle"), t("metadataDescription"));
+  // /catalogo?categoria=mates muestra lo mismo que /catalogo/mates: esa es la URL principal.
+  const categoria = (await searchParams).categoria;
+  if (typeof categoria === "string" && isCategoryPageSlug(categoria)) {
+    const href = { pathname: "/catalogo/[categoria]" as const, params: { categoria } };
+    return { ...metadata, alternates: localizedAlternates(locale, href) };
+  }
+  return metadata;
 }
 
 export default async function CatalogPage() {

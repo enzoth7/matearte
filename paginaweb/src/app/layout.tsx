@@ -7,6 +7,7 @@ import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { CartMerger } from "@/components/CartMerger";
 import { WhatsAppFab } from "@/components/WhatsAppFab";
+import { LanguageNotice } from "@/components/LanguageNotice";
 import SmoothScroll from "@/components/ui/smooth-scroll";
 import { localeConfig } from "@/i18n/config";
 import { defaultSocialImage, localizedAlternates } from "@/i18n/metadata";
@@ -89,6 +90,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <NextIntlClientProvider locale={locale} messages={messages}>
           <CartMerger />
           <a className="skip-link" href="#contenido">{common("skipToContent")}</a>
+          <LanguageNotice />
           <SmoothScroll>
             <Header key={locale} />
             {children}

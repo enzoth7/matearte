@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { products } from "@/data/catalog";
 import { localizedPathname, type RouteHref } from "@/i18n/metadata";
 import { absoluteUrl, siteUrl } from "@/lib/metadata";
+import { categoryPageSlugs, productInCategory } from "@/lib/catalog-filters";
 
 export function buildRobotsFile(): MetadataRoute.Robots {
   return {
@@ -11,7 +12,6 @@ export function buildRobotsFile(): MetadataRoute.Robots {
       disallow: ["/api/", "/auth/"],
     },
     sitemap: `${siteUrl}/sitemap.xml`,
-    host: siteUrl,
   };
 }
 
@@ -90,6 +90,11 @@ export function buildSitemapFile(catalogProducts = products): MetadataRoute.Site
       priority: 0.7,
       images: ["/assets/matearte/contact-desktop/local.jpg"],
     },
+    { href: "/preguntas-frecuentes" as const, changeFrequency: "monthly" as const, priority: 0.6, images: [] },
+    { href: "/compras/condiciones-de-compra" as const, changeFrequency: "yearly" as const, priority: 0.3, images: [] },
+    { href: "/compras/envios" as const, changeFrequency: "yearly" as const, priority: 0.3, images: [] },
+    { href: "/compras/terminos-y-condiciones" as const, changeFrequency: "yearly" as const, priority: 0.3, images: [] },
+    { href: "/compras/politica-de-privacidad" as const, changeFrequency: "yearly" as const, priority: 0.3, images: [] },
   ];
   const locales = ["es", "en", "pt"] as const;
   const languageLinks = (href: RouteHref) => ({
@@ -107,6 +112,21 @@ export function buildSitemapFile(catalogProducts = products): MetadataRoute.Site
     alternates: { languages: languageLinks(route.href) },
     images: route.images.map(absoluteUrl),
   })));
+  // Solo las categorías con productos publicados tienen página.
+  const categoryEntries = categoryPageSlugs.flatMap((categoria) => {
+    const inCategory = catalogProducts.filter((product) => productInCategory(product, categoria));
+    if (inCategory.length === 0) return [];
+    const href = { pathname: "/catalogo/[categoria]" as const, params: { categoria } };
+    const lastModified = toDate(Math.max(0, ...inCategory.map((product) => product.lastModifiedAt ?? 0)));
+    return locales.map((locale) => ({
+      url: absoluteUrl(localizedPathname(locale, href)),
+      ...(lastModified ? { lastModified } : {}),
+      changeFrequency: "weekly" as const,
+      priority: 0.8,
+      alternates: { languages: languageLinks(href) },
+      images: inCategory.slice(0, 3).flatMap((product) => product.images.slice(0, 1).map((image) => absoluteUrl(image.src))),
+    }));
+  });
   const productEntries = catalogProducts.flatMap((product) => {
     const href = { pathname: "/producto/[slug]" as const, params: { slug: product.slug } };
     const lastModified = toDate(product.lastModifiedAt);
@@ -120,5 +140,5 @@ export function buildSitemapFile(catalogProducts = products): MetadataRoute.Site
     }));
   });
 
-  return [...staticEntries, ...productEntries];
+  return [...staticEntries, ...categoryEntries, ...productEntries];
 }

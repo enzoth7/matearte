@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CatalogFilterControls } from "@/components/catalog/CatalogFilterControls";
 import { CatalogPagination } from "@/components/catalog/CatalogPagination";
 import { useCatalogFilters } from "@/components/catalog/useCatalogFilters";
-import { filterAndSortCatalog, formatCatalogPrice, hasActiveCatalogFilters, type CatalogSort } from "@/lib/catalog-filters";
+import { filterAndSortCatalog, formatCatalogPrice, hasActiveCatalogFilters, type CatalogFilters, type CatalogSort } from "@/lib/catalog-filters";
 import type { CatalogColorId, Product } from "@/types/catalog";
 import { Link } from "@/i18n/navigation";
 import { ProductCardSwatches } from "@/components/catalog/ProductCardSwatches";
@@ -124,11 +124,11 @@ function CatalogDesktopCard({
   );
 }
 
-export function CatalogDesktop({ products, exchangeRates }: { products: Product[]; exchangeRates?: Record<string, number> }) {
+export function CatalogDesktop({ products, exchangeRates, pageCategory }: { products: Product[]; exchangeRates?: Record<string, number>; pageCategory?: CatalogFilters["category"] }) {
   const locale = useLocale();
   const t = useTranslations("catalog");
   const common = useTranslations("common");
-  const catalogFilters = useCatalogFilters();
+  const catalogFilters = useCatalogFilters(pageCategory);
   const { filters } = catalogFilters;
 
   const PAGE_SIZE = 21;

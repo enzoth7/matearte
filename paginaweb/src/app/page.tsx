@@ -87,7 +87,7 @@ export default async function Home() {
                   className="home-category-card"
                   href={category.category === "regalos"
                     ? "/personalizados"
-                    : { pathname: "/catalogo", query: { categoria: category.category } }}
+                    : { pathname: "/catalogo/[categoria]", params: { categoria: category.category } }}
                 >
                   <div className="home-image home-category-image">
                     <Image src={`${assets}/${category.image}`} alt={t(category.name)} fill sizes="(max-width: 768px) 50vw, 20vw" />

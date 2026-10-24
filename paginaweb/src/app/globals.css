@@ -4499,6 +4499,52 @@ img {
   transform: translateY(0);
 }
 
+.language-notice {
+  position: fixed;
+  z-index: 90;
+  left: 1rem;
+  bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.6rem 0.75rem 0.6rem 1rem;
+  background: var(--paper);
+  color: var(--walnut);
+  border: 1px solid var(--cream-deep);
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 30px rgb(45 29 22 / 0.12);
+  font-size: 0.875rem;
+}
+
+.language-notice p {
+  margin: 0;
+}
+
+.language-notice a {
+  font-weight: 600;
+  color: var(--walnut);
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+.language-notice button {
+  border: 0;
+  background: none;
+  color: var(--walnut);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.25rem;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .language-notice {
+    bottom: 5.5rem;
+    flex-wrap: wrap;
+  }
+}
+
 .container-shell {
   width: min(100% - 2rem, 82rem);
   margin-inline: auto;
@@ -8229,6 +8275,25 @@ input:checked + .catalog-mobile-checkbox::after {
 
 /* Personalizados — Figma frame 476:41 (mobile) */
 .personalizados-page { overflow: hidden; background: #f5f0e8; color: #311c12; }
+
+.personalizados-steps { padding: clamp(4rem, 8vw, 7rem) 24px; background: #f5f0e8; }
+.personalizados-steps-inner { max-width: 1180px; margin: 0 auto; }
+.personalizados-steps h2 { margin: 0 0 2rem; font-family: var(--font-newsreader), Georgia, serif; font-size: clamp(2.3rem, 4vw, 4rem); font-weight: 500; line-height: 1.08; }
+.personalizados-steps ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(1rem, 3vw, 3rem); margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.personalizados-steps li { position: relative; padding: 1.75rem 0 0; border-top: 1px solid #bca796; counter-increment: step; }
+.personalizados-steps li::before { content: "0" counter(step); display: block; margin-bottom: 1.25rem; color: #8c5d40; font-size: .8rem; font-weight: 650; letter-spacing: .12em; }
+.personalizados-steps h3 { margin: 0 0 .75rem; font-size: clamp(1.3rem, 2vw, 1.7rem); font-weight: 600; }
+.personalizados-steps p { max-width: 27rem; margin: 0; line-height: 1.6; }
+.personalizados-steps-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 1.5rem; margin-top: 2.75rem; }
+.personalizados-steps-primary { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; padding: .8rem 1.5rem; background: #311c12; color: #fffdf8; text-align: center; text-decoration: none; }
+.personalizados-steps-secondary { color: #311c12; text-underline-offset: .25em; }
+@media (max-width: 700px) {
+  .personalizados-steps { padding: 3.5rem 24px 4.5rem; }
+  .personalizados-steps ol { grid-template-columns: 1fr; gap: 1.5rem; }
+  .personalizados-steps li { padding-top: 1.25rem; }
+  .personalizados-steps li::before { margin-bottom: .65rem; }
+  .personalizados-steps-primary { width: 100%; }
+}
 
 .personalizados-mobile-hero {
   position: relative;

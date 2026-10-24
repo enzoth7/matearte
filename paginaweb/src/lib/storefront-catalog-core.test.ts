@@ -95,7 +95,8 @@ describe("catálogo público conectado a Supabase", () => {
     expect(product.images[0]).toMatchObject({
       source: "supabase",
       alt: "Portada",
-      src: `${baseUrl}/storage/v1/object/public/product-images/products/nuevo/portada.webp`,
+      src: "/imagenes/productos/products/nuevo/portada.webp",
+      sourceUrl: `${baseUrl}/storage/v1/object/public/product-images/products/nuevo/portada.webp`,
     });
     expect(product.variants.map((variant) => [variant.value, variant.available])).toEqual([
       ["NUEVO-1", true],
@@ -193,5 +194,35 @@ describe("catálogo público conectado a Supabase", () => {
     expect(product.filterData.productTypes).toEqual(["imperial"]);
     expect(product.filterData.priceUYU).toBe(4500);
     expect(product.images[0].source).toBe("supabase");
+  });
+});
+
+describe("traducciones guardadas en la base", () => {
+  const row = (overrides: Partial<StorefrontProductRow> = {}): StorefrontProductRow => ({
+    id: "termo",
+    editorial_slug: "termo-stanley",
+    name: "Termo Stanley",
+    name_en: "Stanley Thermos",
+    name_pt: "Garrafa Térmica Stanley",
+    category: "termos",
+    description: "Termo de acero inoxidable.",
+    description_en: "Stainless steel thermos.",
+    description_pt: "Garrafa térmica de aço inoxidável.",
+    sale_mode: "standard",
+    published: true,
+    variants: [{ id: "v", sku: "1", name: "Rosado", price_minor: 450000, currency: "UYU", active: true, available_web: true }],
+    images: [],
+    ...overrides,
+  });
+
+  it("muestra el nombre y la descripción en el idioma de la página", () => {
+    expect(storefrontProductFromRow(row(), "https://x.supabase.co", "en")).toMatchObject({ name: "Stanley Thermos", summary: "Stainless steel thermos." });
+    expect(storefrontProductFromRow(row(), "https://x.supabase.co", "pt")).toMatchObject({ name: "Garrafa Térmica Stanley", description: "Garrafa térmica de aço inoxidável." });
+    expect(storefrontProductFromRow(row(), "https://x.supabase.co", "es")).toMatchObject({ name: "Termo Stanley", description: "Termo de acero inoxidable." });
+  });
+
+  it("sin traducción usa el texto en español", () => {
+    const product = storefrontProductFromRow(row({ name_en: null, description_en: "" }), "https://x.supabase.co", "en");
+    expect(product).toMatchObject({ name: "Termo Stanley", description: "Termo de acero inoxidable." });
   });
 });

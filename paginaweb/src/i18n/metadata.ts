@@ -5,6 +5,7 @@ import { localizeCanonicalPath } from "@/i18n/paths";
 
 type DynamicRouteHref =
   | { pathname: "/producto/[slug]"; params: { slug: string } }
+  | { pathname: "/catalogo/[categoria]"; params: { categoria: string } }
   | { pathname: "/pedidos/[id]"; params: { id: string } };
 
 export type RouteHref = keyof typeof localizedPathnames | DynamicRouteHref;
@@ -44,9 +45,10 @@ const socialImageAlt: Record<AppLocale, string> = {
 
 export function defaultSocialImage(locale: AppLocale): SocialImage {
   return {
-    url: "/assets/matearte/nosotros-desktop/paysandu-mundo.png",
-    width: 2554,
-    height: 1438,
+    // 1200 × 630 y unos 120 KB: WhatsApp y Facebook no muestran la vista previa con imágenes de varios MB.
+    url: "/assets/matearte/og/matearte-og.jpg",
+    width: 1200,
+    height: 630,
     alt: socialImageAlt[locale],
   };
 }

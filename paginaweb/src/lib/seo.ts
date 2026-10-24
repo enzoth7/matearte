@@ -30,11 +30,11 @@ function organizationNode(description: string) {
     url: absoluteUrl(),
     logo: {
       "@type": "ImageObject",
-      url: absoluteUrl("/assets/matearte/01-marca/LogoOriginal-4k.png"),
-      width: 4096,
-      height: 4096,
+      url: absoluteUrl("/assets/matearte/og/matearte-logo-512.png"),
+      width: 512,
+      height: 512,
     },
-    image: absoluteUrl("/assets/matearte/nosotros-desktop/paysandu-mundo.png"),
+    image: absoluteUrl("/assets/matearte/og/matearte-og.jpg"),
     description,
     email: es.contact.email,
     telephone: es.contact.phoneHref,
@@ -53,7 +53,7 @@ function organizationNode(description: string) {
       areaServed: "Worldwide",
     },
     currenciesAccepted: "UYU",
-    sameAs: [es.contact.instagramUrl],
+    sameAs: [es.contact.instagramUrl, es.contact.facebookUrl],
   };
 }
 
@@ -181,6 +181,32 @@ export function buildEnterpriseStructuredData(
   };
 }
 
+function collectionPageNode(locale: AppLocale, href: RouteHref, products: Product[], name: string, description: string) {
+  const url = localizedAbsoluteUrl(locale, href);
+  return {
+    "@type": "CollectionPage",
+    "@id": `${url}#webpage`,
+    url,
+    name,
+    description,
+    inLanguage: localeConfig[locale].htmlLang,
+    isPartOf: { "@id": websiteId },
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: products.length,
+      itemListElement: products.map((product, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: product.name,
+        url: localizedAbsoluteUrl(locale, {
+          pathname: "/producto/[slug]",
+          params: { slug: product.slug },
+        }),
+      })),
+    },
+  };
+}
+
 export function buildCatalogStructuredData(
   locale: AppLocale,
   products: Product[],
@@ -189,34 +215,67 @@ export function buildCatalogStructuredData(
   homeLabel: string,
 ) {
   const href = "/catalogo" as const;
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      collectionPageNode(locale, href, products, name, description),
+      breadcrumbNode(locale, [
+        { name: homeLabel, href: "/" },
+        { name, href },
+      ]),
+    ],
+  };
+}
+
+export function buildFaqStructuredData(
+  locale: AppLocale,
+  name: string,
+  entries: ReadonlyArray<{ question: string; answer: readonly string[] }>,
+  homeLabel: string,
+) {
+  const href = "/preguntas-frecuentes" as const;
   const url = localizedAbsoluteUrl(locale, href);
   return {
     "@context": "https://schema.org",
     "@graph": [
       {
-        "@type": "CollectionPage",
+        "@type": "FAQPage",
         "@id": `${url}#webpage`,
         url,
         name,
-        description,
         inLanguage: localeConfig[locale].htmlLang,
         isPartOf: { "@id": websiteId },
-        mainEntity: {
-          "@type": "ItemList",
-          numberOfItems: products.length,
-          itemListElement: products.map((product, index) => ({
-            "@type": "ListItem",
-            position: index + 1,
-            name: product.name,
-            url: localizedAbsoluteUrl(locale, {
-              pathname: "/producto/[slug]",
-              params: { slug: product.slug },
-            }),
-          })),
-        },
+        mainEntity: entries.map((entry) => ({
+          "@type": "Question",
+          name: entry.question,
+          acceptedAnswer: { "@type": "Answer", text: entry.answer.join(" ") },
+        })),
       },
       breadcrumbNode(locale, [
         { name: homeLabel, href: "/" },
+        { name, href },
+      ]),
+    ],
+  };
+}
+
+export function buildCategoryStructuredData(
+  locale: AppLocale,
+  category: string,
+  products: Product[],
+  name: string,
+  description: string,
+  catalogLabel: string,
+  homeLabel: string,
+) {
+  const href = { pathname: "/catalogo/[categoria]" as const, params: { categoria: category } };
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      collectionPageNode(locale, href, products, name, description),
+      breadcrumbNode(locale, [
+        { name: homeLabel, href: "/" },
+        { name: catalogLabel, href: "/catalogo" },
         { name, href },
       ]),
     ],

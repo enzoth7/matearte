@@ -14,23 +14,34 @@ import {
 import type { CatalogCollectionId, CatalogColorId, CatalogMaterialId, CatalogProductTypeId } from "@/types/catalog";
 import type { CatalogFootwearClosureId } from "../../../../shared/catalog-taxonomy";
 
-export function useCatalogFilters() {
+/**
+ * Filtros del catálogo guardados en la URL. En una página de categoría (`pageCategory`), la categoría
+ * va en la ruta (/catalogo/mates) y el resto de los filtros en la query.
+ */
+export function useCatalogFilters(pageCategory?: CatalogFilters["category"]) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const query = searchParams.toString();
-  const sourceFilters = useMemo(() => parseCatalogFilters(new URLSearchParams(query)), [query]);
+  const sourceFilters = useMemo(() => {
+    const params = new URLSearchParams(query);
+    const parsed = parseCatalogFilters(params);
+    return pageCategory && !params.has("categoria") ? { ...parsed, category: pageCategory } : parsed;
+  }, [query, pageCategory]);
   const [filters, setOptimisticFilters] = useOptimistic(sourceFilters);
 
   const commit = (next: CatalogFilters) => {
     startTransition(() => {
       setOptimisticFilters(next);
       const params = writeCatalogFilters(next);
+      if (pageCategory) params.delete("categoria");
       const query = [...new Set(params.keys())].reduce<Record<string, string | string[]>>((result, key) => {
         const values = params.getAll(key);
         result[key] = values.length > 1 ? values : values[0];
         return result;
       }, {});
-      router.replace({ pathname: "/catalogo", query }, { scroll: false });
+      if (!pageCategory) router.replace({ pathname: "/catalogo", query }, { scroll: false });
+      else if (next.category === "todas") router.replace({ pathname: "/catalogo", query }, { scroll: false });
+      else router.replace({ pathname: "/catalogo/[categoria]", params: { categoria: next.category }, query }, { scroll: false });
     });
   };
 

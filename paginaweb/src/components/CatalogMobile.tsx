@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CatalogFilterControlsMobile } from "@/components/catalog/CatalogFilterControlsMobile";
 import { CatalogPagination } from "@/components/catalog/CatalogPagination";
 import { useCatalogFilters } from "@/components/catalog/useCatalogFilters";
-import { filterAndSortCatalog, formatCatalogPrice, hasActiveCatalogFilters, type CatalogSort } from "@/lib/catalog-filters";
+import { filterAndSortCatalog, formatCatalogPrice, hasActiveCatalogFilters, type CatalogFilters, type CatalogSort } from "@/lib/catalog-filters";
 import type { CatalogColorId, Product } from "@/types/catalog";
 import { Link } from "@/i18n/navigation";
 import { ProductCardSwatches } from "@/components/catalog/ProductCardSwatches";
@@ -106,11 +106,11 @@ function CatalogMobileCard({
   );
 }
 
-export function CatalogMobile({ products, exchangeRates }: { products: Product[]; exchangeRates?: Record<string, number> }) {
+export function CatalogMobile({ products, exchangeRates, pageCategory, heading, intro }: { products: Product[]; exchangeRates?: Record<string, number>; pageCategory?: CatalogFilters["category"]; heading?: string; intro?: string }) {
   const locale = useLocale();
   const t = useTranslations("catalog");
   const common = useTranslations("common");
-  const catalogFilters = useCatalogFilters();
+  const catalogFilters = useCatalogFilters(pageCategory);
   const { filters } = catalogFilters;
 
   const PAGE_SIZE = 21;
@@ -140,8 +140,8 @@ export function CatalogMobile({ products, exchangeRates }: { products: Product[]
         <Image className="catalog-mobile-hero-image" src={`${assetRoot}/hero.png`} alt={t("heroAlt")} width={1672} height={941} sizes="995px" priority />
         <div className="catalog-mobile-hero-overlay" aria-hidden="true" />
         <div className="catalog-mobile-hero-content">
-          <h1>{t("heroTitle")}</h1>
-          <p>{t("heroBody")}</p>
+          <h1>{heading ?? t("heroTitle")}</h1>
+          <p>{intro ?? t("heroBody")}</p>
         </div>
       </section>
 

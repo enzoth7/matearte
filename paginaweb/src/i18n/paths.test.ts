@@ -7,6 +7,13 @@ describe("rutas localizadas", () => {
     expect(localizeCurrentPathname("/en/orders/abc-123", "en", "pt")).toBe("/pt/pedidos/abc-123");
   });
 
+  it("traduce las páginas de categoría sin confundirlas con el catálogo", () => {
+    expect(localizeCurrentPathname("/catalogo/mates", "es", "en")).toBe("/en/catalog/mates");
+    expect(localizeCurrentPathname("/en/catalog/bombillas", "en", "pt")).toBe("/pt/catalogo/bombillas");
+    expect(localizeCurrentPathname("/pt/catalogo/termos", "pt", "es")).toBe("/catalogo/termos");
+    expect(localizeCurrentPathname("/en/catalog", "en", "es")).toBe("/catalogo");
+  });
+
   it("resuelve páginas con segmentos traducidos", () => {
     expect(localizeCanonicalPath("/catalogo", "en")).toBe("/en/catalog");
     expect(localizeCanonicalPath("/compras/politica-de-privacidad", "pt")).toBe("/pt/compras/politica-de-privacidade");
