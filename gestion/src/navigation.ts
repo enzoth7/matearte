@@ -51,7 +51,7 @@ export const areas = [
       ["servicios", "Servicios"],
       ["categorias", "Categorías y atributos"],
       ["ajustes", "Ajustes y mayoristas"],
-      ["personalizador", "Configurador Visualizador"],
+      ["personalizador", "Configurador Personalizador"],
     ],
   },
   {

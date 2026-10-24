@@ -36,7 +36,7 @@ const techniques = [
   { id: 'alpaca-applique', title: 'Aplique de alpaca' },
 ];
 
-export function groupVisualizerPricingDefinitions(definitions: PricingRuleDefinition[]): PricingDefinitionGroup[] {
+export function groupPersonalizerPricingDefinitions(definitions: PricingRuleDefinition[]): PricingDefinitionGroup[] {
   let remaining = [...definitions].sort((a, b) => a.sort_order - b.sort_order || a.rule_key.localeCompare(b.rule_key));
   const groups: PricingDefinitionGroup[] = [];
   const take = (predicate: (definition: PricingRuleDefinition) => boolean) => {
@@ -62,7 +62,7 @@ export function groupVisualizerPricingDefinitions(definitions: PricingRuleDefini
   for (const technique of techniques) {
     add(technique.id, technique.title, 'Texto e imagen para mates, materas y bombillas; fleje cuando corresponda.', 'personalizacion', take((definition) => definition.customization_id?.startsWith(`${technique.id}:`) ?? false));
   }
-  add('otras-personalizaciones', 'Otras personalizaciones', 'Opciones de personalización del Visualizador.', 'personalizacion', take((definition) => definition.rule_type === 'customization'));
+  add('otras-personalizaciones', 'Otras personalizaciones', 'Opciones de personalización del Personalizador.', 'personalizacion', take((definition) => definition.rule_type === 'customization'));
   add('pago', 'Medio de pago', 'Comisión aplicada durante el checkout.', 'pago', take((definition) => definition.rule_type === 'commission'));
   add('otras-reglas', 'Otras reglas', 'Parámetros activos que no pertenecen a los grupos anteriores.', 'otros', remaining);
   return groups;
@@ -76,7 +76,7 @@ export type PricingVersion = {
   values: Record<string, number>;
 };
 
-export type VisualizerPricingState = {
+export type PersonalizerPricingState = {
   definitions: PricingRuleDefinition[];
   draft: PricingVersion;
   published: PricingVersion;
@@ -97,10 +97,10 @@ function parseVersion(value: unknown): PricingVersion {
   };
 }
 
-export function parsePricingState(value: unknown): VisualizerPricingState {
-  if (!value || typeof value !== 'object') throw new Error('La configuración del Visualizador no está disponible.');
+export function parsePricingState(value: unknown): PersonalizerPricingState {
+  if (!value || typeof value !== 'object') throw new Error('La configuración del Personalizador no está disponible.');
   const record = value as Record<string, unknown>;
-  if (!Array.isArray(record.definitions)) throw new Error('No se encontraron las reglas de precios del Visualizador.');
+  if (!Array.isArray(record.definitions)) throw new Error('No se encontraron las reglas de precios del Personalizador.');
   return {
     definitions: (record.definitions as PricingRuleDefinition[]).filter((definition) => definition.active !== false && !definition.rule_key.startsWith('assembly:color:')),
     draft: parseVersion(record.draft),
@@ -108,7 +108,7 @@ export function parsePricingState(value: unknown): VisualizerPricingState {
   };
 }
 
-export function editablePricingValues(state: VisualizerPricingState): Record<string, string> {
+export function editablePricingValues(state: PersonalizerPricingState): Record<string, string> {
   return Object.fromEntries(state.definitions.map((definition) => [definition.rule_key, state.draft.values[definition.rule_key]?.toString() ?? '']));
 }
 
@@ -132,18 +132,18 @@ export function pricingIssues(definitions: PricingRuleDefinition[], values: Reco
 
 function pricingError(reason: unknown): Error {
   const message = reason && typeof reason === 'object' && 'message' in reason ? String(reason.message) : 'No se pudo guardar la configuración.';
-  if (/42501|not authorized|permission denied/i.test(message)) return new Error('Tu cuenta no tiene permiso para administrar los precios del Visualizador.');
+  if (/42501|not authorized|permission denied/i.test(message)) return new Error('Tu cuenta no tiene permiso para administrar los precios del Personalizador.');
   if (/40001|another session|concurrent/i.test(message)) return new Error('El borrador cambió en otra sesión. Recargá antes de continuar.');
   return new Error(message);
 }
 
-export async function loadVisualizerPricing(): Promise<VisualizerPricingState> {
+export async function loadPersonalizerPricing(): Promise<PersonalizerPricingState> {
   const { data, error } = await supabase.rpc('get_pricing_admin_state');
   if (error) throw pricingError(error);
   return parsePricingState(data);
 }
 
-export async function saveVisualizerPricingDraft(state: VisualizerPricingState, values: Record<string, number | null>) {
+export async function savePersonalizerPricingDraft(state: PersonalizerPricingState, values: Record<string, number | null>) {
   const { data, error } = await supabase.rpc('save_pricing_draft', {
     p_version_id: state.draft.id,
     p_expected_updated_at: state.draft.updatedAt,
@@ -153,7 +153,7 @@ export async function saveVisualizerPricingDraft(state: VisualizerPricingState, 
   return parsePricingState(data);
 }
 
-export async function publishVisualizerPricingDraft(state: VisualizerPricingState) {
+export async function publishPersonalizerPricingDraft(state: PersonalizerPricingState) {
   const { data, error } = await supabase.rpc('publish_pricing_draft', {
     p_version_id: state.draft.id,
     p_expected_updated_at: state.draft.updatedAt,

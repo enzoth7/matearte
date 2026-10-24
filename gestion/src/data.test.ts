@@ -36,7 +36,7 @@ describe("estado sin registros ficticios", () => {
   });
   it("traslada el permiso local del configurador a Productos", () => {
     const storage = new Map([[storageKey, JSON.stringify({ access: {
-      t3: ["/produccion/personalizados", "/produccion/configurador-visualizador"],
+      t3: ["/produccion/personalizados", "/produccion/configurador-personalizador"],
     } })]]);
     vi.stubGlobal("localStorage", { getItem: (key: string) => storage.get(key), removeItem: (key: string) => storage.delete(key) });
     try {
@@ -56,7 +56,7 @@ describe("estado sin registros ficticios", () => {
     expect(resolvePath("/comercial/registrar")).toBeNull();
     expect(resolvePath("/clientes/segmentos")).toBeNull();
     expect(resolvePath("/produccion/personalizados")?.page[1]).toBe("Pedidos personalizados");
-    expect(resolvePath("/productos/personalizador")?.page[1]).toBe("Configurador Visualizador");
-    expect(resolvePath("/produccion/configurador-visualizador")).toBeNull();
+    expect(resolvePath("/productos/personalizador")?.page[1]).toBe("Configurador Personalizador");
+    expect(resolvePath("/produccion/configurador-personalizador")).toBeNull();
   });
 });

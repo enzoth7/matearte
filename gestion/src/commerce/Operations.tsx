@@ -16,6 +16,7 @@ import { CatalogProductCoreFields } from '../CatalogProductCoreFields';
 import { purchaseCategoryLabel } from '../customerPurchase';
 import { compactOrderItemName, orderColorLabel, orderSizeLabel } from '../orderItemPresentation';
 import { OrderDetailItems, type OrderDetailRow } from '../OrderDetailItems';
+import type { Product as CatalogProduct } from '../data';
 import { OrderContactPhone } from '../OrderContactPhone';
 import {
   catalogAttributeLabel,
@@ -91,7 +92,7 @@ type Product = { id:string; editorial_slug:string; name:string; category:string;
 type ProductForm = {name:string;category:string;description:string;saleMode:SaleMode;peso:number;catalogFilters:CatalogAttributes;attributes:CatalogValueMap};
 type VariantForm = {sku:string;price:string;priceArg:string;options:CatalogValueMap;local:boolean;web:boolean;wholesale:boolean;servicePriceMode:'fixed'|'variable'};
 const emptyVariantForm = (service = false): VariantForm => ({sku:'',price:'',priceArg:'',options:{},local:true,web:!service,wholesale:false,servicePriceMode:service?'variable':'fixed'});
-export type OrderItem = {id:string;item_type:'catalog'|'design';title:string;quantity:number;requires_review:boolean;review_status:string|null;immutable_snapshot:Record<string,unknown>;sku?:string|null;unit_price_minor?:number|null;total_minor?:number|null;source_variant?:{product?:{peso?:number}}};
+export type OrderItem = {id:string;item_type:'catalog'|'design';title:string;quantity:number;requires_review:boolean;review_status:string|null;immutable_snapshot:Record<string,unknown>;sku?:string|null;source_variant_id?:string|null;unit_price_minor?:number|null;total_minor?:number|null;source_variant?:{product?:{peso?:number}}};
 export type BankTransferReceipt = {id:string;original_name:string;mime_type:string;byte_size:number;status:'pending'|'approved'|'rejected';rejection_reason:string|null;submitted_at:string;reviewed_at:string|null};
 export type Order = { id:string;order_number:number;reference_code?:string|null;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;items_subtotal_minor?:number;shipping_minor?:number;payment_fee_minor?:number;discount_code?:string|null;discount_minor?:number;total_minor:number;paypal_amount_usd_minor?:number|null;created_at:string;customer_snapshot:Record<string,unknown>;peso?:number|null;order_items:OrderItem[];commerce_bank_transfer_receipts?:BankTransferReceipt[] };
 type SupabaseOrder = Omit<Order,'commerce_bank_transfer_receipts'> & {commerce_bank_transfer_receipts?:BankTransferReceipt[]|BankTransferReceipt|null};
@@ -1741,7 +1742,7 @@ function OrderDeliverySummary({order,compact=false}:{order:Order;compact?:boolea
   </section>;
 }
 
-export function Orders({session,onNotice,orderId,onClose,onCustomer}:{session:Session;onNotice:(v:string)=>void;orderId?:string;onClose?:()=>void;onCustomer?:()=>void}) {
+export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProducts=[],onProduct}:{session:Session;onNotice:(v:string)=>void;orderId?:string;onClose?:()=>void;onCustomer?:()=>void;catalogProducts?:Pick<CatalogProduct,'id'|'sku'|'sourceProductId'|'wholesaleProductId'>[];onProduct?:(productId:string,variantId:string)=>void}) {
   const [orders,setOrders] = useState<Order[]>([]);
   const [taxonomy,setTaxonomy] = useState<CatalogTaxonomy>(defaultCatalogTaxonomy);
   const [busy,setBusy] = useState('');
@@ -1764,14 +1765,14 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer}:{session:Se
   const load = useCallback(async() => {
     let {data,error}:{data:unknown;error:{message:string;code?:string}|null} = await supabase
       .from('orders')
-      .select('id,order_number,reference_code,status,peso,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,discount_code,discount_minor,total_minor,paypal_amount_usd_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot,source_variant:commerce_variants(product:commerce_products(peso)))')
+      .select('id,order_number,reference_code,status,peso,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,discount_code,discount_minor,total_minor,paypal_amount_usd_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,source_variant_id,requires_review,review_status,immutable_snapshot,source_variant:commerce_variants(product:commerce_products(peso)))')
       .not('channel','in',INTERNAL_ORDER_CHANNELS)
       .order('created_at',{ascending:false})
       .limit(orderId ? 1 : 100).match(orderId ? { id: orderId } : {});
     if (error && (error.code === '42703' || /peso|source_variant/i.test(error.message))) {
       ({data,error} = await supabase
         .from('orders')
-        .select('id,order_number,reference_code,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,discount_code,discount_minor,total_minor,paypal_amount_usd_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,requires_review,review_status,immutable_snapshot)')
+        .select('id,order_number,reference_code,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,discount_code,discount_minor,total_minor,paypal_amount_usd_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,source_variant_id,requires_review,review_status,immutable_snapshot)')
         .not('channel','in',INTERNAL_ORDER_CHANNELS)
         .order('created_at',{ascending:false})
         .limit(orderId ? 1 : 100).match(orderId ? { id: orderId } : {}));
@@ -2052,10 +2053,14 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer}:{session:Se
     const size = orderSizeLabel(options.find(option => ['tamano', 'talle'].includes(option.attribute))?.value || '');
     const extra = options.filter(option => !['color', 'tamano', 'talle', 'peso', 'weight', 'weight_grams'].includes(option.attribute));
     const weight = isDesign ? 0 : getOrderItemWeight(item);
+    const sku = isDesign ? '' : getItemSku(item);
+    const catalogProduct = !isDesign && onProduct ? catalogProducts.find(product => !product.wholesaleProductId && product.id === item.source_variant_id)
+      || catalogProducts.find(product => !product.wholesaleProductId && product.sku === sku && Boolean(sku)) : undefined;
     return {
       id: item.id,
       name: getOrderItemDisplayName(item),
-      sku: isDesign ? '' : getItemSku(item),
+      sku,
+      onOpen: catalogProduct ? () => onProduct?.(catalogProduct.sourceProductId || catalogProduct.id, catalogProduct.id) : undefined,
       color: orderColorLabel(options.find(option => option.attribute === 'color')?.value || ''),
       size,
       weight: weight > 0 ? formatWeight(weight) : undefined,

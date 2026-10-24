@@ -2,15 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { CaretDown, CheckCircle, FloppyDisk, MagnifyingGlass, SlidersHorizontal, WarningCircle, X } from '@phosphor-icons/react';
 import {
   editablePricingValues,
-  groupVisualizerPricingDefinitions,
-  loadVisualizerPricing,
+  groupPersonalizerPricingDefinitions,
+  loadPersonalizerPricing,
   numericPricingValues,
   pricingIssues,
-  publishVisualizerPricingDraft,
-  saveVisualizerPricingDraft,
+  publishPersonalizerPricingDraft,
+  savePersonalizerPricingDraft,
   type PricingRuleDefinition,
-  type VisualizerPricingState,
-} from './visualizerPricing';
+  type PersonalizerPricingState,
+} from './personalizerPricing';
 
 const priceNumber = new Intl.NumberFormat('es-UY', { maximumFractionDigits: 2 });
 
@@ -31,14 +31,14 @@ function PriceField({ definition, value, published, onChange }: {
   const isPercent = definition.value_kind === 'percent';
   const unit = isPercent ? '%' : 'UYU';
   const invalid = value.trim() !== '' && (!Number.isFinite(Number(value.replace(',', '.'))) || Number(value.replace(',', '.')) < 0 || (isPercent && Number(value.replace(',', '.')) > 100));
-  const inputId = `visualizer-price-${definition.rule_key.replace(/[^a-z0-9-]/gi, '-')}`;
+  const inputId = `personalizer-price-${definition.rule_key.replace(/[^a-z0-9-]/gi, '-')}`;
   const publishedLabel = published == null ? 'Sin valor publicado' : `${priceNumber.format(published)} ${unit}`;
 
-  return <div className={`visualizer-price-field${invalid ? ' visualizer-price-field--invalid' : ''}`}>
+  return <div className={`personalizer-price-field${invalid ? ' personalizer-price-field--invalid' : ''}`}>
     <label htmlFor={inputId}>{definition.label}{definition.required && ' *'}</label>
-    <div className="visualizer-price-field__bottom">
-      <div className="visualizer-price-field__published">Publicado: <strong>{publishedLabel}</strong></div>
-      <div className="visualizer-price-field__control">
+    <div className="personalizer-price-field__bottom">
+      <div className="personalizer-price-field__published">Publicado: <strong>{publishedLabel}</strong></div>
+      <div className="personalizer-price-field__control">
         <input
           id={inputId}
           type="number"
@@ -54,12 +54,12 @@ function PriceField({ definition, value, published, onChange }: {
         <div aria-hidden="true">{unit}</div>
       </div>
     </div>
-    {invalid && <small className="visualizer-price-field__error">Ingresá un valor válido{isPercent ? ' entre 0 y 100' : ' mayor o igual a cero'}.</small>}
+    {invalid && <small className="personalizer-price-field__error">Ingresá un valor válido{isPercent ? ' entre 0 y 100' : ' mayor o igual a cero'}.</small>}
   </div>;
 }
 
-export function VisualizerPricingView() {
-  const [state, setState] = useState<VisualizerPricingState | null>(null);
+export function PersonalizerPricingView() {
+  const [state, setState] = useState<PersonalizerPricingState | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [query, setQuery] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
@@ -69,7 +69,7 @@ export function VisualizerPricingView() {
   const [notice, setNotice] = useState('');
   const [confirmPublish, setConfirmPublish] = useState(false);
 
-  const applyState = (next: VisualizerPricingState) => {
+  const applyState = (next: PersonalizerPricingState) => {
     setState(next);
     setValues(editablePricingValues(next));
   };
@@ -78,7 +78,7 @@ export function VisualizerPricingView() {
     setBusy(true);
     setError('');
     try {
-      applyState(await loadVisualizerPricing());
+      applyState(await loadPersonalizerPricing());
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
@@ -89,7 +89,7 @@ export function VisualizerPricingView() {
 
   useEffect(() => {
     let active = true;
-    void loadVisualizerPricing().then((next) => {
+    void loadPersonalizerPricing().then((next) => {
       if (!active) return;
       applyState(next);
     }).catch((reason) => {
@@ -101,7 +101,7 @@ export function VisualizerPricingView() {
   }, []);
 
   const definitions = state?.definitions ?? [];
-  const groups = useMemo(() => groupVisualizerPricingDefinitions(definitions), [definitions]);
+  const groups = useMemo(() => groupPersonalizerPricingDefinitions(definitions), [definitions]);
   const normalizedQuery = normalizeSearch(query);
   const visibleGroups = groups.map((group) => ({
     ...group,
@@ -134,7 +134,7 @@ export function VisualizerPricingView() {
     setBusy(true);
     setError('');
     try {
-      applyState(await saveVisualizerPricingDraft(state, numericPricingValues(values)));
+      applyState(await savePersonalizerPricingDraft(state, numericPricingValues(values)));
       setNotice('Borrador guardado. Los precios publicados todavía no cambiaron.');
     } catch (reason) {
       setError(errorMessage(reason));
@@ -148,9 +148,9 @@ export function VisualizerPricingView() {
     setBusy(true);
     setError('');
     try {
-      applyState(await publishVisualizerPricingDraft(state));
+      applyState(await publishPersonalizerPricingDraft(state));
       setConfirmPublish(false);
-      setNotice('Precios publicados. El Visualizador y el checkout usarán estos valores en la próxima carga.');
+      setNotice('Precios publicados. El Personalizador y el checkout usarán estos valores en la próxima carga.');
     } catch (reason) {
       setConfirmPublish(false);
       setError(errorMessage(reason));
@@ -159,46 +159,46 @@ export function VisualizerPricingView() {
     }
   };
 
-  if (loading) return <section className="visualizer-pricing visualizer-pricing--loading" aria-label="Cargando configurador"><div className="visualizer-pricing__loading-card"><SlidersHorizontal size={26} /><strong>Cargando configuración del Visualizador</strong></div></section>;
-  if (!state) return <section className="visualizer-pricing visualizer-pricing--empty" role="alert"><WarningCircle size={28} /><h2>No se pudo abrir la configuración</h2><div>{error}</div><button type="button" className="secondary" onClick={() => void reload()} disabled={busy}>Reintentar</button></section>;
+  if (loading) return <section className="personalizer-pricing personalizer-pricing--loading" aria-label="Cargando configurador"><div className="personalizer-pricing__loading-card"><SlidersHorizontal size={26} /><strong>Cargando configuración del Personalizador</strong></div></section>;
+  if (!state) return <section className="personalizer-pricing personalizer-pricing--empty" role="alert"><WarningCircle size={28} /><h2>No se pudo abrir la configuración</h2><div>{error}</div><button type="button" className="secondary" onClick={() => void reload()} disabled={busy}>Reintentar</button></section>;
 
   const status = dirty ? 'Cambios sin guardar' : publishIssues.length ? `${publishIssues.length} valores pendientes` : 'Borrador guardado';
 
-  return <section className="visualizer-pricing" aria-label="Configurar Visualizador">
-    <div className="visualizer-pricing__actions">
-      <div className="visualizer-pricing__status"><CheckCircle size={20} aria-hidden="true" /><strong>{status}</strong></div>
-      <div className="visualizer-pricing__action-buttons">
+  return <section className="personalizer-pricing" aria-label="Configurar Personalizador">
+    <div className="personalizer-pricing__actions">
+      <div className="personalizer-pricing__status"><CheckCircle size={20} aria-hidden="true" /><strong>{status}</strong></div>
+      <div className="personalizer-pricing__action-buttons">
         <button type="button" className="secondary" disabled={busy || !dirty || draftIssues.length > 0} onClick={() => void save()}><FloppyDisk size={18} />{busy && dirty ? 'Guardando…' : 'Guardar borrador'}</button>
         <button type="button" className="primary" disabled={busy || dirty || publishIssues.length > 0 || publishedChangeCount === 0} onClick={() => setConfirmPublish(true)}>Publicar precios</button>
       </div>
     </div>
 
-    {error && <div className="visualizer-pricing__message visualizer-pricing__message--error" role="alert">{error} <button type="button" onClick={() => void reload()} disabled={busy}>Recargar</button></div>}
-    {notice && <div className="visualizer-pricing__message" role="status">{notice}</div>}
-    {draftIssues.length > 0 && <div className="visualizer-pricing__message visualizer-pricing__message--error" role="alert">{draftIssues[0]}</div>}
+    {error && <div className="personalizer-pricing__message personalizer-pricing__message--error" role="alert">{error} <button type="button" onClick={() => void reload()} disabled={busy}>Recargar</button></div>}
+    {notice && <div className="personalizer-pricing__message" role="status">{notice}</div>}
+    {draftIssues.length > 0 && <div className="personalizer-pricing__message personalizer-pricing__message--error" role="alert">{draftIssues[0]}</div>}
 
-    <div className="visualizer-pricing__catalog-header">
+    <div className="personalizer-pricing__catalog-header">
       <h3>Todos los parámetros</h3>
-      <label className="visualizer-pricing__search"><MagnifyingGlass size={19} aria-hidden="true" /><input type="search" value={query} onChange={(event) => changeQuery(event.target.value)} placeholder="Buscar un precio…" aria-label="Buscar precios del Visualizador" />{query && <button type="button" onClick={() => changeQuery('')} aria-label="Limpiar búsqueda"><X size={17} /></button>}</label>
+      <label className="personalizer-pricing__search"><MagnifyingGlass size={19} aria-hidden="true" /><input type="search" value={query} onChange={(event) => changeQuery(event.target.value)} placeholder="Buscar un precio…" aria-label="Buscar precios del Personalizador" />{query && <button type="button" onClick={() => changeQuery('')} aria-label="Limpiar búsqueda"><X size={17} /></button>}</label>
     </div>
 
-    {visibleGroups.length ? <div className="visualizer-pricing__groups">
+    {visibleGroups.length ? <div className="personalizer-pricing__groups">
       {visibleGroups.map((group) => {
         const expanded = expandedGroups[group.id] ?? Boolean(normalizedQuery);
-        const headingId = `visualizer-group-${group.id}`;
-        const fieldsId = `visualizer-group-fields-${group.id}`;
-        return <section className="visualizer-pricing__group" key={group.id} aria-labelledby={headingId}>
-          <h4 id={headingId}><button type="button" className="visualizer-pricing__group-toggle" aria-expanded={expanded} aria-controls={fieldsId} onClick={() => setExpandedGroups((current) => ({ ...current, [group.id]: !(current[group.id] ?? Boolean(normalizedQuery)) }))}>
-            <strong className="visualizer-pricing__group-title">{group.title}</strong>
-            <div className="visualizer-pricing__group-meta"><small className="visualizer-pricing__count">{group.definitions.length} {group.definitions.length === 1 ? 'regla' : 'reglas'}</small><CaretDown size={19} aria-hidden="true" /></div>
+        const headingId = `personalizer-group-${group.id}`;
+        const fieldsId = `personalizer-group-fields-${group.id}`;
+        return <section className="personalizer-pricing__group" key={group.id} aria-labelledby={headingId}>
+          <h4 id={headingId}><button type="button" className="personalizer-pricing__group-toggle" aria-expanded={expanded} aria-controls={fieldsId} onClick={() => setExpandedGroups((current) => ({ ...current, [group.id]: !(current[group.id] ?? Boolean(normalizedQuery)) }))}>
+            <strong className="personalizer-pricing__group-title">{group.title}</strong>
+            <div className="personalizer-pricing__group-meta"><small className="personalizer-pricing__count">{group.definitions.length} {group.definitions.length === 1 ? 'regla' : 'reglas'}</small><CaretDown size={19} aria-hidden="true" /></div>
           </button></h4>
-          <div className="visualizer-pricing__fields" id={fieldsId} hidden={!expanded}>{group.definitions.map((definition) => <PriceField key={definition.rule_key} definition={definition} value={values[definition.rule_key] ?? ''} published={state.published.values[definition.rule_key]} onChange={(value) => changeValue(definition.rule_key, value)} />)}</div>
+          <div className="personalizer-pricing__fields" id={fieldsId} hidden={!expanded}>{group.definitions.map((definition) => <PriceField key={definition.rule_key} definition={definition} value={values[definition.rule_key] ?? ''} published={state.published.values[definition.rule_key]} onChange={(value) => changeValue(definition.rule_key, value)} />)}</div>
         </section>;
       })}
-    </div> : <div className="visualizer-pricing__no-results">No encontramos precios para “{query}”. <button type="button" onClick={() => changeQuery('')}>Ver todos</button></div>}
+    </div> : <div className="personalizer-pricing__no-results">No encontramos precios para “{query}”. <button type="button" onClick={() => changeQuery('')}>Ver todos</button></div>}
 
-    {confirmPublish && <div className="visualizer-pricing__confirm" role="dialog" aria-modal="true" aria-labelledby="visualizer-publish-title">
-      <div><h3 id="visualizer-publish-title">Publicar precios</h3><div>Se publicarán {publishedChangeCount} cambios. El Visualizador y el checkout usarán estos valores para nuevas compras.</div><div><button type="button" className="secondary" disabled={busy} onClick={() => setConfirmPublish(false)}>Cancelar</button><button type="button" className="primary" disabled={busy} onClick={() => void publish()}>{busy ? 'Publicando…' : 'Confirmar publicación'}</button></div></div>
+    {confirmPublish && <div className="personalizer-pricing__confirm" role="dialog" aria-modal="true" aria-labelledby="personalizer-publish-title">
+      <div><h3 id="personalizer-publish-title">Publicar precios</h3><div>Se publicarán {publishedChangeCount} cambios. El Personalizador y el checkout usarán estos valores para nuevas compras.</div><div><button type="button" className="secondary" disabled={busy} onClick={() => setConfirmPublish(false)}>Cancelar</button><button type="button" className="primary" disabled={busy} onClick={() => void publish()}>{busy ? 'Publicando…' : 'Confirmar publicación'}</button></div></div>
     </div>}
   </section>;
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type FormEvent, type PointerEvent, type ReactNode } from "react";
 import * as flags from "country-flag-icons/react/3x2";
 import { commerceSource } from "./commerceSource";
+import { callMarketing } from "./marketingApi";
 import { customerOriginClass, customerOriginLabel, customerOriginOptions, customerOriginValue } from "./customerChannel";
 import { formatDate } from "./dateFormat";
 import { CustomerDetailModal } from "./pages";
@@ -11,19 +12,6 @@ type Contact = { id: string; name: string | null; email: string | null; phone: s
 type ContactSummary = { total: number; origins: { source: string; contacts: number }[] };
 type Campaign = { id: string; subject: string; body: string; image_url: string | null; target_url: string | null; status: string; created_at: string; sent_at: string | null };
 type Settings = { enabled: boolean; headline: string; description: string; image_url: string | null; discount_code: string };
-
-async function callMarketing<T>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
-  if (!commerceSource) throw new Error("El comercio no está conectado.");
-  const { data, error } = await commerceSource.functions.invoke("marketing-workspace", { body: { action, ...payload } });
-  if (error) {
-    const responseBody = error.context instanceof Response
-      ? await error.context.json().catch(() => null) as { error?: string } | null
-      : null;
-    throw new Error(responseBody?.error || error.message || "No se pudo completar la operación.");
-  }
-  if (data?.error) throw new Error(data.error);
-  return data as T;
-}
 
 const date = (value: string | null) => formatDate(value);
 const sourceName = customerOriginLabel;
@@ -246,7 +234,7 @@ const referrerRules: [RegExp, Naming][] = [
   [/(^|\.)(youtube\.com|youtu\.be)$/, { label: "YouTube", icon: site("youtube.com") }],
   [/(^|\.)mercadopago\.[a-z.]+$|(^|\.)mercadolibre\.[a-z.]+$/, { label: "Mercado Pago / Libre", icon: site("mercadopago.com.uy") }],
   [/(^|\.)matearteuruguay\.com$/, { label: "MateArte (sitio)", icon: site("matearteuruguay.com") }],
-  [/^matearte-visualizador\.vercel\.app$/, { label: "Personalizador", icon: site("matearte-visualizador.vercel.app") }],
+  [/^personalizador\.matearteuruguay\.com$/, { label: "Personalizador", icon: site("personalizador.matearteuruguay.com") }],
   [/^matearte-gestion\.vercel\.app$/, { label: "Gestión (interno)", icon: site("matearte-gestion.vercel.app") }],
 ];
 const routeRules: [RegExp, Naming][] = [

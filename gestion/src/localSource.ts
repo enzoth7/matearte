@@ -48,7 +48,17 @@ export type LocalSale = {
   sold_on: string;
   payment_method: string;
   total_minor: number;
+  deposit_minor?: number | null;
   currency: string;
   created_at: string;
   local_sale_items: LocalSaleItem[];
+};
+
+export type LocalSaleReceipt = {
+  id: string;
+  sale_id: string;
+  amount_minor: number;
+  payment_method: string;
+  paid_on: string;
+  created_at: string;
 };

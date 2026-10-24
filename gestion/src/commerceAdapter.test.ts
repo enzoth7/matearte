@@ -231,6 +231,46 @@ describe("integración de commerce en el estado compartido", () => {
     expect(state.payments.find(payment => payment.orderId === deposit.id)?.amount).toBe(100);
     expect(overviewScope(state, "14d", "2026-10-13").orders.reduce((sum, order) => sum + order.quantity, 0)).toBe(6);
   });
+  it("conserva el medio de pago y el saldo cuando una venta tiene seña", () => {
+    const fixture = commerceFixture();
+    fixture.localSales = [{
+      id: "sale-debit-deposit", sale_number: 21, customer_id: null, customer_name: "Cliente",
+      sold_on: "2026-10-13", payment_method: "Débito", total_minor: 25000, deposit_minor: 25000,
+      currency: "UYU", created_at: "2026-10-13T15:00:00Z", local_sale_items: [{
+        id: "local-debit-item", variant_id: "variant-1", sku: "SKU-1", product_name: "Mate de catálogo",
+        variant_name: "Cuero negro", quantity: 1, unit_price_minor: 110050, line_total_minor: 110050,
+      }],
+    }];
+    const state = adaptCommerce(fixture);
+    const sale = state.orders.find(order => order.id === "sale-debit-deposit")!;
+    expect(sale.paymentMethod).toBe("Débito");
+    expect(sale.depositAmount).toBe(250);
+    expect(total(sale)).toBe(1100.5);
+    expect(balance(state, sale)).toBe(850.5);
+    expect(state.payments.find(payment => payment.orderId === sale.id)?.amount).toBe(250);
+  });
+  it("separa la seña del cobro posterior sin duplicar la venta en el flujo de caja", () => {
+    const fixture = commerceFixture();
+    fixture.localSales = [{
+      id: "sale-36", sale_number: 36, customer_id: null, customer_name: "Cliente",
+      sold_on: "2026-10-24", payment_method: "Transferencia", total_minor: 200000, deposit_minor: 200000,
+      currency: "UYU", created_at: "2026-10-24T12:00:00Z", local_sale_items: [{
+        id: "item-36", variant_id: "variant-1", sku: "SKU-1", product_name: "Cartera Matera",
+        variant_name: "Negro/Blanco", quantity: 1, unit_price_minor: 450000, line_total_minor: 450000,
+      }],
+    }];
+    fixture.localReceipts = [{ id: "receipt-36", sale_id: "sale-36", amount_minor: 250000,
+      payment_method: "Efectivo", paid_on: "2026-11-02", created_at: "2026-11-02T12:00:00Z" }];
+    const state = adaptCommerce(fixture);
+    const sale = state.orders.find(order => order.id === "sale-36")!;
+    expect(total(sale)).toBe(4500);
+    expect(state.orders.filter(order => order.id === "sale-36")).toHaveLength(1);
+    expect(state.payments.filter(payment => payment.orderId === sale.id).map(payment => payment.amount)).toEqual([2000, 2500]);
+    expect(balance(state, sale)).toBe(0);
+    const months = buildFinanceProjection(state, { asOf: "2026-10-24" });
+    expect(months[0].actualIncome - buildFinanceProjection(adaptCommerce({ ...fixture, localSales: [], localReceipts: [] }), { asOf: "2026-10-24" })[0].actualIncome).toBe(2000);
+    expect(months[1].actualIncome - buildFinanceProjection(adaptCommerce({ ...fixture, localSales: [], localReceipts: [] }), { asOf: "2026-10-24" })[1].actualIncome).toBe(2500);
+  });
   it("incorpora participantes del sorteo a clientes con su canal e interés", () => {
     const fixture = commerceFixture();
     fixture.ruralRaffleEntries = [{ id: "raffle-1", full_name: "Ana Pérez", email: "sorteo@example.com", phone: "+59899123456", city: "Paysandú", country: "Uruguay", birth_date: "1995-04-12", product_interest: "carteras", created_at: "2026-10-15T12:00:00Z" }];

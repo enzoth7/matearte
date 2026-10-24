@@ -40,7 +40,7 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
     commerce_international_shipping_rates: fixture.reference.shippingRates, commerce_exchange_rates: fixture.reference.exchangeRates,
     commerce_attribute_definitions: [], commerce_attribute_options: [], commerce_category_attributes: [], commerce_bank_transfer_settings: { account_holder: 'Titular', transfer_account: '111', cash_deposit_account: '222', cash_deposit_label: 'Depósito' },
     commerce_categories: fixture.reference.categories, commerce_settings: fixture.reference.settings, shipping_rates: fixture.nationalRates, purchases: [], fixed_expenses: [], fixed_expense_payments: [], expense_categories: [],
-    local_sales_customers: [], local_sales: [], rural_raffle_entries: [],
+    local_sales_customers: [], local_sales: [], local_sale_receipts: [], rural_raffle_entries: [],
     site_announcements: [], web_leads: [],
     products: [], wholesale_product_images: [], customers: [], order_lines: [], settings: { id: 1, exchange_rate: 0.027 },
   };
@@ -122,6 +122,41 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
         tables.rural_raffle_entries = tables.rural_raffle_entries.filter((entry: any) => entry.id !== body.p_raffle_id);
         return respond(Number(!!local) + Number(!!raffle));
       }
+      if (table === 'gestion_record_local_sale_payment') {
+        const existing = tables.local_sale_receipts.find((entry: any) => entry.id === body.p_receipt_id);
+        if (existing) return respond(existing);
+        const sale = tables.local_sales.find((entry: any) => entry.id === body.p_sale_id);
+        if (!sale) return respond({ message: 'La venta no existe' }, 400);
+        const total = sale.local_sale_items.reduce((sum: number, item: any) => sum + item.line_total_minor, 0);
+        const laterPaid = tables.local_sale_receipts.filter((entry: any) => entry.sale_id === sale.id)
+          .reduce((sum: number, entry: any) => sum + entry.amount_minor, 0);
+        if (body.p_amount_minor <= 0 || body.p_amount_minor > total - sale.total_minor - laterPaid) return respond({ message: 'El cobro supera el saldo pendiente' }, 400);
+        const receipt = { id: body.p_receipt_id, sale_id: sale.id, amount_minor: body.p_amount_minor,
+          payment_method: body.p_payment_method, paid_on: body.p_paid_on, created_at: new Date().toISOString() };
+        tables.local_sale_receipts.push(receipt);
+        return respond(receipt);
+      }
+      if (table === 'gestion_update_local_sale') {
+        const sale = tables.local_sales.find((entry: any) => entry.id === body.p_sale_id);
+        if (!sale) return respond({ message: 'La venta no existe' }, 400);
+        const items = [];
+        for (const [index, line] of body.p_items.entries()) {
+          const existing = line.id && sale.local_sale_items.find((entry: any) => entry.id === line.id);
+          const product = line.id ? undefined : fixture.products.find(entry => entry.commerce_variants.some(variant => variant.sku.toUpperCase() === String(line.sku).toUpperCase()));
+          const variant = product?.commerce_variants.find(entry => entry.sku.toUpperCase() === String(line.sku).toUpperCase());
+          if (!existing && !variant) return respond({ message: 'El SKU no está disponible para ventas del local' }, 400);
+          items.push({ ...(existing || { id: `added-item-${index}`, variant_id: variant!.id, sku: variant!.sku,
+            product_name: product!.name, variant_name: variant!.name }), quantity: line.quantity,
+            unit_price_minor: line.unit_price_minor, line_total_minor: line.quantity * line.unit_price_minor });
+        }
+        sale.local_sale_items = items;
+        sale.sold_on = body.p_sold_on;
+        sale.payment_method = body.p_payment_method;
+        sale.deposit_minor = body.p_deposit_minor;
+        const itemsTotal = items.reduce((sum: number, item: any) => sum + item.line_total_minor, 0);
+        sale.total_minor = body.p_deposit_minor ?? itemsTotal;
+        return respond({ id: sale.id, items_total_minor: itemsTotal, charged_total_minor: sale.total_minor });
+      }
       if (table === 'create_local_sale_with_items' || table === 'create_channel_sale_with_items' || table === 'gestion_create_local_sale_with_items') {
         const saleNumber = tables.local_sales.length + 19;
         const channel = table === 'create_local_sale_with_items' ? 'Local' : body.p_channel;
@@ -137,10 +172,10 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
             unit_price_minor: item.unit_price_minor, line_total_minor: item.unit_price_minor * item.quantity, customization: item.customization || null };
         });
         const itemsTotal = items.reduce((sum: number, item: any) => sum + item.line_total_minor, 0);
-        const charged = body.p_payment_method === 'Seña' ? body.p_deposit_minor : itemsTotal;
+        const charged = body.p_deposit_minor == null ? itemsTotal : body.p_deposit_minor;
         const row = { id: `sale-${saleNumber}`, sale_number: saleNumber, reference_code: `#${prefix}${String(referenceNumber).padStart(3, '0')}`, channel, customer_id: body.p_customer_id,
           customer_name: customer?.full_name || 'Cliente sin registrar', sold_on: body.p_sold_on,
-          payment_method: body.p_payment_method, total_minor: charged, currency: 'UYU',
+          payment_method: body.p_payment_method, total_minor: charged, deposit_minor: body.p_deposit_minor, currency: 'UYU',
           created_at: new Date().toISOString(), local_sale_items: items };
         tables.local_sales.push(row);
         if (customer) {

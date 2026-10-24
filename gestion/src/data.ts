@@ -81,6 +81,7 @@ export type Order = {
   source?: "local" | "wholesale";
   customerName?: string;
   localItemsAmount?: number;
+  depositAmount?: number;
   paymentMethod?: string;
   number?: number;
   referenceCode?: string | null;
@@ -263,7 +264,7 @@ export function loadState(): State {
       if (!Array.isArray(saved)) return [userId, defaults];
       const updated = saved.flatMap((path) => path === "/comercial/registrar"
         ? userId === "t3" ? ["/comercial/registrar-may"] : ["/comercial/registrar-min"]
-        : [path === "/productos/precios" ? "/productos/ajustes" : path === "/produccion/configurador-visualizador" ? "/productos/personalizador" : path])
+        : [path === "/productos/precios" ? "/productos/ajustes" : path === "/produccion/configurador-personalizador" ? "/productos/personalizador" : path])
         .filter((path): path is string => typeof path === "string" && paths.some((item) => item === path));
       return [userId, [...new Set(updated)]];
     }));

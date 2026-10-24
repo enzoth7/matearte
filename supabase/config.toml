@@ -8,6 +8,11 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/gestion-users/index.ts"
 
+[functions.gestion-mcp]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/gestion-mcp/index.ts"
+
 [functions.marketing-workspace]
 enabled = true
 verify_jwt = false

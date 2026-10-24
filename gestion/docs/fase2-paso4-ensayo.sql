@@ -88,7 +88,7 @@ end $$;
 -- ENSAYO: pruebas con un cliente web común y con administradores; termina con error a propósito y se deshace todo.
 do $$
 declare cliente uuid; precios uuid; tienda uuid; n_usd int; n_envio int; insert_bloqueado boolean := false;
-  es_precios boolean; puede_visualizador boolean; tienda_es_precios boolean; n_ars int; ars_nuevo numeric; ve_admin int;
+  es_precios boolean; puede_personalizador boolean; tienda_es_precios boolean; n_ars int; ars_nuevo numeric; ve_admin int;
 begin
   select p.user_id into cliente from public.customer_profiles p
   where not exists (select 1 from public.commerce_admin_users c where c.user_id = p.user_id) limit 1;
@@ -112,7 +112,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', precios, 'role', 'authenticated')::text, true);
   set local role authenticated;
   es_precios := private.is_pricing_admin();
-  puede_visualizador := private.can_manage_visualizer_pricing();
+  puede_personalizador := private.can_manage_visualizer_pricing();
   select count(*) into ve_admin from public.admin_users where user_id = precios and active;
   reset role;
 
@@ -125,6 +125,6 @@ begin
   reset role;
   select rate_to_uyu into ars_nuevo from public.commerce_exchange_rates where currency_code = 'ARS';
 
-  raise exception 'ENSAYO PASO 4 OK, se deshace todo | cliente: usd_cambiadas=% insert_bloqueado=% envios_cambiados=% | precios: es_admin=% visualizador=% localventas=% | tienda: es_precios=% ars_guardado=% ars=%',
-    n_usd, insert_bloqueado, n_envio, es_precios, puede_visualizador, ve_admin, tienda_es_precios, n_ars, ars_nuevo;
+  raise exception 'ENSAYO PASO 4 OK, se deshace todo | cliente: usd_cambiadas=% insert_bloqueado=% envios_cambiados=% | precios: es_admin=% personalizador=% localventas=% | tienda: es_precios=% ars_guardado=% ars=%',
+    n_usd, insert_bloqueado, n_envio, es_precios, puede_personalizador, ve_admin, tienda_es_precios, n_ars, ars_nuevo;
 end $$;

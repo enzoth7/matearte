@@ -1,0 +1,4 @@
+# Aplicación privada de MateArte: no se indexa (cabecera X-Robots-Tag y meta robots con noindex).
+# El rastreo queda permitido a propósito para que los buscadores lean el noindex y retiren cualquier URL ya indexada.
+User-agent: *
+Allow: /

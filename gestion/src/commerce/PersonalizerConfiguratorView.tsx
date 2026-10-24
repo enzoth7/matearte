@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { VisualizerCatalogView } from "./VisualizerCatalogView";
-import { VisualizerPricingView } from "./VisualizerPricingView";
+import { PersonalizerCatalogView } from "./PersonalizerCatalogView";
+import { PersonalizerPricingView } from "./PersonalizerPricingView";
 
-export function VisualizerConfiguratorView() {
+export function PersonalizerConfiguratorView() {
   const [tab, setTab] = useState<"prices" | "models" | "techniques">("prices");
   return (
-    <div className="visualizer-configurator">
+    <div className="personalizer-configurator">
       <nav
-        className="visualizer-configurator__tabs"
-        aria-label="Configuración del Visualizador"
+        className="personalizer-configurator__tabs"
+        aria-label="Configuración del Personalizador"
       >
         <button
           type="button"
@@ -21,9 +21,9 @@ export function VisualizerConfiguratorView() {
         <button type="button" aria-current={tab === "techniques" ? "page" : undefined} onClick={() => setTab("techniques")}>Técnicas de personalización</button>
       </nav>
       {tab === "models" || tab === "techniques" ? (
-        <VisualizerCatalogView section={tab} />
+        <PersonalizerCatalogView section={tab} />
       ) : (
-        <VisualizerPricingView />
+        <PersonalizerPricingView />
       )}
     </div>
   );

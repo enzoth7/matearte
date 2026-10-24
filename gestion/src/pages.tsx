@@ -7,6 +7,8 @@ import { WholesaleRegister, WholesaleCustomerEditor, WholesaleProduction, Wholes
 import { exportWholesalePdf } from "./wholesaleExports";
 import { summarizeWholesaleCustomer } from "./wholesaleAdapter";
 import { latestCustomerPurchase } from "./customerPurchase";
+import { callMarketing } from "./marketingApi";
+import { topRetailProducts, topViewedProducts, type ProductView, type RankingItem } from "./overviewRankings";
 import { customerDisplayChannel, customerOriginLabel, customerOriginOptions } from "./customerChannel";
 import { joinCustomerPhone, splitCustomerPhone } from "./customerPhone";
 import { OrderContactPhone } from "./OrderContactPhone";
@@ -29,12 +31,10 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell,
 } from "recharts";
 import { Package, Plus, PencilSimple, CaretDown, FileXls, FunnelX, MagnifyingGlass, Trash } from "@phosphor-icons/react";
 import { LocalSaleEditor, canEditLocalSale, deleteLocalSale } from "./LocalSaleEditor";
+import { LocalSaleReceiptForm } from "./LocalSaleReceiptForm";
 import {
   type State,
   type Order,
@@ -90,6 +90,15 @@ const paymentStatus = (s: State, o: Order) =>
     : paid(s, o) > 0
       ? "Pago parcial"
       : "Pendiente";
+function OverviewRanking({ rows, empty }: { rows: RankingItem[]; empty: string }) {
+  const max = rows[0]?.count || 1;
+  return rows.length ? <ol className="overview-ranking">
+    {rows.map(({ name, count }) => <li key={name} title={name}>
+      <div className="overview-ranking-heading"><span>{name}</span><strong>{count.toLocaleString("es-UY")}</strong></div>
+      <div className="overview-ranking-track" aria-hidden="true"><span style={{ width: `${count / max * 100}%` }} /></div>
+    </li>)}
+  </ol> : <p className="overview-ranking-empty">{empty}</p>;
+}
 export function Overview({ s, go }: PageProps) {
   const registrationPath = firstRegistrationPath(s);
   const [period, setPeriod] = useState<OverviewPeriod>(() => {
@@ -103,11 +112,25 @@ export function Overview({ s, go }: PageProps) {
   const canSeeFinance = canAccess(s, "/finanzas/resumen");
   const hasExpenses = s.source !== "commerce" || Boolean(s.expensesConnected);
   const canSeeProduction = canAccess(s, "/produccion/resumen");
+  const canSeeAnalytics = canAccess(s, "/marketing/analytics");
+  const [productViews, setProductViews] = useState<ProductView[] | null>(null);
+  const [productViewsError, setProductViewsError] = useState("");
   const { orders, expenses, trend, start, end } = overviewScope({
     ...s,
     orders: visibleOrders(s),
     expenses: canSeeFinance ? s.expenses : [],
   }, period);
+  const periodLabel = overviewPeriods.find(([value]) => value === period)?.[1] || "Período seleccionado";
+  useEffect(() => {
+    if (!canSeeAnalytics) return;
+    let active = true;
+    setProductViews(null);
+    setProductViewsError("");
+    void callMarketing<{ products: ProductView[] }>("analytics", { site: "tienda", startDate: start, endDate: end, productsOnly: true })
+      .then(result => { if (active) setProductViews(result.products || []); })
+      .catch(reason => { if (active) setProductViewsError((reason as Error).message); });
+    return () => { active = false; };
+  }, [canSeeAnalytics, start, end]);
   const sales = orders.reduce((a, o) => a + total(o), 0);
   const expensesPaid = expenses
     .filter((expense) => expense.paid)
@@ -127,6 +150,9 @@ export function Overview({ s, go }: PageProps) {
     }),
   );
   const channelColors: Record<OrderChannel, string> = { Web: "#236b91", Mayorista: "#4d7a57", Local: "#794c32", Feria: "#936735", Instagram: "#d83280", Facebook: "#2459a6", WhatsApp: "#28b765" };
+  const channelMax = Math.max(1, ...channelData.map(channel => channel.total));
+  const retailRanking = topRetailProducts(orders, s.customers, s.products);
+  const viewedRanking = topViewedProducts(productViews || []);
   return (
     <>
       <div className="welcome">
@@ -143,6 +169,8 @@ export function Overview({ s, go }: PageProps) {
             onChange={(event) => {
               const next = event.target.value as OverviewPeriod;
               setPeriod(next);
+              setProductViews(null);
+              setProductViewsError("");
               try { localStorage.setItem("matearte-overview-period", next); } catch {}
             }}
           >
@@ -261,47 +289,26 @@ export function Overview({ s, go }: PageProps) {
           </div>
         </Card>
         <Card title="Ventas por canal">
-          <div className="channel-chart">
-            <ResponsiveContainer width="100%" height={Math.max(165, channelData.length * 30 + 10)}>
-              <BarChart
-                data={channelData}
-                layout="vertical"
-                margin={{ left: 0, right: 20 }}
-              >
-                <XAxis type="number" hide />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  width={95}
-                  interval={0}
-                  tick={({ x, y, payload }) => <text x={x} y={y} dy={4} textAnchor="end" fontSize={12} fill={channelColors[payload.value as OrderChannel]}>{payload.value}</text>}
-                />
-                <Tooltip content={<ChartTooltip />} />
-                <Bar
-                  isAnimationActive={false}
-                  dataKey="total"
-                  name="Ventas"
-                  radius={[0, 5, 5, 0]}
-                  barSize={21}
-                >
-                  {channelData.map((c) => (
-                    <Cell
-                      key={c.name}
-                      fill={channelColors[c.name]}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="channel-summary" aria-label="Importes por canal">
+            {channelData.map(channel => <div className="channel-summary-row" key={channel.name}>
+              <div className="channel-summary-heading"><span style={{ color: channelColors[channel.name] }}>{channel.name}</span><strong>{money(channel.total)}</strong></div>
+              <div className="channel-summary-track" aria-hidden="true"><span style={{ width: `${channel.total / channelMax * 100}%`, backgroundColor: channelColors[channel.name] }} /></div>
+            </div>)}
           </div>
-          {channelData.map((c) => (
-            <div className="line-item" key={c.name}>
-              <Badge>{c.name}</Badge>
-              <strong>{money(c.total)}</strong>
-            </div>
-          ))}
+        </Card>
+      </div>
+      <div className="overview-rankings-grid">
+        <Card title="Productos más vendidos minorista">
+          <small className="overview-ranking-note">Unidades vendidas en el período seleccionado</small>
+          <OverviewRanking rows={retailRanking} empty="Sin ventas minoristas en este período." />
+        </Card>
+        <Card title="Productos más vistos">
+          <small className="overview-ranking-note">Visitantes de la tienda web · {periodLabel.toLocaleLowerCase("es-UY")}</small>
+          {canSeeAnalytics ? productViewsError
+            ? <p className="overview-ranking-empty" role="alert">{productViewsError}</p>
+            : productViews === null ? <p className="overview-ranking-empty" role="status">Cargando Analytics…</p>
+              : <OverviewRanking rows={viewedRanking} empty="Sin vistas de productos en el período seleccionado." />
+            : <p className="overview-ranking-empty">Sin acceso a Analytics.</p>}
         </Card>
       </div>
       <div className={`overview-bottom ${canSeeProduction ? "" : "overview-bottom-single"}`}>
@@ -430,7 +437,7 @@ function OrderTable({
         ...(mode === "pedidos" ? [{ label: "Origen", render: (o: Order) => { const origin = originByOrder.get(o.id); return origin ? <Badge>{customerOriginLabel(origin)}</Badge> : "—"; } }] : []),
         { label: "Canal", render: (o) => <Badge>{o.channel}</Badge> },
         ...(showAmounts ? [
-          { label: "Total", render: (o: Order) => <strong>{money(total(o))}{o.paymentAmountUsd != null && <small> · {usdMoney(o.paymentAmountUsd)}</small>}</strong> },
+          { label: "Importe", render: (o: Order) => <strong>{money(o.source === "local" && o.depositAmount != null ? paid(s, o) : total(o))}{o.paymentAmountUsd != null && <small> · {usdMoney(o.paymentAmountUsd)}</small>}</strong> },
           { label: "Pago", render: (o: Order) => <Badge>{paymentStatus(s, o)}</Badge> },
         ] : []),
         {
@@ -486,16 +493,21 @@ function OrderTable({
 function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order: Order; props: PageProps; showAmounts: boolean; onClose: () => void }) {
   const { s, go } = props;
   const [editingSale, setEditingSale] = useState(false);
+  const [recordingReceipt, setRecordingReceipt] = useState(false);
   const [saleBusy, setSaleBusy] = useState(false);
   const [saleError, setSaleError] = useState("");
   const items = order.items || [];
+  const localDeposit = order.source === "local" && order.depositAmount != null;
+  const orderPayments = s.payments.filter((payment) => payment.orderId === order.id);
+  const localPaymentMethods = [...new Set([order.paymentMethod, ...orderPayments.map((payment) => payment.method)]
+    .filter((method): method is string => Boolean(method && method !== "Seña")))].join(" · ") || "No registrado";
   const shipping = orderShippingStatus(order);
   const contact = s.customers.find((entry) => entry.id === order.customerId);
   const phone = contact?.phone?.trim() || "";
   const country = contact?.country || (contact?.city ? countryForCity(contact.city) : "") || (/^0?9\d{7}$/.test(phone.replace(/\D/g, "")) ? "Uruguay" : "");
   const phoneParts = splitCustomerPhone(phone, country);
   const whatsappDigits = phoneParts.prefix ? joinCustomerPhone(phoneParts.prefix, phoneParts.number).replace(/\D/g, "") : "";
-  const hasContactOrDelivery = Boolean(phone || contact?.email || contact?.address || contact?.city || order.method === "Envío");
+  const hasContactOrDelivery = Boolean(phone || contact?.email || contact?.address || contact?.city || order.method === "Envío" || order.source === "local");
   const wholesaleLines = order.source === "wholesale"
     ? props.commerce?.wholesale?.lines.filter((line) => items.some((item) => item.wholesaleLineId === line.line_id)) || []
     : [];
@@ -526,12 +538,15 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       <div className="unified-order-facts">
         <div><small>Cliente</small><strong>{naturalCaseName(customer(s, order).name)}</strong></div>
         <div><small>Productos</small><strong>{orderCategoryLabels(order, s.products)}</strong></div>
-        {showAmounts && <div><small>Pago</small><strong>{paymentStatus(s, order)}</strong><span>{order.paymentMethod === "Seña" ? "Saldo de la seña" : "Saldo pendiente"}: {money(balance(s, order))}</span></div>}
+        {showAmounts && <div><small>Pago</small><strong>{paymentStatus(s, order)}</strong><span>{localDeposit ? "Saldo de la seña" : "Saldo pendiente"}: {money(balance(s, order))}</span></div>}
         <div><small>Producción</small><strong>{order.production}</strong></div>
       </div>
     </section>
     {hasContactOrDelivery && <section className="unified-order-contact order-delivery-summary" aria-label="Entrega y contacto">
-      <div className="order-delivery-summary__heading"><div><small>Entrega</small><strong>{order.method === "Envío" ? "Envío" : order.method === "Retiro" ? "Retiro en el local" : "Venta en el local"}</strong></div></div>
+      <div className={`order-delivery-summary__heading${order.source === "local" ? " order-delivery-summary__heading--with-payment" : ""}`}>
+        <div><small>Entrega</small><strong>{order.method === "Envío" ? "Envío" : order.method === "Retiro" ? "Retiro en el local" : "Venta en el local"}</strong></div>
+        {order.source === "local" && <div><small>Medio de pago</small><strong>{localPaymentMethods}</strong></div>}
+      </div>
       <div className="order-delivery-grid">
         <div><small>Cliente</small><strong>{naturalCaseName(contact?.name || order.customerName || "Cliente sin nombre")}</strong>
           {phone && <OrderContactPhone prefix={phoneParts.prefix} number={phoneParts.number} country={country} whatsappDigits={whatsappDigits} />}
@@ -546,8 +561,15 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       {!!order.discountAmount && <div className="line-item"><div>Descuento</div><strong>{money(-order.discountAmount)}</strong></div>}
       {!!order.shippingAmount && <div className="line-item"><div>Envío</div><strong>{money(order.shippingAmount)}</strong></div>}
       {!!order.feeAmount && <div className="line-item"><div>Cargo por pago</div><strong>{money(order.feeAmount)}</strong></div>}
-      <div className="line-item"><div>Total</div><strong>{money(total(order))}</strong></div>
-      {s.payments.filter((payment) => payment.orderId === order.id && payment.sourceCurrency === "USD").map((payment) => <div className="line-item" key={payment.id}><div>Cobro PayPal</div><strong>{paymentMoney(payment)}</strong></div>)}
+      {localDeposit ? <>
+        <div className="line-item"><div>Valor de artículos</div><strong>{money(total(order))}</strong></div>
+        {orderPayments.map((payment, index) => <div className="line-item" key={payment.id}><div>{index === 0 ? "Seña" : "Cobro"} · {payment.method} · {orderDate(payment.date)}</div><strong>{money(payment.amount || 0)}</strong></div>)}
+        <div className="line-item"><div>Saldo pendiente</div><strong>{money(balance(s, order))}</strong></div>
+        <div className="line-item"><div>Cobrado hasta ahora</div><strong>{money(paid(s, order))}</strong></div>
+      </> : <>
+        <div className="line-item"><div>Total</div><strong>{money(total(order))}</strong></div>
+        {orderPayments.filter((payment) => payment.sourceCurrency === "USD").map((payment) => <div className="line-item" key={payment.id}><div>Cobro PayPal</div><strong>{paymentMoney(payment)}</strong></div>)}
+      </>}
     </section>}
     {order.method === "Envío" && (order.carrier || order.tracking) && <section className="order-tracking-detail" aria-label="Seguimiento guardado"><small>Envío registrado</small><strong>{order.carrier || "Sin transportista"}</strong><span>{order.tracking || "Sin código"}</span></section>}
     {saleError && <div className="error" role="alert">{saleError}</div>}
@@ -562,12 +584,14 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
           await props.refresh?.(true); props.notify?.("Venta eliminada"); setSaleBusy(false); onClose();
         })()}><Trash size={20} aria-hidden="true" /></button>
       </div>}
+      {canEditLocalSale(order) && balance(s, order) > 0 && <button type="button" className="unified-order-action unified-order-action--primary" onClick={() => setRecordingReceipt(true)}>Registrar cobro</button>}
       <button className="unified-order-action" onClick={onClose}>Cerrar</button>
       {s.customers.some((entry) => entry.id === order.customerId) && <button className="unified-order-action" onClick={() => go(`/clientes/base?cliente=${order.customerId}`)}>Ver ficha del cliente</button>}
       {order.source === "wholesale" && wholesaleLines.length > 0 && props.commerce?.wholesale && <button className="unified-order-action" onClick={() => exportWholesalePdf(orderName(order), wholesaleLines, props.commerce!.wholesale!)}>Descargar PDF</button>}
       {order.source === "wholesale" && <button className="unified-order-action unified-order-action--primary" onClick={() => go("/produccion/mayorista")}>Gestionar producción</button>}
     </div>
-    {editingSale && <LocalSaleEditor order={order} customers={s.customers} depositAmount={s.payments.find((payment) => payment.orderId === order.id)?.amount ?? undefined} onClose={() => setEditingSale(false)} onChanged={async (message) => { await props.refresh?.(true); props.notify?.(message); setEditingSale(false); onClose(); }} />}
+    {editingSale && <LocalSaleEditor order={order} customers={s.customers} products={s.products} depositAmount={s.payments.find((payment) => payment.orderId === order.id)?.amount ?? undefined} onClose={() => setEditingSale(false)} onChanged={async (message) => { await props.refresh?.(true); props.notify?.(message); setEditingSale(false); onClose(); }} />}
+    {recordingReceipt && <LocalSaleReceiptForm order={order} remaining={balance(s, order)} onClose={() => setRecordingReceipt(false)} onChanged={async () => { await props.refresh?.(true); props.notify?.("Cobro registrado en el mismo pedido"); setRecordingReceipt(false); }} />}
   </Modal>;
 }
 
@@ -686,7 +710,7 @@ export function Orders(
               cliente: customer(s, o).name,
               productos: orderCategoryLabels(o, s.products),
               cantidad: o.quantity,
-              ...(showAmounts ? { total: total(o), saldo: balance(s, o) } : {}),
+              ...(showAmounts ? { total: total(o), cobrado: paid(s, o), saldo: balance(s, o) } : {}),
               produccion: o.source === "local" ? "" : o.production,
               envio: o.source === "local" ? "" : orderShippingStatus(o),
             }))}
@@ -748,7 +772,7 @@ export function Orders(
       {selectedCustomer && <CustomerDetailModal customer={selectedCustomer} s={s} go={go} commerce={props.commerce} onClose={() => setSelectedCustomer(null)} />}
       {mode === "historico" && <WholesaleProduction props={props} history />}
       {o && (o.source === "local" || o.source === "wholesale" || !props.session) && <UnifiedOrderDetailModal order={o} props={props} showAmounts={showAmounts} onClose={() => setSelected(null)} />}
-      {o && o.source !== "local" && o.source !== "wholesale" && props.session && <div className="commerce-tools order-tools"><CommerceOrderDetails key={o.id} session={props.session} onNotice={props.notify} orderId={o.id} onCustomer={() => go(`/clientes/base?cliente=${o.customerId}`)} onClose={() => { setSelected(null); void props.refresh?.(); }} /></div>}
+      {o && o.source !== "local" && o.source !== "wholesale" && props.session && <div className="commerce-tools order-tools"><CommerceOrderDetails key={o.id} session={props.session} onNotice={props.notify} orderId={o.id} catalogProducts={s.products} onProduct={(productId, variantId) => go(`/productos/catalogo?producto=${encodeURIComponent(productId)}&variante=${encodeURIComponent(variantId)}`)} onCustomer={() => go(`/clientes/base?cliente=${o.customerId}`)} onClose={() => { setSelected(null); void props.refresh?.(); }} /></div>}
     </>
   );
 }

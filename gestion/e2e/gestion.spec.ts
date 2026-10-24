@@ -311,6 +311,8 @@ test("ventas resume categorías y deja los datos del artículo dentro del detall
   expect(columnPositions[1].x).toBeLessThan(columnPositions[2].x);
   expect(Math.max(...columnPositions.map(position => position.y)) - Math.min(...columnPositions.map(position => position.y))).toBeLessThan(2);
   await expect(page.getByRole("dialog").getByRole("region", { name: "Totales del pedido" })).not.toContainText("Artículos");
+  await item.getByRole("button", { name: "SKU-1" }).click();
+  await expect(page).toHaveURL(/\/productos\/catalogo\?producto=product-1&variante=variant-1$/);
 });
 test("los detalles web y local comparten estructura y ancho sin perder datos de entrega", async ({ page }) => {
   const { fixture, tables } = await mockCommerce(page);
@@ -347,6 +349,7 @@ test("los detalles web y local comparten estructura y ancho sin perder datos de 
   await expect(local.getByRole("region", { name: "Identificación del pedido" })).toBeVisible();
   await expect(local.getByRole("region", { name: "Resumen del pedido" })).toBeVisible();
   await expect(local.getByRole("region", { name: "Entrega y contacto" })).toBeVisible();
+  await expect(local.getByRole("region", { name: "Entrega y contacto" })).toContainText("Medio de pagoEfectivo");
   await expect(local.getByRole("link", { name: "WhatsApp" })).toHaveAttribute("href", "https://wa.me/59899123456");
   await expect(local.locator(".order-contact-phone__prefix")).toHaveText("+598");
   await expect(local.locator(".order-contact-phone__number")).toContainText("Uruguay");

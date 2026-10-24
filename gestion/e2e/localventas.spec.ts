@@ -56,7 +56,8 @@ test('registrar venta escribe en las tablas compartidas sin duplicar el cobro', 
   await expect(page.getByRole('combobox', { name: 'Departamento o provincia' })).toHaveValue('Paysandú');
   await page.getByLabel('Nombre', { exact: true }).fill('Nuevo cliente local');
   await page.getByLabel('Mail').fill('nuevo@example.invalid');
-  await page.getByLabel('Medio de pago').selectOption('Seña');
+  await expect(page.getByLabel('Medio de pago').getByRole('option', { name: 'Seña' })).toHaveCount(0);
+  await page.getByLabel('Con seña').check();
   await page.getByLabel('Seña cobrada').fill('250');
   await page.screenshot({ path: 'artifacts/registro-local.png', fullPage: true });
   await page.getByRole('button', { name: 'Guardar venta' }).click();
@@ -66,6 +67,8 @@ test('registrar venta escribe en las tablas compartidas sin duplicar el cobro', 
   expect(tables.local_sales_customers).toHaveLength(1);
   expect(tables.local_sales_customers[0].country).toBe('Uruguay');
   expect(tables.local_sales_customers[0].department).toBe('Paysandú');
+  expect(tables.local_sales[0].payment_method).toBe('Efectivo');
+  expect(tables.local_sales[0].deposit_minor).toBe(25000);
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('dialog').getByText('Saldo de la seña')).toBeVisible();
   await page.goto('/clientes/base');
@@ -74,6 +77,135 @@ test('registrar venta escribe en las tablas compartidas sin duplicar el cobro', 
   await expect(page.getByText('local:sale-19')).toBeVisible();
   await page.reload();
   await expect(page.getByText('local:sale-19')).toBeVisible();
+});
+
+test('efectivo y transferencia cobran precio base; tarjeta cobra precio publicado', async ({ page }) => {
+  const { fixture, writes } = await mockCommerce(page, { writable: true });
+  fixture.products[0].commerce_variants[0].base_price_minor = 100050;
+  fixture.products[0].commerce_variants[0].price_minor = 110050;
+  await page.goto('/comercial/registrar-min');
+  await page.getByLabel('Buscar producto').fill('SKU-1');
+  await expect(page.getByRole('button', { name: /SKU-1 · Mate de catálogo/ })).toContainText('$ 1.000,5');
+  await page.getByRole('button', { name: /SKU-1 · Mate de catálogo/ }).click();
+  const price = page.locator('.local-sale-line input[type="number"]').first();
+  await expect(price).toHaveValue('1000.5');
+  await page.getByLabel('Medio de pago').selectOption('Débito');
+  await expect(price).toHaveValue('1100.5');
+  await page.getByLabel('Medio de pago').selectOption('Transferencia');
+  await expect(price).toHaveValue('1000.5');
+  await page.getByRole('button', { name: 'Agregar nuevo cliente' }).click();
+  await page.getByLabel('Nombre', { exact: true }).fill('Cliente transferencia');
+  await page.getByRole('button', { name: 'Guardar venta' }).click();
+  await expect.poll(() => writes.find(write => write.table === 'gestion_create_local_sale_with_items')?.body.p_items[0].unit_price_minor).toBe(100050);
+});
+
+test('una seña con débito conserva el precio publicado y el saldo pendiente', async ({ page }) => {
+  const { fixture, tables, writes } = await mockCommerce(page, { writable: true });
+  fixture.products[0].commerce_variants[0].base_price_minor = 100050;
+  fixture.products[0].commerce_variants[0].price_minor = 110050;
+  await page.goto('/comercial/registrar-min');
+  await page.getByLabel('Medio de pago').selectOption('Débito');
+  await page.getByLabel('Buscar producto').fill('SKU-1');
+  await page.getByRole('button', { name: /SKU-1 · Mate de catálogo/ }).click();
+  await expect(page.locator('.local-sale-line input[type="number"]').first()).toHaveValue('1100.5');
+  await page.getByLabel('Con seña').check();
+  await page.getByLabel('Seña cobrada').fill('250');
+  await page.getByRole('button', { name: 'Guardar venta' }).click();
+  await expect(page.getByRole('dialog').getByText('Saldo de la seña')).toBeVisible();
+  const saved = writes.find(write => write.table === 'gestion_create_local_sale_with_items');
+  expect(saved?.body).toMatchObject({ p_payment_method: 'Débito', p_deposit_minor: 25000 });
+  expect(saved?.body.p_items[0].unit_price_minor).toBe(110050);
+  expect(tables.local_sales[0]).toMatchObject({ payment_method: 'Débito', total_minor: 25000, deposit_minor: 25000 });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/comercial/registrar-min');
+  await expect(page.getByLabel('Con seña')).toBeVisible();
+  await page.getByLabel('Con seña').check();
+  await expect(page.getByLabel('Seña cobrada')).toBeVisible();
+  expect(await page.locator('body').evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+});
+
+test('editar venta permite sumar un artículo con el SKU exacto', async ({ page }) => {
+  const { fixture, tables, writes } = await mockCommerce(page, { writable: true });
+  fixture.products[0].commerce_variants[0].base_price_minor = 100050;
+  fixture.products[0].commerce_variants[0].price_minor = 110050;
+  tables.local_sales.push({ id: 'sale-edit-sku', sale_number: 37, reference_code: '#L037', channel: 'Local',
+    customer_id: null, customer_name: 'Cliente sin registrar', sold_on: '2026-10-24', payment_method: 'Transferencia',
+    total_minor: 200000, currency: 'UYU', created_at: '2026-10-24T12:00:00Z',
+    local_sale_items: [{ id: 'item-existing', variant_id: 'variant-2', sku: 'SKU-2', product_name: 'Mate de catálogo',
+      variant_name: 'Cuero marrón', quantity: 1, unit_price_minor: 200000, line_total_minor: 200000 }] });
+  await page.goto('/comercial/pedidos');
+  const row = page.getByRole('row').filter({ hasText: '#L037' });
+  await row.getByRole('button', { name: 'Ver detalle del pedido #L037' }).click();
+  await page.getByRole('dialog', { name: 'Detalle del pedido' }).getByRole('button', { name: 'Editar esta venta' }).click();
+  const editor = page.getByRole('dialog', { name: 'Editar venta' });
+  await editor.getByLabel('Agregar artículo por SKU').fill('NO-EXISTE');
+  await editor.getByRole('button', { name: 'Agregar', exact: true }).click();
+  await expect(editor.getByRole('alert')).toContainText('No encontramos un artículo');
+  await editor.getByLabel('Agregar artículo por SKU').fill('sku-1');
+  await expect(editor).toContainText('Mate de catálogo · $ 1.000,5');
+  await editor.getByLabel('Agregar artículo por SKU').press('Enter');
+  await expect(editor.locator('.local-sale-editor-line')).toHaveCount(2);
+  await editor.getByLabel('Forma de pago').selectOption('Débito');
+  await expect(editor.locator('.local-sale-editor-line').nth(1).getByLabel('Precio unitario')).toHaveValue('1100.5');
+  await editor.getByLabel('Forma de pago').selectOption('Transferencia');
+  await expect(editor.locator('.local-sale-editor-line').nth(1).getByLabel('Precio unitario')).toHaveValue('1000.5');
+  await editor.screenshot({ path: 'artifacts/editar-venta-sku-desktop.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(editor.getByLabel('Agregar artículo por SKU')).toBeVisible();
+  expect(await editor.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  await editor.screenshot({ path: 'artifacts/editar-venta-sku-mobile.png' });
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await editor.getByRole('button', { name: 'Guardar cambios' }).click();
+  await expect(editor).toHaveCount(0);
+  expect(tables.local_sales[0].local_sale_items).toHaveLength(2);
+  expect(tables.local_sales[0].total_minor).toBe(300050);
+  expect(writes.find(write => write.table === 'gestion_update_local_sale')?.body.p_items[1]).toEqual({ sku: 'SKU-1', quantity: 1, unit_price_minor: 100050 });
+});
+
+test('la seña muestra lo cobrado y el saldo se cobra en el mismo pedido', async ({ page }) => {
+  const { tables, writes } = await mockCommerce(page, { writable: true });
+  tables.local_sales.push({ id: 'sale-deposit-36', sale_number: 36, reference_code: '#L036', channel: 'Local',
+    customer_id: null, customer_name: 'Cliente sin registrar', sold_on: '2026-10-24',
+    payment_method: 'Transferencia', total_minor: 200000, deposit_minor: 200000, currency: 'UYU',
+    created_at: '2026-10-24T12:00:00Z', local_sale_items: [{ id: 'item-deposit-36', variant_id: 'variant-2',
+      sku: '102', product_name: 'Cartera Matera', variant_name: 'Negro/Blanco', quantity: 1,
+      unit_price_minor: 450000, line_total_minor: 450000 }] });
+  await page.goto('/comercial/pedidos');
+  const row = page.getByRole('row').filter({ hasText: '#L036' });
+  await expect(row).toContainText('$ 2.000');
+  await expect(row).not.toContainText('Cobrado de');
+  await expect(row).toContainText('Pago parcial');
+  await row.getByRole('button', { name: 'Ver detalle del pedido #L036' }).click();
+  const detail = page.getByRole('dialog', { name: 'Detalle del pedido' });
+  await expect(detail).toContainText('Saldo de la seña: $ 2.500');
+  await expect(detail).not.toContainText('Cobrado: $ 2.000 de $ 4.500');
+  const totals = detail.getByRole('region', { name: 'Totales del pedido' });
+  await expect(totals).toContainText('Valor de artículos$ 4.500');
+  await expect(totals).toContainText('Seña · Transferencia');
+  await expect(totals).toContainText('Saldo pendiente$ 2.500');
+  await expect(totals).toContainText('Cobrado hasta ahora$ 2.000');
+  await detail.screenshot({ path: 'artifacts/pedido-con-sena-desktop.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await detail.screenshot({ path: 'artifacts/pedido-con-sena-mobile.png' });
+  expect(await detail.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await detail.getByRole('button', { name: 'Registrar cobro' }).click();
+  const receipt = page.getByRole('dialog', { name: 'Registrar cobro de #L036' });
+  await expect(receipt.getByLabel('Importe cobrado (UYU)')).toHaveValue('2500');
+  await receipt.getByLabel('Medio de pago').selectOption('Efectivo');
+  await receipt.getByRole('button', { name: 'Registrar cobro' }).click();
+  await expect(receipt).toHaveCount(0);
+  await expect(row).toContainText('Pagado');
+  await expect(totals).toContainText('Cobrado hasta ahora$ 4.500');
+  await expect(totals).toContainText('Saldo pendiente$ 0');
+  await expect(detail.getByRole('region', { name: 'Entrega y contacto' })).toContainText('Medio de pagoTransferencia · Efectivo');
+  await expect(detail.getByRole('button', { name: 'Registrar cobro' })).toHaveCount(0);
+  expect(tables.local_sales).toHaveLength(1);
+  expect(tables.local_sale_receipts).toHaveLength(1);
+  expect(tables.local_sale_receipts[0]).toMatchObject({ sale_id: 'sale-deposit-36', amount_minor: 250000, payment_method: 'Efectivo' });
+  expect(writes.filter(write => write.table === 'gestion_record_local_sale_payment')).toHaveLength(1);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await detail.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
 });
 
 test('una variante oculta en la web se puede registrar en el local', async ({ page }) => {

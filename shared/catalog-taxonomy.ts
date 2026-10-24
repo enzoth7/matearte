@@ -1,7 +1,7 @@
 /** Stable storage/query contracts shared by Commerce Admin and the storefront. */
 export const catalogCategoryIds = [
   "bandolera", "billeteras", "bombillas", "botas", "carteras", "cintos", "cuchillos",
-  "kits-materos", "materas", "mates", "personalizados", "servicios", "tarjeteros", "termos", "zapatos", "zuecos",
+  "kits-materos", "materas", "mates", "posa-mates", "personalizados", "servicios", "tarjeteros", "termos", "zapatos", "zuecos",
   "tablas-de-picar", "pinchos", "servilleteros", "porta-rollos", "vainas", "recado", "carona",
 ] as const;
 export const catalogFootwearClosureIds = ["con-cierre", "con-cordones", "con-hebilla", "con-elastico"] as const;
@@ -201,7 +201,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     category("billeteras", "Billeteras", null, 10), category("tarjeteros", "Tarjetero", null, 15), category("bombillas", "Bombillas", null, 20), category("botas", "Botas", null, 30), category("zuecos", "Zuecos", null, 35), category("zapatos", "Zapatos", null, 37),
     category("carteras", "Carteras", null, 40), category("bandolera", "Bandolera", null, 45), category("cintos", "Cintos", null, 50), category("cuchillos", "Cuchillos", null, 60),
     category("kits-materos", "Kits materos", null, 70), category("materas", "Materas", null, 80), category("mates", "Mates", null, 90),
-    category("personalizados", "Personalizados", null, 100), category("servicios", "Servicios", null, 105), category("termos", "Termos", null, 110),
+    category("personalizados", "Personalizados", null, 100), category("servicios", "Servicios", null, 105), category("termos", "Termos", null, 110), category("posa-mates", "Posa mates", null, 130),
     category("tablas-de-picar", "Tablas de picar", null, 140), category("pinchos", "Pinchos", null, 150), category("servilleteros", "Servilleteros", null, 160), category("porta-rollos", "Porta rollos", null, 170),
     category("vainas", "Vainas", null, 180), category("recado", "Recado", null, 190), category("carona", "Carona", null, 200),
   ],
@@ -210,7 +210,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     attribute("tipo-mate", "Modelo de mate", "enum", "select"), attribute("material-mate", "Material del mate", "enum", "select"), attribute("tipo-virola", "Tipo de virola", "enum", "select"), attribute("tipo-cuero", "Tipo de cuero", "enum", "select"), attribute("diseno-fleje", "Diseño de fleje", "enum", "select"), attribute("posamate", "Posamate", "enum", "select"), attribute("pie", "Pie", "enum", "select"), attribute("material", "Material exterior", "enum", "select"),
     attribute("forma", "Forma", "enum", "select"), attribute("tamano", "Tamaño", "enum", "select"), attribute("interior", "Interior", "enum", "select"), attribute("acabado", "Acabado", "text", "text"),
     attribute("color", "Color", "enum", "swatch"), attribute("talle", "Talle", "enum", "buttons"), attribute("tipo-cierre", "Cierre y sujeción", "enum", "buttons"), attribute("capacidad-ml", "Capacidad", "number", "number", "ml"),
-    attribute("tipo-bombilla", "Tipo de bombilla", "enum", "select"), attribute("diametro-cano-mm", "Diámetro del caño", "number", "number", "cm"),
+    attribute("tipo-bombilla", "Tipo de bombilla", "enum", "select"), attribute("diametro-cano-mm", "Diámetro del caño", "number", "number", "mm"),
     attribute("largo-mm", "Largo", "enum", "select"), attribute("material-cuerpo", "Material del cuerpo", "enum", "select"),
     attribute("forma-pico", "Forma del pico", "enum", "select"), attribute("material-pico", "Material del pico", "enum", "select"),
     attribute("decoracion", "Decoración", "enum", "select"), attribute("tipo-cuchillo", "Tipo de cuchillo", "enum", "select"),
@@ -263,6 +263,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     rule("termos","material","product",10), rule("termos","acabado","product",20), rule("termos","capacidad-ml","product",30), rule("termos","color","variant",100,true),
     rule("materas","forma","product",10,true), rule("materas","material","product",20), rule("materas","acabado","product",40), rule("materas","color","variant",100,true),
     rule("kits-materos","material","product",10), rule("kits-materos","color","variant",100),
+    rule("posa-mates","material","product",10), rule("posa-mates","color","variant",100),
     rule("cuchillos","tipo-cuchillo","product",10,true), rule("cuchillos","largo-hoja-mm","product",20,true), rule("cuchillos","ancho-hoja-mm","product",30,false,false), rule("cuchillos","configuracion-filo","product",40,true), rule("cuchillos","tiene-gavilan","product",50), rule("cuchillos","forma-gavilan","product",60), rule("cuchillos","material-hoja","product",70), rule("cuchillos","material-cabo","product",80), rule("cuchillos","material-vaina","product",90), rule("cuchillos","acabado","product",100),
     rule("botas","material","product",10), rule("botas","genero","product",20), rule("botas","tipo-cierre","product",25), rule("botas","talle","product",30,true,true,true), rule("botas","color","variant",100,true),
     rule("zuecos","material","product",10), rule("zuecos","genero","product",20), rule("zuecos","tipo-cierre","product",25), rule("zuecos","talle","product",30,true,true,true), rule("zuecos","color","variant",100,true),

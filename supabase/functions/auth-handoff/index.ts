@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.112.4";
 
-const allowedOrigins = new Set(["https://matearte-visualizador.vercel.app", "http://localhost:5173"]);
+const allowedOrigins = new Set(["https://personalizador.matearteuruguay.com", "http://localhost:5173"]);
 const allowedTargets = new Set(["/", "/carrito", "/checkout", "/pedidos", "/perfil"]);
 const allowedActions = new Set(["continue", "open_cart", "add_design", "checkout"]);
 const headers = (origin = "") => ({ "Content-Type": "application/json", ...(allowedOrigins.has(origin) ? { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS", Vary: "Origin" } : {}) });

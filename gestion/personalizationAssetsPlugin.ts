@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const virtualAssetsId = 'virtual:personalization-assets'
 const resolvedVirtualAssetsId = `\0${virtualAssetsId}`
 const supportedImageExtensions = new Set(['.png', '.webp', '.svg', '.jpg', '.jpeg'])
-const personalizationRoot = fileURLToPath(new URL('../visualizador/public/assets/personalizacion', import.meta.url))
+const personalizationRoot = fileURLToPath(new URL('../personalizador/public/assets/personalizacion', import.meta.url))
 const personalizationFolders = ['fleje', 'virola', 'iconos'] as const
 
 function slugifyAssetName(value: string) {
@@ -109,7 +109,7 @@ export function personalizationAssetsPlugin(): Plugin {
 
 
 function assetFiles(): Array<[string, string]> {
-  const root = fileURLToPath(new URL("../visualizador/public/", import.meta.url));
+  const root = fileURLToPath(new URL("../personalizador/public/", import.meta.url));
   const result: Array<[string, string]> = [];
   const visit = (relative: string) => {
     for (const entry of readdirSync(path.join(root, relative), { withFileTypes: true })) {

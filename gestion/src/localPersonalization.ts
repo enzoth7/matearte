@@ -1,4 +1,4 @@
-import type { ElementTransform } from "../../visualizador/src/types/customizer";
+import type { ElementTransform } from "../../personalizador/src/types/personalizer";
 import type { Product } from "./data";
 import { assemblyFieldsFor, assemblyLabels, assemblyHasFleje, validateMateAssembly } from "../../shared/mate-assembly";
 import { catalogAttributeDetails, catalogPurchaseAxes, catalogValueLabel, defaultCatalogTaxonomy, normalizeCatalogValueMap } from "../../shared/catalog-taxonomy";

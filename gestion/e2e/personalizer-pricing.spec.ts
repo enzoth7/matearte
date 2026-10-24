@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { mockCommerce } from './commerce-fixture';
 
-test('Configurador Visualizador configura y publica los precios del mismo Visualizador', async ({ page }) => {
+test('Configurador Personalizador configura y publica los precios del mismo Personalizador', async ({ page }) => {
   await mockCommerce(page);
   const calls: string[] = [];
   const state = {
@@ -30,18 +30,18 @@ test('Configurador Visualizador configura y publica los precios del mismo Visual
 
   await page.goto('/productos/personalizador');
   const productNavigation = page.getByRole('navigation', { name: 'Subáreas de Productos' });
-  await expect(productNavigation.getByRole('link', { name: 'Configurador Visualizador' })).toHaveAttribute('aria-current', 'page');
-  await expect(productNavigation.getByRole('link', { name: 'Configurador Visualizador' })).toHaveAttribute('href', '/productos/personalizador');
-  await expect(page.getByRole('navigation', { name: 'Subáreas de Producción' }).getByRole('link', { name: 'Configurador Visualizador' })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Configurador Visualizador', level: 1 })).toBeVisible();
+  await expect(productNavigation.getByRole('link', { name: 'Configurador Personalizador' })).toHaveAttribute('aria-current', 'page');
+  await expect(productNavigation.getByRole('link', { name: 'Configurador Personalizador' })).toHaveAttribute('href', '/productos/personalizador');
+  await expect(page.getByRole('navigation', { name: 'Subáreas de Producción' }).getByRole('link', { name: 'Configurador Personalizador' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Configurador Personalizador', level: 1 })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Pedidos personalizados' })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Precios del Visualizador' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Precios del Personalizador' })).toHaveCount(0);
   await expect(page.getByText('CONTROL DE PRECIOS')).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Abrir Visualizador' })).toHaveCount(0);
-  await expect(page.locator('.visualizer-pricing__summary')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Abrir Personalizador' })).toHaveCount(0);
+  await expect(page.locator('.personalizer-pricing__summary')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Todos los parámetros' })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Colores/ })).toHaveCount(0);
-  await expect(page.locator('.visualizer-configurator span, .visualizer-configurator p, .visualizer-configurator [class*="eyebrow"]')).toHaveCount(0);
+  await expect(page.locator('.personalizer-configurator span, .personalizer-configurator p, .personalizer-configurator [class*="eyebrow"]')).toHaveCount(0);
   const camioneroGroup = page.getByRole('button', { name: /^Camionero 1 regla$/ });
   const cueroGroup = page.getByRole('button', { name: /^Cueros compartidos 1 regla$/ });
   await expect(camioneroGroup).toHaveAttribute('aria-expanded', 'false');
@@ -52,10 +52,10 @@ test('Configurador Visualizador configura y publica los precios del mismo Visual
   await cueroGroup.click();
   await expect(page.getByLabel('Cuero crudo')).toBeHidden();
   await expect(page.getByLabel('Mercado Pago')).toHaveCount(0);
-  const pricingLayout = await page.locator('.visualizer-pricing__groups').evaluate((element) => ({ display: getComputedStyle(element).display, columns: getComputedStyle(element).gridTemplateColumns }));
+  const pricingLayout = await page.locator('.personalizer-pricing__groups').evaluate((element) => ({ display: getComputedStyle(element).display, columns: getComputedStyle(element).gridTemplateColumns }));
   expect(pricingLayout.display).toBe('grid');
   expect(pricingLayout.columns.trim().split(/\s+/)).toHaveLength(1);
-  await page.getByRole('searchbox', { name: 'Buscar precios del Visualizador' }).fill('cuero');
+  await page.getByRole('searchbox', { name: 'Buscar precios del Personalizador' }).fill('cuero');
   await expect(page.getByLabel('Cuero crudo')).toBeVisible();
   await expect(page.getByLabel('Texto láser')).toHaveCount(0);
   await page.getByRole('button', { name: 'Limpiar búsqueda' }).click();
@@ -72,7 +72,7 @@ test('Configurador Visualizador configura y publica los precios del mismo Visual
   await expect(page.getByRole('heading', { name: 'Todos los parámetros' })).toBeVisible();
   const mobileLayout = await page.evaluate(() => ({
     overflow: document.documentElement.scrollWidth > window.innerWidth,
-    searchDirection: getComputedStyle(document.querySelector('.visualizer-pricing__search')!).flexDirection,
+    searchDirection: getComputedStyle(document.querySelector('.personalizer-pricing__search')!).flexDirection,
   }));
   expect(mobileLayout).toEqual({ overflow: false, searchDirection: 'row' });
   expect(calls).toEqual(['get_pricing_admin_state', 'save_pricing_draft', 'publish_pricing_draft']);
@@ -85,11 +85,11 @@ test('no abre la configuración si la cuenta no administra precios', async ({ pa
   });
   await page.goto('/productos/personalizador');
   await expect(page.getByRole('heading', { name: 'No se pudo abrir la configuración' })).toBeVisible();
-  await expect(page.getByText('Tu cuenta no tiene permiso para administrar los precios del Visualizador.')).toBeVisible();
+  await expect(page.getByText('Tu cuenta no tiene permiso para administrar los precios del Personalizador.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Publicar precios' })).toHaveCount(0);
 });
 
-test('mantiene el Configurador Visualizador accesible si falla la carga de pedidos', async ({ page }) => {
+test('mantiene el Configurador Personalizador accesible si falla la carga de pedidos', async ({ page }) => {
   await mockCommerce(page, { failure: true });
   await page.route('**/rest/v1/rpc/get_pricing_admin_state', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
@@ -100,17 +100,17 @@ test('mantiene el Configurador Visualizador accesible si falla la carga de pedid
   });
   await page.goto('/productos/personalizador');
   await expect(page.getByText('Lectura interrumpida')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Configurador Visualizador', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Configurador Personalizador', level: 1 })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Todos los parámetros' })).toBeVisible();
 });
 
 test('la ruta anterior lleva a Productos y ya no figura en Producción', async ({ page }) => {
   await mockCommerce(page, { writable: true });
   await page.goto('/produccion/personalizados');
-  await expect(page.getByRole('navigation', { name: 'Subáreas de Producción' }).getByRole('link', { name: 'Configurador Visualizador' })).toHaveCount(0);
-  await page.goto('/produccion/configurador-visualizador');
+  await expect(page.getByRole('navigation', { name: 'Subáreas de Producción' }).getByRole('link', { name: 'Configurador Personalizador' })).toHaveCount(0);
+  await page.goto('/produccion/configurador-personalizador');
   await expect(page).toHaveURL(/\/productos\/personalizador$/);
-  await expect(page.getByRole('navigation', { name: 'Subáreas de Productos' }).getByRole('link', { name: 'Configurador Visualizador' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('navigation', { name: 'Subáreas de Productos' }).getByRole('link', { name: 'Configurador Personalizador' })).toHaveAttribute('aria-current', 'page');
 });
 
 test('la falta de una columna opcional de personalizados no deja todo Gestión en blanco', async ({ page }) => {
@@ -124,7 +124,7 @@ test('la falta de una columna opcional de personalizados no deja todo Gestión e
   });
   await page.goto('/produccion/personalizados');
   await expect(page.getByRole('heading', { name: 'Pedidos personalizados', level: 1 })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Configurar Visualizador' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Configurar Personalizador' })).toHaveCount(0);
   await expect(page.getByText('Los datos no se pudieron cargar.')).toHaveCount(0);
   expect(fallbackCalls).toBeGreaterThan(0);
 });
@@ -150,36 +150,36 @@ test('permite editar y publicar opciones del catálogo sin alterar los IDs', asy
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(catalog) });
   });
   await page.goto('/productos/personalizador');
-  const configuratorTabs = page.getByRole('navigation', { name: 'Configuración del Visualizador' });
+  const configuratorTabs = page.getByRole('navigation', { name: 'Configuración del Personalizador' });
   await expect(configuratorTabs.getByRole('button')).toHaveCount(3);
   await configuratorTabs.getByRole('button', { name: 'Modelos, colores y metales' }).click();
   await expect(page.getByRole('tablist', { name: 'Secciones del catálogo' })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Opciones del Visualizador' })).toHaveCount(0);
-  await expect(page.locator('.visualizer-pricing__summary')).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Abrir Visualizador' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Opciones del Personalizador' })).toHaveCount(0);
+  await expect(page.locator('.personalizer-pricing__summary')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Abrir Personalizador' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Modelos, colores e imágenes', level: 2 })).toBeVisible();
-  await expect(page.locator('.visualizer-catalog span, .visualizer-catalog p, .visualizer-catalog [class*="eyebrow"]')).toHaveCount(0);
+  await expect(page.locator('.personalizer-catalog span, .personalizer-catalog p, .personalizer-catalog [class*="eyebrow"]')).toHaveCount(0);
   await page.getByRole('combobox', { name: 'Modelo', exact: true }).selectOption('imperial');
   await expect(page.getByRole('combobox', { name: 'Construcción', exact: true })).toHaveValue('cincelado-premium');
-  const imperialColors = page.locator('.visualizer-catalog__color-row');
+  const imperialColors = page.locator('.personalizer-catalog__color-row');
   await expect(imperialColors).toHaveCount(8);
   const colorNames = await imperialColors.getByRole('textbox', { name: 'Nombre del color' }).evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
   expect(new Set(colorNames.map((name) => name.toLocaleLowerCase('es-UY'))).size).toBe(colorNames.length);
   await expect(page.getByText('Muestra', { exact: true })).toHaveCount(0);
   await imperialColors.first().locator('input[type="color"]').fill('#aa6644');
-  await expect(imperialColors.first().locator('.visualizer-catalog__swatch')).toHaveCSS('background-color', 'rgb(170, 102, 68)');
+  await expect(imperialColors.first().locator('.personalizer-catalog__swatch')).toHaveCSS('background-color', 'rgb(170, 102, 68)');
   const colorColumns = await imperialColors.first().evaluate((row) => getComputedStyle(row).gridTemplateColumns.trim().split(/\s+/).length);
   expect(colorColumns).toBe(3);
-  const metalColumns = await page.locator('.visualizer-catalog__metal-row').first().evaluate((row) => getComputedStyle(row).gridTemplateColumns.trim().split(/\s+/).length);
+  const metalColumns = await page.locator('.personalizer-catalog__metal-row').first().evaluate((row) => getComputedStyle(row).gridTemplateColumns.trim().split(/\s+/).length);
   expect(metalColumns).toBe(3);
   await page.getByRole('combobox', { name: 'Modelo', exact: true }).selectOption('camionero');
-  await expect.poll(() => page.locator('.visualizer-catalog__image img').first().evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
-  await expect.poll(() => page.locator('.visualizer-catalog__card .visualizer-catalog__image img').evaluateAll(images => images.every(image => (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
-  await expect(page.locator('.visualizer-catalog__card .visualizer-catalog__image').first()).toHaveClass(/is-loaded/);
-  await page.locator('.visualizer-catalog__card .visualizer-catalog__image').first().screenshot({path:'test-results/model-image.png'});
-  await page.screenshot({ path: 'test-results/visualizer-catalog-desktop.png', fullPage: true });
+  await expect.poll(() => page.locator('.personalizer-catalog__image img').first().evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+  await expect.poll(() => page.locator('.personalizer-catalog__card .personalizer-catalog__image img').evaluateAll(images => images.every(image => (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
+  await expect(page.locator('.personalizer-catalog__card .personalizer-catalog__image').first()).toHaveClass(/is-loaded/);
+  await page.locator('.personalizer-catalog__card .personalizer-catalog__image').first().screenshot({path:'test-results/model-image.png'});
+  await page.screenshot({ path: 'test-results/personalizer-catalog-desktop.png', fullPage: true });
   await expect(page.getByRole('heading', { name: 'Colores', exact: true })).toBeVisible();
-  const colorRows = page.locator('.visualizer-catalog__color-row');
+  const colorRows = page.locator('.personalizer-catalog__color-row');
   expect(await colorRows.count()).toBeGreaterThan(1);
   const firstColor = await colorRows.nth(0).boundingBox();
   const secondColor = await colorRows.nth(1).boundingBox();
@@ -189,16 +189,16 @@ test('permite editar y publicar opciones del catálogo sin alterar los IDs', asy
   expect(secondColor!.y).toBeGreaterThan(firstColor!.y + firstColor!.height);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: 'test-results/visualizer-catalog-mobile.png', fullPage: true });
+  await page.screenshot({ path: 'test-results/personalizer-catalog-mobile.png', fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1100 });
-  const model = page.locator('.visualizer-catalog__card').first();
+  const model = page.locator('.personalizer-catalog__card').first();
   await model.getByRole('textbox', { name: 'Nombre' }).fill('Camionero especial');
   await model.locator('input[type="file"]').setInputFiles({
     name: 'camionero.png', mimeType: 'image/png',
     buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/X1cAAAAASUVORK5CYII=', 'base64'),
   });
   await configuratorTabs.getByRole('button', { name: 'Técnicas de personalización' }).click();
-  await expect(page.locator('.visualizer-catalog__availability-panel')).toHaveCount(2);
+  await expect(page.locator('.personalizer-catalog__availability-panel')).toHaveCount(2);
   const virolaTable = page.getByRole('region', { name: 'Disponibilidad de virola' }).getByRole('table');
   const flejeTable = page.getByRole('region', { name: 'Disponibilidad de fleje' }).getByRole('table');
   await expect(virolaTable.locator('thead th')).toHaveText(['Mate y construcción', 'Láser', 'Aplique de bronce', 'Aplique de alpaca']);
@@ -206,10 +206,10 @@ test('permite editar y publicar opciones del catálogo sin alterar los IDs', asy
   await expect(virolaTable.locator('tbody tr').first().getByRole('rowheader')).toContainText('Camionero');
   await expect(flejeTable.locator('tbody tr').first().getByRole('checkbox')).toHaveCount(0);
   await expect(flejeTable.locator('tbody tr').nth(1).getByRole('checkbox')).toHaveCount(3);
-  await page.screenshot({ path: 'test-results/visualizer-techniques-desktop.png', fullPage: true });
+  await page.screenshot({ path: 'test-results/personalizer-techniques-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: 'test-results/visualizer-techniques-mobile.png', fullPage: true });
+  await page.screenshot({ path: 'test-results/personalizer-techniques-mobile.png', fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1100 });
   await virolaTable.locator('tbody tr').first().getByRole('checkbox', { name: /Láser/ }).uncheck();
   await expect(page.getByRole('button', { name: 'Publicar catálogo' })).toBeDisabled();

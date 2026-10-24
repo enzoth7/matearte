@@ -37,7 +37,7 @@ Volumen a migrar: 8 pedidos web, 20 ventas locales (25 ítems), 95 pedidos mayor
 
 ## 5. Quién usa qué (consultas `.from` / `.rpc`)
 - **paginaweb**: `orders` (16), `newsletter_subscribers` (13), `cart_items` (12), `designs` (8), `customer_profiles` (7), `commerce_settings` (7), `carts` (7) y RPCs de pago y descuentos. No usa `products`, `order_lines`, `local_sales` ni `customers`.
-- **visualizador**: `designs` (7), `customer_profiles` (2) y RPCs de precios y catálogo del personalizador. No usa productos ni pedidos.
+- **personalizador**: `designs` (7), `customer_profiles` (2) y RPCs de precios y catálogo del personalizador. No usa productos ni pedidos.
 - **gestion**: `commerce_products` (9), `orders` (7), `wholesale_product_images`, `products`, `order_lines`, `local_sales_customers` (6 cada uno), `settings`, `purchases`, `fixed_expenses` (5), además de varias RPC `gestion_*`.
 - **dashboard** (clave anónima): `products` (9), `order_lines` (8), `customers` (7), `settings` (6).
 - **localventas**: `commerce_products`, `local_sales_customers`, `local_sales`, RPC `create_channel_sale_with_items`, `update_local_catalog_item`.

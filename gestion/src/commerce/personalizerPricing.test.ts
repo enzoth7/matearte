@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { editablePricingValues, groupVisualizerPricingDefinitions, numericPricingValues, parsePricingState, pricingIssues } from './visualizerPricing';
+import { editablePricingValues, groupPersonalizerPricingDefinitions, numericPricingValues, parsePricingState, pricingIssues } from './personalizerPricing';
 
 const payload = {
   definitions: [
@@ -10,7 +10,7 @@ const payload = {
   published: { id: 'published-id', version: 1, updatedAt: '2026-10-19T10:00:00Z', publishedAt: '2026-10-19T10:00:00Z', values: { 'family:imperial': 1200, 'commission:mercadopago': 6 } },
 };
 
-describe('configuración de precios del Visualizador en Gestión', () => {
+describe('configuración de precios del Personalizador en Gestión', () => {
   it('lee el mismo contrato de borrador y publicado sin completar valores faltantes', () => {
     const state = parsePricingState(payload);
     expect(editablePricingValues(state)).toEqual({ 'family:imperial': '1400', 'commission:mercadopago': '' });
@@ -43,7 +43,7 @@ describe('configuración de precios del Visualizador en Gestión', () => {
       { ...parsePricingState(payload).definitions[0], rule_key: 'customization:laser:rim_text', label: 'Texto láser', family_id: null, customization_id: 'laser:rim_text', rule_type: 'customization' as const, sort_order: 4 },
       { ...parsePricingState(payload).definitions[0], rule_key: 'new:rule', label: 'Nueva regla', family_id: null, rule_type: 'texture' as const, sort_order: 5 },
     ];
-    const groups = groupVisualizerPricingDefinitions(definitions);
+    const groups = groupPersonalizerPricingDefinitions(definitions);
     expect(groups.flatMap((group) => group.definitions.map((definition) => definition.rule_key)).sort()).toEqual(definitions.map((definition) => definition.rule_key).sort());
     expect(groups.find((group) => group.id === 'otras-reglas')?.definitions[0].rule_key).toBe('new:rule');
   });

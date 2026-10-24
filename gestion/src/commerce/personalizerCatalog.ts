@@ -64,12 +64,12 @@ function parseState(value: unknown): CatalogAdminState {
 function requestError(value: { message: string; code?: string }) {
   return new Error(
     value.code === "42501"
-      ? "Tu cuenta no tiene permiso para configurar el Visualizador."
+      ? "Tu cuenta no tiene permiso para configurar el Personalizador."
       : value.message,
   );
 }
 
-export async function loadVisualizerCatalog(): Promise<CatalogAdminState> {
+export async function loadPersonalizerCatalog(): Promise<CatalogAdminState> {
   const { data, error } = await supabase.rpc(
     "get_visualizer_catalog_admin_state",
   );
@@ -77,7 +77,7 @@ export async function loadVisualizerCatalog(): Promise<CatalogAdminState> {
   return parseState(data);
 }
 
-export async function saveVisualizerCatalogDraft(
+export async function savePersonalizerCatalogDraft(
   state: CatalogAdminState,
   document: CatalogDocument,
 ) {
@@ -90,7 +90,7 @@ export async function saveVisualizerCatalogDraft(
   return parseState(data);
 }
 
-export async function publishVisualizerCatalogDraft(state: CatalogAdminState) {
+export async function publishPersonalizerCatalogDraft(state: CatalogAdminState) {
   const { data, error } = await supabase.rpc(
     "publish_visualizer_catalog_draft",
     {
@@ -102,7 +102,7 @@ export async function publishVisualizerCatalogDraft(state: CatalogAdminState) {
   return parseState(data);
 }
 
-export async function uploadVisualizerCatalogImage(
+export async function uploadPersonalizerCatalogImage(
   file: File,
 ): Promise<string> {
   if (

@@ -97,21 +97,37 @@ Deno.serve(async (request) => {
   if (action === "analytics") {
     const vercelToken = Deno.env.get("VERCEL_ANALYTICS_TOKEN")?.trim() || "";
     const teamId = Deno.env.get("VERCEL_TEAM_ID")?.trim() || "team_nvrETovmDRtUay05tg8OkZb0";
-    // VERCEL_ANALYTICS_SITES: "tienda:Tienda web:prj_xxx,visualizador:Visualizador:prj_yyy"
-    const sites = (Deno.env.get("VERCEL_ANALYTICS_SITES") || "tienda:Tienda web:prj_wACNXNMkoQymJhRi01L4mJQ5E2a1,visualizador:Visualizador:prj_Slv0SnaWTPUZdYZ6qAzbrIHMsd49")
+    // VERCEL_ANALYTICS_SITES: "tienda:Tienda web:prj_xxx,personalizador:Personalizador:prj_yyy"
+    const sites = (Deno.env.get("VERCEL_ANALYTICS_SITES") || "tienda:Tienda web:prj_wACNXNMkoQymJhRi01L4mJQ5E2a1,personalizador:Personalizador:prj_Slv0SnaWTPUZdYZ6qAzbrIHMsd49")
       .split(",").map((entry) => entry.trim().split(":")).filter((parts) => parts.length === 3).map(([id, name, projectId]) => ({ id, name, projectId }));
     if (!vercelToken) return response({ error: "Falta configurar VERCEL_ANALYTICS_TOKEN en Supabase.", sites: sites.map(({ id, name }) => ({ id, name })) }, 503, origin);
     const site = sites.find((item) => item.id === clean(body.site, 40)) || sites[0];
     if (!site) return response({ error: "No hay sitios configurados." }, 503, origin);
-    const days = [1, 7, 30, 90].includes(Number(body.days)) ? Number(body.days) : 30;
-    const until = new Date();
-    const since = new Date(until.getTime() - (days - 1) * 86400000);
+    let days = [1, 7, 30, 90].includes(Number(body.days)) ? Number(body.days) : 30;
+    let until = new Date();
+    let since = new Date(until.getTime() - (days - 1) * 86400000);
     since.setUTCHours(0, 0, 0, 0);
+    if (body.startDate !== undefined || body.endDate !== undefined) {
+      const startDate = clean(body.startDate, 10);
+      const endDate = clean(body.endDate, 10);
+      const parseDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+      const todayParts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Montevideo", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(until);
+      const todayValue = (type: string) => todayParts.find((part) => part.type === type)?.value;
+      const today = `${todayValue("year")}-${todayValue("month")}-${todayValue("day")}`;
+      const span = (Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) / 86400000 + 1;
+      if (!parseDate(startDate) || !parseDate(endDate) || startDate > endDate || endDate > today || span > 190) {
+        return response({ error: "Período de Analytics inválido." }, 400, origin);
+      }
+      days = span;
+      // Montevideo mantiene UTC-3: incluir cada día local completo, hasta ahora si termina hoy.
+      since = new Date(Date.parse(`${startDate}T00:00:00Z`) + 3 * 3600000);
+      if (endDate !== today) until = new Date(Date.parse(`${endDate}T00:00:00Z`) + 27 * 3600000 - 1);
+    }
     // Filtros de la pestaña: cada dimensión admite varios valores ya normalizados en el cliente.
     const filterable = ["country", "deviceType", "referrerHostname", "route", "requestPath"];
     const rawFilters = body.filters && typeof body.filters === "object" ? body.filters as Record<string, unknown> : {};
     const filter = filterable.flatMap((dimension) => {
-      const values = (Array.isArray(rawFilters[dimension]) ? rawFilters[dimension] as unknown[] : []).map((value) => clean(value, 200)).filter((value) => value && !/['\]/.test(value)).slice(0, 20);
+      const values = (Array.isArray(rawFilters[dimension]) ? rawFilters[dimension] as unknown[] : []).map((value) => clean(value, 200)).filter((value) => value && !/['\\]/.test(value)).slice(0, 20);
       return values.length ? [`${dimension} in (${values.map((value) => `'${value}'`).join(",")})`] : [];
     }).join(" and ");
     const query = async (by: string, limit = 10, extra = "") => {
@@ -123,10 +139,12 @@ Deno.serve(async (request) => {
       return (Array.isArray(json.data) ? json.data : []) as Record<string, string | number>[];
     };
     try {
-      const [timeline, countries, devices, referrers, pages, productPaths] = await Promise.all([
-        query(days === 1 ? "hour" : "day", 100), query("country", 30), query("deviceType"), query("referrerHostname", 30), query("route", 30),
-        query("requestPath", 100, "route in ('/producto/[slug]','/[locale]/product/[slug]','/[locale]/produto/[slug]')"),
-      ]);
+      const productQuery = () => query("requestPath", 100, "route in ('/producto/[slug]','/[locale]/product/[slug]','/[locale]/produto/[slug]')");
+      const [timeline, countries, devices, referrers, pages, productPaths] = body.productsOnly === true
+        ? [[], [], [], [], [], await productQuery()]
+        : await Promise.all([
+          query(days === 1 ? "hour" : "day", 100), query("country", 30), query("deviceType"), query("referrerHostname", 30), query("route", 30), productQuery(),
+        ]);
       // El slug de la URL es el editorial_slug del producto; lo traducimos al nombre del catálogo.
       const slugOf = (path: string) => { try { return decodeURIComponent(path.split("?")[0].split("/").filter(Boolean).pop() || ""); } catch { return ""; } };
       const slugs = [...new Set(productPaths.map((row) => slugOf(String(row.requestPath))).filter(Boolean))];

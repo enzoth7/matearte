@@ -4,7 +4,7 @@ import { Check, Copy, ArrowSquareOut } from "@phosphor-icons/react";
 const links = [
   { name: "Gestor", description: "Este panel de gestión de Matearte.", url: "https://matearte-gestion.vercel.app" },
   { name: "Página web de Matearte", description: "La tienda online para clientes.", url: "https://www.matearteuruguay.com" },
-  { name: "Visualizador de Matearte", description: "El personalizador donde los clientes diseñan su mate.", url: "https://matearte-visualizador.vercel.app" },
+  { name: "Personalizador de Matearte", description: "El personalizador donde los clientes diseñan su mate.", url: "https://personalizador.matearteuruguay.com" },
 ];
 
 export function Links() {

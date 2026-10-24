@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { domToBlob } from 'modern-screenshot';
-import { ConfiguratorPreview } from '../../visualizador/src/components/ConfiguratorPreview';
-import { FlatFlejePreview } from '../../visualizador/src/components/FlatFlejePreview';
+import { ConfiguratorPreview } from '../../personalizador/src/components/ConfiguratorPreview';
+import { FlatFlejePreview } from '../../personalizador/src/components/FlatFlejePreview';
 import { commerceSource } from './commerceSource';
 
 type Snapshot = any;

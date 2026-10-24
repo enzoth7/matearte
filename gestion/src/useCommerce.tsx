@@ -3,7 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import { commerceSource, readCommerceOrders, readCommerceProducts, readCommerceReference } from "./commerceSource";
 import { adaptCommerce, type CommerceSnapshot, type CommercePayment, type NationalRate, type RuralRaffleEntry, type WebCustomerProfile, type WebLead } from "./commerceAdapter";
 import { loadState, type State } from "./data";
-import type { LocalCustomer, LocalSale } from "./localSource";
+import type { LocalCustomer, LocalSale, LocalSaleReceipt } from "./localSource";
 import { adaptExpenses, canReadExpenses, readExpenseSources } from "./expenseSource";
 import { montevideoToday } from "./overview";
 import { readWholesale } from "./wholesaleSource";
@@ -109,7 +109,7 @@ export function useCommerce() {
     busyRef.current = true;
     setLoading(true);
     try {
-      const [products, orders, payments, reference, shipping, customerProfiles, localCustomerResult, localSales, ruralRaffleEntries, wholesale, webLeads, membership, expenseSources, contactOrigins] = await Promise.all([
+      const [products, orders, payments, reference, shipping, customerProfiles, localCustomerResult, localSales, localReceipts, ruralRaffleEntries, wholesale, webLeads, membership, expenseSources, contactOrigins] = await Promise.all([
         readAllPages((page) => readCommerceProducts(client, page)),
         readAllPages((page) => readCommerceOrders(client, page)),
         readAllPages<CommercePayment>(async (page) => {
@@ -123,16 +123,23 @@ export function useCommerce() {
         readLocalCustomers(client, localCustomerCache.current),
         readAllPages<LocalSale>(async (page) => {
           let result: { data: unknown[] | null; count: number | null; error: { code?: string; message: string } | null } = await client.from("local_sales")
-            .select("id,sale_number,reference_code,channel,customer_id,customer_name,sold_on,payment_method,total_minor,currency,created_at,local_sale_items(id,variant_id,sku,product_name,variant_name,quantity,unit_price_minor,line_total_minor,customization,production_notes)", { count: "exact" })
+            .select("id,sale_number,reference_code,channel,customer_id,customer_name,sold_on,payment_method,total_minor,deposit_minor,currency,created_at,local_sale_items(id,variant_id,sku,product_name,variant_name,quantity,unit_price_minor,line_total_minor,customization,production_notes)", { count: "exact" })
             .order("id").range(page * 100, page * 100 + 99);
           if (result.error?.code === "42703" && /customization/i.test(result.error.message)) {
             result = await client.from("local_sales")
-              .select("id,sale_number,reference_code,channel,customer_id,customer_name,sold_on,payment_method,total_minor,currency,created_at,local_sale_items(id,variant_id,sku,product_name,variant_name,quantity,unit_price_minor,line_total_minor)", { count: "exact" })
+              .select("id,sale_number,reference_code,channel,customer_id,customer_name,sold_on,payment_method,total_minor,deposit_minor,currency,created_at,local_sale_items(id,variant_id,sku,product_name,variant_name,quantity,unit_price_minor,line_total_minor)", { count: "exact" })
               .order("id").range(page * 100, page * 100 + 99);
           }
           const { data, count, error } = result;
           if (error) throw error;
           return { rows: (data || []) as LocalSale[], count: count ?? 0 };
+        }),
+        readAllPages<LocalSaleReceipt>(async (page) => {
+          const { data, count, error } = await client.from("local_sale_receipts")
+            .select("id,sale_id,amount_minor,payment_method,paid_on,created_at", { count: "exact" })
+            .order("id").range(page * 100, page * 100 + 99);
+          if (error) throw error;
+          return { rows: (data || []) as LocalSaleReceipt[], count: count ?? 0 };
         }),
         readAllPages<RuralRaffleEntry>(async (page) => {
           const { data, count, error } = await client.from("rural_raffle_entries")
@@ -157,7 +164,7 @@ export function useCommerce() {
       if (membership.error) throw membership.error;
       localCustomerCache.current = localCustomerResult;
       const localCustomers = localCustomerResult.rows;
-      const next: CommerceSnapshot = { products, orders, payments, reference, nationalRates: (shipping.data || []) as NationalRate[], customerProfiles, localCustomers, localSales, ruralRaffleEntries, wholesale, webLeads, contactOrigins: contactOrigins.error ? undefined : (contactOrigins.data || []) as { contact_key: string; origin: string }[] };
+      const next: CommerceSnapshot = { products, orders, payments, reference, nationalRates: (shipping.data || []) as NationalRate[], customerProfiles, localCustomers, localSales, localReceipts, ruralRaffleEntries, wholesale, webLeads, contactOrigins: contactOrigins.error ? undefined : (contactOrigins.data || []) as { contact_key: string; origin: string }[] };
       const base = adaptWholesale(adaptCommerce(next, (path) => client.storage.from("product-images").getPublicUrl(path).data.publicUrl), wholesale);
       const rates = Object.fromEntries(reference.exchangeRates.map((rate) => [rate.currency_code, Number(rate.rate_to_uyu)]));
       // Sin ningún egreso cargado no se calcula ganancia: se vería como si no hubiera gastos.

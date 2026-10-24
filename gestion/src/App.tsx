@@ -38,7 +38,7 @@ import {
 } from "./modules";
 import { People, Permissions } from "./people";
 import { CommerceLogin, useCommerce } from "./useCommerce";
-import { VisualizerConfiguratorView } from "./commerce/VisualizerConfiguratorView";
+import { PersonalizerConfiguratorView } from "./commerce/PersonalizerConfiguratorView";
 import { CommerceShipping } from "./CommerceShipping";
 import { Card, Table, Badge, Modal } from "./ui";
 import { formatDate } from "./dateFormat";
@@ -60,7 +60,7 @@ const retiredRoutes: Record<string, string> = {
   "/comercial/registrar": "/comercial/registrar-min",
   "/productos/precios": "/productos/catalogo?vista=lista",
   "/productos/publicacion": "/productos/catalogo?vista=lista",
-  "/produccion/configurador-visualizador": "/productos/personalizador",
+  "/produccion/configurador-personalizador": "/productos/personalizador",
   "/comercial/avisos": "/marketing/avisos",
   "/comercial/descuentos": "/marketing/descuentos",
   "/marketing/metricas": "/marketing/contactos",
@@ -128,7 +128,7 @@ function Content(
   if (key === "comercial/registrar-may") return <Register {...props} kind="mayorista" />;
   if (key === "comercial/pedidos") return <Orders {...props} />;
   if (area === "clientes") return <Customers {...props} mode={page} />;
-  if (key === "productos/personalizador") return <div className="commerce-tools"><VisualizerConfiguratorView /></div>;
+  if (key === "productos/personalizador") return <div className="commerce-tools"><PersonalizerConfiguratorView /></div>;
   if (area === "productos") return <Products {...props} mode={page} />;
   if (area === "produccion")
     return (

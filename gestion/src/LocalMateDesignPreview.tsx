@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { ConfiguratorPreview } from "../../visualizador/src/components/ConfiguratorPreview";
-import { FlatFlejePreview } from "../../visualizador/src/components/FlatFlejePreview";
-import { rimIconCatalog } from "../../visualizador/src/catalog/rimIconCatalog";
-import { createDefaultFlejeSide, type ElementTransform, type IconElement, type CustomImageAsset } from "../../visualizador/src/types/customizer";
-import type { MateModel } from "../../visualizador/src/catalog/mateCatalog";
+import { ConfiguratorPreview } from "../../personalizador/src/components/ConfiguratorPreview";
+import { FlatFlejePreview } from "../../personalizador/src/components/FlatFlejePreview";
+import { rimIconCatalog } from "../../personalizador/src/catalog/rimIconCatalog";
+import { createDefaultFlejeSide, type ElementTransform, type IconElement, type CustomImageAsset } from "../../personalizador/src/types/personalizer";
+import type { MateModel } from "../../personalizador/src/catalog/mateCatalog";
 import type { Product } from "./data";
 import { localDesignIcons, localDesignTransform, type LocalPersonalizationDraft } from "./localPersonalization";
 import { customModelLabel } from "./CustomArticlePicker";
@@ -43,7 +43,7 @@ export function LocalMateDesignPreview({ product, draft, surface, update }: { pr
       } }} />}
     </div>
     {selected && (() => { const key = selected === "text-1" ? "rim-text" : selected === "text" ? `${side}-text` : selected; const current = transform(key, surface === "rim" ? "rim" : side); return <div className="local-design-adjustments"><label>Tamaño del elemento<input type="range" min="0.5" max="1.6" step="0.05" value={current.scale} onChange={e => move(key, { ...current, scale: Number(e.target.value) })} /></label><label>Giro del elemento<input type="range" min="-180" max="180" value={current.rotation} onChange={e => move(key, { ...current, rotation: Number(e.target.value) })} /></label></div>; })()}
-    {enabled && <><strong>Íconos del visualizador</strong><div className="local-design-icons"><button type="button" aria-pressed={!selectedIcons.length} onClick={() => changeIcons([])}>Sin ícono</button>{rimIconCatalog.map(icon => <button key={icon.id} type="button" title={icon.name} aria-label={icon.name} onClick={() => { const id = `${surface}-${crypto.randomUUID()}`; changeIcons([...selectedIcons, { id, selectedImageId: icon.id }]); setSelected(id); }}><img src={icon.src} alt="" /></button>)}</div></>}
+    {enabled && <><strong>Íconos del personalizador</strong><div className="local-design-icons"><button type="button" aria-pressed={!selectedIcons.length} onClick={() => changeIcons([])}>Sin ícono</button>{rimIconCatalog.map(icon => <button key={icon.id} type="button" title={icon.name} aria-label={icon.name} onClick={() => { const id = `${surface}-${crypto.randomUUID()}`; changeIcons([...selectedIcons, { id, selectedImageId: icon.id }]); setSelected(id); }}><img src={icon.src} alt="" /></button>)}</div></>}
     {selectedIcons.length > 0 && <div className="local-design-icons">{selectedIcons.map((item, index) => <button type="button" key={item.id} onClick={() => { changeIcons(selectedIcons.filter(icon => icon.id !== item.id)); if (selected === item.id) setSelected(null); }}>Quitar ícono {index + 1}</button>)}</div>}
     {file?.type === "application/pdf" && <p>El PDF se adjunta a la venta. Para verlo en el diseño, cargá una imagen PNG, JPG o SVG.</p>}
   </section>;

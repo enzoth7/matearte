@@ -65,4 +65,4 @@ La retirada del panel viejo exige conciliación satisfactoria y decisión expres
 
 ## Otros dashboards
 
-Registro manual del local, inventario, compras, egresos, horas y administrador del visualizador pertenecen a otras migraciones que el usuario elegirá después. Siguen sin datos inventados; no se atribuyen estas funciones a Commerce Admin.
+Registro manual del local, inventario, compras, egresos, horas y administrador del personalizador pertenecen a otras migraciones que el usuario elegirá después. Siguen sin datos inventados; no se atribuyen estas funciones a Commerce Admin.

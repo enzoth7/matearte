@@ -1,0 +1,1 @@
+create index local_sale_receipts_created_by_idx on public.local_sale_receipts(created_by);

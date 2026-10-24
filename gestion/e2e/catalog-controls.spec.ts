@@ -60,10 +60,7 @@ for (const category of ["botas", "zuecos"] as const) {
 
 test("el selector distingue los personalizados y ordena las categorías por nombre", async ({ page }) => {
   const { tables } = await mockCommerce(page);
-  tables.commerce_categories = [
-    ...defaultCatalogTaxonomy.categories,
-    { code: "posa-mates", label_es: "Posa mates", parent_code: null, sort_order: 130, active: true },
-  ];
+  tables.commerce_categories = defaultCatalogTaxonomy.categories;
   await page.goto("/productos/catalogo?producto=product-1");
   const category = page.getByRole("combobox", { name: /Categoría/ });
   await expect(category.locator('option[value="personalizados"]')).toHaveText("Personalizados");
@@ -71,6 +68,30 @@ test("el selector distingue los personalizados y ordena las categorías por nomb
   await expect(category.locator('option[value="mates-personalizados"]')).toHaveCount(0);
   const labels = await category.locator('option:not([value=""])').allTextContents();
   expect(labels.indexOf("Posa mates")).toBeLessThan(labels.indexOf("Servicios"));
+});
+
+test("posa mates permite guardar material y elegir color para una variante existente", async ({ page }) => {
+  const { fixture, tables, writes } = await mockCommerce(page, { writable: true });
+  tables.commerce_categories = defaultCatalogTaxonomy.categories;
+  tables.commerce_attribute_definitions = defaultCatalogTaxonomy.attributes;
+  tables.commerce_attribute_options = defaultCatalogTaxonomy.options;
+  tables.commerce_category_attributes = defaultCatalogTaxonomy.rules;
+  Object.assign(fixture.products[0], { category: "posa-mates", category_code: "posa-mates", attributes: {}, catalog_filters: { materials: [] } });
+
+  await page.goto("/productos/catalogo?producto=product-1");
+  const materials = page.getByRole("group", { name: "Materiales" });
+  await expect(materials.getByLabel("Cuero Crudo")).toBeVisible();
+  await materials.getByLabel("Cuero Crudo").check();
+  await page.getByRole("button", { name: "Guardar cambios" }).click();
+  await expect.poll(() => writes.find(write => write.table === "commerce_products" && write.body.attributes?.material)?.body.attributes.material).toBe("cuero-crudo");
+
+  const variants = page.locator(".catalog-variants-table");
+  await expect(variants.getByRole("columnheader", { name: "Color" })).toBeVisible();
+  await variants.getByRole("button", { name: "Editar", exact: true }).first().click();
+  await expect(variants.locator(".variant-edit-row select")).toBeVisible();
+  await variants.locator(".variant-edit-row select").selectOption("marron");
+  await variants.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect.poll(() => writes.find(write => write.table === "commerce_variants" && write.body.option_values?.color === "marron")?.body.color).toBe("marron");
 });
 
 test("Personalizados exige tipo y cambia los campos sin crear variantes por características", async ({ page }) => {

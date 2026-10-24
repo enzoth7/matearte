@@ -523,12 +523,12 @@ test("el detalle de resumen no muestra virola ni cuero y enlaza el nombre y el S
   await expect(page).toHaveURL(/\/productos\/catalogo\?producto=/);
 });
 
-test("Administración tiene la pestaña Links con las direcciones del gestor, la web y el visualizador", async ({ page }) => {
+test("Administración tiene la pestaña Links con las direcciones del gestor, la web y el personalizador", async ({ page }) => {
   await mockCommerce(page);
   await page.goto("/administracion/links");
   await expect(page.getByRole("heading", { name: "Links" })).toBeVisible();
   await expect(page.getByRole("link", { name: "https://matearte-gestion.vercel.app" })).toBeVisible();
   await expect(page.getByRole("link", { name: "https://www.matearteuruguay.com" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "https://matearte-visualizador.vercel.app" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "https://personalizador.matearteuruguay.com" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Links/ }).first()).toBeVisible();
 });

@@ -2,7 +2,7 @@ import { catalogValueLabel, defaultCatalogTaxonomy } from "../../shared/catalog-
 import { seed, type State, type Product, type Customer, type Order, type OrderLine, type Payment, type SalesChannel, type CustomerSourceChannel } from "./data";
 import { commerceCustomerName, visibleInCommerceAdmin, type CommerceOrder, type CommerceProduct, type CommerceReference } from "./commerceSource";
 import { imageForVariant } from "./catalogImages";
-import type { LocalCustomer, LocalSale } from "./localSource";
+import type { LocalCustomer, LocalSale, LocalSaleReceipt } from "./localSource";
 import type { WholesaleSnapshot } from "./wholesaleSource";
 import { formatContactName } from "../../shared/contactName";
 import { countryDisplayName } from "./location";
@@ -16,7 +16,7 @@ export type WebLead = { source_kind: "account" | "newsletter"; source_id: string
 export type CommerceSnapshot = {
   products: CommerceProduct[]; orders: CommerceOrder[]; payments: CommercePayment[];
   reference: CommerceReference; nationalRates: NationalRate[]; customerBirthdays?: LocalCustomerBirth[]; customerProfiles?: WebCustomerProfile[];
-  localCustomers?: LocalCustomer[]; localSales?: LocalSale[];
+  localCustomers?: LocalCustomer[]; localSales?: LocalSale[]; localReceipts?: LocalSaleReceipt[];
   /** Origen calculado en la base (primer canal de entrada); es el mismo que usa Marketing → Contactos. */
   contactOrigins?: { contact_key: string; origin: string }[];
   ruralRaffleEntries?: RuralRaffleEntry[];
@@ -343,8 +343,8 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       customerId: source.customer_id ? localCustomerIds.get(source.customer_id) || `local:${source.customer_id}` : `local-anon:${source.id}`,
       customerName: source.customer_name, productId: items[0]?.productId || source.id,
       quantity: items.reduce((sum, item) => sum + item.quantity, 0), unitPrice: 0,
-      items, totalAmount: source.payment_method === "Seña" ? Math.max(charged, itemsAmount) : charged,
-      localItemsAmount: itemsAmount, paymentMethod: source.payment_method,
+      items, totalAmount: source.deposit_minor != null || source.payment_method === "Seña" ? Math.max(charged, itemsAmount) : charged,
+      localItemsAmount: itemsAmount, depositAmount: source.deposit_minor == null ? (source.payment_method === "Seña" ? charged : undefined) : Number(source.deposit_minor) / 100, paymentMethod: source.payment_method,
       channel: source.channel && ["Feria", "Instagram", "Facebook", "WhatsApp"].includes(source.channel) ? source.channel : "Local", date: source.sold_on, due: "", production: "No aplica", delivery: "No aplica", method: "No aplica",
       design: false, approved: true,
     };
@@ -370,6 +370,9 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
     }).concat((snapshot.localSales || []).filter((sale) => Number(sale.total_minor) > 0).map((sale) => ({
       id: `local:${sale.id}`, orderId: sale.id, amount: Number(sale.total_minor) / 100,
       date: sale.sold_on, method: sale.payment_method,
+    })), (snapshot.localReceipts || []).map((receipt) => ({
+      id: `local-receipt:${receipt.id}`, orderId: receipt.sale_id, amount: Number(receipt.amount_minor) / 100,
+      date: receipt.paid_on, method: receipt.payment_method,
     }))),
     records: {
       monedas: snapshot.reference.exchangeRates.map((rate) => ({ id: rate.currency_code, moneda: rate.currency_code, valor: Number(rate.rate_to_uyu) })),
