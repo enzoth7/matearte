@@ -76,6 +76,20 @@ test('registrar venta escribe en las tablas compartidas sin duplicar el cobro', 
   await expect(page.getByText('local:sale-19')).toBeVisible();
 });
 
+test('una variante oculta en la web se puede registrar en el local', async ({ page }) => {
+  const { fixture, writes } = await mockCommerce(page, { writable: true });
+  fixture.products[0].commerce_variants[0].active = false;
+  fixture.products[0].commerce_variants[0].available_local = true;
+  await page.goto('/comercial/registrar-min');
+  await page.getByLabel('Buscar producto').fill('SKU-1');
+  await page.getByRole('button', { name: /SKU-1 · Mate de catálogo/ }).click();
+  await page.getByRole('button', { name: 'Agregar nuevo cliente' }).click();
+  await page.getByLabel('Nombre', { exact: true }).fill('Cliente local');
+  await page.getByRole('button', { name: 'Guardar venta' }).click();
+  await expect(page.getByRole('button', { name: '#L001' })).toBeVisible();
+  expect(writes.some((write) => write.table === 'gestion_create_local_sale_with_items')).toBe(true);
+});
+
 test('la miniatura de la venta respeta el encuadre usado en catálogo', async ({ page }) => {
   const { fixture } = await mockCommerce(page);
   fixture.products[0].commerce_product_images.push({ id: 'image-sale-preview', storage_path: 'test.png', alt_text: 'Mate', sort_order: 0, variant_id: null, option_values: { cover_x: 8, cover_y: -12, cover_zoom: 1.4 } });

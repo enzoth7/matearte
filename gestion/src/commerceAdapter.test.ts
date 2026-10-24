@@ -42,6 +42,16 @@ describe("integración de commerce en el estado compartido", () => {
     expect(state.customers).toHaveLength(1);
     expect(state.customers[0]).toMatchObject({ originChannel: "Web", webLeadKind: "account", webLeadId: "user-1", phone: "099123456", address: "Artigas 100", postalCode: "60000" });
   });
+  it("mantiene el canal Local aunque la variante esté oculta en la web", () => {
+    const fixture = commerceFixture();
+    fixture.products[0].commerce_variants[0].active = false;
+    fixture.products[0].commerce_variants[0].available_local = true;
+    fixture.products[0].commerce_variants[0].available_web = true;
+    const product = adaptCommerce(fixture).products.find((item) => item.sku === "SKU-1")!;
+    expect(product.active).toBe(false);
+    expect(product.availableChannels).toContain("Local");
+    expect(product.availableChannels).not.toContain("Web");
+  });
   it("conserva el origen de la suscripción con descuento cuando la cuenta ya existía", () => {
     const fixture = commerceFixture();
     fixture.orders = [];

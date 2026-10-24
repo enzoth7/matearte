@@ -96,10 +96,10 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
           ? Math.round(Number(variant.base_price_minor) * (1 - Number(snapshot.reference.settings.wholesale_mate_discount_percent) / 100)) / 100
           : variant?.legacy_product_id ? Number(variant.base_price_minor) / 100 : 0,
       },
-      availableChannels: variant ? [...(variant.available_local === false ? [] : ["Local" as const]), ...(variant.available_web === false ? [] : ["Web" as const]), ...(variant.available_wholesale === true ? ["Mayorista" as const] : [])] : [],
+      availableChannels: variant ? [...(variant.available_local === false ? [] : ["Local" as const]), ...(!variant.active || variant.available_web === false ? [] : ["Web" as const]), ...(variant.available_wholesale === true ? ["Mayorista" as const] : [])] : [],
       wholesaleThreshold: variant && categoryCode.toLowerCase() === "mates" && snapshot.reference.settings.wholesale_mate_discount_enabled
         ? snapshot.reference.settings.wholesale_mate_quantity_threshold : undefined,
-      active: variant?.active ?? false, published: product.published,
+      active: Boolean(variant?.active && (categoryCode.toLowerCase() === "servicios" || variant.available_web !== false)), published: product.published,
       });
     });
   });

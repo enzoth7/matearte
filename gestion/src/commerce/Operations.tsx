@@ -772,7 +772,7 @@ export function Catalog({onNotice,initialProductId,initialVariantId,startNew=fal
     setEditingVariantId(null);
   }, [selected, initialVariantId]);
   const editingVariant = product?.commerce_variants.find(item => item.id === editingVariantId);
-  const savedVariantForm = editingVariant && { sku: editingVariant.sku, price: ((editingVariant.base_price_minor ?? editingVariant.price_minor) / 100).toString(), priceArg:editingVariant.wholesale_price_arg?.toString() || '', options: variantColorValues(editingVariant), local: editingVariant.available_local !== false, web: editingVariant.available_web !== false, wholesale: editingVariant.available_wholesale === true, servicePriceMode: isService && (editingVariant.base_price_minor ?? editingVariant.price_minor) === 0 ? 'variable' as const : 'fixed' as const };
+  const savedVariantForm = editingVariant && { sku: editingVariant.sku, price: ((editingVariant.base_price_minor ?? editingVariant.price_minor) / 100).toString(), priceArg:editingVariant.wholesale_price_arg?.toString() || '', options: variantColorValues(editingVariant), local: editingVariant.available_local !== false, web: editingVariant.active && editingVariant.available_web !== false, wholesale: editingVariant.available_wholesale === true, servicePriceMode: isService && (editingVariant.base_price_minor ?? editingVariant.price_minor) === 0 ? 'variable' as const : 'fixed' as const };
   const variantDraftDirty = Boolean(savedVariantForm && JSON.stringify(editingVariantForm) !== JSON.stringify(savedVariantForm));
   const newVariantDirty = Boolean(variant.sku || variant.price || variant.priceArg || Object.keys(variant.options).length || !variant.local || !variant.web || variant.wholesale);
   const showWholesalePriceColumn = !isService && (product?.commerce_variants.some(item => item.available_wholesale || item.legacy_product_id) || variant.wholesale || Boolean(editingVariantId && editingVariantForm.wholesale));
@@ -858,7 +858,7 @@ export function Catalog({onNotice,initialProductId,initialVariantId,startNew=fal
   const usageSummary = (usage:CatalogUsage) => usage.historical_orders > 0
     ? `Tiene ${usage.historical_orders} ${usage.historical_orders===1?'pedido histórico':'pedidos históricos'}: se conservan con sus datos, pero quedan sin vínculo a este producto.`
     : 'No tiene pedidos asociados.';
-  const activeOrdersMessage = (usage:CatalogUsage,what:string) => `No se puede eliminar ${what}: tiene ${usage.active_orders} ${usage.active_orders===1?'pedido activo':'pedidos activos'} (${usage.active_references.join(', ')}). Terminá o cancelá esos pedidos primero, o desactivalo para retirarlo de la venta.`;
+  const activeOrdersMessage = (usage:CatalogUsage,what:string) => `No se puede eliminar ${what}: tiene ${usage.active_orders} ${usage.active_orders===1?'pedido activo':'pedidos activos'} (${usage.active_references.join(', ')}). Terminá o cancelá esos pedidos primero.`;
 
   const deleteProduct = async() => {
     if (!product) return;
@@ -1109,6 +1109,7 @@ Si solo querés sacarlo de la tienda, usá “Ocultar”.`);
       color: typeof options.color==='string'?options.color:null,
       option_values: options,
       available_local: isService || form.local, available_web: !isService && form.web, available_wholesale: !isService && form.wholesale,
+      active: form.web ? true : item.active,
       wholesale_price_arg: !isService && form.wholesale ? Number(form.priceArg) : null,
       ...(Math.round(priceNum * 100) !== (item.base_price_minor ?? item.price_minor)
         ? { base_price_minor: Math.round(priceNum * 100) }
@@ -1120,7 +1121,7 @@ Si solo querés sacarlo de la tienda, usá “Ocultar”.`);
     } else {
       onNotice('Variante actualizada.');
       setEditingVariantId(null);
-      await syncWebPublication(product.id,product.commerce_variants.map(candidate=>candidate.id===item.id?{...candidate,available_web:!isService && form.web}:candidate));
+      await syncWebPublication(product.id,product.commerce_variants.map(candidate=>candidate.id===item.id?{...candidate,active:form.web ? true : candidate.active,available_web:!isService && form.web}:candidate));
       await load(product.id);
       void onCatalogChange?.();
     }
@@ -1130,10 +1131,12 @@ Si solo querés sacarlo de la tienda, usá “Ocultar”.`);
   const toggleVariant = async(item:ProductVariant) => {
     if (!product) return;
     if (hasUnsavedChanges) { onNotice('Guardá o cancelá los cambios pendientes antes de cambiar el estado de la variante.'); return; }
+    const publishWeb = !(item.active && item.available_web !== false);
+    const active = publishWeb ? true : item.active;
     setProductBusy(`variant-${item.id}`);
-    const {error} = await supabase.from('commerce_variants').update({active:!item.active}).eq('id',item.id).eq('product_id',product.id);
-    onNotice(error ? error.message : item.active ? 'Variante desactivada.' : 'Variante activada.');
-    if (!error) { await syncWebPublication(product.id,product.commerce_variants.map(candidate=>candidate.id===item.id?{...candidate,active:!item.active}:candidate)); await load(product.id); void onCatalogChange?.(); }
+    const {error} = await supabase.from('commerce_variants').update({active,available_web:publishWeb}).eq('id',item.id).eq('product_id',product.id);
+    onNotice(error ? error.message : `${publishWeb ? 'Variante habilitada en la web.' : 'Variante quitada de la web.'}${item.available_local === false ? '' : ' Sigue disponible en el local.'}`);
+    if (!error) { await syncWebPublication(product.id,product.commerce_variants.map(candidate=>candidate.id===item.id?{...candidate,active,available_web:publishWeb}:candidate)); await load(product.id); void onCatalogChange?.(); }
     setProductBusy('');
   };
 
@@ -1299,9 +1302,10 @@ ${usageSummary(usage)}`)) { setProductBusy(''); return; }
             <div className="table-scroll">
               <table className={`catalog-variants-table${showWholesalePriceColumn ? ' catalog-variants-table--with-ars' : ''}`}>
                 <colgroup><col className="variant-col-sku" />{variantDefinitions.map(({definition})=><col className="variant-col-option" key={definition.code} />)}<col className="variant-col-price" />{!isService && <col className="variant-col-published" />}{showWholesalePriceColumn && <col className="variant-col-ars" />}<col className="variant-col-status" /><col className="variant-col-actions" /></colgroup>
-                <thead><tr><th>SKU</th>{variantDefinitions.map(({definition})=><th key={definition.code}>{definition.label_es}</th>)}<th>{isService ? 'Precio local' : 'Precio UYU'}</th>{!isService && <th>Precio publicado</th>}{showWholesalePriceColumn && <th>Precio ARS</th>}<th>Estado</th><th>Acciones</th></tr></thead><tbody>
+                <thead><tr><th>SKU</th>{variantDefinitions.map(({definition})=><th key={definition.code}>{definition.label_es}</th>)}<th>{isService ? 'Precio local' : 'Precio UYU'}</th>{!isService && <th>Precio publicado</th>}{showWholesalePriceColumn && <th>Precio ARS</th>}<th>{isService ? 'Estado' : 'Web'}</th><th>Acciones</th></tr></thead><tbody>
                 {product.commerce_variants.map(item => {
                   const itemOptions = variantColorValues(item);
+                  const webEnabled = item.active && item.available_web !== false;
                   if (editingVariantId !== item.id) {
                     return (
                       <tr key={item.id}>
@@ -1310,11 +1314,11 @@ ${usageSummary(usage)}`)) { setProductBusy(''); return; }
                         <td data-label={isService ? 'Precio local' : 'Precio UYU'}>{isService && (item.base_price_minor ?? item.price_minor) === 0 ? 'A definir en la venta' : money(item.base_price_minor ?? item.price_minor)}</td>
                         {!isService && <td data-label="Precio publicado"><strong>{money(item.price_minor)}</strong></td>}
                         {showWholesalePriceColumn && <td data-label="Precio ARS">{item.available_wholesale && item.wholesale_price_arg ? new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:2}).format(item.wholesale_price_arg) : '—'}</td>}
-                        <td data-label="Estado"><div className={`status-badge ${item.active ? 'status-ready_for_production' : 'status-cancelled'}`}>{item.active ? 'Activa' : 'Inactiva'}</div></td>
+                        <td data-label={isService ? 'Estado' : 'Web'}><div className={`status-badge ${(isService ? item.active : webEnabled) ? 'status-ready_for_production' : 'status-cancelled'}`}>{isService ? (item.active ? 'Activo' : 'Inactivo') : (webEnabled ? 'En web' : 'Fuera de web')}</div></td>
                         <td data-label="Acciones">
                           <div className="row-actions variant-row-actions">
-                            <button className="variant-icon-button secondary-button" type="button" aria-label="Editar" title="Editar variante" disabled={Boolean(productBusy)} onClick={() => { setEditingVariantId(item.id); setEditingVariantForm({ sku: item.sku, price: ((item.base_price_minor ?? item.price_minor) / 100).toString(), priceArg:item.wholesale_price_arg?.toString() || '', options: colorOnlyVariantValues(itemOptions), local: item.available_local !== false, web: item.available_web !== false, wholesale: item.available_wholesale === true, servicePriceMode:isService && (item.base_price_minor ?? item.price_minor)===0?'variable':'fixed' }); }}><PencilSimple size={19} aria-hidden="true" /></button>
-                            <button className="variant-icon-button secondary-button" type="button" aria-label={item.active ? 'Desactivar' : 'Activar'} title={item.active ? 'Desactivar variante' : 'Activar variante'} disabled={Boolean(productBusy)} onClick={()=>void toggleVariant(item)}><Power size={19} aria-hidden="true" /></button>
+                            <button className="variant-icon-button secondary-button" type="button" aria-label="Editar" title="Editar variante" disabled={Boolean(productBusy)} onClick={() => { setEditingVariantId(item.id); setEditingVariantForm({ sku: item.sku, price: ((item.base_price_minor ?? item.price_minor) / 100).toString(), priceArg:item.wholesale_price_arg?.toString() || '', options: colorOnlyVariantValues(itemOptions), local: item.available_local !== false, web: webEnabled, wholesale: item.available_wholesale === true, servicePriceMode:isService && (item.base_price_minor ?? item.price_minor)===0?'variable':'fixed' }); }}><PencilSimple size={19} aria-hidden="true" /></button>
+                            {!isService && <button className="variant-icon-button secondary-button" type="button" aria-label={webEnabled ? 'Quitar de la web' : 'Publicar en web'} title={webEnabled ? 'Quitar variante de la web' : 'Publicar variante en la web'} disabled={Boolean(productBusy)} onClick={()=>void toggleVariant(item)}><Power size={19} aria-hidden="true" /></button>}
                             <button className="variant-icon-button danger-button" type="button" aria-label="Eliminar" title="Eliminar variante" disabled={Boolean(productBusy)} onClick={()=>void removeVariant(item)}><Trash size={19} aria-hidden="true" /></button>
                           </div>
                         </td>
@@ -1357,9 +1361,9 @@ ${usageSummary(usage)}`)) { setProductBusy(''); return; }
                       </td>
                       {!isService && <td data-label="Precio publicado"><div className="field-help">Se recalcula al guardar</div></td>}
                       {showWholesalePriceColumn && <td data-label="Precio ARS">{editingVariantForm.wholesale ? <div className="variant-edit-price"><span>$</span><input type="number" step="0.01" min="0.01" required value={editingVariantForm.priceArg} disabled={Boolean(productBusy)} onChange={e => setEditingVariantForm({...editingVariantForm,priceArg:e.target.value})} onKeyDown={handleKeyDown} aria-label="Precio ARS" /></div> : '—'}</td>}
-                      <td data-label="Estado">
-                        <div className={`status-badge ${item.active ? 'status-ready_for_production' : 'status-cancelled'}`}>
-                          {item.active ? 'Activa' : 'Inactiva'}
+                      <td data-label={isService ? 'Estado' : 'Web'}>
+                        <div className={`status-badge ${(isService ? item.active : webEnabled) ? 'status-ready_for_production' : 'status-cancelled'}`}>
+                          {isService ? (item.active ? 'Activo' : 'Inactivo') : (webEnabled ? 'En web' : 'Fuera de web')}
                         </div>
                       </td>
                       <td data-label="Acciones">

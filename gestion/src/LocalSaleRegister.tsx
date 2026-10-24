@@ -268,7 +268,7 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
   }, [articleTab, pricingRefresh]);
   const customers = s.customers;
   const selectedCustomer = customers.find((customer) => customer.id === customerId);
-  const sellable = (product: Product) => product.active && !product.wholesaleProductId && product.availableChannels?.includes("Local") && (channel === "Local" || !isService(product));
+  const sellable = (product: Product) => !product.wholesaleProductId && product.availableChannels?.includes("Local") && (channel === "Local" || !isService(product));
   const categories = useMemo(() => {
     const values = new Map<string, string>();
     for (const product of s.products.filter(sellable)) values.set(categoryKey(product), product.family);

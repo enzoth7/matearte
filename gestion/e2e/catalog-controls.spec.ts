@@ -130,7 +130,7 @@ test("las acciones de variantes usan iconos y la edición conserva la alineació
   const actions = row.locator(".variant-row-actions button");
   await expect(actions).toHaveCount(3);
   expect(await actions.allTextContents()).toEqual(["", "", ""]);
-  await expect(row.getByRole("button", { name: "Desactivar" })).toBeVisible();
+  await expect(row.getByRole("button", { name: "Quitar de la web" })).toBeVisible();
   const columnWidths = await table.locator("thead th").evaluateAll((cells) => cells.map((cell) => cell.getBoundingClientRect().width));
 
   await row.getByRole("button", { name: "Editar" }).click();
@@ -146,6 +146,26 @@ test("las acciones de variantes usan iconos y la edición conserva la alineació
   expect(await editRow.locator(".variant-row-actions button").allTextContents()).toEqual(["", ""]);
   await editRow.getByRole("button", { name: "Cancelar" }).click();
   await expect(table.locator(".variant-edit-row")).toHaveCount(0);
+});
+
+test("quitar una variante de la web mantiene disponible su venta en el local", async ({ page }) => {
+  const { fixture, writes } = await mockCommerce(page, { writable: true });
+  fixture.products[0].commerce_variants[0].available_local = true;
+  fixture.products[0].commerce_variants[0].available_web = true;
+  await page.goto("/productos/catalogo?producto=product-1&variante=variant-1");
+  const row = page.locator(".catalog-variants-table").getByRole("row").filter({ hasText: "SKU-1" });
+  await row.getByRole("button", { name: "Quitar de la web" }).click();
+  await expect(row).toContainText("Fuera de web");
+  expect(writes.some((write) => write.table === "commerce_variants" && write.method === "PATCH" && write.body.active === true && write.body.available_web === false && write.body.available_local === undefined)).toBe(true);
+  await page.goto("/comercial/registrar-min");
+  await page.getByLabel("Buscar producto").fill("SKU-1");
+  await expect(page.getByRole("button", { name: /SKU-1 · Mate de catálogo/ })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("button", { name: /SKU-1 · Mate de catálogo/ })).toBeVisible();
+  await page.goto("/productos/catalogo?producto=product-1&variante=variant-1");
+  await row.getByRole("button", { name: "Publicar en web" }).click();
+  await expect(row).toContainText("En web");
+  expect(writes.some((write) => write.table === "commerce_variants" && write.method === "PATCH" && write.body.active === true && write.body.available_web === true && write.body.available_local === undefined)).toBe(true);
 });
 
 test("una ficha mayorista vinculada usa el editor único y conserva su precio ARS", async ({ page }) => {
