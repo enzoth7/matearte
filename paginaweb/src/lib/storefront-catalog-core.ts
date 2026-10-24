@@ -169,8 +169,9 @@ export function storefrontProductFromRow(
       .map(color => catalogValueLabel(taxonomy, "color", color)),
     madeToOrder: row.sale_mode === "made_to_order",
   }, locale);
-  const description = keepEditorialTranslation && authoredText ? existing!.description : authoredText || generated!.description;
-  const summary = keepEditorialTranslation && authoredText ? existing!.summary : authoredText || generated!.summary;
+  // La descripción de Gestión es la que se muestra en todos los idiomas.
+  const description = authoredText || generated!.description;
+  const summary = authoredText || generated!.summary;
   const existingProductTypes = existing?.filterData.productTypes
     ?? (existing?.filterData.mateType ? [existing.filterData.mateType] : []);
   const structuredMaterial = typeof attributes.material === "string" && catalogMaterialIds.includes(attributes.material as CatalogMaterialId)

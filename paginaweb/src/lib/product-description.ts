@@ -14,38 +14,10 @@ export type ProductDescriptionInput = {
 /** Categorías de reventa: no se afirma que MateArte las elabore. */
 const notMadeByMateArte = new Set(["termos"]);
 
-const copy: Record<Locale, {
-  origin: string;
-  madeToOrder: string;
-  features: string;
-  colors: string;
-  resale: Record<string, string>;
-  fallback: string;
-}> = {
-  es: {
-    origin: "Elaboración a mano en Paysandú, Uruguay.",
-    madeToOrder: "Se elabora por encargo.",
-    features: "Características",
-    colors: "Colores",
-    resale: { termos: "Termo para mate." },
-    fallback: "Disponible en el catálogo de MateArte Uruguay.",
-  },
-  en: {
-    origin: "Handmade in Paysandú, Uruguay.",
-    madeToOrder: "Made to order.",
-    features: "Specifications",
-    colors: "Colors",
-    resale: { termos: "Thermos for mate." },
-    fallback: "Available in the MateArte Uruguay catalog.",
-  },
-  pt: {
-    origin: "Elaboração manual em Paysandú, Uruguai.",
-    madeToOrder: "Feito sob encomenda.",
-    features: "Características",
-    colors: "Cores",
-    resale: { termos: "Garrafa térmica para mate." },
-    fallback: "Disponível no catálogo da MateArte Uruguai.",
-  },
+const copy: Record<Locale, { madeToOrder: string; features: string; colors: string }> = {
+  es: { madeToOrder: "Se elabora por encargo.", features: "Características", colors: "Colores" },
+  en: { madeToOrder: "Made to order.", features: "Specifications", colors: "Colors" },
+  pt: { madeToOrder: "Feito sob encomenda.", features: "Características", colors: "Cores" },
 };
 
 /** Características que no describen el producto: "todos" es un eje de variante y el tipo repite la categoría. */
@@ -76,12 +48,11 @@ function featureText(detail: CatalogAttributeDetail, locale: Locale, category: s
 }
 
 /**
- * Descripción de respaldo para productos sin texto cargado en Gestión. Solo usa datos del
- * producto (nombre, características, colores, modalidad de venta); un texto escrito en Gestión la reemplaza.
+ * Texto de respaldo para metadatos y datos estructurados de productos sin descripción en Gestión.
+ * No se muestra en la ficha: la descripción visible es la que se carga en Gestión.
  */
 export function buildProductDescription(input: ProductDescriptionInput, locale: Locale) {
   const text = copy[locale];
-  const lead = notMadeByMateArte.has(input.category) ? text.resale[input.category] ?? "" : text.origin;
   const order = input.madeToOrder ? text.madeToOrder : "";
   const features = input.details
     .map((detail, index) => ({ detail, index }))
@@ -90,15 +61,14 @@ export function buildProductDescription(input: ProductDescriptionInput, locale: 
     .filter((item): item is string => Boolean(item));
   const colors = input.colors.map(color => specValue(plainValue(color), locale)).filter(Boolean);
 
-  const summary = [lead, order].filter(Boolean).join(" ") || text.fallback;
   const description = [
     `${input.name.trim()}.`,
-    summary,
+    order,
     features.length ? `${text.features}: ${features.join("; ")}.` : "",
     colors.length ? `${text.colors}: ${colors.join(", ")}.` : "",
   ].filter(Boolean).join(" ");
 
-  return { summary, description };
+  return { summary: "", description };
 }
 
 /** Recorta a un largo de meta description sin cortar palabras. */
