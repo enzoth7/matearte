@@ -3,7 +3,6 @@ import Image from "next/image";
 import { getLocale, getTranslations } from "next-intl/server";
 import { JsonLd } from "@/components/JsonLd";
 import { localizedPageMetadata } from "@/i18n/metadata";
-import { Link } from "@/i18n/navigation";
 import { buildPageStructuredData } from "@/lib/seo";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -21,6 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const desktopAssets = "/assets/matearte/personalizados-desktop";
 const mobileAssets = "/assets/matearte/personalizados-mobile";
+const personalizerUrl = "https://personalizador.matearteuruguay.com/";
 
 const personalizedGallery = [
   { src: `${desktopAssets}/personalizado-01.jpg`, alt: "gallery1" },
@@ -57,7 +57,6 @@ const mobilePersonalizedGallery = [
 export default async function PersonalizadosPage() {
   const locale = await getLocale();
   const t = await getTranslations("customPage");
-  const personalizerUrl = process.env.NEXT_PUBLIC_PERSONALIZER_URL;
   return (
     <main id="contenido" className="personalizados-page">
       <JsonLd data={buildPageStructuredData({ locale, href: "/personalizados", name: t("metadataTitle"), description: t("metadataDescription"), homeLabel: "MateArte" })} />
@@ -76,11 +75,7 @@ export default async function PersonalizadosPage() {
           <div className="personalizados-mobile-hero-copy">
             <h1>{t("title")}</h1>
             <p>{t("body")}</p>
-            {personalizerUrl ? (
-              <a href={personalizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
-            ) : (
-              <Link href="/contacto">{t("action")}</Link>
-            )}
+            <a href={personalizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
           </div>
         </section>
 
@@ -125,11 +120,7 @@ export default async function PersonalizadosPage() {
           <div className="personalizados-desktop-hero-copy">
             <h1>{t("title")}</h1>
             <p>{t("body")}</p>
-            {personalizerUrl ? (
-              <a href={personalizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
-            ) : (
-              <Link href="/contacto">{t("action")}</Link>
-            )}
+            <a href={personalizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
           </div>
         </section>
 
