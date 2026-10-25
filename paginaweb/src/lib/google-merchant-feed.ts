@@ -1,18 +1,7 @@
 import type { Product, ProductVariant } from "@/types/catalog";
-import {
-  DEFAULT_INTERNATIONAL_SHIPPING_RATES,
-  getInternationalShippingRate,
-  type InternationalShippingRow,
-} from "@/lib/international-shipping";
 
 const BRAND = "MateArte";
 const FALLBACK_PRODUCT_IMAGE = "/assets/matearte/01-marca/LogoOriginal-4k.png";
-const merchantShippingCountries = [
-  { code: "AR", checkoutCountry: "Argentina" },
-  { code: "BR", checkoutCountry: "Brasil" },
-  { code: "ES", checkoutCountry: "España" },
-  { code: "US", checkoutCountry: "Estados Unidos" },
-] as const;
 
 // Packaged-weight fallbacks for products whose catalog variant does not yet have a measured weight.
 // Real variant weights always take precedence. Values intentionally round up to avoid understating
@@ -120,21 +109,7 @@ function shippingWeightGrams(product: Product, variant: ProductVariant) {
   return fallbackShippingWeightGrams[product.category] ?? DEFAULT_FALLBACK_SHIPPING_WEIGHT_GRAMS;
 }
 
-function shippingXml(weightGrams: number, rates: InternationalShippingRow[]) {
-  return merchantShippingCountries.flatMap(({ code, checkoutCountry }) => {
-    const shipping = getInternationalShippingRate(weightGrams, checkoutCountry, rates);
-    if (!shipping || shipping.rate <= 0) return [];
-    return [
-      "    <g:shipping>",
-      `      <g:country>${code}</g:country>`,
-      "      <g:service>Envío internacional</g:service>",
-      `      <g:price>${xml(formatPrice(Math.round(shipping.rate * 100), "UYU"))}</g:price>`,
-      "    </g:shipping>",
-    ];
-  });
-}
-
-function itemXml(product: Product, siteUrl: string, rates: InternationalShippingRow[]) {
+function itemXml(product: Product, siteUrl: string) {
   const variant = preferredVariant(product);
   const images = productImages(product, siteUrl);
   const title = cleanText(product.name, 150);
@@ -160,7 +135,6 @@ function itemXml(product: Product, siteUrl: string, rates: InternationalShipping
     `    <g:brand>${BRAND}</g:brand>`,
     `    <g:product_type>${xml(readableCategory(product.category))}</g:product_type>`,
     `    <g:shipping_weight>${weightGrams} g</g:shipping_weight>`,
-    ...shippingXml(weightGrams, rates),
   ];
 
   const sku = cleanText(variant.value, 70);
@@ -182,10 +156,9 @@ export type GoogleMerchantFeed = {
 export function buildGoogleMerchantFeed(
   products: Product[],
   siteUrl: string,
-  shippingRates: InternationalShippingRow[] = DEFAULT_INTERNATIONAL_SHIPPING_RATES,
 ): GoogleMerchantFeed {
   const items = products
-    .map((product) => itemXml(product, siteUrl, shippingRates))
+    .map((product) => itemXml(product, siteUrl))
     .filter((item): item is string => Boolean(item));
   const baseUrl = siteUrl.replace(/\/$/, "");
   return {
