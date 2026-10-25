@@ -1,12 +1,16 @@
 import { buildGoogleMerchantFeed } from "@/lib/google-merchant-feed";
+import { getMerchantShippingRates } from "@/lib/merchant-shipping-rates";
 import { siteUrl } from "@/lib/metadata";
 import { getStorefrontProducts } from "@/lib/storefront-catalog";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const products = await getStorefrontProducts("es");
-  const feed = buildGoogleMerchantFeed(products, siteUrl);
+  const [products, shippingRates] = await Promise.all([
+    getStorefrontProducts("es"),
+    getMerchantShippingRates(),
+  ]);
+  const feed = buildGoogleMerchantFeed(products, siteUrl, shippingRates);
 
   // A temporary catalog/database failure must not replace Google's last good feed with an empty one.
   if (feed.itemCount === 0) {
