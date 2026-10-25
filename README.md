@@ -13,9 +13,7 @@ Monorepo de la plataforma digital de MateArte. La operativa administrativa se re
 - `paginaweb`: sitio público multilingüe, catálogo, cuentas de clientes, carrito, checkout nacional con Mercado Pago, pedidos internacionales por WhatsApp y consulta de pedidos.
 - `personalizador`: creación de mates personalizados, biblioteca “Mis diseños”, precios publicados, carga de imágenes, generación de vistas finales y traspaso autenticado al carrito.
 - `gestion`: catálogo, variantes, precios, ventas locales y mayoristas, pedidos web, envíos, producción, clientes y finanzas.
-- `dashboard`, `localventas` y `commerce-admin`: código histórico conservado; sus proyectos de Vercel están pausados y desconectados de Git. No son puntos de entrada operativos.
-
-`personalizador.matearteuruguay.com/dashboard` administra los precios del personalizador; no es el antiguo panel de producción.
+Los precios y el catálogo del personalizador se administran en Gestión, en `/productos/personalizador`.
 
 ## Datos y autenticación
 

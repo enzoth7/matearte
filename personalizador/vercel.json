@@ -1,6 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
+  "redirects": [
+    { "source": "/dashboard", "destination": "https://matearte-gestion.vercel.app/productos/personalizador", "permanent": false },
+    { "source": "/dashboard/:path*", "destination": "https://matearte-gestion.vercel.app/productos/personalizador", "permanent": false }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",
