@@ -164,7 +164,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       paymentAmountUsd: source.paypal_amount_usd_minor ? Number(source.paypal_amount_usd_minor) / 100 : undefined,
       items, totalAmount: Number(source.total_minor) / 100, shippingAmount: Number(source.shipping_minor) / 100,
       discountAmount: Number(source.discount_minor) / 100, feeAmount: Number(source.payment_fee_minor) / 100,
-      channel: "Web", date: commerceDate(source.created_at), due: "",
+      channel: wholesale ? "Mayorista" : "Web", date: commerceDate(source.created_at), due: "",
       production, delivery: source.status === "shipped" ? "Enviado" : "Pendiente", method: source.shipping_method === "pickup" ? "Retiro" : "Envío",
       design: source.order_items.some((item) => item.requires_review),
       approved: source.order_items.filter((item) => item.requires_review).every((item) => item.review_status === "approved"),

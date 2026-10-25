@@ -1863,7 +1863,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
       return;
     }
     const confirmation = decision === 'approve'
-      ? '¿Confirmás que la transferencia fue recibida? El pedido quedará pagado y pasará a preparación.'
+      ? '¿Confirmás que la transferencia fue recibida? El pedido quedará pagado y pasará a producción.'
       : '¿Confirmás el rechazo? El pedido se cancelará y el cliente deberá crear uno nuevo.';
     if (!window.confirm(confirmation)) return;
     setBusy(order.id);
@@ -1878,7 +1878,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
       });
       const value = await response.json();
       if (!response.ok) throw new Error(value.error || 'No se pudo revisar el comprobante.');
-      onNotice(decision === 'approve' ? 'Transferencia aprobada; el pedido pasó a preparación.' : 'Comprobante rechazado y pedido cancelado.');
+      onNotice(decision === 'approve' ? 'Transferencia aprobada; el pedido pasó a producción.' : 'Comprobante rechazado y pedido cancelado.');
       setDetailOrder(null);
       setReceiptPreview(null);
       await load();

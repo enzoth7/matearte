@@ -89,7 +89,7 @@ describe("integración de commerce en el estado compartido", () => {
     fixture.orders[0].customer_snapshot.purchaseFlow = "wholesale_bank_transfer";
     fixture.orders[0].reference_code = "#M001";
     expect(orderName(adaptCommerce(fixture).orders[0])).toBe("#M001");
-    expect(adaptCommerce(fixture).orders[0].channel).toBe("Web");
+    expect(adaptCommerce(fixture).orders[0].channel).toBe("Mayorista");
     expect(adaptCommerce(fixture).customers[0].segment).toBe("Mayorista");
     fixture.localSales = [{ id: "social-1", sale_number: 20, reference_code: "#R001", channel: "Instagram", customer_id: null, customer_name: "Cliente", sold_on: "2026-10-14", payment_method: "Efectivo", total_minor: 10000, currency: "UYU", created_at: "2026-10-14T12:00:00Z", local_sale_items: [] }];
     const social = adaptCommerce(fixture).orders.find((order) => order.id === "social-1")!;

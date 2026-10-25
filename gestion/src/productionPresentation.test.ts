@@ -31,16 +31,18 @@ describe("presentación de producción", () => {
     const regularLocal: Order = { ...order([line("local-regular", "regular")]), id: "local-regular", source: "local", production: "No aplica" };
     const legacyLocal: Order = { ...order([line("legacy-local-regular", "regular")]), id: "legacy-local", channel: "Local" };
     const regularWeb: Order = { ...order([line("web-regular", "regular")]), id: "web-regular" };
+    const wholesaleWeb: Order = { ...order([line("wholesale-web", "regular")]), id: "wholesale-web", channel: "Mayorista" };
     const wholesale: Order = { ...order([line("wholesale-regular", "regular")]), id: "wholesale", source: "wholesale" };
     const cancelled = { ...order([line("cancelled", "custom", "design")]), id: "cancelled", status: "cancelled" };
     expect(isPersonalizedMateOrder(mixed, products)).toBe(true);
-    const rows = workshopOrderRows([mixed, localDesign, localService, webService, regularLocal, legacyLocal, regularWeb, wholesale, cancelled], products);
-    expect(rows.map((row) => row.id)).toEqual(["order", "local-design", "local-service", "web-service", "wholesale"]);
+    const rows = workshopOrderRows([mixed, localDesign, localService, webService, regularLocal, legacyLocal, regularWeb, wholesaleWeb, wholesale, cancelled], products);
+    expect(rows.map((row) => row.id)).toEqual(["order", "local-design", "local-service", "web-service", "wholesale-web", "wholesale"]);
     expect(rows[0].items?.map((item) => item.id)).toEqual(["custom-line"]);
     expect(rows[1].production).toBe("Pendiente");
     expect(rows[2].items?.map((item) => item.id)).toEqual(["local-service"]);
     expect(rows[3].items?.map((item) => item.id)).toEqual(["web-service"]);
-    expect(rows[4].items?.map((item) => item.id)).toEqual(["wholesale-regular"]);
+    expect(rows[4].items?.map((item) => item.id)).toEqual(["wholesale-web"]);
+    expect(rows[5].items?.map((item) => item.id)).toEqual(["wholesale-regular"]);
   });
 
   it("no confunde un modelo fijo vendido en Local con un encargo diseñado", () => {
