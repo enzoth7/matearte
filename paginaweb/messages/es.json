@@ -504,7 +504,7 @@
     "toCalculate": "A calcular",
     "total": "Total",
     "continue": "Continuar",
-    "wholesaleDiscountNotice": "Desde {threshold} mates se usa el precio base sin ajuste y se aplica un {discount}% de descuento. El pago se completa por transferencia."
+    "wholesaleDiscountNotice": "Desde {threshold} artículos se usa se aplica un {discount}% de descuento. El pago se completa por transferencia."
   },
   "checkout": {
     "metadataTitle": "Finalizar compra",
