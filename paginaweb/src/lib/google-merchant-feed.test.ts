@@ -62,6 +62,9 @@ describe("feed de Google Merchant Center", () => {
     expect(feed.xml).toContain("<g:price>2672.50 UYU</g:price>");
     expect(feed.xml).toContain("<g:country>ES</g:country>");
     expect(feed.xml).toContain("<g:price>3120.50 UYU</g:price>");
+    expect(feed.xml).toContain("<g:country>US</g:country>");
+    expect(feed.xml).toContain("<g:price>2938.50 UYU</g:price>");
+    expect(feed.xml).toContain("<g:shipping_weight>500 g</g:shipping_weight>");
   });
 
   it("omite fichas sin foto real, descripción o variante web con precio", () => {
@@ -103,5 +106,12 @@ describe("feed de Google Merchant Center", () => {
     expect(feed.xml).toContain("<g:price>3029.50 UYU</g:price>");
     expect(feed.xml).toContain("<g:price>2991.00 UYU</g:price>");
     expect(feed.xml).toContain("<g:price>3568.50 UYU</g:price>");
+    expect(feed.xml).toContain("<g:price>3386.50 UYU</g:price>");
+  });
+
+  it("usa un peso empaquetado conservador según la familia cuando falta el peso real", () => {
+    const feed = buildGoogleMerchantFeed([product({ category: "botas" })], "https://www.matearteuruguay.com");
+
+    expect(feed.xml).toContain("<g:shipping_weight>3000 g</g:shipping_weight>");
   });
 });

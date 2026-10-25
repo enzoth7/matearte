@@ -11,7 +11,39 @@ const merchantShippingCountries = [
   { code: "AR", checkoutCountry: "Argentina" },
   { code: "BR", checkoutCountry: "Brasil" },
   { code: "ES", checkoutCountry: "España" },
+  { code: "US", checkoutCountry: "Estados Unidos" },
 ] as const;
+
+// Packaged-weight fallbacks for products whose catalog variant does not yet have a measured weight.
+// Real variant weights always take precedence. Values intentionally round up to avoid understating
+// international shipping costs in Merchant Center.
+const fallbackShippingWeightGrams: Record<string, number> = {
+  bandolera: 1500,
+  billeteras: 500,
+  bombillas: 500,
+  botas: 3000,
+  carona: 5000,
+  carteras: 1500,
+  cintos: 1000,
+  cuchillos: 1500,
+  "kits-materos": 2500,
+  materas: 1500,
+  mates: 500,
+  personalizados: 1000,
+  pinchos: 1000,
+  "porta-rollos": 1500,
+  "posa-mates": 500,
+  recado: 5000,
+  servilleteros: 1000,
+  "tablas-de-picar": 3000,
+  tarjeteros: 500,
+  termos: 2000,
+  vainas: 1000,
+  zapatos: 2500,
+  zuecos: 2500,
+};
+
+const DEFAULT_FALLBACK_SHIPPING_WEIGHT_GRAMS = 2000;
 
 const categoryLabels: Record<string, string> = {
   bandolera: "Bandoleras",
@@ -83,8 +115,12 @@ function readableCategory(category: string) {
     ?? category.replaceAll("-", " ").replace(/^./, (letter) => letter.toUpperCase());
 }
 
-function shippingXml(variant: ProductVariant, rates: InternationalShippingRow[]) {
-  const weightGrams = variant.weightGrams && variant.weightGrams > 0 ? variant.weightGrams : 0;
+function shippingWeightGrams(product: Product, variant: ProductVariant) {
+  if (variant.weightGrams && variant.weightGrams > 0) return Math.round(variant.weightGrams);
+  return fallbackShippingWeightGrams[product.category] ?? DEFAULT_FALLBACK_SHIPPING_WEIGHT_GRAMS;
+}
+
+function shippingXml(weightGrams: number, rates: InternationalShippingRow[]) {
   return merchantShippingCountries.flatMap(({ code, checkoutCountry }) => {
     const shipping = getInternationalShippingRate(weightGrams, checkoutCountry, rates);
     if (!shipping || shipping.rate <= 0) return [];
@@ -109,6 +145,8 @@ function itemXml(product: Product, siteUrl: string, rates: InternationalShipping
   const id = cleanText(product.id, 50);
   if (!id) return null;
 
+  const weightGrams = shippingWeightGrams(product, variant);
+
   const fields = [
     `    <g:id>${xml(id)}</g:id>`,
     `    <g:title>${xml(title)}</g:title>`,
@@ -121,10 +159,8 @@ function itemXml(product: Product, siteUrl: string, rates: InternationalShipping
     `    <g:price>${xml(formatPrice(variant.price.amountMinor, variant.price.currency))}</g:price>`,
     `    <g:brand>${BRAND}</g:brand>`,
     `    <g:product_type>${xml(readableCategory(product.category))}</g:product_type>`,
-    ...(variant.weightGrams && variant.weightGrams > 0
-      ? [`    <g:shipping_weight>${variant.weightGrams} g</g:shipping_weight>`]
-      : []),
-    ...shippingXml(variant, rates),
+    `    <g:shipping_weight>${weightGrams} g</g:shipping_weight>`,
+    ...shippingXml(weightGrams, rates),
   ];
 
   const sku = cleanText(variant.value, 70);
