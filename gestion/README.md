@@ -6,7 +6,7 @@ Gestión incluye un servidor MCP de consultas con autenticación de propietario 
 
 Gestión integra Commerce Admin y LocalVentas en las pantallas existentes. No hay un panel paralelo ni datos ficticios en la aplicación. Las 42 subáreas conservan su navegación y diseño; las fuentes aún no conectadas muestran ausencia de datos.
 
-**Estado operativo (24/10/2026):** Gestión es el único panel administrativo en uso. `dashboard/`, `localventas/` y `commerce-admin/` se conservan como código e historial; sus proyectos de Vercel están pausados y desconectados de Git. Las notas de convivencia y migración más abajo documentan el proceso anterior, no el modo de operación actual.
+**Estado operativo (25/10/2026):** Gestión es el único panel administrativo en uso. Las antiguas aplicaciones `dashboard/`, `localventas/` y `commerce-admin/` se retiraron del repositorio; sus proyectos de Vercel estaban pausados y desconectados de Git. Las notas de convivencia y migración más abajo documentan el proceso anterior, no el modo de operación actual.
 
 ## Ejecutar
 

@@ -11,10 +11,6 @@ const SUPABASE_PUBLISHABLE_KEY = configuredKey || 'missing-public-key';
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: { storageKey: 'matearte-customer-auth', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
 });
-export const adminSupabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: { storageKey: 'matearte-pricing-admin-auth', persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
-});
-
 type SupabaseRequestError = {
   code?: string;
   message?: string;

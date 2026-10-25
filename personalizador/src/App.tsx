@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { UserData, WizardStep, SavedDesignItem } from "./types/user";
@@ -56,8 +56,6 @@ import { shouldCompleteProfileInPersonalizer, shouldLeaveAccessAfterAuthenticati
 type CustomizationPhase = "mate" | "virola" | "fleje";
 type PreviewView = "mate" | "virola" | "fleje";
 type PendingAuthAction = "save-personalizer" | "save-summary" | "checkout" | "profile" | "edit-contact" | "main-profile";
-
-const PricingDashboard = lazy(() => import("./components/PricingDashboard").then((module) => ({ default: module.PricingDashboard })));
 
 interface BaseImageProps {
   src: string;
@@ -1104,7 +1102,7 @@ function PersonalizerApp() {
 
   if (handoffPending) return (
     <div className="brand-app brand-desktop-note">
-      <main id="main-content" className="pricing-loading" role="status" aria-live="polite">Conectando tu cuenta y cargando tus diseños…</main>
+      <main id="main-content" className="personalizer-loading" role="status" aria-live="polite">Conectando tu cuenta y cargando tus diseños…</main>
     </div>
   );
 
@@ -1806,10 +1804,5 @@ function PersonalizerApp() {
 }
 
 export default function App() {
-  const location = useLocation();
-  return location.pathname.startsWith("/dashboard") ? (
-    <Suspense fallback={<main className="pricing-loading" id="main-content">Cargando administración…</main>}>
-      <PricingDashboard />
-    </Suspense>
-  ) : <PersonalizerApp />;
+  return <PersonalizerApp />;
 }

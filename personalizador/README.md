@@ -28,19 +28,11 @@ Antes de continuar al carrito se generan PNG versionados en `design-previews`:
 
 Los modelos sin fleje generan solamente mate y virola. Cada archivo debe ser válido y no superar 10 MB. Las rutas versionadas evitan sobrescribir imágenes ya utilizadas por pedidos.
 
-## Cuentas y panel de precios
+## Cuentas y precios
 
 Registro, login, recuperación y biblioteca de diseños usan Supabase Auth. Las acciones que guardan o compran exigen una cuenta y, cuando corresponde, un perfil completo.
 
-`/dashboard` dentro del personalizador es el panel de precios del personalizador. Usa Supabase Auth y exige una membresía en `admin_users`. Gestión es el panel para ventas, pedidos y producción.
-
-Para provisionar o rotar el administrador de precios:
-
-```bash
-SUPABASE_URL=... SUPABASE_SECRET_KEY=... MATEARTE_ADMIN_PASSWORD=... npm run pricing:provision-admin
-```
-
-`SUPABASE_SECRET_KEY` y `MATEARTE_ADMIN_PASSWORD` son secretos locales o de CI; nunca deben usar el prefijo `VITE_`.
+Los precios y el catálogo se administran en Gestión, en `/productos/personalizador`. La antigua ruta `/dashboard` del personalizador redirige allí.
 
 ## Configuración
 
@@ -48,8 +40,6 @@ SUPABASE_URL=... SUPABASE_SECRET_KEY=... MATEARTE_ADMIN_PASSWORD=... npm run pri
 VITE_SUPABASE_URL=https://PROJECT_REF.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
 VITE_MAIN_SITE_URL=http://localhost:3000
-VITE_PRICING_ADMIN_USERNAME=user
-VITE_PRICING_ADMIN_EMAIL=pricing-admin@matearte.uy
 ```
 
 En producción, `VITE_MAIN_SITE_URL` debe ser `https://www.matearteuruguay.com`.
