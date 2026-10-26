@@ -4,9 +4,7 @@ import {
   categoryOptions,
   collectionOptions,
   colorOptions,
-  footwearClosureOptions,
   materialOptions,
-  productTypeOptions,
   priceRangeOptions,
   getProductColors,
   getColorSwatchBackground,
@@ -14,8 +12,7 @@ import {
   type PriceRangeId,
 } from "@/lib/catalog-filters";
 import { useLocale, useTranslations } from "next-intl";
-import type { CatalogCollectionId, CatalogColorId, CatalogMaterialId, CatalogProductTypeId, Product } from "@/types/catalog";
-import type { CatalogFootwearClosureId } from "../../../../shared/catalog-taxonomy";
+import type { CatalogCollectionId, CatalogColorId, CatalogMaterialId, Product } from "@/types/catalog";
 
 const COLOR_FALLBACKS: Record<string, Record<string, string>> = {
   es: {
@@ -114,8 +111,6 @@ type Props = {
   onCollectionChange: (value: CatalogCollectionId | "") => void;
   onPriceChange: (value: PriceRangeId | "") => void;
   onMaterialChange: (value: CatalogMaterialId | "") => void;
-  onClosureToggle: (value: CatalogFootwearClosureId) => void;
-  onProductTypeChange: (value: CatalogProductTypeId | "") => void;
   onColorChange: (value: CatalogColorId | "") => void;
 };
 
@@ -126,8 +121,6 @@ export function CatalogFilterControlsMobile({
   onCollectionChange,
   onPriceChange,
   onMaterialChange,
-  onClosureToggle,
-  onProductTypeChange,
   onColorChange,
 }: Props) {
   const t = useTranslations("catalog");
@@ -166,19 +159,17 @@ export function CatalogFilterControlsMobile({
   };
 
   const availableColors = new Set(products.flatMap((product) => getProductColors(product)));
+  const availableCollections = new Set(products.map((product) => product.filterData.collection).filter(Boolean));
 
   const selectedPrice = filters.prices[0] ?? "";
   const selectedCollection = filters.collections[0] ?? "";
   const selectedMaterial = filters.materials[0] ?? "";
-  const selectedProductType = filters.productTypes[0] ?? "";
   const selectedColor = filters.colors[0] ?? "";
-  const showFootwearFilter = filters.category === "todas" || ["botas", "zuecos", "zapatos"].includes(filters.category) || filters.closures.length > 0;
 
   // Strings "todos" hardcodeados para evitar problemas de caché de Turbopack con claves nuevas
   const allPricesLabel = (({ es: "Todos los precios", en: "All prices", pt: "Todos os preços" }) as Record<string, string>)[locale] ?? "Todos los precios";
   const allCollectionsLabel = (({ es: "Todas las colecciones", en: "All collections", pt: "Todas as coleções" }) as Record<string, string>)[locale] ?? "Todas las colecciones";
   const allMaterialsLabel = (({ es: "Todos los materiales", en: "All materials", pt: "Todos os materiais" }) as Record<string, string>)[locale] ?? "Todos los materiales";
-  const allTypesLabel = (({ es: "Todos los tipos", en: "All types", pt: "Todos os tipos" }) as Record<string, string>)[locale] ?? "Todos los tipos";
   const allColorsLabel = (({ es: "Todos los colores", en: "All colors", pt: "Todas as cores" }) as Record<string, string>)[locale] ?? "Todos los colores";
 
   return (
@@ -202,7 +193,7 @@ export function CatalogFilterControlsMobile({
         </div>
       </div>
 
-      <div className="catalog-mobile-filter-select-group">
+      {availableCollections.size > 0 && <div className="catalog-mobile-filter-select-group">
         <label className="catalog-mobile-filter-select-label" htmlFor="mfs-collection">
           {t("collections")}
         </label>
@@ -213,12 +204,12 @@ export function CatalogFilterControlsMobile({
             onChange={(e) => onCollectionChange(e.target.value as CatalogCollectionId | "")}
           >
             <option value="">{allCollectionsLabel}</option>
-            {collectionOptions.map((option) => (
+            {collectionOptions.filter((option) => availableCollections.has(option.value)).map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
         </div>
-      </div>
+      </div>}
 
       <div className="catalog-mobile-filter-select-group">
         <label className="catalog-mobile-filter-select-label" htmlFor="mfs-price">
@@ -259,37 +250,6 @@ export function CatalogFilterControlsMobile({
           </select>
         </div>
       </div>
-
-      <div className="catalog-mobile-filter-select-group">
-        <label className="catalog-mobile-filter-select-label" htmlFor="mfs-type">
-          {t("productType")}
-        </label>
-        <div className="catalog-mobile-filter-select-wrap">
-          <select
-            id="mfs-type"
-            value={selectedProductType}
-            onChange={(e) => onProductTypeChange(e.target.value as CatalogProductTypeId | "")}
-          >
-            <option value="">{allTypesLabel}</option>
-            {productTypeOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {t(option.labelKey)}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {showFootwearFilter && <fieldset className="catalog-mobile-filter-select-group catalog-mobile-footwear-filter">
-        <legend className="catalog-mobile-filter-select-label">{t("fastening")}</legend>
-        <div className="catalog-mobile-filter-list">
-          {footwearClosureOptions.map(option => <label key={option.value} className="catalog-mobile-filter-row">
-            <input type="checkbox" checked={filters.closures.includes(option.value)} onChange={() => onClosureToggle(option.value)} />
-            <span className="catalog-mobile-checkbox" aria-hidden="true" />
-            <span>{t(option.labelKey)}</span>
-          </label>)}
-        </div>
-      </fieldset>}
 
       <div className="catalog-mobile-filter-select-group">
         <label className="catalog-mobile-filter-select-label" htmlFor="mfs-color">

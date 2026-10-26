@@ -2,11 +2,11 @@
 
 import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CatalogFilterControlsMobile } from "@/components/catalog/CatalogFilterControlsMobile";
 import { CatalogPagination } from "@/components/catalog/CatalogPagination";
 import { useCatalogFilters } from "@/components/catalog/useCatalogFilters";
-import { filterAndSortCatalog, formatCatalogPrice, hasActiveCatalogFilters, type CatalogSort } from "@/lib/catalog-filters";
+import { filterAndSortCatalog, formatCatalogPrice, hasActiveCatalogFilters, type CatalogFilters, type CatalogSort } from "@/lib/catalog-filters";
 import type { CatalogColorId, Product } from "@/types/catalog";
 import { Link } from "@/i18n/navigation";
 import { ProductCardSwatches } from "@/components/catalog/ProductCardSwatches";
@@ -106,23 +106,49 @@ function CatalogMobileCard({
   );
 }
 
-export function CatalogMobile({ products, exchangeRates }: { products: Product[]; exchangeRates?: Record<string, number> }) {
+export function CatalogMobile({ products, exchangeRates, pageCategory, heading, intro }: { products: Product[]; exchangeRates?: Record<string, number>; pageCategory?: CatalogFilters["category"]; heading?: string; intro?: string }) {
   const locale = useLocale();
   const t = useTranslations("catalog");
   const common = useTranslations("common");
-  const catalogFilters = useCatalogFilters();
+  const catalogFilters = useCatalogFilters(pageCategory);
   const { filters } = catalogFilters;
+  const [draftFilters, setDraftFilters] = useState<CatalogFilters>(filters);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterDialogRef = useRef<HTMLDialogElement>(null);
+  const filterTriggerRef = useRef<HTMLButtonElement>(null);
 
   const PAGE_SIZE = 21;
   const [page, setPage] = useState(1);
 
-  const cards = useMemo(() => {
-    const entries = products.map((product) => ({
-      product,
-      presentation: productPresentation[product.id],
-    }));
-    return filterAndSortCatalog(entries, filters, locale);
-  }, [filters, locale, products]);
+  const entries = useMemo(() => products.map((product) => ({
+    product,
+    presentation: productPresentation[product.id],
+  })), [products]);
+  const cards = useMemo(() => filterAndSortCatalog(entries, filters, locale), [entries, filters, locale]);
+  const draftCount = useMemo(() => filterAndSortCatalog(entries, draftFilters, locale).length, [entries, draftFilters, locale]);
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [filterOpen]);
+
+  const openFilters = () => {
+    setDraftFilters({ ...filters, closures: [], productTypes: [] });
+    if (!filterDialogRef.current?.open) {
+      filterDialogRef.current?.showModal();
+      setFilterOpen(true);
+    }
+  };
+  const closeFilters = () => filterDialogRef.current?.close();
+  const clearDraftFilters = () => setDraftFilters((current) => ({
+    ...current, search: "", category: "todas", collections: [], prices: [], materials: [], closures: [], productTypes: [], colors: [],
+  }));
+  const applyDraftFilters = () => {
+    closeFilters();
+    catalogFilters.applyFilters(draftFilters);
+  };
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -140,58 +166,58 @@ export function CatalogMobile({ products, exchangeRates }: { products: Product[]
         <Image className="catalog-mobile-hero-image" src={`${assetRoot}/hero.png`} alt={t("heroAlt")} width={1672} height={941} sizes="995px" priority />
         <div className="catalog-mobile-hero-overlay" aria-hidden="true" />
         <div className="catalog-mobile-hero-content">
-          <h1>{t("heroTitle")}</h1>
-          <p>{t("heroBody")}</p>
+          <h1>{heading ?? t("heroTitle")}</h1>
+          <p>{intro ?? t("heroBody")}</p>
         </div>
       </section>
 
       <section className="catalog-mobile-controls" aria-label={t("filtersLabel")}>
         <div className="catalog-mobile-controls-inner">
-          <div className="catalog-mobile-controls-heading">
-            <div className="catalog-mobile-heading-left">
-              <h2>{t("filters")}</h2>
-              {hasActiveFilters && (
-                <button
-                  type="button"
-                  className="catalog-clear-filters"
-                  onClick={catalogFilters.clearFilters}
-                >
-                  {t("clear")}
-                </button>
-              )}
-            </div>
-            <label className="catalog-mobile-sort">
-              <span>{t("sortBy")}</span>
-              <span className="catalog-mobile-sort-control">
-                <select
-                  aria-label={t("sortLabel")}
-                  value={filters.sort}
-                  onChange={(event) => catalogFilters.setSort(event.target.value as CatalogSort)}
-                >
-                  <option value="nuevo">{t("newest")}</option>
-                  <option value="precio-asc">{t("priceAsc")}</option>
-                  <option value="precio-desc">{t("priceDesc")}</option>
-                  <option value="nombre-asc">{t("nameAsc")}</option>
-                  <option value="nombre-desc">{t("nameDesc")}</option>
-                </select>
-                <Image src={`${assetRoot}/chevron-down.svg`} alt="" width={10} height={10} aria-hidden="true" />
-              </span>
-            </label>
-          </div>
-
-          <CatalogFilterControlsMobile
-            products={products}
-            filters={filters}
-            onCategoryChange={catalogFilters.setCategory}
-            onCollectionChange={catalogFilters.setCollection}
-            onPriceChange={catalogFilters.setPrice}
-            onMaterialChange={catalogFilters.setMaterial}
-            onClosureToggle={catalogFilters.toggleClosure}
-            onProductTypeChange={catalogFilters.setProductType}
-            onColorChange={catalogFilters.setColor}
-          />
+          <button ref={filterTriggerRef} type="button" className="catalog-mobile-filter-trigger" aria-label={hasActiveFilters ? `${t("filters")} · ${t("filtersActive")}` : t("filters")} aria-haspopup="dialog" aria-expanded={filterOpen} onClick={openFilters}>
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M7 12h10m-7 5h4" /></svg>
+            <span>{t("filters")}</span>
+            {hasActiveFilters && <span className="catalog-mobile-filter-active" aria-hidden="true" />}
+          </button>
         </div>
       </section>
+
+      <dialog ref={filterDialogRef} className="catalog-mobile-filter-dialog" aria-labelledby="catalog-mobile-filter-title" onClick={(event) => {
+        if (event.target !== event.currentTarget) return;
+        const bounds = event.currentTarget.getBoundingClientRect();
+        if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closeFilters();
+      }} onClose={() => { setFilterOpen(false); filterTriggerRef.current?.focus(); }}>
+        <div className="catalog-mobile-filter-dialog-header">
+          <h2 id="catalog-mobile-filter-title">{t("filters")}</h2>
+          <button type="button" className="catalog-mobile-filter-close" onClick={closeFilters} aria-label={common("close")}>×</button>
+        </div>
+        <div className="catalog-mobile-filter-dialog-body">
+          <div className="catalog-mobile-filter-select-group">
+            <label className="catalog-mobile-filter-select-label" htmlFor="mfs-sort">{t("sortBy")}</label>
+            <div className="catalog-mobile-filter-select-wrap">
+              <select id="mfs-sort" aria-label={t("sortLabel")} value={draftFilters.sort} onChange={(event) => setDraftFilters((current) => ({ ...current, sort: event.target.value as CatalogSort }))}>
+                <option value="nuevo">{t("newest")}</option>
+                <option value="precio-asc">{t("priceAsc")}</option>
+                <option value="precio-desc">{t("priceDesc")}</option>
+                <option value="nombre-asc">{t("nameAsc")}</option>
+                <option value="nombre-desc">{t("nameDesc")}</option>
+              </select>
+            </div>
+          </div>
+          <CatalogFilterControlsMobile
+            products={products}
+            filters={draftFilters}
+            onCategoryChange={(category) => setDraftFilters((current) => ({ ...current, category }))}
+            onCollectionChange={(collection) => setDraftFilters((current) => ({ ...current, collections: collection ? [collection] : [] }))}
+            onPriceChange={(price) => setDraftFilters((current) => ({ ...current, prices: price ? [price] : [] }))}
+            onMaterialChange={(material) => setDraftFilters((current) => ({ ...current, materials: material ? [material] : [] }))}
+            onColorChange={(color) => setDraftFilters((current) => ({ ...current, colors: color ? [color] : [] }))}
+          />
+        </div>
+        <div className="catalog-mobile-filter-dialog-footer">
+          <button type="button" className="catalog-mobile-filter-clear" onClick={clearDraftFilters} disabled={!hasActiveCatalogFilters(draftFilters)}>{t("clear")}</button>
+          <button type="button" className="catalog-mobile-filter-apply" onClick={applyDraftFilters}>{t("viewProducts", { count: draftCount })}</button>
+        </div>
+      </dialog>
 
       <section className="catalog-mobile-products" aria-label={t("productsLabel")}>
         {cards.length > 0 ? (
@@ -211,6 +237,7 @@ export function CatalogMobile({ products, exchangeRates }: { products: Product[]
               ))}
             </div>
             <CatalogPagination
+              compact
               currentPage={page}
               totalPages={totalPages}
               onPageChange={(p) => { setPage(p); window.scrollTo({ top: 0, behavior: "smooth" }); }}

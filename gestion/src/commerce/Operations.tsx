@@ -493,7 +493,7 @@ const orderStatus = (status: string) => ({
 }[status] || status.replaceAll('_', ' '));
 const normalizeSearch = (value:string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 const catalogCategoryLabels: Record<string,string> = {
-  mates:'Mate','mates-personalizados':'Personalizados',bombillas:'Bombilla',materas:'Matera',termos:'Termo','kits-materos':'Kit matero',cuchillos:'Cuchillo',cintos:'Cinto',calzado:'Calzado',botas:'Bota',zuecos:'Zueco',zapatos:'Zapato',marroquineria:'Marroquinería',billeteras:'Billetera',tarjeteros:'Tarjetero',carteras:'Cartera',bandolera:'Bandolera','posa-mates':'Posa mates',personalizados:'Personalizados',
+  mates:'Mate','mates-personalizados':'Personalizados',bombillas:'Bombilla',limpiabombillas:'Limpiabombillas',materas:'Matera',termos:'Termo','kits-materos':'Kit matero',cuchillos:'Cuchillo',cintos:'Cinto',calzado:'Calzado',botas:'Bota',zuecos:'Zueco',zapatos:'Zapato',marroquineria:'Marroquinería',billeteras:'Billetera',tarjeteros:'Tarjetero',carteras:'Cartera',bandolera:'Bandolera','posa-mates':'Posa mates',personalizados:'Personalizados',
 };
 const catalogMaterialLabels: Record<string,string> = {
   cuero:'Cuero',plata:'Plata',alpaca:'Alpaca','acero-inoxidable':'Acero inoxidable','otros-metales':'Otros metales',madera:'Madera',estampado:'Estampado',
@@ -1863,7 +1863,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
       return;
     }
     const confirmation = decision === 'approve'
-      ? '¿Confirmás que la transferencia fue recibida? El pedido quedará pagado y pasará a preparación.'
+      ? '¿Confirmás que la transferencia fue recibida? El pedido quedará pagado y pasará a producción.'
       : '¿Confirmás el rechazo? El pedido se cancelará y el cliente deberá crear uno nuevo.';
     if (!window.confirm(confirmation)) return;
     setBusy(order.id);
@@ -1878,7 +1878,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
       });
       const value = await response.json();
       if (!response.ok) throw new Error(value.error || 'No se pudo revisar el comprobante.');
-      onNotice(decision === 'approve' ? 'Transferencia aprobada; el pedido pasó a preparación.' : 'Comprobante rechazado y pedido cancelado.');
+      onNotice(decision === 'approve' ? 'Transferencia aprobada; el pedido pasó a producción.' : 'Comprobante rechazado y pedido cancelado.');
       setDetailOrder(null);
       setReceiptPreview(null);
       await load();

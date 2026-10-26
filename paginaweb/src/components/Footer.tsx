@@ -20,6 +20,7 @@ const purchaseLinks = [
   { label: "terms", href: "/compras/terminos-y-condiciones" },
   { label: "privacy", href: "/compras/politica-de-privacidad" },
   { label: "purchaseTerms", href: "/compras/condiciones-de-compra" },
+  { label: "faq", href: "/preguntas-frecuentes" },
   { label: "shipping", href: "/compras/envios" },
 ] as const;
 

@@ -9,11 +9,19 @@ import { buildPageStructuredData } from "@/lib/seo";
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
   const t = await getTranslations("customPage");
-  return localizedPageMetadata(locale, "/personalizados", t("metadataTitle"), t("metadataDescription"));
+  return localizedPageMetadata(locale, "/personalizados", t("metadataTitle"), t("metadataDescription"), {
+    image: {
+      url: "/assets/matearte/og/matearte-personalizados-v2.jpg",
+      width: 1200,
+      height: 630,
+      alt: t("heroAlt"),
+    },
+  });
 }
 
 const desktopAssets = "/assets/matearte/personalizados-desktop";
 const mobileAssets = "/assets/matearte/personalizados-mobile";
+const personalizerUrl = "https://personalizador.matearteuruguay.com/";
 
 const personalizedGallery = [
   { src: `${desktopAssets}/personalizado-01.jpg`, alt: "gallery1" },
@@ -50,7 +58,6 @@ const mobilePersonalizedGallery = [
 export default async function PersonalizadosPage() {
   const locale = await getLocale();
   const t = await getTranslations("customPage");
-  const personalizerUrl = process.env.NEXT_PUBLIC_PERSONALIZER_URL;
   return (
     <main id="contenido" className="personalizados-page">
       <JsonLd data={buildPageStructuredData({ locale, href: "/personalizados", name: t("metadataTitle"), description: t("metadataDescription"), homeLabel: "MateArte" })} />
@@ -69,11 +76,7 @@ export default async function PersonalizadosPage() {
           <div className="personalizados-mobile-hero-copy">
             <h1>{t("title")}</h1>
             <p>{t("body")}</p>
-            {personalizerUrl ? (
-              <a href={personalizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
-            ) : (
-              <Link href="/contacto">{t("action")}</Link>
-            )}
+            <a href={personalizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
           </div>
         </section>
 
@@ -118,11 +121,7 @@ export default async function PersonalizadosPage() {
           <div className="personalizados-desktop-hero-copy">
             <h1>{t("title")}</h1>
             <p>{t("body")}</p>
-            {personalizerUrl ? (
-              <a href={personalizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
-            ) : (
-              <Link href="/contacto">{t("action")}</Link>
-            )}
+            <a href={personalizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
           </div>
         </section>
 
@@ -155,6 +154,21 @@ export default async function PersonalizadosPage() {
           </div>
         </section>
       </div>
+
+      <section className="personalizados-steps" aria-labelledby="personalizados-steps-title">
+        <div className="personalizados-steps-inner">
+          <h2 id="personalizados-steps-title">{t("stepsTitle")}</h2>
+          <ol>
+            <li><h3>{t("stepOneTitle")}</h3><p>{t("stepOneBody")}</p></li>
+            <li><h3>{t("stepTwoTitle")}</h3><p>{t("stepTwoBody")}</p></li>
+            <li><h3>{t("stepThreeTitle")}</h3><p>{t("stepThreeBody")}</p></li>
+          </ol>
+          <div className="personalizados-steps-actions">
+            <a className="personalizados-steps-primary" href={personalizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
+            <Link className="personalizados-steps-secondary" href="/preguntas-frecuentes">{t("faqAction")}</Link>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }

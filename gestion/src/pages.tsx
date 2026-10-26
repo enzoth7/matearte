@@ -5,6 +5,7 @@ import { RuralRaffleCustomerEditor } from "./RuralRaffleCustomerEditor";
 import { LocalSaleRegister } from "./LocalSaleRegister";
 import { WholesaleRegister, WholesaleCustomerEditor, WholesaleProduction, WholesaleSummary } from "./WholesaleScreens";
 import { exportWholesalePdf } from "./wholesaleExports";
+import { exportWholesaleOrderPdf, type WholesaleOrderPdfKind } from "./wholesaleOrderPdf";
 import { summarizeWholesaleCustomer } from "./wholesaleAdapter";
 import { customerPurchaseDates, latestCustomerPurchase } from "./customerPurchase";
 import { callMarketing } from "./marketingApi";
@@ -511,6 +512,15 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
   const wholesaleLines = order.source === "wholesale"
     ? props.commerce?.wholesale?.lines.filter((line) => items.some((item) => item.wholesaleLineId === line.line_id)) || []
     : [];
+  const downloadWholesalePdf = (kind: WholesaleOrderPdfKind) => {
+    const snapshot = props.commerce?.wholesale;
+    if (!snapshot) return;
+    void exportWholesaleOrderPdf(kind, {
+      reference: orderName(order), date: order.date,
+      customerName: contact?.name || order.customerName || wholesaleLines[0]?.customer || "Cliente sin nombre",
+      customer: contact, items, lines: wholesaleLines, snapshot, currency: "ARS",
+    }).catch((failure) => props.notify?.(failure instanceof Error ? failure.message : "No se pudo generar el PDF."));
+  };
   const detailRows: OrderDetailRow[] = items.length ? items.map((item) => {
     const details = orderItemDetailRows(item);
     const size = details.find((detail) => ["tamaño", "tamano", "talle"].includes(detail.label.toLocaleLowerCase("es")))?.value;
@@ -576,7 +586,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       {canEditLocalSale(order) && balance(s, order) > 0 && <button type="button" className="unified-order-action unified-order-action--primary" onClick={() => setRecordingReceipt(true)}>Registrar cobro</button>}
       <button className="unified-order-action" onClick={onClose}>Cerrar</button>
       {s.customers.some((entry) => entry.id === order.customerId) && <button className="unified-order-action" onClick={() => go(`/clientes/base?cliente=${order.customerId}`)}>Ver ficha del cliente</button>}
-      {order.source === "wholesale" && wholesaleLines.length > 0 && props.commerce?.wholesale && <button className="unified-order-action" onClick={() => exportWholesalePdf(orderName(order), wholesaleLines, props.commerce!.wholesale!)}>Descargar PDF</button>}
+      {order.source === "wholesale" && wholesaleLines.length > 0 && props.commerce?.wholesale && <><button className="unified-order-action" onClick={() => downloadWholesalePdf("workshop")}>Descargar PDF Taller</button><button className="unified-order-action" onClick={() => downloadWholesalePdf("customer")}>Descargar PDF Cliente</button></>}
       {order.source === "wholesale" && <button className="unified-order-action unified-order-action--primary" onClick={() => go("/produccion/mayorista")}>Gestionar producción</button>}
     </div>
     {editingSale && <LocalSaleEditor order={order} customers={s.customers} products={s.products} depositAmount={s.payments.find((payment) => payment.orderId === order.id)?.amount ?? undefined} onClose={() => setEditingSale(false)} onChanged={async (message) => { await props.refresh?.(true); props.notify?.(message); setEditingSale(false); onClose(); }} />}

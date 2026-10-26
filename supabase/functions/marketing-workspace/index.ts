@@ -106,7 +106,9 @@ Deno.serve(async (request) => {
     let days = [1, 7, 30, 90].includes(Number(body.days)) ? Number(body.days) : 30;
     let until = new Date();
     let since = new Date(until.getTime() - (days - 1) * 86400000);
-    since.setUTCHours(0, 0, 0, 0);
+    // "Hoy" son las últimas 24 horas; los demás períodos arrancan en un día UTC completo.
+    if (days === 1) since = new Date(until.getTime() - 86400000);
+    else since.setUTCHours(0, 0, 0, 0);
     if (body.startDate !== undefined || body.endDate !== undefined) {
       const startDate = clean(body.startDate, 10);
       const endDate = clean(body.endDate, 10);

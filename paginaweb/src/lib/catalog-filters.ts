@@ -27,6 +27,23 @@ export const categoryOptions = [
   { value: "termos", labelKey: "termos" },
 ] as const;
 
+/** Categorías con página propia en /catalogo/[categoria]. */
+export const categoryPageSlugs = categoryOptions
+  .map((option) => option.value)
+  .filter((value): value is Exclude<(typeof categoryOptions)[number]["value"], "todas"> => value !== "todas");
+
+export type CategoryPageSlug = (typeof categoryPageSlugs)[number];
+
+export function isCategoryPageSlug(value: string): value is CategoryPageSlug {
+  return (categoryPageSlugs as readonly string[]).includes(value);
+}
+
+const categoryParent: Record<string, string> = { botas: "calzado", zuecos: "calzado", zapatos: "calzado", cintos: "marroquineria", billeteras: "marroquineria", tarjeteros: "marroquineria", carteras: "marroquineria" };
+
+export function productInCategory(product: Pick<Product, "category">, category: string) {
+  return product.category === category || categoryParent[product.category] === category;
+}
+
 export const priceRangeOptions = [
   { value: "menos-3000", labelKey: "under3000", min: 0, max: 3000 },
   { value: "3000-4999", labelKey: "from3000", min: 3000, max: 5000 },
@@ -34,7 +51,7 @@ export const priceRangeOptions = [
   { value: "7000-mas", labelKey: "from7000", min: 7000, max: Number.POSITIVE_INFINITY },
 ] as const;
 
-export const materialOptions: ReadonlyArray<{ value: CatalogMaterialId; labelKey: "leather" | "silver" | "alpaca" | "stainlessSteel" | "otherMetals" | "wood" | "patterned" | "suede" | "patentLeather" }> = [
+export const materialOptions: ReadonlyArray<{ value: CatalogMaterialId; labelKey: "leather" | "silver" | "alpaca" | "stainlessSteel" | "otherMetals" | "wood" | "patterned" | "rawLeatherMaterial" | "croco" | "hairOnLeather" | "suede" | "patentLeather" }> = [
   { value: "cuero", labelKey: "leather" },
   { value: "plata", labelKey: "silver" },
   { value: "alpaca", labelKey: "alpaca" },
@@ -42,6 +59,9 @@ export const materialOptions: ReadonlyArray<{ value: CatalogMaterialId; labelKey
   { value: "otros-metales", labelKey: "otherMetals" },
   { value: "madera", labelKey: "wood" },
   { value: "estampado", labelKey: "patterned" },
+  { value: "cuero-crudo", labelKey: "rawLeatherMaterial" },
+  { value: "croco", labelKey: "croco" },
+  { value: "pelos", labelKey: "hairOnLeather" },
   { value: "gamuza", labelKey: "suede" },
   { value: "charol", labelKey: "patentLeather" },
 ];
@@ -363,8 +383,7 @@ export function filterAndSortCatalog<T extends { product: Product }>(entries: T[
       : data.priceUYU !== undefined
         ? [data.priceUYU]
         : [];
-    const categoryParent: Record<string,string> = { botas:"calzado", zuecos:"calzado", zapatos:"calzado", cintos:"marroquineria", billeteras:"marroquineria", tarjeteros:"marroquineria", carteras:"marroquineria" };
-    const matchesCategory = filters.category === "todas" || product.category === filters.category || categoryParent[product.category] === filters.category;
+    const matchesCategory = filters.category === "todas" || productInCategory(product, filters.category);
     const matchesCollection = filters.collections.length === 0 || Boolean(data.collection && filters.collections.includes(data.collection));
     const matchesPrice = filters.prices.length === 0 || prices.some((price) => (
       filters.prices.some((rangeId) => {

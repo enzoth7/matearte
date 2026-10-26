@@ -8,6 +8,7 @@ type Props = {
   onPageChange: (page: number) => void;
   prevLabel: string;
   nextLabel: string;
+  compact?: boolean;
 };
 
 export function getPageItems(current: number, total: number): (number | "ellipsis")[] {
@@ -23,13 +24,20 @@ export function getPageItems(current: number, total: number): (number | "ellipsi
   return [1, "ellipsis", current - 1, current, current + 1, "ellipsis", total];
 }
 
-export function CatalogPagination({ currentPage, totalPages, onPageChange, prevLabel, nextLabel }: Props) {
+export function getCompactPageItems(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 3) return [1, 2, 3, "ellipsis", total];
+  if (current >= total - 2) return [1, "ellipsis", total - 2, total - 1, total];
+  return [1, "ellipsis", current, "ellipsis", total];
+}
+
+export function CatalogPagination({ currentPage, totalPages, onPageChange, prevLabel, nextLabel, compact = false }: Props) {
   if (totalPages <= 1) return null;
 
-  const pageItems = getPageItems(currentPage, totalPages);
+  const pageItems = compact ? getCompactPageItems(currentPage, totalPages) : getPageItems(currentPage, totalPages);
 
   return (
-    <nav className="catalog-pagination" aria-label="Paginación">
+    <nav className={`catalog-pagination${compact ? " catalog-pagination--compact" : ""}`} aria-label="Paginación">
       <button
         type="button"
         className="catalog-pagination-btn"

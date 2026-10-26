@@ -51,7 +51,7 @@ function formatOptionLabel(axisCode: string, value: string, locale: string): str
 export function StructuredVariantPicker({product,axes,selected,onSelect}:{product:Product;axes:CatalogPurchaseAxis[];selected:Record<string,string|number|boolean>;onSelect:(code:string,value:string)=>void}) {
   const locale = useLocale();
   if (!axes.length) return null;
-  return <div className="structured-variant-picker">{axes.map(axis=><fieldset key={axis.code}><legend>{labels[locale]?.[axis.code === "talle" && product.category === "zuecos" ? "talleZueco" : axis.code === "talle" && product.category === "zapatos" ? "talleZapato" : axis.code] ?? labels.es[axis.code] ?? axis.label}</legend><div>{!axis.values.length && <p className="structured-option-unavailable">{unavailableMeasure[locale] ?? unavailableMeasure.es}</p>}{axis.values.map(option=>{
+  return <div className="structured-variant-picker">{axes.map(axis=><fieldset key={axis.code} className={axis.code === "color" ? "structured-color-fieldset" : undefined}><legend>{labels[locale]?.[axis.code === "talle" && product.category === "zuecos" ? "talleZueco" : axis.code === "talle" && product.category === "zapatos" ? "talleZapato" : axis.code] ?? labels.es[axis.code] ?? axis.label}</legend><div>{!axis.values.length && <p className="structured-option-unavailable">{unavailableMeasure[locale] ?? unavailableMeasure.es}</p>}{axis.values.map(option=>{
     const value=option.value;
     const representative=product.variants.find(variant=>String(variant.options?.color ?? variant.color ?? '')===value);
     const active=String(selected[axis.code]??'')===value;

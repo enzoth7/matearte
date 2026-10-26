@@ -7,6 +7,7 @@ import { Badge, Modal, Stats, Table, type Column } from "./ui";
 import { createWholesaleOrder, deleteWholesaleCustomer, countWholesaleCustomerLines, deleteWholesaleLine, completeWholesaleLine, saveWholesaleCustomer, updateWholesaleLine, wholesaleProductImageUrl, type WholesaleCustomer, type WholesaleLine, type WholesaleProduct, type WholesaleProductImage, type WholesaleSnapshot } from "./wholesaleSource";
 import { ProductCoverEditor, type ProductCoverCrop } from "./commerce/ProductCoverEditor";
 import { exportWholesaleCsv, exportWholesalePdf, exportWholesaleXlsx, type WholesaleCurrency } from "./wholesaleExports";
+import { exportWholesaleOrderPdf, type WholesaleOrderPdfKind } from "./wholesaleOrderPdf";
 import { summarizeWholesale, wholesaleLineValue } from "./wholesaleAdapter";
 import { formatContactName } from "../../shared/contactName";
 import { CustomerFormFields, readCustomerForm } from "./CustomerFormFields";
@@ -287,6 +288,13 @@ export function WholesaleOrderModal({ order, props, onClose, currency = "UYU", e
   const shownTotal = currency === "ARS" ? argTotal : totalUyu;
   const shownPaid = currency === "ARS" ? totalUyu > 0 ? argTotal * paidUyu / totalUyu : 0 : paidUyu;
   const shownBalance = currency === "ARS" ? Math.max(0, shownTotal - shownPaid) : balance(props.s, order);
+  const downloadPdf = (kind: WholesaleOrderPdfKind) => {
+    void exportWholesaleOrderPdf(kind, {
+      reference: orderName(order), date: order.date,
+      customerName: customer?.name || order.customerName || lines[0]?.customer || "Cliente sin nombre",
+      customer, items: order.items, lines, snapshot, currency,
+    }).catch((failure) => props.notify(errorText(failure)));
+  };
   async function removeOrder() {
     if (!lines.length || !window.confirm(`¿Eliminar el pedido ${orderName(order)} completo, con sus ${lines.length} ${lines.length === 1 ? "línea" : "líneas"}? Esta acción no se puede deshacer.`)) return;
     try {
@@ -307,7 +315,7 @@ export function WholesaleOrderModal({ order, props, onClose, currency = "UYU", e
       const catalogProduct = exact || (siblings[0] ? { ...siblings[0], imageUrl: photoReference?.imageUrl, imageCrop: photoReference?.imageCrop } : undefined);
       return <WholesaleLineEditor key={line.line_id} line={line} snapshot={snapshot} displayModel={catalogProduct?.name || naturalCaseName(line.model)} displayVariant={isGeneric ? GENERIC_WHOLESALE_VARIANT : catalogProduct?.variant || naturalCaseName(line.variant)} catalogProduct={catalogProduct} openProduct={(entry) => props.go(`/productos/catalogo?producto=${encodeURIComponent(entry.sourceProductId || entry.id)}&variante=${encodeURIComponent(entry.id)}`)} refresh={props.refresh} notify={props.notify} initialEditing={editingLineId === line.line_id} />;
     })}</div>
-    <div className="form-actions"><button className="secondary" onClick={() => exportWholesalePdf(orderName(order), lines, snapshot, currency)}>Descargar PDF</button><button className="text-button" onClick={() => props.go(`/clientes/base?cliente=${encodeURIComponent(order.customerId)}`)}>Ver cliente</button><button className="secondary" onClick={() => void removeOrder()}>Eliminar pedido</button></div>
+    <div className="form-actions"><button className="secondary" disabled={!lines.length} onClick={() => downloadPdf("workshop")}>Descargar PDF Taller</button><button className="secondary" disabled={!lines.length} onClick={() => downloadPdf("customer")}>Descargar PDF Cliente</button><button className="text-button" onClick={() => props.go(`/clientes/base?cliente=${encodeURIComponent(order.customerId)}`)}>Ver cliente</button><button className="secondary" onClick={() => void removeOrder()}>Eliminar pedido</button></div>
   </Modal>;
 }
 

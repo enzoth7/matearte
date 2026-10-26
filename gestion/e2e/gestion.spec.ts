@@ -599,10 +599,17 @@ test("ventas muestra referencias nuevas de web y mayorista sin cambiar pedidos a
   const { fixture } = await mockCommerce(page);
   fixture.orders[0].reference_code = "#W001";
   fixture.orders.push({ ...fixture.orders[0], id: "order-wholesale", order_number: 9002,
-    reference_code: "#M001", customer_snapshot: { ...fixture.orders[0].customer_snapshot, purchaseFlow: "wholesale_bank_transfer" } });
+    reference_code: "#M001", customer_snapshot: { ...fixture.orders[0].customer_snapshot, purchaseFlow: "wholesale_bank_transfer" },
+    order_items: fixture.orders[0].order_items.map(item => ({ ...item, id: `wholesale-${item.id}`, production_status: "in_production" })) });
   await page.goto("/comercial/pedidos");
   await expect(page.getByRole("row").filter({ hasText: "#W001" })).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: "#M001" })).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "#M001" })).toContainText("Mayorista");
+  await page.goto("/produccion/resumen");
+  await page.getByRole("button", { name: "Mayorista", exact: true }).click();
+  const wholesaleRow = page.getByRole("row").filter({ hasText: "#M001" });
+  await expect(wholesaleRow).toBeVisible();
+  await expect(wholesaleRow).toContainText("En producción");
 });
 test("catálogo y tarifas muestran datos del origen sin precios inventados", async ({ page }) => {
   await page.goto("/productos/catalogo?vista=lista");

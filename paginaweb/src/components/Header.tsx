@@ -21,6 +21,7 @@ const navigation = [
 ] as const;
 
 const localeOptions: Locale[] = ["es", "en", "pt"];
+const mobileLocaleOptions: Locale[] = ["es", "pt", "en"];
 
 export function Header() {
   const [open, setOpen] = useState(false);
@@ -216,17 +217,20 @@ export function Header() {
         </div>
       )}
       {open && (
-        <div id="home-menu-mobile" className="home-mobile-menu">
-          <nav aria-label={t("mobileNav")}>
-            {navigation.map((item) => <Link key={item.href} href={item.href} onClick={() => setOpen(false)} aria-current={isActive(item.href) ? "page" : undefined}><span>{t(item.label)}</span></Link>)}
-            <Link href="/perfil" onClick={() => setOpen(false)}><span>{session.authenticated ? t("account") : t("signIn")}</span><UserCircle size={24} aria-hidden="true" /></Link>
-            <Link href="/carrito" onClick={() => setOpen(false)}><span>{t("cart")}</span><ShoppingCart size={24} aria-hidden="true" /></Link>
-            <div className="home-mobile-languages" aria-label={t("language")}>
-              <span>{t("language")}</span>
-              <div>{localeOptions.map((option) => <a key={option} href={languageHref(option)} hrefLang={option === "pt" ? "pt-BR" : option} aria-current={option === locale ? "true" : undefined} onClick={(event) => chooseLanguage(option, event)}>{language(option)}</a>)}</div>
-            </div>
-          </nav>
-        </div>
+        <>
+          <button type="button" className="home-mobile-menu-backdrop" aria-label={t("closeMenu")} onClick={() => setOpen(false)} />
+          <div id="home-menu-mobile" className="home-mobile-menu">
+            <nav aria-label={t("mobileNav")}>
+              {navigation.map((item) => <Link key={item.href} href={item.href} onClick={() => setOpen(false)} aria-current={isActive(item.href) ? "page" : undefined}><span>{t(item.label)}</span></Link>)}
+              <Link href="/perfil" onClick={() => setOpen(false)}><span>{session.authenticated ? t("account") : t("signIn")}</span><UserCircle size={24} aria-hidden="true" /></Link>
+              <Link href="/carrito" onClick={() => setOpen(false)}><span>{t("cart")}</span><ShoppingCart size={24} aria-hidden="true" /></Link>
+              <div className="home-mobile-languages" aria-label={t("language")}>
+                <span>{t("language")}</span>
+                <div>{mobileLocaleOptions.map((option) => <a key={option} href={languageHref(option)} hrefLang={option === "pt" ? "pt-BR" : option} aria-label={language(option)} title={language(option)} aria-current={option === locale ? "true" : undefined} onClick={(event) => chooseLanguage(option, event)}><Image src={`/assets/matearte/flags/${option}.svg`} alt="" width={30} height={20} aria-hidden="true" /></a>)}</div>
+              </div>
+            </nav>
+          </div>
+        </>
       )}
     </>
   );

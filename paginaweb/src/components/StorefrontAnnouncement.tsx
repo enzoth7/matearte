@@ -81,15 +81,18 @@ export function StorefrontAnnouncement() {
 
   const showOffer = announcementLoaded && !announcement && offer?.enabled && !offerDismissed;
   if (!announcement && !showOffer) return <span hidden data-storefront-announcement-loader />;
-  if (showOffer) return <div className="storefront-announcement-backdrop" role="presentation">
+  if (showOffer) {
+    const mobileHeadline = `¡${offer.headline.trim().replace(/^¡\s*/, '').replace(/\s*!$/, '')}!`;
+    return <div className="storefront-announcement-backdrop" role="presentation">
     <section className="storefront-announcement storefront-subscription" role="dialog" aria-modal="true" aria-label={t('dialogLabel')}>
       <button ref={closeButton} type="button" className="storefront-subscription-close" onClick={closeOffer} aria-label={common('close')}>×</button>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {offer.image_url && <img className="storefront-subscription-image" src={offer.image_url} alt="" />}
-      <h2>{offer.headline}</h2><p>{offer.description}</p>
+      <h2><span className="storefront-subscription-headline-desktop">{offer.headline}</span><span className="storefront-subscription-headline-mobile">{mobileHeadline}</span></h2><p>{offer.description}</p>
       <NewsletterForm source="welcome" emailLabel={t('email')} nameLabel={t('name')} subscribeLabel={t('subscribe')} subscribeMobileLabel={t('subscribe')} subscribingLabel={t('subscribing')} successMessage={t('success')} invalidEmailMessage={t('invalidEmail')} invalidNameMessage={t('invalidName')} errorMessage={t('error')} consentMessage={t('consent')} onSuccess={() => sessionStorage.setItem('matearte-welcome-submitted', '1')} />
     </section>
-  </div>;
+    </div>;
+  }
   if (!announcement) return <span hidden data-storefront-announcement-loader />;
   const supabase = createBrowserSupabase();
   const imageUrl = announcement.image_path.startsWith('/')

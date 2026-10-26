@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20" aria-hidden="true">
+  <path fill="#fff" d="M0 0h30v20H0z"/>
+  <g fill="#b22234"><path d="M0 0h30v1.54H0zM0 3.08h30v1.54H0zM0 6.16h30V7.7H0zM0 9.24h30v1.54H0zM0 12.32h30v1.54H0zM0 15.4h30v1.54H0zM0 18.46h30V20H0z"/></g>
+  <path fill="#3c3b6e" d="M0 0h12.5v10.78H0z"/>
+  <g fill="#fff"><circle cx="2" cy="2" r=".45"/><circle cx="5" cy="2" r=".45"/><circle cx="8" cy="2" r=".45"/><circle cx="11" cy="2" r=".45"/><circle cx="3.5" cy="4.4" r=".45"/><circle cx="6.5" cy="4.4" r=".45"/><circle cx="9.5" cy="4.4" r=".45"/><circle cx="2" cy="6.8" r=".45"/><circle cx="5" cy="6.8" r=".45"/><circle cx="8" cy="6.8" r=".45"/><circle cx="11" cy="6.8" r=".45"/><circle cx="3.5" cy="9.2" r=".45"/><circle cx="6.5" cy="9.2" r=".45"/><circle cx="9.5" cy="9.2" r=".45"/></g>
+</svg>

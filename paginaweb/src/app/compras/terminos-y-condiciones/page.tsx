@@ -7,7 +7,7 @@ import { localizedAlternates, localizedOpenGraph } from "@/i18n/metadata";
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
   const policy = purchasePolicies[locale].terms;
-  return { title: policy.title, description: policy.description, alternates: localizedAlternates(locale, "/compras/terminos-y-condiciones"), openGraph: localizedOpenGraph(locale, "/compras/terminos-y-condiciones", policy.title, policy.description), robots: { index: false, follow: false } };
+  return { title: policy.title, description: policy.description, alternates: localizedAlternates(locale, "/compras/terminos-y-condiciones"), openGraph: localizedOpenGraph(locale, "/compras/terminos-y-condiciones", policy.title, policy.description) };
 }
 
 export default async function TermsPage() {

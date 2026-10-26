@@ -1,7 +1,7 @@
 /** Stable storage/query contracts shared by Commerce Admin and the storefront. */
 export const catalogCategoryIds = [
   "bandolera", "billeteras", "bombillas", "botas", "carteras", "cintos", "cuchillos",
-  "kits-materos", "materas", "mates", "posa-mates", "personalizados", "servicios", "tarjeteros", "termos", "zapatos", "zuecos",
+  "kits-materos", "limpiabombillas", "materas", "mates", "posa-mates", "personalizados", "servicios", "tarjeteros", "termos", "zapatos", "zuecos",
   "tablas-de-picar", "pinchos", "servilleteros", "porta-rollos", "vainas", "recado", "carona",
 ] as const;
 export const catalogFootwearClosureIds = ["con-cierre", "con-cordones", "con-hebilla", "con-elastico"] as const;
@@ -200,7 +200,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
   categories: [
     category("billeteras", "Billeteras", null, 10), category("tarjeteros", "Tarjetero", null, 15), category("bombillas", "Bombillas", null, 20), category("botas", "Botas", null, 30), category("zuecos", "Zuecos", null, 35), category("zapatos", "Zapatos", null, 37),
     category("carteras", "Carteras", null, 40), category("bandolera", "Bandolera", null, 45), category("cintos", "Cintos", null, 50), category("cuchillos", "Cuchillos", null, 60),
-    category("kits-materos", "Kits materos", null, 70), category("materas", "Materas", null, 80), category("mates", "Mates", null, 90),
+    category("kits-materos", "Kits materos", null, 70), category("limpiabombillas", "Limpiabombillas", null, 25), category("materas", "Materas", null, 80), category("mates", "Mates", null, 90),
     category("personalizados", "Personalizados", null, 100), category("servicios", "Servicios", null, 105), category("termos", "Termos", null, 110), category("posa-mates", "Posa mates", null, 130),
     category("tablas-de-picar", "Tablas de picar", null, 140), category("pinchos", "Pinchos", null, 150), category("servilleteros", "Servilleteros", null, 160), category("porta-rollos", "Porta rollos", null, 170),
     category("vainas", "Vainas", null, 180), category("recado", "Recado", null, 190), category("carona", "Carona", null, 200),
@@ -256,7 +256,7 @@ export const defaultCatalogTaxonomy: CatalogTaxonomy = {
     ...["cuero-crudo|Cuero crudo", "suela|Suela", "metal|Metal", "combinada|Combinada"].map((item, index) => { const [code, label] = item.split("|"); return option("material-vaina", code, label, index * 10); }),
   ],
   rules: [
-    ...catalogCategoryIds.filter(code => code !== "servicios").map(code => rule(code,"coleccion","product",5)),
+    ...catalogCategoryIds.filter(code => code !== "servicios" && code !== "limpiabombillas").map(code => rule(code,"coleccion","product",5)),
     rule("mates","tipo-mate","product",10), rule("mates","material-mate","product",15,true), rule("mates","tipo-virola","product",16,true), rule("mates","tipo-cuero","product",17,true), rule("mates","diseno-fleje","product",19), rule("mates","posamate","product",18,true), rule("mates","pie","product",18), rule("mates","material","product",20), rule("mates","tamano","product",25,false,true,true), rule("mates","interior","product",26,false,true,true), rule("mates","acabado","product",30), rule("mates","color","variant",100),
     rule("personalizados","tipo-personalizado","product",1,true), rule("personalizados","diseno-matera","product",30,true), rule("personalizados","color","variant",100),
     rule("bombillas","tipo-bombilla","product",10,true), rule("bombillas","diametro-cano-mm","product",20), rule("bombillas","largo-mm","product",30,false,false,true), rule("bombillas","material-cuerpo","product",40), rule("bombillas","forma-pico","product",50), rule("bombillas","material-pico","product",60), rule("bombillas","decoracion","product",70), rule("bombillas","color","variant",100),

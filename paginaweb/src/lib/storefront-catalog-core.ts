@@ -56,9 +56,13 @@ export type StorefrontProductRow = {
   updated_at?: string;
   editorial_slug: string;
   name: string;
+  name_en?: string | null;
+  name_pt?: string | null;
   category: string;
   category_code?: string | null;
   description: string;
+  description_en?: string | null;
+  description_pt?: string | null;
   sale_mode: "standard" | "made_to_order";
   published: boolean;
   catalog_filters?: unknown;
@@ -88,18 +92,22 @@ function publicStorageUrl(supabaseBaseUrl: string, path: string) {
   return `${supabaseBaseUrl.replace(/\/$/, "")}/storage/v1/object/public/product-images/${encodedPath}`;
 }
 
+function crawlableProductImageUrl(path: string) {
+  return `/imagenes/productos/${path.split("/").map(encodeURIComponent).join("/")}`;
+}
+
 function mapImages(row: StorefrontProductRow, supabaseBaseUrl: string, existing?: Product): MediaAsset[] {
   const images = [...(row.images ?? [])].sort((a, b) => a.sort_order - b.sort_order || a.id.localeCompare(b.id));
   if (images.length === 0) return existing?.images.length ? existing.images : [fallbackImage(row.name)];
   return images.map((image) => {
-    const src = publicStorageUrl(supabaseBaseUrl, image.storage_path);
+    const sourceUrl = publicStorageUrl(supabaseBaseUrl, image.storage_path);
     return {
-      src,
+      src: crawlableProductImageUrl(image.storage_path),
       alt: image.alt_text.trim() || `Foto de ${row.name}`,
       width: 1200,
       height: 1200,
       source: "supabase" as const,
-      sourceUrl: src,
+      sourceUrl,
       rightsStatus: "brand-public" as const,
       variantId: image.variant_id,
       optionValues: normalizeCatalogValueMap(image.option_values),
@@ -170,8 +178,11 @@ export function storefrontProductFromRow(
     madeToOrder: row.sale_mode === "made_to_order",
   }, locale);
   // La descripción de Gestión es la que se muestra en todos los idiomas.
-  const description = authoredText || generated!.description;
-  const summary = authoredText || generated!.summary;
+  // En inglés y portugués se usa la traducción cargada en la base; sin traducción, el texto en español.
+  const translatedText = locale === "en" ? row.description_en?.trim() : locale === "pt" ? row.description_pt?.trim() : "";
+  const translatedName = locale === "en" ? row.name_en?.trim() : locale === "pt" ? row.name_pt?.trim() : "";
+  const description = translatedText || authoredText || generated!.description;
+  const summary = translatedText || authoredText || generated!.summary;
   const existingProductTypes = existing?.filterData.productTypes
     ?? (existing?.filterData.mateType ? [existing.filterData.mateType] : []);
   const structuredMaterial = typeof attributes.material === "string" && catalogMaterialIds.includes(attributes.material as CatalogMaterialId)
@@ -189,7 +200,7 @@ export function storefrontProductFromRow(
   return {
     id: existing?.id ?? row.id,
     slug: row.editorial_slug,
-    name: keepEditorialTranslation ? existing!.name : row.name,
+    name: translatedName || (keepEditorialTranslation ? existing!.name : row.name),
     category: categoryCode,
     attributes,
     attributeDetails,

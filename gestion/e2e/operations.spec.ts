@@ -255,13 +255,17 @@ test('comprobante bancario utiliza el servicio existente con sesión y actualiza
     expect(route.request().postDataJSON().decision).toBe('approve');
     approved=true;
     fixture.orders[0].status='ready_for_fulfillment';
+    fixture.orders[0].order_items.forEach(item=>{item.production_status='in_production'});
     fixture.orders[0].commerce_bank_transfer_receipts[0].status='approved';
     return route.fulfill({json:{ok:true}});
   });
   await page.route('https://example.invalid/**',route=>route.fulfill({status:200,body:''}));
   await page.goto('/comercial/pedidos?pedido=order-1');
   await expect(page.getByRole('button',{name:'Aprobar pago',exact:true})).toBeEnabled();
-  page.once('dialog',dialog=>dialog.accept());
+  page.once('dialog',dialog=>{
+    expect(dialog.message()).toContain('pasará a producción');
+    void dialog.accept();
+  });
   await page.getByRole('button',{name:'Aprobar pago',exact:true}).click();
   await expect.poll(()=>approved).toBe(true);
   await expect(page.getByRole('button',{name:'Aprobar pago',exact:true})).toHaveCount(0);

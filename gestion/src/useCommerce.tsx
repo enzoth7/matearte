@@ -50,6 +50,7 @@ async function readLocalCustomers(client: NonNullable<typeof commerceSource>, ca
 export function useCommerce() {
   const epoch = useRef(0);
   const busyRef = useRef(false);
+  const pendingRefresh = useRef(false);
   const pendingFullRefresh = useRef(false);
   const localCustomerCache = useRef<LocalCustomerCache | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -74,6 +75,7 @@ export function useCommerce() {
   useEffect(() => {
     let cancelled = false;
     epoch.current++; busyRef.current = false; localCustomerCache.current = null;
+    pendingRefresh.current = false; pendingFullRefresh.current = false;
     setSnapshot(null); setLoadedAt(null); setState(loadState());
     if (!session || !commerceSource) { setAccess("login"); return; }
     setAccess("loading");
@@ -103,7 +105,11 @@ export function useCommerce() {
     const client = commerceSource;
     if (!client || access !== "ready") return;
     if (state.activeUserId === "t5" && !betianaHasOperationalAccess) return;
-    if (busyRef.current) { if (forceFullCustomers) pendingFullRefresh.current = true; return; }
+    if (busyRef.current) {
+      pendingRefresh.current = true;
+      if (forceFullCustomers) pendingFullRefresh.current = true;
+      return;
+    }
     const requestEpoch = epoch.current;
     if (forceFullCustomers) localCustomerCache.current = null;
     busyRef.current = true;
@@ -192,9 +198,11 @@ export function useCommerce() {
     } finally {
       if (requestEpoch === epoch.current) {
         busyRef.current = false; setLoading(false);
-        if (pendingFullRefresh.current) {
+        if (pendingRefresh.current) {
+          const forceFull = pendingFullRefresh.current;
+          pendingRefresh.current = false;
           pendingFullRefresh.current = false;
-          setTimeout(() => void refresh(true), 0);
+          void refresh(forceFull);
         }
       }
     }
@@ -202,23 +210,29 @@ export function useCommerce() {
 
   useEffect(() => {
     if (access !== "ready") return;
-    void refresh();
-    const refreshOnFocus = () => void refresh();
+    if (document.visibilityState === "visible") void refresh();
+    // Returning to a tab can emit both focus and visibilitychange. Coalesce
+    // them, and never download the commerce snapshot while the tab is hidden.
+    let focusTimer: ReturnType<typeof setTimeout> | undefined;
     const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible") void refresh();
+      clearTimeout(focusTimer);
+      if (document.visibilityState !== "visible") return;
+      focusTimer = setTimeout(() => {
+        if (document.visibilityState === "visible" && !busyRef.current) void refresh();
+      }, 150);
     };
-    window.addEventListener("focus", refreshOnFocus);
+    window.addEventListener("focus", refreshWhenVisible);
     document.addEventListener("visibilitychange", refreshWhenVisible);
-    const timer = window.setInterval(() => void refresh(), 8_000);
     return () => {
-      window.removeEventListener("focus", refreshOnFocus);
+      window.removeEventListener("focus", refreshWhenVisible);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
-      clearInterval(timer);
+      clearTimeout(focusTimer);
     };
   }, [refresh, access]);
 
   const signOut = async () => {
     epoch.current++; busyRef.current = false; localCustomerCache.current = null;
+    pendingRefresh.current = false; pendingFullRefresh.current = false;
     setState(loadState()); setSnapshot(null); setLoadedAt(null); setAccess("login");
     await commerceSource?.auth.signOut({ scope: "local" });
   };
