@@ -1,19 +1,24 @@
 import type { Locale } from "@/types/catalog";
 import type { CategoryPageSlug } from "@/lib/catalog-filters";
 
-/** Texto de cada página de categoría: título para buscadores, encabezado visible y una bajada corta. */
-export type CategorySeoCopy = { title: string; heading: string; intro: string };
+/** Texto visible de las categorías y, cuando corresponde, una guía breve para elegir. */
+export type CategorySeoCopy = {
+  title: string;
+  heading: string;
+  intro: string;
+  guide?: { title: string; paragraphs: readonly string[]; linkLabel: string; linkHref: "/personalizados" };
+};
 
 export const categorySeo: Record<CategoryPageSlug, Record<Locale, CategorySeoCopy>> = {
   mates: {
-    es: { title: "Mates uruguayos hechos a mano", heading: "Mates", intro: "Mates imperial, camionero, torpedo y criollo en calabaza, cuero y cerámica, con virolas de alpaca, acero y plata." },
-    en: { title: "Handmade Uruguayan mate gourds", heading: "Mate gourds", intro: "Imperial, camionero, torpedo and criollo mates in gourd, leather and ceramic, with alpaca, steel and silver rims." },
-    pt: { title: "Cuias uruguaias feitas à mão", heading: "Cuias", intro: "Cuias imperial, camionero, torpedo e criollo em cabaça, couro e cerâmica, com virolas de alpaca, aço e prata." },
+    es: { title: "Mates uruguayos hechos a mano", heading: "Mates", intro: "Mates imperial, camionero, torpedo y criollo en calabaza, cuero y cerámica, con virolas de alpaca, acero y plata.", guide: { title: "Cómo elegir tu mate", paragraphs: ["Compará los modelos y revisá la ficha de cada pieza para conocer sus materiales, terminación, precio y disponibilidad. La calabaza, la cerámica, el cuero y las virolas ofrecen estilos y cuidados diferentes; las fotos de cada producto muestran la combinación concreta.", "Si buscás un mate con nombre, escudo o diseño propio, también podés armarlo online y ver una vista previa antes de pedirlo. MateArte revisa la propuesta antes de fabricarla."], linkLabel: "Conocer la personalización online", linkHref: "/personalizados" } },
+    en: { title: "Handmade Uruguayan mate gourds", heading: "Mate gourds", intro: "Imperial, camionero, torpedo and criollo mates in gourd, leather and ceramic, with alpaca, steel and silver rims.", guide: { title: "How to choose your mate", paragraphs: ["Compare models and open each product page for its materials, finish, price and availability. Gourd, ceramic, leather and metal rims each bring a different look and care needs; the product photos show the exact combination.", "If you want a name, crest or your own design, you can customize a mate online and preview it before ordering. MateArte reviews the design before making it."], linkLabel: "Explore online customization", linkHref: "/personalizados" } },
+    pt: { title: "Cuias uruguaias feitas à mão", heading: "Cuias", intro: "Cuias imperial, camionero, torpedo e criollo em cabaça, couro e cerâmica, com virolas de alpaca, aço e prata.", guide: { title: "Como escolher sua cuia", paragraphs: ["Compare os modelos e abra a página de cada produto para conferir materiais, acabamento, preço e disponibilidade. Cabaça, cerâmica, couro e virolas têm estilos e cuidados diferentes; as fotos mostram a combinação de cada peça.", "Se você quiser um nome, brasão ou desenho próprio, pode personalizar uma cuia online e ver uma prévia antes de pedir. A MateArte revisa o design antes da fabricação."], linkLabel: "Conhecer a personalização online", linkHref: "/personalizados" } },
   },
   personalizados: {
-    es: { title: "Mates personalizados hechos a mano", heading: "Mates personalizados", intro: "Mates con nombres, escudos y diseños grabados o aplicados en la virola y el fleje." },
-    en: { title: "Personalized handmade mate gourds", heading: "Personalized mates", intro: "Mates with names, crests and designs engraved or applied on the rim and band." },
-    pt: { title: "Cuias personalizadas feitas à mão", heading: "Cuias personalizadas", intro: "Cuias com nomes, escudos e desenhos gravados ou aplicados na virola e na faixa." },
+    es: { title: "Mates personalizados hechos a mano", heading: "Mates personalizados", intro: "Mates con nombres, escudos y diseños grabados o aplicados en la virola y el fleje.", guide: { title: "Elegí una pieza o creá la tuya", paragraphs: ["Las fichas de esta categoría muestran modelos personalizados disponibles en el catálogo. Entrá a cada producto para ver fotos, materiales y precio antes de agregarlo al carrito.", "Para crear un diseño propio, abrí el personalizador: elegí modelo y terminaciones, probá un nombre, escudo o diseño y mirá el resultado online. MateArte revisa los detalles antes de producir la pieza."], linkLabel: "Personalizar mi mate online", linkHref: "/personalizados" } },
+    en: { title: "Personalized handmade mate gourds", heading: "Personalized mates", intro: "Mates with names, crests and designs engraved or applied on the rim and band.", guide: { title: "Choose a piece or create your own", paragraphs: ["The product pages in this category show personalized mate models from our catalog. Open a product to check its photos, materials and price before adding it to your cart.", "For your own design, open the online customizer: choose a model and finishes, try a name, crest or design, and preview the result. MateArte checks the details before making the piece."], linkLabel: "Customize a mate online", linkHref: "/personalizados" } },
+    pt: { title: "Cuias personalizadas feitas à mão", heading: "Cuias personalizadas", intro: "Cuias com nomes, escudos e desenhos gravados ou aplicados na virola e na faixa.", guide: { title: "Escolha uma peça ou crie a sua", paragraphs: ["As páginas dos produtos desta categoria mostram modelos personalizados do catálogo. Abra cada produto para conferir fotos, materiais e preço antes de colocá-lo no carrinho.", "Para criar seu próprio design, abra o personalizador: escolha o modelo e os acabamentos, teste um nome, brasão ou desenho e veja uma prévia online. A MateArte confere os detalhes antes de fabricar a peça."], linkLabel: "Personalizar minha cuia online", linkHref: "/personalizados" } },
   },
   bombillas: {
     es: { title: "Bombillas y bombillones de alpaca", heading: "Bombillas", intro: "Bombillas y bombillones de alpaca y acero, con pico de alpaca o bronce, en largos para cada mate." },

@@ -8,6 +8,7 @@ import { CatalogMobile } from "@/components/CatalogMobile";
 import { JsonLd } from "@/components/JsonLd";
 import { categorySeo } from "@/content/category-seo";
 import { localizedPageMetadata } from "@/i18n/metadata";
+import { Link } from "@/i18n/navigation";
 import { isCategoryPageSlug, productInCategory } from "@/lib/catalog-filters";
 import { buildCategoryStructuredData } from "@/lib/seo";
 import { getStorefrontProducts, getExchangeRates } from "@/lib/storefront-catalog";
@@ -58,6 +59,15 @@ export default async function CategoryPage({ params }: Params) {
           <CatalogMobile products={products} exchangeRates={exchangeRates} pageCategory={categoria} heading={copy.heading} intro={copy.intro} />
         </Suspense>
       </div>
+      {copy.guide && (
+        <section className="catalog-category-guide" aria-labelledby="catalog-category-guide-title">
+          <div className="catalog-category-guide-inner">
+            <h2 id="catalog-category-guide-title">{copy.guide.title}</h2>
+            {copy.guide.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+            <Link href={copy.guide.linkHref}>{copy.guide.linkLabel}</Link>
+          </div>
+        </section>
+      )}
     </main>
   );
 }

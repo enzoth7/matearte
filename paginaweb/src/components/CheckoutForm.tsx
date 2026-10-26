@@ -4,6 +4,7 @@ import { Bank, Check, GlobeHemisphereWest, MapPin, UploadSimple } from "@phospho
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { Link } from "@/i18n/navigation";
 import { PayPalCheckoutSection } from '@/components/PayPalCheckoutSection';
 import { localizeCanonicalPath } from '@/i18n/paths';
 import { formatMoney } from "@/lib/money";
@@ -534,9 +535,20 @@ export function CheckoutForm({
             </div>
           </dl>
 
+          {!isInternational && isDelivery && !rate?.is_pickup && (
+            <p className="mt-4 text-xs leading-5 text-white/85">{t("domesticShippingCostNotice")}</p>
+          )}
+
           {!isInternational && (
             <p className="mt-5 text-xs leading-5 text-white/70">{isWholesale ? t("wholesaleServerRecalc") : t("serverRecalc")}</p>
           )}
+
+          <p className="mt-5 text-sm leading-6 text-white">
+            {t("purchasePolicyNotice")} {" "}
+            <Link href="/compras/condiciones-de-compra" target="_blank" className="font-semibold underline underline-offset-4 focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)]">
+              {t("purchasePolicyLink")}
+            </Link>
+          </p>
 
           {isWholesale && bankTransfer && (
             <section className="mt-6 border-t border-white/25 pt-6" aria-labelledby="bank-transfer-title">

@@ -166,6 +166,7 @@ export default async function PersonalizadosPage() {
           <div className="personalizados-steps-actions">
             <a className="personalizados-steps-primary" href={personalizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
             <Link className="personalizados-steps-secondary" href="/preguntas-frecuentes">{t("faqAction")}</Link>
+            <Link className="personalizados-steps-secondary" href={{ pathname: "/catalogo/[categoria]", params: { categoria: "personalizados" } }}>{t("catalogAction")}</Link>
           </div>
         </div>
       </section>
