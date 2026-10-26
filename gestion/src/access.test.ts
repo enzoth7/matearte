@@ -38,13 +38,16 @@ describe("visibilidad de los tres perfiles", () => {
     }
   });
 
-  it("limita a Costa a ventas minoristas y clientes de Local/Web", () => {
+  it("muestra a Costa todos los pedidos y mantiene sus permisos de registro y clientes", () => {
     const s = { ...seed(), activeUserId: "t2", user: "Florencia Costa" };
     expect(canAccess(s, "/comercial/registrar-min")).toBe(true);
     expect(canAccess(s, "/comercial/registrar-may")).toBe(false);
     expect(canAccess(s, "/produccion/resumen")).toBe(false);
-    expect(allowedSalesChannels(s)).toEqual(["Local", "Feria"]);
-    expect(visibleOrders(s).every((order) => order.channel === "Local")).toBe(true);
+    expect(allowedSalesChannels(s)).toEqual(["Web", "Local", "Feria", "Instagram", "Facebook", "WhatsApp"]);
+    expect(visibleOrders(s)).toEqual(s.orders);
+    expect(visibleOrders(s, true)).toEqual(s.orders);
+    expect(visibleOrders(s).some((order) => order.channel === "Web")).toBe(true);
+    expect(visibleOrders(s).some((order) => order.source === "wholesale")).toBe(true);
     const customerIds = new Set(s.orders.filter((order) => order.channel === "Web").map((order) => order.customerId));
     expect(visibleCustomers(s).some((customer) => customerIds.has(customer.id))).toBe(true);
   });

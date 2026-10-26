@@ -103,15 +103,14 @@ export function setPageAccess(
   return { ...s, access: { ...s.access, [userId]: [...current] } };
 }
 
-export function allowedSalesChannels(s: State): SalesChannel[] {
-  const userId = accessUserId(s);
-  return userId === "t2" ? ["Local", "Feria"] : ["Web", "Local", "Feria", "Instagram", "Facebook", "WhatsApp"];
+export function allowedSalesChannels(_s: State): SalesChannel[] {
+  return ["Web", "Local", "Feria", "Instagram", "Facebook", "WhatsApp"];
 }
 
 export function visibleOrders(s: State, production = false): Order[] {
   const userId = accessUserId(s);
   if (userId === "t5" && !accessFor(s, "t5").some((path) => !path.startsWith("/marketing/"))) return [];
-  if (userId === "t1" || userId === "t5" || (userId === "t3" && production)) return s.orders;
+  if (userId === "t1" || userId === "t2" || userId === "t5" || (userId === "t3" && production)) return s.orders;
   const wholesaleCustomers = new Set(s.customers.filter((customer) => customer.segment === "Mayorista").map((customer) => customer.id));
   if (userId === "t3") return s.orders.filter((order) => order.source === "wholesale" || (order.channel === "Web" && wholesaleCustomers.has(order.customerId)));
   const channels = allowedSalesChannels(s);
