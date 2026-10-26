@@ -10237,3 +10237,29 @@ body:has(.rural-campaign-page) .whatsapp-fab {
   .storefront-subscription .home-footer-newsletter-consent { margin-top: 4px; }
 }
 @media (prefers-reduced-motion: reduce) { .storefront-subscription form button { transition: none; } }
+
+/* Subtle, one-time entrance for content reached by scrolling. */
+[data-scroll-reveal] {
+  transition: opacity 480ms cubic-bezier(0.23, 1, 0.32, 1), transform 480ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+[data-scroll-reveal-pending] {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+}
+@media (max-width: 767px) {
+  [data-scroll-reveal] {
+    transition-duration: 380ms;
+  }
+  [data-scroll-reveal-pending] {
+    transform: translate3d(0, 12px, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-scroll-reveal] {
+    transition: none;
+  }
+  [data-scroll-reveal-pending] {
+    opacity: 1;
+    transform: none;
+  }
+}

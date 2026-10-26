@@ -76,7 +76,7 @@ function CatalogMobileCard({
     || product.name.toLocaleLowerCase().includes("estribo imperial");
 
   return (
-    <article className="catalog-mobile-product-card">
+    <article className="catalog-mobile-product-card" data-scroll-reveal style={{ transitionDelay: `${index % 2 * 0.06}s` }}>
       <Link href={{ pathname: "/producto/[slug]", params: { slug: product.slug }, query: activeColor ? { color: activeColor } : {} }}>
         <div className="catalog-mobile-product-image">
           {imageSrc ? (

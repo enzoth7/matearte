@@ -101,8 +101,8 @@ export default async function PersonalizadosPage() {
         </section>
 
         <section className="personalizados-mobile-craft">
-          <h2>{t("craftTitle")}</h2>
-          <p>{t("craftBody")}</p>
+          <h2 data-scroll-reveal>{t("craftTitle")}</h2>
+          <p data-scroll-reveal style={{ transitionDelay: "0.07s" }}>{t("craftBody")}</p>
         </section>
       </div>
 
@@ -146,7 +146,7 @@ export default async function PersonalizadosPage() {
         </section>
 
         <section className="personalizados-desktop-craft">
-          <div className="personalizados-desktop-craft-grid">
+          <div className="personalizados-desktop-craft-grid" data-scroll-reveal>
           <h2>{t("craftTitle")}</h2>
             <div>
               <p>{t("craftBody")}</p>
@@ -157,11 +157,11 @@ export default async function PersonalizadosPage() {
 
       <section className="personalizados-steps" aria-labelledby="personalizados-steps-title">
         <div className="personalizados-steps-inner">
-          <h2 id="personalizados-steps-title">{t("stepsTitle")}</h2>
+          <h2 id="personalizados-steps-title" data-scroll-reveal>{t("stepsTitle")}</h2>
           <ol>
-            <li><h3>{t("stepOneTitle")}</h3><p>{t("stepOneBody")}</p></li>
-            <li><h3>{t("stepTwoTitle")}</h3><p>{t("stepTwoBody")}</p></li>
-            <li><h3>{t("stepThreeTitle")}</h3><p>{t("stepThreeBody")}</p></li>
+            <li data-scroll-reveal><h3>{t("stepOneTitle")}</h3><p>{t("stepOneBody")}</p></li>
+            <li data-scroll-reveal style={{ transitionDelay: "0.07s" }}><h3>{t("stepTwoTitle")}</h3><p>{t("stepTwoBody")}</p></li>
+            <li data-scroll-reveal style={{ transitionDelay: "0.14s" }}><h3>{t("stepThreeTitle")}</h3><p>{t("stepThreeBody")}</p></li>
           </ol>
           <div className="personalizados-steps-actions">
             <a className="personalizados-steps-primary" href={personalizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>

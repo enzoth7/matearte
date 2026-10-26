@@ -41,13 +41,13 @@ export async function HomeFeaturedProducts() {
   return (
     <section className="home-section home-scroll-band home-featured-section" aria-labelledby="home-featured-title">
       <div className="home-shell">
-        <div className="home-featured-header">
+        <div className="home-featured-header" data-scroll-reveal>
           <h2 id="home-featured-title" className="home-featured-title">{t("featuredTitle")}</h2>
         </div>
 
         <div className="home-featured-track" aria-label={t("featuredTitle")}>
-          {collections.map((collection) => (
-            <article key={collection.id} className="home-featured-card">
+          {collections.map((collection, index) => (
+            <article key={collection.id} className="home-featured-card" data-scroll-reveal style={{ transitionDelay: `${index * 0.07}s` }}>
               <Link
                 className="home-featured-card-link"
                 href={{ pathname: "/catalogo", query: { coleccion: collection.id } }}

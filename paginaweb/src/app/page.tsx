@@ -51,8 +51,8 @@ const champions = [
   { name: "José M. Giménez", image: "gimenez.png" },
 ] as const;
 
-function BandContent({ children, className = "" }: { children: ReactNode; className?: string; delay?: number }) {
-  return <div className={className}>{children}</div>;
+function BandContent({ children, className = "", delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
+  return <div className={className} data-scroll-reveal style={{ transitionDelay: `${delay}s` }}>{children}</div>;
 }
 
 export default async function Home() {
