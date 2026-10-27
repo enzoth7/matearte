@@ -32,6 +32,9 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
+    // Temporal: se agotó la cuota de Image Optimization de Vercel y las imágenes del catálogo dejaron de cargar.
+    // Mientras tanto se sirven los archivos originales.
+    unoptimized: true,
     formats: ["image/avif", "image/webp"],
     qualities: [75, 95, 100],
     remotePatterns: [
