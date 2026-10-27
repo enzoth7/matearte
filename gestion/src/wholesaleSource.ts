@@ -1,6 +1,7 @@
 import { commerceSource, type CommerceImage, type CommerceVariant } from "./commerceSource";
 import { imageForVariant } from "./catalogImages";
 import { GENERIC_WHOLESALE_VARIANT, genericVariantPriceConflict } from "./wholesaleSaleSelection";
+import { applyDiscount } from "./wholesaleDiscount";
 
 export type WholesaleProduct = {
   id: string; model: string; variant: string; rim_type: string | null;
@@ -33,6 +34,7 @@ export type WholesaleLine = {
   unit_price_arg: number | null; unit_price_uyu: number | null;
   exchange_rate: number | null; total_arg: number | null; total_uyu: number | null;
   sale_channel?: "Local" | "Web" | "WhatsApp" | "Instagram" | "Facebook" | "Feria";
+  discount_percent?: number | null;
 };
 export type WholesaleSnapshot = {
   products: WholesaleProduct[]; customers: WholesaleCustomer[];
@@ -138,8 +140,9 @@ export async function deleteWholesaleCustomer(fullName: string): Promise<void> {
 const imageBucket = () => client().storage.from("product-images");
 export const wholesaleProductImageUrl = (path: string) => imageBucket().getPublicUrl(path).data.publicUrl;
 
-export async function createWholesaleOrder(customer: string, items: { productId: string; quantity: number; noCost: boolean; generic?: boolean }[], saleChannel: WholesaleLine["sale_channel"] = "WhatsApp") {
+export async function createWholesaleOrder(customer: string, items: { productId: string; quantity: number; noCost: boolean; generic?: boolean }[], saleChannel: WholesaleLine["sale_channel"] = "WhatsApp", discountPercent = 0) {
   if (!clean(customer) || !items.length) throw new Error("Seleccioná cliente y al menos un artículo.");
+  if (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100) throw new Error("El descuento tiene que estar entre 0% y 100%.");
   const { data: settings, error: rateError } = await client().from("settings").select("exchange_rate").eq("id", 1).single();
   if (rateError) throw rateError;
   const rate = Number(settings.exchange_rate);
@@ -158,7 +161,7 @@ export async function createWholesaleOrder(customer: string, items: { productId:
     const count = quantity(item.quantity);
     const priceArg = item.noCost ? 0 : Number(product.price_arg) || 0;
     const priceUyu = item.noCost ? 0 : Number(product.price_uyu) || priceArg * rate;
-    return { line_id: `line-${crypto.randomUUID()}`, order_id: orderId, created_at: now, customer: clean(customer), model: product.model, variant: item.generic ? GENERIC_WHOLESALE_VARIANT : product.variant, quantity: count, status: "Pendiente", order_type: item.noCost ? "no_cost" : "normal", sale_channel: saleChannel, unit_price_arg: priceArg, unit_price_uyu: priceUyu, exchange_rate: rate, total_arg: priceArg * count, total_uyu: priceUyu * count };
+    return { line_id: `line-${crypto.randomUUID()}`, order_id: orderId, created_at: now, customer: clean(customer), model: product.model, variant: item.generic ? GENERIC_WHOLESALE_VARIANT : product.variant, quantity: count, status: "Pendiente", order_type: item.noCost ? "no_cost" : "normal", sale_channel: saleChannel, unit_price_arg: priceArg, unit_price_uyu: priceUyu, exchange_rate: rate, total_arg: applyDiscount(priceArg * count, discountPercent), total_uyu: applyDiscount(priceUyu * count, discountPercent), discount_percent: discountPercent || null };
   });
   const { error } = await client().from("order_lines").insert(lines);
   if (error) throw error;
@@ -182,10 +185,26 @@ export async function updateWholesaleLine(line: WholesaleLine, changes: { quanti
       arg = Number(match.price_arg); uyu = Number(match.price_uyu); rate = rate ?? snapshot.exchangeRate;
     }
     patch.unit_price_arg = arg; patch.unit_price_uyu = uyu; patch.exchange_rate = rate;
-    patch.total_arg = Number(arg) * count; patch.total_uyu = Number(uyu) * count;
+    // El descuento del pedido se mantiene al cambiar la cantidad.
+    const discount = Number(line.discount_percent) || 0;
+    patch.total_arg = applyDiscount(Number(arg) * count, discount); patch.total_uyu = applyDiscount(Number(uyu) * count, discount);
   }
   const { error } = await client().from("order_lines").update(patch).eq("line_id", line.line_id);
   if (error) throw error;
+}
+export type WholesaleDiscountRow = { lineId: string; quantity: number; noCost: boolean; unitArg: number; unitUyu: number; exchangeRate: number };
+/** Aplica (o quita, con 0) el descuento a todas las líneas del pedido, recalculando desde el precio unitario. */
+export async function setWholesaleOrderDiscount(rows: WholesaleDiscountRow[], percent: number) {
+  if (!rows.length) throw new Error("El pedido no tiene líneas.");
+  if (!Number.isFinite(percent) || percent < 0 || percent > 100) throw new Error("El descuento tiene que estar entre 0% y 100%.");
+  for (const row of rows) {
+    const patch = row.noCost
+      ? { discount_percent: percent || null }
+      : { unit_price_arg: row.unitArg, unit_price_uyu: row.unitUyu, exchange_rate: row.exchangeRate, total_arg: applyDiscount(row.unitArg * row.quantity, percent), total_uyu: applyDiscount(row.unitUyu * row.quantity, percent), discount_percent: percent || null };
+    const { data, error } = await client().from("order_lines").update(patch).eq("line_id", row.lineId).select("line_id").maybeSingle();
+    if (error) throw error;
+    if (!data) throw new Error("Una de las líneas ya no existe. Actualizá el pedido e intentá de nuevo.");
+  }
 }
 export async function completeWholesaleLine(lineId: string) {
   const { error } = await client().from("order_lines").update({ status: "Completado", completed_at: new Date().toISOString() }).eq("line_id", lineId);

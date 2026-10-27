@@ -4,6 +4,7 @@ import { wholesaleLineValue } from "./wholesaleAdapter";
 import { GENERIC_WHOLESALE_VARIANT } from "./wholesaleSaleSelection";
 import type { WholesaleLine, WholesaleSnapshot } from "./wholesaleSource";
 import type { WholesaleCurrency } from "./wholesaleExports";
+import { discountSummary, formatPercent, orderDiscountPercent } from "./wholesaleDiscount";
 
 export type WholesaleOrderPdfKind = "workshop" | "customer";
 export type WholesaleOrderPdfInput = {
@@ -39,7 +40,9 @@ function lineRows(input: WholesaleOrderPdfInput) {
       sku: product?.sku?.trim() || "-",
       model: sentenceName(orderItem?.title || line.model), variant: sentenceName(orderItem?.variant || line.variant), quantity: Number(line.quantity),
       unitPrice: input.currency === "ARS" ? value.unitArg : value.unitUyu,
-      amount: input.currency === "ARS" ? value.arg : value.uyu,
+      // El detalle va a precio de lista; el descuento del pedido se resta abajo, en Subtotal / Descuento / Total.
+      amount: input.currency === "ARS" ? value.grossArg : value.grossUyu,
+      net: input.currency === "ARS" ? value.arg : value.uyu,
     };
   });
 }
@@ -64,7 +67,9 @@ export async function createWholesaleOrderPdf(kind: WholesaleOrderPdfKind, input
   const rows = lineRows(input);
   const customerName = sentenceName(input.customerName);
   const quantity = rows.reduce((sum, row) => sum + row.quantity, 0);
-  const amount = rows.reduce((sum, row) => sum + row.amount, 0);
+  const { subtotal, discount, total: amount } = discountSummary(rows.map((row) => ({ gross: row.amount, net: row.net })));
+  const percent = orderDiscountPercent(input.lines);
+  const showDiscount = customerSheet && discount > 0;
 
   pdf.setFont("helvetica", "bold");
   pdf.setTextColor(...brown);
@@ -130,26 +135,46 @@ export async function createWholesaleOrderPdf(kind: WholesaleOrderPdfKind, input
   });
 
   const tableEnd = (pdf as typeof pdf & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? startY;
-  const totalOnNextPage = tableEnd + 24 > 281;
+  const totalBlockHeight = 24 + (showDiscount ? 20 : 0);
+  const totalOnNextPage = tableEnd + totalBlockHeight > 281;
   if (totalOnNextPage) pdf.addPage();
   const totalY = totalOnNextPage ? 65 : tableEnd + 17;
   pdf.setDrawColor(...brown);
   pdf.setLineWidth(0.55);
   pdf.line(18, totalY, 192, totalY);
+  // Con descuento: Subtotal y Descuento primero; el Total baja una fila más abajo, separado por una línea fina.
+  let totalRowY = totalY + 10;
+  if (showDiscount) {
+    const summaryRow = (name: string, value: string, y: number) => {
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
+      pdf.setTextColor(...muted);
+      pdf.text(name, 18, y);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...ink);
+      pdf.text(value, 192, y, { align: "right" });
+    };
+    summaryRow("Subtotal", money(subtotal, input.currency), totalY + 9);
+    summaryRow(percent > 0 ? `Descuento (${formatPercent(percent)})` : "Descuento", `-${money(discount, input.currency)}`, totalY + 16);
+    pdf.setDrawColor(...rule);
+    pdf.setLineWidth(0.25);
+    pdf.line(18, totalY + 20, 192, totalY + 20);
+    totalRowY = totalY + 30;
+  }
   pdf.setTextColor(...ink);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(11);
-  pdf.text(customerSheet ? "Total" : "Total de unidades", customerSheet ? 18 : 136, totalY + 10);
+  pdf.text(customerSheet ? "Total" : "Total de unidades", customerSheet ? 18 : 136, totalRowY);
   pdf.setTextColor(...brown);
   pdf.setFontSize(14);
   if (customerSheet) {
     const units = String(quantity);
-    pdf.text(units, 118, totalY + 10);
+    pdf.text(units, 118, totalRowY);
     pdf.setFont("helvetica", "normal");
-    pdf.text("u.", 118 + pdf.getTextWidth(units) + 1.4, totalY + 10);
+    pdf.text("u.", 118 + pdf.getTextWidth(units) + 1.4, totalRowY);
     pdf.setFont("helvetica", "bold");
-    pdf.text(money(amount, input.currency), 192, totalY + 10, { align: "right" });
-  } else pdf.text(String(quantity), 192, totalY + 10, { align: "right" });
+    pdf.text(money(amount, input.currency), 192, totalRowY, { align: "right" });
+  } else pdf.text(String(quantity), 192, totalRowY, { align: "right" });
 
   for (let page = 1; page <= pdf.getNumberOfPages(); page++) {
     pdf.setPage(page);

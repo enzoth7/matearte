@@ -3312,6 +3312,22 @@ details.org-node {
 .wholesale-sale-single-field{max-width:620px}
 .wholesale-sale-single-field{display:grid;gap:14px}
 .wholesale-sale-note{margin-top:14px}
+.wholesale-sale-discount-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px}
+.wholesale-sale-discount-row label{display:grid;gap:6px;width:auto}
+.wholesale-sale-discount-toggle select{width:110px}
+.wholesale-sale-discount-percent>span{display:flex;align-items:center;gap:8px}
+.wholesale-sale-discount-percent input{width:110px}
+.wholesale-sale-discount-percent b{font-weight:600}
+.wholesale-order-discount{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 14px;margin:0 0 14px;padding:14px 18px;border:1px solid var(--line);border-radius:12px;background:var(--surface-warm)}
+.wholesale-order-discount>div:not(.error){display:grid;gap:3px}
+.wholesale-order-discount strong{font-variant-numeric:tabular-nums}
+.wholesale-order-discount strong span{margin-left:6px;color:var(--muted);font-weight:400}
+.wholesale-order-discount strong.is-none{color:var(--muted);font-weight:500}
+.wholesale-order-discount .wholesale-sale-discount-percent{display:grid;gap:6px}
+.wholesale-order-discount .error{flex-basis:100%}
+.wholesale-sale-footer>div:not(.error) strong.wholesale-sale-total-discounted{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px}
+.wholesale-sale-total-discounted s{color:var(--muted);font-size:16px;font-weight:500;letter-spacing:0}
+.wholesale-sale-total-discounted em{padding:2px 8px;border-radius:999px;background:rgb(60 130 80/.14);color:#2f6b43;font-size:13px;font-style:normal;font-weight:600;letter-spacing:0}
 .wholesale-sale-footer{display:flex;flex-wrap:wrap;align-items:center;gap:20px;padding:14px 0 22px}
 .wholesale-sale-footer>div:not(.error){display:grid;gap:3px}
 .wholesale-sale-footer>div:not(.error) strong{font-size:22px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}

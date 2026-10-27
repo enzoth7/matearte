@@ -532,3 +532,52 @@ test("Administración tiene la pestaña Links con las direcciones del gestor, la
   await expect(page.getByRole("link", { name: "https://personalizador.matearteuruguay.com" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Links/ }).first()).toBeVisible();
 });
+
+test("una venta mayorista nueva aplica el descuento en una línea y guarda el porcentaje", async ({ page }) => {
+  const { tables } = await mockCommerce(page, { writable: true });
+  tables.products.push({ id: "7", model: "Torpedo", variant: "Negro", rim_type: "Acero", leather_type: "Negro", price_arg: 10000, price_uyu: 270 });
+  tables.customers.push({ full_name: "Almacén Sur", first_name: "Almacén", last_name: "Sur", phone: "", email: "", address: "", notes: "" });
+  await page.goto("/comercial/registrar-may");
+  await page.getByRole("combobox", { name: "Cliente", exact: true }).selectOption("Almacén Sur");
+  await page.getByRole("combobox", { name: "Categoría 1" }).selectOption("mates");
+  await page.getByRole("combobox", { name: "Tipo 1" }).selectOption("Torpedo");
+  await page.getByRole("combobox", { name: "Nombre 1" }).selectOption("Torpedo");
+  const footer = page.locator(".wholesale-sale-footer");
+  await expect(footer.locator("s")).toHaveCount(0);
+  await page.getByRole("combobox", { name: "Aplicar descuento" }).selectOption("si");
+  await page.getByRole("spinbutton", { name: "Porcentaje de descuento" }).fill("10");
+  await expect(footer.locator("s")).toHaveText("ARS 10.000");
+  await expect(footer.locator(".wholesale-sale-total-discounted span")).toHaveText("ARS 9.000");
+  await expect(footer).toContainText("-10%");
+  await page.getByRole("button", { name: "Crear pedido mayorista" }).click();
+  await expect.poll(() => tables.order_lines[0]?.discount_percent).toBe(10);
+  expect(tables.order_lines[0].unit_price_arg).toBe(10000);
+  expect(tables.order_lines[0].total_arg).toBe(9000);
+  expect(tables.order_lines[0].total_uyu).toBe(243);
+});
+
+test("el detalle de un pedido mayorista viejo permite cargarle y quitarle un descuento", async ({ page }) => {
+  const { tables } = await mockCommerce(page, { writable: true });
+  tables.customers.push({ full_name: "Juan", first_name: "Juan", last_name: "", phone: "", email: "", address: "", notes: "" });
+  tables.products.push({ id: "5", model: "Criollo Virola Acero", variant: "Natural", category_code: "mates", price_arg: 25100, price_uyu: 700, sku: "167" });
+  tables.order_lines.push({ line_id: "x", order_id: "#M095", created_at: "2026-10-20T12:00:00Z", completed_at: null, customer: "Juan", model: "Criollo Virola Acero", variant: "Natural",
+    quantity: 10, status: "Pendiente", order_type: "normal", unit_price_arg: 25100, unit_price_uyu: 700, exchange_rate: 0.027, total_arg: 251000, total_uyu: 7000 });
+  await page.goto("/produccion/mayorista");
+  await page.getByRole("button", { name: "#M095", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.locator(".wholesale-order-discount")).toContainText("Sin descuento");
+  await dialog.getByRole("button", { name: "Aplicar descuento" }).click();
+  await dialog.getByRole("spinbutton", { name: "Porcentaje de descuento del pedido" }).fill("10");
+  await dialog.getByRole("button", { name: "Guardar" }).click();
+  await expect.poll(() => tables.order_lines[0]?.discount_percent).toBe(10);
+  expect(tables.order_lines[0].total_arg).toBe(225900);
+  expect(tables.order_lines[0].total_uyu).toBe(6300);
+  expect(tables.order_lines[0].unit_price_arg).toBe(25100);
+  await expect(dialog.locator(".wholesale-order-discount")).toContainText("10%");
+  await dialog.getByRole("button", { name: "Editar descuento" }).click();
+  await dialog.getByRole("spinbutton", { name: "Porcentaje de descuento del pedido" }).fill("0");
+  await dialog.getByRole("button", { name: "Guardar" }).click();
+  await expect.poll(() => tables.order_lines[0]?.discount_percent).toBe(null);
+  expect(tables.order_lines[0].total_arg).toBe(251000);
+  await expect(dialog.locator(".wholesale-order-discount")).toContainText("Sin descuento");
+});

@@ -4,7 +4,8 @@ import type { PageProps } from "./pages";
 import type { Customer, Order, Product } from "./data";
 import { money, orderName, paid, balance, total } from "./data";
 import { Badge, Modal, Stats, Table, type Column } from "./ui";
-import { createWholesaleOrder, deleteWholesaleCustomer, countWholesaleCustomerLines, deleteWholesaleLine, completeWholesaleLine, saveWholesaleCustomer, updateWholesaleLine, wholesaleProductImageUrl, type WholesaleCustomer, type WholesaleLine, type WholesaleProduct, type WholesaleProductImage, type WholesaleSnapshot } from "./wholesaleSource";
+import { discountSummary, formatPercent, orderDiscountPercent, parseDiscountPercent } from "./wholesaleDiscount";
+import { createWholesaleOrder, setWholesaleOrderDiscount, deleteWholesaleCustomer, countWholesaleCustomerLines, deleteWholesaleLine, completeWholesaleLine, saveWholesaleCustomer, updateWholesaleLine, wholesaleProductImageUrl, type WholesaleCustomer, type WholesaleLine, type WholesaleProduct, type WholesaleProductImage, type WholesaleSnapshot } from "./wholesaleSource";
 import { ProductCoverEditor, type ProductCoverCrop } from "./commerce/ProductCoverEditor";
 import { exportWholesaleCsv, exportWholesalePdf, exportWholesaleXlsx, type WholesaleCurrency } from "./wholesaleExports";
 import { exportWholesaleOrderPdf, type WholesaleOrderPdfKind } from "./wholesaleOrderPdf";
@@ -92,6 +93,8 @@ export function WholesaleRegister(props: PageProps) {
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [applyDiscount, setApplyDiscount] = useState(false);
+  const [discountText, setDiscountText] = useState("10");
   if (!snapshot) return <div className="empty">Cargando producción mayorista…</div>;
   const sortedProducts = snapshot.products.filter(product => product.available_wholesale !== false && saleGroup(product)).sort((a, b) => productLabel(a).localeCompare(productLabel(b), "es"));
   const productMatches = productSearch.trim() ? sortedProducts.filter((product) => `${product.model} ${product.variant} ${product.sku || ""}`.toLocaleLowerCase("es").includes(productSearch.trim().toLocaleLowerCase("es"))).slice(0, 8) : [];
@@ -99,6 +102,8 @@ export function WholesaleRegister(props: PageProps) {
   const customerMatches = sortedCustomers.filter((entry) => `${entry.full_name} ${entry.company_name || ""}`.toLocaleLowerCase("es").includes(customerSearch.trim().toLocaleLowerCase("es")));
   const visibleCustomers = sortedCustomers.filter((entry) => !customerSearch.trim() || customerMatches.includes(entry) || entry.full_name === customer);
   const estimated = items.reduce((sum, item) => sum + (item.noCost ? 0 : Number(snapshot.products.find((product) => String(product.id) === item.productId)?.price_arg || 0) * item.quantity), 0);
+  const discountPercent = applyDiscount ? Math.min(100, Math.max(0, Number(discountText) || 0)) : 0;
+  const discounted = Math.round(estimated * (1 - discountPercent / 100) * 100) / 100;
   function chooseProduct(product: WholesaleProduct) {
     const picked = { category: saleGroup(product) || "", model: wholesaleSaleType(product), name: product.model, productId: String(product.id), generic: false };
     const target = items.find((row) => !row.productId);
@@ -114,7 +119,8 @@ export function WholesaleRegister(props: PageProps) {
     event.preventDefault(); setError(""); setBusy(true);
     try {
       if (!items.length || !items.every((item) => item.productId && Number.isInteger(item.quantity) && item.quantity > 0)) throw new Error("Revisá productos y cantidades.");
-      const orderId = await createWholesaleOrder(customer, items, saleChannel);
+      if (applyDiscount && !(discountPercent > 0)) throw new Error("Ingresá un descuento mayor a 0%, o elegí \"No\".");
+      const orderId = await createWholesaleOrder(customer, items, saleChannel, discountPercent);
       await props.refresh?.(); props.notify(`Pedido ${orderId} creado.`);
       props.go(`/comercial/pedidos?pedido=${encodeURIComponent(`wholesale:${orderId}`)}`);
     } catch (failure) { setError(errorText(failure)); }
@@ -170,8 +176,16 @@ export function WholesaleRegister(props: PageProps) {
       <small className="wholesale-sale-note">El pedido se guardará en el tablero de producción mayorista con su número #M.</small>
     </section>
 
+    <section className="local-sale-section wholesale-sale-section">
+      <h2>Descuentos</h2>
+      <div className="wholesale-sale-discount-row">
+        <label className="wholesale-sale-discount-toggle">Aplicar descuento<select aria-label="Aplicar descuento" value={applyDiscount ? "si" : "no"} onChange={(event) => setApplyDiscount(event.target.value === "si")}><option value="no">No</option><option value="si">Sí</option></select></label>
+        {applyDiscount && <label className="wholesale-sale-discount-percent">Porcentaje<span><input type="number" min="0" max="100" step="0.5" inputMode="decimal" aria-label="Porcentaje de descuento" value={discountText} onChange={(event) => setDiscountText(event.target.value)} /><b aria-hidden="true">%</b></span></label>}
+      </div>
+    </section>
+
     <footer className="wholesale-sale-footer">
-      <div><small>Total estimado</small><strong>{saleArg(estimated)}</strong></div>
+      <div><small>Total estimado</small>{discountPercent > 0 && estimated > 0 ? <strong className="wholesale-sale-total-discounted"><s>{saleArg(estimated)}</s><span>{saleArg(discounted)}</span><em>-{discountPercent}%</em></strong> : <strong>{saleArg(estimated)}</strong>}</div>
       {error && <div className="error" role="alert">{error}</div>}
       <button className="primary" type="submit" disabled={busy || !items.length}><Plus size={18} aria-hidden="true" />{busy ? "Guardando…" : "Crear pedido mayorista"}</button>
     </footer>
@@ -277,6 +291,43 @@ function WholesaleLineEditor({ line, snapshot, displayModel, displayVariant, cat
   </div>;
 }
 
+/** Descuento del pedido completo (no por artículo): útil para cargar descuentos de pedidos viejos. */
+function WholesaleOrderDiscount({ lines, snapshot, currency, refresh, notify }: { lines: WholesaleLine[]; snapshot: WholesaleSnapshot; currency: WholesaleCurrency; refresh?: () => Promise<void> | void; notify: (message: string) => void }) {
+  const current = orderDiscountPercent(lines);
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(String(current || ""));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const productOf = (line: WholesaleLine) => snapshot.products.find((product) => wholesaleProductKey(product.model, product.variant) === wholesaleProductKey(line.model, line.variant));
+  const values = lines.map((line) => wholesaleLineValue(line, productOf(line), snapshot.exchangeRate));
+  const summary = discountSummary(values.map((value) => currency === "ARS" ? { gross: value.grossArg, net: value.arg } : { gross: value.grossUyu, net: value.uyu }));
+  async function save() {
+    const percent = parseDiscountPercent(text);
+    setBusy(true); setError("");
+    try {
+      const rows = lines.map((line, index) => {
+        const noCost = line.order_type === "no_cost";
+        if (!noCost && line.unit_price_arg == null && !productOf(line)) throw new Error(`No se encontró el producto "${line.model} · ${line.variant}" para calcular el descuento.`);
+        return { lineId: line.line_id, quantity: Number(line.quantity), noCost, unitArg: values[index].unitArg, unitUyu: values[index].unitUyu, exchangeRate: Number(line.exchange_rate ?? snapshot.exchangeRate) };
+      });
+      await setWholesaleOrderDiscount(rows, percent);
+      setEditing(false); await refresh?.(); notify(percent ? `Descuento del ${formatPercent(percent)} aplicado al pedido` : "Descuento quitado del pedido");
+    } catch (failure) { setError(errorText(failure)); await refresh?.(); }
+    finally { setBusy(false); }
+  }
+  return <div className="wholesale-order-discount">
+    {editing ? <>
+      <label className="wholesale-sale-discount-percent">Descuento del pedido<span><input type="number" min="0" max="100" step="0.5" inputMode="decimal" autoFocus aria-label="Porcentaje de descuento del pedido" value={text} onChange={(event) => setText(event.target.value)} /><b aria-hidden="true">%</b></span></label>
+      <button type="button" className="primary compact" disabled={busy} onClick={() => void save()}>{busy ? "Guardando…" : "Guardar"}</button>
+      <button type="button" className="secondary compact" disabled={busy} onClick={() => { setEditing(false); setText(String(current || "")); setError(""); }}>Cancelar</button>
+    </> : <>
+      <div><small>Descuento</small>{current > 0 && summary.discount > 0 ? <strong>{formatPercent(current)} · −{wholesaleMoney(summary.discount, currency)}<span> sobre {wholesaleMoney(summary.subtotal, currency)}</span></strong> : <strong className="is-none">Sin descuento</strong>}</div>
+      <button type="button" className="secondary compact" onClick={() => setEditing(true)}>{current > 0 ? "Editar descuento" : "Aplicar descuento"}</button>
+    </>}
+    {error && <div className="error" role="alert">{error}</div>}
+  </div>;
+}
+
 export function WholesaleOrderModal({ order, props, onClose, currency = "UYU", editingLineId = null }: { order: Order; props: PageProps; onClose: () => void; currency?: WholesaleCurrency; editingLineId?: string | null }) {
   const snapshot = snapshotOf(props);
   if (!snapshot) return null;
@@ -305,6 +356,7 @@ export function WholesaleOrderModal({ order, props, onClose, currency = "UYU", e
   return <Modal title={orderName(order)} onClose={onClose} className="wholesale-order-dialog">
     <div className="detail-banner"><div><small>{formatDate(order.date)} · Mayorista</small><h3>{naturalCaseName(customer?.name || order.customerName || "Cliente sin nombre")}</h3></div><strong>{wholesaleMoney(shownTotal, currency)}</strong></div>
     <Stats items={[{ label: "Unidades", value: order.quantity }, { label: "Cobrado", value: wholesaleMoney(shownPaid, currency) }, { label: "Por cobrar", value: wholesaleMoney(shownBalance, currency) }]} />
+    {lines.length > 0 && <WholesaleOrderDiscount lines={lines} snapshot={snapshot} currency={currency} refresh={props.refresh} notify={props.notify} />}
     <div className="wholesale-line-list"><div className="wholesale-line-row wholesale-line-head" aria-hidden="true"><span>Foto</span><span>SKU</span><span>Nombre</span><span>Variante</span><span>Unidades</span><span>Estado</span><span></span></div>{lines.map((line) => {
       const orderItem = order.items?.find((item) => item.wholesaleLineId === line.line_id);
       const isGeneric = normalizeWholesaleText(line.variant) === normalizeWholesaleText(GENERIC_WHOLESALE_VARIANT);

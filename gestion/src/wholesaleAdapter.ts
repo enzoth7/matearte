@@ -20,13 +20,14 @@ const wholesaleCategory = (product: WholesaleProduct, snapshot: WholesaleSnapsho
 };
 
 export function wholesaleLineValue(line: WholesaleLine, product: WholesaleProduct | undefined, rate: number) {
-  if (line.order_type === "no_cost") return { arg: 0, uyu: 0, unitArg: 0, unitUyu: 0 };
+  if (line.order_type === "no_cost") return { arg: 0, uyu: 0, unitArg: 0, unitUyu: 0, grossArg: 0, grossUyu: 0 };
   const quantity = Number(line.quantity) || 0;
   const unitArg = number(line.unit_price_arg) ?? Number(product?.price_arg || 0);
   const arg = number(line.total_arg) ?? unitArg * quantity;
   const unitUyu = number(line.unit_price_uyu) ?? Number(product?.price_uyu ?? unitArg * (number(line.exchange_rate) ?? rate));
   const uyu = number(line.total_uyu) ?? (line.unit_price_uyu != null ? unitUyu * quantity : line.total_arg != null ? arg * (number(line.exchange_rate) ?? rate) : unitUyu * quantity);
-  return { arg, uyu, unitArg, unitUyu };
+  // gross: importe a precio de lista, antes del descuento del pedido.
+  return { arg, uyu, unitArg, unitUyu, grossArg: unitArg * quantity, grossUyu: unitUyu * quantity };
 }
 
 export function summarizeWholesale(snapshot: WholesaleSnapshot) {
