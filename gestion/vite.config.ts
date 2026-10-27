@@ -14,7 +14,6 @@ export default defineConfig({
       },
     },
   },
-  envDir: "..",
   envPrefix: ["VITE_", "NEXT_PUBLIC_"],
   build: {
     rollupOptions: {

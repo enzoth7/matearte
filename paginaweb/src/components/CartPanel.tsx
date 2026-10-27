@@ -118,7 +118,7 @@ function itemSubtitle(item: RemoteItem, customDesign: string, catalogPiece: stri
 
 function itemImage(item: RemoteItem) {
   if (item.item_type === "design") {
-    return "/assets/matearte/01-marca/LogoOriginal.jpg";
+    return "/assets/matearte/01-marca/LogoOriginal.webp";
   }
 
   const imagePath = orderItemImagePath({
@@ -144,7 +144,7 @@ function itemImage(item: RemoteItem) {
     if (imageSrc) return imageSrc;
   }
 
-  return "/assets/matearte/profile-orders-desktop/catalog-fallback.png";
+  return "/assets/matearte/profile-orders-desktop/catalog-fallback.webp";
 }
 
 function MobileEmptyCart({ showLogin }: { showLogin: boolean }) {
@@ -153,7 +153,7 @@ function MobileEmptyCart({ showLogin }: { showLogin: boolean }) {
     <div className="cart-empty-mobile-state">
       <div className="cart-empty-mobile-image">
         <Image
-          src="/assets/matearte/cart-desktop/empty-cart.png"
+          src="/assets/matearte/cart-desktop/empty-cart.webp"
           alt={t("emptyAlt")}
           fill
           priority
@@ -334,7 +334,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
           priceMinor,
           availableWeb: true,
           category: product.category,
-          imageSrc: variantImage?.src || generalImage?.src || product.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.png",
+          imageSrc: variantImage?.src || generalImage?.src || product.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.webp",
         });
       } else {
         missingUUIDs.push(entry);
@@ -399,7 +399,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
 
             const imageSrc = imagePath
               ? supabase.storage.from("product-images").getPublicUrl(imagePath).data.publicUrl
-              : (localImage || "/assets/matearte/profile-orders-desktop/catalog-fallback.png");
+              : (localImage || "/assets/matearte/profile-orders-desktop/catalog-fallback.webp");
             const normalizedOptions = normalizeCatalogValueMap(optionValues);
             const selectedLabel = formatPurchaseSelectionLabel(defaultCatalogTaxonomy, normalizedOptions);
 
@@ -429,7 +429,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
               wholesaleBasePriceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
               priceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
               availableWeb: false,
-              imageSrc: fallbackP?.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.png",
+              imageSrc: fallbackP?.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.webp",
             });
           }
         }
@@ -448,7 +448,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
             wholesaleBasePriceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
             priceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
             availableWeb: false,
-            imageSrc: fallbackP?.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.png",
+            imageSrc: fallbackP?.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.webp",
           });
         }
       }
@@ -516,7 +516,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
           </div>
         </div>
         <div className="cart-empty-image">
-          <Image src="/assets/matearte/cart-desktop/empty-cart.png" alt={t("emptyAlt")} fill priority sizes="221px" />
+          <Image src="/assets/matearte/cart-desktop/empty-cart.webp" alt={t("emptyAlt")} fill priority sizes="221px" />
         </div>
       </div>
       </>
@@ -671,7 +671,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
       </div>
       <div className="cart-empty-image">
         <Image
-          src="/assets/matearte/cart-desktop/empty-cart.png"
+          src="/assets/matearte/cart-desktop/empty-cart.webp"
           alt={t("emptyAlt")}
           fill
           priority

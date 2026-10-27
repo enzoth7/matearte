@@ -78,9 +78,9 @@ const birthdayDate = (value: string, locale: Locale) =>
 
 function orderThumbnail(item?: OrderItem) {
   if (item?.item_type === "design") {
-    return "/assets/matearte/01-marca/LogoOriginal.jpg";
+    return "/assets/matearte/01-marca/LogoOriginal.webp";
   }
-  return item?.image_url || "/assets/matearte/profile-orders-desktop/catalog-fallback.png";
+  return item?.image_url || "/assets/matearte/profile-orders-desktop/catalog-fallback.webp";
 }
 
 type PersonalCoupon = { id: string; code: string; validUntil: string; designOnly: boolean };
@@ -154,7 +154,7 @@ async function AccountAccessRequired({ authError, redirect: redirectPath }: { au
           <div className="profile-guest-visual">
             <Image
               className="profile-guest-visual-image"
-              src="/assets/matearte/profile-guest-desktop/overlay.png"
+              src="/assets/matearte/profile-guest-desktop/overlay.webp"
               alt={t("guestAlt")}
               fill
               priority
@@ -194,7 +194,7 @@ async function AccountAccessRequired({ authError, redirect: redirectPath }: { au
           <div className="profile-guest-mobile-visual">
             <Image
               className="profile-guest-mobile-visual-image"
-              src="/assets/matearte/profile-guest-desktop/overlay.png"
+              src="/assets/matearte/profile-guest-desktop/overlay.webp"
               alt={t("guestAlt")}
               width={444}
               height={250}
@@ -373,7 +373,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                   {avatarUrl ? (
                     <Image src={avatarUrl} alt={t("avatarAlt", { name: name || firstName })} fill sizes="88px" className="object-cover" priority />
                   ) : (
-                    <Image src="/assets/matearte/profile-empty-desktop/avatar.png" alt="" width={88} height={88} aria-hidden="true" />
+                    <Image src="/assets/matearte/profile-empty-desktop/avatar.webp" alt="" width={88} height={88} aria-hidden="true" />
                   )}
                 </div>
 
@@ -420,7 +420,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                 </div>
                 <div className="profile-empty-orders-image">
                   <Image
-                    src="/assets/matearte/home-v2/history.png"
+                    src="/assets/matearte/home-v2/history.webp"
                     alt={t("historyAlt")}
                     fill
                     sizes="420px"
@@ -437,7 +437,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                 {avatarUrl ? (
                   <Image src={avatarUrl} alt={t("avatarAlt", { name: name || firstName })} fill sizes="72px" className="object-cover" priority />
                 ) : (
-                  <Image src="/assets/matearte/profile-empty-desktop/avatar.png" alt="" width={72} height={72} aria-hidden="true" />
+                  <Image src="/assets/matearte/profile-empty-desktop/avatar.webp" alt="" width={72} height={72} aria-hidden="true" />
                 )}
               </div>
 
@@ -467,7 +467,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               <div className="profile-empty-mobile-card">
                 <div className="profile-empty-mobile-history-image">
                   <Image
-                    src="/assets/matearte/home-v2/history.png"
+                    src="/assets/matearte/home-v2/history.webp"
                     alt={t("historyAlt")}
                     fill
                     sizes="(max-width: 1023px) calc(100vw - 96px), 1px"
@@ -492,7 +492,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                   {avatarUrl ? (
                     <Image src={avatarUrl} alt={t("avatarAlt", { name: name || firstName })} fill sizes="88px" className="object-cover" priority />
                   ) : (
-                    <Image src="/assets/matearte/profile-empty-desktop/avatar.png" alt="" width={88} height={88} aria-hidden="true" />
+                    <Image src="/assets/matearte/profile-empty-desktop/avatar.webp" alt="" width={88} height={88} aria-hidden="true" />
                   )}
                 </div>
 
@@ -596,7 +596,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               {avatarUrl ? (
                 <Image src={avatarUrl} alt={t("avatarAlt", { name: name || firstName })} fill sizes="72px" className="object-cover" priority />
               ) : (
-                <Image src="/assets/matearte/profile-empty-desktop/avatar.png" alt="" width={72} height={72} aria-hidden="true" />
+                <Image src="/assets/matearte/profile-empty-desktop/avatar.webp" alt="" width={72} height={72} aria-hidden="true" />
               )}
             </div>
 

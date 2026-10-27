@@ -55,7 +55,7 @@ test("las imágenes editoriales conservan su nitidez", async ({ page }) => {
   await page.goto("/nosotros");
 
   const brandLogo = page.locator(compact ? ".nosotros-mobile-chapter-image-brand img" : ".nosotros-desktop-media-brand img");
-  await expect(brandLogo).toHaveAttribute("src", "/assets/matearte/01-marca/Logo1254.png");
+  await expect(brandLogo).toHaveAttribute("src", "/assets/matearte/01-marca/Logo1254.webp");
 
   const workshop = page.locator(compact ? ".nosotros-mobile-world > img" : ".nosotros-desktop-world > img");
   await expect(workshop).toHaveCSS("filter", "none");

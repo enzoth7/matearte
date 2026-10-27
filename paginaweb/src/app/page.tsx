@@ -38,17 +38,17 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const categories = [
-  { name: "categoryMates", copy: "categoryMatesCopy", image: "category-mates.png", category: "mates" },
-  { name: "categoryBombillas", copy: "categoryBombillasCopy", image: "category-bombillas.png", category: "bombillas" },
-  { name: "categoryMateras", copy: "categoryMaterasCopy", image: "category-materas.png", category: "materas" },
-  { name: "categoryTermos", copy: "categoryTermosCopy", image: "category-termos.png", category: "termos" },
-  { name: "categoryGifts", copy: "categoryGiftsCopy", image: "category-regalos.png", category: "regalos" },
+  { name: "categoryMates", copy: "categoryMatesCopy", image: "category-mates.webp", category: "mates" },
+  { name: "categoryBombillas", copy: "categoryBombillasCopy", image: "category-bombillas.webp", category: "bombillas" },
+  { name: "categoryMateras", copy: "categoryMaterasCopy", image: "category-materas.webp", category: "materas" },
+  { name: "categoryTermos", copy: "categoryTermosCopy", image: "category-termos.webp", category: "termos" },
+  { name: "categoryGifts", copy: "categoryGiftsCopy", image: "category-regalos.webp", category: "regalos" },
 ] as const;
 
 const champions = [
-  { name: "Darwin Núñez", image: "darwin.png" },
-  { name: "Federico Valverde", image: "valverde.png" },
-  { name: "José M. Giménez", image: "gimenez.png" },
+  { name: "Darwin Núñez", image: "darwin.webp" },
+  { name: "Federico Valverde", image: "valverde.webp" },
+  { name: "José M. Giménez", image: "gimenez.webp" },
 ] as const;
 
 function BandContent({ children, className = "", delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
@@ -78,10 +78,10 @@ export default async function Home() {
           </BandContent>
           <div className="home-craft-gallery">
             <BandContent className="home-image home-craft-image" delay={0.06}>
-              <Image src={`${assets}/craft-hands.png`} alt={t("craftHandsAlt")} fill sizes="(max-width: 768px) 50vw, 28vw" />
+              <Image src={`${assets}/craft-hands.webp`} alt={t("craftHandsAlt")} fill sizes="(max-width: 768px) 50vw, 28vw" />
             </BandContent>
             <BandContent className="home-image home-craft-image" delay={0.12}>
-              <Image src={`${assets}/craft-leather.png`} alt={t("craftLeatherAlt")} fill sizes="(max-width: 768px) 50vw, 28vw" />
+              <Image src={`${assets}/craft-leather.webp`} alt={t("craftLeatherAlt")} fill sizes="(max-width: 768px) 50vw, 28vw" />
             </BandContent>
           </div>
         </div>
@@ -90,7 +90,7 @@ export default async function Home() {
       <section className="home-section home-scroll-band home-history">
         <div className="home-shell home-history-grid">
           <BandContent className="home-image home-history-image">
-            <Image src={`${assets}/history.png`} alt={t("historyAlt")} fill sizes="(max-width: 768px) 100vw, 44vw" />
+            <Image src={`${assets}/history.webp`} alt={t("historyAlt")} fill sizes="(max-width: 768px) 100vw, 44vw" />
           </BandContent>
           <BandContent className="home-history-copy" delay={0.08}>
             <h2 className="home-history-title"><strong>{t("historyYears")}</strong><strong>{t("historyTradition")}</strong><span>{t("historyGeneration")}</span></h2>
@@ -130,7 +130,7 @@ export default async function Home() {
 
       <section className="home-section home-scroll-band home-personalized">
         <div className="home-shell home-personalized-grid">
-          <BandContent className="home-image home-personalized-image"><Image src={`${assets}/personalizados.png`} alt={t("customAlt")} fill sizes="(max-width: 768px) 100vw, 48vw" /></BandContent>
+          <BandContent className="home-image home-personalized-image"><Image src={`${assets}/personalizados.webp`} alt={t("customAlt")} fill sizes="(max-width: 768px) 100vw, 48vw" /></BandContent>
           <BandContent className="home-personalized-copy" delay={0.08}>
             <h2>{t("customTitle")}</h2>
             <p>{t("customBody")}</p>
@@ -159,7 +159,7 @@ export default async function Home() {
 
       <section className="home-section home-scroll-band home-imperial">
         <div className="home-shell home-imperial-grid">
-          <BandContent className="home-image home-imperial-image"><Image src={`${assets}/mate-imperial.png`} alt={t("imperialAlt")} fill sizes="(max-width: 768px) 100vw, 42vw" /></BandContent>
+          <BandContent className="home-image home-imperial-image"><Image src={`${assets}/mate-imperial.webp`} alt={t("imperialAlt")} fill sizes="(max-width: 768px) 100vw, 42vw" /></BandContent>
           <BandContent className="home-imperial-copy" delay={0.08}>
             <h2>{t("imperialTitle")}</h2>
             <h3>{t("imperialSubtitle")}</h3>
@@ -174,15 +174,15 @@ export default async function Home() {
           <BandContent className="home-culture-copy">
             <h2><span>{t("cultureLine1")}</span><span>{t("cultureLine2")}</span></h2>
             <p>{t("cultureBody")}</p>
-            <Image src={`${assets}/uruguay.png`} alt={t("countryAlt")} width={392} height={180} className="home-country-logo" />
+            <Image src={`${assets}/uruguay.webp`} alt={t("countryAlt")} width={392} height={180} className="home-country-logo" />
           </BandContent>
-          <BandContent className="home-image home-culture-image" delay={0.08}><Image src={`${assets}/culture.png`} alt={t("cultureAlt")} fill sizes="(max-width: 768px) 100vw, 43vw" /></BandContent>
+          <BandContent className="home-image home-culture-image" delay={0.08}><Image src={`${assets}/culture.webp`} alt={t("cultureAlt")} fill sizes="(max-width: 768px) 100vw, 43vw" /></BandContent>
         </div>
       </section>
 
       <section className="home-section home-scroll-band home-visit">
         <div className="home-shell home-visit-grid">
-          <BandContent className="home-image home-visit-image"><Image src={`${assets}/store.png`} alt={t("storeAlt")} fill sizes="(max-width: 768px) 100vw, 44vw" /></BandContent>
+          <BandContent className="home-image home-visit-image"><Image src={`${assets}/store.webp`} alt={t("storeAlt")} fill sizes="(max-width: 768px) 100vw, 44vw" /></BandContent>
           <BandContent className="home-visit-copy" delay={0.08}>
             <h2>{t("visitTitle")}</h2>
             <p>25 de Mayo 1734 · <span className="home-address-place">Paysandú, Uruguay</span></p>

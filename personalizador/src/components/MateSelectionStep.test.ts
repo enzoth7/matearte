@@ -17,16 +17,16 @@ describe("precio de las opciones del mate", () => {
 describe("imágenes del selector de tamaños", () => {
   it("usa los mates Torpedo nuevos para el Torpedo común", () => {
     expect(getMateSizePreviewImage({ familyId: "torpedo" }, "chico").src)
-      .toBe("/assets2/personalizacion/tamanostorpedo/torpedo-chico.png");
+      .toBe("/assets/personalizacion/tamanostorpedo/torpedo-chico.webp");
   });
 
   it("usa los mates Torpedo nuevos para el Torpedo criollo", () => {
     expect(getMateSizePreviewImage({ familyId: "criollo", textureId: "torpedo-criollo-posa-mate" }, "grande").src)
-      .toBe("/assets2/personalizacion/tamanostorpedo/torpedo-grande.png");
+      .toBe("/assets/personalizacion/tamanostorpedo/torpedo-grande.webp");
   });
 
   it("conserva las imágenes actuales para los demás modelos", () => {
     expect(getMateSizePreviewImage({ familyId: "imperial" }, "medio").src)
-      .toBe("/assets2/personalizacion/tamanos/boca-medio.png");
+      .toBe("/assets/personalizacion/tamanos/boca-medio.webp");
   });
 });

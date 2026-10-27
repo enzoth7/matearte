@@ -16,21 +16,21 @@ import { catalogCoverStyle } from "@/lib/catalog-cover";
 const assetRoot = "/assets/matearte/catalog-mobile";
 
 const productPresentation: Record<string, string> = {
-  "mate-imperial": "product-00.png",
-  "imperial-animal-print": "product-01.png",
-  "criollo-posa-mate": "product-02.png",
-  "bombilla-acero-desarmable": "product-03.png",
-  "matera-colgar-cuero": "product-04.png",
-  "termo-stanley-800": "product-05.png",
-  "set-premium": "product-06.png",
-  "camionero-acero": "product-07.png",
-  "mate-torpedo": "product-08.png",
-  "bombilla-alpaca-pico-loro": "product-09.png",
-  "matera-cuadrada-cuero": "product-10.png",
-  "matera-ovalada-cuero": "product-11.png",
-  "termo-stanley-12": "product-12.png",
-  "termo-termolar-1l": "product-13.png",
-  "box-matero": "product-14.png",
+  "mate-imperial": "product-00.webp",
+  "imperial-animal-print": "product-01.webp",
+  "criollo-posa-mate": "product-02.webp",
+  "bombilla-acero-desarmable": "product-03.webp",
+  "matera-colgar-cuero": "product-04.webp",
+  "termo-stanley-800": "product-05.webp",
+  "set-premium": "product-06.webp",
+  "camionero-acero": "product-07.webp",
+  "mate-torpedo": "product-08.webp",
+  "bombilla-alpaca-pico-loro": "product-09.webp",
+  "matera-cuadrada-cuero": "product-10.webp",
+  "matera-ovalada-cuero": "product-11.webp",
+  "termo-stanley-12": "product-12.webp",
+  "termo-termolar-1l": "product-13.webp",
+  "box-matero": "product-14.webp",
 };
 
 type MobileCardProps = {
@@ -163,7 +163,7 @@ export function CatalogMobile({ products, exchangeRates, pageCategory, heading, 
   return (
     <>
       <section className="catalog-mobile-hero">
-        <Image className="catalog-mobile-hero-image" src={`${assetRoot}/hero.png`} alt={t("heroAlt")} width={1672} height={941} sizes="995px" priority />
+        <Image className="catalog-mobile-hero-image" src={`${assetRoot}/hero.webp`} alt={t("heroAlt")} width={1672} height={941} sizes="995px" priority />
         <div className="catalog-mobile-hero-overlay" aria-hidden="true" />
         <div className="catalog-mobile-hero-content">
           <h1>{heading ?? t("heroTitle")}</h1>
@@ -258,7 +258,7 @@ export function CatalogMobile({ products, exchangeRates, pageCategory, heading, 
       <section className="catalog-mobile-personalize">
         <div className="catalog-mobile-personalize-card">
           <div className="catalog-mobile-personalize-image">
-            <Image src={`${assetRoot}/cta.png`} alt={t("customAlt")} fill sizes="310px" />
+            <Image src={`${assetRoot}/cta.webp`} alt={t("customAlt")} fill sizes="310px" />
           </div>
           <h2>{t("customTitle")}</h2>
           <p>{t("customBody")}</p>

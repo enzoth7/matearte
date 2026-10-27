@@ -17,7 +17,7 @@ export default function RuralPage() {
       <section className={styles.shell}>
         <div className={styles.visual}>
           <Image
-            src="/assets/matearte/home-v2/mate-imperial.png"
+            src="/assets/matearte/home-v2/mate-imperial.webp"
             alt="Mate artesanal de MateArte"
             fill
             priority

@@ -14,7 +14,7 @@ export function PersonalizerIntroStep({ onStart }: PersonalizerIntroStepProps) {
         </div>
         <figure className="brand-intro__media">
           <img
-            src="/assets/personalizador/bienvenida-mates.png"
+            src="/assets/personalizador/bienvenida-mates.webp"
             alt="Selección de mates artesanales de MateArte"
             width="1346"
             height="1560"

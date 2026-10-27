@@ -1,7 +1,7 @@
 import type { Product, ProductVariant } from "@/types/catalog";
 
 const BRAND = "MateArte";
-const FALLBACK_PRODUCT_IMAGE = "/assets/matearte/01-marca/LogoOriginal-4k.png";
+const FALLBACK_PRODUCT_IMAGE = "/assets/matearte/01-marca/LogoOriginal-4k.webp";
 
 // Packaged-weight fallbacks for products whose catalog variant does not yet have a measured weight.
 // Real variant weights always take precedence. Values intentionally round up to avoid understating

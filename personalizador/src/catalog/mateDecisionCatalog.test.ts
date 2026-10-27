@@ -48,7 +48,7 @@ describe("árbol declarativo de mates", () => {
       expect(texture?.colors).toEqual(expect.arrayContaining([
         expect.objectContaining({ id: "blanco", label: "Blanco" }),
       ]));
-      expect(texture?.colorPreviewImages?.blanco).toMatch(/\/blanco\.png$/);
+      expect(texture?.colorPreviewImages?.blanco).toMatch(/\/blanco\.webp$/);
     }
   });
 
@@ -269,7 +269,7 @@ describe("compatibilidad y assets del catálogo", () => {
       const entry = mateAssetCatalog[variant.id];
       expect(entry, `Falta manifiesto para ${variant.id}`).toBeDefined();
       expect(variant.image).toBe(entry.src);
-      expect(entry.src).toMatch(/^\/assets2\/mates\//);
+      expect(entry.src).toMatch(/^\/assets\/mates\//);
       const physicalPath = join(process.cwd(), "public", entry.src.replace(/^\//, ""));
       expect(existsSync(physicalPath), `Falta archivo ${physicalPath}`).toBe(true);
     }
@@ -282,27 +282,29 @@ describe("compatibilidad y assets del catálogo", () => {
 
     expect(previewImages.length).toBeGreaterThan(0);
     for (const src of previewImages) {
-      expect(src).toMatch(/^\/assets2\/mates\//);
+      expect(src).toMatch(/^\/assets\/mates\//);
       const physicalPath = join(process.cwd(), "public", src.replace(/^\//, ""));
       expect(existsSync(physicalPath), `Falta archivo ${physicalPath}`).toBe(true);
     }
   });
 
-  it("usa nueve PNG Criollo verticales de 1024 por 1536", () => {
+  it("usa nueve WebP Criollo verticales de 1024 por 1536", () => {
     const criollo = getMateFamily("criollo")!;
     const previewImages = criollo.textures.flatMap((texture) => Object.values(texture.colorPreviewImages ?? {}));
 
     expect(new Set(previewImages).size).toBe(9);
     for (const src of previewImages) {
-      expect(src).toMatch(/^\/assets2\/mates\/criollo\/.+\.png$/);
+      expect(src).toMatch(/^\/assets\/mates\/criollo\/.+\.webp$/);
       const physicalPath = join(process.cwd(), "public", src.replace(/^\//, ""));
-      const png = readFileSync(physicalPath);
-      expect(png.readUInt32BE(16), src).toBe(1024);
-      expect(png.readUInt32BE(20), src).toBe(1536);
+      const webp = readFileSync(physicalPath);
+      expect(webp.toString("ascii", 0, 4), src).toBe("RIFF");
+      expect(webp.toString("ascii", 8, 16), src).toBe("WEBPVP8 ");
+      expect(webp.readUInt16LE(26) & 0x3fff, src).toBe(1024);
+      expect(webp.readUInt16LE(28) & 0x3fff, src).toBe(1536);
     }
   });
 
-  it("usa las piezas reales de assets2 para cada preview de alpaca", () => {
+  it("usa las piezas reales de assets para cada preview de alpaca", () => {
     const metalPreviewImages = [...new Set(
       mateDecisionCatalog.flatMap((family) =>
         family.textures.flatMap((texture) =>
@@ -313,14 +315,14 @@ describe("compatibilidad y assets del catálogo", () => {
 
     expect(metalPreviewImages).toHaveLength(5);
     for (const src of metalPreviewImages) {
-      expect(src).toMatch(/^\/assets2\/personalizacion\/alpaca\//);
+      expect(src).toMatch(/^\/assets\/personalizacion\/alpaca\//);
       const physicalPath = join(process.cwd(), "public", src.replace(/^\//, ""));
       expect(existsSync(physicalPath), `Falta archivo ${physicalPath}`).toBe(true);
     }
   });
 
-  it("no conserva referencias activas al catálogo ilustrado de mates", () => {
-    const legacyRoot = ["/assets", "mates/"].join("/");
+  it("no conserva referencias activas a la carpeta assets2", () => {
+    const legacyRoot = ["/assets2", ""].join("/");
     const sourceFiles = globSync("src/**/*.{ts,tsx}", { cwd: process.cwd() })
       .filter((file) => !file.includes(".test."));
     const legacyReferences = sourceFiles.filter((file) =>
@@ -347,7 +349,7 @@ describe("compatibilidad y assets del catálogo", () => {
     ]);
 
     for (const entry of Object.values(flejeEngravingTechniqueAssetManifest)) {
-      expect(entry.src).toMatch(/^\/assets2\/personalizacion\/grabadofleje\//);
+      expect(entry.src).toMatch(/^\/assets\/personalizacion\/grabadofleje\//);
       expect(entry.usage).toBe("owned-product-reference");
       const option = engravingTypeOptions.find((item) => item.id === entry.id);
       expect(option?.flejeImage).toBe(entry.src);
@@ -363,7 +365,7 @@ describe("compatibilidad y assets del catálogo", () => {
     ]);
 
     for (const entry of Object.values(torpedoVirolaEngravingTechniqueAssetManifest)) {
-      expect(entry.src).toMatch(/^\/assets2\/personalizacion\/grabadovirola-torpedo\//);
+      expect(entry.src).toMatch(/^\/assets\/personalizacion\/grabadovirola-torpedo\//);
       expect(entry.usage).toBe("owned-product-reference");
       const option = engravingTypeOptions.find((item) => item.id === entry.id);
       expect(option?.torpedoImage).toBe(entry.src);

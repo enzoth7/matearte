@@ -31,7 +31,7 @@ export const appliqueRimFinishCatalog: RimFinish[] = [
   {
     id: "applique-finish-espirales",
     name: "Espirales",
-    image: "/assets2/personalizacion/viroladeapliques/apliques-01-espirales.webp",
+    image: "/assets/personalizacion/viroladeapliques/apliques-01-espirales.webp",
     width: 1093,
     height: 1093,
     textKnockoutScale: 0.25,
@@ -39,7 +39,7 @@ export const appliqueRimFinishCatalog: RimFinish[] = [
   {
     id: "applique-finish-triangulos",
     name: "Triángulos",
-    image: "/assets2/personalizacion/viroladeapliques/apliques-02-triangulos.webp",
+    image: "/assets/personalizacion/viroladeapliques/apliques-02-triangulos.webp",
     width: 1093,
     height: 1093,
     textKnockoutScale: 0.25,
@@ -47,7 +47,7 @@ export const appliqueRimFinishCatalog: RimFinish[] = [
   {
     id: "applique-finish-escamas",
     name: "Escamas",
-    image: "/assets2/personalizacion/viroladeapliques/apliques-03-escamas.webp",
+    image: "/assets/personalizacion/viroladeapliques/apliques-03-escamas.webp",
     width: 1093,
     height: 1093,
     textKnockoutScale: 0.25,
@@ -55,7 +55,7 @@ export const appliqueRimFinishCatalog: RimFinish[] = [
   {
     id: "applique-finish-coronas",
     name: "Coronas",
-    image: "/assets2/personalizacion/viroladeapliques/apliques-04-coronas.webp",
+    image: "/assets/personalizacion/viroladeapliques/apliques-04-coronas.webp",
     width: 1093,
     height: 1093,
     textKnockoutScale: 0.25,

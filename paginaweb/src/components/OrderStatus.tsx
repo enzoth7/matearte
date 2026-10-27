@@ -64,8 +64,8 @@ function itemCopy(item: OrderItem, locale: Locale, labels: { custom: string; cat
 }
 
 function itemImage(item: OrderItem) {
-  if (item.item_type === "design") return "/assets/matearte/profile-orders-desktop/design-fallback.png";
-  return item.image_url || "/assets/matearte/profile-orders-desktop/catalog-fallback.png";
+  if (item.item_type === "design") return "/assets/matearte/profile-orders-desktop/design-fallback.webp";
+  return item.image_url || "/assets/matearte/profile-orders-desktop/catalog-fallback.webp";
 }
 
 function shippingAddress(order: OrderValue, pickup: string, toConfirm: string) {

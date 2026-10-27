@@ -44,7 +44,7 @@ La disponibilidad comercial depende de `NEXT_PUBLIC_COMMERCE_ENABLED`, `NEXT_PUB
 
 ## Variables de entorno
 
-Partir de `.env.example`. Las principales variables públicas son:
+La configuración local se guarda solo en `paginaweb/.env`, excluido de Git. Las principales variables públicas son:
 
 - `NEXT_PUBLIC_SITE_URL`: URL canónica; en producción, `https://www.matearteuruguay.com`.
 - `NEXT_PUBLIC_PERSONALIZER_URL`: URL del personalizador.
@@ -70,7 +70,6 @@ Requisitos: Node.js 20 o superior y npm.
 
 ```bash
 npm install
-copy .env.example .env.local
 npm run dev
 ```
 
@@ -91,4 +90,4 @@ npm run build
 
 El proyecto genera metadatos, canonical, `hreflang`, sitemap, robots y manifest. Carrito, checkout, perfil, pedidos y políticas comerciales mantienen sus propias reglas de indexación.
 
-Los recursos editoriales están en `public/assets/matearte`. Su procedencia y restricciones se documentan en `public/assets/matearte/README.md`. Las imágenes de personas, publicaciones sociales, escudos, marcas de terceros y recursos de Uruguay Natural deben contar con autorización antes de su uso público.
+Los recursos editoriales utilizados por la aplicación están en `public/assets/matearte`. Su procedencia y restricciones se documentan fuera de la aplicación, en `../assets/marca-matearte/procedencia-recursos.md`. Las imágenes de personas, publicaciones sociales, escudos, marcas de terceros y recursos de Uruguay Natural deben contar con autorización antes de su uso público.

@@ -42,7 +42,7 @@ export default async function CategoryPage({ params }: Params) {
       <JsonLd data={buildCategoryStructuredData(locale, categoria, categoryProducts, copy.heading, copy.intro, t("metadataTitle"), "MateArte")} />
       <div className="catalog-desktop-view">
         <section className="catalog-hero">
-          <Image src="/assets/matearte/catalog-desktop/hero.png" alt={t("heroAlt")} fill sizes="100vw" priority />
+          <Image src="/assets/matearte/catalog-desktop/hero.webp" alt={t("heroAlt")} fill sizes="100vw" priority />
           <div className="catalog-hero-overlay" />
           <div className="catalog-hero-content">
             <h1>{copy.heading}</h1>

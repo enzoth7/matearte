@@ -651,7 +651,7 @@ export function CheckoutForm({
             >
               {!isInternational && !busy && (
                 <Image
-                  src="/assets/matearte/01-marca/mercado-pago.png"
+                  src="/assets/matearte/01-marca/mercado-pago.webp"
                   alt=""
                   width={28}
                   height={20}
@@ -661,7 +661,7 @@ export function CheckoutForm({
               )}
               {isInternational && !busy && (
                 <Image
-                  src="/assets/matearte/PayPal.png"
+                  src="/assets/matearte/PayPal.webp"
                   alt=""
                   width={20}
                   height={20}

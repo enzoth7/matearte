@@ -18,7 +18,7 @@ const mobileChapters = [
     title: "originTitle",
     year: "originYear",
     body: "originBody",
-    image: "/assets/matearte/nosotros-desktop/origen.png",
+    image: "/assets/matearte/nosotros-desktop/origen.webp",
     imageClass: "nosotros-mobile-chapter-image-origin",
     alt: "originAlt",
   },
@@ -26,7 +26,7 @@ const mobileChapters = [
     title: "riverTitle",
     year: "riverYear",
     body: "riverBody",
-    image: "/assets/matearte/nosotros-desktop/dos-orillas.png",
+    image: "/assets/matearte/nosotros-desktop/dos-orillas.webp",
     imageClass: "nosotros-mobile-chapter-image-river",
     alt: "riverAlt",
   },
@@ -34,7 +34,7 @@ const mobileChapters = [
     title: "brandTitle",
     year: "brandYear",
     body: "brandBody",
-    image: "/assets/matearte/01-marca/Logo1254.png",
+    image: "/assets/matearte/01-marca/Logo1254.webp",
     imageClass: "nosotros-mobile-chapter-image-brand",
     alt: "brandAlt",
   },
@@ -60,7 +60,7 @@ export default async function NosotrosPage() {
           <div className="nosotros-desktop-reveal">
             <article className="nosotros-desktop-chapter">
               <div className="nosotros-desktop-media nosotros-desktop-media-origin">
-                <Image src="/assets/matearte/nosotros-desktop/origen.png" alt={t("originAlt")} fill sizes="(min-width: 1024px) 45vw, 100vw" />
+                <Image src="/assets/matearte/nosotros-desktop/origen.webp" alt={t("originAlt")} fill sizes="(min-width: 1024px) 45vw, 100vw" />
               </div>
               <div className="nosotros-desktop-chapter-copy">
                 <h3>{t("originTitle")}</h3>
@@ -78,7 +78,7 @@ export default async function NosotrosPage() {
                 <p>{t("riverBody")}</p>
               </div>
               <div className="nosotros-desktop-media nosotros-desktop-media-river">
-                <Image src="/assets/matearte/nosotros-desktop/dos-orillas.png" alt={t("riverAlt")} fill sizes="(min-width: 1024px) 45vw, 100vw" />
+                <Image src="/assets/matearte/nosotros-desktop/dos-orillas.webp" alt={t("riverAlt")} fill sizes="(min-width: 1024px) 45vw, 100vw" />
               </div>
             </article>
           </div>
@@ -86,7 +86,7 @@ export default async function NosotrosPage() {
           <div className="nosotros-desktop-reveal">
             <article className="nosotros-desktop-chapter">
               <div className="nosotros-desktop-media nosotros-desktop-media-brand">
-                <Image src="/assets/matearte/01-marca/Logo1254.png" alt={t("brandAlt")} fill sizes="(min-width: 1024px) 45vw, 100vw" unoptimized />
+                <Image src="/assets/matearte/01-marca/Logo1254.webp" alt={t("brandAlt")} fill sizes="(min-width: 1024px) 45vw, 100vw" unoptimized />
               </div>
               <div className="nosotros-desktop-chapter-copy">
                 <h3>{t("brandTitle")}</h3>
@@ -98,7 +98,7 @@ export default async function NosotrosPage() {
 
           <div className="nosotros-desktop-reveal">
             <article className="nosotros-desktop-world">
-              <Image src="/assets/matearte/nosotros-desktop/paysandu-mundo.png" alt={t("worldAlt")} fill sizes="(min-width: 1024px) 87vw, 100vw" quality={95} />
+              <Image src="/assets/matearte/nosotros-desktop/paysandu-mundo.webp" alt={t("worldAlt")} fill sizes="(min-width: 1024px) 87vw, 100vw" quality={95} />
               <div className="nosotros-desktop-world-overlay" aria-hidden="true" />
               <div className="nosotros-desktop-world-copy">
                 <h3><span>{t("worldLine1")}</span><span>{t("worldLine2")}</span></h3>
@@ -132,7 +132,7 @@ export default async function NosotrosPage() {
                   alt={t(chapter.alt)}
                   fill
                   sizes="(max-width: 1023px) calc(100vw - 48px), 342px"
-                  unoptimized={chapter.image.endsWith("Logo1254.png")}
+                  unoptimized={chapter.image.endsWith("Logo1254.webp")}
                 />
               </div>
               <div className="nosotros-mobile-chapter-copy">
@@ -144,7 +144,7 @@ export default async function NosotrosPage() {
           ))}
 
           <article className="nosotros-mobile-world">
-            <Image src="/assets/matearte/nosotros-desktop/paysandu-mundo.png" alt={t("worldAlt")} fill sizes="(max-width: 1023px) calc(100vw - 48px), 342px" quality={95} />
+            <Image src="/assets/matearte/nosotros-desktop/paysandu-mundo.webp" alt={t("worldAlt")} fill sizes="(max-width: 1023px) calc(100vw - 48px), 342px" quality={95} />
             <div className="nosotros-mobile-world-overlay" aria-hidden="true" />
             <div className="nosotros-mobile-world-copy">
               <h3>{t("worldTitle")}</h3>

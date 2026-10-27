@@ -15,22 +15,22 @@ const catalogAssetRoot = "/assets/matearte/catalog-desktop";
 const productAssetRoot = "/assets/matearte/product-desktop";
 
 const productImages: Record<string, string> = {
-  "mate-imperial": `${catalogAssetRoot}/product-00.png`,
-  "imperial-animal-print": `${productAssetRoot}/imperial-animal-print.png`,
-  "criollo-posa-mate": `${catalogAssetRoot}/product-02.png`,
-  "bombilla-acero-desarmable": `${catalogAssetRoot}/product-03.png`,
-  "matera-colgar-cuero": `${catalogAssetRoot}/product-04.png`,
-  "termo-stanley-800": `${catalogAssetRoot}/product-05.png`,
-  "set-premium": `${catalogAssetRoot}/product-06.png`,
-  "camionero-acero": `${catalogAssetRoot}/product-07.png`,
-  "mate-torpedo": `${catalogAssetRoot}/product-08.png`,
-  "bombilla-alpaca-pico-loro": `${catalogAssetRoot}/product-09.png`,
-  "limpia-bombillas": `${catalogAssetRoot}/product-09.png`,
-  "matera-cuadrada-cuero": `${catalogAssetRoot}/product-10.png`,
-  "matera-ovalada-cuero": `${catalogAssetRoot}/product-11.png`,
-  "termo-stanley-12": `${catalogAssetRoot}/product-12.png`,
-  "termo-termolar-1l": `${catalogAssetRoot}/product-13.png`,
-  "box-matero": `${catalogAssetRoot}/background-14.png`,
+  "mate-imperial": `${catalogAssetRoot}/product-00.webp`,
+  "imperial-animal-print": `${productAssetRoot}/imperial-animal-print.webp`,
+  "criollo-posa-mate": `${catalogAssetRoot}/product-02.webp`,
+  "bombilla-acero-desarmable": `${catalogAssetRoot}/product-03.webp`,
+  "matera-colgar-cuero": `${catalogAssetRoot}/product-04.webp`,
+  "termo-stanley-800": `${catalogAssetRoot}/product-05.webp`,
+  "set-premium": `${catalogAssetRoot}/product-06.webp`,
+  "camionero-acero": `${catalogAssetRoot}/product-07.webp`,
+  "mate-torpedo": `${catalogAssetRoot}/product-08.webp`,
+  "bombilla-alpaca-pico-loro": `${catalogAssetRoot}/product-09.webp`,
+  "limpia-bombillas": `${catalogAssetRoot}/product-09.webp`,
+  "matera-cuadrada-cuero": `${catalogAssetRoot}/product-10.webp`,
+  "matera-ovalada-cuero": `${catalogAssetRoot}/product-11.webp`,
+  "termo-stanley-12": `${catalogAssetRoot}/product-12.webp`,
+  "termo-termolar-1l": `${catalogAssetRoot}/product-13.webp`,
+  "box-matero": `${catalogAssetRoot}/background-14.webp`,
 };
 
 type CommerceVariant = {

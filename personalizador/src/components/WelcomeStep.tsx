@@ -23,7 +23,7 @@ export function WelcomeStep({ onBack }: { onBack?: () => void }) {
     <main id="main-content" className="access-page">
       <div className="access-layout">
         <section className="access-story" aria-labelledby="access-story-title">
-          <img src="/assets/acceso/historia-visual.png" alt="Mate, matera y accesorios artesanales de MateArte" />
+          <img src="/assets/acceso/historia-visual.webp" alt="Mate, matera y accesorios artesanales de MateArte" />
           <div className="access-story__overlay" />
           <div className="access-story__copy">
             <h1 id="access-story-title">Todo lo tuyo,<br />siempre a mano.</h1>

@@ -1,3 +1,0 @@
-import { getEngravingCapabilities } from "./src/catalog/mateDecisionCatalog.ts";
-
-console.log(getEngravingCapabilities("criollo", "camionero-criollo-posa-mate"));

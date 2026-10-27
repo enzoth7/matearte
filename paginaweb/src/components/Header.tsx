@@ -170,7 +170,7 @@ export function Header() {
       <header ref={headerRef} className="home-header">
         <div className="home-header-inner">
           <Link className="home-header-brand" href="/" aria-label={t("homeLabel")}>
-            <Image src="/assets/matearte/home-v2/logo.png" alt="" width={48} height={48} priority />
+            <Image src="/assets/matearte/home-v2/logo.webp" alt="" width={48} height={48} priority />
             <span><strong>MateArte</strong><small>{t("tagline")}</small></span>
           </Link>
           <nav className="home-header-nav home-header-navigation" aria-label={t("primaryNav")}>

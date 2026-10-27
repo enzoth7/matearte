@@ -7,6 +7,10 @@
   ],
   "rewrites": [
     {
+      "source": "/assets2/:path*",
+      "destination": "/assets/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

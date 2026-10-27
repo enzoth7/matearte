@@ -32,7 +32,7 @@ export default async function ContactoPage() {
           </div>
           <div className="contact-desktop-hero-image">
             <Image
-              src="/assets/matearte/contact-desktop/local.jpg"
+              src="/assets/matearte/contact-desktop/local.webp"
               alt={t("storeAlt")}
               fill
               priority
@@ -48,7 +48,7 @@ export default async function ContactoPage() {
               <span>25 de Mayo 1734,<br />Paysandú, Uruguay</span>
             </a>
             <a href={whatsappUrl} target="_blank" rel="noreferrer" className="contact-desktop-channel-card">
-              <Image className="contact-desktop-channel-icon" src="/assets/matearte/contact-desktop/whatsapp.png" alt="" width={52} height={52} aria-hidden="true" />
+              <Image className="contact-desktop-channel-icon" src="/assets/matearte/contact-desktop/whatsapp.webp" alt="" width={52} height={52} aria-hidden="true" />
               <span>{es.contact.phoneDisplay}</span>
             </a>
             <a href={`mailto:${es.contact.email}`} className="contact-desktop-channel-card contact-desktop-channel-email">
@@ -65,7 +65,7 @@ export default async function ContactoPage() {
         <section className="contact-desktop-location">
           <div className="contact-desktop-map">
             <Image
-              src="/assets/matearte/contact-desktop/map.png"
+              src="/assets/matearte/contact-desktop/map.webp"
               alt={t("mapAlt")}
               fill
               sizes="50vw"
@@ -92,7 +92,7 @@ export default async function ContactoPage() {
           </div>
           <div className="contact-mobile-hero-image">
             <Image
-              src="/assets/matearte/contact-desktop/local.jpg"
+              src="/assets/matearte/contact-desktop/local.webp"
               alt={t("storeAlt")}
               fill
               priority
@@ -107,7 +107,7 @@ export default async function ContactoPage() {
             <span>25 de Mayo 1734, Paysandú, Uruguay</span>
           </a>
           <a href={whatsappUrl} target="_blank" rel="noreferrer" className="contact-mobile-channel-card">
-            <Image className="contact-mobile-channel-icon" src="/assets/matearte/contact-desktop/whatsapp.png" alt="" width={52} height={52} aria-hidden="true" />
+            <Image className="contact-mobile-channel-icon" src="/assets/matearte/contact-desktop/whatsapp.webp" alt="" width={52} height={52} aria-hidden="true" />
             <span>{es.contact.phoneDisplay}</span>
           </a>
           <a href={`mailto:${es.contact.email}`} className="contact-mobile-channel-card contact-mobile-channel-email">
@@ -123,7 +123,7 @@ export default async function ContactoPage() {
         <section className="contact-mobile-location">
           <div className="contact-mobile-map">
             <Image
-              src="/assets/matearte/contact-desktop/map.png"
+              src="/assets/matearte/contact-desktop/map.webp"
               alt={t("mapAlt")}
               fill
               priority

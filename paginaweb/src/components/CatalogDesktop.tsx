@@ -23,21 +23,21 @@ type ProductPresentation = {
 };
 
 const productPresentation: Record<string, ProductPresentation> = {
-  "mate-imperial": { image: "product-00.png" },
-  "imperial-animal-print": { image: "product-01.png", imageClass: "catalog-product-image-animal" },
-  "criollo-posa-mate": { image: "product-02.png" },
-  "bombilla-acero-desarmable": { image: "product-03.png" },
-  "matera-colgar-cuero": { image: "product-04.png" },
-  "termo-stanley-800": { image: "product-05.png" },
-  "set-premium": { image: "product-06.png", background: "background-06.png" },
-  "camionero-acero": { image: "product-07.png", background: "background-07.png", imageClass: "catalog-product-image-wide" },
-  "mate-torpedo": { image: "product-08.png", background: "background-08.png", imageClass: "catalog-product-image-torpedo" },
-  "bombilla-alpaca-pico-loro": { image: "product-09.png", background: "background-09.png" },
-  "matera-cuadrada-cuero": { image: "product-10.png", background: "background-10.png", imageClass: "catalog-product-image-wide" },
-  "matera-ovalada-cuero": { image: "product-11.png", background: "background-11.png", imageClass: "catalog-product-image-oval" },
-  "termo-stanley-12": { image: "product-12.png", background: "background-12.png" },
-  "termo-termolar-1l": { image: "product-13.png", background: "background-13.png" },
-  "box-matero": { image: "product-09.png", background: "background-14.png" },
+  "mate-imperial": { image: "product-00.webp" },
+  "imperial-animal-print": { image: "product-01.webp", imageClass: "catalog-product-image-animal" },
+  "criollo-posa-mate": { image: "product-02.webp" },
+  "bombilla-acero-desarmable": { image: "product-03.webp" },
+  "matera-colgar-cuero": { image: "product-04.webp" },
+  "termo-stanley-800": { image: "product-05.webp" },
+  "set-premium": { image: "product-06.webp", background: "background-06.webp" },
+  "camionero-acero": { image: "product-07.webp", background: "background-07.webp", imageClass: "catalog-product-image-wide" },
+  "mate-torpedo": { image: "product-08.webp", background: "background-08.webp", imageClass: "catalog-product-image-torpedo" },
+  "bombilla-alpaca-pico-loro": { image: "product-09.webp", background: "background-09.webp" },
+  "matera-cuadrada-cuero": { image: "product-10.webp", background: "background-10.webp", imageClass: "catalog-product-image-wide" },
+  "matera-ovalada-cuero": { image: "product-11.webp", background: "background-11.webp", imageClass: "catalog-product-image-oval" },
+  "termo-stanley-12": { image: "product-12.webp", background: "background-12.webp" },
+  "termo-termolar-1l": { image: "product-13.webp", background: "background-13.webp" },
+  "box-matero": { image: "product-09.webp", background: "background-14.webp" },
 };
 
 type DesktopCardProps = {
@@ -241,7 +241,7 @@ export function CatalogDesktop({ products, exchangeRates, pageCategory }: { prod
           <Link href="/personalizados">{t("customAction")}</Link>
         </div>
         <div className="catalog-personalize-image">
-          <Image src={`${assetRoot}/cta.png`} alt={t("customAlt")} fill sizes="356px" />
+          <Image src={`${assetRoot}/cta.webp`} alt={t("customAlt")} fill sizes="356px" />
         </div>
       </aside>
     </div>

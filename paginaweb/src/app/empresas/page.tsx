@@ -12,12 +12,12 @@ const companyAssets = "/assets/matearte/companies";
 const giftAssets = "/assets/matearte/regalos-empresariales";
 
 const companies = [
-  { name: "Nicolini", image: "Nicolini.png", slug: "nicolini", width: 720, height: 720 },
-  { name: "Grupo Bidart", image: "GrupoBidart.png", slug: "grupo-bidart", width: 1024, height: 310 },
-  { name: "Publiled", image: "Publiled.png", slug: "publiled", width: 720, height: 720 },
-  { name: "Nutex", image: "Nutex.png", slug: "nutex", width: 1263, height: 452 },
-  { name: "Ponsse", image: "Ponsse.png", slug: "ponsse", width: 320, height: 320 },
-  { name: "Grido Fray Bentos", image: "GridoFrayBentos.png", slug: "grido", width: 720, height: 720 },
+  { name: "Nicolini", image: "Nicolini.webp", slug: "nicolini", width: 720, height: 720 },
+  { name: "Grupo Bidart", image: "GrupoBidart.webp", slug: "grupo-bidart", width: 1024, height: 310 },
+  { name: "Publiled", image: "Publiled.webp", slug: "publiled", width: 720, height: 720 },
+  { name: "Nutex", image: "Nutex.webp", slug: "nutex", width: 1263, height: 452 },
+  { name: "Ponsse", image: "Ponsse.webp", slug: "ponsse", width: 320, height: 320 },
+  { name: "Grido Fray Bentos", image: "GridoFrayBentos.webp", slug: "grido", width: 720, height: 720 },
 ] as const;
 
 const mobileRows = [companies.slice(0, 3), companies.slice(3)] as const;
@@ -109,7 +109,7 @@ export default async function EmpresasPage() {
             <Link className={styles.button} href="/contacto">{t("heroAction")}</Link>
           </div>
           <div className={styles.heroImage} data-enterprise-reveal="scale" data-enterprise-intro data-enterprise-delay="2">
-            <Image src={`${giftAssets}/Grido.jpeg`} alt={t("heroAlt")} fill priority sizes="(max-width: 1023px) calc(100vw - 48px), 576px" />
+            <Image src={`${giftAssets}/Grido.webp`} alt={t("heroAlt")} fill priority sizes="(max-width: 1023px) calc(100vw - 48px), 576px" />
           </div>
         </div>
         <LogoCarousel items={companies} label={t("logoCarouselLabel")} className={styles.desktopLogos} intro />
@@ -127,10 +127,10 @@ export default async function EmpresasPage() {
           </div>
           <div className={styles.craftGallery}>
             <div className={styles.craftImage} data-enterprise-reveal="up" data-enterprise-delay="1">
-              <Image src={`${giftAssets}/Publiled1.jpeg`} alt={t("publiledAlt")} fill sizes="(max-width: 1023px) calc((100vw - 60px) / 2), 352px" />
+              <Image src={`${giftAssets}/Publiled1.webp`} alt={t("publiledAlt")} fill sizes="(max-width: 1023px) calc((100vw - 60px) / 2), 352px" />
             </div>
             <div className={styles.craftImage} data-enterprise-reveal="up" data-enterprise-delay="2">
-              <Image src={`${giftAssets}/Nutex1.jpeg`} alt={t("nutexAlt")} fill sizes="(max-width: 1023px) calc((100vw - 60px) / 2), 352px" />
+              <Image src={`${giftAssets}/Nutex1.webp`} alt={t("nutexAlt")} fill sizes="(max-width: 1023px) calc((100vw - 60px) / 2), 352px" />
             </div>
           </div>
         </div>

@@ -84,7 +84,7 @@ export async function Footer() {
         <div className="home-shell">
           <p>{t("rights", { year: new Date().getFullYear() })}</p>
           <a className="home-polarist" href="https://polarist.app/" target="_blank" rel="noreferrer">
-            <Image src="/assets/matearte/home-v2/polarist.png" alt="" width={20} height={20} />
+            <Image src="/assets/matearte/home-v2/polarist.webp" alt="" width={20} height={20} />
             {t("createdBy")}
           </a>
         </div>

@@ -169,8 +169,8 @@ export function buildEnterpriseStructuredData(
         audience: { "@type": "BusinessAudience" },
         image: [
           absoluteUrl("/assets/matearte/regalos-empresariales/Grido.jpeg"),
-          absoluteUrl("/assets/matearte/regalos-empresariales/Publiled1.jpeg"),
-          absoluteUrl("/assets/matearte/regalos-empresariales/Nutex1.jpeg"),
+          absoluteUrl("/assets/matearte/regalos-empresariales/Publiled1.webp"),
+          absoluteUrl("/assets/matearte/regalos-empresariales/Nutex1.webp"),
         ],
       },
       breadcrumbNode(locale, [

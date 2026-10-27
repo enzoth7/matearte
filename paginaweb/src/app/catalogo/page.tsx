@@ -35,7 +35,7 @@ export default async function CatalogPage() {
       <JsonLd data={buildCatalogStructuredData(locale, products, t("metadataTitle"), t("metadataDescription"), "MateArte")} />
       <div className="catalog-desktop-view">
         <section className="catalog-hero">
-          <Image src="/assets/matearte/catalog-desktop/hero.png" alt={t("heroAlt")} fill sizes="100vw" priority />
+          <Image src="/assets/matearte/catalog-desktop/hero.webp" alt={t("heroAlt")} fill sizes="100vw" priority />
           <div className="catalog-hero-overlay" />
           <div className="catalog-hero-content">
             <h1>{t("heroTitle")}</h1>

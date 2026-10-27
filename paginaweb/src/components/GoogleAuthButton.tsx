@@ -49,7 +49,7 @@ export function GoogleAuthButton({ variant = "default", postLoginRedirect }: { v
           : "mt-8 flex min-h-12 w-full items-center justify-center gap-3 border border-black/20 bg-[var(--paper)] px-6 text-sm font-semibold text-[var(--walnut)] transition-colors hover:border-[var(--leather)] hover:bg-[var(--cream-deep)] disabled:cursor-wait disabled:opacity-60"}
       >
         {editorial ? (
-          <Image src="/assets/matearte/profile-guest-desktop/google.png" alt="" width={35} height={35} aria-hidden="true" />
+          <Image src="/assets/matearte/profile-guest-desktop/google.webp" alt="" width={35} height={35} aria-hidden="true" />
         ) : (
           <svg viewBox="0 0 18 18" className="size-5" aria-hidden="true">
             <path fill="#4285F4" d="M17.64 9.205c0-.638-.057-1.252-.164-1.841H9v3.482h4.844a4.14 4.14 0 0 1-1.797 2.716v2.258h2.909c1.702-1.567 2.684-3.874 2.684-6.615Z" />

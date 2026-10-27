@@ -118,6 +118,6 @@ function assetFiles(): Array<[string, string]> {
       else if (supportedImageExtensions.has(path.extname(name).toLowerCase())) result.push([name, path.join(root, name)]);
     }
   };
-  ["assets/personalizacion", "assets/plantillas/virola", "assets2/personalizacion/viroladeapliques"].forEach(visit);
+  ["assets/personalizacion", "assets/plantillas/virola"].forEach(visit);
   return result;
 }

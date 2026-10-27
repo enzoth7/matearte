@@ -24,35 +24,35 @@ const mobileAssets = "/assets/matearte/personalizados-mobile";
 const personalizerUrl = "https://personalizador.matearteuruguay.com/";
 
 const personalizedGallery = [
-  { src: `${desktopAssets}/personalizado-01.jpg`, alt: "gallery1" },
-  { src: `${desktopAssets}/personalizado-02.jpg`, alt: "gallery2" },
-  { src: `${desktopAssets}/personalizado-03.jpg`, alt: "gallery3" },
-  { src: `${desktopAssets}/personalizado-04.jpg`, alt: "gallery4" },
-  { src: `${desktopAssets}/personalizado-05.jpg`, alt: "gallery5" },
-  { src: `${desktopAssets}/personalizado-06.jpg`, alt: "gallery6" },
-  { src: `${desktopAssets}/personalizado-07.jpg`, alt: "gallery7" },
-  { src: `${desktopAssets}/personalizado-08.jpg`, alt: "gallery8" },
-  { src: `${desktopAssets}/personalizado-09.jpg`, alt: "gallery9" },
-  { src: `${desktopAssets}/personalizado-10.jpg`, alt: "gallery10" },
-  { src: `${desktopAssets}/personalizado-11.jpg`, alt: "gallery11" },
-  { src: `${desktopAssets}/personalizado-12.jpg`, alt: "gallery12" },
-  { src: `${desktopAssets}/personalizado-13.jpg`, alt: "gallery13" },
+  { src: `${desktopAssets}/personalizado-01.webp`, alt: "gallery1" },
+  { src: `${desktopAssets}/personalizado-02.webp`, alt: "gallery2" },
+  { src: `${desktopAssets}/personalizado-03.webp`, alt: "gallery3" },
+  { src: `${desktopAssets}/personalizado-04.webp`, alt: "gallery4" },
+  { src: `${desktopAssets}/personalizado-05.webp`, alt: "gallery5" },
+  { src: `${desktopAssets}/personalizado-06.webp`, alt: "gallery6" },
+  { src: `${desktopAssets}/personalizado-07.webp`, alt: "gallery7" },
+  { src: `${desktopAssets}/personalizado-08.webp`, alt: "gallery8" },
+  { src: `${desktopAssets}/personalizado-09.webp`, alt: "gallery9" },
+  { src: `${desktopAssets}/personalizado-10.webp`, alt: "gallery10" },
+  { src: `${desktopAssets}/personalizado-11.webp`, alt: "gallery11" },
+  { src: `${desktopAssets}/personalizado-12.webp`, alt: "gallery12" },
+  { src: `${desktopAssets}/personalizado-13.webp`, alt: "gallery13" },
 ] as const;
 
 const mobilePersonalizedGallery = [
-  { src: `${mobileAssets}/personalizado-01.jpg`, alt: "gallery1" },
-  { src: `${mobileAssets}/personalizado-02.jpg`, alt: "gallery2" },
-  { src: `${mobileAssets}/personalizado-03.jpg`, alt: "gallery3" },
-  { src: `${mobileAssets}/personalizado-04.jpg`, alt: "gallery4" },
-  { src: `${mobileAssets}/personalizado-05.jpg`, alt: "gallery5" },
-  { src: `${mobileAssets}/personalizado-06.jpg`, alt: "gallery6" },
-  { src: `${mobileAssets}/personalizado-07.jpg`, alt: "gallery7" },
-  { src: `${mobileAssets}/personalizado-08.jpg`, alt: "gallery8" },
-  { src: `${mobileAssets}/personalizado-09.jpg`, alt: "gallery9" },
-  { src: `${mobileAssets}/personalizado-10.jpg`, alt: "gallery10" },
-  { src: `${mobileAssets}/personalizado-11.jpg`, alt: "gallery11" },
-  { src: `${mobileAssets}/personalizado-12.jpg`, alt: "gallery12" },
-  { src: `${mobileAssets}/personalizado-13.jpg`, alt: "gallery13" },
+  { src: `${mobileAssets}/personalizado-01.webp`, alt: "gallery1" },
+  { src: `${mobileAssets}/personalizado-02.webp`, alt: "gallery2" },
+  { src: `${mobileAssets}/personalizado-03.webp`, alt: "gallery3" },
+  { src: `${mobileAssets}/personalizado-04.webp`, alt: "gallery4" },
+  { src: `${mobileAssets}/personalizado-05.webp`, alt: "gallery5" },
+  { src: `${mobileAssets}/personalizado-06.webp`, alt: "gallery6" },
+  { src: `${mobileAssets}/personalizado-07.webp`, alt: "gallery7" },
+  { src: `${mobileAssets}/personalizado-08.webp`, alt: "gallery8" },
+  { src: `${mobileAssets}/personalizado-09.webp`, alt: "gallery9" },
+  { src: `${mobileAssets}/personalizado-10.webp`, alt: "gallery10" },
+  { src: `${mobileAssets}/personalizado-11.webp`, alt: "gallery11" },
+  { src: `${mobileAssets}/personalizado-12.webp`, alt: "gallery12" },
+  { src: `${mobileAssets}/personalizado-13.webp`, alt: "gallery13" },
 ] as const;
 
 export default async function PersonalizadosPage() {
@@ -64,7 +64,7 @@ export default async function PersonalizadosPage() {
       <div className="personalizados-mobile-view">
         <section className="personalizados-mobile-hero">
           <Image
-            src={`${mobileAssets}/hero1.jpg`}
+            src={`${mobileAssets}/hero1.webp`}
             alt={t("heroAlt")}
             fill
             sizes="100vw"
@@ -109,7 +109,7 @@ export default async function PersonalizadosPage() {
       <div className="personalizados-desktop-view">
         <section className="personalizados-desktop-hero">
           <Image
-            src={`${desktopAssets}/hero1.jpg`}
+            src={`${desktopAssets}/hero1.webp`}
             alt={t("heroAlt")}
             fill
             sizes="100vw"

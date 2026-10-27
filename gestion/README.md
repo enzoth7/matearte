@@ -20,7 +20,7 @@ npm test
 npm run test:e2e
 ```
 
-Abrir http://127.0.0.1:5181/comercial/pedidos. Gestión usa las variables públicas `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` del `.env.local` de la raíz, igual que Commerce Admin. También admite `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY`. Nunca configurar una clave `service_role` en el navegador.
+Abrir http://127.0.0.1:5181/comercial/pedidos. Gestión lee sus variables públicas desde `gestion/.env`: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_STORE_API_URL` y `NEXT_PUBLIC_SITE_URL`. El archivo contiene valores reales y está excluido de Git. Nunca configurar una clave `service_role` en el navegador.
 
 Se ingresa con una cuenta vigente del comercio. Toda la aplicación exige Supabase Auth y membresía activa en `commerce_admin_users`. La sesión de Gestión es independiente de la del panel anterior. Cambiar usuario cierra esta sesión y solicita nuevas credenciales.
 

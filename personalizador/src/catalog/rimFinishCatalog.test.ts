@@ -23,10 +23,10 @@ describe("catálogo de terminaciones para la virola", () => {
       expect(catalog).toHaveLength(4);
       expect(catalog.every((finish) => finish.textKnockoutScale === 0.25)).toBe(true);
       expect(catalog.map((finish) => finish.image)).toEqual([
-        "/assets2/personalizacion/viroladeapliques/apliques-01-espirales.webp",
-        "/assets2/personalizacion/viroladeapliques/apliques-02-triangulos.webp",
-        "/assets2/personalizacion/viroladeapliques/apliques-03-escamas.webp",
-        "/assets2/personalizacion/viroladeapliques/apliques-04-coronas.webp",
+        "/assets/personalizacion/viroladeapliques/apliques-01-espirales.webp",
+        "/assets/personalizacion/viroladeapliques/apliques-02-triangulos.webp",
+        "/assets/personalizacion/viroladeapliques/apliques-03-escamas.webp",
+        "/assets/personalizacion/viroladeapliques/apliques-04-coronas.webp",
       ]);
     },
   );

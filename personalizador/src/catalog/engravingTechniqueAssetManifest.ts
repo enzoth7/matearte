@@ -23,7 +23,7 @@ export const engravingTechniqueAssetManifest: Record<EngravingTechniqueId, Engra
   },
   "bronze-applique": {
     id: "bronze-applique",
-    src: "/assets/personalizacion/grabado/aplique-bronce.jpg",
+    src: "/assets/personalizacion/grabado/aplique-bronce.webp",
     alt: "Mate con aplique elevado de bronce",
     sourceUrl: "https://www.martinfierromates.com.ar/personalizados/apliques-en-bronce",
     merchant: "Martín Fierro Mates",
@@ -58,13 +58,13 @@ export interface TorpedoVirolaEngravingTechniqueAsset {
 export const flejeEngravingTechniqueAssetManifest: Record<FlejeEngravingTechniqueId, FlejeEngravingTechniqueAsset> = {
   "bronze-applique": {
     id: "bronze-applique",
-    src: "/assets2/personalizacion/grabadofleje/aplique-bronce-fleje.png",
+    src: "/assets/personalizacion/grabadofleje/aplique-bronce-fleje.webp",
     alt: "Mate Imperial con aplique de bronce en el fleje",
     usage: "owned-product-reference",
   },
   "alpaca-applique": {
     id: "alpaca-applique",
-    src: "/assets2/personalizacion/grabadofleje/aplique-alpaca-fleje.png",
+    src: "/assets/personalizacion/grabadofleje/aplique-alpaca-fleje.webp",
     alt: "Mate Imperial con aplique de alpaca en el fleje",
     usage: "owned-product-reference",
   },
@@ -73,13 +73,13 @@ export const flejeEngravingTechniqueAssetManifest: Record<FlejeEngravingTechniqu
 export const torpedoVirolaEngravingTechniqueAssetManifest: Record<FlejeEngravingTechniqueId, TorpedoVirolaEngravingTechniqueAsset> = {
   "bronze-applique": {
     id: "bronze-applique",
-    src: "/assets2/personalizacion/grabadovirola-torpedo/aplique-bronce-torpedo.png",
+    src: "/assets/personalizacion/grabadovirola-torpedo/aplique-bronce-torpedo.webp",
     alt: "Mate Torpedo con escudo elevado de bronce en la virola",
     usage: "owned-product-reference",
   },
   "alpaca-applique": {
     id: "alpaca-applique",
-    src: "/assets2/personalizacion/grabadovirola-torpedo/aplique-alpaca-torpedo.png",
+    src: "/assets/personalizacion/grabadovirola-torpedo/aplique-alpaca-torpedo.webp",
     alt: "Mate Torpedo con escudo elevado de alpaca plateada en la virola",
     usage: "owned-product-reference",
   },

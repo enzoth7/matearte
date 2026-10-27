@@ -72,12 +72,12 @@ export type StorefrontProductRow = {
 };
 
 const fallbackImage = (name: string): MediaAsset => ({
-  src: "/assets/matearte/01-marca/LogoOriginal-4k.png",
+  src: "/assets/matearte/01-marca/LogoOriginal-4k.webp",
   alt: name,
   width: 4096,
   height: 4096,
   source: "provided",
-  sourceUrl: "/assets/matearte/01-marca/LogoOriginal-4k.png",
+  sourceUrl: "/assets/matearte/01-marca/LogoOriginal-4k.webp",
   rightsStatus: "brand-public",
 });
 

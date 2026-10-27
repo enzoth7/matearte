@@ -16,7 +16,7 @@ export function WhatsAppFab() {
       className="whatsapp-fab"
     >
       <Image
-        src="/assets/matearte/whatsapp-icon.png"
+        src="/assets/matearte/whatsapp-icon.webp"
         alt=""
         width={52}
         height={52}

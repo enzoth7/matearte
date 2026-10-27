@@ -62,12 +62,12 @@ describe("feed de Google Merchant Center", () => {
 
   it("omite fichas sin foto real, descripción o variante web con precio", () => {
     const withoutRealImage = product({ id: "sin-foto", images: [{
-      src: "/assets/matearte/01-marca/LogoOriginal-4k.png",
+      src: "/assets/matearte/01-marca/LogoOriginal-4k.webp",
       alt: "MateArte",
       width: 4096,
       height: 4096,
       source: "provided",
-      sourceUrl: "/assets/matearte/01-marca/LogoOriginal-4k.png",
+      sourceUrl: "/assets/matearte/01-marca/LogoOriginal-4k.webp",
       rightsStatus: "brand-public",
     }] });
     const withoutPrice = product({ id: "sin-precio", variants: [{ id: "v", label: "Única", value: "SIN", available: true }] });

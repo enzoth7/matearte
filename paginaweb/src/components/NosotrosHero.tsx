@@ -42,11 +42,11 @@ export function NosotrosHero({ variant = "desktop" }: NosotrosHeroProps) {
   return (
     <section className={`${classPrefix}-hero`} aria-labelledby={titleId}>
       <div className={`${classPrefix}-hero-media`} aria-hidden="true">
-        <Image src={`${assets}/hero-poster.jpg`} alt="" fill sizes="100vw" priority />
+        <Image src={`${assets}/hero-poster.webp`} alt="" fill sizes="100vw" priority />
         <video
           ref={videoRef}
           src={`${assets}/hero-segment.mp4?v=12s`}
-          poster={`${assets}/hero-poster.jpg`}
+          poster={`${assets}/hero-poster.webp`}
           autoPlay
           muted
           loop
