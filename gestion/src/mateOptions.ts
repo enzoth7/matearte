@@ -16,6 +16,7 @@ export const MATE_LEATHER_OPTIONS = [
   "Estampado",
   "Croco",
   "Pelos",
+  "Vaqueta",
 ] as const;
 
 export const isMateCategory = (category: string) =>

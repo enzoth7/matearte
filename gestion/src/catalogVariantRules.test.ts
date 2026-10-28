@@ -84,6 +84,7 @@ describe("regla de variantes del catálogo", () => {
     expect(options("diseno-fleje")).toEqual(["Pampa", "Griego", "Rupestre", "Flores", "Abstracto", "Liso", "Premium", "Manos", "Laureles"]);
     expect(options("tipo-virola")).toEqual(expect.arrayContaining(["Sin Virola", "Plata", "Alpaca Grande Cincelada Premium", "Imperial Premium", "Acero y Bronce Liso", "Imperial Acero Inoxidable"]));
     expect(options("tipo-cuero")).toContain("Sin Cuero");
+    expect(options("tipo-cuero")).toContain("Vaqueta");
   });
 
   it("descarta cualquier dato heredado que no sea color al guardar una variante", () => {

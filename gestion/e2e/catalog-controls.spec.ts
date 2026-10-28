@@ -108,6 +108,7 @@ test("Personalizados exige tipo y cambia los campos sin crear variantes por cara
   await type.selectOption("mate");
   await expect(page.getByRole("combobox", { name: /Tipo de virola/ })).toBeVisible();
   await expect(page.getByRole("combobox", { name: /Tipo de cuero/ })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: /Tipo de cuero/ }).getByRole("option", { name: "Vaqueta" })).toBeAttached();
   await type.selectOption("matera");
   await expect(page.getByRole("combobox", { name: /Tipo de virola/ })).toHaveCount(0);
   await expect(page.getByRole("combobox", { name: /Diseño de la matera/ })).toBeVisible();

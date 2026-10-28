@@ -113,14 +113,14 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
   const statusLabels: Record<string, string> = {
     pending_payment: t("statuses.pending_payment"), payment_verification_pending: t("statuses.payment_verification_pending"), paid_pending_review: t("statuses.paid_pending_review"),
     ready_for_fulfillment: t("statuses.ready_for_fulfillment"), ready_for_production: t("statuses.ready_for_production"),
-    shipped: t("statuses.shipped"),
+    shipped: t("statuses.shipped"), delivered: t("statuses.delivered"),
     payment_failed: t("statuses.payment_failed"), cancelled: t("statuses.cancelled"),
     refunded: t("statuses.refunded"), manual_review: t("statuses.manual_review"),
   };
   const statusDescriptions: Record<string, string> = {
     pending_payment: t("descriptions.pending_payment"), payment_verification_pending: t("descriptions.payment_verification_pending"), paid_pending_review: t("descriptions.paid_pending_review"),
     ready_for_fulfillment: t("descriptions.ready_for_fulfillment"), ready_for_production: t("descriptions.ready_for_production"),
-    shipped: t("descriptions.shipped"),
+    shipped: t("descriptions.shipped"), delivered: t("descriptions.delivered"),
     payment_failed: t("descriptions.payment_failed"), cancelled: t("descriptions.cancelled"),
     refunded: t("descriptions.refunded"), manual_review: t("descriptions.manual_review"),
   };
@@ -243,7 +243,7 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
   const isInternational = order.shipping_method === "international_coordination" || order.shipping_method === "international_shipping";
   const isPending = status === "pending_payment" || status === "payment_verification_pending";
   const isProblem = ["payment_failed", "cancelled", "refunded"].includes(status);
-  const StatusIcon = status === "shipped" ? CheckCircle : isInternational && status === "manual_review" ? WhatsappLogo : isPending ? Clock : isProblem ? WarningCircle : CheckCircle;
+  const StatusIcon = status === "shipped" || status === "delivered" ? CheckCircle : isInternational && status === "manual_review" ? WhatsappLogo : isPending ? Clock : isProblem ? WarningCircle : CheckCircle;
   const statusDescription = isInternational && status === "manual_review"
     ? t("internationalStatus")
     : statusDescriptions[status] || t("processingFallback");

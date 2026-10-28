@@ -307,6 +307,7 @@ td small { display: block; }
 .status-completed { border-color: #add0ba; background: #e4f3e8; color: #1e5b38; }
 .status-ready_for_production, .status-ready_for_fulfillment { border-color: #add0ba; background: #e4f3e8; color: #1e5b38; }
 .status-shipped { border-color: #91b9c8; background: #e4f3f7; color: #174f63; }
+.status-delivered { border-color: #91b9c8; background: #e4f3f7; color: #174f63; }
 .status-paid_pending_review, .status-manual_review, .status-payment_verification_pending { border-color: #e2bc99; background: #fff0df; color: #814315; }
 .bank-transfer-pending-row, .bank-transfer-pending-row:nth-child(even) { background: #fffaf0; box-shadow: inset 4px 0 #b86c2d; }
 .bank-transfer-pending-row:hover { background: #fff4df; }
@@ -1324,7 +1325,7 @@ td small { display: block; }
 .product-photo-frame .product-photo { width: 100%; height: 100%; }
 
 .commerce-tools .discount-form label, .commerce-tools .field-help, .commerce-tools .product-details > div > div { font-size: 14px; }
-.commerce-tools .status-ready_for_production, .commerce-tools .status-ready_for_fulfillment, .commerce-tools .status-shipped { color: #287b54; background: #eaf3ed; }
+.commerce-tools .status-ready_for_production, .commerce-tools .status-ready_for_fulfillment, .commerce-tools .status-shipped, .commerce-tools .status-delivered { color: #287b54; background: #eaf3ed; }
 .commerce-tools .status-paid_pending_review, .commerce-tools .status-payment_verification_pending { color: #9a670f; background: #fbf3df; }
 .commerce-tools .status-cancelled, .commerce-tools .status-refunded, .commerce-tools .status-payment_failed { color: #b34136; background: #f8eeec; }
 

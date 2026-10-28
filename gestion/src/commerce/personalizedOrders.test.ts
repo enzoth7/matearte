@@ -237,6 +237,8 @@ describe('personalizedProductionStatus', () => {
     shipped.status = 'shipped';
     expect(personalizedProductionStatus(shipped)).toBe('Terminado');
     expect(personalizedItemProductionStatus(shipped, shipped.order_items[0])).toBe('Terminado');
+    const delivered = { ...shipped, status: 'delivered' };
+    expect(personalizedProductionStatus(delivered)).toBe('Terminado');
     expect(personalizedProductionStatus(order(['pending']))).toBe('Pendiente');
   });
 });

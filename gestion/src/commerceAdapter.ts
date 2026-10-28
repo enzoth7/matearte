@@ -153,7 +153,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
         unitPrice: Number(item.unit_price_minor) / 100, amount: Number(item.total_minor) / 100,
         family: item.item_type === "design" ? "Personalizados" : catalog?.family || text(object(historical.product), "category") || "Sin categoría",
         variant: catalog?.variant || text(variant, "name"), rim: catalog?.rim || "Sin especificar", leather: catalog?.leather || "Sin especificar",
-        productionStatus: source.status === "shipped" ? "completed" : item.production_status || "", reviewStatus: item.review_status, orderType: item.item_type,
+        productionStatus: source.status === "shipped" || source.status === "delivered" ? "completed" : item.production_status || "", reviewStatus: item.review_status, orderType: item.item_type,
       };
     });
     const production = items.length > 0 && items.every((item) => item.productionStatus === "completed") ? "Terminado"
@@ -165,7 +165,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       items, totalAmount: Number(source.total_minor) / 100, shippingAmount: Number(source.shipping_minor) / 100,
       discountAmount: Number(source.discount_minor) / 100, feeAmount: Number(source.payment_fee_minor) / 100,
       channel: wholesale ? "Mayorista" : "Web", date: commerceDate(source.created_at), due: "",
-      production, delivery: source.status === "shipped" ? "Enviado" : "Pendiente", method: source.shipping_method === "pickup" ? "Retiro" : "Envío",
+      production, delivery: source.status === "shipped" ? "Enviado" : source.status === "delivered" ? "Entregado" : "Pendiente", method: source.shipping_method === "pickup" ? "Retiro" : "Envío",
       design: source.order_items.some((item) => item.requires_review),
       approved: source.order_items.filter((item) => item.requires_review).every((item) => item.review_status === "approved"),
       carrier: source.shipping_carrier || "", tracking: source.tracking_code || "",

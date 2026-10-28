@@ -12,6 +12,7 @@ export function orderCategoryLabels(order: Order, products: Product[]) {
   return [...new Set(values.filter(Boolean))].join(", ") || "Sin categoría";
 }
 
-export function orderShippingStatus(order: Order): "No enviado" | "Enviado" {
-  return order.status === "shipped" || order.delivery === "Enviado" || order.delivery === "Entregado" ? "Enviado" : "No enviado";
+export function orderShippingStatus(order: Order): "No enviado" | "Enviado" | "Entregado" {
+  if (order.status === "delivered" || order.delivery === "Entregado") return "Entregado";
+  return order.status === "shipped" || order.delivery === "Enviado" ? "Enviado" : "No enviado";
 }

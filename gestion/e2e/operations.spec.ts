@@ -210,6 +210,29 @@ test('seguimiento de pedido se guarda en Entregas y conserva el importe',async({
   await expect(page.getByRole('dialog').getByText('TRACK-9001',{exact:true})).toBeVisible();
 });
 
+test('un retiro se marca como entregado sin pedir transportista',async({page})=>{
+  const {fixture}=await mockCommerce(page,{writable:true});
+  fixture.orders[0].shipping_method='pickup';
+  fixture.orders[0].status='paid_pending_review';
+  const fulfillmentCalls: Record<string,string>[]=[];
+  await page.route(/\/api\/admin\/orders\/[^/]+\/fulfillment$/,async route=>{
+    const body=route.request().postDataJSON() as Record<string,string>;
+    fulfillmentCalls.push(body);
+    fixture.orders[0].status='delivered';
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,order:fixture.orders[0]})});
+  });
+  await page.goto('/comercial/pedidos');
+  await page.getByRole('row').filter({hasText:'#9001'}).getByRole('button',{name:'Ver detalle del pedido #9001'}).click();
+  const dialog=page.getByRole('dialog',{name:'Detalle del pedido'});
+  await expect(dialog.getByRole('button',{name:'Marcar entregado'})).toBeVisible();
+  await expect(dialog.getByRole('button',{name:'Marcar enviado'})).toHaveCount(0);
+  page.once('dialog',confirmation=>void confirmation.accept());
+  await dialog.getByRole('button',{name:'Marcar entregado'}).click();
+  await expect.poll(()=>fixture.orders[0].status).toBe('delivered');
+  expect(fulfillmentCalls).toEqual([{action:'deliver'}]);
+  await expect(page.getByRole('row').filter({hasText:'#9001'})).toContainText('Entregado');
+});
+
 test('cotizaciones, descuentos y tarifas guardan valores y unidades correctos',async({page})=>{
   const {fixture,writes}=await mockCommerce(page,{writable:true});
   await page.goto('/finanzas/monedas');

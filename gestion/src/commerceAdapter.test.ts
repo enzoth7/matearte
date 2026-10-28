@@ -112,6 +112,14 @@ describe("integración de commerce en el estado compartido", () => {
     expect(order).toMatchObject({ production: "Terminado", delivery: "Enviado" });
     expect(order.items?.every((item) => item.productionStatus === "completed")).toBe(true);
   });
+  it("muestra un retiro entregado como terminado en producción", () => {
+    const fixture = commerceFixture();
+    fixture.orders[0].shipping_method = "pickup";
+    fixture.orders[0].status = "delivered";
+    const order = adaptCommerce(fixture).orders[0];
+    expect(order).toMatchObject({ production: "Terminado", delivery: "Entregado", method: "Retiro" });
+    expect(order.items?.every((item) => item.productionStatus === "completed")).toBe(true);
+  });
   it("clasifica un diseño web sin variante de catálogo como Personalizados", () => {
     const fixture = commerceFixture();
     fixture.orders[0].order_items = [{

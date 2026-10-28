@@ -48,18 +48,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const body = await readJson(request);
     const action = body.action;
-    if (action !== "ship" && action !== "restore") return response(origin, { error: "Acción inválida." }, 400);
+    if (action !== "ship" && action !== "deliver" && action !== "restore") return response(origin, { error: "Acción inválida." }, 400);
 
     const { data: order, error: orderError } = await admin
       .from("orders")
-      .select("id,status,shipping_method,shipped_at,order_items(requires_review)")
+      .select("id,status,shipping_method,shipped_at,order_items(requires_review,review_status)")
       .eq("id", id)
       .maybeSingle();
     if (orderError) throw orderError;
     if (!order) return response(origin, { error: "El pedido no existe." }, 404);
 
     if (action === "ship") {
-      if (!["ready_for_fulfillment", "ready_for_production", "shipped", "manual_review"].includes(order.status)) {
+      if (!["paid_pending_review", "ready_for_fulfillment", "ready_for_production", "shipped", "manual_review"].includes(order.status)) {
         return response(origin, { error: "El pedido todavía no está listo para enviarse." }, 409);
       }
       if (order.shipping_method === "pickup") {
@@ -94,18 +94,41 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return response(origin, { ok: true, order: updated });
     }
 
-    if (order.status !== "shipped") {
-      return response(origin, { error: "El pedido no está marcado como enviado." }, 409);
+    if (action === "deliver") {
+      if (order.shipping_method !== "pickup") {
+        return response(origin, { error: "Solo los pedidos con retiro se marcan como entregados." }, 409);
+      }
+      if (!["paid_pending_review", "ready_for_fulfillment", "ready_for_production", "manual_review"].includes(order.status)) {
+        return response(origin, { error: "El pedido todavía no se puede marcar como entregado." }, 409);
+      }
+      const { data: updated, error: updateError } = await admin
+        .from("orders")
+        .update({ status: "delivered", delivered_at: new Date().toISOString() })
+        .eq("id", id)
+        .eq("status", order.status)
+        .select("id,status,delivered_at")
+        .maybeSingle();
+      if (updateError) throw updateError;
+      if (!updated) return response(origin, { error: "El pedido cambió mientras lo actualizabas. Recargá e intentá de nuevo." }, 409);
+      return response(origin, { ok: true, order: updated });
     }
 
-    const hasCustomItem = (order.order_items as Array<{ requires_review: boolean }> | null)?.some((item) => item.requires_review) ?? false;
-    const restoredStatus = order.shipping_method === "international_coordination" ? "manual_review" : hasCustomItem ? "ready_for_production" : "ready_for_fulfillment";
+    if (order.status !== "shipped" && order.status !== "delivered") {
+      return response(origin, { error: "El pedido no está marcado como enviado o entregado." }, 409);
+    }
+
+    const items = (order.order_items as Array<{ requires_review: boolean; review_status: string | null }> | null) || [];
+    const hasCustomItem = items.some((item) => item.requires_review);
+    const hasRejectedItem = items.some((item) => item.requires_review && item.review_status === "rejected");
+    const hasPendingReview = items.some((item) => item.requires_review && item.review_status !== "approved");
+    const restoredStatus = order.shipping_method === "international_coordination" || hasRejectedItem ? "manual_review"
+      : hasPendingReview ? "paid_pending_review" : hasCustomItem ? "ready_for_production" : "ready_for_fulfillment";
     const { data: updated, error: updateError } = await admin
       .from("orders")
-      .update({ status: restoredStatus, shipped_at: null })
+      .update({ status: restoredStatus, shipped_at: null, delivered_at: null })
       .eq("id", id)
-      .eq("status", "shipped")
-      .select("id,status,shipping_carrier,tracking_code,shipped_at")
+      .eq("status", order.status)
+      .select("id,status,shipping_carrier,tracking_code,shipped_at,delivered_at")
       .maybeSingle();
     if (updateError) throw updateError;
     if (!updated) return response(origin, { error: "El pedido cambió mientras lo actualizabas. Recargá e intentá de nuevo." }, 409);

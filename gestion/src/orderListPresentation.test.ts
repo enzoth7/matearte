@@ -52,8 +52,9 @@ describe("presentación resumida de ventas y pedidos", () => {
   it("respeta el envío registrado aunque otros estados estén desactualizados", () => {
     expect(orderShippingStatus(order)).toBe("Enviado");
     expect(orderShippingStatus({ ...order, production: "En producción" })).toBe("Enviado");
-    expect(orderShippingStatus({ ...order, delivery: "Entregado" })).toBe("Enviado");
+    expect(orderShippingStatus({ ...order, delivery: "Entregado" })).toBe("Entregado");
     expect(orderShippingStatus({ ...order, delivery: "Pendiente", status: "shipped" })).toBe("Enviado");
+    expect(orderShippingStatus({ ...order, delivery: "Pendiente", status: "delivered" })).toBe("Entregado");
     expect(orderShippingStatus({ ...order, delivery: "Pendiente" })).toBe("No enviado");
   });
 });

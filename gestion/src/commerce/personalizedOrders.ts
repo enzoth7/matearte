@@ -466,6 +466,8 @@ export function orderStatusLabel(status: string): string {
     paid_pending_review: 'Pagado · requiere revisión',
     ready_for_production: 'Listo para producción',
     ready_for_fulfillment: 'Listo para preparar',
+    shipped: 'Enviado',
+    delivered: 'Entregado',
     payment_failed: 'Pago fallido',
     cancelled: 'Cancelado',
     refunded: 'Reembolsado',
@@ -500,7 +502,7 @@ export function personalizedItemProductionStatus(
   item: Pick<PersonalizedOrderItem, 'production_status'>,
 ): 'Pendiente' | 'En producción' | 'Terminado' {
   // Un pedido enviado ya terminó producción, aunque su estado histórico por artículo no se haya actualizado.
-  if (order.status === 'shipped' || ['completed', 'Completado', 'Terminado'].includes(item.production_status || '')) return 'Terminado';
+  if (['shipped', 'delivered'].includes(order.status) || ['completed', 'Completado', 'Terminado'].includes(item.production_status || '')) return 'Terminado';
   if (['in_production', 'En producción'].includes(item.production_status || '')) return 'En producción';
   return 'Pendiente';
 }

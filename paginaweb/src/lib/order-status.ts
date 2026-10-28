@@ -5,6 +5,7 @@ export const orderStatusLabels: Record<string, string> = {
   ready_for_fulfillment: "Preparando tu pedido",
   ready_for_production: "Personalizado aprobado · en producción",
   shipped: "Pedido enviado",
+  delivered: "Pedido entregado",
   payment_failed: "El pago no fue aprobado",
   cancelled: "Pedido cancelado",
   refunded: "Pago reembolsado",
@@ -18,6 +19,7 @@ export const orderStatusDescriptions: Record<string, string> = {
   ready_for_fulfillment: "El pedido está confirmado y lo estamos preparando.",
   ready_for_production: "El diseño fue aprobado y ya puede pasar a producción.",
   shipped: "Tu pedido fue despachado. Consultá la empresa y el código de seguimiento en el detalle.",
+  delivered: "Tu pedido fue retirado y entregado.",
   payment_failed: "El pago fue rechazado o no pudo completarse.",
   cancelled: "Este pedido fue cancelado.",
   refunded: "El importe de este pedido fue reembolsado.",
@@ -25,7 +27,7 @@ export const orderStatusDescriptions: Record<string, string> = {
 };
 
 export function orderStatusTone(status: string) {
-  if (["ready_for_fulfillment", "ready_for_production", "shipped"].includes(status)) {
+  if (["ready_for_fulfillment", "ready_for_production", "shipped", "delivered"].includes(status)) {
     return "border-[var(--yerba)]/35 bg-[var(--yerba)]/10 text-[#394322]";
   }
   if (["payment_failed", "cancelled", "refunded"].includes(status)) {
@@ -38,9 +40,9 @@ export function orderStatusTone(status: string) {
 }
 
 export function isConfirmedOrder(status: string) {
-  return ["paid_pending_review", "ready_for_fulfillment", "ready_for_production", "shipped"].includes(status);
+  return ["paid_pending_review", "ready_for_fulfillment", "ready_for_production", "shipped", "delivered"].includes(status);
 }
 
 export function isActiveOrder(status: string) {
-  return ["pending_payment", "payment_verification_pending", "paid_pending_review", "ready_for_fulfillment", "ready_for_production", "shipped", "manual_review"].includes(status);
+  return ["pending_payment", "payment_verification_pending", "paid_pending_review", "ready_for_fulfillment", "ready_for_production", "shipped", "delivered", "manual_review"].includes(status);
 }
