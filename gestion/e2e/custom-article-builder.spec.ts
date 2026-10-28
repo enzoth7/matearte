@@ -90,3 +90,28 @@ test('una tarifa ausente bloquea el cobro y muestra precio pendiente',async({pag
   await expect(builder).toContainText('Precio pendiente');
   await expect(builder.getByRole('button',{name:/Agregar personalizado/})).toBeDisabled();
 });
+
+test('el descuento aplica solo a los personalizados: precio original tachado, nuevo precio y payload con porcentaje', async ({ page }) => {
+  const { fixture, writes } = await mockCommerce(page, { writable: true });
+  fixture.products.splice(0);
+  const builder = await assemble(page);
+  await expect(page.getByLabel('Aplicar descuento a personalizados')).toHaveCount(0);
+  await builder.getByRole('button', { name: /Agregar personalizado/ }).click();
+  await page.getByLabel('Texto de virola de Mate Imperial personalizado').fill('ENZO');
+  await expect.poll(() => page.locator('.local-design-icons img').evaluateAll(images => images.length > 0 && images.every(image => (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
+  const footer = page.locator('.local-sale-footer');
+  await expect(footer.locator('s')).toHaveCount(0);
+  await page.getByLabel('Aplicar descuento a personalizados').selectOption('si');
+  await page.getByRole('spinbutton', { name: 'Porcentaje de descuento' }).fill('10');
+  const listUnit = Number((await page.getByLabel('Precio unitario de Mate Imperial personalizado').inputValue()).replace(/[^\d]/g, ''));
+  await expect(footer.locator('s')).toBeVisible();
+  await expect(footer).toContainText('-10%');
+  await page.getByRole('button', { name: 'Guardar venta' }).click();
+  await expect.poll(() => writes.some(w => w.table === 'gestion_create_local_sale_with_items')).toBe(true);
+  const item = writes.find(w => w.table === 'gestion_create_local_sale_with_items')!.body.p_items[0];
+  expect(item.discount_percent).toBe(10);
+  expect(item.customization.discount.percent).toBe(10);
+  expect(item.unit_price_minor).toBe(Math.round(item.customization.discount.listUnitPriceMinor * 90 / 100));
+  expect(item.customization.discount.listUnitPriceMinor).toBeGreaterThan(item.unit_price_minor);
+  expect(listUnit).toBeGreaterThan(0);
+});

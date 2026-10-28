@@ -25,6 +25,7 @@ export const areas = [
     hint: "Suscriptores, campañas y promociones",
     pages: [
       ["campanas", "Campañas"],
+      ["pauta", "Informes de pauta"],
       ["sorteo", "Sorteo"],
       ["contactos", "Contactos"],
       ["suscripcion", "Suscripción"],
@@ -39,6 +40,7 @@ export const areas = [
     hint: "Relaciones que perduran",
     pages: [
       ["base", "Base de clientes"],
+      ["analitica", "Análisis de clientes"],
       ["seguimiento", "Seguimiento y reactivación"],
     ],
   },

@@ -7,6 +7,7 @@ import { formatDate } from "./dateFormat";
 import { CustomerDetailModal } from "./pages";
 import type { CommerceSnapshot } from "./commerceAdapter";
 import type { Customer, State } from "./data";
+import { AdReports } from "./AdReportsPage";
 
 type Contact = { id: string; name: string | null; email: string | null; phone: string | null; source: string; created_at: string; has_account: boolean; subscription_status: string };
 type ContactSummary = { total: number; origins: { source: string; contacts: number }[] };
@@ -412,6 +413,7 @@ function Analytics() {
 export function MarketingSection({ page, notify, s, go, commerce }: { page: string; notify: (message: string) => void; s: State; go: (path: string) => void; commerce?: CommerceSnapshot | null }) {
   if (page === "contactos") return <Contacts s={s} go={go} commerce={commerce} />;
   if (page === "analytics") return <Analytics />;
+  if (page === "pauta") return <AdReports notify={notify} />;
   if (page === "suscripcion") return <Subscription notify={notify} />;
   return <Campaigns notify={notify} />;
 }

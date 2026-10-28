@@ -5,6 +5,7 @@ import { money, today, type Customer, type Product } from "./data";
 import { allowedSalesChannels } from "./access";
 import { commerceSource } from "./commerceSource";
 import { salePriceMinor, usesBasePrice } from "./localSalePricing";
+import { matchesSaleProductSearch } from "./saleProductSearch";
 import { countryOptions } from "./location";
 import { customerDepartments } from "./customerLocation";
 import {
@@ -27,6 +28,7 @@ import { mateAssemblyPresentation } from "./mateAssemblyPresentation";
 import { assemblyHasFleje, priceMateAssembly, type MateAssembly } from "../../shared/mate-assembly";
 import { LocalMateDesignPreview } from "./LocalMateDesignPreview";
 import { formatDate } from "./dateFormat";
+import { formatPercent, parseDiscountPercent } from "./wholesaleDiscount";
 import { catalogValueLabel, defaultCatalogTaxonomy, normalizeCatalogValueMap } from "../../shared/catalog-taxonomy";
 
 type SaleLine = { id: string; product: Product; quantity: number; unitPriceMinor: number; priceEntered?: boolean; priceOverridden?: boolean; personalization?: LocalPersonalizationDraft; notes?: string };
@@ -243,6 +245,8 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
   const [date, setDate] = useState(today);
   const [payment, setPayment] = useState("Efectivo");
   const [hasDeposit, setHasDeposit] = useState(false);
+  const [discountOn, setDiscountOn] = useState(false);
+  const [discountText, setDiscountText] = useState("10");
   const [channel, setChannel] = useState<"Local" | "Feria" | "Instagram" | "Facebook" | "WhatsApp">("Local");
   const [selectedProductId, setSelectedProductId] = useState("");
   const [pickType, setPickType] = useState("");
@@ -283,11 +287,14 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
     return customers.filter((customer) => normalizeSearch(`${customer.name} ${customer.email || ""} ${customer.phone || ""} ${(customer.agendaAdditionalPhones || []).join(" ")}`).includes(query)).slice(0, 30);
   }, [customers, customerSearch]);
   const matches = useMemo(() => {
-    const query = normalizeSearch(search.trim());
-    if (!query) return [];
+    if (!search.trim()) return [];
     return s.products.filter((product) => sellable(product) &&
-      (!category || categoryKey(product) === category) && (!query || normalizeSearch(`${product.name} ${product.sku} ${product.variant}`).includes(query))).slice(0, 12);
-  }, [s.products, search, category, channel]);
+      (!category || categoryKey(product) === category) && matchesSaleProductSearch({
+        name: product.name, sku: product.sku, variant: product.variant, category: product.family, description: product.searchText,
+        material: product.leather, rim: product.rim, attributes: product.attributes, options: product.options,
+        price: salePriceMinor(product, payment) / 100,
+      }, search)).slice(0, 50);
+  }, [s.products, search, category, channel, payment]);
   const categoryProducts = useMemo(() => s.products.filter((product) => sellable(product) && categoryKey(product) === category)
     .sort((a, b) => `${a.name} ${a.variant}`.localeCompare(`${b.name} ${b.variant}`, "es")), [s.products, category, channel]);
   const pickTypes = useMemo(() => [...new Set(categoryProducts.map(retailType))].sort((a, b) => a.localeCompare(b, "es")), [categoryProducts]);
@@ -303,9 +310,13 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
   const articleLines = lines.filter((line) => !line.personalization);
   const basePriceMinor = (line: SaleLine) => line.product.assembly ? priceMateAssembly(line.product.assembly, pricing?.rules).totalMinor : line.unitPriceMinor;
   const unitPriceMinor = (line: SaleLine) => basePriceMinor(line) + (line.personalization ? calculateLocalPersonalizationPrice(line.personalization, pricing).extrasMinor : 0);
-  const itemsMinor = lines.reduce((sum, line) => sum + line.quantity * unitPriceMinor(line), 0);
-  const depositMinor = cents(deposit);
   const personalizedLines = lines.filter((line) => line.personalization);
+  // El descuento aplica solo a los artículos personalizados (los demás ya tienen su precio por medio de pago).
+  const discountPercent = discountOn && personalizedLines.length ? parseDiscountPercent(discountText) : 0;
+  const soldUnitMinor = (line: SaleLine) => line.personalization && discountPercent > 0 ? Math.round(unitPriceMinor(line) * (100 - discountPercent) / 100) : unitPriceMinor(line);
+  const listItemsMinor = lines.reduce((sum, line) => sum + line.quantity * unitPriceMinor(line), 0);
+  const itemsMinor = lines.reduce((sum, line) => sum + line.quantity * soldUnitMinor(line), 0);
+  const depositMinor = cents(deposit);
   const linePriceReady = (line: SaleLine) => !line.personalization || (Boolean(pricing) && !pricingLoading && (!line.product.assembly || priceMateAssembly(line.product.assembly, pricing?.rules).ready) && !calculateLocalPersonalizationPrice(line.personalization, pricing).missingRuleKeys.length);
   const customPricesReady = lines.every(linePriceReady);
   const updatePersonalization = (lineId: string, changes: Partial<LocalPersonalizationDraft>) => setLines((current) => current.map((line) => line.id === lineId && line.personalization
@@ -356,6 +367,7 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
       const quote = calculateLocalPersonalizationPrice(line.personalization!, pricing);
       if (!pricing || quote.missingRuleKeys.length) { setArticleTab("custom"); setError("No se puede guardar el artículo personalizado sin sus precios publicados. Revisá Productos → Personalizador y actualizá los precios."); return; }
     }
+    if (discountOn && personalizedLines.length && !(discountPercent > 0)) { setError("Ingresá un descuento mayor a 0%, o elegí \"No\"."); return; }
     if (hasDeposit && (!Number.isInteger(depositMinor) || depositMinor <= 0 || depositMinor > itemsMinor)) {
       setError("La seña debe ser mayor que cero y no superar el valor de los artículos."); return;
     }
@@ -424,9 +436,11 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
           variant_id: line.product.assembly ? null : line.product.id,
           ...(isService(line.product) && line.notes?.trim() ? { production_notes: line.notes.trim() } : {}),
           quantity: line.quantity,
-          unit_price_minor: unitPriceMinor(line),
+          unit_price_minor: soldUnitMinor(line),
+          ...(line.personalization && discountPercent > 0 ? { discount_percent: discountPercent } : {}),
           customization: line.personalization ? {
             ...snapshot,
+            ...(discountPercent > 0 ? { discount: { percent: discountPercent, listUnitPriceMinor: unitPriceMinor(line) } } : {}),
             previews,
             ...(pricing ? { localPricing: { source: "published-personalizer", versionId: pricing.versionId, version: pricing.version, baseUnitPriceMinor: basePriceMinor(line), extrasUnitPriceMinor: calculateLocalPersonalizationPrice(line.personalization, pricing).extrasMinor, assemblyItems: line.product.assembly ? priceMateAssembly(line.product.assembly, pricing.rules).items : undefined, items: calculateLocalPersonalizationPrice(line.personalization, pricing).items } } : {}),
           } : null,
@@ -449,10 +463,10 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
   }
   const renderLine = (line: SaleLine) => <div className="local-sale-line" key={line.id}>
     <div><strong>{line.product.name}</strong><small>{[line.product.sku, visibleVariant(line.product.variant)].filter(Boolean).join(" · ")}</small></div>
-    {line.personalization ? <label>Precio unitario<input type="text" value={linePriceReady(line) ? money(unitPriceMinor(line) / 100) : ""} placeholder="Esperando tarifa" readOnly aria-label={`Precio unitario de ${line.product.name}`} /></label>
+    {line.personalization ? <label>Precio unitario<input type="text" value={linePriceReady(line) ? money(soldUnitMinor(line) / 100) : ""} placeholder="Esperando tarifa" readOnly aria-label={`Precio unitario de ${line.product.name}`} /></label>
       : <label>{hasVariableServicePrice(line.product) ? "Precio acordado" : "Precio"}<input type="number" min={hasVariableServicePrice(line.product) ? "0.01" : "0"} max="10000000" step="0.01" required={hasVariableServicePrice(line.product)} placeholder={hasVariableServicePrice(line.product) ? "Ingresar precio" : undefined} value={hasVariableServicePrice(line.product) && !line.priceEntered ? "" : line.unitPriceMinor / 100} onChange={(event) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, unitPriceMinor: cents(event.target.value), priceEntered: event.target.value !== "", priceOverridden: true } : item))} /></label>}
     <label>Cantidad<input type="number" min="1" max="1000" step="1" value={line.quantity} onChange={(event) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity: Number(event.target.value) } : item))} /></label>
-    <strong>{linePriceReady(line) ? money(line.quantity * unitPriceMinor(line) / 100) : "—"}</strong>
+    <strong>{linePriceReady(line) ? (line.personalization && discountPercent > 0 ? <><s className="local-sale-struck">{money(line.quantity * unitPriceMinor(line) / 100)}</s> {money(line.quantity * soldUnitMinor(line) / 100)}</> : money(line.quantity * unitPriceMinor(line) / 100)) : "—"}</strong>
     <button type="button" className="local-sale-remove" aria-label={`Quitar ${line.product.name}`} onClick={() => setLines((current) => current.filter((item) => item.id !== line.id))}><Trash size={18} /></button>
     {isService(line.product) && <label className="local-sale-line-notes">Notas para producción<textarea aria-label={`Notas para producción de ${line.product.name}`} maxLength={1000} rows={2} placeholder="Indicaciones para el taller" value={line.notes || ""} onChange={(event) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, notes: event.target.value } : item))} /></label>}
   </div>;
@@ -465,7 +479,7 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
       </div>
       {articleTab === "articles" ? <div id="local-panel-articles" role="tabpanel" aria-labelledby="local-tab-articles" className="local-sale-tab-panel">
       <div className="local-sale-search"><label>Categoría<select value={category} onChange={(event) => { setCategory(event.target.value); resetPicker(); }}><option value="">Todas</option>{categories.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
-        <label>Buscar producto<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre, variante o SKU" /></label></div>
+        <label>Buscar producto<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre, código, precio o material" /></label></div>
       {category && <div className="local-sale-picker">{typedCategory && <label>Tipo<select aria-label="Tipo" value={activeType} onChange={(event) => { setPickType(event.target.value); setPickName(""); setSelectedProductId(""); }}><option value="">Elegir</option>{pickTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>}
         <label>Nombre<select aria-label="Nombre" value={activeName} disabled={!activeType} onChange={(event) => { setPickName(event.target.value); setSelectedProductId(""); }}><option value="">Elegir</option>{pickNames.map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
         {category !== "servicios" && <label>Variante<select aria-label="Variante" value={selectedProductId} disabled={!activeName || pickVariants.length <= 1} onChange={(event) => setSelectedProductId(event.target.value)}><option value="">{pickVariants.length === 1 ? (visibleVariant(pickVariants[0].variant) || "Sin variante") : "Primera variante"}</option>{pickVariants.length > 1 && pickVariants.map((product) => <option key={product.id} value={product.id}>{visibleVariant(product.variant) || "Única"}</option>)}</select></label>}
@@ -540,8 +554,15 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
         {hasDeposit && <label>Seña cobrada<input type="number" min="0.01" max="10000000" step="0.01" value={deposit} onChange={(event) => setDeposit(event.target.value)} required /></label>}
       </div>
     </section>
+    {personalizedLines.length > 0 && <section className="local-sale-section local-sale-discount-section">
+      <h2>Descuentos</h2>
+      <div className="wholesale-sale-discount-row">
+        <label className="wholesale-sale-discount-toggle">Descuento en personalizados<select aria-label="Aplicar descuento a personalizados" value={discountOn ? "si" : "no"} onChange={(event) => setDiscountOn(event.target.value === "si")}><option value="no">No</option><option value="si">Sí</option></select></label>
+        {discountOn && <label className="wholesale-sale-discount-percent">Porcentaje<span><input type="number" min="0" max="100" step="0.5" inputMode="decimal" aria-label="Porcentaje de descuento" value={discountText} onChange={(event) => setDiscountText(event.target.value)} /><b aria-hidden="true">%</b></span></label>}
+      </div>
+    </section>}
     <footer className="local-sale-footer">
-      <div><small>Artículos</small><strong>{customPricesReady ? money(itemsMinor / 100) : "Pendiente de precios"}</strong></div>
+      <div><small>Artículos</small>{customPricesReady && discountPercent > 0 && listItemsMinor > itemsMinor ? <strong className="local-sale-total-discounted"><s>{money(listItemsMinor / 100)}</s><span>{money(itemsMinor / 100)}</span><em>-{formatPercent(discountPercent)} en personalizados</em></strong> : <strong>{customPricesReady ? money(itemsMinor / 100) : "Pendiente de precios"}</strong>}</div>
       {hasDeposit && <div><small>Seña cobrada</small><strong>{money(Number.isFinite(depositMinor) ? depositMinor / 100 : 0)}</strong></div>}
       {error && <div className="error" role="alert">{error}{error.includes("tarifas") && <button type="button" onClick={() => setPricingRefresh(value => value + 1)}>Actualizar precios</button>}</div>}
       <button className="primary" disabled={busy || !lines.length || !customPricesReady}><Plus size={18} />{busy ? "Guardando…" : "Guardar venta"}</button>
@@ -556,10 +577,11 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
           {line.product.assembly ? priceMateAssembly(line.product.assembly, pricing?.rules).items.map(item => <div key={item.ruleKey}><span>{item.label}</span><b>{money(item.totalMinor / 100)}</b></div>) : <div><span>Precio del artículo</span><b>{money(basePriceMinor(line) / 100)}</b></div>}
           {line.personalization && calculateLocalPersonalizationPrice(line.personalization, pricing).items.map(item => <div key={item.ruleKey}><span>{item.label.replace("Logo", "Íconos / imágenes")}<small>{item.quantity} × {money(item.unitPriceMinor / 100)}</small></span><b>{money(item.totalMinor / 100)}</b></div>)}
           <div className="local-sale-cost-total"><span>Total unitario</span><b>{linePriceReady(line) ? money(unitPriceMinor(line) / 100) : "Precio pendiente"}</b></div>
-          {line.quantity > 1 && <div><span>{line.quantity} unidades</span><b>{linePriceReady(line) ? money(line.quantity * unitPriceMinor(line) / 100) : "Precio pendiente"}</b></div>}
+          {line.personalization && discountPercent > 0 && linePriceReady(line) && <div><span>Descuento {formatPercent(discountPercent)}</span><b>-{money((unitPriceMinor(line) - soldUnitMinor(line)) / 100)}</b></div>}
+          {line.quantity > 1 && <div><span>{line.quantity} unidades</span><b>{linePriceReady(line) ? money(line.quantity * soldUnitMinor(line) / 100) : "Precio pendiente"}</b></div>}
         </div>
       </article>)}</div>}
-      {lines.length > 0 && <div className="local-sale-cost-detail local-sale-cost-grand" aria-live="polite"><div><strong>Total de la venta</strong><strong>{customPricesReady ? money(itemsMinor / 100) : "Precio pendiente"}</strong></div></div>}
+      {lines.length > 0 && <div className="local-sale-cost-detail local-sale-cost-grand" aria-live="polite"><div><strong>Total de la venta</strong><strong>{customPricesReady ? (discountPercent > 0 && listItemsMinor > itemsMinor ? <><s className="local-sale-struck">{money(listItemsMinor / 100)}</s> {money(itemsMinor / 100)}</> : money(itemsMinor / 100)) : "Precio pendiente"}</strong></div></div>}
     </aside>
   </form>;
 }

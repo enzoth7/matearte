@@ -581,3 +581,42 @@ test("el detalle de un pedido mayorista viejo permite cargarle y quitarle un des
   expect(tables.order_lines[0].total_arg).toBe(251000);
   await expect(dialog.locator(".wholesale-order-discount")).toContainText("Sin descuento");
 });
+
+test("los botones de exportar descargan la vista activa de producción (Modelo, Virolas) y la lista en Pedidos", async ({ page }) => {
+  const { tables } = await mockCommerce(page, { writable: true });
+  tables.products.push(
+    { id: "7", model: "Torpedo", variant: "Negro", rim_type: "Acero", leather_type: "Cuero crudo", price_arg: 10000, price_uyu: 270 },
+    { id: "8", model: "Imperial", variant: "Croco", rim_type: "Alpaca", leather_type: "Cuero liso", price_arg: 8000, price_uyu: 216 },
+  );
+  const base = { created_at: "2026-10-01T12:00:00Z", completed_at: null, customer: "Almacén Sur", order_type: "normal", unit_price_arg: 10000, unit_price_uyu: 270, exchange_rate: 0.027 };
+  tables.customers.push({ full_name: "Almacén Sur", first_name: "Almacén", last_name: "Sur", phone: "", email: "", address: "", notes: "" });
+  tables.order_lines.push(
+    { ...base, line_id: "a", order_id: "PED-1", model: "Torpedo", variant: "Negro", quantity: 3, status: "Pendiente", total_arg: 30000, total_uyu: 810 },
+    { ...base, line_id: "b", order_id: "PED-2", model: "Torpedo", variant: "Negro", quantity: 2, status: "En producción", total_arg: 20000, total_uyu: 540 },
+    { ...base, line_id: "c", order_id: "PED-3", model: "Imperial", variant: "Croco", quantity: 4, status: "Pendiente", unit_price_arg: 8000, unit_price_uyu: 216, total_arg: 32000, total_uyu: 864 },
+  );
+  await page.goto("/produccion/mayorista");
+  const production = page.locator(".wholesale-production");
+  const csvOf = async (action: () => Promise<void>) => { const downloaded = page.waitForEvent("download"); await action(); return readFile(await (await downloaded).path(), "utf8"); };
+
+  const orders = await csvOf(() => production.getByRole("button", { name: "CSV" }).click());
+  expect(orders).toContain("Pedido");
+  expect(orders).toContain("PED-1");
+
+  await production.getByRole("button", { name: "Modelo", exact: true }).click();
+  const byModel = await csvOf(() => production.getByRole("button", { name: "CSV" }).click());
+  expect(byModel.replace(/^\uFEFF/, "").split("\r\n")[0]).toBe("Modelo,Pendientes,En producción,Cantidad");
+  expect(byModel).toContain('"Torpedo","3","2","5"');
+  expect(byModel).toContain('"Imperial","4","0","4"');
+  expect(byModel).not.toContain("PED-1");
+
+  await production.getByRole("button", { name: "Virolas", exact: true }).click();
+  const byRim = await csvOf(() => production.getByRole("button", { name: "CSV" }).click());
+  expect(byRim).toContain("Tipo de virola");
+  expect(byRim).toContain('"Acero","3","2","5"');
+  expect(byRim).toContain('"Alpaca","4","0","4"');
+
+  const pdf = page.waitForEvent("download");
+  await production.getByRole("button", { name: "PDF" }).click();
+  expect((await pdf).suggestedFilename()).toMatch(/produccion-mayorista-virolas-.*\.pdf$/);
+});

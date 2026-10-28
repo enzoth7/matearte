@@ -44,7 +44,9 @@ describe("estado sin registros ficticios", () => {
     } finally { vi.unstubAllGlobals(); }
   });
   it("mantiene las rutas vigentes sin las páginas duplicadas", () => {
-    expect(new Set(paths).size).toBe(51);
+    expect(new Set(paths).size).toBe(53);
+    expect(resolvePath("/clientes/analitica")?.page[1]).toBe("Análisis de clientes");
+    expect(resolvePath("/marketing/pauta")?.page[1]).toBe("Informes de pauta");
     paths.forEach((path) => expect(resolvePath(path)).not.toBeNull());
     expect(resolvePath("/administracion/comercio")).toBeNull();
     expect(resolvePath("/administracion/links")?.page[1]).toBe("Links");

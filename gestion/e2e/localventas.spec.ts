@@ -287,9 +287,9 @@ test('personalizados combina un mate armado, matera y bombilla y guarda los dise
   await expect(page.locator('.local-sale-photo-panel')).not.toContainText('Todos los tamaños');
   await page.getByRole('navigation', { name: 'Pasos del diseño de Mate Imperial personalizado' }).getByRole('button', { name: /Virola/ }).click();
   await page.getByLabel('Texto de virola de Mate Imperial personalizado').fill('ENZO');
-  await page.getByRole('navigation', { name: 'Pasos del diseño de Mate Imperial personalizado' }).getByRole('button', { name: /Resumen/ }).click();
+  await expect(page.getByRole('navigation', { name: 'Pasos del diseño de Mate Imperial personalizado' }).getByRole('button', { name: /Resumen/ })).toHaveCount(0);
   await expect(page.getByLabel('Precio unitario de Mate Imperial personalizado')).toHaveValue(/2\.720/);
-  await expect(page.getByLabel('Precio de Mate Imperial personalizado')).toContainText('Grabado láser en virola');
+  await expect(page.getByLabel('Desglose de Mate Imperial personalizado')).toContainText('Grabado láser en virola');
   await expect(page.locator('.local-personalization-card-heading').first().locator('svg, p')).toHaveCount(0);
   const productBox = await page.locator('.local-sale-product-section').boundingBox();
   const photosBox = await page.locator('.local-sale-photo-panel').boundingBox();

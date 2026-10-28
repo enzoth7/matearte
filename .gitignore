@@ -56,6 +56,10 @@ dashboard/.codex-inspect-workbook.mjs
 # Large binaries and documents (available on Google Drive)
 *.pdf
 
+# Private contact records (the GitHub repository is public)
+/Informacion/Todos_los_contactos.xlsx
+/Informacion/agenda_contactos_revision.json
+
 # Editors and operating systems
 .vscode/*
 !.vscode/extensions.json

@@ -41,7 +41,7 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
     commerce_attribute_definitions: [], commerce_attribute_options: [], commerce_category_attributes: [], commerce_bank_transfer_settings: { account_holder: 'Titular', transfer_account: '111', cash_deposit_account: '222', cash_deposit_label: 'Depósito' },
     commerce_categories: fixture.reference.categories, commerce_settings: fixture.reference.settings, shipping_rates: fixture.nationalRates, purchases: [], fixed_expenses: [], fixed_expense_payments: [], expense_categories: [],
     local_sales_customers: [], local_sales: [], local_sale_receipts: [], rural_raffle_entries: [],
-    site_announcements: [], web_leads: [], contact_first_seen: [],
+    site_announcements: [], ad_reports: [], web_leads: [], contact_first_seen: [],
     products: [], wholesale_product_images: [], customers: [], order_lines: [], settings: { id: 1, exchange_rate: 0.027 },
   };
   await page.route("https://*.supabase.co/**", async (route) => {

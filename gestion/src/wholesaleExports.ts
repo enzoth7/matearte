@@ -29,26 +29,61 @@ function download(blob: Blob, name: string) {
   anchor.href = url; anchor.download = name; document.body.append(anchor); anchor.click(); anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-export function exportWholesaleCsv(lines: WholesaleLine[], snapshot: WholesaleSnapshot, currency?: WholesaleCurrency) {
-  const rows = rowsFor(lines, snapshot, currency);
-  const headings = Object.keys(rows[0] || {});
+type ExportRow = Record<string, string | number>;
+/** Vista agrupada de producción (Modelo, Variante, Virolas, Cuero Torpedo): se exporta tal cual se ve en pantalla. */
+export type WholesaleViewTable = { title: string; slug: string; headings: string[]; rows: ExportRow[] };
+const slugOf = (value: string) => normalized(value).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+function writeCsv(rows: ExportRow[], headings: string[], name: string) {
   const escape = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
-  const content = [headings.join(","), ...rows.map((row) => headings.map((key) => escape(row[key as keyof typeof row])).join(","))].join("\r\n");
-  download(new Blob([`\uFEFF${content}`], { type: "text/csv;charset=utf-8" }), filename("mayorista", "csv"));
+  const content = [headings.join(","), ...rows.map((row) => headings.map((key) => escape(row[key])).join(","))].join("\r\n");
+  download(new Blob([`﻿${content}`], { type: "text/csv;charset=utf-8" }), name);
 }
-export async function exportWholesaleXlsx(lines: WholesaleLine[], snapshot: WholesaleSnapshot, currency?: WholesaleCurrency) {
+async function writeXlsx(rows: ExportRow[], headings: string[], sheet: string, name: string) {
   const { default: writeXlsxFile } = await import("write-excel-file/browser");
-  const rows = rowsFor(lines, snapshot, currency);
-  const headings = Object.keys(rows[0] || {});
   const data = [
     headings.map((value) => ({ value, fontWeight: "bold" as const, textColor: "#ffffff", backgroundColor: "#263a2c" })),
     ...rows.map((row) => headings.map((key) => {
-      const value = row[key as keyof typeof row];
+      const value = row[key];
       return typeof value === "number" ? { value, format: "#,##0.00" } : { value: String(value) };
     })),
   ];
-  const blob = await writeXlsxFile(data, { sheet: "Producción", stickyRowsCount: 1, columns: headings.map((key) => ({ width: Math.max(15, key.length + 4) })) }).toBlob();
-  download(blob, filename("produccion-mayorista", "xlsx"));
+  const blob = await writeXlsxFile(data, { sheet, stickyRowsCount: 1, columns: headings.map((key) => ({ width: Math.max(15, key.length + 4) })) }).toBlob();
+  download(blob, name);
+}
+export function exportWholesaleCsv(lines: WholesaleLine[], snapshot: WholesaleSnapshot, currency?: WholesaleCurrency) {
+  const rows = rowsFor(lines, snapshot, currency);
+  writeCsv(rows, Object.keys(rows[0] || {}), filename("mayorista", "csv"));
+}
+export async function exportWholesaleXlsx(lines: WholesaleLine[], snapshot: WholesaleSnapshot, currency?: WholesaleCurrency) {
+  const rows = rowsFor(lines, snapshot, currency);
+  await writeXlsx(rows, Object.keys(rows[0] || {}), "Producción", filename("produccion-mayorista", "xlsx"));
+}
+export function exportWholesaleViewCsv(table: WholesaleViewTable) {
+  writeCsv(table.rows, table.headings, filename(`produccion-mayorista-${slugOf(table.slug)}`, "csv"));
+}
+export async function exportWholesaleViewXlsx(table: WholesaleViewTable) {
+  await writeXlsx(table.rows, table.headings, table.slug.slice(0, 31), filename(`produccion-mayorista-${slugOf(table.slug)}`, "xlsx"));
+}
+export async function exportWholesaleViewPdf(table: WholesaleViewTable) {
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+  const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  pdf.setFillColor(38, 58, 44); pdf.rect(0, 0, 297, 28, "F");
+  pdf.setTextColor(255, 255, 255); pdf.setFontSize(17); pdf.text("MateArte", 14, 12);
+  pdf.setFontSize(11); pdf.text(table.title, 14, 21);
+  pdf.setTextColor(40, 40, 40); pdf.setFontSize(9);
+  pdf.text(`Generado: ${formatDate(new Date())}  |  ${table.rows.length} filas`, 14, 35);
+  const numeric = table.headings.map((key) => table.rows.length > 0 && table.rows.every((row) => typeof row[key] === "number"));
+  autoTable(pdf, {
+    startY: 40,
+    head: [table.headings],
+    body: table.rows.map((row) => table.headings.map((key) => typeof row[key] === "number" ? Number(row[key]).toLocaleString("es-UY") : String(row[key] ?? ""))),
+    styles: { fontSize: 9, cellPadding: 2.6, overflow: "linebreak" },
+    headStyles: { fillColor: [38, 58, 44] },
+    columnStyles: Object.fromEntries(numeric.map((isNumber, index) => [index, isNumber ? { halign: "right" as const, cellWidth: 32 } : {}])),
+    didDrawPage: () => { pdf.setFontSize(8); pdf.setTextColor(100); pdf.text(`Página ${pdf.getNumberOfPages()}`, 278, 200, { align: "right" }); },
+  });
+  pdf.save(filename(`produccion-mayorista-${slugOf(table.slug)}`, "pdf"));
 }
 export async function exportWholesalePdf(title: string, lines: WholesaleLine[], snapshot: WholesaleSnapshot, currency?: WholesaleCurrency) {
   const [{ jsPDF }, { default: autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);

@@ -4,6 +4,7 @@ import { Links } from "./Links";
 import { MarketingSection } from "./MarketingSection";
 import { Purchases } from "./Purchases";
 import { SorteoView } from "./SorteoView";
+import { CustomerAnalyticsView } from "./CustomerInsights";
 import "./commerce/operations.css";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -127,6 +128,7 @@ function Content(
   if (key === "comercial/registrar-min") return <Register {...props} kind="minorista" />;
   if (key === "comercial/registrar-may") return <Register {...props} kind="mayorista" />;
   if (key === "comercial/pedidos") return <Orders {...props} />;
+  if (key === "clientes/analitica") return <CustomerAnalyticsView {...props} />;
   if (area === "clientes") return <Customers {...props} mode={page} />;
   if (key === "productos/personalizador") return <div className="commerce-tools"><PersonalizerConfiguratorView /></div>;
   if (area === "productos") return <Products {...props} mode={page} />;
