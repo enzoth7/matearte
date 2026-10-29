@@ -1,3 +1,4 @@
+import { ArgentinaSettings } from "./ArgentinaSettings";
 import { usdMoney } from "../data";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
@@ -96,10 +97,10 @@ type VariantForm = {sku:string;price:string;priceArg:string;options:CatalogValue
 const emptyVariantForm = (service = false): VariantForm => ({sku:'',price:'',priceArg:'',options:{},local:true,web:!service,wholesale:false,servicePriceMode:service?'variable':'fixed'});
 export type OrderItem = {id:string;item_type:'catalog'|'design';title:string;quantity:number;requires_review:boolean;review_status:string|null;immutable_snapshot:Record<string,unknown>;sku?:string|null;source_variant_id?:string|null;unit_price_minor?:number|null;total_minor?:number|null;source_variant?:{product?:{peso?:number}}};
 export type BankTransferReceipt = {id:string;original_name:string;mime_type:string;byte_size:number;status:'pending'|'approved'|'rejected';rejection_reason:string|null;submitted_at:string;reviewed_at:string|null};
-export type Order = { id:string;order_number:number;reference_code?:string|null;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;items_subtotal_minor?:number;shipping_minor?:number;payment_fee_minor?:number;payment_method?:string|null;discount_code?:string|null;discount_minor?:number;total_minor:number;paypal_amount_usd_minor?:number|null;created_at:string;customer_snapshot:Record<string,unknown>;peso?:number|null;order_items:OrderItem[];commerce_bank_transfer_receipts?:BankTransferReceipt[] };
+export type Order = { id:string;order_number:number;reference_code?:string|null;status:string;shipping_method:string;shipping_snapshot:Record<string,unknown>;shipping_carrier:string|null;tracking_code:string|null;shipped_at:string|null;items_subtotal_minor?:number;shipping_minor?:number;payment_fee_minor?:number;payment_method?:string|null;discount_code?:string|null;discount_minor?:number;total_minor:number;currency?:string;paypal_amount_usd_minor?:number|null;created_at:string;customer_snapshot:Record<string,unknown>;peso?:number|null;order_items:OrderItem[];commerce_bank_transfer_receipts?:BankTransferReceipt[] };
 type SupabaseOrder = Omit<Order,'commerce_bank_transfer_receipts'> & {commerce_bank_transfer_receipts?:BankTransferReceipt[]|BankTransferReceipt|null};
 export const normalizeBankTransferReceipts = (value:SupabaseOrder['commerce_bank_transfer_receipts']):BankTransferReceipt[] => Array.isArray(value) ? value : value ? [value] : [];
-const money=(minor:number)=>new Intl.NumberFormat('es-UY',{style:'currency',currency:'UYU',minimumFractionDigits:0,maximumFractionDigits:2}).format(minor/100);
+const money=(minor:number,currency='UYU')=>new Intl.NumberFormat('es-UY',{style:'currency',currency,currencyDisplay:'code',minimumFractionDigits:0,maximumFractionDigits:2}).format(minor/100);
 export const roundCommercialPrice = (minor:number) => {
   const lowerMultiple = Math.floor(minor / 5000) * 5000;
   return minor - lowerMultiple < 1000 ? lowerMultiple : lowerMultiple + 5000;
@@ -627,7 +628,7 @@ export function Rates({onNotice,wholesaleRate}:{onNotice:(v:string)=>void;wholes
     if (code === 'ARS') {
       try {
         await saveWholesaleExchangeRate(newRate);
-        onNotice('Cotización de ARS y precios mayoristas guardados.');
+        onNotice('Cotización de ARS guardada para la web y el catálogo mayorista.');
       } catch (error) {
         onNotice(error instanceof Error ? error.message : 'No se pudo guardar ARS.');
       }
@@ -642,7 +643,7 @@ export function Rates({onNotice,wholesaleRate}:{onNotice:(v:string)=>void;wholes
   return <section className="commerce-section">
     <div className="section-header">
       <h2>Conversión de moneda</h2>
-      <div>Establecé cuánto vale cada moneda en pesos uruguayos. ARS también actualiza los precios del catálogo mayorista.</div>
+      <div>Establecé cuánto vale cada moneda en pesos uruguayos. ARS se usa en las compras web de Argentina y en el catálogo mayorista.</div>
     </div>
     {busy ? <div className="loading">Cargando cotizaciones…</div> : (
       <div className="data-table" style={{ maxWidth: '600px', margin: '2rem 0' }}>
@@ -1768,14 +1769,14 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
   const load = useCallback(async() => {
     let {data,error}:{data:unknown;error:{message:string;code?:string}|null} = await supabase
       .from('orders')
-      .select('id,order_number,reference_code,status,peso,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,payment_method,discount_code,discount_minor,total_minor,paypal_amount_usd_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,source_variant_id,requires_review,review_status,immutable_snapshot,source_variant:commerce_variants(product:commerce_products(peso)))')
+      .select('id,order_number,reference_code,status,peso,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,payment_method,discount_code,discount_minor,total_minor,currency,paypal_amount_usd_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,source_variant_id,requires_review,review_status,immutable_snapshot,source_variant:commerce_variants(product:commerce_products(peso)))')
       .not('channel','in',INTERNAL_ORDER_CHANNELS)
       .order('created_at',{ascending:false})
       .limit(orderId ? 1 : 100).match(orderId ? { id: orderId } : {});
     if (error && (error.code === '42703' || /peso|source_variant/i.test(error.message))) {
       ({data,error} = await supabase
         .from('orders')
-        .select('id,order_number,reference_code,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,payment_method,discount_code,discount_minor,total_minor,paypal_amount_usd_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,source_variant_id,requires_review,review_status,immutable_snapshot)')
+        .select('id,order_number,reference_code,status,shipping_method,shipping_snapshot,shipping_carrier,tracking_code,shipped_at,items_subtotal_minor,shipping_minor,payment_fee_minor,payment_method,discount_code,discount_minor,total_minor,currency,paypal_amount_usd_minor,created_at,customer_snapshot,commerce_bank_transfer_receipts(id,original_name,mime_type,byte_size,status,rejection_reason,submitted_at,reviewed_at),order_items(id,item_type,sku,title,quantity,unit_price_minor,total_minor,source_variant_id,requires_review,review_status,immutable_snapshot)')
         .not('channel','in',INTERNAL_ORDER_CHANNELS)
         .order('created_at',{ascending:false})
         .limit(orderId ? 1 : 100).match(orderId ? { id: orderId } : {}));
@@ -1863,7 +1864,8 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
       if (reason) onNotice('El motivo debe tener al menos 5 caracteres.');
       return;
     }
-    const confirmation = decision === 'approve'
+    const argentinaTransfer = order.customer_snapshot.purchaseFlow === 'argentina_retail_transfer';
+    const confirmation = argentinaTransfer ? (decision === 'approve' ? '¿Confirmás que recibiste la transferencia en ARS? El pedido quedará pagado.' : '¿Rechazar el comprobante? El cliente podrá adjuntar otro en el mismo pedido.') : decision === 'approve'
       ? '¿Confirmás que la transferencia fue recibida? El pedido quedará pagado y pasará a producción.'
       : '¿Confirmás el rechazo? El pedido se cancelará y el cliente deberá crear uno nuevo.';
     if (!window.confirm(confirmation)) return;
@@ -1879,7 +1881,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
       });
       const value = await response.json();
       if (!response.ok) throw new Error(value.error || 'No se pudo revisar el comprobante.');
-      onNotice(decision === 'approve' ? 'Transferencia aprobada; el pedido pasó a producción.' : 'Comprobante rechazado y pedido cancelado.');
+      onNotice(argentinaTransfer ? (decision === 'approve' ? 'Transferencia en ARS aprobada.' : 'Comprobante rechazado; el cliente puede adjuntar otro.') : decision === 'approve' ? 'Transferencia aprobada; el pedido pasó a producción.' : 'Comprobante rechazado y pedido cancelado.');
       setDetailOrder(null);
       setReceiptPreview(null);
       await load();
@@ -2010,7 +2012,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
   const openShipment = (order:Order) => {
     setShipmentOrder(order);
     const resolved = resolveCarrierSelection(order.shipping_carrier);
-    setSelectedCarrier(resolved.selectedCarrier);
+    setSelectedCarrier(!order.shipping_carrier && order.customer_snapshot.purchaseFlow === "argentina_retail_transfer" ? "__other__" : resolved.selectedCarrier);
     setCustomCarrier(resolved.customCarrier);
     setShippingCarrier(resolved.shippingCarrier);
     setTrackingCode(order.tracking_code||'');
@@ -2096,7 +2098,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
       size,
       weight: weight > 0 ? formatWeight(weight) : undefined,
       quantity: item.quantity,
-      amount: money(getItemPricing(item).totalMinor),
+      amount: money(getItemPricing(item).totalMinor,detailOrder?.currency),
       extra: [isCustom ? 'Personalizado' : '', ...extra.map(option => `${option.label}: ${option.value}`)].filter(Boolean).join(' · '),
     };
   }) || [];
@@ -2138,11 +2140,12 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
       {!receiptLoading && <button type="button" className="secondary-button receipt-refresh" onClick={() => void loadReceiptPreview(detailOrder)}>{receiptPreview?'Renovar acceso':'Abrir comprobante'}</button>}
     </section> : undefined,
     totals: <>
-      {(Number(detailOrder.discount_minor) > 0 || Number(detailOrder.shipping_minor) > 0 || Number(detailOrder.payment_fee_minor) > 0) && <div className="line-item"><div>Subtotal</div><strong>{money(detailItemsSubtotal)}</strong></div>}
-      {Number(detailOrder.discount_minor) > 0 && <div className="line-item"><div>Descuento{detailOrder.discount_code ? ` · ${detailOrder.discount_code}` : ''}</div><strong>−{money(Number(detailOrder.discount_minor))}</strong></div>}
-      {Number(detailOrder.shipping_minor) > 0 && <div className="line-item"><div>Envío</div><strong>{money(Number(detailOrder.shipping_minor))}</strong></div>}
-      {Number(detailOrder.payment_fee_minor) > 0 && <div className="line-item"><div>Cargos</div><strong>{money(Number(detailOrder.payment_fee_minor))}</strong></div>}
-      <div className="line-item"><div>Total UYU</div><strong>{money(detailOrder.total_minor)}</strong></div>
+      {detailOrder.currency === "ARS" && <div className="data-note">Envío dentro de Argentina a cargo del destinatario. No incluido en el total.</div>}
+      {(Number(detailOrder.discount_minor) > 0 || Number(detailOrder.shipping_minor) > 0 || Number(detailOrder.payment_fee_minor) > 0) && <div className="line-item"><div>Subtotal</div><strong>{money(detailItemsSubtotal,detailOrder.currency)}</strong></div>}
+      {Number(detailOrder.discount_minor) > 0 && <div className="line-item"><div>Descuento{detailOrder.discount_code ? ` · ${detailOrder.discount_code}` : ''}</div><strong>−{money(Number(detailOrder.discount_minor),detailOrder.currency)}</strong></div>}
+      {Number(detailOrder.shipping_minor) > 0 && <div className="line-item"><div>Envío</div><strong>{money(Number(detailOrder.shipping_minor),detailOrder.currency)}</strong></div>}
+      {Number(detailOrder.payment_fee_minor) > 0 && <div className="line-item"><div>Cargos</div><strong>{money(Number(detailOrder.payment_fee_minor),detailOrder.currency)}</strong></div>}
+      <div className="line-item"><div>Total {detailOrder.currency || "UYU"}</div><strong>{money(detailOrder.total_minor,detailOrder.currency)}</strong></div>
       {detailOrder.paypal_amount_usd_minor != null && <div className="line-item"><div>Importe de compra PayPal</div><strong>{usdMoney(detailOrder.paypal_amount_usd_minor / 100)}</strong></div>}
       {detailOrder.status === 'manual_review' && detailOrder.order_items.some(item => item.review_status === 'rejected') && <div className="data-note">Reembolso pendiente de confirmación. Si pagó por transferencia, requiere devolución manual.</div>}
     </>,
@@ -2190,7 +2193,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
                   <td><strong>{destination}</strong>{order.status==='shipped'&&<small className="tracking-summary">{order.shipping_carrier} · {order.tracking_code}</small>}</td>
                   <td><div className={`status-badge status-${order.status}`}>{orderStatus(order.status)}</div></td>
                   <td className="numeric"><div>{formatWeight(getOrderTotalWeight(order))}</div></td>
-                  <td className="numeric"><strong>{money(order.total_minor)}{order.paypal_amount_usd_minor != null && <small> · {usdMoney(order.paypal_amount_usd_minor / 100)}</small>}</strong></td>
+                  <td className="numeric"><strong>{money(order.total_minor,order.currency)}{order.paypal_amount_usd_minor != null && <small> · {usdMoney(order.paypal_amount_usd_minor / 100)}</small>}</strong></td>
                   <td><div className="row-actions">
                     <button className="compact-button secondary-button" type="button" onClick={()=>openDetails(order)}>Ver detalle</button>
                     {order.status==='payment_verification_pending'&&<button className="compact-button" type="button" onClick={()=>openDetails(order)}>Revisar comprobante</button>}
@@ -2213,7 +2216,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
             <div className="form-actions unified-order-actions">
               <button type="button" className="unified-order-action" autoFocus onClick={closeDetails}>Cerrar</button>
               {onCustomer && <button type="button" className="unified-order-action" onClick={onCustomer}>Ver ficha del cliente</button>}
-              {detailOrder.status==='payment_verification_pending'&&<><button type="button" className="unified-order-action unified-order-action--danger" disabled={busy===detailOrder.id||!receiptPreview} onClick={()=>void reviewBankTransfer(detailOrder,'reject')}>Rechazar y cancelar</button><button type="button" className="unified-order-action unified-order-action--primary" disabled={busy===detailOrder.id||!receiptPreview} onClick={()=>void reviewBankTransfer(detailOrder,'approve')}>{busy===detailOrder.id?'Procesando…':'Aprobar pago'}</button></>}
+              {detailOrder.status==='payment_verification_pending'&&<><button type="button" className="unified-order-action unified-order-action--danger" disabled={busy===detailOrder.id||!receiptPreview} onClick={()=>void reviewBankTransfer(detailOrder,'reject')}>{detailOrder.currency === "ARS" ? "Rechazar comprobante" : "Rechazar y cancelar"}</button><button type="button" className="unified-order-action unified-order-action--primary" disabled={busy===detailOrder.id||!receiptPreview} onClick={()=>void reviewBankTransfer(detailOrder,'approve')}>{busy===detailOrder.id?'Procesando…':'Aprobar pago'}</button></>}
               {detailOrder.shipping_method!=='pickup'&&['paid_pending_review','ready_for_fulfillment','ready_for_production','manual_review'].includes(detailOrder.status)&&<button type="button" className="unified-order-action unified-order-action--primary" onClick={()=>{const order=detailOrder;setDetailOrder(null);openShipment(order)}}>Marcar enviado</button>}
               {detailOrder.shipping_method==='pickup'&&['paid_pending_review','ready_for_fulfillment','ready_for_production','manual_review'].includes(detailOrder.status)&&<button type="button" className="unified-order-action unified-order-action--primary" disabled={busy===detailOrder.id} onClick={()=>void deliverPickup(detailOrder)}>Marcar entregado</button>}
               {['shipped','delivered'].includes(detailOrder.status)&&<button type="button" className="unified-order-action" disabled={busy===detailOrder.id} onClick={()=>{if(window.confirm('¿Volver este pedido a preparación?'))void updateFulfillment(detailOrder,'restore')}}>Volver a preparación</button>}
@@ -2300,6 +2303,7 @@ type CommerceSettings = {
   commerce_enabled:boolean;
   mercado_pago_enabled:boolean;
   paypal_enabled:boolean;
+  ars_use_base_price:boolean;
   catalog_price_adjustment_enabled:boolean;
   catalog_price_adjustment_percent:number;
   wholesale_mate_discount_enabled:boolean;
@@ -2326,7 +2330,7 @@ export function Settings({onNotice,section="all"}:{onNotice:(v:string)=>void;sec
   const [bankSaving,setBankSaving]=useState(false);
   const load=useCallback(async()=>{
     const [settingsResult,bankResult,categoriesResult]=await Promise.all([
-      supabase.from('commerce_settings').select('commerce_enabled,mercado_pago_enabled,paypal_enabled,catalog_price_adjustment_enabled,catalog_price_adjustment_percent,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories').eq('singleton',true).single(),
+      supabase.from('commerce_settings').select('commerce_enabled,mercado_pago_enabled,paypal_enabled,ars_use_base_price,catalog_price_adjustment_enabled,catalog_price_adjustment_percent,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories').eq('singleton',true).single(),
       supabase.from('commerce_bank_transfer_settings').select('account_holder,transfer_account,cash_deposit_account,cash_deposit_label').eq('singleton',true).single(),
       supabase.from('commerce_categories').select('code,label_es').eq('active',true).order('label_es'),
     ]);
@@ -2397,6 +2401,7 @@ export function Settings({onNotice,section="all"}:{onNotice:(v:string)=>void;sec
   };
 
   return <>
+    {section !== "pricing" && <ArgentinaSettings onNotice={onNotice} />}
     {section !== "pricing" && <section className="panel settings settings-section">
       <header className="settings-heading"><h2>Canales de venta</h2><div>Controles generales para habilitar la tienda y sus proveedores de pago.</div></header>
       <div className="channel-switches">
@@ -2415,6 +2420,8 @@ export function Settings({onNotice,section="all"}:{onNotice:(v:string)=>void;sec
     <section className="panel settings settings-section">
       <header className="settings-heading"><h2>Ajuste del catálogo</h2></header>
       <label className="toggle adjustment-toggle"><input type="checkbox" disabled={saving} checked={value.catalog_price_adjustment_enabled} onChange={event=>void save({catalog_price_adjustment_enabled:event.target.checked},event.target.checked?'Ajuste activado y precios recalculados.':'Ajuste desactivado; se restauraron los precios base.')}/><strong>Aplicar ajuste</strong></label>
+      <label className="toggle adjustment-toggle"><input type="checkbox" role="switch" disabled={saving} checked={value.ars_use_base_price} onChange={event=>void save({ars_use_base_price:event.target.checked})}/><strong>No aplicar el ajuste del {value.catalog_price_adjustment_percent.toLocaleString('es-UY')}% a precios en ARS</strong></label>
+      <p>Al activar esta opción, los precios en ARS se calculan desde el precio base. Se redondean al múltiplo de 50 más cercano. Los pedidos ya creados conservan su importe.</p>
       <form className="adjustment-form" onSubmit={event=>void saveAdjustment(event)}>
         <label><div className="field-label">Porcentaje</div><div className="percent-input"><input type="number" min="0" max="100" step="0.01" value={percent} disabled={saving} onChange={event=>setPercent(event.target.value)}/><div>%</div></div></label>
         <button type="submit" disabled={saving}>{saving?'Guardando…':'Guardar'}</button>

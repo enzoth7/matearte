@@ -1,4 +1,6 @@
 "use client";
+import { toArsMinor } from "@/lib/argentina";
+import { useStorefrontCurrency } from "./StorefrontCurrency";
 
 import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
@@ -180,15 +182,18 @@ function MobileEmptyCart({ showLogin }: { showLogin: boolean }) {
 }
 
 export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?: Record<string, number>; wholesaleSettings: WholesaleDiscountSettings }) {
+  const { currency: displayCurrency, rates: displayRates, arsPerUyu, arsUseBasePrice } = useStorefrontCurrency(exchangeRates);
   const locale = useLocale() as Locale;
   const t = useTranslations("cart");
 
-  const format = (minor: number) => money(minor, "UYU", locale, exchangeRates);
+  const format = (minor: number) => money(minor, "UYU", locale, displayRates, displayCurrency);
   const localizedProducts = getLocalizedProducts(locale);
   const titleFor = (item: RemoteItem) => itemTitle(item, localizedProducts, t("piece"));
   const subtitleFor = (item: RemoteItem) => itemSubtitle(item, t("customDesign"), t("catalogPiece"));
   const imageAltFor = (item: RemoteItem) => item.item_type === "design" ? "MateArte" : titleFor(item);
-  const [cart, setCart] = useState<Cart | null>(null);
+  const [rawCart, setCart] = useState<Cart | null>(null);
+  const useArsBase = displayCurrency === "ARS" && arsUseBasePrice;
+  const cart = rawCart && useArsBase ? { ...rawCart, items: priceRemoteItems(rawCart.items.map(item => ({ ...item, base_unit_price_minor: item.item_type === "catalog" ? item.catalog_base_unit_price_minor ?? item.variant?.base_price_minor ?? item.base_unit_price_minor : item.base_unit_price_minor })), wholesaleSettings) } : rawCart;
   const [needsLogin, setNeedsLogin] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState("");
@@ -295,7 +300,10 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
     imageSrc: string;
   };
 
-  const [localItems, setLocalItems] = useState<LocalResolvedItem[]>([]);
+  const [rawLocalItems, setLocalItems] = useState<LocalResolvedItem[]>([]);
+  const localBaseItems = useArsBase ? rawLocalItems.map(item => ({ ...item, basePriceMinor: item.wholesaleBasePriceMinor })) : rawLocalItems;
+  const localAdjusted = applyWholesaleMateDiscount(localBaseItems.map(item => ({ itemType: "catalog" as const, quantity: item.quantity, unitPriceMinor: item.basePriceMinor, baseUnitPriceMinor: item.wholesaleBasePriceMinor, category: item.category })), wholesaleSettings);
+  const localItems = localBaseItems.map((item, index) => ({ ...item, priceMinor: localAdjusted[index].unitPriceMinor }));
 
   const resolveLocalCart = useCallback(async () => {
     const entries = readLocalCart();
@@ -524,8 +532,9 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
 
     const guestBaseSubtotal = localItems.reduce((sum, item) => sum + item.basePriceMinor * item.quantity, 0);
     const guestSubtotal = localItems.reduce((sum, item) => sum + item.priceMinor * item.quantity, 0);
+    const guestSum = (base: boolean) => money(localItems.reduce((sum, item) => sum + toArsMinor(base ? item.basePriceMinor : item.priceMinor, arsPerUyu) * item.quantity, 0), "ARS");
     const guestDiscountMinor = Math.max(0, guestBaseSubtotal - guestSubtotal);
-    const guestFormat = (minor: number) => money(minor, "UYU", locale, exchangeRates);
+    const guestFormat = (minor: number) => money(minor, "UYU", locale, displayRates, displayCurrency);
     const showGuestWholesaleNotice = wholesaleSettings.wholesale_mate_discount_enabled
       && wholesaleSettings.wholesale_mate_discount_percent > 0
       && localItems.some((item) => isWholesaleMateCategory(item.category));
@@ -580,12 +589,12 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
           <aside className="cart-mobile-summary" aria-label={t("summaryLabel")}>
             <div className="cart-mobile-summary-heading"><span aria-hidden="true" /><p>{t("summary")}</p></div>
             <dl className="cart-mobile-summary-list">
-              <div><dt>{t("subtotal")}</dt><dd>{guestFormat(guestBaseSubtotal)}</dd></div>
+              <div><dt>{t("subtotal")}</dt><dd>{(displayCurrency === "ARS" ? guestSum(true) : guestFormat(guestBaseSubtotal))}</dd></div>
               <div><dt>{t("shipping")}</dt><dd>{t("toCalculate")}</dd></div>
               {guestDiscountMinor > 0 && <div className="cart-summary-discount"><dt>{t("wholesaleDiscount", { discount: wholesaleSettings.wholesale_mate_discount_percent })}</dt><dd>− {guestFormat(guestDiscountMinor)}</dd></div>}
             </dl>
             <div className="cart-mobile-summary-divider" aria-hidden="true" />
-            <div className="cart-mobile-total"><span>{t("total")}</span><strong>{guestFormat(guestSubtotal)}</strong></div>
+            <div className="cart-mobile-total"><span>{t("total")}</span><strong>{(displayCurrency === "ARS" ? guestSum(false) : guestFormat(guestSubtotal))}</strong></div>
             {guestHasUnavailable ? <p role="alert" className="cart-mobile-error">{unavailableNotice}</p> : <Link href={"/perfil?redirect=/checkout" as any} className="cart-mobile-checkout">{t("continue")}</Link>}
             {showGuestWholesaleNotice && <p className="cart-wholesale-notice">{wholesaleNotice}</p>}
           </aside>
@@ -629,12 +638,12 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
           <aside className="cart-desktop-summary" aria-label={t("summaryLabel")}>
             <div className="cart-desktop-summary-heading"><span aria-hidden="true" /><p>{t("summary")}</p></div>
             <dl className="cart-desktop-summary-list">
-              <div><dt>{t("subtotal")}</dt><dd>{guestFormat(guestBaseSubtotal)}</dd></div>
+              <div><dt>{t("subtotal")}</dt><dd>{(displayCurrency === "ARS" ? guestSum(true) : guestFormat(guestBaseSubtotal))}</dd></div>
               <div><dt>{t("shipping")}</dt><dd>{t("toCalculate")}</dd></div>
               {guestDiscountMinor > 0 && <div className="cart-summary-discount"><dt>{t("wholesaleDiscount", { discount: wholesaleSettings.wholesale_mate_discount_percent })}</dt><dd>− {guestFormat(guestDiscountMinor)}</dd></div>}
             </dl>
             <div className="cart-desktop-summary-divider" aria-hidden="true" />
-            <div className="cart-desktop-total"><span>{t("total")}</span><strong>{guestFormat(guestSubtotal)}</strong></div>
+            <div className="cart-desktop-total"><span>{t("total")}</span><strong>{(displayCurrency === "ARS" ? guestSum(false) : guestFormat(guestSubtotal))}</strong></div>
             {guestHasUnavailable ? <p role="alert" className="cart-desktop-error">{unavailableNotice}</p> : <Link href={"/perfil?redirect=/checkout" as any} className="cart-desktop-checkout">{t("continue")}</Link>}
             {showGuestWholesaleNotice && <p className="cart-wholesale-notice">{wholesaleNotice}</p>}
           </aside>
@@ -683,6 +692,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
   );
   const baseSubtotal = cart.items.reduce((sum, item) => sum + (item.base_unit_price_minor ?? item.variant?.price_minor ?? item.unit_price_minor) * item.quantity, 0);
   const subtotal = cart.items.reduce((sum, item) => sum + item.unit_price_minor * item.quantity, 0);
+  const sumArs = (base: boolean) => cart.items.reduce((sum, item) => sum + toArsMinor(base ? (item.base_unit_price_minor ?? item.variant?.price_minor ?? item.unit_price_minor) : item.unit_price_minor, arsPerUyu) * item.quantity, 0);
   const discountMinor = Math.max(0, baseSubtotal - subtotal);
   const showWholesaleNotice = wholesaleSettings.wholesale_mate_discount_enabled
     && wholesaleSettings.wholesale_mate_discount_percent > 0
@@ -764,7 +774,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
           <dl className="cart-mobile-summary-list">
             <div>
               <dt>{t("subtotal")}</dt>
-              <dd>{format(baseSubtotal)}</dd>
+              <dd>{(displayCurrency === "ARS" ? money(sumArs(true), "ARS") : format(baseSubtotal))}</dd>
             </div>
             <div>
               <dt>{t("shipping")}</dt>
@@ -773,14 +783,14 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
             {discountMinor > 0 && (
               <div className="cart-summary-discount">
                 <dt>{t("wholesaleDiscount", { discount: wholesaleSettings.wholesale_mate_discount_percent })}</dt>
-                <dd>− {format(discountMinor)}</dd>
+                <dd>− {(displayCurrency === "ARS" ? money(sumArs(true) - sumArs(false), "ARS") : format(discountMinor))}</dd>
               </div>
             )}
           </dl>
           <div className="cart-mobile-summary-divider" aria-hidden="true" />
           <div className="cart-mobile-total">
             <span>{t("total")}</span>
-            <strong>{format(subtotal)}</strong>
+            <strong>{(displayCurrency === "ARS" ? money(sumArs(false), "ARS") : format(subtotal))}</strong>
           </div>
           {hasUnavailable ? <p role="alert" className="cart-mobile-error">{unavailableNotice}</p> : <Link href={checkoutHref as any} className="cart-mobile-checkout">{t("continue")}</Link>}
           {showWholesaleNotice && <p className="cart-wholesale-notice">{wholesaleNotice}</p>}
@@ -851,7 +861,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
           <dl className="cart-desktop-summary-list">
             <div>
               <dt>{t("subtotal")}</dt>
-              <dd>{format(baseSubtotal)}</dd>
+              <dd>{(displayCurrency === "ARS" ? money(sumArs(true), "ARS") : format(baseSubtotal))}</dd>
             </div>
             <div>
               <dt>{t("shipping")}</dt>
@@ -860,14 +870,14 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
             {discountMinor > 0 && (
               <div className="cart-summary-discount">
                 <dt>{t("wholesaleDiscount", { discount: wholesaleSettings.wholesale_mate_discount_percent })}</dt>
-                <dd>− {format(discountMinor)}</dd>
+                <dd>− {(displayCurrency === "ARS" ? money(sumArs(true) - sumArs(false), "ARS") : format(discountMinor))}</dd>
               </div>
             )}
           </dl>
           <div className="cart-desktop-summary-divider" aria-hidden="true" />
           <div className="cart-desktop-total">
             <span>{t("total")}</span>
-            <strong>{format(subtotal)}</strong>
+            <strong>{(displayCurrency === "ARS" ? money(sumArs(false), "ARS") : format(subtotal))}</strong>
           </div>
           {hasUnavailable ? <p role="alert" className="cart-desktop-error">{unavailableNotice}</p> : <Link href={checkoutHref as any} className="cart-desktop-checkout">{t("continue")}</Link>}
           {showWholesaleNotice && <p className="cart-wholesale-notice">{wholesaleNotice}</p>}

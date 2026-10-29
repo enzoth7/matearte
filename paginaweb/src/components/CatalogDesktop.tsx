@@ -1,4 +1,5 @@
 "use client";
+import { useStorefrontCurrency, useStorefrontProduct } from "./StorefrontCurrency";
 
 import Image from "next/image";
 import { CaretDown } from "@phosphor-icons/react";
@@ -59,6 +60,7 @@ function CatalogDesktopCard({
   exchangeRates,
   consultLabel,
 }: DesktopCardProps) {
+  const { currency, rates } = useStorefrontCurrency(exchangeRates);
   const {
     highlightedVariantId,
     variantImage,
@@ -68,7 +70,7 @@ function CatalogDesktopCard({
     swatchesToShow,
     setHoveredVariantId,
     handleSelectVariant,
-  } = useProductCardVariant(product, activeFilterColors);
+  } = useProductCardVariant(useStorefrontProduct(product), activeFilterColors);
 
   const defaultImage = product.images?.[0];
   const isEditorialFallback = !variantImage && defaultImage?.source !== "supabase" && Boolean(presentation);
@@ -111,7 +113,7 @@ function CatalogDesktopCard({
         </div>
         <div className="catalog-product-meta">
           <h2>{product.name}</h2>
-          <p>{priceIsFrom ? `${locale==='en'?'From':locale==='pt'?'A partir de':'Desde'} ` : ''}{formatCatalogPrice(displayedPrice, consultLabel, locale, exchangeRates)}</p>
+          <p>{priceIsFrom ? `${locale==='en'?'From':locale==='pt'?'A partir de':'Desde'} ` : ''}{formatCatalogPrice(displayedPrice, consultLabel, locale, rates, currency)}</p>
           <ProductCardSwatches
             variants={swatchesToShow}
             highlightedVariantId={highlightedVariantId}

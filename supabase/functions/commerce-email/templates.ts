@@ -47,6 +47,7 @@ const escapeHtml = (value: unknown) => String(value ?? "")
 const money = (minor: number, currency = "UYU") => new Intl.NumberFormat("es-UY", {
   style: "currency",
   currency,
+  currencyDisplay: "code",
   maximumFractionDigits: 0,
 }).format(minor / 100).replaceAll("\u00a0", " ");
 
@@ -151,7 +152,7 @@ export function buildCommerceEmail(
       return {
         subject: `Recibimos tu pedido #${order.order_number}`,
         html: layout(
-          `${heading("Recibimos tu pedido")}${copy(`Hola ${greetingName}, gracias por elegir MateArte. Ya recibimos tu pedido y te avisaremos cuando confirmemos el pago.`)}${orderRow}${products}${summaryRow("Subtotal", money(order.items_subtotal_minor, order.currency), { height: 24 })}${order.discount_minor > 0 ? summaryRow(`Descuento${order.discount_code ? ` · ${order.discount_code}` : ""}`, `−${money(order.discount_minor, order.currency)}`) : ""}${summaryRow("Envío", money(order.shipping_minor, order.currency))}${order.payment_fee_minor > 0 ? summaryRow("Cargos", money(order.payment_fee_minor, order.currency)) : ""}${totalRow}${button("Ver estado del pedido", orderUrl)}`,
+          `${heading("Recibimos tu pedido")}${copy(`Hola ${greetingName}, gracias por elegir MateArte. Ya recibimos tu pedido y te avisaremos cuando confirmemos el pago.`)}${orderRow}${products}${summaryRow("Subtotal", money(order.items_subtotal_minor, order.currency), { height: 24 })}${order.discount_minor > 0 ? summaryRow(`Descuento${order.discount_code ? ` · ${order.discount_code}` : ""}`, `−${money(order.discount_minor, order.currency)}`) : ""}${summaryRow("Envío", order.currency === "ARS" ? "A cargo del destinatario (no incluido)" : money(order.shipping_minor, order.currency))}${order.payment_fee_minor > 0 ? summaryRow("Cargos", money(order.payment_fee_minor, order.currency)) : ""}${totalRow}${button("Ver estado del pedido", orderUrl)}`,
           siteUrl,
         ),
       };

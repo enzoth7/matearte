@@ -553,6 +553,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       country, pickup: order.method !== "Envío",
     },
     totals: showAmounts ? <>
+      {order.originalCurrency === "ARS" && <div className="line-item"><div>Total original ARS · importes restantes en UYU a cotización del pedido</div><strong>{new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",currencyDisplay:"code"}).format(order.originalTotalAmount || 0)}</strong></div>}
       {(!!order.discountAmount || !!order.shippingAmount || !!order.feeAmount) && <div className="line-item"><div>Subtotal</div><strong>{money(items.length ? items.reduce((sum, item) => sum + item.amount, 0) : total(order))}</strong></div>}
       {!!order.discountAmount && <div className="line-item"><div>Descuento</div><strong>{money(-order.discountAmount)}</strong></div>}
       {!!order.shippingAmount && <div className="line-item"><div>Envío</div><strong>{money(order.shippingAmount)}</strong></div>}

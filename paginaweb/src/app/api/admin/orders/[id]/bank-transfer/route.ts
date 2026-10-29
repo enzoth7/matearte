@@ -76,7 +76,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 500) : "";
     if (!decision) return responseWithCors({ error: "Decisión inválida." }, auth.origin, 400);
     if (decision === "reject" && reason.length < 5) return responseWithCors({ error: "Indicá el motivo del rechazo." }, auth.origin, 400);
-    const { data, error } = await auth.admin.rpc("review_wholesale_bank_transfer_order", {
+    const order = await auth.admin.from("orders").select("customer_snapshot").eq("id", id).single();
+    if (order.error) throw order.error;
+    const action = order.data.customer_snapshot?.purchaseFlow === "argentina_retail_transfer" ? "review_argentina_transfer" : "review_wholesale_bank_transfer_order";
+    const { data, error } = await auth.admin.rpc(action, {
       p_admin_id: auth.user.id,
       p_order_id: id,
       p_decision: decision,

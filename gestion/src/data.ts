@@ -87,6 +87,8 @@ export type Order = {
   referenceCode?: string | null;
   status?: string;
   paidAt?: string | null;
+  originalCurrency?: string;
+  originalTotalAmount?: number;
   totalAmount?: number;
   paymentAmountUsd?: number;
   shippingAmount?: number;

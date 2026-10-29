@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from "re
 import { Link, useRouter } from "@/i18n/navigation";
 import { canonicalPathname, localizeCurrentPathname } from "@/i18n/paths";
 import { readLocalCart } from "@/lib/browser-cart";
+import { CurrencySelector } from "./StorefrontCurrency";
 import { persistLocalePreference } from "@/lib/locale-preference";
 import type { Locale } from "@/types/catalog";
 
@@ -178,6 +179,7 @@ export function Header() {
           </nav>
           <nav className="home-header-nav home-header-actions" aria-label={t("actionsNav")}>
             <button type="button" className="home-header-icon home-header-search" aria-label={t("search")} aria-expanded={searchOpen} aria-controls="home-catalog-search" onClick={toggleSearch}><MagnifyingGlass size={19} aria-hidden="true" /></button>
+            <CurrencySelector />
             <div className="home-header-language-wrap" ref={languageMenuRef}>
               <button ref={languageButtonRef} type="button" className="home-header-language" aria-label={t("openLanguage", { language: language(locale) })} aria-haspopup="menu" aria-expanded={languageOpen} aria-controls="home-language-menu" onClick={() => setLanguageOpen((value) => !value)}><Globe size={18} aria-hidden="true" /><span>{locale.toUpperCase()}</span></button>
               {languageOpen && (
@@ -225,7 +227,7 @@ export function Header() {
               <Link href="/perfil" onClick={() => setOpen(false)}><span>{session.authenticated ? t("account") : t("signIn")}</span><UserCircle size={24} aria-hidden="true" /></Link>
               <Link href="/carrito" onClick={() => setOpen(false)}><span>{t("cart")}</span><ShoppingCart size={24} aria-hidden="true" /></Link>
               <div className="home-mobile-languages" aria-label={t("language")}>
-                <span>{t("language")}</span>
+                <span>{t("language")}</span><CurrencySelector />
                 <div>{mobileLocaleOptions.map((option) => <a key={option} href={languageHref(option)} hrefLang={option === "pt" ? "pt-BR" : option} aria-label={language(option)} title={language(option)} aria-current={option === locale ? "true" : undefined} onClick={(event) => chooseLanguage(option, event)}><Image src={`/assets/matearte/flags/${option}.svg`} alt="" width={30} height={20} aria-hidden="true" /></a>)}</div>
               </div>
             </nav>

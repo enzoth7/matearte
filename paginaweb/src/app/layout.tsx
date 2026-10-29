@@ -1,3 +1,6 @@
+import { cookies } from "next/headers";
+import { StorefrontCurrency } from "@/components/StorefrontCurrency";
+import { getArgentinaDisplayRate, getArgentinaBasePricing } from "@/lib/argentina-server";
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -86,10 +89,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const locale = await getLocale();
   const messages = await getMessages();
   const common = await getTranslations("common");
+  const [arsPerUyu, arsUseBasePrice] = await Promise.all([getArgentinaDisplayRate(), getArgentinaBasePricing()]);
+  const preferredCurrency = (await cookies()).get("MATEARTE_CURRENCY")?.value === "ARS" ? "ARS" : "UYU";
   return (
     <html lang={localeConfig[locale].htmlLang} className={`${newsreader.variable} ${outfit.variable}`}>
       <body>
         <NextIntlClientProvider locale={locale} messages={messages}>
+          <StorefrontCurrency initialCurrency={preferredCurrency} arsPerUyu={arsPerUyu} arsUseBasePrice={arsUseBasePrice}>
           <CartMerger />
           <a className="skip-link" href="#contenido">{common("skipToContent")}</a>
           <LanguageNotice />
@@ -100,6 +106,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             <Footer />
           </SmoothScroll>
           <WhatsAppFab />
+        </StorefrontCurrency>
         </NextIntlClientProvider>
         <Analytics />
         <SpeedInsights />

@@ -335,7 +335,11 @@ function accessPeople(s: PageProps["s"], users: ManagedAccessUser[], withOwners 
   const fixed = accessUserIds
     .map((userId) => s.employees.find((employee) => employee.id === userId))
     .filter((employee): employee is Employee => Boolean(employee))
-    .map((employee) => ({ id: employee.id, name: employee.name, role: employee.role }));
+    .map((employee) => ({
+      id: employee.id,
+      name: users.find((user) => user.accessUserId === employee.id)?.displayName || employee.name,
+      role: employee.role,
+    }));
   const custom = users
     .filter((user) => isCustomAccessUserId(user.accessUserId))
     .map((user) => ({ id: user.accessUserId, name: user.displayName || user.username, role: "Usuario de Gestión" }));
@@ -394,7 +398,7 @@ function AccessUsers({ s }: Pick<PageProps, "s">) {
 
   useEffect(() => {
     setUsername(adding ? "" : entry?.username ?? "");
-    setDisplayName("");
+    setDisplayName(adding ? "" : selected?.name ?? "");
     setPassword("");
     setConfirmation("");
   }, [selectedId, users]);
@@ -402,8 +406,13 @@ function AccessUsers({ s }: Pick<PageProps, "s">) {
   async function saveUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const cleanUsername = username.trim().toLowerCase();
-    if (adding && !displayName.trim()) {
+    const cleanDisplayName = displayName.trim();
+    if (!cleanDisplayName) {
       setMessage("Ingresá el nombre de la persona.");
+      return;
+    }
+    if (cleanDisplayName.length > 120) {
+      setMessage("El nombre no puede superar los 120 caracteres.");
       return;
     }
     if (!/^[a-z0-9._-]{3,64}$/.test(cleanUsername)) {
@@ -421,16 +430,16 @@ function AccessUsers({ s }: Pick<PageProps, "s">) {
     setStatus("saving"); setMessage("");
     const { data, error } = await commerceSource!.functions.invoke("gestion-users", {
       body: adding
-        ? { action: "create", displayName: displayName.trim(), username: cleanUsername, password }
-        : { action: "save", accessUserId: isOwner ? "t1" : selectedId, userId: selectedId.startsWith("owner:") ? entry?.userId : undefined, displayName: selected!.name, username: cleanUsername, password: password || undefined },
+        ? { action: "create", displayName: cleanDisplayName, username: cleanUsername, password }
+        : { action: "save", accessUserId: isOwner ? "t1" : selectedId, userId: selectedId.startsWith("owner:") ? entry?.userId : undefined, displayName: cleanDisplayName, username: cleanUsername, password: password || undefined },
     });
     if (error || !data?.user) {
       setMessage(data?.error || "No se pudo guardar el usuario de ingreso.");
     } else {
-      const saved: ManagedAccessUser = data.user;
+      const saved: ManagedAccessUser = { ...entry, ...data.user, displayName: cleanDisplayName };
       setUsers((current) => [...current.filter((user) => saved.userId && saved.accessUserId === "t1" ? user.userId !== saved.userId : user.accessUserId !== saved.accessUserId), saved]);
       if (adding) setSelectedId(saved.accessUserId);
-      setMessage(adding ? "Usuario agregado y guardado." : "Usuario de ingreso guardado.");
+      setMessage(adding ? "Usuario agregado y guardado." : "Usuario guardado.");
       setPassword(""); setConfirmation("");
     }
     setStatus("ready");
@@ -456,7 +465,7 @@ function AccessUsers({ s }: Pick<PageProps, "s">) {
         </div>
         {status === "loading" ? <div role="status">Cargando usuario…</div> : (
           <form className="access-user-form" onSubmit={(event) => void saveUser(event)}>
-            {adding && <label>Nombre de la persona<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} autoComplete="off" required /></label>}
+            <label>Nombre de la persona<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} autoComplete="off" maxLength={120} required /></label>
             <label>Usuario de ingreso<input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required /></label>
             <label>{configured ? "Nueva contraseña" : "Contraseña"}<input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="new-password" required={!configured} minLength={8} /></label>
             <label>Confirmar contraseña<input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} type="password" autoComplete="new-password" required={!configured || Boolean(password)} minLength={8} /></label>

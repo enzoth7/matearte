@@ -7,6 +7,18 @@ import {
   type EmailOrderItem,
 } from "./templates.ts";
 
+test("Argentine receipts preserve ARS and distinguish shipping paid separately", () => {
+  const message = buildCommerceEmail(
+    { event_type: "customer_order_received", payload: {} },
+    { ...order, currency: "ARS", total_minor: 300000, items_subtotal_minor: 300000, shipping_minor: 0 },
+    [],
+    "https://www.matearteuruguay.com",
+    "test-token",
+  );
+  assert.match(message.html, /ARS/);
+  assert.match(message.html, /A cargo del destinatario \(no incluido\)/);
+});
+
 const order: EmailOrder = {
   id: "00000000-0000-0000-0000-000000000001",
   order_number: 1048,

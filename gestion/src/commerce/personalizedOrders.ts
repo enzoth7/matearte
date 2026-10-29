@@ -30,6 +30,7 @@ export type PersonalizedOrder = {
   discount_minor?: number | null;
   discount_code?: string | null;
   total_minor: number;
+  currency?: string;
   created_at: string;
   paid_at: string | null;
   payment_label?: 'Pago parcial';

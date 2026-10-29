@@ -3,6 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderWithIntl as render } from "@/test-utils";
 import { CheckoutForm } from "./CheckoutForm";
 
+// Navigation is exercised in Playwright; component tests do not boot Next's router.
+vi.mock("@/i18n/navigation", () => ({
+  Link: ({ href, children }: { href: string; children: React.ReactNode }) => <a href={href}>{children}</a>,
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 const pickupRate = { id: "11111111-1111-4111-8111-111111111111", name: "Retiro", rate_minor: 0, is_pickup: true, departments: [] };
 const deliveryRate = { id: "22222222-2222-4222-8222-222222222222", name: "Envío", rate_minor: 50000, is_pickup: false, departments: [] };
 const initialCustomer = { fullName: "Enzo", phone: "099000000", department: "", city: "", address: "" };

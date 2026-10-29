@@ -9,7 +9,7 @@ import type { CatalogValueMap } from "../../../shared/catalog-taxonomy";
 
 export type Locale = "es" | "en" | "pt";
 
-export type Currency = "UYU" | "USD" | "BRL";
+export type Currency = "UYU" | "USD" | "BRL" | "ARS";
 
 export type CategorySlug = SharedCatalogCategoryId;
 export type CatalogMaterialId = SharedCatalogMaterialId;

@@ -1,3 +1,5 @@
+import { formatMoney } from "./money";
+import type { Currency } from "@/types/catalog";
 import type {
   CatalogColorId,
   CatalogCollectionId,
@@ -433,17 +435,8 @@ export function filterAndSortCatalog<T extends { product: Product }>(entries: T[
   });
 }
 
-export function formatCatalogPrice(priceUYU?: number, consultLabel = "Consultar", locale = "es", exchangeRates?: Record<string, number>) {
-  if (priceUYU === undefined) return consultLabel;
-  if (locale === "en" && exchangeRates?.USD) {
-    const usd = Math.round(priceUYU / exchangeRates.USD);
-    return `US$ ${new Intl.NumberFormat("en-US").format(usd)}`;
-  }
-  if (locale === "pt" && exchangeRates?.BRL) {
-    const brl = Math.round(priceUYU / exchangeRates.BRL);
-    return `R$ ${new Intl.NumberFormat("pt-BR").format(brl)}`;
-  }
-  return `$ ${new Intl.NumberFormat("es-UY").format(priceUYU)} UYU`;
+export function formatCatalogPrice(priceUYU?: number, consultLabel = "Consultar", locale = "es", exchangeRates?: Record<string, number>, currency?: Currency) {
+  return priceUYU === undefined ? consultLabel : formatMoney(Math.round(priceUYU * 100), "UYU", locale, exchangeRates, currency);
 }
 
 export function hasActiveCatalogFilters(filters: CatalogFilters): boolean {

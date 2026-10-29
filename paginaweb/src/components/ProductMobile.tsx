@@ -1,4 +1,5 @@
 "use client";
+import { useStorefrontCurrency, useStorefrontProduct } from "./StorefrontCurrency";
 
 import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
@@ -35,7 +36,7 @@ const productImages: Record<string, string> = {
 
 type CommerceVariant = {
   id: string;
-  price_minor: number;
+  price_minor: number; base_price_minor?: number;
 };
 
 type CommerceData = {
@@ -47,16 +48,18 @@ type CommerceData = {
 import { formatCatalogPrice } from "@/lib/catalog-filters";
 
 export function ProductMobile({ product, exchangeRates }: { product: Product; exchangeRates?: Record<string, number> }) {
+  const { currency: displayCurrency, rates: displayRates, arsUseBasePrice } = useStorefrontCurrency(exchangeRates);
   const locale = useLocale();
   const t = useTranslations("product");
   const common = useTranslations("common");
   const router = useRouter();
   
-  const formatPrice = (amount: number) => formatCatalogPrice(amount, undefined, locale, exchangeRates);
+  const formatPrice = (amount: number) => formatCatalogPrice(amount, undefined, locale, displayRates, displayCurrency);
   const [commerce, setCommerce] = useState<CommerceData | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const variantSelection = useStructuredVariantSelection(product);
+  const pricedProduct = useStorefrontProduct(product);
+  const variantSelection = useStructuredVariantSelection(pricedProduct);
 
   useEffect(() => {
     let active = true;
@@ -76,7 +79,7 @@ export function ProductMobile({ product, exchangeRates }: { product: Product; ex
   const commerceVariant = commerce?.available ? commerce.product?.variants.find(v => v.id === activeVariantId) : undefined;
   
   const displayedPrice = commerceVariant
-    ? formatPrice(commerceVariant.price_minor / 100)
+    ? formatPrice((displayCurrency === "ARS" && arsUseBasePrice ? commerceVariant.base_price_minor ?? commerceVariant.price_minor : commerceVariant.price_minor) / 100)
     : catalogVariant?.price
     ? formatPrice(catalogVariant.price.amountMinor / 100)
     : variantSelection.displayedPrice === undefined ? common("consult") : formatPrice(variantSelection.displayedPrice);

@@ -1,4 +1,5 @@
 "use client";
+import { useStorefrontCurrency, useStorefrontProduct } from "./StorefrontCurrency";
 
 import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
@@ -52,6 +53,7 @@ function CatalogMobileCard({
   exchangeRates,
   consultLabel,
 }: MobileCardProps) {
+  const { currency, rates } = useStorefrontCurrency(exchangeRates);
   const {
     highlightedVariantId,
     variantImage,
@@ -61,7 +63,7 @@ function CatalogMobileCard({
     swatchesToShow,
     setHoveredVariantId,
     handleSelectVariant,
-  } = useProductCardVariant(product, activeFilterColors);
+  } = useProductCardVariant(useStorefrontProduct(product), activeFilterColors);
 
   const defaultImage = product.images?.[0];
   const isEditorialFallback = !variantImage && defaultImage?.source !== "supabase" && Boolean(presentation);
@@ -93,7 +95,7 @@ function CatalogMobileCard({
         </div>
         <div className="catalog-mobile-product-copy">
           <h2>{product.name}</h2>
-          <p>{priceIsFrom ? `${locale==='en'?'From':locale==='pt'?'A partir de':'Desde'} ` : ''}{formatCatalogPrice(displayedPrice, consultLabel, locale, exchangeRates)}</p>
+          <p>{priceIsFrom ? `${locale==='en'?'From':locale==='pt'?'A partir de':'Desde'} ` : ''}{formatCatalogPrice(displayedPrice, consultLabel, locale, rates, currency)}</p>
           <ProductCardSwatches
             variants={swatchesToShow}
             highlightedVariantId={highlightedVariantId}

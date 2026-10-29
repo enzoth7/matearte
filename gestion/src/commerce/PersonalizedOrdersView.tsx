@@ -30,9 +30,9 @@ import { catalogAttributeLabel, defaultCatalogTaxonomy } from "../../../shared/c
 
 type AssetLink = { viewUrl: string; downloadUrl: string };
 
-const money = (minor: number) => new Intl.NumberFormat('es-UY', {
+const money = (minor: number, currency = "UYU") => new Intl.NumberFormat('es-UY', {
   style: 'currency',
-  currency: 'UYU',
+  currency, currencyDisplay: 'code',
   minimumFractionDigits: minor % 100 === 0 ? 0 : 2,
   maximumFractionDigits: minor % 100 === 0 ? 0 : 2,
 }).format(minor / 100);
@@ -239,7 +239,7 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
       const result: PersonalizedOrder[] = [];
       for (let offset = 0; ; offset += 100) {
         const { data, error, count } = await supabase.from('orders')
-          .select('id,order_number,reference_code,status,items_subtotal_minor,shipping_minor,payment_fee_minor,discount_minor,discount_code,total_minor,created_at,paid_at,customer_snapshot,order_items(id,item_type,source_variant_id,title,quantity,unit_price_minor,total_minor,requires_review,review_status,review_reason,production_status,immutable_snapshot)', {count:'exact'})
+          .select('id,order_number,reference_code,status,items_subtotal_minor,shipping_minor,payment_fee_minor,discount_minor,discount_code,total_minor,currency,created_at,paid_at,customer_snapshot,order_items(id,item_type,source_variant_id,title,quantity,unit_price_minor,total_minor,requires_review,review_status,review_reason,production_status,immutable_snapshot)', {count:'exact'})
           .not('channel', 'in', INTERNAL_ORDER_CHANNELS)
           .order('created_at', {ascending:false}).order('id').range(offset, offset + 99);
         if (error) throw error;
@@ -330,7 +330,7 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
                   <td><strong>{customerName(order.customer_snapshot)}</strong></td>
                   <td>{productTypes(order)}</td>
                   <td><span className={`badge channel-${order.source === 'local' ? 'local' : 'web'}`}>{order.source === 'local' ? 'Local' : 'Web'}</span></td>
-                  <td><strong>{money(order.total_minor)}</strong></td>
+                  <td><strong>{money(order.total_minor,order.currency)}</strong></td>
                   <td className="payment-status-cell">
                     <Badge tone={getPaymentStatusValue(order) === 'cancelled' ? 'red' : undefined}>{paymentStatusLabel(order)}</Badge>
                   </td>
@@ -385,19 +385,19 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
                       <tbody>{price.lines.map(line => <tr key={line.key}>
                         <td>{line.label}</td>
                         <td><span className="personalized-price-mobile-label">Cantidad</span>{line.quantity}</td>
-                        <td><span className="personalized-price-mobile-label">Precio unitario</span>{money(line.unitPriceMinor)}</td>
-                        <td><span className="personalized-price-mobile-label">Total</span>{money(line.totalMinor)}</td>
+                        <td><span className="personalized-price-mobile-label">Precio unitario</span>{money(line.unitPriceMinor,selected.currency)}</td>
+                        <td><span className="personalized-price-mobile-label">Total</span>{money(line.totalMinor,selected.currency)}</td>
                       </tr>)}</tbody>
                     </table>
                     {price.notice && <p className="personalized-price-notice">{price.notice}</p>}
                   </section>;
                 })}
                 {selectedTotals && <div className="personalized-order-totals" aria-label="Totales del pedido">
-                  {selectedTotals.discountMinor > 0 && <div><span>Descuento{selected.discount_code ? ` · ${selected.discount_code}` : ''}</span><strong>−{money(selectedTotals.discountMinor)}</strong></div>}
-                  {selectedTotals.shippingMinor > 0 && <div><span>Envío</span><strong>{money(selectedTotals.shippingMinor)}</strong></div>}
-                  {selectedTotals.paymentFeeMinor > 0 && <div><span>Cargos de pago</span><strong>{money(selectedTotals.paymentFeeMinor)}</strong></div>}
-                  {selectedTotals.otherAdjustmentMinor !== 0 && <div><span>Ajuste no desglosado en el pedido</span><strong>{selectedTotals.otherAdjustmentMinor < 0 ? '−' : '+'}{money(Math.abs(selectedTotals.otherAdjustmentMinor))}</strong></div>}
-                  <div className="personalized-order-grand-total"><span>Total del pedido</span><strong>{money(selectedTotals.totalMinor)}</strong></div>
+                  {selectedTotals.discountMinor > 0 && <div><span>Descuento{selected.discount_code ? ` · ${selected.discount_code}` : ''}</span><strong>−{money(selectedTotals.discountMinor,selected.currency)}</strong></div>}
+                  {selectedTotals.shippingMinor > 0 && <div><span>Envío</span><strong>{money(selectedTotals.shippingMinor,selected.currency)}</strong></div>}
+                  {selectedTotals.paymentFeeMinor > 0 && <div><span>Cargos de pago</span><strong>{money(selectedTotals.paymentFeeMinor,selected.currency)}</strong></div>}
+                  {selectedTotals.otherAdjustmentMinor !== 0 && <div><span>Ajuste no desglosado en el pedido</span><strong>{selectedTotals.otherAdjustmentMinor < 0 ? '−' : '+'}{money(Math.abs(selectedTotals.otherAdjustmentMinor),selected.currency)}</strong></div>}
+                  <div className="personalized-order-grand-total"><span>Total del pedido</span><strong>{money(selectedTotals.totalMinor,selected.currency)}</strong></div>
                 </div>}
               </div>
             </section>

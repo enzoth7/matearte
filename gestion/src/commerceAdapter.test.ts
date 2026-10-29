@@ -8,6 +8,17 @@ import { buildRevenueForecast } from "./revenueForecast";
 import { readAllPages } from "./useCommerce";
 
 describe("integración de commerce en el estado compartido", () => {
+  it("normaliza pedidos y cobros ARS con la cotización histórica sin mezclar monedas", () => {
+    const fixture = commerceFixture();
+    fixture.orders[0].currency = "ARS";
+    fixture.orders[0].customer_snapshot = { ...fixture.orders[0].customer_snapshot, arsPerUyu: 30 };
+    fixture.orders[0].total_minor = 300000;
+    fixture.payments[0] = { ...fixture.payments[0], currency: "ARS", amount_minor: 300000, provider: "bank_transfer" };
+    const state = adaptCommerce(fixture);
+    expect(state.orders[0]).toMatchObject({ totalAmount: 100, originalCurrency: "ARS", originalTotalAmount: 3000 });
+    expect(state.payments[0]).toMatchObject({ amount: 100, sourceCurrency: "ARS", sourceAmount: 3000, reconciliationRequired: false });
+  });
+
   it("incluye cobros USD con su equivalencia histórica sin usar la cotización actual", () => {
     const fixture = commerceFixture();
     fixture.orders[0].paypal_amount_usd_minor = 10000;

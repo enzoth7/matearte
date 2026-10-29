@@ -109,7 +109,10 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
   });
   const customers = new Map<string, Customer>();
   const orders: Order[] = snapshot.orders.filter(visibleInCommerceAdmin).map((source) => {
-    if (source.currency !== "UYU") throw new Error(`El pedido #${source.order_number} requiere conversión de ${source.currency}.`);
+    const arsRate = Number(source.customer_snapshot?.arsPerUyu);
+    if (source.currency !== "UYU" && !(source.currency === "ARS" && Number.isFinite(arsRate) && arsRate > 0)) throw new Error(`El pedido #${source.order_number} requiere conversión de ${source.currency}.`);
+    // Dashboard amounts are UYU equivalents at the rate frozen on the order.
+    const amountUyu = (minor: number) => source.currency === "ARS" ? Math.round(Number(minor) / arsRate) / 100 : Number(minor) / 100;
     const contact = source.customer_snapshot ?? {};
     const shipping = source.shipping_snapshot ?? {};
     const international = ["international_shipping", "international_coordination"].includes(source.shipping_method);
@@ -150,7 +153,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
         productName: catalog?.name || text(historicalProduct, "name"), options: Object.keys(options).length ? options : catalog?.options,
         weightGrams: Number(historicalProduct.peso) > 0 ? Number(historicalProduct.peso) : catalog?.weightGrams,
         sku: item.sku || text(variant, "sku"), quantity: item.quantity,
-        unitPrice: Number(item.unit_price_minor) / 100, amount: Number(item.total_minor) / 100,
+        unitPrice: amountUyu(item.unit_price_minor), amount: amountUyu(item.total_minor),
         family: item.item_type === "design" ? "Personalizados" : catalog?.family || text(object(historical.product), "category") || "Sin categoría",
         variant: catalog?.variant || text(variant, "name"), rim: catalog?.rim || "Sin especificar", leather: catalog?.leather || "Sin especificar",
         productionStatus: source.status === "shipped" || source.status === "delivered" ? "completed" : item.production_status || "", reviewStatus: item.review_status, orderType: item.item_type,
@@ -162,8 +165,9 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       id: source.id, number: source.order_number, referenceCode: source.reference_code, status: source.status, paidAt: source.paid_at,
       customerId, productId: items[0]?.productId ?? source.id, quantity: items.reduce((sum, item) => sum + item.quantity, 0), unitPrice: 0,
       paymentAmountUsd: source.paypal_amount_usd_minor ? Number(source.paypal_amount_usd_minor) / 100 : undefined,
-      items, totalAmount: Number(source.total_minor) / 100, shippingAmount: Number(source.shipping_minor) / 100,
-      discountAmount: Number(source.discount_minor) / 100, feeAmount: Number(source.payment_fee_minor) / 100,
+      originalCurrency: source.currency, originalTotalAmount: Number(source.total_minor) / 100,
+      items, totalAmount: amountUyu(source.total_minor), shippingAmount: amountUyu(source.shipping_minor),
+      discountAmount: amountUyu(source.discount_minor), feeAmount: amountUyu(source.payment_fee_minor),
       channel: wholesale ? "Mayorista" : "Web", date: commerceDate(source.created_at), due: "",
       production, delivery: source.status === "shipped" ? "Enviado" : source.status === "delivered" ? "Entregado" : "Pendiente", method: source.shipping_method === "pickup" ? "Retiro" : "Envío",
       design: source.order_items.some((item) => item.requires_review),
@@ -364,7 +368,8 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       const validAmount = Number.isSafeInteger(originalMinor) && originalMinor >= 0;
       const canConvert = payment.currency === "USD" && order.currency === "UYU"
         && Number.isSafeInteger(historicalUsd) && historicalUsd > 0 && Number.isSafeInteger(baseUyu) && baseUyu > 0;
-      const amount = !validAmount ? null : payment.currency === "UYU" ? originalMinor / 100
+      const arsRate = Number(order.customer_snapshot?.arsPerUyu);
+      const amount = !validAmount ? null : payment.currency === "ARS" && order.currency === "ARS" && Number.isFinite(arsRate) && arsRate > 0 ? Math.round(originalMinor / arsRate) / 100 : payment.currency === "UYU" ? originalMinor / 100
         : canConvert ? Math.round(originalMinor * baseUyu / historicalUsd) / 100 : null;
       return {
         id: payment.id, orderId: payment.order_id, amount,

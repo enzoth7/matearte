@@ -1,5 +1,8 @@
 "use client";
 
+import { ArgentinaCheckout } from "./ArgentinaCheckout";
+import { useStorefrontCurrency } from "./StorefrontCurrency";
+import type { ComponentProps } from "react";
 import { Bank, Check, GlobeHemisphereWest, MapPin, UploadSimple } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -45,7 +48,7 @@ function MoneyValue({ amount, locale, exchangeRates }: { amount: number | null, 
   return <span>{amount === null ? "—" : formatMoney(amount, "UYU", locale, exchangeRates)}</span>;
 }
 
-export function CheckoutForm({
+function ExistingCheckoutForm({
   initialCustomer,
   initialDestination = { international: false, country: "", city: "" },
   exchangeRates,
@@ -66,7 +69,7 @@ export function CheckoutForm({
     [initialPhoneCountryOptions, locale]
   );
   const destinationCountryOptions = useMemo(
-    () => initialCountryOptions || countryOptionsForLocale(locale),
+    () => (initialCountryOptions || countryOptionsForLocale(locale)).filter(country => country.code !== "AR"),
     [initialCountryOptions, locale]
   );
   const [purchaseRegion, setPurchaseRegion] = useState<PurchaseRegion>(initialDestination.international ? "international" : "uruguay");
@@ -727,4 +730,13 @@ export function CheckoutForm({
       </form>
     </div>
   );
+}
+
+export function CheckoutForm(props: ComponentProps<typeof ExistingCheckoutForm>) {
+  const { currency } = useStorefrontCurrency();
+  const [argentina, setArgentina] = useState(currency === "ARS" || ["AR", "Argentina"].includes(props.initialDestination?.country || ""));
+  return <><div className="mx-auto flex max-w-3xl flex-wrap gap-3 px-5 pt-8" role="group" aria-label="Destino de entrega">
+    <button type="button" className={`rounded-xl border px-4 py-3 ${!argentina ? "bg-[var(--walnut)] text-white" : ""}`} aria-pressed={!argentina} onClick={() => setArgentina(false)}>Uruguay / otros países</button>
+    <button type="button" className={`rounded-xl border px-4 py-3 ${argentina ? "bg-[var(--walnut)] text-white" : ""}`} aria-pressed={argentina} onClick={() => setArgentina(true)}>Argentina · transferencia ARS</button>
+  </div>{argentina ? <ArgentinaCheckout initialCustomer={props.initialCustomer} /> : <ExistingCheckoutForm {...props} />}</>;
 }

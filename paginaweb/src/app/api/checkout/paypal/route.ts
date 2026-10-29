@@ -38,6 +38,7 @@ export async function POST(request: Request) {
     const address = text(destination.address, 240);
     if (!fullName || !phone) return apiError("Completá nombre y teléfono.");
     if (!country) return apiError("Ingresá el país de destino.");
+    if (["ar", "argentina", "argentine"].includes(country.toLowerCase())) return apiError("Para Argentina elegí transferencia en ARS.");
 
     const admin = createAdminSupabase();
     const cart = await readCart(admin, user.id);

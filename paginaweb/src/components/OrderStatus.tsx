@@ -1,4 +1,5 @@
 "use client";
+import { ArgentinaOrderPayment } from "./ArgentinaOrderPayment";
 
 import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
@@ -70,6 +71,10 @@ function itemImage(item: OrderItem) {
 
 function shippingAddress(order: OrderValue, pickup: string, toConfirm: string) {
   if (order.shipping_method === "pickup") return pickup;
+
+  if (order.customer_snapshot?.purchaseFlow === "argentina_retail_transfer") {
+    return ["address", "city", "department", "postalCode"].map(key => snapshotText(order.customer_snapshot, key)).filter(Boolean).concat("Argentina").join(", ");
+  }
 
   if (order.shipping_method === "international_coordination" || order.shipping_method === "international_shipping") {
     const values = [
@@ -166,7 +171,7 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
         }
         setError("");
         setOrder(value as OrderValue);
-        if (!stopped && ["pending_payment", "payment_verification_pending"].includes(value.status)) timer = setTimeout(load, 5_000);
+        if (!stopped && (value.status === "payment_verification_pending" || (value.status === "pending_payment" && value.currency !== "ARS"))) timer = setTimeout(load, 5_000);
       } catch {
         setError(t("connectionFailed"));
       }
@@ -247,8 +252,9 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
   const statusDescription = isInternational && status === "manual_review"
     ? t("internationalStatus")
     : statusDescriptions[status] || t("processingFallback");
-  const desktopStatusTitle = status === "pending_payment" ? t("processingPayment") : statusLabels[status] || status;
-  const desktopStatusDescription = status === "pending_payment"
+  const argentinaPending = order.currency === "ARS" && status === "pending_payment";
+  const desktopStatusTitle = argentinaPending ? "Pendiente de transferencia" : status === "pending_payment" ? t("processingPayment") : statusLabels[status] || status;
+  const desktopStatusDescription = argentinaPending ? "Transferí el total indicado y adjuntá el comprobante para que revisemos el pago." : status === "pending_payment"
     ? t("updatesAutomatically")
     : statusDescription;
   const items = order.order_items || [];
@@ -272,6 +278,7 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
 
   return (
     <>
+      {order.customer_snapshot?.purchaseFlow === "argentina_retail_transfer" && <ArgentinaOrderPayment orderId={order.id} status={order.status} totalMinor={order.total_minor} bank={(order.customer_snapshot?.bank || {}) as Record<string, unknown>} rejectionReason={receiptRejectionReason} />}
       <section className="order-status-mobile" aria-labelledby="order-detail-mobile-title">
         <header className="order-mobile-header">
           <h1 id="order-detail-mobile-title">{t("title")}</h1>

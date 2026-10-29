@@ -7,7 +7,7 @@ export type OrderMoneySource = {
   paypal_amount_usd_minor?: number | null;
 };
 
-const currencies: Currency[] = ["UYU", "USD", "BRL"];
+const currencies: Currency[] = ["UYU", "USD", "BRL", "ARS"];
 
 function sourceCurrency(value: string): Currency {
   return currencies.includes(value as Currency) ? value as Currency : "UYU";
@@ -24,6 +24,7 @@ export function formatOrderMoney(
   locale: Locale,
   exchangeRates?: Record<string, number>,
 ) {
+  if (order.currency === "ARS") return formatMoney(amountMinor, "ARS", "es");
   const paypalTotal = Number(order.paypal_amount_usd_minor);
   if (locale === "en" && Number.isSafeInteger(paypalTotal) && paypalTotal >= 0 && order.total_minor > 0) {
     const amountUsdMinor = amountMinor === order.total_minor
