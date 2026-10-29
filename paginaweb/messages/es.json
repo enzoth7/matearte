@@ -513,6 +513,13 @@
     "wholesaleDiscountNotice": "Desde {threshold} artículos se usa se aplica un {discount}% de descuento. El pago se completa por transferencia."
   },
   "checkout": {
+    "argentinaOption": "Transferencia en ARS",
+    "province": "Provincia",
+    "postalCode": "Código postal",
+    "argentinaAction": "Confirmar pedido y ver cuenta bancaria",
+    "argentinaUnavailable": "Las compras para Argentina todavía no están habilitadas.",
+    "argentinaShippingNotice": "Envío dentro de Argentina a cargo del destinatario. No incluido en el total.",
+
     "metadataTitle": "Finalizar compra",
     "eyebrow": "Compra",
     "title": "Finalizar compra",

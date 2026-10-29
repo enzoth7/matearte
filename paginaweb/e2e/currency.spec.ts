@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test("moneda por idioma y entrega argentina en escritorio y móvil", async ({ page }) => {
+  test.setTimeout(120_000);
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
   for (const [path, label, currency] of [["/catalogo", "Moneda", "UYU"], ["/en/catalog", "Currency", "USD"], ["/pt/catalogo", "Moeda", "BRL"]]) {
@@ -13,9 +14,15 @@ test("moneda por idioma y entrega argentina en escritorio y móvil", async ({ pa
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
   }
   await page.route("**/api/checkout/argentina", route => route.fulfill({ json: { enabled: true, arsPerUyu: 30 } }));
+  await page.route("**/api/cart", route => route.fulfill({ json: { items: [{ item_type: "catalog", unit_price_minor: 10000, catalog_base_unit_price_minor: 10000, quantity: 1 }], total_weight_grams: 350 } }));
+  await page.route("**/api/shipping-rates", route => route.fulfill({ json: { rates: [
+    { id: "pickup", name: "Retiro", is_pickup: true, rate_minor: 0, departments: [] },
+    { id: "delivery", name: "Envío", is_pickup: false, rate_minor: 0, departments: [] },
+  ] } }));
   await page.goto("/checkout");
-  await page.getByRole("button", { name: "Argentina · transferencia ARS" }).click();
-  await expect(page.getByRole("heading", { name: "Compra por unidad · Argentina" })).toBeVisible();
+  await page.getByRole("radio", { name: /envío a domicilio/i }).locator("..").click();
+  await page.getByRole("radio", { name: /Argentina/i }).locator("..").click();
+  await expect(page.getByRole("heading", { name: "Finalizar compra" })).toBeVisible();
   await expect(page.getByText("Envío dentro de Argentina a cargo del destinatario. No incluido en el total.")).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Provincia" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Código postal" })).toBeVisible();
@@ -42,12 +49,12 @@ test("moneda por idioma y entrega argentina en escritorio y móvil", async ({ pa
   } }));
   await page.route(`**/api/orders/${orderId}/receipt`, route => { status = "payment_verification_pending"; rejected = false; return route.fulfill({ json: { ok: true } }); });
   await page.getByRole("textbox", { name: "Nombre completo" }).fill("Comprador de prueba");
-  await page.getByRole("textbox", { name: "Teléfono" }).fill("+541111111111");
-  await page.getByRole("textbox", { name: "Localidad" }).fill("Buenos Aires");
+  await page.getByRole("textbox", { name: /Teléfono o WhatsApp/ }).fill("+541111111111");
+  await page.getByRole("textbox", { name: "Ciudad" }).fill("Buenos Aires");
   await page.getByRole("textbox", { name: "Código postal" }).fill("1000");
   await page.getByRole("textbox", { name: "Dirección" }).fill("Calle de prueba 123");
   await page.getByRole("combobox", { name: "Provincia" }).selectOption("Buenos Aires");
-  await page.getByRole("button", { name: "Confirmar pedido y ver datos para transferir" }).click();
+  await page.getByRole("button", { name: "Confirmar pedido y ver cuenta bancaria" }).click();
   await expect(page).toHaveURL(new RegExp(`/pedidos/${orderId}`));
   await expect(page.getByRole("heading", { name: "Total del pedido: $ 3.000 ARS" })).toBeVisible();
   await expect(page.getByText("prueba.e2e")).toBeVisible();

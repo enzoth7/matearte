@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderWithIntl as render } from "@/test-utils";
+import { StorefrontCurrency } from "./StorefrontCurrency";
 import { CheckoutForm } from "./CheckoutForm";
 
 // Navigation is exercised in Playwright; component tests do not boot Next's router.
@@ -16,6 +17,7 @@ const initialCustomer = { fullName: "Enzo", phone: "099000000", department: "", 
 function mockCheckoutFetch(cartPayload: Record<string, unknown> = { items: [{ unit_price_minor: 100000, quantity: 1 }], total_weight_grams: 350 }) {
   vi.stubGlobal("fetch", vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
     const url = typeof input === "string" ? input : (input as Request).url || "";
+    if (url.includes("/api/checkout/argentina")) return { ok: true, json: async () => ({ enabled: true }) };
     if (url.includes("/api/cart")) {
       return { ok: true, text: async () => JSON.stringify(cartPayload) };
     }
@@ -136,4 +138,28 @@ describe("CheckoutForm", () => {
     expect(screen.getByLabelText(/comprobante de pago/i)).toHaveAttribute("accept", "image/jpeg,image/png,image/webp,application/pdf");
     expect(screen.getByRole("button", { name: /completar pedido/i })).toBeDisabled();
   });
+});
+
+it("integra Argentina en el selector de destino y conserva el formulario al cambiar de país", async () => {
+  mockCheckoutFetch({ items: [{ item_type: "catalog", unit_price_minor: 11364, catalog_base_unit_price_minor: 10000, quantity: 2 }] });
+  render(<StorefrontCurrency initialCurrency="ARS" arsPerUyu={30} arsUseBasePrice><CheckoutForm initialCustomer={initialCustomer} /></StorefrontCurrency>);
+  expect(screen.queryByRole("button", { name: /Argentina · transferencia/ })).not.toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Finalizar compra" })).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("radio", { name: /envío a domicilio/i }));
+  fireEvent.click(screen.getByRole("radio", { name: /Argentina/i }));
+  expect(screen.getByLabelText("Provincia")).toBeInTheDocument();
+  expect(screen.getByLabelText("Código postal")).toBeRequired();
+  expect(screen.getByLabelText("Nombre completo")).toHaveValue("Enzo");
+  expect(screen.getAllByText(/6.000 ARS/)).toHaveLength(2);
+  expect(await screen.findByRole("button", { name: /Confirmar pedido y ver cuenta bancaria/i })).toBeEnabled();
+  expect(screen.queryByRole("button", { name: /mercado pago/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /código de descuento/i })).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /condiciones de compra/i }).closest("aside")).toBeNull();
+  expect(screen.queryByText(/recalculamos los artículos/i)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("radio", { name: /Uruguay/i }));
+  expect(screen.getByLabelText("Departamento")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Código postal")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /mercado pago/i })).toBeEnabled();
+  cleanup();
+  vi.unstubAllGlobals();
 });

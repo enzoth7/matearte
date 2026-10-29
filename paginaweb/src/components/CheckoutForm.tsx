@@ -1,8 +1,8 @@
 "use client";
 
-import { ArgentinaCheckout } from "./ArgentinaCheckout";
+import { toArsMinor } from "@/lib/argentina";
 import { useStorefrontCurrency } from "./StorefrontCurrency";
-import type { ComponentProps } from "react";
+
 import { Bank, Check, GlobeHemisphereWest, MapPin, UploadSimple } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -18,8 +18,8 @@ import type { Locale } from "@/types/catalog";
 type Rate = { id: string; name: string; rate_minor: number; is_pickup: boolean; departments: string[] };
 type CustomerForm = { fullName: string; phone: string; department: string; city: string; address: string };
 type InitialDestination = { international: boolean; country: string; city: string };
-type PurchaseRegion = "uruguay" | "international";
-type CartItem = { quantity: number; unit_price_minor: number };
+type PurchaseRegion = "uruguay" | "argentina" | "international";
+type CartItem = { quantity: number; unit_price_minor: number; item_type?: string; catalog_base_unit_price_minor?: number };
 type WholesaleState = { eligible: boolean; mate_quantity: number; threshold: number; discount_percent: number; savings_minor: number; checkout_mode: string };
 type BankTransferDetails = { account_holder: string; transfer_account: string; cash_deposit_account: string; cash_deposit_label: string };
 type AppliedDiscount = {
@@ -44,11 +44,11 @@ const discountErrorTranslationKeys = {
   invalid: "discountErrors.invalid",
 } as const;
 
-function MoneyValue({ amount, locale, exchangeRates }: { amount: number | null, locale: string, exchangeRates?: Record<string, number> }) {
-  return <span>{amount === null ? "—" : formatMoney(amount, "UYU", locale, exchangeRates)}</span>;
+function MoneyValue({ amount, locale, exchangeRates, argentina = false }: { amount: number | null, locale: string, exchangeRates?: Record<string, number>; argentina?: boolean }) {
+  return <span>{amount === null ? "—" : formatMoney(amount, argentina ? "ARS" : "UYU", locale, exchangeRates)}</span>;
 }
 
-function ExistingCheckoutForm({
+export function CheckoutForm({
   initialCustomer,
   initialDestination = { international: false, country: "", city: "" },
   exchangeRates,
@@ -62,6 +62,7 @@ function ExistingCheckoutForm({
   initialCountryOptions?: ReturnType<typeof countryOptionsForLocale>;
 }) {
   const locale = useLocale() as Locale;
+  const { arsPerUyu, arsUseBasePrice } = useStorefrontCurrency();
   const t = useTranslations("checkout");
   const tCart = useTranslations("cart");
   const phoneCountryOptions = useMemo(
@@ -72,7 +73,7 @@ function ExistingCheckoutForm({
     () => (initialCountryOptions || countryOptionsForLocale(locale)).filter(country => country.code !== "AR"),
     [initialCountryOptions, locale]
   );
-  const [purchaseRegion, setPurchaseRegion] = useState<PurchaseRegion>(initialDestination.international ? "international" : "uruguay");
+  const [purchaseRegion, setPurchaseRegion] = useState<PurchaseRegion>(["AR", "Argentina"].includes(initialDestination.country) ? "argentina" : initialDestination.international ? "international" : "uruguay");
   const [rates, setRates] = useState<Rate[]>([]);
   const [rateId, setRateId] = useState("");
   const [parsedPhone] = useState(() => parsePhoneNumber(initialCustomer.phone, "UY"));
@@ -80,6 +81,7 @@ function ExistingCheckoutForm({
   const [phoneNumber, setPhoneNumber] = useState(parsedPhone.localNumber);
   const [form, setForm] = useState(() => ({
     ...initialCustomer,
+    postalCode: "",
     phone: parsedPhone.localNumber
       ? internationalPhoneNumber(parsedPhone.phoneCountryCode, parsedPhone.localNumber)
       : initialCustomer.phone,
@@ -87,6 +89,8 @@ function ExistingCheckoutForm({
   const [international, setInternational] = useState({ country: initialDestination.country, city: initialDestination.city });
   const [internationalRates, setInternationalRates] = useState<InternationalShippingRow[]>(DEFAULT_INTERNATIONAL_SHIPPING_RATES);
   const [cartWeightGrams, setCartWeightGrams] = useState<number>(0);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [argentinaAvailable, setArgentinaAvailable] = useState<boolean | null>(null);
   const [subtotalMinor, setSubtotalMinor] = useState<number | null>(null);
   const [discountOpen, setDiscountOpen] = useState(false);
   const [discountCode, setDiscountCode] = useState("");
@@ -108,6 +112,8 @@ function ExistingCheckoutForm({
   const rate = useMemo(() => rates.find((item) => item.id === rateId), [rates, rateId]);
   const isDelivery = Boolean(rate && !rate.is_pickup);
   const isWholesale = Boolean(wholesale?.eligible);
+  const isArgentina = !isWholesale && isDelivery && purchaseRegion === "argentina";
+  const argentinaSubtotal = subtotalMinor !== null && arsPerUyu > 0 ? cartItems.reduce((sum, item) => sum + toArsMinor(arsUseBasePrice && item.item_type === "catalog" ? item.catalog_base_unit_price_minor ?? item.unit_price_minor : item.unit_price_minor, arsPerUyu) * item.quantity, 0) : null;
   const isInternational = !isWholesale && isDelivery && purchaseRegion === "international";
 
   const internationalShippingCalc = useMemo(() => {
@@ -176,6 +182,7 @@ function ExistingCheckoutForm({
       setBankTransfer(nextBankTransfer);
       if (nextWholesale?.eligible && !nextBankTransfer) setCartError(t("bankTransferUnavailable"));
       const items = value.items as CartItem[];
+      setCartItems(items);
       setSubtotalMinor(items.reduce((total, item) => total + Number(item.unit_price_minor || 0) * Number(item.quantity || 0), 0));
     } catch (reason) {
       setSubtotalMinor(null);
@@ -192,6 +199,24 @@ function ExistingCheckoutForm({
     }, 0);
     return () => window.clearTimeout(timer);
   }, [loadRates, loadSubtotal]);
+
+  useEffect(() => {
+    if (!isArgentina) return;
+    let active = true;
+    setArgentinaAvailable(null);
+    fetch("/api/checkout/argentina", { cache: "no-store" }).then(response => response.json()).then(value => {
+      if (active) setArgentinaAvailable(Boolean(value.enabled));
+    }).catch(() => { if (active) setArgentinaAvailable(false); });
+    return () => { active = false; };
+  }, [isArgentina]);
+
+  const selectRegion = (region: PurchaseRegion) => {
+    setPurchaseRegion(region);
+    setForm(current => ({ ...current, department: "", city: "", postalCode: "" }));
+    setPaypalReady(false);
+    setAppliedDiscount(null);
+    setError("");
+  };
 
   const update = (key: keyof typeof form, value: string) => setForm((current) => ({ ...current, [key]: value }));
   const updateInternational = (key: keyof typeof international, value: string) => setInternational((current) => ({ ...current, [key]: value }));
@@ -256,6 +281,22 @@ function ExistingCheckoutForm({
     const customerPayload = { ...form, phone: fullPhone };
     setForm((current) => ({ ...current, phone: fullPhone }));
     try {
+      if (isArgentina) {
+        if (!argentinaAvailable || !cartReady || argentinaSubtotal === null) throw new Error(t("argentinaUnavailable"));
+        const storageKey = "matearte_argentina_checkout";
+        const key = sessionStorage.getItem(storageKey) || crypto.randomUUID();
+        sessionStorage.setItem(storageKey, key);
+        const response = await fetch("/api/checkout/argentina", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Idempotency-Key": key },
+          body: JSON.stringify({ customer: { ...customerPayload, countryCode: "AR", country: "Argentina" }, locale }),
+        });
+        const value = await response.json();
+        if (!response.ok) throw new Error(value.error || t("continueFailed"));
+        sessionStorage.removeItem(storageKey);
+        window.location.assign(localizeCanonicalPath(`/pedidos/${value.orderId}`, locale));
+        return;
+      }
       if (isWholesale) {
         if (!bankTransfer || !cartReady) throw new Error(t("bankTransferUnavailable"));
         if (!receipt) throw new Error(t("receiptRequired"));
@@ -429,9 +470,9 @@ function ExistingCheckoutForm({
           {/* El destino sólo aplica al envío a domicilio. */}
           {isDelivery && !isWholesale && <fieldset>
             <legend className="sr-only">{t("destinationLegend")}</legend>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-3">
               <label className={`relative flex cursor-pointer items-center gap-3 rounded-xl border px-5 py-4 text-left transition focus-within:ring-2 focus-within:ring-[var(--rawhide)]/50 ${purchaseRegion === "uruguay" ? "border-[var(--walnut)] bg-[var(--walnut)] text-[var(--paper)]" : "border-[var(--walnut)]/25 bg-[var(--paper)] text-[var(--walnut)]"}`}>
-                <input type="radio" name="purchase-region" checked={purchaseRegion === "uruguay"} onChange={() => setPurchaseRegion("uruguay")} className="sr-only" />
+                <input type="radio" name="purchase-region" checked={purchaseRegion === "uruguay"} onChange={() => selectRegion("uruguay")} className="sr-only" />
                 {purchaseRegion === "uruguay" && <Check size={16} weight="bold" className="absolute top-3 right-3 opacity-70" aria-hidden="true" />}
                 <MapPin size={20} className="shrink-0" aria-hidden="true" />
                 <span>
@@ -439,8 +480,14 @@ function ExistingCheckoutForm({
                   <span className={`mt-0.5 block text-xs ${purchaseRegion === "uruguay" ? "text-white/65" : "text-black/50"}`}>{t("domesticOption")}</span>
                 </span>
               </label>
+              <label className={`relative flex cursor-pointer items-center gap-3 rounded-xl border px-5 py-4 text-left transition focus-within:ring-2 focus-within:ring-[var(--rawhide)]/50 ${purchaseRegion === "argentina" ? "border-[var(--walnut)] bg-[var(--walnut)] text-[var(--paper)]" : "border-[var(--walnut)]/25 bg-[var(--paper)] text-[var(--walnut)]"}`}>
+                <input type="radio" name="purchase-region" checked={purchaseRegion === "argentina"} onChange={() => selectRegion("argentina")} className="sr-only" />
+                {purchaseRegion === "argentina" && <Check size={16} weight="bold" className="absolute top-3 right-3 opacity-70" aria-hidden="true" />}
+                <MapPin size={20} className="shrink-0" aria-hidden="true" />
+                <span><strong className="block text-sm">Argentina</strong><span className={`mt-0.5 block text-xs ${purchaseRegion === "argentina" ? "text-white/65" : "text-black/50"}`}>{t("argentinaOption")}</span></span>
+              </label>
               <label className={`relative flex cursor-pointer items-center gap-3 rounded-xl border px-5 py-4 text-left transition focus-within:ring-2 focus-within:ring-[var(--rawhide)]/50 ${purchaseRegion === "international" ? "border-[var(--walnut)] bg-[var(--walnut)] text-[var(--paper)]" : "border-[var(--walnut)]/25 bg-[var(--paper)] text-[var(--walnut)]"}`}>
-                <input type="radio" name="purchase-region" checked={purchaseRegion === "international"} onChange={() => setPurchaseRegion("international")} className="sr-only" />
+                <input type="radio" name="purchase-region" checked={purchaseRegion === "international"} onChange={() => selectRegion("international")} className="sr-only" />
                 {purchaseRegion === "international" && <Check size={16} weight="bold" className="absolute top-3 right-3 opacity-70" aria-hidden="true" />}
                 <GlobeHemisphereWest size={20} className="shrink-0" aria-hidden="true" />
                 <span>
@@ -452,19 +499,23 @@ function ExistingCheckoutForm({
           </fieldset>}
 
           {/* Campos de dirección — según el destino del envío */}
-          {isDelivery && (isWholesale || purchaseRegion === "uruguay" ? (
+          {isDelivery && (isWholesale || purchaseRegion !== "international" ? (
               <div className="grid gap-5 sm:grid-cols-2">
                 <label className="text-sm font-semibold text-[var(--walnut)]">
-                  {t("department")}
+                  {isArgentina ? t("province") : t("department")}
                   <select name="address-level1" autoComplete="address-level1" required value={form.department} onChange={(event) => update("department", event.target.value)} className={fieldClass}>
                     <option value="">{t("choose")}</option>
-                    {departments.map((name) => <option key={name}>{name}</option>)}
+                    {(isArgentina ? countryRegions("AR").map(region => region.name) : departments).map((name) => <option key={name}>{name}</option>)}
                   </select>
                 </label>
                 <label className="text-sm font-semibold text-[var(--walnut)]">
                   {t("city")}
                   <input name="address-level2" autoComplete="address-level2" required maxLength={100} value={form.city} onChange={(event) => update("city", event.target.value)} className={fieldClass} />
                 </label>
+                {isArgentina && <label className="text-sm font-semibold text-[var(--walnut)]">
+                  {t("postalCode")}
+                  <input name="postal-code" autoComplete="postal-code" required maxLength={20} value={form.postalCode} onChange={event => update("postalCode", event.target.value)} className={fieldClass} />
+                </label>}
                 <label className="text-sm font-semibold text-[var(--walnut)]">
                   {t("address")}
                   <input name="street-address" autoComplete="street-address" required maxLength={240} value={form.address} onChange={(event) => update("address", event.target.value)} className={fieldClass} />
@@ -501,6 +552,9 @@ function ExistingCheckoutForm({
               </label>
             </div>
           ))}
+          <p className="pt-8 text-[11px] leading-5 text-black/50">
+            {t("purchasePolicyNotice")}{" "}<Link href="/compras/condiciones-de-compra" target="_blank" className="underline underline-offset-2">{t("purchasePolicyLink")}</Link>
+          </p>
         </div>
 
         {/* ── Sidebar derecha — resumen o WhatsApp ── */}
@@ -510,9 +564,9 @@ function ExistingCheckoutForm({
           <dl className="mt-6 space-y-3 text-sm">
             <div className="flex items-baseline justify-between gap-4">
               <dt className="text-white/75">{tCart("subtotal")}</dt>
-              <dd className="font-semibold"><MoneyValue amount={subtotalMinor} locale={locale} exchangeRates={exchangeRates} /></dd>
+              <dd className="font-semibold"><MoneyValue amount={isArgentina ? argentinaSubtotal : subtotalMinor} argentina={isArgentina} locale={locale} exchangeRates={exchangeRates} /></dd>
             </div>
-            {appliedDiscount && (
+            {appliedDiscount && !isArgentina && (
               <div className="flex items-baseline justify-between gap-4" aria-live="polite">
                 <dt className="text-white/75">{t("discount")}</dt>
                 <dd className="font-semibold">−<MoneyValue amount={appliedDiscount.discountMinor} locale={locale} exchangeRates={exchangeRates} /></dd>
@@ -533,25 +587,14 @@ function ExistingCheckoutForm({
             <div className="border-t border-white/25 pt-4">
               <div className="flex items-baseline justify-between gap-4">
                 <dt className="font-semibold">{tCart("total")}</dt>
-                <dd className="text-2xl font-bold"><MoneyValue amount={totalMinor} locale={locale} exchangeRates={exchangeRates} /></dd>
+                <dd className="text-2xl font-bold"><MoneyValue amount={isArgentina ? argentinaSubtotal : totalMinor} argentina={isArgentina} locale={locale} exchangeRates={exchangeRates} /></dd>
               </div>
             </div>
           </dl>
 
           {!isInternational && isDelivery && !rate?.is_pickup && (
-            <p className="mt-4 text-xs leading-5 text-white/85">{t("domesticShippingCostNotice")}</p>
+            <p className="mt-4 text-xs leading-5 text-white/85">{isArgentina ? t("argentinaShippingNotice") : t("domesticShippingCostNotice")}</p>
           )}
-
-          {!isInternational && (
-            <p className="mt-5 text-xs leading-5 text-white/70">{isWholesale ? t("wholesaleServerRecalc") : t("serverRecalc")}</p>
-          )}
-
-          <p className="mt-5 text-sm leading-6 text-white">
-            {t("purchasePolicyNotice")} {" "}
-            <Link href="/compras/condiciones-de-compra" target="_blank" className="font-semibold underline underline-offset-4 focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)]">
-              {t("purchasePolicyLink")}
-            </Link>
-          </p>
 
           {isWholesale && bankTransfer && (
             <section className="mt-6 border-t border-white/25 pt-6" aria-labelledby="bank-transfer-title">
@@ -644,15 +687,16 @@ function ExistingCheckoutForm({
 
           <div className="grow" />
 
+          {isArgentina && argentinaAvailable === false && <p role="status" className="mt-5 text-sm">{t("argentinaUnavailable")}</p>}
           {cartError && <p role="alert" className="mt-5 rounded-lg border border-white/35 bg-black/15 p-3 text-sm font-semibold text-[var(--paper)]">{cartError}</p>}
           {error && <p role="alert" className="mt-5 text-sm font-semibold text-[var(--paper)]">{error}</p>}
 
           {!paypalReady && !isWholesale && (
             <button
-              disabled={busy || !cartReady || (isInternational ? !internationalReady : !domesticReady)}
+              disabled={busy || !cartReady || (isArgentina ? !domesticReady || !argentinaAvailable || argentinaSubtotal === null : isInternational ? !internationalReady : !domesticReady)}
               className="mt-8 flex min-h-13 w-full items-center justify-center gap-2.5 rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-[var(--paper)] transition hover:bg-[#4a2a1c] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {!isInternational && !busy && (
+              {!isInternational && !isArgentina && !busy && (
                 <Image
                   src="/assets/matearte/01-marca/mercado-pago.webp"
                   alt=""
@@ -672,11 +716,11 @@ function ExistingCheckoutForm({
                   aria-hidden="true"
                 />
               )}
-              {busy ? t("preparing") : isInternational ? t("continueToPaypal") : t("mercadoPagoAction")}
+              {busy ? t("preparing") : isArgentina ? t("argentinaAction") : isInternational ? t("continueToPaypal") : t("mercadoPagoAction")}
             </button>
           )}
 
-          {!paypalReady && !isWholesale && (
+          {!paypalReady && !isWholesale && !isArgentina && (
             <div className="mt-3">
               <button
                 type="button"
@@ -730,13 +774,4 @@ function ExistingCheckoutForm({
       </form>
     </div>
   );
-}
-
-export function CheckoutForm(props: ComponentProps<typeof ExistingCheckoutForm>) {
-  const { currency } = useStorefrontCurrency();
-  const [argentina, setArgentina] = useState(currency === "ARS" || ["AR", "Argentina"].includes(props.initialDestination?.country || ""));
-  return <><div className="mx-auto flex max-w-3xl flex-wrap gap-3 px-5 pt-8" role="group" aria-label="Destino de entrega">
-    <button type="button" className={`rounded-xl border px-4 py-3 ${!argentina ? "bg-[var(--walnut)] text-white" : ""}`} aria-pressed={!argentina} onClick={() => setArgentina(false)}>Uruguay / otros países</button>
-    <button type="button" className={`rounded-xl border px-4 py-3 ${argentina ? "bg-[var(--walnut)] text-white" : ""}`} aria-pressed={argentina} onClick={() => setArgentina(true)}>Argentina · transferencia ARS</button>
-  </div>{argentina ? <ArgentinaCheckout initialCustomer={props.initialCustomer} /> : <ExistingCheckoutForm {...props} />}</>;
 }

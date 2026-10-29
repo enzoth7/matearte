@@ -513,6 +513,13 @@
     "wholesaleDiscountNotice": "A partir de {threshold} mates, usamos o preço base sem ajuste e aplicamos {discount}% de desconto. O pagamento é concluído por transferência."
   },
   "checkout": {
+    "argentinaOption": "Transferência em ARS",
+    "province": "Província",
+    "postalCode": "Código postal",
+    "argentinaAction": "Confirmar pedido e ver dados bancários",
+    "argentinaUnavailable": "As compras para a Argentina ainda não estão disponíveis.",
+    "argentinaShippingNotice": "O frete dentro da Argentina é pago pelo destinatário. Não está incluído no total.",
+
     "metadataTitle": "Finalizar compra",
     "eyebrow": "Compra",
     "title": "Finalizar compra",
