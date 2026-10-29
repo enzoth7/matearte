@@ -16,7 +16,9 @@ export type ValidatedDiscount = {
   code: string;
   discountType: "percentage" | "fixed";
   discountValue: number;
-  applicability: "all_items" | "design_items";
+  applicability: "all_items" | "design_items" | "categories";
+  categoryCodes?: string[];
+  includeDesignItems?: boolean;
   eligibleSubtotalMinor: number;
   discountMinor: number;
   itemsSubtotalMinor: number;

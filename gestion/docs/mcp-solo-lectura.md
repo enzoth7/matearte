@@ -14,6 +14,25 @@ Límite observado: ChatGPT siguió buscando imágenes en la web y mostró fotos 
 
 ## Acceso y alcance
 
+### Actualización del 28/10/2026: ventas de Richard y consultas adicionales
+
+La llamada de Richard a `ventas_locales` sí pasó la autenticación. Los registros del servidor mostraron una consulta con `offset=50`, `limit=50` y respuesta HTTP 416: había 31 ventas de canales internos entre el 1 y el 28 de octubre. El conector convertía cualquier error de consulta en un mensaje de permisos. No era necesario ampliar los permisos de Richard.
+
+- Todas las herramientas usan ahora páginas desde **1**. El valor antiguo `0` se acepta como alias de la primera página. Seguir `siguiente_pagina` para continuar. Una página fuera de rango devuelve una lista vacía, el total y `fuera_de_rango`, sin inventar un error de permisos.
+- `resumir_ventas_locales` recorre todas las páginas para el período solicitado y distingue **Local**, Feria, WhatsApp, Instagram y Facebook. El canal por defecto es Local; `todos` incluye los cinco. Separa monedas y devuelve cantidad de ventas, importe vendido, cobro inicial, cobros posteriores, saldo pendiente y excedentes cobrados.
+- El resumen mide las **ventas realizadas dentro del período**, con sus cobros registrados hasta la fecha final inclusive. No es un informe de flujo de caja: no incluye cobros de ventas anteriores al período. Los importes usan los registros actuales, no una reconstrucción histórica de sus modificaciones. Las señas se cuentan una sola vez, siguiendo `commerceAdapter.ts`.
+- El resumen admite hasta 366 días y hasta 10.000 registros por conjunto (ventas, artículos y cobros). Si no puede leer el conjunto completo, falla explícitamente y pide reducir el período; nunca presenta una suma parcial como total.
+- Nuevas fuentes: `pedidos` (todos los canales, despacho y entrega), `produccion` (artículos con pedido, cliente y entrega relacionados) y `reportes_publicidad` (campañas, períodos, depósitos y saldos).
+- `consultar_registros` admite filtros exactos de canal, estado, pedido, referencia, categoría o SKU según la fuente. `listar_fuentes` informa cuáles están disponibles y qué columna se usa para las fechas. Las fechas de entrada siguen siendo ISO `AAAA-MM-DD`; las fechas con hora se interpretan por día de Uruguay.
+- `descuentos` incluye `category_codes` e `include_design_items`, para distinguir categorías del catálogo y Mates Personalizados. No se expone la tabla interna de reservas/usos de cupones, que no concede lectura a las sesiones de usuario.
+- `articulos_web` excluye ahora las líneas de canales internos mediante el pedido relacionado. No sumar `pedidos` con `pedidos_web` ni `produccion` con otras fuentes de artículos: representan registros superpuestos.
+
+Se mantiene el perfil propietario y la sesión individual de Supabase en todas las consultas. No se cambian roles, grants ni políticas RLS. Los errores de permisos reales se distinguen de errores de sesión, configuración o consulta.
+
+**Publicación verificada:** `gestion-mcp` versión 6 (servidor 1.1.0) activa en Supabase. Los archivos desplegados coinciden con el código local. El endpoint devuelve 401 sin sesión y los metadatos OAuth devuelven 200. Pasaron nueve pruebas de regresión y la comprobación de tipos. El cálculo se comparó con lecturas bajo el rol autenticado de Richard: del 01/10/2026 al 28/10/2026, Local tiene 27 ventas por 6.877.300 centésimos UYU; Instagram y WhatsApp tienen dos ventas cada uno. Esta publicación actualiza únicamente la función MCP, sin publicar Gestión ni la tienda en Vercel.
+
+Pruebas recomendadas después de actualizar la conexión en ChatGPT: `quien_soy` debe identificar a Richard; consultar ventas locales con `pagina: 1` y con una página fuera de rango; pedir un resumen de Local y otro de todos los canales; consultar un pedido por referencia, producción por estado y las categorías de un cupón. La llamada observada confirma que la cuenta de Richard ya está conectada; la actualización de herramientas debe verificarse en un chat nuevo.
+
 - Cada petición exige un token de Supabase Auth. El servidor comprueba que corresponda a una cuenta activa de Gestión con perfil propietario (`t1`) y consulta con las políticas RLS de esa misma cuenta.
 - Las herramientas solo contienen operaciones de lectura; no exponen SQL arbitrario, funciones de escritura ni claves de servicio. La función `marketing-workspace` se invoca únicamente con sus acciones de lectura permitidas.
 - Esto describe el alcance del **MCP**. Una sesión OAuth de Supabase conserva los permisos propios de la cuenta fuera del MCP; el consentimiento debe tratarse como acceso a esa cuenta. Revocar la autorización OAuth corta nuevas llamadas.
@@ -33,7 +52,7 @@ Límite observado: ChatGPT siguió buscando imágenes en la web y mostró fotos 
 ## Mantenimiento
 
 - Cambiar columnas y fuentes permitidas solo en `supabase/functions/gestion-mcp/index.ts`. No añadir mutaciones, SQL libre ni campos de pagos internos como `raw_payload`.
-- Comprobar tipos con `npx deno check --lock supabase/functions/gestion-mcp/deno.lock supabase/functions/gestion-mcp/index.ts` y compilar Gestión con `npm run build` desde `gestion/`.
+- Comprobar tipos con `npx deno check --lock supabase/functions/gestion-mcp/deno.lock supabase/functions/gestion-mcp/index.ts` y probar paginación, errores, límites y cálculos con `npx deno test --lock supabase/functions/gestion-mcp/deno.lock supabase/functions/gestion-mcp/queries_test.ts`. Compilar Gestión solo si también cambia su interfaz.
 - La función usa `verify_jwt = false` para que el descubrimiento OAuth anónimo llegue al middleware; `withSupabase({ auth: "user" })` verifica el token antes de cualquier consulta.
 - Si cambia la lista o los esquemas de herramientas, actualizar la conexión en ChatGPT y repetir las pruebas de lectura y autorización.
 

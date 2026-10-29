@@ -11,6 +11,7 @@ import type { Locale } from "@/types/catalog";
 import { normalizeCatalogValueMap } from "../../../../../shared/catalog-taxonomy";
 import { applyWholesaleMateDiscount, isWholesaleMateEligible, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
 import { discountErrorMessage, discountReasonFromError, normalizeDiscountCode, type ValidatedDiscount } from "@/lib/discounts";
+import { discountCategorySubtotals } from "../../../../../shared/discount-scope";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type PublishedPricingCatalog = { versionId: string; version: number; rules: Record<string, number> };
@@ -104,11 +105,12 @@ export async function POST(request: Request) {
     const reservationExpiresAt = new Date(Date.now() + Number(publicSettings.reservation_minutes || 30) * 60_000).toISOString();
     let discount: ValidatedDiscount | null = null;
     if (discountCode) {
-      const { data, error: discountError } = await admin.rpc("reserve_commerce_discount", {
+      const { data, error: discountError } = await admin.rpc("reserve_commerce_discount_scoped", {
         p_user_id: user.id,
         p_code: discountCode,
         p_items_subtotal_minor: itemsSubtotalMinor,
         p_design_subtotal_minor: designSubtotalMinor,
+        p_category_subtotals: discountCategorySubtotals(checkoutItems),
         p_checkout_key: idempotencyKey,
         p_reserved_until: reservationExpiresAt,
       });

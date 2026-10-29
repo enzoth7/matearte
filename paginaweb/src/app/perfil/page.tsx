@@ -312,7 +312,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Montevideo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   const admin = createAdminSupabase();
   const { data: ownedDiscounts } = await admin.from("commerce_discounts")
-    .select("id,code,valid_until,applicability")
+    .select("id,code,valid_until,applicability,category_codes,include_design_items")
     .eq("owner_user_id", user.id).eq("enabled", true)
     .lte("valid_from", today).gte("valid_until", today)
     .order("valid_until", { ascending: true });
@@ -324,7 +324,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       const redeemedIds = new Set((redeemed || []).map((usage) => usage.discount_id));
       personalCoupons = ownedDiscounts.filter((discount) => !redeemedIds.has(discount.id)).map((discount) => ({
         id: discount.id, code: discount.code, validUntil: discount.valid_until,
-        designOnly: discount.applicability === "design_items",
+        designOnly: discount.applicability === "design_items" || (discount.applicability === "categories" && discount.include_design_items && !discount.category_codes?.length),
       }));
     }
   }

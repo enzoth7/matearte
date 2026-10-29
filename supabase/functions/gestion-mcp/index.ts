@@ -3,6 +3,7 @@ import { createMcpHandler, McpServer } from "npm:@modelcontextprotocol/server@2.
 import { pipeline } from "npm:@supabase/middleware@1.0.0";
 import { withOAuthProtectedResource, withSupabase } from "npm:@supabase/server@1.9.2";
 import { z } from "npm:zod@4.6.7";
+import { pageNumber, queryErrorMessage, readAll, readPage, summarizeLocalSales, type LocalSale, type LocalItem, type LocalReceipt } from "./queries.ts";
 
 type Dataset = {
   table: string;
@@ -14,15 +15,19 @@ type Dataset = {
   path: string;
   description: string;
   webOrdersOnly?: boolean;
+  parentOrders?: boolean;
 };
 
 // Explicit columns keep payment payloads, auth data and other hidden fields out of MCP results.
 const datasets = {
   pedidos_web: { table: "orders", columns: "id,order_number,reference_code,status,channel,currency,total_minor,shipping_minor,discount_minor,paid_at,created_at,customer_snapshot,shipping_snapshot,shipping_method,shipping_carrier,tracking_code", key: "id", order: "created_at", search: "customer_name", date: "created_at", path: "/comercial/pedidos", description: "Pedidos web, envíos, estados e importes; excluye canales internos para evitar duplicados.", webOrdersOnly: true },
-  articulos_web: { table: "order_items", columns: "id,order_id,title,sku,quantity,unit_price_minor,total_minor,item_type,immutable_snapshot,requires_review,review_status,production_status,completed_at,created_at", key: "id", order: "created_at", search: "title", date: "created_at", path: "/produccion/resumen", description: "Artículos de pedidos web, personalización y producción." },
+  articulos_web: { table: "order_items", columns: "id,order_id,title,sku,quantity,unit_price_minor,total_minor,item_type,immutable_snapshot,requires_review,review_status,production_status,completed_at,created_at,orders!inner(channel,reference_code)", key: "id", order: "created_at", search: "title", date: "created_at", path: "/produccion/resumen", description: "Artículos exclusivamente de pedidos web, personalización y producción.", webOrdersOnly: true, parentOrders: true },
+  pedidos: { table: "orders", columns: "id,order_number,reference_code,customer_name,status,channel,currency,total_minor,deposit_minor,shipping_minor,discount_minor,paid_at,sold_on,created_at,shipping_method,shipping_carrier,tracking_code,shipped_at,delivered_at", key: "id", order: "created_at", search: "customer_name", date: "created_at", path: "/comercial/pedidos", description: "Pedidos de todos los canales, estado, despacho y entrega. No sumar con pedidos_web: son los mismos pedidos. Para totales locales usar resumir_ventas_locales." },
+  produccion: { table: "order_items", columns: "id,order_id,title,sku,quantity,item_type,requires_review,review_status,production_status,completed_at,created_at,orders!inner(reference_code,channel,customer_name,status,shipping_method,shipped_at,delivered_at)", key: "id", order: "created_at", search: "title", date: "created_at", path: "/produccion/resumen", description: "Artículos y estado de producción de todos los canales, con pedido y entrega relacionados.", parentOrders: true },
+  reportes_publicidad: { table: "ad_reports", columns: "id,period_start,period_end,platform,currency,campaigns,deposit_minor,deposit_on,previous_balance_minor,notes,created_at", key: "id", order: "period_start", date: "period_start", path: "/marketing/pauta", description: "Reportes de publicidad, campañas, depósitos y saldos; fechas filtran el inicio del período." },
   ventas_locales: { table: "local_sales", columns: "id,sale_number,reference_code,channel,customer_id,customer_name,sold_on,payment_method,total_minor,deposit_minor,currency,created_at", key: "id", order: "sold_on", search: "customer_name", date: "sold_on", path: "/comercial/pedidos", description: "Ventas de local, feria y redes." },
   articulos_locales: { table: "local_sale_items", columns: "id,sale_id,variant_id,sku,product_name,variant_name,quantity,unit_price_minor,line_total_minor,customization,production_status,production_notes,created_at", key: "id", order: "created_at", search: "product_name", date: "created_at", path: "/produccion/resumen", description: "Artículos vendidos por canales internos y su personalización." },
-  cobros_locales: { table: "local_sale_receipts", columns: "id,sale_id,amount_minor,payment_method,paid_on,created_at", key: "id", order: "paid_on", date: "paid_on", path: "/finanzas/cobros", description: "Cobros de ventas locales." },
+  cobros_locales: { table: "local_sale_receipts", columns: "id,sale_id,amount_minor,payment_method,paid_on,created_at", key: "id", order: "paid_on", date: "paid_on", path: "/finanzas/cobros", description: "Cobros posteriores de ventas locales; no incluye el cobro inicial registrado en ventas_locales.total_minor." },
   pagos_web: { table: "commerce_payments", columns: "id,order_id,provider,status,amount_minor,currency,approved_at,created_at", key: "id", order: "created_at", date: "created_at", path: "/finanzas/cobros", description: "Pagos de pedidos web, sin datos internos del proveedor." },
   comprobantes_transferencia: { table: "commerce_bank_transfer_receipts", columns: "id,order_id,status,submitted_at", key: "id", order: "submitted_at", date: "submitted_at", path: "/finanzas/cobros", description: "Estado y fecha de comprobantes de transferencia de pedidos web." },
   pedidos_mayoristas: { table: "order_lines", columns: "line_id,order_id,customer,model,variant,quantity,status,created_at,completed_at,unit_price_arg,unit_price_uyu,total_arg,total_uyu,exchange_rate,order_type,sale_channel", key: "line_id", order: "created_at", search: "customer", date: "created_at", path: "/comercial/pedidos", description: "Líneas y montos de pedidos mayoristas." },
@@ -40,7 +45,7 @@ const datasets = {
   tarifas_internacionales: { table: "commerce_international_shipping_rates", columns: "row_order,weight_label,weight_min_g,weight_max_g,argentina,suramerica,estados_unidos,resto_america,espana,resto_europa,resto_mundo", key: "row_order", order: "row_order", path: "/entregas/tarifas", description: "Tarifas de entrega internacionales." },
   cotizaciones: { table: "commerce_exchange_rates", columns: "currency_code,rate_to_uyu,updated_at", key: "currency_code", order: "currency_code", path: "/finanzas/monedas", description: "Cotizaciones usadas por el comercio." },
   cotizacion_mayorista: { table: "settings", columns: "id,exchange_rate", key: "id", order: "id", path: "/finanzas/monedas", description: "Cotización usada para precios mayoristas en pesos." },
-  descuentos: { table: "commerce_discounts", columns: "id,code,discount_type,value,valid_from,valid_until,enabled,applicability,redemption_limit,welcome_only", key: "id", order: "code", search: "code", path: "/marketing/descuentos", description: "Descuentos y promociones." },
+  descuentos: { table: "commerce_discounts", columns: "id,code,discount_type,value,valid_from,valid_until,enabled,applicability,category_codes,include_design_items,redemption_limit,welcome_only", key: "id", order: "code", search: "code", path: "/marketing/descuentos", description: "Descuentos, vigencia y alcance por categorías; include_design_items indica Mates Personalizados del personalizador." },
   categorias_catalogo: { table: "commerce_categories", columns: "code,label_es,parent_code,active,sort_order", key: "code", order: "sort_order", search: "label_es", path: "/productos/categorias", description: "Categorías del catálogo." },
   avisos: { table: "site_announcements", columns: "id,image_path,alt_text,valid_from,valid_until,enabled,created_at", key: "id", order: "created_at", date: "created_at", path: "/marketing/avisos", description: "Avisos del sitio." },
   usuarios: { table: "commerce_admin_users", columns: "user_id,display_name,active,access_user_id,allowed_paths", key: "user_id", order: "display_name", search: "display_name", path: "/administracion/usuarios", description: "Usuarios y permisos de Gestión." },
@@ -49,9 +54,26 @@ const datasets = {
 } satisfies Record<string, Dataset>;
 
 const datasetNames = Object.keys(datasets) as [keyof typeof datasets, ...(keyof typeof datasets)[]];
+// Only these exact fields can be filtered; callers cannot choose SQL or columns.
+const filters: Partial<Record<keyof typeof datasets, Record<string, string>>> = {
+  pedidos: { canal: "channel", estado: "status", referencia: "reference_code" },
+  pedidos_web: { estado: "status", referencia: "reference_code" },
+  ventas_locales: { canal: "channel", referencia: "reference_code" },
+  articulos_web: { pedido_id: "order_id", estado: "production_status", sku: "sku", referencia: "orders.reference_code" },
+  produccion: { pedido_id: "order_id", estado: "production_status", canal: "orders.channel", referencia: "orders.reference_code", sku: "sku" },
+  articulos_locales: { pedido_id: "sale_id", estado: "production_status", sku: "sku" },
+  cobros_locales: { pedido_id: "sale_id" },
+  pagos_web: { pedido_id: "order_id", estado: "status" },
+  comprobantes_transferencia: { pedido_id: "order_id", estado: "status" },
+  pedidos_mayoristas: { pedido_id: "order_id", estado: "status" },
+  catalogo: { categoria: "category_code" }, variantes: { sku: "sku" },
+  compras: { estado: "status" },
+};
+const pageSchema = z.number().int().min(0).max(200).default(1).describe("Primera página: 1. Usar siguiente_pagina para continuar. 0 se acepta como alias de 1.");
 const readOnly = { readOnlyHint: true, openWorldHint: false, destructiveHint: false };
 type ResultContent = { type: "text"; text: string } | { type: "image"; mimeType: string; data: string };
 const result = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value) }] as ResultContent[] });
+const failure = (value: unknown) => ({ ...result(value), isError: true });
 const imageUrl = (supabase: { storage: { from: (bucket: string) => { getPublicUrl: (path: string) => { data: { publicUrl: string } } } } }, path: string) =>
   supabase.storage.from("product-images").getPublicUrl(path).data.publicUrl;
 function encodeImage(bytes: Uint8Array) {
@@ -88,7 +110,7 @@ Deno.serve(pipeline(
     const handler = createMcpHandler(() => {
       const server = new McpServer({
         name: "matearte-gestion-lectura",
-        version: "1.0.0",
+        version: "1.1.0",
       });
 
       server.registerTool("quien_soy", {
@@ -101,7 +123,7 @@ Deno.serve(pipeline(
         title: "Fuentes disponibles",
         description: "Enumera las fuentes de Gestión que se pueden consultar. Úsala antes de elegir una fuente.",
         inputSchema: z.object({}), annotations: readOnly,
-      }, async () => result(Object.entries(datasets).map(([name, entry]) => { const dataset: Dataset = entry; return { nombre: name, descripcion: dataset.description, pagina: `https://matearte-gestion.vercel.app${dataset.path}`, admite_busqueda: !!dataset.search, admite_fechas: !!dataset.date }; })));
+      }, async () => result({ primera_pagina: 1, importes: "Los campos _minor son centésimos; no mezclar monedas ni sumar fuentes que representan los mismos pedidos. Para totales de ventas de local/feria/redes usar resumir_ventas_locales.", fuentes: Object.entries(datasets).map(([name, entry]) => { const dataset: Dataset = entry; return { nombre: name, descripcion: dataset.description, pagina: `https://matearte-gestion.vercel.app${dataset.path}`, campo_busqueda: dataset.search ?? null, campo_fecha: dataset.date ?? null, filtros_exactos: Object.keys(filters[name as keyof typeof datasets] ?? {}) }; }) }));
 
       server.registerTool("consultar_registros", {
         title: "Consultar registros de Gestión",
@@ -113,19 +135,32 @@ Deno.serve(pipeline(
           desde: z.iso.date().optional(),
           hasta: z.iso.date().optional(),
           limite: z.number().int().min(1).max(50).default(20),
-          pagina: z.number().int().min(0).max(200).default(0),
+          pagina: pageSchema,
+          canal: z.string().min(1).max(60).optional(),
+          estado: z.string().min(1).max(60).optional(),
+          pedido_id: z.uuid().optional(),
+          referencia: z.string().min(1).max(120).optional(),
+          categoria: z.string().min(1).max(120).optional(),
+          sku: z.string().min(1).max(120).optional(),
         }), annotations: readOnly,
-      }, async ({ fuente, id, buscar, desde, hasta, limite, pagina }) => {
+      }, async ({ fuente, id, buscar, desde, hasta, limite, pagina: requestedPage, ...exactFilters }) => {
+        const pagina = pageNumber(requestedPage);
         const dataset = datasets[fuente] as Dataset;
-        if (buscar && !dataset.search) return result({ error: "Esta fuente no admite búsqueda de texto." });
-        if ((desde || hasta) && !dataset.date) return result({ error: "Esta fuente no admite fechas." });
-        if (desde && hasta && desde > hasta) return result({ error: "El inicio debe ser anterior al fin." });
+        if (buscar && !dataset.search) return failure({ error: "Esta fuente no admite búsqueda de texto." });
+        if ((desde || hasta) && !dataset.date) return failure({ error: "Esta fuente no admite fechas." });
+        if (desde && hasta && desde > hasta) return failure({ error: "El inicio debe ser anterior al fin." });
+        const supported = filters[fuente] ?? {};
+        for (const [name, value] of Object.entries(exactFilters)) {
+          if (value !== undefined && !supported[name]) return failure({ error: `Esta fuente no admite el filtro ${name}.`, filtros_disponibles: Object.keys(supported) });
+        }
+        const safe = buscar?.trim().replace(/[^\p{L}\p{N}\s.@-]/gu, "").slice(0, 100);
+        if (buscar && !safe) return failure({ error: "Ingresá un texto de búsqueda válido." });
+        const makeQuery = () => {
         let query = supabase.from(dataset.table).select(dataset.columns, { count: "exact" });
-        if (dataset.webOrdersOnly) query = query.not("channel", "in", "(Mayorista,Local,Feria,WhatsApp,Instagram,Facebook)");
+        if (dataset.webOrdersOnly) query = query.not(dataset.parentOrders ? "orders.channel" : "channel", "in", "(Mayorista,Local,Feria,WhatsApp,Instagram,Facebook)");
         if (id) query = query.eq(dataset.key, id);
-        if (buscar && dataset.search) {
-          const safe = buscar.trim().replace(/[^\p{L}\p{N}\s.@-]/gu, "").slice(0, 100);
-          if (!safe) return result({ error: "Ingresá un texto de búsqueda válido." });
+        for (const [name, value] of Object.entries(exactFilters)) if (value !== undefined) query = query.eq(supported[name], value);
+        if (safe && dataset.search) {
           query = query.ilike(dataset.search, `%${safe}%`);
         }
         const timestamp = dataset.date?.endsWith("_at");
@@ -135,9 +170,13 @@ Deno.serve(pipeline(
           nextDay.setUTCDate(nextDay.getUTCDate() + 1);
           query = timestamp ? query.lt(dataset.date, `${nextDay.toISOString().slice(0, 10)}T03:00:00Z`) : query.lte(dataset.date, hasta);
         }
-        const start = pagina * limite;
-        const { data, count, error } = await query.order(dataset.order, { ascending: false }).range(start, start + limite - 1);
-        if (error) return result({ fuente, error: "No se pudo leer esta fuente con los permisos de la cuenta." });
+        query = query.order(dataset.order, { ascending: false });
+        if (dataset.order !== dataset.key) query = query.order(dataset.key, { ascending: false });
+        return query;
+        };
+        const start = (pagina - 1) * limite;
+        const { data, count, error, outOfRange } = await readPage((from, to) => makeQuery().range(from, to), pagina, limite);
+        if (error) return failure({ fuente, error: queryErrorMessage(error) });
         let registros = (data ?? []) as unknown as CatalogRecord[];
         let selectedImagePath: string | undefined;
         if (fuente === "imagenes_catalogo") {
@@ -158,7 +197,7 @@ Deno.serve(pipeline(
             });
           }
         }
-        const response = result({ fuente, pagina, limite, total: count ?? 0, siguiente_pagina: count != null && start + registros.length < count ? pagina + 1 : null, registros });
+        const response = result({ fuente, pagina, limite, total: count ?? 0, fuera_de_rango: outOfRange, primera_pagina: 1, siguiente_pagina: count != null && start + registros.length < count ? pagina + 1 : null, registros });
         if (selectedImagePath && (id || buscar)) {
           try {
             const photo = await fetch(imageUrl(supabase, selectedImagePath), { signal: AbortSignal.timeout(5_000) });
@@ -173,17 +212,55 @@ Deno.serve(pipeline(
         return response;
       });
 
+      server.registerTool("resumir_ventas_locales", {
+        title: "Resumen de ventas, cobros y saldos del local, feria y redes",
+        description: "Calcula todas las ventas del período, sin sumar solo una página. Local es el canal por defecto; también admite Feria, WhatsApp, Instagram, Facebook o todos. Separa monedas. Lo cobrado corresponde a esas ventas y a sus cobros hasta la fecha final inclusive: NO es el flujo de caja de todas las ventas de otros períodos. Respeta las señas sin duplicarlas. Máximo 366 días; si excede los límites, pide reducir el período y nunca devuelve un total parcial. Importes _minor en centésimos.",
+        inputSchema: z.object({
+          desde: z.iso.date(), hasta: z.iso.date(),
+          canal: z.enum(["Local", "Feria", "WhatsApp", "Instagram", "Facebook", "todos"]).default("Local"),
+        }), annotations: readOnly,
+      }, async ({ desde, hasta, canal }) => {
+        const days = (Date.parse(hasta) - Date.parse(desde)) / 86_400_000;
+        if (days < 0 || days >= 366) return failure({ error: "Elegí un período de entre 1 y 366 días." });
+        try {
+          const sales = await readAll((from, to) => {
+            let query = supabase.from("local_sales").select("id,channel,currency,total_minor,deposit_minor,payment_method", { count: "exact" })
+              .gte("sold_on", desde).lte("sold_on", hasta);
+            if (canal !== "todos") query = query.eq("channel", canal);
+            return query.order("id").range(from, to);
+          }) as LocalSale[];
+          const items: LocalItem[] = [];
+          const receipts: LocalReceipt[] = [];
+          // Separate paginated reads avoid silently truncated embedded line items.
+          for (let offset = 0; offset < sales.length; offset += 100) {
+            const ids = sales.slice(offset, offset + 100).map((sale) => sale.id);
+            const batchItems = await readAll((from, to) => supabase.from("local_sale_items")
+              .select("sale_id,line_total_minor", { count: "exact" }).in("sale_id", ids).order("id").range(from, to), 10_000 - items.length);
+            items.push(...batchItems as LocalItem[]);
+            const batchReceipts = await readAll((from, to) => supabase.from("local_sale_receipts")
+              .select("sale_id,amount_minor", { count: "exact" }).in("sale_id", ids).lte("paid_on", hasta).order("id").range(from, to), 10_000 - receipts.length);
+            receipts.push(...batchReceipts as LocalReceipt[]);
+          }
+          return result({ desde, hasta, canal, cantidad_ventas: sales.length, completo: true,
+            alcance: "Ventas realizadas en el período, con sus cobros registrados hasta la fecha final inclusive. No incluye cobros de ventas anteriores al período. El saldo refleja los registros actuales de esas ventas. No sumar monedas distintas.",
+            grupos: summarizeLocalSales(sales, items, receipts) });
+        } catch (error) {
+          return failure({ error: error instanceof Error ? error.message : "No se pudo completar el resumen. No se devolverán totales parciales." });
+        }
+      });
+
       server.registerTool("consultar_clientes_web", {
         title: "Consultar clientes web",
         description: "Lee perfiles de clientes registrados o consultas web, como en la base de clientes de Gestión.",
         inputSchema: z.object({
           tipo: z.enum(["perfiles", "consultas"]),
-          pagina: z.number().int().min(0).max(200).default(0),
+          pagina: pageSchema,
         }), annotations: readOnly,
-      }, async ({ tipo, pagina }) => {
+      }, async ({ tipo, pagina: requestedPage }) => {
+        const pagina = pageNumber(requestedPage);
         const name = tipo === "perfiles" ? "gestion_customer_profile_details_full" : "gestion_web_leads";
-        const { data, error } = await supabase.rpc(name, { p_offset: pagina * 50, p_limit: 50 });
-        if (error) return result({ tipo, error: "No se pudieron leer los clientes web." });
+        const { data, error } = await supabase.rpc(name, { p_offset: (pagina - 1) * 50, p_limit: 50 });
+        if (error) return failure({ tipo, error: queryErrorMessage(error) });
         return result({ tipo, pagina, siguiente_pagina: (data?.length ?? 0) === 50 ? pagina + 1 : null, registros: data ?? [] });
       });
 
@@ -192,16 +269,16 @@ Deno.serve(pipeline(
         description: "Lee contactos, campañas, métricas, suscripción o Analytics usando las mismas lecturas autenticadas de Gestión.",
         inputSchema: z.object({
           consulta: z.enum(["contacts", "campaigns", "metrics", "settings", "analytics"]),
-          pagina: z.number().int().min(0).max(200).default(0),
+          pagina: pageSchema,
           buscar: z.string().max(100).default(""),
           sitio: z.enum(["tienda", "personalizador"]).default("tienda"),
           dias: z.union([z.literal(1), z.literal(7), z.literal(30), z.literal(90)]).default(30),
         }), annotations: readOnly,
       }, async ({ consulta, pagina, buscar, sitio, dias }) => {
         const { data, error } = await supabase.functions.invoke("marketing-workspace", {
-          body: { action: consulta, page: pagina, query: buscar, site: sitio, days: dias },
+          body: { action: consulta, page: pageNumber(pagina) - 1, query: buscar, site: sitio, days: dias },
         });
-        if (error || data?.error) return result({ consulta, error: data?.error || "No se pudo consultar Marketing." });
+        if (error || data?.error) return failure({ consulta, error: "No se pudo consultar Marketing." });
         return result({ consulta, datos: data });
       });
       return server;

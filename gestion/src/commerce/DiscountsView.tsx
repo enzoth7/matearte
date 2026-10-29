@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from './supabase';
+import { allDiscountProducts, readDiscountScope, validDiscountScope, type DiscountCategory, type DiscountScope } from '../../../shared/discount-scope';
+import { DiscountProductsSelector } from './DiscountProductsSelector';
 
 export type DiscountKind = 'percentage' | 'fixed';
-export type CommerceDiscount = {
+export type CommerceDiscount = DiscountScope & {
   id: string;
   code: string;
   discount_type: DiscountKind;
@@ -24,6 +26,7 @@ type DiscountForm = {
   validUntil: string;
   enabled: boolean;
   welcomeOnly: boolean;
+  scope: DiscountScope;
 };
 
 const montevideoDate = () => new Intl.DateTimeFormat('en-CA', {
@@ -36,9 +39,14 @@ const plusDays = (date: string, days: number) => {
   return next.toISOString().slice(0, 10);
 };
 
+const displayDate = (date: string) => {
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  return parts ? `${parts[3]}/${parts[2]}/${parts[1]}` : date;
+};
+
 const emptyForm = (): DiscountForm => {
   const today = montevideoDate();
-  return { id: '', code: '', discountType: 'percentage', value: '', validFrom: today, validUntil: plusDays(today, 30), enabled: true, welcomeOnly: false };
+  return { id: '', code: '', discountType: 'percentage', value: '', validFrom: today, validUntil: plusDays(today, 30), enabled: true, welcomeOnly: false, scope: allDiscountProducts() };
 };
 
 export const normalizeAdminDiscountCode = (value: string) => value
@@ -69,6 +77,8 @@ const discountCategory = (discount: CommerceDiscount) => {
 
 export function Discounts({ onNotice }: { onNotice: (value: string) => void }) {
   const [discounts, setDiscounts] = useState<CommerceDiscount[]>([]);
+  const [categories, setCategories] = useState<DiscountCategory[]>([]);
+  const [categoriesReady, setCategoriesReady] = useState(false);
   const [form, setForm] = useState<DiscountForm>(() => emptyForm());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -76,12 +86,17 @@ export function Discounts({ onNotice }: { onNotice: (value: string) => void }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error: loadError } = await supabase
+    setCategoriesReady(false);
+    const [discountResult, categoryResult] = await Promise.all([supabase
       .from('commerce_discounts')
-      .select('id,code,discount_type,value,valid_from,valid_until,enabled,welcome_only,created_at,updated_at')
-      .order('created_at', { ascending: false });
+      .select('id,code,discount_type,value,valid_from,valid_until,enabled,welcome_only,applicability,category_codes,include_design_items,created_at,updated_at')
+      .order('created_at', { ascending: false }),
+      supabase.from('commerce_categories').select('code,label_es,active').order('sort_order'),
+    ]);
+    const { data, error: loadError } = discountResult;
     if (loadError) setError(loadError.message);
-    else { setDiscounts((data || []) as CommerceDiscount[]); setError(''); }
+    else if (categoryResult.error) setError('No se pudieron cargar las categorías. Actualizá para volver a intentar.');
+    else { setDiscounts((data || []) as CommerceDiscount[]); setCategories(categoryResult.data || []); setCategoriesReady(true); setError(''); }
     setLoading(false);
   }, []);
 
@@ -102,12 +117,14 @@ export function Discounts({ onNotice }: { onNotice: (value: string) => void }) {
     validUntil: discount.valid_until,
     enabled: discount.enabled,
     welcomeOnly: Boolean(discount.welcome_only),
+    scope: readDiscountScope(discount),
   });
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     setSaving(true);
     setError('');
+    if (!validDiscountScope(form.scope)) { setError('Seleccioná los productos del descuento.'); setSaving(false); return; }
     const code = normalizeAdminDiscountCode(form.code);
     const enteredValue = Number(form.value.replace(',', '.'));
     if (!/^[A-Z0-9][A-Z0-9_-]{3,31}$/.test(code)) {
@@ -138,6 +155,7 @@ export function Discounts({ onNotice }: { onNotice: (value: string) => void }) {
       valid_until: form.validUntil,
       enabled: form.enabled,
       welcome_only: form.welcomeOnly,
+      ...form.scope,
     };
     const result = form.id
       ? await supabase.from('commerce_discounts').update(payload).eq('id', form.id)
@@ -162,6 +180,14 @@ export function Discounts({ onNotice }: { onNotice: (value: string) => void }) {
     }
   };
 
+  const saveScope = async (discount: CommerceDiscount, scope: DiscountScope) => {
+    const { data, error: saveError } = await supabase.from('commerce_discounts').update(scope).eq('id', discount.id).select('id').single();
+    if (saveError || !data) throw new Error('No se pudieron guardar los productos. Volvé a intentar.');
+    setDiscounts(current => current.map(item => item.id === discount.id ? { ...item, ...scope } : item));
+    setForm(current => current.id === discount.id ? { ...current, scope } : current);
+    onNotice(`Productos de ${discount.code} actualizados.`);
+  };
+
   return (
     <div className="discounts-workspace">
       <section className="panel discount-form-panel" aria-labelledby="discount-form-title">
@@ -183,10 +209,11 @@ export function Discounts({ onNotice }: { onNotice: (value: string) => void }) {
             <label><div>Válido desde</div><input aria-label="Válido desde" required type="date" value={form.validFrom} onChange={event => setForm(current => ({ ...current, validFrom: event.target.value }))}/></label>
             <label><div>Válido hasta</div><input aria-label="Válido hasta" required type="date" value={form.validUntil} onChange={event => setForm(current => ({ ...current, validUntil: event.target.value }))}/></label>
           </div>
+          <div className="discount-form-products"><div>Sobre qué productos</div><DiscountProductsSelector value={form.scope} categories={categories} label="Productos del descuento" disabled={!categoriesReady || loading || saving} onSave={scope => setForm(current => ({ ...current, scope }))} /></div>
           <label className="discount-enabled"><input type="checkbox" checked={form.enabled} onChange={event => setForm(current => ({ ...current, enabled: event.target.checked }))}/><div>Habilitado para nuevos pagos</div></label>
           <label className="discount-enabled"><input type="checkbox" checked={form.welcomeOnly} onChange={event => setForm(current => ({ ...current, welcomeOnly: event.target.checked }))}/><div>Solo primera compra con suscripción confirmada</div></label>
           {error && <div className="error" role="alert">{error}</div>}
-          <button type="submit" disabled={saving}>{saving ? 'Guardando…' : selected ? 'Guardar cambios' : 'Crear descuento'}</button>
+          <button type="submit" disabled={saving || loading || !categoriesReady}>{saving ? 'Guardando…' : selected ? 'Guardar cambios' : 'Crear descuento'}</button>
         </form>
       </section>
 
@@ -194,13 +221,14 @@ export function Discounts({ onNotice }: { onNotice: (value: string) => void }) {
         {loading ? <div className="loading-inline">Cargando descuentos…</div> : discountSections.map(section => (
           <section className="discount-group" key={section.id} aria-labelledby={`discount-group-${section.id}`}>
             <div className="discount-group-heading"><h2 id={`discount-group-${section.id}`}>{section.title}</h2><strong aria-label={`${section.items.length} descuentos`}>{section.items.length}</strong></div>
-            {section.items.length ? <div className="table-wrap"><table className="data-table discount-table"><thead><tr><th>Código</th><th>Beneficio</th><th>Vigencia</th><th>Estado</th><th><div className="sr-only">Acciones</div></th></tr></thead><tbody>
+            {section.items.length ? <div className="table-wrap"><table className="data-table discount-table"><thead><tr><th>Código</th><th>Beneficio</th><th>Vigencia</th><th>Productos</th><th>Estado</th><th><div className="sr-only">Acciones</div></th></tr></thead><tbody>
               {section.items.map(discount => <tr key={discount.id}>
-                <td><button type="button" className="discount-code-button" onClick={() => edit(discount)}>{discount.code}</button></td>
-                <td>{displayValue(discount)}{discount.welcome_only ? ' · primera compra' : ''}</td>
-                <td>{discount.valid_from} — {discount.valid_until}</td>
-                <td><div className={`discount-status discount-status-${discountStatus(discount).toLowerCase()}`}>{discountStatus(discount)}</div></td>
-                <td className="action-column"><button type="button" className="secondary-button" onClick={() => void toggle(discount)}>{discount.enabled ? 'Deshabilitar' : 'Habilitar'}</button></td>
+                <td data-label="Código"><button type="button" className="discount-code-button" title={discount.code} onClick={() => edit(discount)}>{discount.code}</button></td>
+                <td data-label="Beneficio"><div className="discount-benefit"><span>{displayValue(discount)}</span>{discount.welcome_only && <span>Primera compra</span>}</div></td>
+                <td data-label="Vigencia"><div className="discount-period"><span>{displayDate(discount.valid_from)}</span><span>— {displayDate(discount.valid_until)}</span></div></td>
+                <td data-label="Productos"><DiscountProductsSelector value={readDiscountScope(discount)} categories={categories} label={`Productos de ${discount.code}`} disabled={!categoriesReady} onSave={scope => saveScope(discount, scope)} /></td>
+                <td data-label="Estado"><div className={`discount-status discount-status-${discountStatus(discount).toLowerCase()}`}>{discountStatus(discount)}</div></td>
+                <td data-label="Acción" className="action-column"><button type="button" className="secondary-button" onClick={() => void toggle(discount)}>{discount.enabled ? 'Deshabilitar' : 'Habilitar'}</button></td>
               </tr>)}
             </tbody></table></div> : <div className="discount-group-empty">Sin descuentos en esta categoría.</div>}
           </section>
