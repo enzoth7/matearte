@@ -15,14 +15,15 @@ const deliveryRate = { id: "22222222-2222-4222-8222-222222222222", name: "Envío
 const initialCustomer = { fullName: "Enzo", phone: "099000000", department: "", city: "", address: "" };
 
 function mockCheckoutFetch(cartPayload: Record<string, unknown> = { items: [{ unit_price_minor: 100000, quantity: 1 }], total_weight_grams: 350 }) {
-  vi.stubGlobal("fetch", vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : (input as Request).url || "";
     if (url.includes("/api/checkout/argentina")) return { ok: true, json: async () => ({ enabled: true, bank: { alias: "MATEARTE.COLON", cbu: "0170119340000000993887", bank_name: "BBVA Argentina", account_holder: "" } }) };
     if (url.includes("/api/cart")) {
       return { ok: true, text: async () => JSON.stringify(cartPayload) };
     }
     if (url.includes("/api/discounts/validate")) {
-      return { ok: true, text: async () => JSON.stringify({ code: "MATE10", discountType: "percentage", discountValue: 25, discountMinor: 25000, itemsSubtotalMinor: 100000, discountedItemsSubtotalMinor: 75000 }) };
+      const argentina = JSON.parse(String(init?.body || "{}"))?.currency === "ARS";
+      return { ok: true, text: async () => JSON.stringify({ code: "MATE10", discountType: "percentage", discountValue: 25, discountMinor: argentina ? 150000 : 25000, itemsSubtotalMinor: argentina ? 600000 : 100000, discountedItemsSubtotalMinor: argentina ? 450000 : 75000 }) };
     }
     return { ok: true, text: async () => JSON.stringify({ rates: [pickupRate, deliveryRate] }) };
   }));
@@ -158,7 +159,11 @@ it("integra Argentina en el selector de destino y conserva el formulario al camb
   fireEvent.change(screen.getByLabelText("Comprobante de pago"), { target: { files: [new File(["comprobante"], "pago.pdf", { type: "application/pdf" })] } });
   expect(screen.getByRole("button", { name: /Completar pedido/i })).toBeEnabled();
   expect(screen.queryByRole("button", { name: /mercado pago/i })).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /código de descuento/i })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /código de descuento/i }));
+  fireEvent.change(screen.getByLabelText(/código de descuento/i), { target: { value: "mate10" } });
+  fireEvent.click(screen.getByRole("button", { name: /^validar$/i }));
+  expect(await screen.findByText(/código MATE10 aplicado/i)).toBeInTheDocument();
+  expect(screen.getByText(/4.500 ARS/)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: /condiciones de compra/i }).closest("aside")).toBeNull();
   expect(screen.queryByText(/recalculamos los artículos/i)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("radio", { name: /Uruguay/i }));

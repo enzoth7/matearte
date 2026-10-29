@@ -19,3 +19,36 @@ export function toArsMinor(uyuMinor: number, arsPerUyu: number) {
   if (!Number.isSafeInteger(amount)) throw new Error("Importe fuera de rango.");
   return amount;
 }
+
+export type ArgentinaDiscountQuote = {
+  discountType: "percentage" | "fixed";
+  discountValue: number;
+  applicability: "all_items" | "design_items" | "categories";
+  categoryCodes?: string[];
+  includeDesignItems?: boolean;
+};
+
+export function argentinaDiscountMinor(
+  quote: ArgentinaDiscountQuote,
+  subtotalMinor: number,
+  designSubtotalMinor: number,
+  categorySubtotals: Record<string, number>,
+  arsPerUyu: number,
+) {
+  const eligibleMinor = quote.applicability === "all_items"
+    ? subtotalMinor
+    : quote.applicability === "design_items"
+      ? designSubtotalMinor
+      : (quote.categoryCodes || []).reduce((sum, category) => sum + (categorySubtotals[category] || 0), quote.includeDesignItems ? designSubtotalMinor : 0);
+  if (!Number.isSafeInteger(eligibleMinor) || eligibleMinor <= 0) throw new Error("discount:not_applicable");
+  let amount: number;
+  if (quote.discountType === "fixed") {
+    amount = toArsMinor(quote.discountValue * 100, arsPerUyu);
+  } else {
+    const percentHundredths = Math.round(quote.discountValue * 100);
+    const divisor = BigInt(50_000_000);
+    amount = Number((BigInt(eligibleMinor) * BigInt(percentHundredths) + divisor / BigInt(2)) / divisor) * 5000;
+  }
+  if (!Number.isSafeInteger(amount) || amount <= 0 || amount >= subtotalMinor || amount > eligibleMinor) throw new Error("discount:not_applicable");
+  return amount;
+}

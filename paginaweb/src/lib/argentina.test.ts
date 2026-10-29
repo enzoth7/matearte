@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { argentinaReady, arsPerUyuFromFinanceRate, toArsMinor } from "./argentina";
+import { argentinaDiscountMinor, argentinaReady, arsPerUyuFromFinanceRate, toArsMinor } from "./argentina";
 import { formatMoney } from "./money";
 import { formatOrderMoney } from "./order-money";
 import { validateReceipt } from "./transfer-receipt";
@@ -19,6 +19,14 @@ describe("Argentina retail prices and receipts", () => {
     expect(() => toArsMinor(100, 0)).toThrow();
     expect(() => toArsMinor(-1, 30)).toThrow();
     expect(() => toArsMinor(100, Infinity)).toThrow();
+  });
+  it("rounds percentage coupons on ARS prices and converts fixed UYU coupons", () => {
+    expect(argentinaDiscountMinor({ discountType: "percentage", discountValue: 10, applicability: "categories", categoryCodes: ["mates"] },
+      1000000, 200000, { mates: 350000, otros: 450000 }, 30)).toBe(35000);
+    expect(argentinaDiscountMinor({ discountType: "fixed", discountValue: 100, applicability: "all_items" },
+      1000000, 0, { mates: 1000000 }, 30)).toBe(300000);
+    expect(() => argentinaDiscountMinor({ discountType: "fixed", discountValue: 1000, applicability: "all_items" },
+      1000000, 0, { mates: 1000000 }, 30)).toThrow("discount:not_applicable");
   });
   it("keeps an ARS order unchanged after a rate or language change", () => {
     const order = { currency: "ARS", total_minor: 376500 };

@@ -136,7 +136,8 @@ export function CheckoutForm({
     ? internationalShippingMinor
     : (rate ? 0 : null);
 
-  const discountMinor = appliedDiscount?.discountMinor || 0;
+  const discountMinor = isArgentina ? 0 : appliedDiscount?.discountMinor || 0;
+  const argentinaTotal = argentinaSubtotal === null ? null : argentinaSubtotal - (appliedDiscount?.discountMinor || 0);
   const totalMinor = subtotalMinor === null
     ? null
     : isInternational
@@ -205,7 +206,6 @@ export function CheckoutForm({
   useEffect(() => {
     if (!isArgentina) return;
     let active = true;
-    setArgentinaAvailable(null);
     fetch("/api/checkout/argentina", { cache: "no-store" }).then(response => response.json()).then(value => {
       if (active) {
         setArgentinaAvailable(Boolean(value.enabled));
@@ -217,6 +217,7 @@ export function CheckoutForm({
 
   const selectRegion = (region: PurchaseRegion) => {
     setPurchaseRegion(region);
+    setArgentinaAvailable(null);
     setArgentinaBank(null);
     setReceipt(null);
     setForm(current => ({ ...current, department: "", city: "", postalCode: "" }));
@@ -250,7 +251,7 @@ export function CheckoutForm({
       const response = await fetch("/api/discounts/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: discountCode }),
+        body: JSON.stringify({ code: discountCode, currency: isArgentina ? "ARS" : "UYU" }),
       });
       const text = await response.text();
       const value = text ? JSON.parse(text) : {};
@@ -297,7 +298,7 @@ export function CheckoutForm({
         const response = await fetch("/api/checkout/argentina", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Idempotency-Key": key },
-          body: JSON.stringify({ customer: { ...customerPayload, countryCode: "AR", country: "Argentina" }, locale }),
+          body: JSON.stringify({ customer: { ...customerPayload, countryCode: "AR", country: "Argentina" }, locale, discountCode: appliedDiscount?.code }),
         });
         const value = await response.json();
         if (!response.ok) throw new Error(value.error || t("continueFailed"));
@@ -388,6 +389,39 @@ export function CheckoutForm({
 
   // Campo class — igual al Figma: borde sutil, sin border-radius exagerado
   const fieldClass = "mt-2 min-h-12 w-full rounded-lg border border-[#b8a88a]/60 bg-transparent px-4 text-[15px] text-[var(--walnut)] outline-none transition focus:border-[var(--leather)] focus:ring-2 focus:ring-[var(--rawhide)]/30";
+
+  const discountControl = (
+    <div className="mt-3">
+      <button type="button" aria-expanded={discountOpen} aria-controls="discount-code-panel"
+        onClick={() => setDiscountOpen((current) => !current)}
+        className="flex min-h-12 w-full items-center justify-center rounded-xl border border-white bg-white px-5 text-sm font-bold text-[var(--walnut)] transition hover:bg-[#f7f0e5] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)]">
+        {t("discountToggle")}
+      </button>
+      {discountOpen && (
+        <div id="discount-code-panel" className="mt-3 rounded-xl border border-white/30 bg-black/10 p-4">
+          <label htmlFor="discount-code" className="block text-sm font-bold text-[var(--paper)]">{t("discountCodeLabel")}</label>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+            <input id="discount-code" name="discount-code" autoComplete="off" maxLength={32} disabled={discountBusy}
+              value={discountCode} onChange={(event) => {
+                setDiscountCode(event.target.value.toUpperCase());
+                setAppliedDiscount(null);
+                setDiscountError("");
+              }}
+              className="min-h-12 min-w-0 flex-1 rounded-lg border border-white/50 bg-white px-4 text-sm font-semibold uppercase tracking-wide text-[var(--walnut)] outline-none focus:border-[var(--walnut)] focus:ring-2 focus:ring-white/60 disabled:opacity-70" />
+            <button type="button" disabled={discountBusy || discountCode.trim().length < 4 || !cartReady}
+              onClick={() => void validateDiscount()}
+              className="min-h-12 rounded-lg border border-white/70 bg-transparent px-5 text-sm font-bold text-white transition hover:bg-white/10 focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50">
+              {discountBusy ? t("discountValidating") : t("discountValidate")}
+            </button>
+          </div>
+          <div aria-live="polite" className="mt-2 min-h-5 text-xs leading-5">
+            {discountError && <p role="alert" className="font-semibold text-white">{discountError}</p>}
+            {appliedDiscount && !discountError && <p className="font-semibold text-white">{t("discountApplied", { code: appliedDiscount.code })}</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="overflow-hidden rounded-2xl border border-black/10 bg-[var(--paper)] shadow-[var(--shadow-soft)]">
@@ -583,10 +617,10 @@ export function CheckoutForm({
               <dt className="text-white/75">{tCart("subtotal")}</dt>
               <dd className="font-semibold"><MoneyValue amount={isArgentina ? argentinaSubtotal : subtotalMinor} argentina={isArgentina} locale={locale} exchangeRates={exchangeRates} /></dd>
             </div>
-            {appliedDiscount && !isArgentina && (
+            {appliedDiscount && (
               <div className="flex items-baseline justify-between gap-4" aria-live="polite">
                 <dt className="text-white/75">{t("discount")}</dt>
-                <dd className="font-semibold">−<MoneyValue amount={appliedDiscount.discountMinor} locale={locale} exchangeRates={exchangeRates} /></dd>
+                <dd className="font-semibold">−<MoneyValue amount={appliedDiscount.discountMinor} argentina={isArgentina} locale={locale} exchangeRates={exchangeRates} /></dd>
               </div>
             )}
             <div className="flex items-baseline justify-between gap-4">
@@ -604,7 +638,7 @@ export function CheckoutForm({
             <div className="border-t border-white/25 pt-4">
               <div className="flex items-baseline justify-between gap-4">
                 <dt className="font-semibold">{tCart("total")}</dt>
-                <dd className="text-2xl font-bold"><MoneyValue amount={isArgentina ? argentinaSubtotal : totalMinor} argentina={isArgentina} locale={locale} exchangeRates={exchangeRates} /></dd>
+                <dd className="text-2xl font-bold"><MoneyValue amount={isArgentina ? argentinaTotal : totalMinor} argentina={isArgentina} locale={locale} exchangeRates={exchangeRates} /></dd>
               </div>
             </div>
           </dl>
@@ -642,6 +676,7 @@ export function CheckoutForm({
                 <button type="submit" disabled={busy || !domesticReady || !argentinaAvailable || !cartReady || !cartItems.length || !argentinaSubtotal || !receipt} className="mt-4 flex min-h-13 w-full items-center justify-center rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-[var(--paper)] transition hover:bg-[#4a2a1c] disabled:cursor-not-allowed disabled:opacity-50">
                   {busy ? t("uploadingReceipt") : t("argentinaAction")}
                 </button>
+                {discountControl}
               </div>
             </section>
           )}
@@ -770,56 +805,7 @@ export function CheckoutForm({
             </button>
           )}
 
-          {!paypalReady && !isWholesale && !isArgentina && (
-            <div className="mt-3">
-              <button
-                type="button"
-                aria-expanded={discountOpen}
-                aria-controls="discount-code-panel"
-                onClick={() => setDiscountOpen((current) => !current)}
-                className="flex min-h-12 w-full items-center justify-center rounded-xl border border-white bg-white px-5 text-sm font-bold text-[var(--walnut)] transition hover:bg-[#f7f0e5] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)]"
-              >
-                {t("discountToggle")}
-              </button>
-              {discountOpen && (
-                <div id="discount-code-panel" className="mt-3 rounded-xl border border-white/30 bg-black/10 p-4">
-                  <label htmlFor="discount-code" className="block text-sm font-bold text-[var(--paper)]">
-                    {t("discountCodeLabel")}
-                  </label>
-                  <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                    <input
-                      id="discount-code"
-                      name="discount-code"
-                      autoComplete="off"
-                      maxLength={32}
-                      disabled={discountBusy}
-                      value={discountCode}
-                      onChange={(event) => {
-                        setDiscountCode(event.target.value.toUpperCase());
-                        setAppliedDiscount(null);
-                        setDiscountError("");
-                      }}
-                      className="min-h-12 min-w-0 flex-1 rounded-lg border border-white/50 bg-white px-4 text-sm font-semibold uppercase tracking-wide text-[var(--walnut)] outline-none focus:border-[var(--walnut)] focus:ring-2 focus:ring-white/60 disabled:opacity-70"
-                    />
-                    <button
-                      type="button"
-                      disabled={discountBusy || discountCode.trim().length < 4 || !cartReady}
-                      onClick={() => void validateDiscount()}
-                      className="min-h-12 rounded-lg border border-white/70 bg-transparent px-5 text-sm font-bold text-white transition hover:bg-white/10 focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {discountBusy ? t("discountValidating") : t("discountValidate")}
-                    </button>
-                  </div>
-                  <div aria-live="polite" className="mt-2 min-h-5 text-xs leading-5">
-                    {discountError && <p role="alert" className="font-semibold text-white">{discountError}</p>}
-                    {appliedDiscount && !discountError && (
-                      <p className="font-semibold text-white">{t("discountApplied", { code: appliedDiscount.code })}</p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          {!paypalReady && !isWholesale && !isArgentina && discountControl}
         </aside>
       </form>
     </div>

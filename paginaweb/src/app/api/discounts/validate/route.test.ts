@@ -1,12 +1,18 @@
 // @vitest-environment node
 import { beforeEach, expect, it, vi } from "vitest";
 
+vi.mock("server-only", () => ({}));
+
 const mock = vi.hoisted(() => ({ rpc: vi.fn(), cart: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({
   requireUser: async () => ({ user: { id: "buyer" } }),
   createAdminSupabase: () => ({ rpc: mock.rpc }),
 }));
 vi.mock("@/lib/cart", () => ({ readPricedCart: mock.cart }));
+vi.mock("@/lib/argentina-server", () => ({
+  getArgentinaSettings: async () => ({ ars_per_uyu: 30 }),
+  getArgentinaBasePricing: async () => false,
+}));
 import { POST } from "./route";
 
 beforeEach(() => {
@@ -37,4 +43,21 @@ it("returns a non-applicable response when no selected products qualify", async 
   const response = await POST(request());
   expect(response.status).toBe(422);
   expect(await response.json()).toMatchObject({ details: { reason: "not_applicable" } });
+});
+
+it("quotes a fixed UYU coupon in rounded ARS using Argentina's priced categories", async () => {
+  mock.rpc.mockResolvedValue({ data: {
+    code: "MATE10", discountType: "fixed", discountValue: 100,
+    applicability: "categories", categoryCodes: ["mates"], includeDesignItems: false,
+    discountMinor: 10000,
+  }, error: null });
+  const response = await POST(new Request("https://store.test/api/discounts/validate", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code: "MATE10", currency: "ARS" }),
+  }));
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    currency: "ARS", discountMinor: 300000, itemsSubtotalMinor: 2700000,
+    discountedItemsSubtotalMinor: 2400000,
+  });
 });
