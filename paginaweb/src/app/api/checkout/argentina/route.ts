@@ -7,7 +7,11 @@ import { toArsMinor } from "@/lib/argentina";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export async function GET() {
   const settings = await getArgentinaSettings();
-  return apiOk({ enabled: Boolean(settings), arsPerUyu: settings ? Number(settings.ars_per_uyu) : null });
+  return apiOk({
+    enabled: Boolean(settings),
+    arsPerUyu: settings ? Number(settings.ars_per_uyu) : null,
+    bank: settings ? { bank_name: settings.bank_name, account_holder: settings.account_holder, cbu: settings.cbu, alias: settings.alias } : null,
+  });
 }
 
 export async function POST(request: Request) {

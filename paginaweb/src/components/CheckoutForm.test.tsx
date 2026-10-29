@@ -17,7 +17,7 @@ const initialCustomer = { fullName: "Enzo", phone: "099000000", department: "", 
 function mockCheckoutFetch(cartPayload: Record<string, unknown> = { items: [{ unit_price_minor: 100000, quantity: 1 }], total_weight_grams: 350 }) {
   vi.stubGlobal("fetch", vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
     const url = typeof input === "string" ? input : (input as Request).url || "";
-    if (url.includes("/api/checkout/argentina")) return { ok: true, json: async () => ({ enabled: true }) };
+    if (url.includes("/api/checkout/argentina")) return { ok: true, json: async () => ({ enabled: true, bank: { alias: "MATEARTE.COLON", cbu: "0170119340000000993887", bank_name: "BBVA Argentina", account_holder: "" } }) };
     if (url.includes("/api/cart")) {
       return { ok: true, text: async () => JSON.stringify(cartPayload) };
     }
@@ -152,7 +152,11 @@ it("integra Argentina en el selector de destino y conserva el formulario al camb
   expect(screen.getByLabelText("Código postal")).toBeRequired();
   expect(screen.getByLabelText("Nombre completo")).toHaveValue("Enzo");
   expect(screen.getAllByText(/6.000 ARS/)).toHaveLength(2);
-  expect(await screen.findByRole("button", { name: /Completar pedido/i })).toBeEnabled();
+  expect(await screen.findByText("MATEARTE.COLON")).toBeInTheDocument();
+  expect(screen.getByText("0170119340000000993887")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Completar pedido/i })).toBeDisabled();
+  fireEvent.change(screen.getByLabelText("Comprobante de pago"), { target: { files: [new File(["comprobante"], "pago.pdf", { type: "application/pdf" })] } });
+  expect(screen.getByRole("button", { name: /Completar pedido/i })).toBeEnabled();
   expect(screen.queryByRole("button", { name: /mercado pago/i })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /código de descuento/i })).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: /condiciones de compra/i }).closest("aside")).toBeNull();

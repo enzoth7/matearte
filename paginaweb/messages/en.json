@@ -526,7 +526,7 @@
     "argentinaTransferStepOne": "Transfer the exact amount to the Argentine account shown on this page.",
     "argentinaTransferStepTwo": "After transferring, upload the receipt. The order will remain pending until we confirm the payment.",
     "argentinaViewOrder": "View order status",
-    "argentinaBankInstructions": "Use the alias or CBU to make the transfer in ARS.",
+    "argentinaBankInstructions": "Transfer the ARS total to this account and upload the receipt. The order will remain pending until we confirm the payment.",
     "argentinaAlias": "Alias",
     "argentinaBank": "Bank",
     "argentinaReceiptRejected": "Receipt rejected: {reason}. You can upload another one.",

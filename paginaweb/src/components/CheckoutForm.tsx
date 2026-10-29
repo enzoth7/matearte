@@ -22,6 +22,7 @@ type PurchaseRegion = "uruguay" | "argentina" | "international";
 type CartItem = { quantity: number; unit_price_minor: number; item_type?: string; catalog_base_unit_price_minor?: number };
 type WholesaleState = { eligible: boolean; mate_quantity: number; threshold: number; discount_percent: number; savings_minor: number; checkout_mode: string };
 type BankTransferDetails = { account_holder: string; transfer_account: string; cash_deposit_account: string; cash_deposit_label: string };
+type ArgentinaBankDetails = { bank_name: string; account_holder: string; cbu: string; alias: string };
 type AppliedDiscount = {
   code: string;
   discountType: "percentage" | "fixed";
@@ -91,6 +92,7 @@ export function CheckoutForm({
   const [cartWeightGrams, setCartWeightGrams] = useState<number>(0);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [argentinaAvailable, setArgentinaAvailable] = useState<boolean | null>(null);
+  const [argentinaBank, setArgentinaBank] = useState<ArgentinaBankDetails | null>(null);
   const [subtotalMinor, setSubtotalMinor] = useState<number | null>(null);
   const [discountOpen, setDiscountOpen] = useState(false);
   const [discountCode, setDiscountCode] = useState("");
@@ -205,13 +207,18 @@ export function CheckoutForm({
     let active = true;
     setArgentinaAvailable(null);
     fetch("/api/checkout/argentina", { cache: "no-store" }).then(response => response.json()).then(value => {
-      if (active) setArgentinaAvailable(Boolean(value.enabled));
-    }).catch(() => { if (active) setArgentinaAvailable(false); });
+      if (active) {
+        setArgentinaAvailable(Boolean(value.enabled));
+        setArgentinaBank(value.enabled && value.bank ? value.bank as ArgentinaBankDetails : null);
+      }
+    }).catch(() => { if (active) { setArgentinaAvailable(false); setArgentinaBank(null); } });
     return () => { active = false; };
   }, [isArgentina]);
 
   const selectRegion = (region: PurchaseRegion) => {
     setPurchaseRegion(region);
+    setArgentinaBank(null);
+    setReceipt(null);
     setForm(current => ({ ...current, department: "", city: "", postalCode: "" }));
     setPaypalReady(false);
     setAppliedDiscount(null);
@@ -282,7 +289,8 @@ export function CheckoutForm({
     setForm((current) => ({ ...current, phone: fullPhone }));
     try {
       if (isArgentina) {
-        if (!argentinaAvailable || !cartReady || argentinaSubtotal === null) throw new Error(t("argentinaUnavailable"));
+        if (!argentinaAvailable || !argentinaBank || !cartReady || !cartItems.length || !argentinaSubtotal) throw new Error(t("argentinaUnavailable"));
+        if (!receipt) throw new Error(t("receiptRequired"));
         const storageKey = "matearte_argentina_checkout";
         const key = sessionStorage.getItem(storageKey) || crypto.randomUUID();
         sessionStorage.setItem(storageKey, key);
@@ -293,8 +301,17 @@ export function CheckoutForm({
         });
         const value = await response.json();
         if (!response.ok) throw new Error(value.error || t("continueFailed"));
+        const receiptKey = `argentina_receipt_${value.orderId}`;
+        const receiptId = sessionStorage.getItem(receiptKey) || crypto.randomUUID();
+        sessionStorage.setItem(receiptKey, receiptId);
+        const form = new FormData();
+        form.set("receipt", receipt);
+        const upload = await fetch(`/api/orders/${value.orderId}/receipt`, { method: "POST", headers: { "Idempotency-Key": receiptId }, body: form });
+        const uploadResult = await upload.json();
+        if (!upload.ok) throw new Error(uploadResult.error || t("argentinaUploadFailed"));
+        sessionStorage.removeItem(receiptKey);
         sessionStorage.removeItem(storageKey);
-        window.location.assign(localizeCanonicalPath(`/transferencia/${value.orderId}`, locale));
+        window.location.assign(localizeCanonicalPath(`/pedidos/${value.orderId}`, locale));
         return;
       }
       if (isWholesale) {
@@ -596,6 +613,39 @@ export function CheckoutForm({
             <p className="mt-4 text-xs leading-5 text-white/85">{isArgentina ? t("argentinaShippingNotice") : t("domesticShippingCostNotice")}</p>
           )}
 
+          {isArgentina && argentinaBank && (
+            <section className="mt-6 border-t border-white/25 pt-6" aria-labelledby="argentina-bank-title">
+              <div className="flex items-center gap-2">
+                <Bank size={22} aria-hidden="true" />
+                <h2 id="argentina-bank-title" className="text-base font-bold">{t("bankTransferTitle")}</h2>
+              </div>
+              <p className="mt-2 text-xs leading-5 text-white/75">{t("argentinaBankInstructions")}</p>
+              <dl className="mt-4 space-y-3 rounded-xl border border-white/20 bg-black/10 p-4 text-sm">
+                <div><dt className="text-xs text-white/65">{t("argentinaAlias")}</dt><dd className="mt-1 break-all font-bold select-all">{argentinaBank.alias}</dd></div>
+                <div><dt className="text-xs text-white/65">CBU</dt><dd className="mt-1 break-all font-bold select-all">{argentinaBank.cbu}</dd></div>
+                <div><dt className="text-xs text-white/65">{t("argentinaBank")}</dt><dd className="mt-1 font-bold">{argentinaBank.bank_name}</dd></div>
+                {argentinaBank.account_holder && <div><dt className="text-xs text-white/65">{t("accountHolder")}</dt><dd className="mt-1 font-bold">{argentinaBank.account_holder}</dd></div>}
+              </dl>
+              <div className="mt-5 rounded-xl border border-white/25 bg-white/10 p-4">
+                <label htmlFor="argentina-checkout-receipt" className="block text-sm font-bold">{t("receiptLabel")}</label>
+                <p id="argentina-checkout-receipt-help" className="mt-1 text-xs leading-5 text-white/70">{t("receiptHelp")}</p>
+                <label className="mt-3 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-white/70 px-4 text-center text-sm font-semibold transition hover:bg-white/10 focus-within:outline-[3px] focus-within:outline-offset-2 focus-within:outline-[var(--paper)]">
+                  <UploadSimple size={20} aria-hidden="true" />
+                  <span className="min-w-0 break-all">{receipt ? receipt.name : t("chooseReceipt")}</span>
+                  <input id="argentina-checkout-receipt" type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf" aria-describedby="argentina-checkout-receipt-help" className="sr-only" required onChange={event => {
+                    const next = event.target.files?.[0] || null;
+                    if (next && next.size > 5 * 1024 * 1024) { setReceipt(null); setError(t("receiptTooLarge")); event.currentTarget.value = ""; return; }
+                    if (next && !receiptTypes.has(next.type)) { setReceipt(null); setError(t("receiptInvalidType")); event.currentTarget.value = ""; return; }
+                    setError(""); setReceipt(next);
+                  }} />
+                </label>
+                <button type="submit" disabled={busy || !domesticReady || !argentinaAvailable || !cartReady || !cartItems.length || !argentinaSubtotal || !receipt} className="mt-4 flex min-h-13 w-full items-center justify-center rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-[var(--paper)] transition hover:bg-[#4a2a1c] disabled:cursor-not-allowed disabled:opacity-50">
+                  {busy ? t("uploadingReceipt") : t("argentinaAction")}
+                </button>
+              </div>
+            </section>
+          )}
+
           {isWholesale && bankTransfer && (
             <section className="mt-6 border-t border-white/25 pt-6" aria-labelledby="bank-transfer-title">
               <div className="flex items-center gap-2">
@@ -691,7 +741,7 @@ export function CheckoutForm({
           {cartError && <p role="alert" className="mt-5 rounded-lg border border-white/35 bg-black/15 p-3 text-sm font-semibold text-[var(--paper)]">{cartError}</p>}
           {error && <p role="alert" className="mt-5 text-sm font-semibold text-[var(--paper)]">{error}</p>}
 
-          {!paypalReady && !isWholesale && (
+          {!paypalReady && !isWholesale && !isArgentina && (
             <button
               disabled={busy || !cartReady || (isArgentina ? !domesticReady || !argentinaAvailable || argentinaSubtotal === null : isInternational ? !internationalReady : !domesticReady)}
               className="mt-8 flex min-h-13 w-full items-center justify-center gap-2.5 rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-[var(--paper)] transition hover:bg-[#4a2a1c] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50"
