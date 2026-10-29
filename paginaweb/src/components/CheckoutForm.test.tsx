@@ -152,7 +152,7 @@ it("integra Argentina en el selector de destino y conserva el formulario al camb
   expect(screen.getByLabelText("Código postal")).toBeRequired();
   expect(screen.getByLabelText("Nombre completo")).toHaveValue("Enzo");
   expect(screen.getAllByText(/6.000 ARS/)).toHaveLength(2);
-  expect(await screen.findByRole("button", { name: /Confirmar pedido y ver cuenta bancaria/i })).toBeEnabled();
+  expect(await screen.findByRole("button", { name: /Completar pedido/i })).toBeEnabled();
   expect(screen.queryByRole("button", { name: /mercado pago/i })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /código de descuento/i })).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: /condiciones de compra/i }).closest("aside")).toBeNull();

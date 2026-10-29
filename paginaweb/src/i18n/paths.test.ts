@@ -5,6 +5,8 @@ describe("rutas localizadas", () => {
   it("conserva slugs e identificadores dinámicos", () => {
     expect(localizeCurrentPathname("/producto/mate-imperial", "es", "en")).toBe("/en/product/mate-imperial");
     expect(localizeCurrentPathname("/en/orders/abc-123", "en", "pt")).toBe("/pt/pedidos/abc-123");
+    expect(localizeCanonicalPath("/transferencia/abc-123", "en")).toBe("/en/bank-transfer/abc-123");
+    expect(localizeCurrentPathname("/en/bank-transfer/abc-123", "en", "es")).toBe("/transferencia/abc-123");
   });
 
   it("traduce las páginas de categoría sin confundirlas con el catálogo", () => {

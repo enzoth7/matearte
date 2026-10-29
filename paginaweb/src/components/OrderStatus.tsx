@@ -1,5 +1,4 @@
 "use client";
-import { ArgentinaOrderPayment } from "./ArgentinaOrderPayment";
 
 import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
@@ -274,11 +273,11 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
       ? [receiptRelation]
       : [];
   const receiptRejectionReason = bankTransferReceipts.find(receipt=>receipt.status==="rejected")?.rejection_reason || "";
+  const argentinaNeedsTransfer = order.customer_snapshot?.purchaseFlow === "argentina_retail_transfer" && (status === "pending_payment" || status === "payment_failed");
   const isTrackingUrl = Boolean(order.tracking_code && (order.tracking_code.startsWith("http://") || order.tracking_code.startsWith("https://")));
 
   return (
     <>
-      {order.customer_snapshot?.purchaseFlow === "argentina_retail_transfer" && <ArgentinaOrderPayment orderId={order.id} status={order.status} totalMinor={order.total_minor} bank={(order.customer_snapshot?.bank || {}) as Record<string, unknown>} rejectionReason={receiptRejectionReason} />}
       <section className="order-status-mobile" aria-labelledby="order-detail-mobile-title">
         <header className="order-mobile-header">
           <h1 id="order-detail-mobile-title">{t("title")}</h1>
@@ -324,6 +323,7 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
               <h2>{desktopStatusTitle}</h2>
               <p>{desktopStatusDescription}</p>
               {receiptRejectionReason&&<p className="mt-2 font-semibold text-[var(--danger)]">{t("receiptRejectionReason",{reason:receiptRejectionReason})}</p>}
+              {argentinaNeedsTransfer && <Link href={{ pathname: "/transferencia/[id]", params: { id: order.id } }} className="mt-3 inline-block font-semibold underline underline-offset-4">{t("completeTransfer")}</Link>}
             </div>
           </div>
         </div>
@@ -386,6 +386,7 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
               <h2 id="order-status-desktop-title">{desktopStatusTitle}</h2>
               <p>{desktopStatusDescription}</p>
               {receiptRejectionReason&&<p className="mt-2 font-semibold text-[var(--danger)]">{t("receiptRejectionReason",{reason:receiptRejectionReason})}</p>}
+              {argentinaNeedsTransfer && <Link href={{ pathname: "/transferencia/[id]", params: { id: order.id } }} className="mt-3 inline-block font-semibold underline underline-offset-4">{t("completeTransfer")}</Link>}
             </div>
           </div>
         </div>

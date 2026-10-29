@@ -1,7 +1,7 @@
 import type { Locale } from "@/types/catalog";
 import { localizedPathnames } from "./routing";
 
-const dynamicRoutes = ["/producto/[slug]", "/pedidos/[id]", "/catalogo/[categoria]"] as const;
+const dynamicRoutes = ["/producto/[slug]", "/pedidos/[id]", "/transferencia/[id]", "/catalogo/[categoria]"] as const;
 
 function removeLocalePrefix(pathname: string) {
   return pathname.replace(/^\/(en|pt)(?=\/|$)/, "") || "/";

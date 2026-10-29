@@ -17,6 +17,7 @@ export const localizedPathnames = {
     "/perfil/editar": { es: "/perfil/editar", en: "/account/edit", pt: "/perfil/editar" },
     "/producto/[slug]": { es: "/producto/[slug]", en: "/product/[slug]", pt: "/produto/[slug]" },
     "/pedidos/[id]": { es: "/pedidos/[id]", en: "/orders/[id]", pt: "/pedidos/[id]" },
+    "/transferencia/[id]": { es: "/transferencia/[id]", en: "/bank-transfer/[id]", pt: "/transferencia/[id]" },
     "/compras/terminos-y-condiciones": {
       es: "/compras/terminos-y-condiciones",
       en: "/purchases/terms-and-conditions",

@@ -294,7 +294,7 @@ export function CheckoutForm({
         const value = await response.json();
         if (!response.ok) throw new Error(value.error || t("continueFailed"));
         sessionStorage.removeItem(storageKey);
-        window.location.assign(localizeCanonicalPath(`/pedidos/${value.orderId}`, locale));
+        window.location.assign(localizeCanonicalPath(`/transferencia/${value.orderId}`, locale));
         return;
       }
       if (isWholesale) {
