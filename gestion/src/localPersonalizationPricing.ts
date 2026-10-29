@@ -44,12 +44,12 @@ export function calculateLocalPersonalizationPrice(draft: LocalPersonalizationDr
 
   if (draft.kind === "mate" && draft.rimTechnique !== "none") {
     if (draft.rimTechnique === "laser") {
-      if ((usesText(draft.rimContent) && characterCount(draft.rimText) > 0) || (usesLogo(draft.rimContent) && (draft.rimLogoFile || localDesignIcons(draft, "rim").length))) {
+      if ((usesText(draft.rimContent) && (characterCount(draft.rimText) + characterCount(draft.rimText2)) > 0) || (usesLogo(draft.rimContent) && (draft.rimLogoFile || localDesignIcons(draft, "rim").length))) {
         add("laser", "rim_text", "Grabado láser en virola", 1);
       }
     } else {
       if (usesText(draft.rimContent)) {
-        const count = characterCount(draft.rimText);
+        const count = characterCount(draft.rimText) + characterCount(draft.rimText2);
         add(draft.rimTechnique, "rim_text", "Letras en virola", count);
       }
       if (usesLogo(draft.rimContent) && (draft.rimLogoFile || localDesignIcons(draft, "rim").length)) add(draft.rimTechnique, "rim_image", "Logo en virola", Number(Boolean(draft.rimLogoFile)) + localDesignIcons(draft, "rim").length);

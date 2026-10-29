@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Product } from "./data";
-import { buildLocalPersonalizationSnapshot, createPersonalizationDraft, matePurchaseAxes, personalizationKind, productHasFleje, validatePersonalization } from "./localPersonalization";
+import { buildLocalPersonalizationSnapshot, createPersonalizationDraft, invertLocalRimText, matePurchaseAxes, personalizationKind, productHasFleje, validatePersonalization } from "./localPersonalization";
 
 const product = (changes: Partial<Product> = {}): Product => ({
   id: "variant", name: "Mate Imperial Personalizado", sku: "P-1", categoryCode: "mates-personalizados", family: "Mates personalizados",
@@ -39,13 +39,35 @@ describe("personalización de ventas locales", () => {
   it("genera una instantánea compatible con Producción", () => {
     const draft = createPersonalizationDraft("mate");
     draft.rimText = "ENZO";
+    draft.rimText2 = "MATEARTE";
+    draft.rimTextInverted = true;
     draft.flejeTechnique = "bronze-applique";
     draft.flejeContent = "text";
     draft.flejeFrontText = "MATE";
     const snapshot = buildLocalPersonalizationSnapshot(draft, product()) as any;
     expect(snapshot.configuration.selectionLabels.family).toBe("Mate Imperial Personalizado");
     expect(snapshot.configuration.rim.texts[0].text).toBe("ENZO");
+    expect(snapshot.configuration.rim.texts).toMatchObject([
+      { id: "text-1", text: "ENZO", inverted: true },
+      { id: "text-2", text: "MATEARTE", inverted: true },
+    ]);
     expect(snapshot.flejeConfiguration.sides.front.text).toBe("MATE");
+  });
+
+  it("permite usar solo el segundo texto de la virola", () => {
+    const draft = createPersonalizationDraft("mate");
+    draft.rimText2 = "ABAJO";
+    expect(validatePersonalization(draft, product())).toBe("");
+    const snapshot = buildLocalPersonalizationSnapshot(draft, product()) as any;
+    expect(snapshot.configuration.rim.texts[1]).toMatchObject({ text: "ABAJO", inverted: true });
+  });
+
+  it("al invertir un texto mueve el otro al lado opuesto", () => {
+    const draft = createPersonalizationDraft("mate");
+    draft.rimText = "ARRIBA";
+    draft.rimText2 = "ABAJO";
+    expect(invertLocalRimText(draft, "text-1")).toEqual({ rimTextInverted: true, rimText2Inverted: false });
+    expect(invertLocalRimText({ ...draft, rimText2: "" }, "text-1")).toEqual({ rimTextInverted: true, rimText2Inverted: true });
   });
 
   it("exige tamaño e interior cuando el mate base ofrece todos y los conserva en el pedido", () => {

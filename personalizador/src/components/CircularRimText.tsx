@@ -124,6 +124,7 @@ export function RimTextFinishMask({
 }
 
 export function CircularRimText({
+  id,
   text,
   geometry = rimTextGeometry,
   transform,
@@ -165,6 +166,7 @@ export function CircularRimText({
 
   return (
     <g
+      data-rim-text-id={id}
       transform={createElementSvgTransform(transform, geometry, isInverted)}
       onPointerDown={onPointerDown}
       className={onPointerDown ? "cursor-grab active:cursor-grabbing" : undefined}
@@ -266,9 +268,19 @@ export function CircularRimText({
               transform={`translate(${toggleButtonPoint.x}, ${toggleButtonPoint.y})`}
               pointerEvents="all"
               className="cursor-pointer select-none"
+              role="button"
+              tabIndex={0}
+              aria-label={isInverted ? "Volver a poner el texto arriba" : "Invertir el texto y ponerlo abajo"}
               onPointerDown={(e) => {
                 e.stopPropagation();
                 onToggleInvert();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onToggleInvert();
+                }
               }}
             >
               <rect

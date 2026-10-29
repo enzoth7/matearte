@@ -8,8 +8,16 @@ async function assemble(page: Page, changes: Record<string, string> = {}) {
   await page.getByLabel('Categoría de artículo').selectOption('mate');
   const builder = page.locator('#local-panel-custom > .local-custom-builder');
   const values: Record<string,string> = { 'tipo-mate':'imperial', interior:'ceramica', 'tipo-cuero':'croco', color:'mostaza-chocolate', 'tipo-virola':'alpaca-y-bronce', 'diseno-fleje':'laureles', posamate:'con-posamate', pie:'alpaca', tamano:'grande', ...changes };
-  for (const field of mateAssemblyFields) if (values[field.code]) await builder.getByLabel(field.label, { exact:true }).selectOption(values[field.code]);
+  for (const field of mateAssemblyFields.filter(field => ['tipo-mate', 'forma-criollo', 'tipo-cuero'].includes(field.code))) if (values[field.code]) await builder.getByLabel(field.label, { exact:true }).selectOption(values[field.code]);
   return builder;
+}
+
+async function completeMaterials(page: Page, changes: Record<string, string> = {}) {
+  const values: Record<string,string> = { interior:'ceramica', color:'mostaza-chocolate', 'tipo-virola':'alpaca-y-bronce', 'diseno-fleje':'laureles', posamate:'con-posamate', pie:'alpaca', tamano:'grande', ...changes };
+  const card = page.locator('.local-personalization-card').first();
+  await card.getByRole('navigation', { name: /Pasos del diseño/ }).getByRole('button', { name: /Materiales/ }).click();
+  for (const field of mateAssemblyFields) if (values[field.code]) await card.getByLabel(field.label, { exact:true }).selectOption(values[field.code]);
+  return card;
 }
 
 test('arma por piezas sin catálogo y conserva diseño y precio en venta y producción', async ({ page }) => {
@@ -17,14 +25,21 @@ test('arma por piezas sin catálogo y conserva diseño y precio en venta y produ
   fixture.products.splice(0);
   const builder=await assemble(page);
   await expect(builder).not.toContainText('variante compatible');
+  await expect(builder.getByLabel('Precio rápido del mate')).toContainText('3.200');
+  await builder.getByRole('button',{name:/Agregar personalizado/}).click();
+  const card = await completeMaterials(page);
   for (const code of ['tipo-cuero','color','tipo-virola','pie']) {
     const field=mateAssemblyFields.find(f=>f.code===code)!;
-    await expect(builder.getByLabel(field.label,{exact:true}).locator('option')).toHaveCount(field.options.length+1);
+    await expect(card.getByLabel(field.label,{exact:true}).locator('option')).toHaveCount(field.options.length+1);
   }
-  await expect(builder.getByLabel('Precio del armado')).toContainText('4.500');
-  await builder.screenshot({path:'test-results/assembly-desktop.png'});
-  await builder.getByRole('button',{name:/Agregar personalizado/}).click();
+  await expect(card.getByLabel('Precio del armado')).toContainText('4.500');
+  await card.screenshot({path:'test-results/assembly-desktop.png'});
+  await card.getByRole('navigation', { name: /Pasos del diseño/ }).getByRole('button', { name: /Virola/ }).click();
   await page.getByLabel('Texto de virola de Mate Imperial personalizado').fill('ENZO');
+  await page.getByLabel('Texto 2 para la virola de Mate Imperial personalizado').fill('MATE');
+  const rimPreview = card.getByLabel('Vista editable de la virola imperial');
+  await rimPreview.locator('[data-rim-text-id="text-1"] path[stroke="transparent"]').click();
+  await rimPreview.getByRole('button', { name: 'Invertir el texto y ponerlo abajo' }).click();
   await expect.poll(() => page.locator('.local-design-icons img').evaluateAll(images => images.length > 0 && images.every(image => (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
   await page.locator('.local-design-icons button').nth(1).click();
   await page.locator('.local-design-icons button').nth(2).click();
@@ -46,6 +61,7 @@ test('arma por piezas sin catálogo y conserva diseño y precio en venta y produ
   expect(item.unit_price_minor).toBe(468000);
   expect(item.customization.assembly.selections).toMatchObject({'tipo-cuero':'croco',color:'mostaza-chocolate',pie:'alpaca'});
   expect(item.customization.configuration.rim.texts[0].text).toBe('ENZO');
+  expect(item.customization.configuration.rim.texts).toMatchObject([{ text: 'ENZO', inverted: true }, { text: 'MATE', inverted: false }]);
   expect(item.customization.previews.map((preview: {role:string}) => preview.role)).toEqual(['virola','fleje_front','fleje_back']);
   expect(item.customization.previews.every((preview: {byte_size:number}) => preview.byte_size > 1000)).toBe(true);
   expect(item.customization.configuration.rim.icons).toHaveLength(2);
@@ -71,24 +87,28 @@ test('arma por piezas sin catálogo y conserva diseño y precio en venta y produ
 
 test('cambiar piezas conserva elecciones y sin virola permite guardar sin grabado',async({page})=>{
   const {writes}=await mockCommerce(page,{writable:true});
-  const builder=await assemble(page,{'tipo-virola':'sin-virola','diseno-fleje':'sin-fleje'});
-  await builder.getByLabel('Cuero o textura').selectOption('pelos');
-  await expect(builder.getByLabel('Color',{exact:true})).toHaveValue('mostaza-chocolate');
-  await expect(builder.getByLabel('Pie',{exact:true})).toHaveValue('alpaca');
+  const builder=await assemble(page,{'tipo-cuero':'pelos'});
   await builder.getByRole('button',{name:/Agregar personalizado/}).click();
+  const card = await completeMaterials(page,{'tipo-virola':'sin-virola','diseno-fleje':'sin-fleje'});
+  await expect(card.getByLabel('Cuero o textura')).toHaveValue('pelos');
+  await expect(card.getByLabel('Color',{exact:true})).toHaveValue('mostaza-chocolate');
+  await expect(card.getByLabel('Pie',{exact:true})).toHaveValue('alpaca');
   await expect(page.getByRole('navigation',{name:/Pasos del diseño/}).getByRole('button',{name:/Virola/})).toHaveCount(0);
   await page.getByRole('button',{name:'Guardar venta'}).click();
   await expect.poll(()=>writes.some(w=>w.table==='gestion_create_local_sale_with_items')).toBe(true);
 });
 
-test('una tarifa ausente bloquea el cobro y muestra precio pendiente',async({page})=>{
+test('una tarifa ausente bloquea el cobro y muestra tarifa no disponible',async({page})=>{
   await mockCommerce(page,{writable:true});
   const rules=Object.fromEntries(mateAssemblyFields.flatMap(f=>f.options.map(o=>[o.ruleKey,o.initialPrice])));
   delete rules['assembly:pie:alpaca'];
   await page.route('**/rpc/get_published_pricing_catalog',route=>route.fulfill({json:{versionId:'price',version:1,rules}}));
   const builder=await assemble(page);
-  await expect(builder).toContainText('Precio pendiente');
-  await expect(builder.getByRole('button',{name:/Agregar personalizado/})).toBeDisabled();
+  await expect(builder.getByLabel('Precio rápido del mate')).toContainText('3.200');
+  await builder.getByRole('button',{name:/Agregar personalizado/}).click();
+  const card = await completeMaterials(page);
+  await expect(card.getByLabel('Precio del armado')).toContainText('Tarifa no disponible');
+  await expect(page.getByRole('button',{name:'Guardar venta'})).toBeDisabled();
 });
 
 test('el descuento aplica solo a los personalizados: precio original tachado, nuevo precio y payload con porcentaje', async ({ page }) => {
@@ -97,6 +117,8 @@ test('el descuento aplica solo a los personalizados: precio original tachado, nu
   const builder = await assemble(page);
   await expect(page.getByLabel('Aplicar descuento a personalizados')).toHaveCount(0);
   await builder.getByRole('button', { name: /Agregar personalizado/ }).click();
+  const card = await completeMaterials(page);
+  await card.getByRole('navigation', { name: /Pasos del diseño/ }).getByRole('button', { name: /Virola/ }).click();
   await page.getByLabel('Texto de virola de Mate Imperial personalizado').fill('ENZO');
   await expect.poll(() => page.locator('.local-design-icons img').evaluateAll(images => images.length > 0 && images.every(image => (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
   const footer = page.locator('.local-sale-footer');

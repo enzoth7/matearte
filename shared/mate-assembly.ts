@@ -36,9 +36,11 @@ export const mateAssemblyFields: AssemblyField[] = [
 
 export const assemblyHasFleje = (assembly: MateAssembly) => ["imperial", "criollo"].includes(assembly["tipo-mate"]) && assembly["diseno-fleje"] !== "sin-fleje";
 export const assemblyFieldsFor = (assembly: MateAssembly) => mateAssemblyFields.filter(field => (field.code !== "forma-criollo" || assembly["tipo-mate"] === "criollo") && (field.code !== "diseno-fleje" || ["imperial", "criollo"].includes(assembly["tipo-mate"])));
+export const coreAssemblyFieldsFor = (assembly: MateAssembly) => assemblyFieldsFor(assembly).filter(field => field.code === "tipo-mate" || field.code === "forma-criollo" || field.code === "tipo-cuero");
+export const validateMateAssemblyCore = (assembly: MateAssembly) => coreAssemblyFieldsFor(assembly).find(field => !field.options.some(option => option.value === assembly[field.code]))?.label;
 export const assemblyLabels = (assembly: MateAssembly) => Object.fromEntries(assemblyFieldsFor(assembly).map(field => [field.code, field.options.find(o => o.value === assembly[field.code])?.label || "Pendiente"]));
 export const assemblyName = (assembly: MateAssembly) => `Mate ${assemblyLabels(assembly)["tipo-mate"]} personalizado`;
-export const assemblySummary = (assembly: MateAssembly) => assemblyFieldsFor(assembly).filter(f => f.code !== "tipo-mate").map(f => `${f.label}: ${assemblyLabels(assembly)[f.code]}`).join(" · ");
+export const assemblySummary = (assembly: MateAssembly) => assemblyFieldsFor(assembly).filter(f => f.code !== "tipo-mate" && assembly[f.code]).map(f => `${f.label}: ${assemblyLabels(assembly)[f.code]}`).join(" · ");
 export const validateMateAssembly = (assembly: MateAssembly) => assemblyFieldsFor(assembly).find(field => !field.options.some(o => o.value === assembly[field.code]))?.label;
 
 export function mateAssemblyRuleKeys(assembly: MateAssembly) {

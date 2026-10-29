@@ -279,11 +279,12 @@ test('personalizados combina un mate armado, matera y bombilla y guarda los dise
   await page.getByRole('tab', { name: 'Personalizados' }).click();
   await page.getByLabel('Categoría de artículo').selectOption('mate');
   await page.getByLabel('Modelo', { exact: true }).selectOption('imperial');
-  await page.locator('.local-custom-builder').getByLabel('Color', { exact: true }).selectOption('natural');
-  await page.locator('.local-custom-builder').getByLabel('Interior', { exact: true }).selectOption('calabaza');
-  await page.locator('.local-custom-builder').getByLabel('Tamaño', { exact: true }).selectOption('grande');
-  for (const [label,value] of [['Cuero o textura','liso'],['Virola','imperial'],['Diseño del fleje','liso'],['Posamate','sin-posamate'],['Pie','comun']]) await page.locator('#local-panel-custom > .local-custom-builder').getByLabel(label,{exact:true}).selectOption(value);
+  await page.locator('.local-custom-builder').getByLabel('Cuero o textura', { exact: true }).selectOption('liso');
   await page.getByRole('button', { name: /Agregar personalizado/ }).click();
+  await expect(page.getByRole('navigation', { name: 'Pasos del diseño de Mate Imperial personalizado' }).getByRole('button', { name: /Virola/ })).toBeVisible();
+  await page.getByRole('navigation', { name: 'Pasos del diseño de Mate Imperial personalizado' }).getByRole('button', { name: /Materiales/ }).click();
+  const materials = page.locator('.local-personalization-card').first();
+  for (const [label,value] of [['Color','natural'],['Interior','calabaza'],['Tamaño','grande'],['Virola','imperial'],['Diseño del fleje','liso'],['Posamate','sin-posamate'],['Pie','comun']]) await materials.getByLabel(label,{exact:true}).selectOption(value);
   await expect(page.locator('.local-sale-photo-panel')).not.toContainText('Todos los tamaños');
   await page.getByRole('navigation', { name: 'Pasos del diseño de Mate Imperial personalizado' }).getByRole('button', { name: /Virola/ }).click();
   await page.getByLabel('Texto de virola de Mate Imperial personalizado').fill('ENZO');

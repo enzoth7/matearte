@@ -17,6 +17,9 @@ export type LocalPersonalizationDraft = {
   rimTechnique: PersonalizationTechnique;
   rimContent: PersonalizationContent;
   rimText: string;
+  rimText2: string;
+  rimTextInverted: boolean;
+  rimText2Inverted: boolean;
   rimFinish: string;
   flejeTechnique: PersonalizationTechnique;
   flejeContent: PersonalizationContent;
@@ -66,6 +69,15 @@ export function localDesignTransform(draft: LocalPersonalizationDraft, key: stri
   return draft.designTransforms?.[key] || { ...position, scale: 1, rotation: 0, side };
 }
 
+export function invertLocalRimText(draft: LocalPersonalizationDraft, id: string): Pick<LocalPersonalizationDraft, "rimTextInverted" | "rimText2Inverted"> {
+  if (id === "text-2") {
+    const rimText2Inverted = !draft.rimText2Inverted;
+    return { rimText2Inverted, rimTextInverted: draft.rimText.trim() && draft.rimTextInverted === rimText2Inverted ? !rimText2Inverted : draft.rimTextInverted };
+  }
+  const rimTextInverted = !draft.rimTextInverted;
+  return { rimTextInverted, rimText2Inverted: draft.rimText2.trim() && draft.rimText2Inverted === rimTextInverted ? !rimTextInverted : draft.rimText2Inverted };
+}
+
 export function personalizationKind(product: Product): PersonalizationKind | null {
   if (product.personalizationType) return product.personalizationType;
   const category = normalize(product.categoryCode || product.family || "");
@@ -100,6 +112,9 @@ export function createPersonalizationDraft(kind: PersonalizationKind, product?: 
     rimTechnique: product?.assembly?.["tipo-virola"] === "sin-virola" ? "none" : "laser",
     rimContent: "text",
     rimText: "",
+    rimText2: "",
+    rimTextInverted: false,
+    rimText2Inverted: true,
     rimFinish: "none",
     flejeTechnique: "none",
     flejeContent: "text",
@@ -153,7 +168,7 @@ export function validatePersonalization(draft: LocalPersonalizationDraft, produc
     return `Elegí qué parte se personaliza en ${product.name}.`;
   }
   if (draft.rimTechnique !== "none") {
-    if (hasText(draft.rimContent) && !draft.rimText.trim()) return `Ingresá el texto de la virola para ${product.name}.`;
+    if (hasText(draft.rimContent) && !draft.rimText.trim() && !draft.rimText2.trim()) return `Ingresá el texto de la virola para ${product.name}.`;
     if (hasLogo(draft.rimContent) && !draft.rimLogoFile && !localDesignIcons(draft, "rim").length) return `Adjuntá el logo de la virola para ${product.name}.`;
   }
   if (productHasFleje(product) && draft.flejeTechnique !== "none") {
@@ -303,8 +318,11 @@ export function buildLocalPersonalizationSnapshot(
         finishMode: draft.rimTechnique !== "none" && draft.rimFinish !== "none" ? "finish" : "none",
         finishId: draft.rimFinish === "none" ? "finish-1" : draft.rimFinish,
         textMode: draft.rimTechnique !== "none" && hasText(draft.rimContent) ? "text" : "none",
-        text: draft.rimText.trim(),
-        texts: draft.rimTechnique !== "none" && hasText(draft.rimContent) ? [{ id: "text-1", text: draft.rimText.trim(), transform: transform("rim-text", "rim") }] : [],
+        text: draft.rimText.trim() || draft.rimText2.trim(),
+        texts: draft.rimTechnique !== "none" && hasText(draft.rimContent) ? [
+          { id: "text-1", text: draft.rimText.trim(), inverted: draft.rimTextInverted, transform: transform("rim-text", "rim") },
+          { id: "text-2", text: draft.rimText2.trim(), inverted: draft.rimText2Inverted, transform: transform("rim-text-2", "rim") },
+        ] : [],
         imageMode: hasRimLogo ? "image" : "none",
         icons: hasRimLogo ? designIcons("rim", stored.rim) : [],
         textTransform: transform("rim-text", "rim"),

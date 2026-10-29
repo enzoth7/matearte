@@ -699,7 +699,7 @@ async function readEditorProducts(selection: string, excludeSandbox = false) {
   }
 }
 
-export function Catalog({onNotice,initialProductId,initialVariantId,startNew=false,embedded=false,fixedCategory,onCreated,onCancelNew,onClose,onDirtyChange,onCatalogChange}:{onNotice:(v:string)=>void;initialProductId?:string;initialVariantId?:string|null;startNew?:boolean;embedded?:boolean;fixedCategory?:string;onCreated?:(id:string)=>void;onCancelNew?:()=>void;onClose?:()=>void;onDirtyChange?:(dirty:boolean)=>void;onCatalogChange?:()=>void|Promise<void>}) {
+export function Catalog({onNotice,initialProductId,initialVariantId,startNew=false,embedded=false,fixedCategory,hideWholesaleArsPrice=false,onCreated,onCancelNew,onClose,onDirtyChange,onCatalogChange}:{onNotice:(v:string)=>void;initialProductId?:string;initialVariantId?:string|null;startNew?:boolean;embedded?:boolean;fixedCategory?:string;hideWholesaleArsPrice?:boolean;onCreated?:(id:string)=>void;onCancelNew?:()=>void;onClose?:()=>void;onDirtyChange?:(dirty:boolean)=>void;onCatalogChange?:()=>void|Promise<void>}) {
   const [taxonomy,setTaxonomy] = useState<CatalogTaxonomy>(defaultCatalogTaxonomy);
   const [products,setProducts] = useState<Product[]>([]);
   const [selected,setSelected] = useState(initialProductId || '');
@@ -780,7 +780,7 @@ export function Catalog({onNotice,initialProductId,initialVariantId,startNew=fal
   const savedVariantForm = editingVariant && { sku: editingVariant.sku, price: ((editingVariant.base_price_minor ?? editingVariant.price_minor) / 100).toString(), priceArg:editingVariant.wholesale_price_arg?.toString() || '', options: variantColorValues(editingVariant), local: editingVariant.available_local !== false, web: editingVariant.active && editingVariant.available_web !== false, wholesale: editingVariant.available_wholesale === true, servicePriceMode: isService && (editingVariant.base_price_minor ?? editingVariant.price_minor) === 0 ? 'variable' as const : 'fixed' as const };
   const variantDraftDirty = Boolean(savedVariantForm && JSON.stringify(editingVariantForm) !== JSON.stringify(savedVariantForm));
   const newVariantDirty = Boolean(variant.sku || variant.price || variant.priceArg || Object.keys(variant.options).length || !variant.local || !variant.web || variant.wholesale);
-  const showWholesalePriceColumn = !isService && (product?.commerce_variants.some(item => item.available_wholesale || item.legacy_product_id) || variant.wholesale || Boolean(editingVariantId && editingVariantForm.wholesale));
+  const showWholesalePriceColumn = !hideWholesaleArsPrice && !isService && (product?.commerce_variants.some(item => item.available_wholesale || item.legacy_product_id) || variant.wholesale || Boolean(editingVariantId && editingVariantForm.wholesale));
   const hasUnsavedChanges = showNewProduct
     ? JSON.stringify(newProduct) !== JSON.stringify(EMPTY_PRODUCT_FORM(fixedCategory))
     : JSON.stringify(productDetails) !== JSON.stringify(savedProductDetails) || variantDraftDirty || newVariantDirty;
@@ -1102,7 +1102,7 @@ Si solo querés sacarlo de la tienda, usá “Ocultar”.`);
       onNotice(missing?`Completá ${catalogAttributeLabel(taxonomy,missing.attribute_code)}.`:'Completá SKU y un precio válido mayor a 0.');
       return;
     }
-    if(!isService && form.wholesale && (!form.priceArg.trim() || !Number.isFinite(Number(form.priceArg)) || Number(form.priceArg) <= 0)){onNotice('Completá un precio ARS válido para Mayorista.');return}
+    if(!hideWholesaleArsPrice && !isService && form.wholesale && (!form.priceArg.trim() || !Number.isFinite(Number(form.priceArg)) || Number(form.priceArg) <= 0)){onNotice('Completá un precio ARS válido para Mayorista.');return}
     const options = colorOnlyVariantValues(form.options);
     const signature=optionSignature(options);
     const originalSignature = optionSignature(variantColorValues(item));
@@ -1113,9 +1113,10 @@ Si solo querés sacarlo de la tienda, usá “Ocultar”.`);
       name: formatVariantLabel(taxonomy,product.category_code||product.category,options),
       color: typeof options.color==='string'?options.color:null,
       option_values: options,
-      available_local: isService || form.local, available_web: !isService && form.web, available_wholesale: !isService && form.wholesale,
+      available_local: isService || form.local, available_web: !isService && form.web,
+      ...(!hideWholesaleArsPrice ? {available_wholesale: !isService && form.wholesale} : {}),
       active: form.web ? true : item.active,
-      wholesale_price_arg: !isService && form.wholesale ? Number(form.priceArg) : null,
+      ...(!hideWholesaleArsPrice ? {wholesale_price_arg: !isService && form.wholesale ? Number(form.priceArg) : null} : {}),
       ...(Math.round(priceNum * 100) !== (item.base_price_minor ?? item.price_minor)
         ? { base_price_minor: Math.round(priceNum * 100) }
         : {}),
@@ -1401,7 +1402,7 @@ ${usageSummary(usage)}`)) { setProductBusy(''); return; }
                 {!product.commerce_variants.length&&<tr><td className="empty-table" colSpan={variantDefinitions.length+4+(!isService ? 1 : 0)+(showWholesalePriceColumn ? 1 : 0)}>Este producto todavía no tiene variantes.</td></tr>}
               </tbody></table>
             </div>
-            {editingVariantId && !isService && <CatalogVariantDetails channels={{ Local: editingVariantForm.local, Web: editingVariantForm.web, Mayorista: editingVariantForm.wholesale }} onChannelChange={(channel, checked) => setEditingVariantForm(current => ({ ...current, [channel === 'Local' ? 'local' : channel === 'Web' ? 'web' : 'wholesale']: checked }))} disabled={Boolean(productBusy)} />}
+            {editingVariantId && !isService && <CatalogVariantDetails channels={{ Local: editingVariantForm.local, Web: editingVariantForm.web, Mayorista: editingVariantForm.wholesale }} onChannelChange={(channel, checked) => setEditingVariantForm(current => ({ ...current, [channel === 'Local' ? 'local' : channel === 'Web' ? 'web' : 'wholesale']: checked }))} disabled={Boolean(productBusy)} disabledChannels={hideWholesaleArsPrice ? ['Mayorista'] : []} />}
           </section>
           <form className="variant-create" onSubmit={event=>void createVariant(event)}>
             <h4>Nueva variante</h4>
@@ -1412,7 +1413,7 @@ ${usageSummary(usage)}`)) { setProductBusy(''); return; }
               {(!isService || variant.servicePriceMode==='fixed') && <label><div className="field-label">{isService ? 'Precio local UYU' : 'Precio base UYU'} <div className="field-required" aria-hidden="true">*</div></div><input required type="number" min="1" step="0.01" value={variant.price} onChange={e=>setVariant({...variant,price:e.target.value})}/></label>}
               {!isService && variant.wholesale && <label><div className="field-label">Precio ARS <div className="field-required" aria-hidden="true">*</div></div><input required type="number" min="0.01" step="0.01" value={variant.priceArg} onChange={e=>setVariant({...variant,priceArg:e.target.value})}/></label>}
             </div>
-            {!isService && <CatalogVariantDetails channels={{ Local: variant.local, Web: variant.web, Mayorista: variant.wholesale }} onChannelChange={(channel, checked) => setVariant(current => ({ ...current, [channel === 'Local' ? 'local' : channel === 'Web' ? 'web' : 'wholesale']: checked }))} disabled={Boolean(productBusy)} />}
+            {!isService && <CatalogVariantDetails channels={{ Local: variant.local, Web: variant.web, Mayorista: variant.wholesale }} onChannelChange={(channel, checked) => setVariant(current => ({ ...current, [channel === 'Local' ? 'local' : channel === 'Web' ? 'web' : 'wholesale']: checked }))} disabled={Boolean(productBusy)} disabledChannels={hideWholesaleArsPrice ? ['Mayorista'] : []} />}
             <div className="variant-create-footer"><button disabled={Boolean(productBusy)}>{productBusy === 'variant-create' ? 'Creando…' : 'Crear variante'}</button></div>
           </form>
           </details>

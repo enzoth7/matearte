@@ -23,13 +23,31 @@ test("usuarios y permisos están separados en pestañas", async ({ page }) => {
   await page.getByLabel("Nueva contraseña", { exact: true }).fill("segura-2026");
   await page.getByLabel("Confirmar contraseña").fill("segura-2026");
   await page.getByRole("button", { name: "Guardar usuario" }).click();
-  await expect(page.getByText("Usuario de ingreso guardado.")).toBeVisible();
+  await expect(page.getByText("Usuario guardado.")).toBeVisible();
   await page.getByRole("tab", { name: "Permisos" }).click();
   await expect(page.getByRole("checkbox", { name: "Mostrar Registrar venta may. a Florencia Costa" })).toBeVisible();
   await page.setViewportSize({ width: 375, height: 900 });
   await page.getByRole("tab", { name: "Usuarios" }).click();
   await expect(page.getByRole("button", { name: "Guardar usuario" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+test("el nombre visible de un usuario se puede editar y se conserva en Permisos", async ({ page }) => {
+  await page.goto("/administracion/usuarios");
+  await page.getByRole("button", { name: /^Betiana/ }).click();
+  await expect(page.getByLabel("Nombre de la persona")).toHaveValue("Betiana");
+  await page.getByLabel("Nombre de la persona").fill("Betiana Pérez");
+  const request = page.waitForRequest((candidate) => {
+    if (!candidate.url().endsWith("/functions/v1/gestion-users")) return false;
+    try { return candidate.postDataJSON()?.action === "save"; } catch { return false; }
+  });
+  await page.getByRole("button", { name: "Guardar usuario" }).click();
+  const body = (await request).postDataJSON();
+  expect(body).toMatchObject({ accessUserId: "t5", displayName: "Betiana Pérez", username: "betiana" });
+  expect(body.password).toBeUndefined();
+  await expect(page.getByRole("heading", { name: "Betiana Pérez" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Betiana Pérez/ })).toBeVisible();
+  await page.getByRole("tab", { name: "Permisos" }).click();
+  await expect(page.getByRole("button", { name: "Betiana Pérez Marketing" })).toBeVisible();
 });
 test("el usuario de Marketing muestra sus accesos y permite administrarlos", async ({ page }) => {
   await page.goto("/administracion/usuarios");

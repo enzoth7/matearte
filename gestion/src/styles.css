@@ -3081,6 +3081,9 @@ details.org-node {
 .local-sale-tab-panel { min-width: 0; }
 .local-sale-custom-intro { margin: 0 0 18px; color: var(--muted); font-size: 14px; line-height: 1.5; }
 .local-sale-custom-picker { display: grid; grid-template-columns: minmax(135px, .7fr) minmax(175px, 1fr) minmax(160px, 1fr) minmax(160px, 1fr) auto; align-items: end; gap: 12px; }
+.local-sale-register .field-required { margin-left: .25rem; color: var(--red); }
+.local-sale-custom-field-label { display: inline-flex; align-items: baseline; white-space: nowrap; }
+.local-sale-custom-picker label { display: grid; align-content: end; gap: 8px; }
 .local-sale-custom-picker label { min-width: 0; }
 .local-sale-custom-picker .secondary { min-height: 48px; white-space: nowrap; }
 .local-sale-custom-search { position: relative; display: block; }
@@ -3095,6 +3098,8 @@ details.org-node {
 .local-personalization-price .local-personalization-price-total { padding-top: 11px; border-top: 1px solid var(--line); font-size: 15px; }
 .local-personalization-price .local-personalization-price-total span { color: var(--black); font-weight: 700; }
 .local-personalization-price > small { color: var(--error, #a2352d); }
+.local-personalization-price > small.local-personalization-price-note { color: var(--muted); }
+.local-sale-price-help { display: block; margin-top: 5px; color: var(--muted); font-weight: 450; }
 .local-personalization-instructions { display: grid; gap: 7px; margin: 0; padding: 17px 19px 19px; border-top: 1px solid var(--line); }
 .local-personalization-instructions textarea { min-height: 82px; resize: vertical; }
 .local-sale-tab-panel .local-personalization-list { margin-top: 20px; }
@@ -3159,11 +3164,13 @@ details.org-node {
 .local-personalization-body { display: grid; gap: 0; }
 .local-personalization-surface { padding: 18px 19px; border-bottom: 1px solid var(--line); }
 .local-personalization-surface:last-child { border-bottom: 0; }
-.local-personalization-surface-title { display: flex; align-items: baseline; gap: 9px; margin-bottom: 13px; }
+.local-personalization-surface-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 9px; margin-bottom: 13px; }
 .local-personalization-surface-title strong { font-size: 15px; }
 .local-personalization-surface-title small { color: var(--muted); font-size: 12px; }
 .local-personalization-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; align-items: end; }
 .local-personalization-fields .local-personalization-text { grid-column: span 2; }
+.local-personalization-rim-texts { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+.local-personalization-rim-texts label { min-width: 0; }
 .local-personalization-uploads { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 16px 19px; }
 .local-personalization-uploads .local-personalization-upload { margin: 0; }
 .local-personalization-upload { position: relative; display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 18px; min-height: 70px; margin: 16px 19px; padding: 12px 14px; border: 1px dashed rgb(47 125 85 / .36); border-radius: 12px; background: rgb(47 125 85 / .055); cursor: pointer; }
@@ -3184,6 +3191,8 @@ details.org-node {
 .local-sale-line { display: grid; grid-template-columns: minmax(190px, 1fr) 140px 108px 130px 40px; align-items: end; gap: 14px; padding: 15px 0; border-bottom: 1px solid var(--line); }
 .local-sale-line > div { align-self: center; min-width: 0; }
 .local-sale-line > div strong { display: block; }
+.local-sale-edit-personalization { display: inline-flex; align-items: center; gap: 5px; margin-top: 5px; padding: 0; color: var(--brown); font-size: 12px; font-weight: 650; text-align: left; }
+.local-sale-edit-personalization:hover, .local-sale-edit-personalization:focus-visible { text-decoration: underline; }
 .local-sale-line > strong { align-self: center; text-align: right; }
 .local-sale-remove { display: grid; place-items: center; width: 40px; height: 44px; border-radius: 9px; }
 .local-sale-remove:hover { background: rgb(179 65 54 / .09); color: var(--red); }
@@ -3262,6 +3271,7 @@ details.org-node {
   .local-personalization-card-heading { grid-template-columns: minmax(0, 1fr); }
   .local-personalization-card-heading > strong { grid-column: 1; }
   .local-personalization-fields { grid-template-columns: 1fr; }
+  .local-personalization-rim-texts { grid-template-columns: 1fr; }
   .local-mate-characteristics { grid-template-columns: 1fr; }
   .local-personalization-fields .local-personalization-text { grid-column: auto; }
   .local-personalization-surface-title { align-items: flex-start; flex-direction: column; gap: 2px; }

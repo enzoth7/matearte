@@ -25,7 +25,16 @@ describe("precio de mates personalizados en ventas locales", () => {
   it("cobra el texto láser de la virola una sola vez", () => {
     const draft = createPersonalizationDraft("mate");
     draft.rimText = "MATE 123";
+    draft.rimText2 = "ENZO";
     expect(calculateLocalPersonalizationPrice(draft, catalog)).toMatchObject({ extrasMinor: 12000, missingRuleKeys: [] });
+  });
+
+  it("suma ambos textos al precio de letras de aplique", () => {
+    const draft = createPersonalizationDraft("mate");
+    draft.rimTechnique = "bronze-applique";
+    draft.rimText = "ANA";
+    draft.rimText2 = "LUZ 2";
+    expect(calculateLocalPersonalizationPrice(draft, catalog).items).toMatchObject([{ quantity: 7, totalMinor: 17500 }]);
   });
 
   it("cobra un único grabado láser por texto y logo juntos, o solo por logo", () => {

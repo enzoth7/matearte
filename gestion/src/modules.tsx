@@ -29,6 +29,7 @@ function ProductThumbnail({ product }: { product: Product }) {
 }
 const normalizeSearch = (value: string) => value.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[-_]+/g, " ").toLocaleLowerCase().trim();
 export function Products({ s, mode, notify, refresh, commerce }: PageProps & { mode: string }) {
+  const hideWholesaleArsPrice = s.activeUserId === "t2";
   const [selectedId, setSelectedId] = useState<string | null>(() => {
     const params = new URLSearchParams(location.search);
     return params.get("nuevo") === "1" ? "new" : params.get("producto");
@@ -82,7 +83,7 @@ export function Products({ s, mode, notify, refresh, commerce }: PageProps & { m
   };
   const legacyProduct = selectedId?.startsWith("wholesale:") ? commerce?.wholesale?.products.find(entry => `wholesale:${entry.id}` === selectedId) : undefined;
   const resolvedSelectedId = legacyProduct?.commerce_product_id || selectedId;
-  const editor = selectedId && <div className="commerce-tools catalog-editor"><Catalog onNotice={notify} embedded={mode === "catalogo" || mode === "servicios"} fixedCategory={mode === "servicios" ? "servicios" : undefined} initialProductId={resolvedSelectedId === "new" ? undefined : resolvedSelectedId || undefined} initialVariantId={selectedCardId} startNew={selectedId === "new"} onDirtyChange={setEditorDirty} onCancelNew={() => selectProduct(null)} onClose={() => selectProduct(null)} onCatalogChange={refresh} onCreated={(id) => { setEditorDirty(false); setSelectedId(id); history.replaceState(null, "", `${location.pathname}?producto=${encodeURIComponent(id)}`); void refresh?.(); }} /></div>;
+  const editor = selectedId && <div className="commerce-tools catalog-editor"><Catalog onNotice={notify} embedded={mode === "catalogo" || mode === "servicios"} fixedCategory={mode === "servicios" ? "servicios" : undefined} hideWholesaleArsPrice={hideWholesaleArsPrice} initialProductId={resolvedSelectedId === "new" ? undefined : resolvedSelectedId || undefined} initialVariantId={selectedCardId} startNew={selectedId === "new"} onDirtyChange={setEditorDirty} onCancelNew={() => selectProduct(null)} onClose={() => selectProduct(null)} onCatalogChange={refresh} onCreated={(id) => { setEditorDirty(false); setSelectedId(id); history.replaceState(null, "", `${location.pathname}?producto=${encodeURIComponent(id)}`); void refresh?.(); }} /></div>;
   if (selectedId && mode !== "catalogo") return <><div className="toolbar"><button className="secondary" onClick={() => selectProduct(null)}>Volver al catálogo</button></div>{editor}</>;
   return <>
     {!selectedId && <Stats items={[
@@ -124,7 +125,7 @@ export function Products({ s, mode, notify, refresh, commerce }: PageProps & { m
       { label: "Local", render: (p) => price(p, "Local") },
       { label: "Web", headerClassName: "channel-web-text", render: (p) => price(p, "Web") },
       { label: "Mayorista", render: (p) => price(p, "Mayorista") },
-      { label: "ARS", render: (p) => p.availableChannels?.includes("Mayorista") && p.priceArg ? new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 }).format(p.priceArg) : "—" },
+      ...(!hideWholesaleArsPrice ? [{ label: "ARS", render: (p: Product) => p.availableChannels?.includes("Mayorista") && p.priceArg ? new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 }).format(p.priceArg) : "—" }] : []),
       ]} />
       {mode !== "servicios" && s.products.find((p) => p.wholesaleThreshold) && <div className="catalog-wholesale-note">Mayorista desde {s.products.find((p) => p.wholesaleThreshold)?.wholesaleThreshold} artículos.</div>}
     </section>}

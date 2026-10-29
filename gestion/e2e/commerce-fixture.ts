@@ -34,6 +34,12 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
     t3: ['/comercial/pedidos', '/comercial/registrar-may', '/clientes/base', '/productos/catalogo', '/productos/ajustes'],
   };
   if (options.allowedPaths !== undefined) permissionStore[accessUserId] = options.allowedPaths;
+  const managedUsers = [
+    { accessUserId: 't1', displayName: 'Richard Ortiz', username: 'richard', configured: true, allowedPaths: permissionStore.t1 },
+    { accessUserId: 't2', displayName: 'Florencia Costa', username: 'florencia.costa', configured: true, allowedPaths: permissionStore.t2 },
+    { accessUserId: 't3', displayName: 'Florencia Pizzorno', username: 'florencia.pizzorno', configured: true, allowedPaths: permissionStore.t3 },
+    { accessUserId: 't5', displayName: 'Betiana', username: 'betiana', configured: true, allowedPaths: null },
+  ];
   const tables: Record<string, any> = {
     commerce_admin_users: options.denied ? null : { user_id: user.id, display_name: accessUserId === 't1' ? 'Richard Ortiz' : accessUserId === 't2' ? 'Florencia Costa' : 'Florencia Pizzorno', access_user_id: accessUserId, allowed_paths: permissionStore[accessUserId] }, commerce_products: fixture.products,
     orders: fixture.orders, commerce_payments: fixture.payments, commerce_discounts: fixture.reference.discounts,
@@ -57,14 +63,15 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
       writes.push({ table: 'gestion-users', method, body });
       if (body.action === 'status') return respond({ needsSetup: Boolean(options.needsSetup) });
       if (body.action === 'bootstrap') return respond({ username: body.username }, 201);
-      if (body.action === 'list') return respond({ users: [
-        { accessUserId: 't1', username: 'richard', configured: true, allowedPaths: permissionStore.t1 },
-        { accessUserId: 't2', username: 'florencia.costa', configured: true, allowedPaths: permissionStore.t2 },
-        { accessUserId: 't3', username: 'florencia.pizzorno', configured: true, allowedPaths: permissionStore.t3 },
-      ] });
+      if (body.action === 'list') return respond({ users: managedUsers });
       if (body.action === 'savePermissions') {
         permissionStore[body.accessUserId] = body.allowedPaths;
         return respond({ accessUserId: body.accessUserId, allowedPaths: body.allowedPaths });
+      }
+      if (body.action === 'save') {
+        const saved = managedUsers.find((item) => item.accessUserId === body.accessUserId);
+        if (saved) Object.assign(saved, { displayName: body.displayName, username: body.username });
+        return respond({ user: { accessUserId: body.accessUserId, username: body.username, configured: true } });
       }
       return respond({ user: { accessUserId: body.accessUserId, username: body.username, configured: true } });
     }

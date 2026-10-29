@@ -1,10 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { assemblyFieldsFor, mateAssemblyFields, mateAssemblyRuleKeys, priceMateAssembly } from "../../shared/mate-assembly";
+import { assemblyFieldsFor, mateAssemblyFields, mateAssemblyRuleKeys, priceMateAssembly, validateMateAssemblyCore } from "../../shared/mate-assembly";
 import { mateAssemblyPresentation } from "./mateAssemblyPresentation";
 import { buildLocalPersonalizationSnapshot, createPersonalizationDraft, validatePersonalization } from "./localPersonalization";
 const assembly = { "tipo-mate": "imperial", interior: "ceramica", "tipo-cuero": "croco", color: "mostaza-chocolate", "tipo-virola": "alpaca-y-bronce", "diseno-fleje": "laureles", posamate: "con-posamate", pie: "alpaca", tamano: "grande" };
 export const assemblyTestRules = Object.fromEntries(mateAssemblyFields.flatMap(f => f.options.map(o => [o.ruleKey, o.initialPrice])));
 describe("mate por piezas sin SKU", () => {
+  it("solo exige modelo, forma del criollo y cuero para agregar al borrador", () => {
+    expect(validateMateAssemblyCore({})).toBe("Modelo");
+    expect(validateMateAssemblyCore({ "tipo-mate": "criollo" })).toBe("Forma del criollo");
+    expect(validateMateAssemblyCore({ "tipo-mate": "criollo", "forma-criollo": "torpedo" })).toBe("Cuero o textura");
+    expect(validateMateAssemblyCore({ "tipo-mate": "criollo", "forma-criollo": "torpedo", "tipo-cuero": "liso" })).toBeUndefined();
+    expect(validateMateAssemblyCore({ "tipo-mate": "imperial", "tipo-cuero": "liso" })).toBeUndefined();
+    const quickMate = { "tipo-mate": "criollo", "forma-criollo": "torpedo", "tipo-cuero": "liso" };
+    expect(priceMateAssembly({ ...quickMate, "tipo-cuero": "croco" }, assemblyTestRules).totalMinor
+      - priceMateAssembly(quickMate, assemblyTestRules).totalMinor).toBe(60000);
+  });
   it("ofrece todas las piezas independientemente de las otras elecciones", () => {
     const fields = assemblyFieldsFor(assembly);
     expect(fields.find(f => f.code === "tipo-cuero")!.options.map(o => o.value)).toEqual(expect.arrayContaining(["croco", "crudo", "pelos", "vaqueta", "sin-cuero"]));
