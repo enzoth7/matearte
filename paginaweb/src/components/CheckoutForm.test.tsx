@@ -147,6 +147,7 @@ it("integra Argentina en el selector de destino y conserva el formulario al camb
   expect(screen.getByRole("heading", { name: "Finalizar compra" })).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("radio", { name: /envío a domicilio/i }));
   fireEvent.click(screen.getByRole("radio", { name: /Argentina/i }));
+  expect(screen.getByText("Envío nacional")).toBeInTheDocument();
   expect(screen.getByLabelText("Provincia")).toBeInTheDocument();
   expect(screen.getByLabelText("Código postal")).toBeRequired();
   expect(screen.getByLabelText("Nombre completo")).toHaveValue("Enzo");

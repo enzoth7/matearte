@@ -29,6 +29,7 @@ describe("Argentina retail prices and receipts", () => {
   it("does not enable Argentina without complete real configuration", () => {
     expect(argentinaReady(null)).toBe(false);
     expect(argentinaReady({ enabled: true, ars_per_uyu: 30, bank_name: "", account_holder: "", cbu: "", alias: "" })).toBe(false);
+    expect(argentinaReady({ enabled: true, ars_per_uyu: 30, bank_name: "BBVA Argentina", account_holder: "", cbu: "0170119340000000993887", alias: "MATEARTE.COLON" })).toBe(true);
   });
   it("checks both file type and content before accepting a receipt", () => {
     expect(validateReceipt("application/pdf", new TextEncoder().encode("%PDF-1.7 test"))).toBe("pdf");

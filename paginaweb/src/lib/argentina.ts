@@ -6,7 +6,8 @@ export function arsPerUyuFromFinanceRate(rate: unknown): number {
   return Number.isFinite(value) && value > 0 ? Math.round((1 / value) * 1_000_000) / 1_000_000 : 0;
 }
 export function argentinaReady(value: ArgentinaSettings | null): value is ArgentinaSettings {
-  return Boolean(value?.enabled && Number.isFinite(Number(value.ars_per_uyu)) && Number(value.ars_per_uyu) > 0 && value.bank_name.trim() && value.account_holder.trim() && /^\d{22}$/.test(value.cbu) && value.alias.trim());
+  // CBU and alias are sufficient for domestic transfer; the holder is optional.
+  return Boolean(value?.enabled && Number.isFinite(Number(value.ars_per_uyu)) && Number(value.ars_per_uyu) > 0 && value.bank_name.trim() && /^\d{22}$/.test(value.cbu) && value.alias.trim());
 }
 export function toArsMinor(uyuMinor: number, arsPerUyu: number) {
   if (!Number.isSafeInteger(uyuMinor) || uyuMinor < 0 || !Number.isFinite(arsPerUyu) || arsPerUyu <= 0) throw new Error("Cotización o importe inválido.");

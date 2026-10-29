@@ -227,8 +227,8 @@ export function Header() {
               <Link href="/perfil" onClick={() => setOpen(false)}><span>{session.authenticated ? t("account") : t("signIn")}</span><UserCircle size={24} aria-hidden="true" /></Link>
               <Link href="/carrito" onClick={() => setOpen(false)}><span>{t("cart")}</span><ShoppingCart size={24} aria-hidden="true" /></Link>
               <div className="home-mobile-languages" aria-label={t("language")}>
-                <span>{t("language")}</span><CurrencySelector />
-                <div>{mobileLocaleOptions.map((option) => <a key={option} href={languageHref(option)} hrefLang={option === "pt" ? "pt-BR" : option} aria-label={language(option)} title={language(option)} aria-current={option === locale ? "true" : undefined} onClick={(event) => chooseLanguage(option, event)}><Image src={`/assets/matearte/flags/${option}.svg`} alt="" width={30} height={20} aria-hidden="true" /></a>)}</div>
+                <span>{t("language")}</span>
+                <div>{mobileLocaleOptions.map((option) => <a key={option} href={languageHref(option)} hrefLang={option === "pt" ? "pt-BR" : option} aria-label={language(option)} title={language(option)} aria-current={option === locale ? "true" : undefined} onClick={(event) => chooseLanguage(option, event)}><Image src={`/assets/matearte/flags/${option}.svg`} alt="" width={30} height={20} aria-hidden="true" /></a>)}<CurrencySelector /></div>
               </div>
             </nav>
           </div>

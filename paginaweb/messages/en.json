@@ -513,7 +513,7 @@
     "wholesaleDiscountNotice": "From {threshold} mates, the base price is used without the catalog adjustment and a {discount}% discount is applied. Payment is completed by bank transfer."
   },
   "checkout": {
-    "argentinaOption": "Bank transfer in ARS",
+    "argentinaOption": "Domestic shipping",
     "province": "Province",
     "postalCode": "Postal code",
     "argentinaAction": "Confirm order and view bank details",

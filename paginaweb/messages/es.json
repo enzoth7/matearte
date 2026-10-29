@@ -513,7 +513,7 @@
     "wholesaleDiscountNotice": "Desde {threshold} artículos se usa se aplica un {discount}% de descuento. El pago se completa por transferencia."
   },
   "checkout": {
-    "argentinaOption": "Transferencia en ARS",
+    "argentinaOption": "Envío nacional",
     "province": "Provincia",
     "postalCode": "Código postal",
     "argentinaAction": "Confirmar pedido y ver cuenta bancaria",

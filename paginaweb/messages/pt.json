@@ -513,7 +513,7 @@
     "wholesaleDiscountNotice": "A partir de {threshold} mates, usamos o preço base sem ajuste e aplicamos {discount}% de desconto. O pagamento é concluído por transferência."
   },
   "checkout": {
-    "argentinaOption": "Transferência em ARS",
+    "argentinaOption": "Envio nacional",
     "province": "Província",
     "postalCode": "Código postal",
     "argentinaAction": "Confirmar pedido e ver dados bancários",

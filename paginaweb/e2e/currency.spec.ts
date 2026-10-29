@@ -10,6 +10,14 @@ test("moneda por idioma y entrega argentina en escritorio y móvil", async ({ pa
     if (compact) await page.locator(".home-header-menu").click();
     const selector = page.getByRole("combobox", { name: label }).filter({ visible: true });
     await expect(selector).toHaveValue(currency);
+    if (compact && currency === "UYU") {
+      const positions = await page.locator(".home-mobile-languages > div").evaluate(row => {
+        const flag = row.querySelector("a:last-of-type")!.getBoundingClientRect();
+        const picker = row.querySelector("select")!.getBoundingClientRect();
+        return { afterFlags: picker.left > flag.right, aligned: Math.abs((picker.top + picker.bottom - flag.top - flag.bottom) / 2) < 15 };
+      });
+      expect(positions).toEqual({ afterFlags: true, aligned: true });
+    }
     if (currency !== "UYU") await expect(selector).toBeDisabled();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
   }
