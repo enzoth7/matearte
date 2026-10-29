@@ -41,9 +41,20 @@ Deno.serve(async (request) => {
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return response({ error: "Solicitud inválida." }, 400, origin); }
   const action = clean(body.action, 30);
-  const route = action === "contacts" ? "/marketing/contactos" : action === "analytics" ? "/marketing/analytics" : action === "metrics" ? "/marketing/metricas" : action === "settings" || action === "saveSettings" ? "/marketing/suscripcion" : "/marketing/campanas";
+  const route = action === "contacts" || action === "registrationTrend" ? "/marketing/contactos" : action === "analytics" ? "/marketing/analytics" : action === "metrics" ? "/marketing/metricas" : action === "settings" || action === "saveSettings" ? "/marketing/suscripcion" : "/marketing/campanas";
   if (membership.access_user_id !== "t1" && !membership.allowed_paths?.includes(route)) return response({ error: "No tenés acceso a esta pestaña." }, 403, origin);
 
+  if (action === "registrationTrend") {
+    const days = [7, 14, 30].includes(Number(body.days)) ? Number(body.days) : 30;
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Montevideo", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+    const part = (type: string) => parts.find((item) => item.type === type)?.value || "";
+    const today = `${part("year")}-${part("month")}-${part("day")}`;
+    const startDate = new Date(Date.parse(`${today}T00:00:00Z`) - (days - 1) * 86400000).toISOString().slice(0, 10);
+    const { data, error } = await admin.from("marketing_registration_purchase_daily")
+      .select("registered_on,registered,purchased").gte("registered_on", startDate).lte("registered_on", today).order("registered_on");
+    if (error) return response({ error: "No se pudo cargar la evolución de registros y compras." }, 500, origin);
+    return response({ today, days, trend: data || [] }, 200, origin);
+  }
   if (action === "contacts") {
     const page = Math.max(0, Math.min(10000, Math.floor(Number(body.page) || 0)));
     const query = clean(body.query, 100).replace(/[%_,().]/g, "");
@@ -71,8 +82,8 @@ Deno.serve(async (request) => {
     }
     const source = clean(body.source, 80);
     const channel = clean(body.channel, 12);
-    let contactsQuery = admin.from("marketing_contact_directory")
-      .select("id,name,email,phone,source,created_at,has_account,subscription_status", { count: "exact" })
+    let contactsQuery = admin.from("marketing_leads_directory")
+      .select("id,name,source,created_at,has_account,subscription_status,country,channel", { count: "exact" })
       .not("email", "is", null)
       .order("created_at", { ascending: false });
     if (query) contactsQuery = contactsQuery.or(`name.ilike.%${query}%,email.ilike.%${query}%,phone.ilike.%${query}%`);

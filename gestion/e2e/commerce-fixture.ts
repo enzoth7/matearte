@@ -85,6 +85,10 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
     if (url.pathname.startsWith('/storage/v1/object/public/')) return route.fulfill({status:200,contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/X1cAAAAASUVORK5CYII=', 'base64')});
     if (url.pathname.endsWith('/functions/v1/marketing-workspace')) {
       const action = String(route.request().postDataJSON()?.action || '');
+      if (action === 'registrationTrend') {
+        const days = Number(route.request().postDataJSON()?.days || 30);
+        return respond({ today: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Montevideo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()), days, trend: [] });
+      }
       const marketing: Record<string, unknown> = {
         contacts: { contacts: [], count: 0, summary: { total: 0, origins: [] } },
         campaigns: { campaigns: [] },

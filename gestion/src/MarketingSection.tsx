@@ -1,16 +1,19 @@
-import { useCallback, useEffect, useMemo, useState, type ComponentType, type FormEvent, type PointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type FormEvent, type PointerEvent, type ReactNode } from "react";
 import * as flags from "country-flag-icons/react/3x2";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { commerceSource } from "./commerceSource";
 import { callMarketing } from "./marketingApi";
 import { customerOriginClass, customerOriginLabel, customerOriginOptions, customerOriginValue } from "./customerChannel";
 import { formatDate } from "./dateFormat";
-import { CustomerDetailModal } from "./pages";
+import { LocationLabel } from "./location";
 import type { CommerceSnapshot } from "./commerceAdapter";
-import type { Customer, State } from "./data";
+import type { State } from "./data";
 import { AdReports } from "./AdReportsPage";
+import { Badge } from "./ui";
 
-type Contact = { id: string; name: string | null; email: string | null; phone: string | null; source: string; created_at: string; has_account: boolean; subscription_status: string };
+type Contact = { id: string; name: string | null; source: string; channel: string | null; country: string | null; created_at: string; has_account: boolean; subscription_status: string };
 type ContactSummary = { total: number; origins: { source: string; contacts: number }[] };
+type RegistrationTrend = { today: string; days: number; trend: { registered_on: string; registered: number; purchased: number }[] };
 type Campaign = { id: string; subject: string; body: string; image_url: string | null; target_url: string | null; status: string; created_at: string; sent_at: string | null };
 type Settings = { enabled: boolean; headline: string; description: string; image_url: string | null; discount_code: string };
 
@@ -18,7 +21,7 @@ const date = (value: string | null) => formatDate(value);
 const sourceName = customerOriginLabel;
 const originBadgeClass = customerOriginClass;
 
-function Contacts({ s, go, commerce }: { s: State; go: (path: string) => void; commerce?: CommerceSnapshot | null }) {
+function Contacts() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [count, setCount] = useState(0);
   const [summary, setSummary] = useState<ContactSummary | null>(null);
@@ -28,19 +31,11 @@ function Contacts({ s, go, commerce }: { s: State; go: (path: string) => void; c
   const [applied, setApplied] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-  const selectedCustomer = useMemo((): Customer | null => {
-    if (!selectedContact) return null;
-    const email = selectedContact.email?.trim().toLowerCase();
-    const phone = selectedContact.phone?.replace(/[^0-9]/g, "");
-    const match = s.customers.find((entry) => email
-      ? entry.email.trim().toLowerCase() === email
-      : phone && entry.phone.replace(/[^0-9]/g, "") === phone);
-    return match || {
-      id: selectedContact.id, name: selectedContact.name || selectedContact.email || "Contacto sin nombre",
-      email: selectedContact.email || "", phone: selectedContact.phone || "", city: "", segment: "Minorista",
-    };
-  }, [s.customers, selectedContact]);
+  const [days, setDays] = useState<7 | 14 | 30>(30);
+  const [trend, setTrend] = useState<RegistrationTrend | null>(null);
+  const [trendError, setTrendError] = useState("");
+  const [trendLoading, setTrendLoading] = useState(true);
+  const trendScroll = useRef<HTMLDivElement>(null);
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -50,33 +45,79 @@ function Contacts({ s, go, commerce }: { s: State; go: (path: string) => void; c
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [page, applied, sourceFilter]);
+  useEffect(() => {
+    let active = true;
+    setTrendLoading(true);
+    void callMarketing<RegistrationTrend>("registrationTrend", { days })
+      .then((result) => { if (active) { setTrend(result); setTrendError(""); } })
+      .catch((reason) => { if (active) setTrendError(reason.message); })
+      .finally(() => { if (active) setTrendLoading(false); });
+    return () => { active = false; };
+  }, [days]);
+  const chartData = useMemo(() => {
+    if (!trend || trend.days !== days) return [];
+    const byDay = new Map(trend.trend.map((entry) => [entry.registered_on, entry]));
+    const today = Date.parse(`${trend.today}T00:00:00Z`);
+    return Array.from({ length: days }, (_, index) => {
+      const day = new Date(today - (days - index - 1) * 86400000).toISOString().slice(0, 10);
+      const entry = byDay.get(day);
+      return { day: `${day.slice(8)}/${day.slice(5, 7)}`, registered: entry?.registered || 0, purchased: entry?.purchased || 0 };
+    });
+  }, [days, trend]);
+  useEffect(() => {
+    const viewport = trendScroll.current;
+    if (!viewport || !chartData.length) return;
+    const showNewest = () => { viewport.scrollLeft = viewport.scrollWidth - viewport.clientWidth; };
+    const frame = requestAnimationFrame(showNewest);
+    const observer = new ResizeObserver(showNewest);
+    observer.observe(viewport);
+    return () => { cancelAnimationFrame(frame); observer.disconnect(); };
+  }, [chartData]);
   const selectSource = (source: string | null) => { setPage(0); setSourceFilter((current) => current === source ? null : source); };
   return <div className="marketing-contacts-page">
-    {summary && <div className="marketing-contact-kpis" aria-label="Resumen de contactos">
+    {summary && <div className="marketing-contact-kpis" aria-label="Resumen de leads">
       <button type="button" className="badge marketing-contact-kpi" aria-pressed={sourceFilter === null} onClick={() => selectSource(null)}><strong>{summary.total.toLocaleString("es-UY")}</strong><div>Todos</div></button>
       {customerOriginOptions.map((origin) => {
         const item = (summary.origins || []).find((entry) => customerOriginValue(entry.source) === origin);
         return <button key={origin} type="button" className={`badge ${originBadgeClass(origin)} marketing-contact-kpi`} aria-pressed={sourceFilter === origin} onClick={() => selectSource(origin)}><strong>{(item?.contacts || 0).toLocaleString("es-UY")}</strong><div>{sourceName(origin)}</div></button>;
       })}
     </div>}
+    <section className="marketing-trend" aria-labelledby="marketing-trend-title">
+      <div className="marketing-trend-heading">
+        <div><h2 id="marketing-trend-title">Registros y compras</h2><p>Por fecha de registro. «Con compra» cuenta las personas registradas ese día que ya hicieron al menos una compra.</p></div>
+        <label>Período <select aria-label="Período del gráfico" value={days} onChange={(event) => setDays(Number(event.target.value) as 7 | 14 | 30)}><option value={7}>7 días</option><option value={14}>14 días</option><option value={30}>30 días</option></select></label>
+      </div>
+      {trendError && <p className="error" role="alert">{trendError}</p>}
+      {trendLoading ? <p role="status">Cargando gráfico…</p> : chartData.length > 0 && <><div className="marketing-trend-scroll" ref={trendScroll}><div className="marketing-trend-plot" style={{ minWidth: `${days * 34}px` }}>
+        <ResponsiveContainer width="100%" height={250}>
+          <BarChart data={chartData} accessibilityLayer margin={{ top: 12, right: 12, bottom: 0, left: -22 }} barGap={2}>
+            <CartesianGrid vertical={false} stroke="rgba(23,20,18,.1)" />
+            <XAxis dataKey="day" tickLine={false} axisLine={false} interval={days === 30 ? 4 : days === 14 ? 1 : 0} tick={{ fontSize: 11 }} />
+            <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+            <Tooltip />
+            <Bar dataKey="registered" name="Registrados" fill="#276b91" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="purchased" name="Con compra" fill="#167344" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div></div><div className="marketing-trend-key"><span><i className="marketing-trend-registered" />Registrados</span><span><i className="marketing-trend-purchased" />Con compra</span></div></>}
+    </section>
     <section className="marketing-directory">
     <div className="marketing-directory-toolbar">
       <form className="marketing-directory-search" onSubmit={(event) => { event.preventDefault(); setPage(0); setApplied(query.trim()); }}>
-        <input type="search" aria-label="Buscar contacto" placeholder="Buscar nombre, correo o celular" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <input type="search" aria-label="Buscar lead por nombre" placeholder="Buscar por nombre" value={query} onChange={(event) => setQuery(event.target.value)} />
         <button type="submit" className="secondary">Buscar</button>
       </form>
     </div>
     {error && <p className="error" role="alert">{error}</p>}
-    {loading ? <p role="status">Cargando contactos…</p> : <>
+    {loading ? <p role="status">Cargando leads…</p> : <>
       {(applied || sourceFilter) && <p className="marketing-directory-count">{count.toLocaleString("es-UY")} {count === 1 ? "resultado" : "resultados"}</p>}
-      <div className="table-wrap"><table className="data-table marketing-directory-table"><thead><tr><th>Cliente</th><th>Mail</th><th>Celular</th><th>Origen</th><th>Suscripción</th><th>Cuenta</th><th>Alta</th></tr></thead><tbody>
-        {contacts.map((contact) => <tr key={contact.id}><td className="marketing-directory-name"><button type="button" className="text-button" aria-label={`Ver ficha de ${contact.name || contact.email || "contacto"}`} onClick={() => setSelectedContact(contact)}>{contact.name || contact.email || "Contacto sin nombre"}</button></td><td>{contact.email ? <a href={`mailto:${contact.email}`}>{contact.email}</a> : "—"}</td><td>{contact.phone ? <a href={`tel:${contact.phone.replace(/[^\d+]/g, "")}`}>{contact.phone}</a> : "—"}</td><td><div className={`badge ${originBadgeClass(contact.source)}`}>{sourceName(contact.source)}</div></td><td><span className={`marketing-status marketing-status-${contact.subscription_status === "active" ? "active" : contact.subscription_status === "pending" ? "pending" : "neutral"}`}>{contact.subscription_status === "active" ? "Activa" : contact.subscription_status === "pending" ? "Pendiente" : contact.subscription_status === "none" ? "Sin suscripción" : "Baja"}</span></td><td>{contact.has_account ? "Registrada" : "—"}</td><td>{date(contact.created_at)}</td></tr>)}
+      <div className="table-wrap"><table className="data-table marketing-directory-table"><thead><tr><th>Cliente</th><th>Origen</th><th title="Canal de la compra más reciente">Canal</th><th>País</th><th>Suscripción</th><th>Cuenta</th><th>Alta</th></tr></thead><tbody>
+        {contacts.map((contact) => <tr key={contact.id}><td className="marketing-directory-name">{contact.name || "Lead sin nombre"}</td><td><div className={`badge ${originBadgeClass(contact.source)}`}>{sourceName(contact.source)}</div></td><td>{contact.channel ? <Badge>{contact.channel}</Badge> : "—"}</td><td>{contact.country ? <LocationLabel place={contact.country} /> : "—"}</td><td><span className={`marketing-status marketing-status-${contact.subscription_status === "active" ? "active" : contact.subscription_status === "pending" ? "pending" : "neutral"}`}>{contact.subscription_status === "active" ? "Activa" : contact.subscription_status === "pending" ? "Pendiente" : contact.subscription_status === "none" ? "Sin suscripción" : "Baja"}</span></td><td>{contact.has_account ? "Registrada" : "—"}</td><td>{date(contact.created_at)}</td></tr>)}
       </tbody></table></div>
-      {!contacts.length && <p className="marketing-directory-empty">No hay contactos con este filtro.</p>}
+      {!contacts.length && <p className="marketing-directory-empty">No hay leads con este filtro.</p>}
       <div className="marketing-directory-pagination"><button className="secondary" disabled={page === 0} onClick={() => setPage((value) => value - 1)}>Anterior</button><span>Página {page + 1} de {Math.max(1, Math.ceil(count / 50))}</span><button className="secondary" disabled={(page + 1) * 50 >= count} onClick={() => setPage((value) => value + 1)}>Siguiente</button></div>
     </>}
     </section>
-    {selectedCustomer && <CustomerDetailModal customer={selectedCustomer} s={s} go={go} commerce={commerce} onClose={() => setSelectedContact(null)} />}
   </div>;
 }
 
@@ -410,8 +451,8 @@ function Analytics() {
   </div>;
 }
 
-export function MarketingSection({ page, notify, s, go, commerce }: { page: string; notify: (message: string) => void; s: State; go: (path: string) => void; commerce?: CommerceSnapshot | null }) {
-  if (page === "contactos") return <Contacts s={s} go={go} commerce={commerce} />;
+export function MarketingSection({ page, notify }: { page: string; notify: (message: string) => void; s: State; go: (path: string) => void; commerce?: CommerceSnapshot | null }) {
+  if (page === "contactos") return <Contacts />;
   if (page === "analytics") return <Analytics />;
   if (page === "pauta") return <AdReports notify={notify} />;
   if (page === "suscripcion") return <Subscription notify={notify} />;

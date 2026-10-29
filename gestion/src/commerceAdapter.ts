@@ -17,7 +17,7 @@ export type CommerceSnapshot = {
   products: CommerceProduct[]; orders: CommerceOrder[]; payments: CommercePayment[];
   reference: CommerceReference; nationalRates: NationalRate[]; customerBirthdays?: LocalCustomerBirth[]; customerProfiles?: WebCustomerProfile[];
   localCustomers?: LocalCustomer[]; localSales?: LocalSale[]; localReceipts?: LocalSaleReceipt[];
-  /** Origen calculado en la base (primer canal de entrada); es el mismo que usa Marketing → Contactos. */
+  /** Origen calculado en la base (primer canal de entrada); es el mismo que usa Marketing → Leads. */
   contactOrigins?: { contact_key: string; origin: string }[];
   contactFirstSeen?: { contact_key: string; first_seen_at: string | null }[];
   ruralRaffleEntries?: RuralRaffleEntry[];

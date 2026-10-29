@@ -27,7 +27,7 @@ export const areas = [
       ["campanas", "Campañas"],
       ["pauta", "Informes de pauta"],
       ["sorteo", "Sorteo"],
-      ["contactos", "Contactos"],
+      ["contactos", "Leads"],
       ["suscripcion", "Suscripción"],
       ["analytics", "Analytics"],
       ["descuentos", "Descuentos y promociones"],
