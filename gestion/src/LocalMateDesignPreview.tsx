@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { ConfiguratorPreview } from "../../personalizador/src/components/ConfiguratorPreview";
 import { FlatFlejePreview } from "../../personalizador/src/components/FlatFlejePreview";
-import { rimIconCatalog } from "../../personalizador/src/catalog/rimIconCatalog";
+import { applyUploadedRimIcons, orderedRimIconCatalog } from "../../personalizador/src/catalog/rimIconCatalog";
+import { commerceSource } from "./commerceSource";
 import { createDefaultFlejeSide, type ElementTransform, type IconElement, type CustomImageAsset } from "../../personalizador/src/types/personalizer";
 import type { MateModel } from "../../personalizador/src/catalog/mateCatalog";
 import type { Product } from "./data";
@@ -10,8 +11,30 @@ import { customModelLabel } from "./CustomArticlePicker";
 
 export function LocalMateDesignPreview({ product, draft, surface, update }: { product: Product; draft: LocalPersonalizationDraft; surface: "rim" | "fleje"; update: (changes: Partial<LocalPersonalizationDraft>) => void }) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [, setIconVersion] = useState(0);
+  const [iconError, setIconError] = useState(false);
   const [side, setSide] = useState<"front" | "back">("front");
   useEffect(() => setSelected(null), [surface]);
+  useEffect(() => {
+    const source = commerceSource;
+    if (!source) return;
+    let active = true;
+    void Promise.all([
+      source.from("visualizer_icons").select("id,name,storage_path,is_active").order("created_at"),
+      source.from("visualizer_hidden_builtin_icons").select("icon_id"),
+    ]).then(([iconsResult, hiddenResult]) => {
+      if (!active) return;
+      if (iconsResult.error || hiddenResult.error) setIconError(true);
+      applyUploadedRimIcons((iconsResult.data ?? []).map((icon) => ({
+        id: `icon-${icon.id}`,
+        name: icon.name,
+        src: source.storage.from("visualizer-catalog").getPublicUrl(icon.storage_path).data.publicUrl,
+        is_active: icon.is_active,
+      })), (hiddenResult.data ?? []).map((row) => row.icon_id));
+      setIconVersion((version) => version + 1);
+    });
+    return () => { active = false; };
+  }, []);
   const file = surface === "rim" ? draft.rimLogoFile : draft.flejeLogoFile;
   const [previewUrl, setPreviewUrl] = useState("");
   useEffect(() => {
@@ -46,7 +69,7 @@ export function LocalMateDesignPreview({ product, draft, surface, update }: { pr
       } }} />}
     </div>
     {selected && (() => { const key = selected === "text-1" ? "rim-text" : selected === "text-2" ? "rim-text-2" : selected === "text" ? `${side}-text` : selected; const current = transform(key, surface === "rim" ? "rim" : side); return <div className="local-design-adjustments"><label>Tamaño del elemento<input type="range" min="0.5" max="1.6" step="0.05" value={current.scale} onChange={e => move(key, { ...current, scale: Number(e.target.value) })} /></label><label>Giro del elemento<input type="range" min="-180" max="180" value={current.rotation} onChange={e => move(key, { ...current, rotation: Number(e.target.value) })} /></label></div>; })()}
-    {enabled && <><strong>Íconos del personalizador</strong><div className="local-design-icons"><button type="button" aria-pressed={!selectedIcons.length} onClick={() => changeIcons([])}>Sin ícono</button>{rimIconCatalog.map(icon => <button key={icon.id} type="button" title={icon.name} aria-label={icon.name} onClick={() => { const id = `${surface}-${crypto.randomUUID()}`; changeIcons([...selectedIcons, { id, selectedImageId: icon.id }]); setSelected(id); }}><img src={icon.src} alt="" /></button>)}</div></>}
+    {enabled && <><strong>Íconos del personalizador</strong>{iconError && <small>No se pudieron cargar los íconos nuevos. Reabrí el diseño para reintentar.</small>}<div className="local-design-icons"><button type="button" aria-pressed={!selectedIcons.length} onClick={() => changeIcons([])}>Sin ícono</button>{orderedRimIconCatalog.map(icon => <button key={icon.id} type="button" title={icon.name} aria-label={icon.name} onClick={() => { const id = `${surface}-${crypto.randomUUID()}`; changeIcons([...selectedIcons, { id, selectedImageId: icon.id }]); setSelected(id); }}><img src={icon.src} alt="" /></button>)}</div></>}
     {selectedIcons.length > 0 && <div className="local-design-icons">{selectedIcons.map((item, index) => <button type="button" key={item.id} onClick={() => { changeIcons(selectedIcons.filter(icon => icon.id !== item.id)); if (selected === item.id) setSelected(null); }}>Quitar ícono {index + 1}</button>)}</div>}
     {file?.type === "application/pdf" && <p>El PDF se adjunta a la venta. Para verlo en el diseño, cargá una imagen PNG, JPG o SVG.</p>}
   </section>;

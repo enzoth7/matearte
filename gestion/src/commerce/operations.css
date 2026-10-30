@@ -1014,6 +1014,33 @@ td small { display: block; }
 .personalizer-configurator__tabs button { min-height: 44px; padding: 9px 16px; border: 0; border-radius: 8px; background: transparent; color: #5e5147; font: 650 13px Outfit, Arial, sans-serif; cursor: pointer; }
 .personalizer-configurator__tabs button[aria-current="page"] { background: #fff; color: #33241a; box-shadow: 0 1px 5px #261a111c; }
 .personalizer-configurator__tabs button:hover { color: #794c32; }
+.personalizer-icons { max-width: 1440px; padding: 28px; border: 1px solid #e9e2d8; border-radius: 16px; background: #fff; color: #30251e; }
+.personalizer-icons__header { display: flex; justify-content: space-between; align-items: start; gap: 20px; margin-bottom: 24px; }
+.personalizer-icons__header h2 { margin: 0 0 6px; font-size: 26px; }
+.personalizer-icons__header p, .personalizer-icons__upload p { margin: 0; color: #695e55; }
+.personalizer-icons__header > span { white-space: nowrap; padding: 8px 12px; border-radius: 20px; background: #f4efe8; font-weight: 700; }
+.personalizer-icons__upload { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; padding: 20px; margin-bottom: 28px; border: 1px solid #e7dccc; border-radius: 14px; background: #faf7f2; }
+.personalizer-icons__upload > div:first-child { flex: 1 1 100%; }
+.personalizer-icons__upload h3, .personalizer-icons > h3 { margin: 0 0 8px; }
+.personalizer-icons__upload label { display: grid; gap: 6px; font-weight: 650; }
+.personalizer-icons__upload input { min-height: 42px; max-width: 100%; padding: 8px 10px; border: 1px solid #d8cec2; border-radius: 8px; background: #fff; }
+.personalizer-icons__upload > img { width: 68px; height: 68px; object-fit: contain; border: 1px solid #e5dcd0; border-radius: 8px; background: #fff; }
+.personalizer-icons__upload button, .personalizer-icons__card button { min-height: 42px; padding: 9px 16px; border: 0; border-radius: 8px; background: #754b32; color: #fff; font-weight: 700; cursor: pointer; }
+.personalizer-icons button:disabled { opacity: .5; cursor: not-allowed; }
+.personalizer-icons__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+.personalizer-icons__card { position: relative; display: grid; align-content: start; gap: 6px; min-width: 0; padding: 12px 12px 42px; border: 1px solid #e8dfd3; border-radius: 12px; }
+.personalizer-icons__image { display: grid; place-items: center; height: 120px; min-height: 0; overflow: hidden; border-radius: 8px; background: #f6f2ec; }
+.personalizer-icons__image img { display: block; width: calc(100% - 16px); height: 104px; max-width: none; max-height: none; object-fit: contain; }
+.personalizer-icons__card strong { overflow-wrap: anywhere; }
+.personalizer-icons__card small { color: #695e55; }
+.personalizer-icons__card .personalizer-icons__trash { position: absolute; right: 10px; bottom: 9px; display: grid; place-items: center; width: 30px; min-height: 30px; height: 30px; padding: 0; border: 1px solid #e8dfd3; background: #fff; color: #6e5848; }
+.personalizer-icons__card .personalizer-icons__trash:hover { background: #fff0eb; color: #9a3b25; }
+.personalizer-icons__card .personalizer-icons__restore { justify-self: start; min-height: 32px; margin-top: 4px; padding: 5px 10px; background: #f2ebe2; color: #543723; }
+.personalizer-icons__hidden { margin-top: 25px; border-top: 1px solid #eee6dd; padding-top: 18px; }
+.personalizer-icons__hidden summary { width: fit-content; margin-bottom: 15px; color: #754b32; font-weight: 700; cursor: pointer; }
+.personalizer-icons__message { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 8px; background: #edf5eb; }
+.personalizer-icons__message.is-error { background: #fff0eb; color: #8b361e; }
+@media (max-width: 700px) { .personalizer-icons { padding: 16px; } .personalizer-icons__header { flex-direction: column; } .personalizer-icons__upload label, .personalizer-icons__upload button { width: 100%; } }
 .personalizer-configurator button:focus-visible, .personalizer-configurator input:focus-visible, .personalizer-configurator select:focus-visible, .personalizer-configurator textarea:focus-visible { outline: 3px solid #ac7959; outline-offset: 2px; }
 .personalizer-catalog__selectors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
 .personalizer-catalog__selectors label, .personalizer-catalog__field { display: grid; gap: 7px; color: #42342a; font-size: 12px; font-weight: 700; }

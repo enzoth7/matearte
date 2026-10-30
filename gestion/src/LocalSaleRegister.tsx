@@ -27,11 +27,15 @@ import { captureLocalDesign } from "./localDesignPreviews";
 import { mateAssemblyPresentation } from "./mateAssemblyPresentation";
 import { assemblyHasFleje, priceMateAssembly, validateMateAssembly, validateMateAssemblyCore, type MateAssembly } from "../../shared/mate-assembly";
 import { LocalMateDesignPreview } from "./LocalMateDesignPreview";
+import { LocalMateCustomerSummary } from "./LocalMateCustomerSummary";
 import { formatDate } from "./dateFormat";
 import { formatPercent, parseDiscountPercent } from "./wholesaleDiscount";
+import { useOrderDraft } from "./orderDraft";
+import { OrderDraftList } from "./OrderDraftList";
 import { catalogValueLabel, defaultCatalogTaxonomy, normalizeCatalogValueMap } from "../../shared/catalog-taxonomy";
 
 type SaleLine = { id: string; product: Product; quantity: number; unitPriceMinor: number; priceEntered?: boolean; priceOverridden?: boolean; personalization?: LocalPersonalizationDraft; notes?: string };
+type LocalSaleDraft = { lines: SaleLine[]; articleTab: "articles" | "custom"; customerId: string; customerSearch: string; newCustomer: boolean; name: string; email: string; phone: string; birthDate: string; date: string; payment: string; hasDeposit: boolean; deposit: string; discountOn: boolean; discountText: string; channel: "Local" | "Feria" | "Instagram" | "Facebook" | "WhatsApp"; city: string; country: string; department: string };
 const cents = (value: string) => Math.round(Number(value.replace(",", ".")) * 100);
 const categoryKey = (product: Product) => product.categoryCode || product.family;
 const isService = (product: Product) => categoryKey(product) === "servicios";
@@ -92,6 +96,7 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
   updateAssembly: (assembly: MateAssembly) => void;
 }) {
   const draft = line.personalization!;
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [mateStepIndex, setMateStepIndex] = useState(line.product.assembly ? 0 : 4);
   const mateSteps = [...(line.product.assembly ? [] : ["Modelo", "Textura y color", "Metal", "Tamaño e interior"]), ...(line.product.assembly?.["tipo-virola"] === "sin-virola" ? [] : ["Virola"]), ...(productHasFleje(line.product) ? ["Fleje"] : []), ...(line.product.assembly ? ["Materiales"] : ["Resumen"])];
   useEffect(() => setMateStepIndex(current => Math.max(0, Math.min(current, mateSteps.length - 1))), [mateSteps.length]);
@@ -121,10 +126,10 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
     reportError("");
   };
 
-  return <article className="local-personalization-card" id={`local-personalization-${line.id}`} tabIndex={-1}>
+  return <><article className="local-personalization-card" id={`local-personalization-${line.id}`} tabIndex={-1}>
     <header className="local-personalization-card-heading">
       <div><small>Diseño de {draft.kind} {index + 1}</small><h3>{line.product.name}</h3></div>
-      {line.quantity > 1 && <strong>Se aplica a {line.quantity} unidades</strong>}
+      <div className="local-personalization-heading-actions">{line.quantity > 1 && <strong>Se aplica a {line.quantity} unidades</strong>}{draft.kind === "mate" && <button type="button" className="secondary" onClick={() => setSummaryOpen(true)}>Ver resumen</button>}</div>
     </header>
 
     {draft.kind === "mate" && mateSteps.length > 1 && <nav className="local-mate-steps" aria-label={`Pasos del diseño de ${line.product.name}`}>
@@ -230,10 +235,10 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
       {!!quote.missingRuleKeys.length && !pricingLoading && <small>Falta publicar un precio de personalización en Productos → Personalizador.</small>}
     </div>}
     <label className="local-personalization-instructions">Indicaciones para el taller<textarea aria-label={`Indicaciones para ${line.product.name}`} value={draft.instructions} onChange={(event) => update({ instructions: event.target.value.slice(0, 1000) })} maxLength={1000} rows={3} placeholder="Ubicación precisa, tipografía, medidas u otro detalle acordado con el cliente" /></label></>}
-  </article>;
+  </article>{summaryOpen && draft.kind === "mate" && <LocalMateCustomerSummary product={line.product} draft={draft} quantity={line.quantity} onClose={() => setSummaryOpen(false)} />}</>;
 }
 
-export function LocalSaleRegister({ s, refresh, go }: PageProps) {
+export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
   const [articleTab, setArticleTab] = useState<"articles" | "custom">("articles");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
@@ -266,6 +271,24 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
   const [deposit, setDeposit] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [draftNotice, setDraftNotice] = useState("");
+  const draftValue: LocalSaleDraft = { lines, articleTab, customerId, customerSearch, newCustomer, name, email, phone, birthDate, date, payment, hasDeposit, deposit, discountOn, discountText, channel, city, country, department };
+  const draftHasContent = lines.length > 0 || Boolean(customerId || customerSearch || newCustomer || name || email || phone || birthDate || deposit) || date !== today || payment !== "Efectivo" || channel !== "Local" || hasDeposit || discountOn || discountText !== "10" || city !== "Paysandú" || country !== "Uruguay" || department !== "Paysandú";
+  const draft = useOrderDraft(`minorista:${session?.user.id || s.activeUserId || s.user}`, draftValue,
+    draftHasContent, (saved, isNew) => {
+      setLines(saved.lines.map(line => {
+        if (line.product.assembly) return line;
+        const current = s.products.find(product => product.id === line.product.id);
+        if (!current) return line;
+        return { ...line, product: current, unitPriceMinor: line.priceOverridden || line.personalization ? line.unitPriceMinor : salePriceMinor(current, saved.payment) };
+      }));
+      setArticleTab(saved.articleTab); setCustomerId(saved.customerId); setCustomerSearch(saved.customerSearch);
+      setNewCustomer(saved.newCustomer); setName(saved.name); setEmail(saved.email); setPhone(saved.phone);
+      setBirthDate(saved.birthDate); setDate(saved.date); setPayment(saved.payment); setHasDeposit(saved.hasDeposit);
+      setDeposit(saved.deposit); setDiscountOn(saved.discountOn); setDiscountText(saved.discountText);
+      setChannel(saved.channel); setCity(saved.city); setCountry(saved.country); setDepartment(saved.department);
+      setDraftNotice(isNew ? "Nueva venta iniciada. Podés volver a los otros borradores cuando quieras." : "Borrador retomado. Revisá precios y disponibilidad antes de registrar la venta.");
+    });
   useEffect(() => {
     if (articleTab !== "custom") return;
     let active = true;
@@ -477,6 +500,7 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
         p_channel: channel,
       });
       if (error) throw new Error(error.code === "22023" ? error.message : "No se pudo guardar la venta. Revisá los datos e intentá nuevamente.");
+      await draft.finish().catch(() => undefined);
       await refresh?.().catch(() => undefined);
       go(`/comercial/pedidos?pedido=${encodeURIComponent(String((data as { id: string }).id))}`);
     } catch (cause) {
@@ -485,6 +509,11 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
     }
     finally { setBusy(false); }
   }
+  const draftPanel = <div className="order-draft-panel" aria-live="polite">
+    {draft.status === "loading" ? <span>Buscando borradores…</span> : draft.status === "available" ? <OrderDraftList drafts={draft.saved} title="Borradores de ventas minoristas" newLabel="Empezar una venta nueva" describe={saved => `${saved.newCustomer ? saved.name || "Cliente nuevo" : saved.customerSearch || s.customers.find(customer => customer.id === saved.customerId)?.name || "Sin cliente"} · ${saved.lines.length} ${saved.lines.length === 1 ? "artículo" : "artículos"}`} onResume={draft.resume} onNew={draft.startNew} onDiscard={id => void draft.discard(id)} /> : <><strong>{draft.error ? "Borrador automático no disponible" : draftNotice || "Borrador automático activo"}</strong><span>Los cambios se guardan en este navegador mientras preparás la venta.</span><div><button type="button" className="secondary" disabled={!draftHasContent} onClick={() => void draft.saveNow().then(ok => setDraftNotice(ok ? "Borrador guardado en este navegador." : "No se pudo guardar el borrador."))}>Guardar borrador</button><button type="button" className="secondary" onClick={() => void draft.showList()}>Ver mis borradores</button></div></>}
+    {draft.error && <span className="error" role="alert">{draft.error}</span>}
+  </div>;
+  if (draft.status === "loading" || draft.status === "available") return <div className="order-draft-gate">{draftPanel}</div>;
   const renderLine = (line: SaleLine) => <div className="local-sale-line" key={line.id}>
     <div><strong>{line.product.name}</strong><small>{[line.product.sku, visibleVariant(line.product.variant)].filter(Boolean).join(" · ")}</small>{line.personalization && <button type="button" className="local-sale-edit-personalization" onClick={() => document.getElementById(`local-personalization-${line.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}><PencilSimple size={16} aria-hidden="true" />Editar diseño y materiales</button>}</div>
     {line.personalization ? <label>Precio unitario<input type="text" value={linePriceAvailable(line) ? money(soldUnitMinor(line) / 100) : ""} placeholder="Tarifa no disponible" readOnly aria-label={`Precio unitario de ${line.product.name}`} /></label>
@@ -496,6 +525,7 @@ export function LocalSaleRegister({ s, refresh, go }: PageProps) {
   </div>;
   return <form className="local-sale-register" onSubmit={(event) => void save(event)}>
     <div className="local-sale-main">
+    {draftPanel}
     <section className="local-sale-section local-sale-product-section">
       <div className="local-sale-tabs" role="tablist" aria-label="Secciones de artículos">
         <button type="button" role="tab" id="local-tab-articles" aria-controls="local-panel-articles" aria-selected={articleTab === "articles"} className={articleTab === "articles" ? "active" : ""} onClick={() => setArticleTab("articles")}>Artículos{articleLines.length ? <span>{articleLines.length}</span> : null}</button>

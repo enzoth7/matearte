@@ -22,6 +22,8 @@ import { naturalCaseName } from "./productionPresentation";
 import { GENERIC_WHOLESALE_VARIANT, genericVariantPriceConflict, wholesaleSaleCategory, wholesaleSaleCategoryLabel, wholesaleSaleType, wholesaleSaleVariantLabel } from "./wholesaleSaleSelection";
 import { formatDate } from "./dateFormat";
 import { matchesSaleProductSearch } from "./saleProductSearch";
+import { useOrderDraft } from "./orderDraft";
+import { OrderDraftList } from "./OrderDraftList";
 
 const formatArg = (value: number) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 }).format(value);
 const saleArg = (value: number) => `ARS ${new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 }).format(value)}`;
@@ -37,6 +39,7 @@ const mateModelCode = (model: string, category: string | null | undefined) => ca
 const saleGroup = (product: WholesaleProduct) => { const category = wholesaleSaleCategory(product); return category === "bombillones" ? "bombillas" : category; };
 const customerLabel = (entry: WholesaleCustomer) => [formatContactName(entry.full_name), entry.company_name?.trim()].filter(Boolean).join(" · ");
 const NEW_ITEM = () => ({ key: crypto.randomUUID(), category: "", model: "", name: "", productId: "", quantity: 1, noCost: false, generic: false });
+type WholesaleSaleDraft = { customer: string; items: ReturnType<typeof NEW_ITEM>[]; applyDiscount: boolean; discountText: string };
 
 export function WholesaleSummary({ props }: { props: PageProps }) {
   const snapshot = snapshotOf(props);
@@ -96,6 +99,12 @@ export function WholesaleRegister(props: PageProps) {
   const [error, setError] = useState("");
   const [applyDiscount, setApplyDiscount] = useState(false);
   const [discountText, setDiscountText] = useState("10");
+  const [draftNotice, setDraftNotice] = useState("");
+  const draftHasContent = Boolean(customer || items.some(item => item.productId || item.category || item.model || item.name || item.noCost || item.quantity !== 1) || applyDiscount || discountText !== "10");
+  const draft = useOrderDraft(`mayorista:${props.session?.user.id || props.s.activeUserId || props.s.user}`,
+    { customer, items, applyDiscount, discountText } satisfies WholesaleSaleDraft,
+    draftHasContent,
+    (saved, isNew) => { setCustomer(saved.customer); setItems(saved.items); setApplyDiscount(saved.applyDiscount); setDiscountText(saved.discountText); setDraftNotice(isNew ? "Nuevo pedido iniciado. Podés volver a los otros borradores cuando quieras." : "Borrador retomado. Revisá precios y disponibilidad antes de crear el pedido."); });
   if (!snapshot) return <div className="empty">Cargando producción mayorista…</div>;
   const sortedProducts = snapshot.products.filter(product => product.available_wholesale !== false && saleGroup(product)).sort((a, b) => productLabel(a).localeCompare(productLabel(b), "es"));
   const productMatches = productSearch.trim() ? sortedProducts.filter((product) => matchesSaleProductSearch({
@@ -126,15 +135,22 @@ export function WholesaleRegister(props: PageProps) {
       if (!items.length || !items.every((item) => item.productId && Number.isInteger(item.quantity) && item.quantity > 0)) throw new Error("Revisá productos y cantidades.");
       if (applyDiscount && !(discountPercent > 0)) throw new Error("Ingresá un descuento mayor a 0%, o elegí \"No\".");
       const orderId = await createWholesaleOrder(customer, items, saleChannel, discountPercent);
+      await draft.finish().catch(() => undefined);
       await props.refresh?.(); props.notify(`Pedido ${orderId} creado.`);
       props.go(`/comercial/pedidos?pedido=${encodeURIComponent(`wholesale:${orderId}`)}`);
     } catch (failure) { setError(errorText(failure)); }
     finally { setBusy(false); }
   }
   const photoLines = items.map((item) => ({ item, product: snapshot.products.find((product) => String(product.id) === item.productId) })).filter((entry): entry is { item: typeof items[number]; product: WholesaleProduct } => !!entry.product);
+  const draftPanel = <div className="order-draft-panel" aria-live="polite">
+    {draft.status === "loading" ? <span>Buscando borradores…</span> : draft.status === "available" ? <OrderDraftList drafts={draft.saved} title="Borradores de pedidos mayoristas" newLabel="Empezar un pedido nuevo" describe={saved => `${saved.customer || "Sin cliente"} · ${saved.items.filter(item => item.productId).length} ${saved.items.filter(item => item.productId).length === 1 ? "artículo" : "artículos"}`} onResume={draft.resume} onNew={draft.startNew} onDiscard={id => void draft.discard(id)} /> : <><strong>{draft.error ? "Borrador automático no disponible" : draftNotice || "Borrador automático activo"}</strong><span>Los cambios se guardan en este navegador mientras preparás el pedido.</span><div><button type="button" className="secondary" disabled={!draftHasContent} onClick={() => void draft.saveNow().then(ok => setDraftNotice(ok ? "Borrador guardado en este navegador." : "No se pudo guardar el borrador."))}>Guardar borrador</button><button type="button" className="secondary" onClick={() => void draft.showList()}>Ver mis borradores</button></div></>}
+    {draft.error && <span className="error" role="alert">{draft.error}</span>}
+  </div>;
+  if (draft.status === "loading" || draft.status === "available") return <div className="order-draft-gate">{draftPanel}</div>;
   return <>
   <form className="wholesale-sale-register" onSubmit={(event) => void submit(event)}>
     <div className="wholesale-sale-main">
+    {draftPanel}
     <section className="local-sale-section wholesale-sale-section">
       <div className="wholesale-sale-section-heading">
         <div><h2>Artículos</h2><p>Seleccioná cada artículo y la cantidad solicitada.</p></div>
