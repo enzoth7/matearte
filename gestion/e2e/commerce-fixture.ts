@@ -199,11 +199,13 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
       }
       let entries: any[] = table === 'commerce_variants' ? fixture.products.flatMap(p=>p.commerce_variants)
         : table === 'commerce_product_images' ? fixture.products.flatMap(p=>p.commerce_product_images)
-        : table === 'order_items' ? fixture.orders.flatMap(o=>o.order_items)
+        : table === 'order_items' ? [...fixture.orders.flatMap(o=>o.order_items.map(item => Object.assign(item, { order_id: o.id }))), ...tables.local_sales.flatMap((sale: any) => sale.local_sale_items.map((item: any) => Object.assign(item, { order_id: sale.id })))]
         : Array.isArray(tables[table]) ? tables[table] : [tables[table]];
       const id = url.searchParams.get('id')?.replace('eq.','');
       const fullName = url.searchParams.get('full_name')?.replace('eq.','');
-      let matched = entries.filter(row => row && (!id || String(row.id) === id) && (!fullName || String(row.full_name) === fullName));
+      const ids = url.searchParams.get('id')?.match(/^in\.\((.*)\)$/)?.[1].split(',').map(value => value.replace(/^"|"$/g, ''));
+      const orderId = url.searchParams.get('order_id')?.replace('eq.','');
+      let matched = entries.filter(row => row && (!id || Boolean(ids) || String(row.id) === id) && (!ids || ids.includes(String(row.id))) && (!orderId || row.order_id === orderId) && (!fullName || String(row.full_name) === fullName));
       if (method === 'PATCH') matched.forEach(row => Object.assign(row,body));
       if (method === 'DELETE' && Array.isArray(tables[table])) matched.forEach(row => {
         const index = tables[table].indexOf(row);

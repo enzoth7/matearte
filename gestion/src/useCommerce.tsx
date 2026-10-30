@@ -129,7 +129,7 @@ export function useCommerce() {
         readLocalCustomers(client, localCustomerCache.current),
         readAllPages<LocalSale>(async (page) => {
           let result: { data: unknown[] | null; count: number | null; error: { code?: string; message: string } | null } = await client.from("local_sales")
-            .select("id,sale_number,reference_code,channel,customer_id,customer_name,sold_on,payment_method,total_minor,deposit_minor,currency,created_at,local_sale_items(id,variant_id,sku,product_name,variant_name,quantity,unit_price_minor,line_total_minor,customization,production_notes)", { count: "exact" })
+            .select("id,sale_number,reference_code,channel,customer_id,customer_name,sold_on,payment_method,total_minor,deposit_minor,currency,created_at,local_sale_items(id,variant_id,sku,product_name,variant_name,quantity,unit_price_minor,line_total_minor,customization,production_notes,production_status)", { count: "exact" })
             .order("id").range(page * 100, page * 100 + 99);
           if (result.error?.code === "42703" && /customization/i.test(result.error.message)) {
             result = await client.from("local_sales")

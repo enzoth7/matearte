@@ -36,6 +36,7 @@ export type LocalSaleItem = {
   line_total_minor: number;
   customization?: Record<string, unknown> | null;
   production_notes?: string | null;
+  production_status?: string | null;
 };
 
 export type LocalSale = {

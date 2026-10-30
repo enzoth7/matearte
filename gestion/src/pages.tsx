@@ -37,6 +37,7 @@ import {
 import { Package, Plus, PencilSimple, CaretDown, FileXls, FunnelX, MagnifyingGlass, Trash } from "@phosphor-icons/react";
 import { LocalSaleEditor, canEditLocalSale, deleteLocalSale } from "./LocalSaleEditor";
 import { LocalSaleReceiptForm } from "./LocalSaleReceiptForm";
+import { commerceSource } from "./commerceSource";
 import {
   type State,
   type Order,
@@ -386,6 +387,8 @@ function OrderTable({
   searchQuery,
   onSearchQueryChange,
   onCustomer,
+  onProductionStatusChange,
+  productionBusyId,
 }: {
   s: State;
   orders: Order[];
@@ -397,6 +400,8 @@ function OrderTable({
   searchQuery?: string;
   onSearchQueryChange?: (query: string) => void;
   onCustomer?: (order: Order) => void;
+  onProductionStatusChange?: (order: Order, status: "pending" | "in_production" | "completed") => void;
+  productionBusyId?: string | null;
 }) {
   const productionMode = ["mayorista", "mayorista-web", "minorista", "historico", "resumen-produccion"].includes(mode);
   const originByOrder = useMemo(() => {
@@ -416,7 +421,7 @@ function OrderTable({
   ].join(" ");
   return (
     <Table
-      className={mode === "pedidos" ? "sales-orders-table" : productionMode || ["pendientes", "envios"].includes(mode) ? `workshop-orders-table${productionMode ? " workshop-orders-table--company" : ""}${showAmounts ? "" : " workshop-orders-table--no-amounts"}${["pendientes", "envios"].includes(mode) ? " logistics-orders-table" : ""}` : undefined}
+      className={mode === "pedidos" ? "sales-orders-table" : productionMode || ["pendientes", "envios"].includes(mode) ? `workshop-orders-table${productionMode ? " workshop-orders-table--company" : ""}${showAmounts ? "" : " workshop-orders-table--no-amounts"}${["pendientes", "envios"].includes(mode) ? " logistics-orders-table" : ""}${onProductionStatusChange ? " retail-production-table" : ""}` : undefined}
       showSearch={searchQuery === undefined}
       searchQuery={searchQuery}
       onSearchQueryChange={onSearchQueryChange}
@@ -444,7 +449,16 @@ function OrderTable({
         ] : []),
         {
           label: "Producci\u00F3n",
-          render: (o) => <Badge>{o.production}</Badge>,
+          render: (o) => onProductionStatusChange && !["shipped", "delivered"].includes(o.status || "")
+            ? <select
+                className={`retail-production-status ${o.production === "En producción" ? "blue" : o.production === "Terminado" ? "green" : "yellow"}`}
+                aria-label={`Estado de producción del pedido ${orderName(o)}`}
+                title="Cambiar estado de producción"
+                value={o.production === "Terminado" ? "completed" : o.production === "En producción" ? "in_production" : "pending"}
+                disabled={productionBusyId === o.id}
+                onChange={(event) => onProductionStatusChange(o, event.target.value as "pending" | "in_production" | "completed")}
+              ><option value="pending">Pendiente</option><option value="in_production">En producción</option><option value="completed">Completado</option></select>
+            : <Badge tone={o.production === "En producción" ? "blue" : o.production === "Terminado" ? "green" : undefined}>{o.production}</Badge>,
         },
         {
           label: "Envío",
@@ -474,7 +488,7 @@ function OrderTable({
               ]
           : []),
         {
-          label: "Detalles",
+          label: onProductionStatusChange ? "Acciones" : "Detalles",
           render: (o) => (
             <button
               type="button"
@@ -609,6 +623,25 @@ export function Orders(
   const [channel, setChannel] = useState("Todos");
   const [orderSearch, setOrderSearch] = useState("");
   const [group, setGroup] = useState("Pedidos");
+  const [productionBusyId, setProductionBusyId] = useState<string | null>(null);
+  const [productionError, setProductionError] = useState("");
+  async function changeProductionStatus(order: Order, status: "pending" | "in_production" | "completed") {
+    if (!commerceSource || productionBusyId || ["shipped", "delivered"].includes(order.status || "")) return;
+    const itemIds = order.items?.map((item) => item.id) || [];
+    if (!itemIds.length) return;
+    setProductionBusyId(order.id); setProductionError("");
+    try {
+      const { data, error } = await commerceSource.from("order_items")
+        .update({ production_status: status, completed_at: status === "completed" ? new Date().toISOString() : null })
+        .eq("order_id", order.id).in("id", itemIds).select("id");
+      if (error) throw error;
+      if (data?.length !== itemIds.length) throw new Error("No se pudieron actualizar todos los artículos del pedido.");
+      await props.refresh?.();
+      props.notify(`Pedido ${orderName(order)}: ${status === "completed" ? "completado" : status === "in_production" ? "en producción" : "pendiente"}.`);
+    } catch (error) {
+      setProductionError(error instanceof Error ? error.message : "No se pudo cambiar el estado de producción.");
+    } finally { setProductionBusyId(null); }
+  }
   if (mode === "mayorista") return <><WholesaleProduction props={props} /><section className="wholesale-web-orders"><h2>Pedidos mayoristas de la web</h2><Orders {...props} mode="mayorista-web" /></section></>;
   if (mode === "personalizados") return <div className="commerce-tools"><PersonalizedOrders onNotice={props.notify} state={s} /></div>;
   const productionView = ["mayorista-web", "minorista", "historico", "resumen-produccion"].includes(mode);
@@ -743,6 +776,8 @@ export function Orders(
           ]}
         />
       ) : (
+        <>
+        {productionError && <p className="error" role="alert">{productionError}</p>}
         <OrderTable
           s={s}
           orders={rows}
@@ -767,7 +802,10 @@ export function Orders(
             const entry = s.customers.find((item) => item.id === order.customerId);
             setSelectedCustomer(entry || { id: order.customerId, name: order.customerName || "Cliente sin nombre", email: "", phone: "", city: "", segment: "Minorista" });
           } : undefined}
+          onProductionStatusChange={props.session && commerceSource && (mode === "minorista" || mode === "historico") && canAccess(s, "/produccion/minorista") ? (order, status) => void changeProductionStatus(order, status) : undefined}
+          productionBusyId={productionBusyId}
         />
+        </>
       )}
       {selectedCustomer && <CustomerDetailModal customer={selectedCustomer} s={s} go={go} commerce={props.commerce} onClose={() => setSelectedCustomer(null)} />}
       {mode === "historico" && <WholesaleProduction props={props} history />}

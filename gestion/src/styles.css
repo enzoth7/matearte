@@ -3155,7 +3155,8 @@ details.org-node {
 .local-personalization-card-heading > strong { align-self: center; color: var(--brown); font-size: 12px; }
 .local-personalization-heading-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:10px;}
 .local-personalization-heading-actions>strong{color:var(--brown);font-size:12px;}
-.local-personalization-heading-actions .secondary{min-height:36px;white-space:nowrap;}
+.local-personalization-heading-actions .secondary{min-height:36px;white-space:nowrap;background:var(--brown);border-color:var(--brown);color:var(--white);}
+.local-personalization-heading-actions .secondary:hover{background:var(--black);border-color:var(--black);}
 dialog.local-mate-summary-dialog{width:min(920px,calc(100% - 24px));max-height:94dvh;padding:20px;}
 .local-mate-summary-dialog .modal-head{margin-bottom:14px;}
 .local-mate-summary-scroll{max-height:calc(94dvh - 165px);overflow:auto;background:#ece9e5;padding:15px;}
@@ -3993,3 +3994,11 @@ dialog.ad-report-dialog{width:min(860px,calc(100% - 24px));max-height:90dvh}
 .ad-detail-button{display:inline-grid;place-items:center;width:38px;height:38px;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--white,#fff);color:var(--brown);transition:background .16s,color .16s,transform .16s}
 .ad-detail-button:hover,.ad-detail-button:focus-visible{background:var(--brown);color:#fff}
 .ad-detail-button:active{transform:scale(.94)}
+.workshop-orders-table.retail-production-table th:nth-child(3){width:12%;}
+.workshop-orders-table.retail-production-table th:nth-child(4){width:9%;}
+.workshop-orders-table.retail-production-table th:nth-child(9){width:12%;}
+.retail-production-status{display:block;appearance:auto;width:100%;max-width:132px;min-width:0;min-height:29px;height:29px;padding:3px 4px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--black);font:inherit;font-size:11px;line-height:1.2;cursor:pointer;}
+.retail-production-status.yellow{background:rgb(167 110 19 / .1);border-color:rgb(167 110 19 / .24);color:var(--yellow);}
+.retail-production-status.blue{background:rgb(35 107 145 / .1);border-color:rgb(35 107 145 / .26);color:var(--mediterranean-blue);}
+.retail-production-status.green{background:rgb(47 125 85 / .09);border-color:rgb(47 125 85 / .22);color:var(--green);}
+.retail-production-status:disabled{opacity:.55;cursor:wait;}

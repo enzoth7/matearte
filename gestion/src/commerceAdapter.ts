@@ -342,7 +342,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
         sku: item.sku || "", quantity: item.quantity, unitPrice: Number(item.unit_price_minor) / 100,
         amount: Number(item.line_total_minor) / 100, family: item.customization ? "Personalizados" : catalog?.family || "",
         variant: item.variant_name, rim: catalog?.rim || "", leather: catalog?.leather || "",
-        productionStatus: "", reviewStatus: null, orderType: item.customization ? "local_design" : undefined,
+        productionStatus: item.production_status || "pending", reviewStatus: null, orderType: item.customization ? "local_design" : undefined,
       };
     });
     const charged = Number(source.total_minor) / 100;
