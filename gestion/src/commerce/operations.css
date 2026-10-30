@@ -1111,9 +1111,22 @@ td small { display: block; }
 .personalizer-catalog__image.is-loaded img { opacity: 1; }
 .personalizer-catalog__image-state { position: absolute; inset: 0; display: grid; place-items: center; padding: 12px; color: #7a7067; font-size: 12px; text-align: center; }
 .personalizer-catalog__upload { min-height: 42px; border-radius: 9px; font-size: 13px; }
+.personalizer-catalog__image-actions { display: flex; flex-wrap: wrap; gap: 7px; min-width: 0; }
+.personalizer-catalog__adjust { min-height: 42px; padding: 7px 11px; border: 1px solid #cbb6a3; border-radius: 9px; background: #fff; color: #63452f; font-size: 13px; font-weight: 700; }
+.personalizer-catalog__adjust:hover:not(:disabled) { background: #f8f0e9; }
+.personalizer-catalog__adjust:focus-visible { outline: 3px solid #ac7959; outline-offset: 2px; }
+.personalizer-catalog__image-editor:has(.personalizer-catalog__adjust) .personalizer-catalog__image:has(img[style]) { aspect-ratio: 1; height: auto; max-width: 166px; }
 .personalizer-catalog__block { margin-top: 30px; }
 .personalizer-catalog__block-heading { margin-bottom: 14px; }
 .personalizer-catalog__block-heading h3 { margin: 0; font-size: 19px; }
+.personalizer-catalog__size-groups { display: grid; gap: 20px; }
+.personalizer-catalog__size-group { min-width: 0; }
+.personalizer-catalog__size-group h4 { margin: 0 0 12px; color: #4d4035; font-size: 16px; }
+.personalizer-catalog__size-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.personalizer-catalog__size-card { min-width: 0; padding: 15px; border: 1px solid #e6ded5; border-radius: 14px; background: #fff; }
+.personalizer-catalog__size-card h5 { margin: 0 0 12px; color: #211b17; font-size: 15px; }
+.personalizer-catalog__size-card .personalizer-catalog__image { aspect-ratio: 1; height: auto; max-width: 220px; }
+.personalizer-catalog__size-card .personalizer-catalog__image img { padding: 0; object-fit: cover; }
 .personalizer-catalog__option { border-radius: 14px; box-shadow: 0 2px 10px #17141208; }
 .personalizer-catalog__option-grid.personalizer-catalog__metal-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .personalizer-catalog__option.personalizer-catalog__color-row { grid-template-columns: minmax(185px, 1fr) minmax(200px, 250px) 80px; align-items: center; gap: 16px; padding: 14px 18px; }
@@ -1122,12 +1135,16 @@ td small { display: block; }
 .personalizer-catalog__color-row .personalizer-catalog__image-editor, .personalizer-catalog__metal-row .personalizer-catalog__image-editor { grid-template-columns: 82px minmax(0, 1fr); align-items: center; min-width: 0; }
 .personalizer-catalog__color-row .personalizer-catalog__image, .personalizer-catalog__metal-row .personalizer-catalog__image { height: 82px; }
 .personalizer-catalog__color-row .personalizer-catalog__upload, .personalizer-catalog__metal-row .personalizer-catalog__upload { justify-content: center; min-width: 0; padding-inline: 8px; white-space: normal; text-align: center; }
+.personalizer-catalog__color-row .personalizer-catalog__image-actions, .personalizer-catalog__metal-row .personalizer-catalog__image-actions { display: grid; width: 100%; }
+.personalizer-catalog__color-row .personalizer-catalog__adjust, .personalizer-catalog__metal-row .personalizer-catalog__adjust { min-width: 0; padding-inline: 8px; white-space: normal; }
 .personalizer-catalog__color-row .personalizer-catalog__switch, .personalizer-catalog__metal-row .personalizer-catalog__switch { justify-self: end; }
 .personalizer-catalog__switch { gap: 8px; min-height: 36px; color: #44563d; font-size: 12px; }
 .personalizer-catalog__switch input { width: 19px; height: 19px; }
 @media (max-width: 950px) { .personalizer-catalog__option.personalizer-catalog__color-row { grid-template-columns: minmax(0, 1fr) auto; } .personalizer-catalog__option.personalizer-catalog__metal-row { grid-template-columns: minmax(0, 1fr) minmax(180px, 230px); } .personalizer-catalog__color-name { grid-column: 1 / -1; } .personalizer-catalog__color-row .personalizer-catalog__image-editor { grid-column: 1; } .personalizer-catalog__color-row .personalizer-catalog__switch { grid-column: 2; justify-self: end; } .personalizer-catalog__metal-row .personalizer-catalog__switch { grid-column: 2; justify-self: start; } }
 @media (max-width: 900px) { .personalizer-catalog__grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 900px) { .personalizer-catalog__size-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 700px) {
+  .personalizer-catalog__size-grid { grid-template-columns: minmax(0, 1fr); }
   .personalizer-catalog__intro, .personalizer-catalog__block-heading { align-items: flex-start; }
   .personalizer-catalog__selectors { grid-template-columns: minmax(0, 1fr); padding: 16px; }
   .personalizer-catalog__card { grid-template-columns: minmax(0, 1fr); }
@@ -1705,8 +1722,17 @@ td small { display: block; }
 .local-production-views [data-local-preview="virola"] { width: 100%; aspect-ratio: 1; }
 .local-production-views [data-local-preview="virola"] > * { width: 100%; height: 100%; }
 .local-production-views [data-preview-role^="fleje_"] .asset-preview { height: 130px; }
+.recovered-production-views > .customer-asset { display: flex; flex-direction: column; }
+.recovered-production-views h4 { order: 2; margin: 0; border-top: 1px solid var(--line-soft); padding: .7rem .8rem; font-size: .76rem; }
+.recovered-production-views [data-local-preview] { order: 1; display: grid; place-items: center; box-sizing: border-box; height: 15rem; overflow: hidden; padding: .75rem; background: #f5f3f0; }
+.recovered-production-views [data-local-preview="virola"] > * { width: min(100%, 13.5rem); height: min(100%, 13.5rem); }
+.recovered-production-views [data-local-preview^="fleje_"] > * { width: 100%; }
+@media print {
+  .personalized-dialog .recovered-production-views [data-local-preview] { height: 48mm; }
+}
 @media (max-width: 640px) {
   .local-production-views { grid-template-columns: minmax(0, 1fr); }
   .local-production-views > .customer-asset { grid-column: 1; grid-row: auto; }
   .local-production-views [data-local-preview="virola"] { max-width: 280px; margin: auto; }
+  .recovered-production-views [data-local-preview] { height: 13rem; }
 }

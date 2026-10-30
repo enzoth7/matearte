@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     if (designIds.length) {
       const [{ data: designs, error: designsError }, { data: catalog, error: catalogError }] = await Promise.all([
         admin.from("designs").select("id,configuration,fleje_configuration").in("id", designIds).eq("user_id", user.id),
-        admin.rpc("get_published_pricing_catalog"),
+        admin.rpc("get_published_pricing_catalog_v2"),
       ]);
       if (designsError || catalogError || !catalog) throw new Error("No se pudo verificar el catálogo de precios.");
       for (const design of designs || []) {

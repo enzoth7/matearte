@@ -78,6 +78,7 @@ export type OrderLine = {
 };
 export type Order = {
   id: string;
+  createdAt?: string;
   source?: "local" | "wholesale";
   customerName?: string;
   localItemsAmount?: number;

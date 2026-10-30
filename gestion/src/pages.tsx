@@ -1036,7 +1036,7 @@ export function Customers({
             header: sortHeader("Cliente", "name", "Ordenar clientes de A a Z", "Ordenar clientes de Z a A"),
             render: (c) => (
               <button className="text-button" aria-label={`Ver ficha de ${c.name}`} onClick={() => setSelected(c.id)}>
-                {c.companyName && c.companyName.localeCompare(c.name, "es", { sensitivity: "base" }) === 0 ? "—" : c.name}
+                {c.name}
                 
               </button>
             ),

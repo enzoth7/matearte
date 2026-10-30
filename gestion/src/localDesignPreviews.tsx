@@ -7,11 +7,12 @@ import { FlatFlejePreview } from '../../personalizador/src/components/FlatFlejeP
 import { commerceSource } from './commerceSource';
 
 type Snapshot = any;
-export function SavedDesignViews({ snapshot, exporting = false }: { snapshot: Snapshot; exporting?: boolean }) {
+export function SavedDesignViews({ snapshot, exporting = false, uniformGrid = false }: { snapshot: Snapshot; exporting?: boolean; uniformGrid?: boolean }) {
   const c = snapshot.configuration;
+  if (snapshot.localPersonalization?.kind && snapshot.localPersonalization.kind !== 'mate') return null;
   if (!c?.rim) return null;
   const model = snapshot.assembly?.selections?.['tipo-mate'] || c.modelId || 'camionero';
-  return <div className={exporting ? "customer-assets" : "local-production-views"}>
+  return <div className={uniformGrid ? "customer-assets recovered-production-views" : exporting ? "customer-assets" : "local-production-views"}>
     {c.capabilities?.hasRim !== false && <section className="customer-asset local-production-rim"><h4>Virola</h4><div data-local-preview="virola" style={exporting ? {width:600,height:600,background:"#fbf3de"} : undefined}><ConfiguratorPreview model={model} rim={c.rim} engravingTypeId={c.engravingTypeId} /></div></section>}
     {c.capabilities?.hasFleje && snapshot.flejeConfiguration && (['front','back'] as const).map(side => <section className="customer-asset local-production-fleje" key={side}><h4>{side === 'front' ? 'Fleje · frente' : 'Fleje · reverso'}</h4><div data-local-preview={`fleje_${side}`} style={exporting ? {width:900,background:"#fbf3de"} : undefined}><FlatFlejePreview flejeConfig={snapshot.flejeConfiguration} activeSide={side} visibleSides={[side]} showLabels={false} /></div></section>)}
   </div>;
@@ -31,13 +32,14 @@ async function resolveImages(snapshot: Snapshot) {
   };
   await visit(copy); return copy;
 }
-export function RecoveredDesignViews({snapshot}:{snapshot:Snapshot}) {
+export function RecoveredDesignViews({snapshot, uniformGrid = false}:{snapshot:Snapshot; uniformGrid?: boolean}) {
   const [resolved,setResolved]=useState<Snapshot>(null);
   const [error,setError]=useState('');
   useEffect(()=>{let active=true; resolveImages(snapshot).then(value=>{if(active)setResolved(value)}).catch(()=>{if(active)setError('No se pudieron cargar las imágenes del diseño.')});return()=>{active=false}},[snapshot]);
-  return resolved ? <SavedDesignViews snapshot={resolved}/> : <p>{error || 'Cargando diseño guardado…'}</p>;
+  return resolved ? <SavedDesignViews snapshot={resolved} uniformGrid={uniformGrid}/> : <p>{error || 'Cargando diseño guardado…'}</p>;
 }
 export async function captureLocalDesign(snapshot: Snapshot) {
+  if (snapshot.localPersonalization?.kind && snapshot.localPersonalization.kind !== 'mate') return [];
   if (!snapshot.configuration?.rim) return [];
   const resolved = await resolveImages(snapshot);
   const host=document.createElement('div');

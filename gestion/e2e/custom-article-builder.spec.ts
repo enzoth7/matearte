@@ -79,10 +79,11 @@ test('arma por piezas sin catálogo y conserva diseño y precio en venta y produ
   await expect(page.locator('.local-production-rim')).toBeVisible();
   const rimBox = await page.locator('.local-production-rim').boundingBox();
   const flejeBoxes = await page.locator('.local-production-fleje').evaluateAll(nodes => nodes.map(node => { const r = node.getBoundingClientRect(); return {x:r.x,y:r.y}; }));
-  expect(rimBox!.width).toBeLessThanOrEqual(301);
-  expect(flejeBoxes[0].x).toBe(flejeBoxes[1].x);
-  expect(flejeBoxes[1].y).toBeGreaterThan(flejeBoxes[0].y);
-  await page.locator('.local-production-views').screenshot({path:'test-results/production-layout.png'});
+  expect(rimBox!.width).toBeGreaterThan(301);
+  expect(flejeBoxes[0].x).toBeGreaterThan(rimBox!.x);
+  expect(flejeBoxes[1].x).toBeGreaterThan(flejeBoxes[0].x);
+  expect(flejeBoxes[0].y).toBe(flejeBoxes[1].y);
+  await page.locator('.recovered-production-views').screenshot({path:'test-results/production-layout.png'});
 });
 
 test('cambiar piezas conserva elecciones y sin virola permite guardar sin grabado',async({page})=>{

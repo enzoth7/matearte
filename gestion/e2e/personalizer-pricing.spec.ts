@@ -151,7 +151,7 @@ test('permite editar y publicar opciones del catálogo sin alterar los IDs', asy
   });
   await page.goto('/productos/personalizador');
   const configuratorTabs = page.getByRole('navigation', { name: 'Configuración del Personalizador' });
-  await expect(configuratorTabs.getByRole('button')).toHaveCount(3);
+  await expect(configuratorTabs.getByRole('button')).toHaveCount(4);
   await configuratorTabs.getByRole('button', { name: 'Modelos, colores y metales' }).click();
   await expect(page.getByRole('tablist', { name: 'Secciones del catálogo' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Opciones del Personalizador' })).toHaveCount(0);
@@ -176,6 +176,10 @@ test('permite editar y publicar opciones del catálogo sin alterar los IDs', asy
   await expect.poll(() => page.locator('.personalizer-catalog__image img').first().evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
   await expect.poll(() => page.locator('.personalizer-catalog__card .personalizer-catalog__image img').evaluateAll(images => images.every(image => (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
   await expect(page.locator('.personalizer-catalog__card .personalizer-catalog__image').first()).toHaveClass(/is-loaded/);
+  const sizePhotos = page.locator('.personalizer-catalog__size-card img');
+  await expect(sizePhotos).toHaveCount(6);
+  await sizePhotos.last().scrollIntoViewIfNeeded();
+  await expect.poll(() => sizePhotos.evaluateAll(images => images.every(image => (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
   await page.locator('.personalizer-catalog__card .personalizer-catalog__image').first().screenshot({path:'test-results/model-image.png'});
   await page.screenshot({ path: 'test-results/personalizer-catalog-desktop.png', fullPage: true });
   await expect(page.getByRole('heading', { name: 'Colores', exact: true })).toBeVisible();
@@ -192,9 +196,18 @@ test('permite editar y publicar opciones del catálogo sin alterar los IDs', asy
   await page.screenshot({ path: 'test-results/personalizer-catalog-mobile.png', fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1100 });
   const model = page.locator('.personalizer-catalog__card').first();
+  await page.locator('.personalizer-catalog__card').nth(1).getByRole('button', { name: 'Ajustar foto' }).click();
+  await expect(page.getByRole('dialog', { name: 'Ajustá el encuadre' })).toBeVisible();
+  await expect(page.getByRole('slider', { name: 'Zoom' })).toBeVisible();
+  await page.getByRole('button', { name: 'Guardar ajuste' }).click();
   await model.getByRole('textbox', { name: 'Nombre' }).fill('Camionero especial');
   await model.locator('input[type="file"]').setInputFiles({
     name: 'camionero.png', mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/X1cAAAAASUVORK5CYII=', 'base64'),
+  });
+  const smallMouthPhoto = page.getByRole('region', { name: 'Boca del mate' }).getByRole('article').filter({ has: page.getByRole('heading', { name: 'Boca chica' }) });
+  await smallMouthPhoto.locator('input[type="file"]').setInputFiles({
+    name: 'boca-chica.png', mimeType: 'image/png',
     buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/X1cAAAAASUVORK5CYII=', 'base64'),
   });
   await configuratorTabs.getByRole('button', { name: 'Técnicas de personalización' }).click();
@@ -218,6 +231,8 @@ test('permite editar y publicar opciones del catálogo sin alterar los IDs', asy
   await page.getByRole('button', { name: 'Confirmar publicación' }).click();
   expect(catalog.published.document).toMatchObject({ families: { camionero: { label: 'Camionero especial' } } });
   expect((catalog.published.document as any).families.camionero.image).toContain('/visualizer-catalog/catalog/');
+  expect((catalog.published.document as any).textures['camionero::alpaca-cincelado-patas'].imageCrop).toEqual({ x: 0, y: 0, zoom: 1 });
+  expect((catalog.published.document as any).sizes['standard::chico'].image).toContain('/visualizer-catalog/catalog/');
   expect((catalog.published.document as any).textures['camionero::alpaca-cincelado-patas'].virola).not.toContain('laser');
   await expect(page.getByRole('heading', { name: 'Disponibilidad por construcción' })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });

@@ -348,7 +348,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
     const charged = Number(source.total_minor) / 100;
     const itemsAmount = items.reduce((sum, item) => sum + item.amount, 0);
     return {
-      id: source.id, number: source.sale_number, referenceCode: source.reference_code, source: "local", status: "local_sale",
+      id: source.id, number: source.sale_number, referenceCode: source.reference_code, source: "local", status: "local_sale", createdAt: source.created_at,
       customerId: source.customer_id ? localCustomerIds.get(source.customer_id) || `local:${source.customer_id}` : `local-anon:${source.id}`,
       customerName: source.customer_name, productId: items[0]?.productId || source.id,
       quantity: items.reduce((sum, item) => sum + item.quantity, 0), unitPrice: 0,

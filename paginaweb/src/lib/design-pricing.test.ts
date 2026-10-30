@@ -43,6 +43,27 @@ describe("server design pricing", () => {
     expect(() => calculateDesignPriceMinor({ ...configuration, skuId: null }, {}, catalog)).toThrow(/SKU completo/);
   });
 
+  it.each([
+    ["imperial", "virola-imperial", 450_000],
+    ["torpedo", "virola-torpedo", 390_000],
+    ["camionero", "virola-camionero", 350_000],
+  ] as const)("calcula Estribo %s y rechaza otro tamaño o virola", (textureId, metalId, expected) => {
+    const estriboCatalog = { ...catalog, rules: {
+      "family:estribo": 0,
+      "tree:estribo:imperial": 4500,
+      "tree:estribo:torpedo": 3900,
+      "tree:estribo:camionero": 3500,
+    } };
+    const selected = {
+      ...configuration,
+      selection: { familyId: "estribo", textureId, colorId: "calabaza", metalId, sizeId: "medio" },
+      rim: { textMode: "none", imageMode: "none", icons: [] },
+    };
+    expect(calculateDesignPriceMinor(selected, {}, estriboCatalog).priceMinor).toBe(expected);
+    expect(() => calculateDesignPriceMinor({ ...selected, selection: { ...selected.selection, sizeId: "grande" } }, {}, estriboCatalog)).toThrow(/catálogo vigente/);
+    expect(() => calculateDesignPriceMinor({ ...selected, selection: { ...selected.selection, metalId: "plata-900" } }, {}, estriboCatalog)).toThrow(/catálogo vigente/);
+  });
+
   it.each(["marron-blanco-premium", "negro-blanco-premium", "animal-print-premium"])(
     "incluye Print / pelos para el imperial %s igual que el resumen",
     (colorId) => {

@@ -345,7 +345,7 @@ export async function consumeMainSiteHandoff(code: string) {
 
 export async function fetchPublishedPricingCatalog(): Promise<PublishedPricingCatalog> {
   if (!isSupabaseConfigured) throw new Error('Supabase no está configurado.');
-  const { data, error } = await supabase.rpc('get_published_pricing_catalog');
+  const { data, error } = await supabase.rpc('get_published_pricing_catalog_v2');
   if (error) throw error;
   if (!data || typeof data !== 'object') throw new Error('No existe un catálogo de precios publicado.');
   const input = data as Record<string, unknown>;

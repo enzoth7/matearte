@@ -385,6 +385,7 @@ button,
   --model-image-offset-y: 21px;
 }
 
+
 .selection-texture-grid--dense {
   width: min(1240px, 100%);
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -681,6 +682,14 @@ button,
   object-position: center;
   transform: translateY(var(--size-preview-offset-y)) scale(var(--size-preview-scale));
   transform-origin: center bottom;
+}
+
+.selection-size-list__media {
+  display: block;
+  width: 100%;
+  height: 239px;
+  overflow: hidden;
+  background: #f4f4f2;
 }
 
 .selection-size-list__image--torpedo-chico {
@@ -3888,16 +3897,16 @@ button,
 }
 
 .selection-page[data-stage="model"] .selection-model-grid {
-  width: min(1046px, 100%);
+  width: min(1200px, 100%);
   margin: 54px auto 0;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 236px));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   justify-content: center;
-  gap: 34px;
+  gap: 20px;
 }
 
 .selection-page[data-stage="model"] .selection-product-card {
-  width: 236px;
+  width: 100%;
   height: 342px;
   display: grid;
   grid-template-rows: 232px 50px 56px;
@@ -3927,6 +3936,11 @@ button,
   height: 100%;
   object-fit: cover;
   object-position: center 56%;
+}
+
+.selection-page[data-stage="model"] .selection-model-card__image--estribo .mate-product-photo {
+  transform: translateY(-20px) scale(1.9);
+  transform-origin: center center;
 }
 
 .selection-page[data-stage="model"] .selection-product-card__title {
@@ -4348,6 +4362,11 @@ html:has(.selection-page[data-stage="metal"])::-webkit-scrollbar {
   transform: none;
   object-fit: cover;
   object-position: center 56%;
+}
+
+.selection-page[data-stage="texture"][data-family="estribo"] .selection-texture-card__image .selection-image {
+  transform: translateY(-30px) scale(1.9);
+  transform-origin: center center;
 }
 
 .selection-page[data-stage="metal"] .selection-metal-grid .selection-image {
@@ -4998,6 +5017,8 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   .selection-page[data-stage="fleje-engraving"] .selection-product-card--engraving .selection-image {
     height: 173px;
   }
+
+  .selection-page[data-stage="size"] .selection-size-list__media { height: 173px; }
 
   .selection-page[data-stage="size"] .selection-size-list strong,
   .selection-page[data-stage="engraving"] .selection-product-card--engraving .selection-product-card__title,

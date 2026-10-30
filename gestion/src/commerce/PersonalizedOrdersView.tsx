@@ -4,10 +4,10 @@ import { createPortal } from 'react-dom';
 import { Plus } from '@phosphor-icons/react';
 import { supabase } from './supabase';
 import { INTERNAL_ORDER_CHANNELS } from '../commerceSource';
-import { balance, orderName, paid, total, type State } from '../data';
+import { balance, orderName, paid, total, type OrderLine, type Product, type State } from '../data';
 import { Badge } from '../ui';
 import { compactOrderItemName } from '../orderItemPresentation';
-import { isPersonalizedMateItem, naturalCaseName } from '../productionPresentation';
+import { naturalCaseName } from '../productionPresentation';
 import {
   asRecord,
   customerName,
@@ -22,6 +22,7 @@ import {
   summarizePersonalization,
   whatsappContactUrl,
   type PersonalizedOrder,
+  type PersonalizedOrderItem,
   type PrivateAsset,
   type SurfaceSideSummary,
 } from './personalizedOrders';
@@ -44,16 +45,36 @@ const productTypes = (order: PersonalizedOrder) => [...new Set(getPersonalizedIt
   mate: 'Mates',
   matera: 'Materas',
   bombilla: 'Bombillas',
+  service: 'Servicios',
+  aplique: 'Apliques',
 })[summarizePersonalization(item).kind]))].join(', ');
 
-function localPersonalizedOrders(state: State | undefined): PersonalizedOrder[] {
+function localWorkshopKind(item: OrderLine, product: Product | undefined): PersonalizedOrderItem['workshop_kind'] | null {
+  const category = (product?.categoryCode || product?.family || item.family || '').toLocaleLowerCase('es');
+  const name = (product?.name || item.productName || item.title).toLocaleLowerCase('es');
+  const savedKind = item.personalization?.localPersonalization && typeof item.personalization.localPersonalization === 'object'
+    ? (item.personalization.localPersonalization as Record<string, unknown>).kind : null;
+  if (savedKind === 'mate' || savedKind === 'matera' || savedKind === 'bombilla') return savedKind;
+  if (category.includes('servicio')) return /aplique/.test(name) ? 'aplique' : 'service';
+  if (category.includes('aplique')) return 'aplique';
+  if (category.includes('bombilla') || /bombill[aoó]n?\b/.test(name)) return 'bombilla';
+  if (category.includes('materas-personalizadas') || (item.personalization && /matera/.test(name))) return 'matera';
+  if (/aplique/.test(name)) return 'aplique';
+  if (/grabado/.test(name)) return 'service';
+  if (item.productionNotes && !item.personalization && !/mate\b/.test(name)) return 'service';
+  if (item.personalization || category.includes('personaliz') || /(?:personalizad|a medida)/.test(name)) return 'mate';
+  return null;
+}
+
+export function localPersonalizedOrders(state: State | undefined): PersonalizedOrder[] {
   if (!state) return [];
+  const products = new Map(state.products.map((product) => [product.id, product]));
   return state.orders.filter((order) => order.source === 'local').flatMap((order) => {
     const allItems = order.items || [];
-    const personalizedIds = new Set(allItems.filter((item) => isPersonalizedMateItem(order, item, state.products)).map(item => item.id));
-    if (!personalizedIds.size) return [];
+    const kinds = new Map(allItems.map((item) => [item.id, localWorkshopKind(item, products.get(item.productId))]));
+    if (![...kinds.values()].some(Boolean)) return [];
     const contact = state.customers.find((entry) => entry.id === order.customerId);
-    const createdAt = order.date.includes('T') ? order.date : `${order.date}T12:00:00-03:00`;
+    const createdAt = order.createdAt || (order.date.includes('T') ? order.date : `${order.date}T12:00:00-03:00`);
     return [{
       id: `local:${order.id}`,
       source: 'local' as const,
@@ -74,10 +95,11 @@ function localPersonalizedOrders(state: State | undefined): PersonalizedOrder[] 
         phone: contact?.phone || '',
       },
       order_items: allItems.map((item) => {
-        const product = state.products.find((entry) => entry.id === item.productId);
+        const product = products.get(item.productId);
         return {
           id: `local:${item.id}`,
-          item_type: personalizedIds.has(item.id) ? 'local_design' : 'catalog',
+          item_type: kinds.get(item.id) ? 'local_design' : 'catalog',
+          workshop_kind: kinds.get(item.id) || undefined,
           source_variant_id: item.productId,
           title: product?.name || naturalCaseName(compactOrderItemName(item)),
           quantity: item.quantity,
@@ -87,17 +109,7 @@ function localPersonalizedOrders(state: State | undefined): PersonalizedOrder[] 
           review_status: null,
           review_reason: null,
           production_status: item.productionStatus || null,
-          immutable_snapshot: item.personalization || (personalizedIds.has(item.id) ? {
-            configuration: {
-              selectionLabels: {
-                family: product?.name || naturalCaseName(compactOrderItemName(item)),
-                color: product?.variant || item.variant,
-                metal: product?.rim || item.rim,
-              },
-              capabilities: { hasFleje: false },
-              rim: {},
-            },
-          } : {}),
+          immutable_snapshot: { ...(item.personalization || {}), ...(item.productionNotes ? { productionNotes: item.productionNotes } : {}) },
         };
       }),
     }];
@@ -263,7 +275,7 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
   const selectedItems = useMemo(() => selected ? getPersonalizedItems(selected) : [], [selected]);
   const itemSummaries = useMemo(() => selectedItems.map((item) => ({ item, summary: summarizePersonalization(item) })), [selectedItems]);
   const files = useMemo(() => [...new Map(itemSummaries.flatMap(({ summary }) => summary.files).map((asset) => [asset.key, asset])).values()], [itemSummaries]);
-  const previewCount = itemSummaries.reduce((total, { item, summary }) => { const c = asRecord(asRecord(item.immutable_snapshot).configuration); const caps = asRecord(c.capabilities); return total + (summary.previews.length || (c.rim ? (caps.hasRim === false ? 0 : 1) + (caps.hasFleje ? 2 : 0) : 0)); }, 0);
+  const previewCount = itemSummaries.reduce((total, { item, summary }) => { if (summary.kind !== 'mate') return total + summary.previews.length; const c = asRecord(asRecord(item.immutable_snapshot).configuration); const caps = asRecord(c.capabilities); return total + (summary.previews.length || (c.rim ? (caps.hasRim === false ? 0 : 1) + (caps.hasFleje ? 2 : 0) : 0)); }, 0);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -313,6 +325,7 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
     const catalog = state?.products.find((product) => product.id === item.source_variant_id);
     return naturalCaseName(compactOrderItemName({ title: item.title })) || catalog?.name || 'Artículo';
   };
+  const itemPhoto = (item: PersonalizedOrderItem) => state?.products.find((product) => product.id === item.source_variant_id)?.imageUrl;
 
   if (loading) return <div className="loading-inline">Cargando pedidos personalizados…</div>;
 
@@ -374,7 +387,7 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
                 <h4>Desglose del pedido</h4>
                 {selected.order_items.map(item => {
                   const summary = itemSummaries.find(entry => entry.item.id === item.id)?.summary;
-                  const details = summary ? [summary.mate.color, summary.kind === 'mate' ? summary.mate.size : '', summary.kind === 'mate' ? summary.mate.interior : ''].filter(Boolean).join(' · ') : '';
+                  const details = summary ? [summary.mate.color, summary.kind === 'mate' ? summary.mate.size : '', summary.kind === 'mate' ? summary.mate.interior : ''].filter((value) => value && value !== 'No especificado' && value !== 'No especificada').join(' · ') : '';
                   const price = personalizedItemPriceDetail(item);
                   return <section className="personalized-price-item" key={item.id} aria-label={`Importes de ${itemTitle(item)}`}>
                     <div className="personalized-price-item-head">
@@ -389,7 +402,7 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
                         <td><span className="personalized-price-mobile-label">Total</span>{money(line.totalMinor,selected.currency)}</td>
                       </tr>)}</tbody>
                     </table>
-                    {price.notice && <p className="personalized-price-notice">{price.notice}</p>}
+                    {price.notice && <p className="personalized-price-notice">{summary?.kind === 'service' || summary?.kind === 'aplique' ? 'Se muestra el importe cobrado por este trabajo.' : price.notice}</p>}
                   </section>;
                 })}
                 {selectedTotals && <div className="personalized-order-totals" aria-label="Totales del pedido">
@@ -413,24 +426,30 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
             {itemSummaries.map(({ item, summary }) => (
               <section className="personalized-item" key={item.id}>
                 <div className="personalized-item-head"><h3>{itemTitle(item)}</h3><strong>{item.quantity} {item.quantity === 1 ? 'unidad' : 'unidades'}</strong></div>
+                {summary.instructions && <section className="personalization-card workshop-instructions" aria-label={`Indicaciones de ${itemTitle(item)}`}>
+                  <h4>Indicaciones para el taller</h4>
+                  <p>{summary.instructions}</p>
+                </section>}
 
                 <section className="design-artifact-group" aria-label={`Archivos de ${itemTitle(item)}`}>
-                  <div className="artifact-subheading"><strong>Vistas del diseño</strong></div>
+                  <div className="artifact-subheading"><strong>{summary.kind === 'mate' ? 'Vistas del diseño' : 'Referencias del trabajo'}</strong></div>
                   {summary.previews.length
-                    ? <div className={asRecord(item.immutable_snapshot).source === "local" ? "local-production-views" : "customer-assets"}>{summary.previews.map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}</div>
-                    : asRecord(item.immutable_snapshot).configuration ? <RecoveredDesignViews snapshot={item.immutable_snapshot} /> : <div className="empty-files">Vista final no disponible. Revisá las indicaciones escritas de la personalización.</div>}
-                  <div className="artifact-subheading originals"><strong>Originales subidos por el cliente</strong><small>{summary.uploads.length ? `${summary.uploads.length} ${summary.uploads.length === 1 ? 'archivo' : 'archivos'}` : 'Sin archivos externos'}</small></div>
+                    ? <div className="customer-assets">{summary.previews.map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}</div>
+                    : summary.kind === 'mate' && asRecord(item.immutable_snapshot).configuration ? <RecoveredDesignViews snapshot={item.immutable_snapshot} uniformGrid />
+                      : itemPhoto(item) ? <div className="workshop-product-reference"><img src={itemPhoto(item)} alt={`Referencia del producto: ${itemTitle(item)}`} /><small>Foto del producto de catálogo · el trabajo solicitado se detalla abajo</small></div>
+                        : <div className="empty-files">Este pedido no tiene una vista final guardada. Los datos del trabajo están debajo.</div>}
+                  <div className="artifact-subheading originals"><strong>Archivos originales</strong><small>{summary.uploads.length ? `${summary.uploads.length} ${summary.uploads.length === 1 ? 'archivo' : 'archivos'}` : 'Sin archivos externos'}</small></div>
                   {summary.uploads.length
                     ? <div className="customer-assets customer-assets--uploads">{summary.uploads.map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}</div>
-                    : <div className="empty-files">El diseño usa texto o íconos del catálogo; el cliente no subió archivos originales.</div>}
+                    : <div className="empty-files">No hay archivos originales adjuntos a este trabajo.</div>}
                 </section>
 
                 <dl className="mate-specs">
-                  <div><dt>Modelo</dt><dd>{summary.mate.model}</dd></div>
+                  <div><dt>{summary.kind === 'service' || summary.kind === 'aplique' ? 'Trabajo' : 'Modelo'}</dt><dd>{summary.kind === 'mate' ? summary.mate.model : itemTitle(item)}</dd></div>
                   {summary.kind === 'mate' && <div><dt>Tamaño</dt><dd>{summary.mate.size}</dd></div>}
                   {summary.kind === 'mate' && summary.mate.interior && <div><dt>Interior</dt><dd>{summary.mate.interior}</dd></div>}
-                  <div><dt>Color</dt><dd>{summary.mate.color}</dd></div>
-                  <div><dt>{summary.kind === 'bombilla' ? 'Material' : 'Terminación'}</dt><dd>{summary.mate.texture}</dd></div>
+                  {summary.mate.color !== 'No especificado' && <div><dt>Color</dt><dd>{summary.mate.color}</dd></div>}
+                  {summary.mate.texture !== 'No especificada' && <div><dt>{summary.kind === 'bombilla' ? 'Material' : 'Terminación'}</dt><dd>{summary.mate.texture}</dd></div>}
                   {summary.kind === 'mate' && <div><dt>Virola</dt><dd>{summary.mate.metal}</dd></div>}
                   {summary.kind === 'mate' && Object.entries(summary.mate.characteristics).filter(([code]) => !['tamano','interior','tipo-cuero','material-mate','tipo-virola','color'].includes(code)).map(([code, value]) => <div key={code}><dt>{catalogAttributeLabel(defaultCatalogTaxonomy, code)}</dt><dd>{value}</dd></div>)}
                 </dl>
@@ -445,7 +464,7 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
                       <div><dt>Logo</dt><dd>{summary.matera.logo || <div className="muted-value">Ninguno</div>}</dd></div>
                     </dl>
                   </SpecCard>
-                </div> : <div className="surface-grid">
+                </div> : summary.kind === 'mate' ? <div className="surface-grid">
                   <SpecCard title="Así quiere la virola" personalized={summary.rim.personalized}>
                     <dl className="compact-specs">
                       <div><dt>Técnica</dt><dd>{summary.rim.technique}</dd></div>
@@ -464,8 +483,12 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
                       <div className="fleje-sides"><SurfaceSide title="Frente" side={summary.fleje.front} /><SurfaceSide title="Reverso" side={summary.fleje.back} /></div>
                     </SpecCard>
                   ) : <section className="personalization-card unavailable"><h4>Fleje</h4><div>Este modelo no lleva fleje.</div></section>}
+                </div> : <div className="surface-grid surface-grid--single">
+                  <section className="personalization-card">
+                    <div className="personalization-card-head"><h4>{summary.kind === 'aplique' ? 'Detalle del aplique' : 'Detalle del servicio'}</h4></div>
+                    <dl className="compact-specs"><div><dt>Trabajo solicitado</dt><dd>{itemTitle(item)}</dd></div></dl>
+                  </section>
                 </div>}
-                {summary.instructions && <section className="personalization-card"><h4>Indicaciones para el taller</h4><p>{summary.instructions}</p></section>}
               </section>
             ))}
             </section>

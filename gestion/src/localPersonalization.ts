@@ -249,7 +249,6 @@ export function buildLocalPersonalizationSnapshot(
       configuration: {
         selectionLabels: { family: product.name, color: product.variant, texture: product.leather, metal: product.rim, size: optionText(product, "tamaño", "tamano", "size") },
         capabilities: { hasFleje: false },
-        rim: {},
       },
     };
   }
@@ -273,7 +272,6 @@ export function buildLocalPersonalizationSnapshot(
       configuration: {
         selectionLabels: { family: product.name, color: product.variant, texture: product.leather, metal: product.rim, size: optionText(product, "tamaño", "tamano", "size") },
         capabilities: { hasFleje: false },
-        rim: {},
       },
     };
   }

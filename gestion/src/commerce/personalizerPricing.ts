@@ -29,6 +29,7 @@ const families = [
   { id: 'imperial', title: 'Imperial' },
   { id: 'torpedo', title: 'Torpedo' },
   { id: 'criollo', title: 'Criollo' },
+  { id: 'estribo', title: 'Estribo' },
 ];
 const techniques = [
   { id: 'laser', title: 'Grabado láser' },

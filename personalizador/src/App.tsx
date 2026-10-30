@@ -1008,7 +1008,7 @@ function PersonalizerApp() {
   const handleSelectionContinue = () => {
     const next: Record<MateSelectionStage, MateSelectionStage | null> = {
       model: "texture",
-      texture: shouldAskForMetal(selection) ? "metal" : "size",
+      texture: selection.familyId === "estribo" ? "engraving" : shouldAskForMetal(selection) ? "metal" : "size",
       metal: "size",
       size: "engraving",
       engraving: getSelectedTexture(selection)?.capabilities.hasFleje ? "fleje-engraving" : null,

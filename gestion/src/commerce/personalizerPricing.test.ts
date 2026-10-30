@@ -47,4 +47,13 @@ describe('configuración de precios del Personalizador en Gestión', () => {
     expect(groups.flatMap((group) => group.definitions.map((definition) => definition.rule_key)).sort()).toEqual(definitions.map((definition) => definition.rule_key).sort());
     expect(groups.find((group) => group.id === 'otras-reglas')?.definitions[0].rule_key).toBe('new:rule');
   });
+
+  it('agrupa los tres precios editables de Estribo', () => {
+    const base = parsePricingState(payload).definitions[0];
+    const definitions = ['imperial', 'torpedo', 'camionero'].map((texture, index) => ({
+      ...base, rule_key: `tree:estribo:${texture}`, label: `Estribo ${texture}`,
+      family_id: 'estribo', texture_id: texture, rule_type: 'texture' as const, sort_order: 45100 + index,
+    }));
+    expect(groupPersonalizerPricingDefinitions(definitions).find((group) => group.id === 'estribo')?.definitions).toEqual(definitions);
+  });
 });

@@ -15,6 +15,7 @@ export type PersonalizedOrderItem = {
   review_status: string | null;
   review_reason: string | null;
   production_status?: string | null;
+  workshop_kind?: 'mate' | 'matera' | 'bombilla' | 'service' | 'aplique';
   immutable_snapshot: JsonRecord;
 };
 
@@ -147,7 +148,7 @@ export type SurfaceSideSummary = {
 };
 
 export type PersonalizationSummary = {
-  kind: 'mate' | 'matera' | 'bombilla';
+  kind: 'mate' | 'matera' | 'bombilla' | 'service' | 'aplique';
   instructions: string;
   mate: {
     model: string;
@@ -366,7 +367,7 @@ export function summarizePersonalization(item: PersonalizedOrderItem): Personali
   const snapshot = asRecord(item.immutable_snapshot);
   const localPersonalization = asRecord(snapshot.localPersonalization);
   const localKind = asString(localPersonalization.kind);
-  const kind = localKind === 'matera' || localKind === 'bombilla' ? localKind : 'mate';
+  const kind = localKind === 'matera' || localKind === 'bombilla' || localKind === 'mate' ? localKind : item.workshop_kind || 'mate';
   const configuration = asRecord(snapshot.configuration);
   const labels = asRecord(configuration.selectionLabels);
   const rim = asRecord(configuration.rim);
@@ -387,10 +388,10 @@ export function summarizePersonalization(item: PersonalizedOrderItem): Personali
   const rimTechnique = asString(labels.engraving) || humanizeId(configuration.engravingTypeId);
   const flejeTechnique = humanizeId(configuration.flejeEngravingTypeId || configuration.engravingTypeId);
 
-  const files = collectPrivateAssets(snapshot);
+  const files = collectPrivateAssets(snapshot).filter((file) => kind === 'mate' || file.kind === 'upload');
   return {
     kind,
-    instructions: asString(localPersonalization.instructions),
+    instructions: asString(localPersonalization.instructions) || asString(snapshot.productionNotes),
     mate: {
       model: asString(labels.family) || humanizeId(configuration.modelId) || item.title,
       size: asString(labels.size) || humanizeId(configuration.size),
@@ -429,7 +430,7 @@ export function summarizePersonalization(item: PersonalizedOrderItem): Personali
 }
 
 export function getPersonalizedItems(order: PersonalizedOrder): PersonalizedOrderItem[] {
-  return (order.order_items || []).filter((item) => item.requires_review || item.item_type === 'design' || item.item_type === 'local_design');
+  return (order.order_items || []).filter((item) => item.requires_review || item.item_type === 'design' || item.item_type === 'local_design' || Boolean(item.workshop_kind));
 }
 
 export function customerName(snapshotValue: unknown): string {
@@ -457,7 +458,7 @@ export function whatsappContactUrl(snapshotValue: unknown, orderNumber: number |
   if (!phone) return '';
   const firstName = customerName(snapshotValue).split(/\s+/)[0];
   const reference = String(orderNumber).startsWith('#') ? String(orderNumber) : `#${orderNumber}`;
-  const message = `Hola ${firstName}, te escribimos de MateArte por tu pedido ${reference}. Necesitamos confirmar un detalle de tu diseño de mate. ¿Podés ayudarnos con la virola o el fleje?`;
+  const message = `Hola ${firstName}, te escribimos de MateArte por tu pedido ${reference}. Necesitamos confirmar un detalle del trabajo solicitado. ¿Podés ayudarnos?`;
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 }
 

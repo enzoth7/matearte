@@ -141,6 +141,25 @@ describe('summarizePersonalization', () => {
     expect(summary.kind).toBe('matera');
     expect(summary.matera).toMatchObject({ technique: 'Láser', content: 'Logo', placement: 'Frente y tapa', logo: 'marca.svg' });
   });
+
+  it('ignora una falsa vista de virola guardada en una bombilla y conserva sus instrucciones', () => {
+    const summary = summarizePersonalization(item({
+      source: 'local',
+      localPersonalization: { kind: 'bombilla', techniqueLabel: 'Aplique de bronce', text: '13', placementLabel: 'Cuerpo', instructions: 'Letra chica' },
+      configuration: { rim: {}, capabilities: { hasFleje: false } },
+      previews: [{ role: 'virola', bucket_id: 'order-assets', object_path: 'local-sales/old/virola.png', mime_type: 'image/png' }],
+    }));
+    expect(summary.kind).toBe('bombilla');
+    expect(summary.previews).toEqual([]);
+    expect(summary.instructions).toBe('Letra chica');
+    expect(summary.matera).toMatchObject({ technique: 'Aplique de bronce', text: '13', placement: 'Cuerpo' });
+  });
+
+  it('muestra las notas guardadas para un servicio de taller', () => {
+    const summary = summarizePersonalization({ ...item({ productionNotes: 'Grabar las iniciales al frente' }), workshop_kind: 'service' });
+    expect(summary.kind).toBe('service');
+    expect(summary.instructions).toBe('Grabar las iniciales al frente');
+  });
 });
 
 describe('archivos privados', () => {

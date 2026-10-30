@@ -2,9 +2,11 @@ import {
   engravingTypeLabels, engravingTypeOptions, getEngravingCapabilities, mateDecisionCatalog,
   type EngravingTypeId,
 } from './mateDecisionCatalog';
+import { parseCatalogImageCrop } from './catalogImageCrop';
+import { setPublishedSizePreview, type SizePreviewKind } from '../components/mateSizePreviewImages';
 
 type Entry = Record<string, unknown>;
-type Document = Partial<Record<'families' | 'textures' | 'colors' | 'metals' | 'techniques', Record<string, Entry>>>;
+type Document = Partial<Record<'families' | 'textures' | 'colors' | 'metals' | 'techniques' | 'sizes', Record<string, Entry>>>;
 const techniqueIds: EngravingTypeId[] = ['laser', 'bronze-applique', 'alpaca-applique'];
 const key = (...parts: string[]) => parts.join('::');
 const entry = (document: Document, section: keyof Document, id: string): Entry => document[section]?.[id] ?? {};
@@ -23,6 +25,7 @@ export function applyPublishedCatalog(document: unknown) {
     family.label = string(familyPatch.label) ?? family.label;
     family.description = string(familyPatch.description) ?? family.description;
     family.previewImage = string(familyPatch.image) ?? family.previewImage;
+    family.previewCrop = parseCatalogImageCrop(familyPatch.imageCrop);
     family.enabled = enabled(familyPatch.enabled) ?? family.enabled;
     for (const texture of family.textures) {
       const texturePatch = entry(config, 'textures', key(family.id, texture.id));
@@ -30,6 +33,7 @@ export function applyPublishedCatalog(document: unknown) {
       texture.label = string(texturePatch.label) ?? texture.label;
       texture.description = string(texturePatch.description) ?? texture.description;
       texture.previewImage = string(texturePatch.image) ?? texture.previewImage;
+      texture.previewCrop = parseCatalogImageCrop(texturePatch.imageCrop);
       texture.enabled = enabled(texturePatch.enabled) ?? texture.enabled;
       if (texturePatch.virola || texturePatch.fleje) {
         texture.engravingCapabilities = {
@@ -45,11 +49,14 @@ export function applyPublishedCatalog(document: unknown) {
         if (string(patch.image)) {
           texture.colorPreviewImages = { ...texture.colorPreviewImages, [color.id]: string(patch.image)! };
         }
+        const colorCrop = parseCatalogImageCrop(patch.imageCrop);
+        if (colorCrop) texture.colorPreviewCrops = { ...texture.colorPreviewCrops, [color.id]: colorCrop };
       }
       for (const metal of texture.metals) {
         const patch = entry(config, 'metals', key(family.id, texture.id, metal.id));
         metal.label = string(patch.label) ?? metal.label;
         metal.previewImage = string(patch.image) ?? metal.previewImage;
+        metal.previewCrop = parseCatalogImageCrop(patch.imageCrop);
         metal.enabled = enabled(patch.enabled) ?? metal.enabled;
       }
     }
@@ -59,9 +66,18 @@ export function applyPublishedCatalog(document: unknown) {
     option.label = string(patch.label) ?? option.label;
     option.description = string(patch.description) ?? option.description;
     option.image = string(patch.image) ?? option.image;
+    option.imageCrop = parseCatalogImageCrop(patch.imageCrop);
     option.flejeImage = string(patch.flejeImage) ?? option.flejeImage;
+    option.flejeImageCrop = parseCatalogImageCrop(patch.flejeImageCrop);
     option.torpedoImage = string(patch.torpedoImage) ?? option.torpedoImage;
+    option.torpedoImageCrop = parseCatalogImageCrop(patch.torpedoImageCrop);
     option.enabled = enabled(patch.enabled) ?? option.enabled;
     engravingTypeLabels[option.id] = option.label;
+  }
+  for (const kind of ['standard', 'torpedo'] as SizePreviewKind[]) {
+    for (const size of ['chico', 'medio', 'grande'] as const) {
+      const patch = entry(config, 'sizes', key(kind, size));
+      setPublishedSizePreview(kind, size, string(patch.image), parseCatalogImageCrop(patch.imageCrop));
+    }
   }
 }

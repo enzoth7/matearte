@@ -7,6 +7,10 @@ const CURRENT_VALUES: Record<string, number> = {
   "family:imperial": 2600,
   "family:torpedo": 1800,
   "family:criollo": 0,
+  "family:estribo": 0,
+  "tree:estribo:imperial": 4500,
+  "tree:estribo:torpedo": 3900,
+  "tree:estribo:camionero": 3500,
   "tree:imperial:cincelado-premium": 3000,
   "metal:plata-900": 17500,
   "tree:criollo:torpedo-criollo-posa-mate": 1300,
@@ -44,6 +48,14 @@ function selection(familyId: MateFamilyId, textureId: string, colorId: string, m
 }
 
 describe("reglas canónicas de precios", () => {
+  it.each([
+    ["imperial", "virola-imperial", 4500],
+    ["torpedo", "virola-torpedo", 3900],
+    ["camionero", "virola-camionero", 3500],
+  ] as const)("cobra el precio base de Estribo %s", (textureId, metalId, expected) => {
+    expect(getSelectionPricing(catalog, selection("estribo", textureId, "calabaza", metalId))?.totalUYU).toBe(expected);
+  });
+
   it("mantiene sincronizada la lista activa con los valores iniciales de la migración", () => {
     expect(new Set(getActivePricingRuleKeys())).toEqual(new Set(Object.keys(CURRENT_VALUES)));
   });

@@ -13,6 +13,8 @@ type ProductCoverEditorProps = {
   busy: boolean;
   onCancel: () => void;
   onSave: (crop: ProductCoverCrop) => void;
+  eyebrow?: string;
+  saveLabel?: string;
 };
 
 const clamp = (value: number, minimum: number, maximum: number) => Math.min(maximum, Math.max(minimum, value));
@@ -27,9 +29,9 @@ function cropLimits(imageRatio: number, zoom: number) {
   };
 }
 
-export function ProductCoverEditor({ imageUrl, imageAlt, initialCrop, busy, onCancel, onSave }: ProductCoverEditorProps) {
+export function ProductCoverEditor({ imageUrl, imageAlt, initialCrop, busy, onCancel, onSave, eyebrow = 'Portada del catálogo', saveLabel = 'Guardar portada' }: ProductCoverEditorProps) {
   const [crop, setCrop] = useState(initialCrop);
-  const [imageRatio, setImageRatio] = useState(1);
+  const [imageRatio, setImageRatio] = useState<number | null>(null);
   const dragStart = useRef<{ pointerX: number; pointerY: number; cropX: number; cropY: number } | null>(null);
 
   useEffect(() => {
@@ -46,6 +48,7 @@ export function ProductCoverEditor({ imageUrl, imageAlt, initialCrop, busy, onCa
   }, [busy, onCancel]);
 
   useEffect(() => {
+    if (imageRatio === null) return;
     const limits = cropLimits(imageRatio, crop.zoom);
     setCrop(current => ({ ...current, x: clamp(current.x, -limits.x, limits.x), y: clamp(current.y, -limits.y, limits.y) }));
   }, [imageRatio, crop.zoom]);
@@ -58,7 +61,7 @@ export function ProductCoverEditor({ imageUrl, imageAlt, initialCrop, busy, onCa
   const drag = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!dragStart.current) return;
     const bounds = event.currentTarget.getBoundingClientRect();
-    const limits = cropLimits(imageRatio, crop.zoom);
+    const limits = cropLimits(imageRatio ?? 1, crop.zoom);
     setCrop(current => ({
       ...current,
       x: clamp(dragStart.current!.cropX + ((event.clientX - dragStart.current!.pointerX) / (bounds.width || 1)) * 100, -limits.x, limits.x),
@@ -76,7 +79,7 @@ export function ProductCoverEditor({ imageUrl, imageAlt, initialCrop, busy, onCa
       <section className="cover-editor" role="dialog" aria-modal="true" aria-labelledby="cover-editor-title">
         <div className="cover-editor-heading">
           <div>
-            <div className="eyebrow">Portada del catálogo</div>
+            <div className="eyebrow">{eyebrow}</div>
             <h3 id="cover-editor-title">Ajustá el encuadre</h3>
           </div>
           <button className="cover-editor-close" type="button" onClick={onCancel} disabled={busy} aria-label="Cerrar editor">×</button>
@@ -86,7 +89,7 @@ export function ProductCoverEditor({ imageUrl, imageAlt, initialCrop, busy, onCa
 
         <div
           className="cover-editor-stage"
-          style={{ aspectRatio: imageRatio, width: `min(28rem, ${55 * imageRatio}vh, 100%)` }}
+          style={{ aspectRatio: imageRatio ?? 1, width: `min(28rem, ${55 * (imageRatio ?? 1)}vh, 100%)` }}
           onPointerDown={startDrag}
           onPointerMove={drag}
           onPointerUp={stopDrag}
@@ -102,7 +105,7 @@ export function ProductCoverEditor({ imageUrl, imageAlt, initialCrop, busy, onCa
             }}
             style={{ transform: `translate(${crop.x}%, ${crop.y}%) scale(${crop.zoom})` }}
           />
-          <div className={`cover-editor-guide ${imageRatio >= 1 ? 'cover-editor-guide--landscape' : 'cover-editor-guide--portrait'}`} aria-hidden="true" />
+          <div className={`cover-editor-guide ${(imageRatio ?? 1) >= 1 ? 'cover-editor-guide--landscape' : 'cover-editor-guide--portrait'}`} aria-hidden="true" />
         </div>
 
         <label className="cover-editor-zoom">
@@ -115,7 +118,7 @@ export function ProductCoverEditor({ imageUrl, imageAlt, initialCrop, busy, onCa
             value={crop.zoom}
             onChange={event => {
               const zoom = Number(event.target.value);
-              const limits = cropLimits(imageRatio, zoom);
+              const limits = cropLimits(imageRatio ?? 1, zoom);
               setCrop(current => ({
                 zoom,
                 x: clamp(current.x, -limits.x, limits.x),
@@ -130,7 +133,7 @@ export function ProductCoverEditor({ imageUrl, imageAlt, initialCrop, busy, onCa
           <button className="cover-editor-reset" type="button" disabled={busy} onClick={() => setCrop({ x: 0, y: 0, zoom: 1 })}>Restablecer</button>
           <div>
             <button className="cover-editor-cancel" type="button" disabled={busy} onClick={onCancel}>Cancelar</button>
-            <button type="button" disabled={busy} onClick={() => onSave(crop)}>{busy ? 'Guardando…' : 'Guardar portada'}</button>
+            <button type="button" disabled={busy} onClick={() => onSave(crop)}>{busy ? 'Guardando…' : saveLabel}</button>
           </div>
         </div>
       </section>

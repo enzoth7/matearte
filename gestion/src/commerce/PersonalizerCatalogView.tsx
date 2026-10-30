@@ -11,7 +11,8 @@ import {
   getEngravingCapabilities,
   mateDecisionCatalog,
 } from "../../../personalizador/src/catalog/mateDecisionCatalog";
-import { getVariantDefinition } from "../../../personalizador/src/catalog/mateCatalog";
+import { getVariantDefinition, type MateSize } from "../../../personalizador/src/catalog/mateCatalog";
+import { getSizePreviewImage, type SizePreviewKind } from "../../../personalizador/src/components/mateSizePreviewImages";
 import {
   loadPersonalizerCatalog,
   publishPersonalizerCatalogDraft,
@@ -22,11 +23,22 @@ import {
   type CatalogPatch,
   type CatalogSection,
 } from "./personalizerCatalog";
+import { catalogImageCropStyle, type CatalogImageCrop } from "../../../personalizador/src/catalog/catalogImageCrop";
+import { ProductCoverEditor } from "./ProductCoverEditor";
 
 const uniqueOptions = <T extends { id: string }>(options: T[]): T[] =>
   options.filter((option, index) => options.findIndex((candidate) => candidate.id === option.id) === index);
 const catalogFamilies = uniqueOptions(mateDecisionCatalog);
 const catalogTechniques = uniqueOptions(engravingTypeOptions);
+const sizePreviewGroups: { kind: SizePreviewKind; title: string }[] = [
+  { kind: "standard", title: "Boca del mate" },
+  { kind: "torpedo", title: "Mate Torpedo" },
+];
+const sizeLabels: { size: MateSize; label: string }[] = [
+  { size: "chico", label: "Boca chica" },
+  { size: "medio", label: "Boca mediana" },
+  { size: "grande", label: "Boca grande" },
+];
 const techniqueIds = catalogTechniques.map((option) => option.id);
 const entryKey = (...parts: string[]) => parts.join("::");
 const effective = (
@@ -107,12 +119,16 @@ function ImageEditor({
   busy,
   eager = false,
   onUpload,
+  crop,
+  onAdjust,
 }: {
   label: string;
   src?: string;
   busy: boolean;
   eager?: boolean;
   onUpload: (file: File) => void;
+  crop?: CatalogImageCrop;
+  onAdjust: (imageUrl: string) => void;
 }) {
   const [loadedSrc, setLoadedSrc] = useState("");
   const [failedSrc, setFailedSrc] = useState("");
@@ -127,26 +143,33 @@ function ImageEditor({
         {previewUrl ? (
           <>
             {!imageLoaded && <div className="personalizer-catalog__image-state">{imageFailed ? "No se pudo cargar la foto" : "Cargando foto…"}</div>}
-            <img src={previewUrl} alt={label} loading={eager ? "eager" : "lazy"} onLoad={() => setLoadedSrc(previewUrl)} onError={() => setFailedSrc(previewUrl)} />
+            <img src={previewUrl} alt={label} style={catalogImageCropStyle(crop)} loading={eager ? "eager" : "lazy"} onLoad={() => setLoadedSrc(previewUrl)} onError={() => setFailedSrc(previewUrl)} />
           </>
         ) : (
           <><ImageSquare size={28} aria-hidden="true" /><div className="personalizer-catalog__image-state">Sin foto</div></>
         )}
       </div>
-      <label className="personalizer-catalog__upload">
-        <ImageSquare size={17} aria-hidden="true" />{" "}
-        {busy ? "Subiendo…" : src ? "Cambiar foto" : "Agregar foto"}
-        <input
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          disabled={busy}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) onUpload(file);
-            event.currentTarget.value = "";
-          }}
-        />
-      </label>
+      <div className="personalizer-catalog__image-actions">
+        <label className="personalizer-catalog__upload">
+          <ImageSquare size={17} aria-hidden="true" />{" "}
+          {busy ? "Subiendo…" : src ? "Cambiar foto" : "Agregar foto"}
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            disabled={busy}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) onUpload(file);
+              event.currentTarget.value = "";
+            }}
+          />
+        </label>
+        {previewUrl && (
+          <button type="button" className="personalizer-catalog__adjust" disabled={busy || imageFailed} onClick={() => onAdjust(previewUrl)}>
+            Ajustar foto
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -164,6 +187,7 @@ export function PersonalizerCatalogView({ section }: { section: "models" | "tech
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [confirmPublish, setConfirmPublish] = useState(false);
+  const [cropTarget, setCropTarget] = useState<{ kind: CatalogSection; key: string; field: "imageCrop" | "flejeImageCrop" | "torpedoImageCrop"; imageUrl: string; label: string } | null>(null);
 
   const applyState = (next: CatalogAdminState) => {
     setState(next);
@@ -205,7 +229,7 @@ export function PersonalizerCatalogView({ section }: { section: "models" | "tech
     kind: CatalogSection,
     key: string,
     field: keyof CatalogPatch,
-    value: string | boolean | string[],
+    value: string | boolean | string[] | CatalogImageCrop | undefined,
   ) => {
     setDocument((current) => ({
       ...current,
@@ -229,6 +253,7 @@ export function PersonalizerCatalogView({ section }: { section: "models" | "tech
     setError("");
     try {
       change(kind, key, field, await uploadPersonalizerCatalogImage(file));
+      change(kind, key, field === "image" ? "imageCrop" : field === "flejeImage" ? "flejeImageCrop" : "torpedoImageCrop", undefined);
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
@@ -424,6 +449,8 @@ export function PersonalizerCatalogView({ section }: { section: "models" | "tech
               <ImageEditor
                 label={`Mate ${family.label}`}
                 eager
+                crop={effective(document, "families", family.id).imageCrop}
+                onAdjust={(imageUrl) => setCropTarget({ kind: "families", key: family.id, field: "imageCrop", imageUrl, label: `Mate ${family.label}` })}
                 src={
                   effective(document, "families", family.id).image ??
                   getVariantDefinition(family.representativeVariantId)?.image
@@ -487,6 +514,8 @@ export function PersonalizerCatalogView({ section }: { section: "models" | "tech
               <ImageEditor
                 label={texture.label}
                 eager
+                crop={effective(document, "textures", textureKey).imageCrop}
+                onAdjust={(imageUrl) => setCropTarget({ kind: "textures", key: textureKey, field: "imageCrop", imageUrl, label: texture.label })}
                 src={
                   effective(document, "textures", textureKey).image ??
                   texture.previewImage ??
@@ -562,6 +591,8 @@ export function PersonalizerCatalogView({ section }: { section: "models" | "tech
                     </div>
                     <ImageEditor
                       label={`${texture.label} ${color.label}`}
+                      crop={patch.imageCrop}
+                      onAdjust={(imageUrl) => setCropTarget({ kind: "colors", key, field: "imageCrop", imageUrl, label: `${texture.label} ${color.label}` })}
                       src={
                         patch.image ??
                         texture.colorPreviewImages?.[color.id] ??
@@ -606,6 +637,8 @@ export function PersonalizerCatalogView({ section }: { section: "models" | "tech
                     </label>
                     <ImageEditor
                       label={metal.label}
+                      crop={patch.imageCrop}
+                      onAdjust={(imageUrl) => setCropTarget({ kind: "metals", key, field: "imageCrop", imageUrl, label: metal.label })}
                       src={patch.image ?? metal.previewImage}
                       busy={uploading === `metals:${key}:image`}
                       onUpload={(file) =>
@@ -623,6 +656,36 @@ export function PersonalizerCatalogView({ section }: { section: "models" | "tech
                   </article>
                 );
               })}
+            </div>
+          </div>
+          <div className="personalizer-catalog__block">
+            <div className="personalizer-catalog__block-heading"><h3>Fotos de tamaños</h3></div>
+            <div className="personalizer-catalog__size-groups">
+              {sizePreviewGroups.map(({ kind, title }) => (
+                <section key={kind} className="personalizer-catalog__size-group" aria-label={title}>
+                  <h4>{title}</h4>
+                  <div className="personalizer-catalog__size-grid">
+                    {sizeLabels.map(({ size, label }) => {
+                      const key = entryKey(kind, size);
+                      const patch = effective(document, "sizes", key);
+                      const baseline = getSizePreviewImage(kind, size);
+                      return (
+                        <article key={key} className="personalizer-catalog__size-card">
+                          <h5>{label}</h5>
+                          <ImageEditor
+                            label={`${title}: ${label}`}
+                            src={patch.image ?? baseline.src}
+                            crop={patch.imageCrop}
+                            busy={uploading === `sizes:${key}:image`}
+                            onUpload={(file) => void upload("sizes", key, "image", file)}
+                            onAdjust={(imageUrl) => setCropTarget({ kind: "sizes", key, field: "imageCrop", imageUrl, label: `${title}: ${label}` })}
+                          />
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
             </div>
           </div>
         </>
@@ -661,6 +724,8 @@ export function PersonalizerCatalogView({ section }: { section: "models" | "tech
                     </div>
                     <ImageEditor
                       label={technique.label}
+                      crop={patch.imageCrop}
+                      onAdjust={(imageUrl) => setCropTarget({ kind: "techniques", key: technique.id, field: "imageCrop", imageUrl, label: technique.label })}
                       src={patch.image ?? technique.image}
                       busy={uploading === `techniques:${technique.id}:image`}
                       onUpload={(file) =>
@@ -700,6 +765,8 @@ export function PersonalizerCatalogView({ section }: { section: "models" | "tech
                     {technique.flejeImage && (
                       <ImageEditor
                         label={`${technique.label} en fleje`}
+                        crop={patch.flejeImageCrop}
+                        onAdjust={(imageUrl) => setCropTarget({ kind: "techniques", key: technique.id, field: "flejeImageCrop", imageUrl, label: `${technique.label} en fleje` })}
                         src={patch.flejeImage ?? technique.flejeImage}
                         busy={
                           uploading === `techniques:${technique.id}:flejeImage`
@@ -717,6 +784,8 @@ export function PersonalizerCatalogView({ section }: { section: "models" | "tech
                     {technique.torpedoImage && (
                       <ImageEditor
                         label={`${technique.label} en torpedo`}
+                        crop={patch.torpedoImageCrop}
+                        onAdjust={(imageUrl) => setCropTarget({ kind: "techniques", key: technique.id, field: "torpedoImageCrop", imageUrl, label: `${technique.label} en torpedo` })}
                         src={patch.torpedoImage ?? technique.torpedoImage}
                         busy={
                           uploading ===
@@ -837,6 +906,17 @@ export function PersonalizerCatalogView({ section }: { section: "models" | "tech
           </div>
         </div>
       )}
+      {cropTarget && <ProductCoverEditor
+        key={`${cropTarget.kind}:${cropTarget.key}:${cropTarget.field}:${cropTarget.imageUrl}`}
+        imageUrl={cropTarget.imageUrl}
+        imageAlt={cropTarget.label}
+        initialCrop={effective(document, cropTarget.kind, cropTarget.key)[cropTarget.field] ?? { x: 0, y: 0, zoom: 1 }}
+        busy={false}
+        eyebrow="Foto del Personalizador"
+        saveLabel="Guardar ajuste"
+        onCancel={() => setCropTarget(null)}
+        onSave={(crop) => { change(cropTarget.kind, cropTarget.key, cropTarget.field, crop); setCropTarget(null); }}
+      />}
     </section>
   );
 }

@@ -24,6 +24,14 @@ function selectionIsAllowed(selection: Json) {
     if (texture === 'imperial-criollo-posa-mate') return ['alpaca-grande-criollo', 'alpaca-grande-lacre-imperial'].includes(metal);
     return metal === 'original-camionero';
   }
+  if (family === "estribo") {
+    const fixedMetals: Record<string, string> = {
+      imperial: "virola-imperial",
+      torpedo: "virola-torpedo",
+      camionero: "virola-camionero",
+    };
+    return size === "medio" && color === "calabaza" && fixedMetals[texture] === metal;
+  }
   return false;
 }
 
@@ -32,7 +40,7 @@ function selectionRuleKeys(selection: Json) {
   const family = text(selection.familyId), texture = text(selection.textureId), color = text(selection.colorId), metal = text(selection.metalId);
   const keys = [`family:${family}`];
   const tree = `tree:${family}:${texture}`;
-  if (family === "criollo" || texture === "cincelado-premium") keys.push(tree);
+  if (family === "criollo" || family === "estribo" || texture === "cincelado-premium") keys.push(tree);
   if (texture === "cuero-estampado") keys.push("leather:stamped");
   else if (color === "cuero-crudo") keys.push("leather:raw");
   else if (color === "cuero-crudo-criollo") keys.push("leather:raw-posa-mate");

@@ -1,17 +1,22 @@
 import { supabase } from "./supabase";
+import type { CatalogImageCrop } from "../../../personalizador/src/catalog/catalogImageCrop";
 
 export type CatalogSection =
   | "families"
   | "textures"
   | "colors"
   | "metals"
-  | "techniques";
+  | "techniques"
+  | "sizes";
 export type CatalogPatch = {
   label?: string;
   description?: string;
   image?: string;
+  imageCrop?: CatalogImageCrop;
   flejeImage?: string;
+  flejeImageCrop?: CatalogImageCrop;
   torpedoImage?: string;
+  torpedoImageCrop?: CatalogImageCrop;
   swatch?: string;
   enabled?: boolean;
   virola?: string[];

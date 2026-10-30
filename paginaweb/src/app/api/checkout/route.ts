@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     let pricingVersionId: string | null = null;
     let publishedCatalog: PublishedPricingCatalog | null = null;
     if (designIds.length) {
-      const { data: catalog, error: catalogError } = await admin.rpc("get_published_pricing_catalog");
+      const { data: catalog, error: catalogError } = await admin.rpc("get_published_pricing_catalog_v2");
       if (catalogError || !catalog || typeof catalog !== "object") throw new Error("No se pudo verificar el catálogo de precios.");
       publishedCatalog = catalog as unknown as PublishedPricingCatalog;
     }

@@ -1,11 +1,12 @@
 import type { MateModel, MateSize } from "./mateCatalog";
+import type { CatalogImageCrop } from "./catalogImageCrop";
 import {
   engravingTechniqueAssetManifest,
   flejeEngravingTechniqueAssetManifest,
   torpedoVirolaEngravingTechniqueAssetManifest,
 } from "./engravingTechniqueAssetManifest";
 
-export type MateFamilyId = "camionero" | "imperial" | "torpedo" | "criollo";
+export type MateFamilyId = "camionero" | "imperial" | "torpedo" | "criollo" | "estribo";
 export type EngravingTypeId = "laser" | "bronze-applique" | "alpaca-applique";
 export type MateSelectionStage = "model" | "texture" | "metal" | "size" | "engraving" | "fleje-engraving";
 export type CatalogOptionStatus = "ready" | "pending";
@@ -67,6 +68,10 @@ export const familyEngravingCapabilities: Record<MateFamilyId, EngravingCapabili
     virolaEngravingTypes: ["bronze-applique", "alpaca-applique"],
     flejeEngravingTypes: [],
   },
+  estribo: {
+    virolaEngravingTypes: ["laser", "bronze-applique", "alpaca-applique"],
+    flejeEngravingTypes: [],
+  },
 };
 
 export interface DecisionColorOption {
@@ -84,6 +89,7 @@ export interface DecisionMetalOption {
   rimId: string;
   /** Asset del material/virola aislado. Nunca debe apuntar a la foto del mate. */
   previewImage?: string;
+  previewCrop?: CatalogImageCrop;
   status?: CatalogOptionStatus;
   enabled?: boolean;
   pricingRuleKeys?: string[];
@@ -95,6 +101,7 @@ export interface DecisionTextureOption {
   description: string;
   /** Preview principal de la construcción, aunque sus datos comerciales sigan pendientes. */
   previewImage?: string;
+  previewCrop?: CatalogImageCrop;
   shapeId: MateModel;
   capabilities: MateCapabilities;
   /** Overrides the engraving techniques inherited from the product family. */
@@ -107,6 +114,7 @@ export interface DecisionTextureOption {
   representativeVariantId: string;
   /** Previews específicos de esta textura y color, independientes del nombre del archivo. */
   colorPreviewImages?: Record<string, string>;
+  colorPreviewCrops?: Record<string, CatalogImageCrop>;
   legacyVariantId?: string;
   legacyVariantByColor?: Record<string, string>;
   legacyVariantByMetal?: Record<string, string>;
@@ -121,6 +129,7 @@ export interface MateFamilyDefinition {
   label: string;
   description: string;
   previewImage?: string;
+  previewCrop?: CatalogImageCrop;
   enabled?: boolean;
   representativeVariantId: string;
   textures: DecisionTextureOption[];
@@ -164,6 +173,7 @@ const colors = {
   print: { id: "print", label: "Print", swatch: "linear-gradient(135deg,#5f3826 0 45%,#f3e1b9 45% 55%,#2d1d14 55%)", pricingRuleKeys: ["leather:print-pelos"] },
   criollo: { id: "criollo", label: "Criollo", swatch: "#b88a5a" },
   vaqueta: { id: "vaqueta", label: "Natural", swatch: "#c69c6d", pricingRuleKeys: ["leather:vaqueta"] },
+  calabaza: { id: "calabaza", label: "Calabaza sin cuero", swatch: "#ad7341" },
   marronBlanco: { id: "marron-blanco", label: "Marrón y blanco", swatch: "linear-gradient(135deg,#70452f 0 50%,#f4efe5 50%)", pricingRuleKeys: ["leather:print-pelos"] },
   negroBlanco: { id: "negro-blanco", label: "Negro y blanco", swatch: "linear-gradient(135deg,#27211e 0 50%,#f4efe5 50%)", pricingRuleKeys: ["leather:print-pelos"] },
   animalPrint: { id: "animal-print", label: "Animal print", swatch: "repeating-linear-gradient(135deg,#c69c6d 0 6px,#2d1d14 6px 10px)", pricingRuleKeys: ["leather:print-pelos"] },
@@ -189,6 +199,9 @@ const metals = {
   originalImperial: { id: "original-imperial", label: "Virola original del Imperial", rimId: "original" },
   originalCamionero: { id: "original-camionero", label: "Virola original del Camionero", rimId: "original" },
   plata900: { id: "plata-900", label: "Plata 900", rimId: "plata-900", previewImage: `${ALPACA_ASSETS}/plata-900-imperial.webp`, pricingRuleKeys: ["metal:plata-900"] },
+  estriboImperial: { id: "virola-imperial", label: "Virola original del Imperial Estribo", rimId: "original" },
+  estriboTorpedo: { id: "virola-torpedo", label: "Virola original del Torpedo Estribo", rimId: "alpaca-bronce" },
+  estriboCamionero: { id: "virola-camionero", label: "Virola original del Camionero Estribo", rimId: "original" },
 };
 
 const mateColor = (family: string, variant: string, file: string) =>
@@ -487,6 +500,72 @@ export const mateDecisionCatalog: MateFamilyDefinition[] = [
       }),
     ],
   },
+  {
+    id: "estribo",
+    label: "Estribo",
+    description: "Mates de calabaza sin cuero con la virola original de cada modelo.",
+    representativeVariantId: "estribo-imperial",
+    pricingRuleKeys: ["family:estribo"],
+    textures: [
+      texture({
+        id: "imperial",
+        label: "Imperial",
+        description: "Imperial Estribo de calabaza, tamaño mediano.",
+        shapeId: "imperial",
+        capabilities: { hasRim: true, hasFleje: true },
+        engravingCapabilities: {
+          virolaEngravingTypes: ["laser", "bronze-applique", "alpaca-applique"],
+          flejeEngravingTypes: ["bronze-applique", "alpaca-applique"],
+        },
+        colors: [colors.calabaza],
+        metals: [metals.estriboImperial],
+        skipMetalSelection: true,
+        sizes: ["medio"],
+        colorPreviewImages: { calabaza: "/assets/mates/estribo/imperial.webp" },
+        representativeVariantId: "estribo-imperial",
+        legacyVariantId: "estribo-imperial",
+        pricingRuleKeys: ["tree:estribo:imperial"],
+      }),
+      texture({
+        id: "torpedo",
+        label: "Torpedo",
+        description: "Torpedo Estribo de calabaza, tamaño mediano.",
+        shapeId: "torpedo",
+        capabilities: { hasRim: true, hasFleje: false },
+        engravingCapabilities: {
+          virolaEngravingTypes: ["bronze-applique", "alpaca-applique"],
+          flejeEngravingTypes: [],
+        },
+        colors: [colors.calabaza],
+        metals: [metals.estriboTorpedo],
+        skipMetalSelection: true,
+        sizes: ["medio"],
+        colorPreviewImages: { calabaza: "/assets/mates/estribo/torpedo.webp" },
+        representativeVariantId: "estribo-torpedo",
+        legacyVariantId: "estribo-torpedo",
+        pricingRuleKeys: ["tree:estribo:torpedo"],
+      }),
+      texture({
+        id: "camionero",
+        label: "Camionero",
+        description: "Camionero Estribo de calabaza, tamaño mediano.",
+        shapeId: "camionero",
+        capabilities: { hasRim: true, hasFleje: false },
+        engravingCapabilities: {
+          virolaEngravingTypes: ["laser", "bronze-applique", "alpaca-applique"],
+          flejeEngravingTypes: [],
+        },
+        colors: [colors.calabaza],
+        metals: [metals.estriboCamionero],
+        skipMetalSelection: true,
+        sizes: ["medio"],
+        colorPreviewImages: { calabaza: "/assets/mates/estribo/camionero.webp" },
+        representativeVariantId: "estribo-camionero",
+        legacyVariantId: "estribo-camionero",
+        pricingRuleKeys: ["tree:estribo:camionero"],
+      }),
+    ],
+  },
 ];
 
 export const EMPTY_MATE_SELECTION: MateSelection = {
@@ -504,8 +583,11 @@ export const engravingTypeOptions: Array<{
   label: string;
   description: string;
   image: string;
+  imageCrop?: CatalogImageCrop;
   flejeImage?: string;
+  flejeImageCrop?: CatalogImageCrop;
   torpedoImage?: string;
+  torpedoImageCrop?: CatalogImageCrop;
   enabled?: boolean;
 }> = [
   {
@@ -556,9 +638,16 @@ export function getSelectionPreviewImage(selection: Partial<MateSelection>): str
   return selection.colorId ? getSelectedTexture(selection)?.colorPreviewImages?.[selection.colorId] : undefined;
 }
 
+export function getSelectionPreviewCrop(selection: Partial<MateSelection>): CatalogImageCrop | undefined {
+  const texture = getSelectedTexture(selection);
+  return selection.colorId && texture?.colorPreviewImages?.[selection.colorId]
+    ? texture.colorPreviewCrops?.[selection.colorId]
+    : texture?.previewCrop;
+}
+
 export function usesTorpedoVirolaEngravingAssets(selection: Partial<MateSelection>) {
   if (selection.familyId === "torpedo") return true;
-  return selection.familyId === "criollo" && getSelectedTexture(selection)?.shapeId === "torpedo";
+  return (selection.familyId === "criollo" || selection.familyId === "estribo") && getSelectedTexture(selection)?.shapeId === "torpedo";
 }
 
 export function shouldAskForMetal(selection: Partial<MateSelection>) {
@@ -690,6 +779,9 @@ const legacySelectionMap: Record<string, Omit<MateSelection, "engravingTypeId" |
   "criollo-clasico": { familyId: "criollo", textureId: "torpedo-criollo-posa-mate", colorId: "vaqueta", metalId: "alpaca-grande-criollo", sizeId: "medio" },
   "criollo-grande-posa-cuero-crudo": { familyId: "criollo", textureId: "torpedo-criollo-posa-mate", colorId: "cuero-crudo-criollo", metalId: "alpaca-grande-criollo", sizeId: "medio" },
   "criollo-torpedo-posa-negro": { familyId: "criollo", textureId: "torpedo-criollo-posa-mate", colorId: "negro", metalId: "alpaca-grande-criollo", sizeId: "medio" },
+  "estribo-imperial": { familyId: "estribo", textureId: "imperial", colorId: "calabaza", metalId: "virola-imperial", sizeId: "medio" },
+  "estribo-torpedo": { familyId: "estribo", textureId: "torpedo", colorId: "calabaza", metalId: "virola-torpedo", sizeId: "medio" },
+  "estribo-camionero": { familyId: "estribo", textureId: "camionero", colorId: "calabaza", metalId: "virola-camionero", sizeId: "medio" },
   "imperial-lacre": { familyId: "imperial", textureId: "cincelado-premium", colorId: "natural", metalId: "original-imperial", sizeId: "medio" },
   "imperial-premium": { familyId: "imperial", textureId: "imperial-clasico", colorId: "natural", metalId: "original-imperial", sizeId: "medio" },
   "imperial-cuero-crudo": { familyId: "imperial", textureId: "imperial-cuero-crudo", colorId: "cuero-crudo", metalId: "original-imperial", sizeId: "medio" },

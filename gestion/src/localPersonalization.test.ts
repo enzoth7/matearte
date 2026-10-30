@@ -92,5 +92,6 @@ describe("personalización de ventas locales", () => {
     expect(validatePersonalization(draft, bombilla)).toBe("");
     const snapshot = buildLocalPersonalizationSnapshot(draft, bombilla) as any;
     expect(snapshot.localPersonalization).toMatchObject({ kind: "bombilla", text: "ENZO", placement: "Cuerpo", instructions: "Letra cursiva de 8 mm" });
+    expect(snapshot.configuration).not.toHaveProperty("rim");
   });
 });

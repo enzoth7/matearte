@@ -44,7 +44,7 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
     commerce_admin_users: options.denied ? null : { user_id: user.id, display_name: accessUserId === 't1' ? 'Richard Ortiz' : accessUserId === 't2' ? 'Florencia Costa' : 'Florencia Pizzorno', access_user_id: accessUserId, allowed_paths: permissionStore[accessUserId] }, commerce_products: fixture.products,
     orders: fixture.orders, commerce_payments: fixture.payments, commerce_discounts: fixture.reference.discounts,
     commerce_international_shipping_rates: fixture.reference.shippingRates, commerce_exchange_rates: fixture.reference.exchangeRates,
-    commerce_attribute_definitions: [], commerce_attribute_options: [], commerce_category_attributes: [], commerce_bank_transfer_settings: { account_holder: 'Titular', transfer_account: '111', cash_deposit_account: '222', cash_deposit_label: 'Depósito' },
+    commerce_attribute_definitions: [], commerce_attribute_options: [], commerce_category_attributes: [], visualizer_icons: [], visualizer_hidden_builtin_icons: [], commerce_bank_transfer_settings: { account_holder: 'Titular', transfer_account: '111', cash_deposit_account: '222', cash_deposit_label: 'Depósito' },
     commerce_categories: fixture.reference.categories, commerce_settings: fixture.reference.settings, shipping_rates: fixture.nationalRates, purchases: [], fixed_expenses: [], fixed_expense_payments: [], expense_categories: [],
     local_sales_customers: [], local_sales: [], local_sale_receipts: [], rural_raffle_entries: [],
     site_announcements: [], ad_reports: [], web_leads: [], contact_first_seen: [],

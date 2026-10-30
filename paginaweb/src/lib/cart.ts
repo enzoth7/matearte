@@ -53,7 +53,7 @@ export async function readPricedCart(client: SupabaseClient, userId: string) {
   if (designIds.length) {
     const [{ data: designs, error: designsError }, { data: catalog, error: catalogError }] = await Promise.all([
       client.from("designs").select("id,configuration,fleje_configuration").in("id", designIds).eq("user_id", userId),
-      client.rpc("get_published_pricing_catalog"),
+      client.rpc("get_published_pricing_catalog_v2"),
     ]);
     if (designsError) throw designsError;
     if (catalogError) throw catalogError;

@@ -25,13 +25,39 @@ import {
 } from "./mateDecisionCatalog";
 
 describe("árbol declarativo de mates", () => {
-  it("expone las cuatro familias solicitadas", () => {
+  it("expone Estribo a la derecha de Criollo", () => {
     expect(mateDecisionCatalog.map((family) => family.id)).toEqual([
       "camionero",
       "imperial",
       "torpedo",
       "criollo",
+      "estribo",
     ]);
+  });
+
+  it("mantiene fijos calabaza, virola y tamaño mediano en los tres Estribo", () => {
+    const expected = [
+      ["imperial", "estribo-imperial", true, "/assets/mates/estribo/imperial.webp"],
+      ["torpedo", "estribo-torpedo", false, "/assets/mates/estribo/torpedo.webp"],
+      ["camionero", "estribo-camionero", false, "/assets/mates/estribo/camionero.webp"],
+    ] as const;
+    for (const [textureId, variantId, hasFleje, image] of expected) {
+      const texture = getMateFamily("estribo")?.textures.find((item) => item.id === textureId);
+      expect(texture?.colors.map((item) => item.id)).toEqual(["calabaza"]);
+      expect(texture?.metals).toHaveLength(1);
+      expect(texture?.sizes).toEqual(["medio"]);
+      expect(texture?.colorPreviewImages?.calabaza).toBe(image);
+      expect(getVariantDefinition(variantId)?.image).toBe(image);
+      const selection: MateSelection = {
+        familyId: "estribo", textureId, colorId: "calabaza",
+        metalId: texture!.metals[0].id, sizeId: "medio",
+        engravingTypeId: "bronze-applique",
+        flejeEngravingTypeId: hasFleje ? "bronze-applique" : null,
+      };
+      expect(resolveMateSelection(selection)?.skuId).toBe(variantId);
+      expect(resolveMateSelection(selection)?.capabilities.hasFleje).toBe(hasFleje);
+      expect(getFirstIncompleteStage(selection)).toBeNull();
+    }
   });
 
   it("ofrece cuero blanco con su fotografía en las cinco ramas disponibles", () => {

@@ -49,6 +49,9 @@ export const mateAssetCatalog: Record<string, MateAssetEntry> = {
   "camionero-criollo-posa-vaqueta": asset("criollo/camionero-criollo-posa-mate/natural.webp", "Camionero criollo con posa mate natural"),
   "camionero-criollo-posa-cuero-crudo": asset("criollo/camionero-criollo-posa-mate/cuero-crudo.webp", "Camionero criollo con posa mate de cuero crudo"),
   "camionero-criollo-posa-negro": asset("criollo/camionero-criollo-posa-mate/negro.webp", "Camionero criollo con posa mate negro"),
+  "estribo-imperial": asset("estribo/imperial.webp", "Imperial de la colección Estribo"),
+  "estribo-torpedo": asset("estribo/torpedo.webp", "Torpedo de la colección Estribo"),
+  "estribo-camionero": asset("estribo/camionero.webp", "Camionero de la colección Estribo"),
 };
 
 export function getMateAssetPath(variantId: string, fallback: string) {

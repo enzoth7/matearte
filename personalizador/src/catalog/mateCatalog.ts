@@ -117,6 +117,9 @@ const baseMateVariants: BaseMateVariant[] = [
   { id: "camionero-criollo-posa-vaqueta", model: "camionero", name: "Criollo con posa mate de vaqueta", sourceProducts: ["Camionero Criolla Posa con Mate Vaqueta"] },
   { id: "camionero-criollo-posa-cuero-crudo", model: "camionero", name: "Camionero criollo posa mate de cuero crudo" },
   { id: "camionero-criollo-posa-negro", model: "camionero", name: "Camionero criollo posa mate negro" },
+  { id: "estribo-imperial", model: "imperial", name: "Imperial Estribo" },
+  { id: "estribo-torpedo", model: "torpedo", name: "Torpedo Estribo" },
+  { id: "estribo-camionero", model: "camionero", name: "Camionero Estribo" },
 ];
 
 const rimCompatibility: Record<string, { ids: string[]; defaultId: string }> = {
@@ -158,6 +161,9 @@ const rimCompatibility: Record<string, { ids: string[]; defaultId: string }> = {
   "camionero-criollo-posa-vaqueta": { ids: ["original"], defaultId: "original" },
   "camionero-criollo-posa-cuero-crudo": { ids: ["original"], defaultId: "original" },
   "camionero-criollo-posa-negro": { ids: ["original"], defaultId: "original" },
+  "estribo-imperial": { ids: ["original"], defaultId: "original" },
+  "estribo-torpedo": { ids: ["alpaca-bronce"], defaultId: "alpaca-bronce" },
+  "estribo-camionero": { ids: ["original"], defaultId: "original" },
 };
 
 const COLORS = {
@@ -168,6 +174,7 @@ const COLORS = {
   rosa: { id: "rosa", name: "Rosa", swatch: "#cb8f96" },
   blanco: { id: "blanco", name: "Blanco", swatch: "#f4efe5" },
   print: { id: "print", name: "Print", swatch: "linear-gradient(135deg, #5f3826 0 45%, #f3e1b9 45% 55%, #2d1d14 55%)" },
+  calabaza: { id: "calabaza", name: "Calabaza sin cuero", swatch: "#ad7341" },
 } satisfies Record<string, ProductColorOption>;
 
 export const mateSizeLabels: Record<MateSize, string> = {
@@ -239,6 +246,12 @@ export const mateVariants: MateVariant[] = baseMateVariants.map((variant) => {
     ...variant,
     image: getMateAssetPath(variant.id, ""),
     ...getVariantMetadata(variant),
+    ...(variant.id.startsWith("estribo-") ? {
+      leatherType: "sin-cuero",
+      colors: [COLORS.calabaza],
+      defaultColorId: "calabaza",
+      availableSizes: ["medio" as MateSize],
+    } : {}),
     compatibleRimIds: compatibility.ids,
     defaultRimId: compatibility.defaultId,
   };

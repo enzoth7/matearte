@@ -24,6 +24,7 @@ import {
 import { usePricing } from "../context/PricingContext";
 import { getMateSizePreviewImage } from "./mateSizePreviewImages";
 import { formatSelectionPrice } from "./selectionPriceUtils";
+import { catalogImageCropStyle, type CatalogImageCrop } from "../catalog/catalogImageCrop";
 
 interface MateSelectionStepProps {
   stage: MateSelectionStage;
@@ -66,12 +67,12 @@ function EngravingPrice({ value, isFlatFee, pendingCopy }: { value: number | nul
   return <PendingLabel copy={copy} />;
 }
 
-function ProductImage({ variantId, alt, pending = false, image }: { variantId: string; alt: string; pending?: boolean; image?: string }) {
+function ProductImage({ variantId, alt, pending = false, image, crop }: { variantId: string; alt: string; pending?: boolean; image?: string; crop?: CatalogImageCrop }) {
   const variant = getVariantDefinition(variantId);
   if (!image && (!variant || pending)) {
     return <div className="selection-image selection-image--pending" role="img" aria-label={`${alt}. Imagen pendiente`}>Imagen pendiente</div>;
   }
-  return <img src={image ?? variant?.image} alt={alt} className="selection-image mate-product-photo" loading="lazy" draggable={false} />;
+  return <img src={image ?? variant?.image} alt={alt} className="selection-image mate-product-photo" style={catalogImageCropStyle(crop)} loading="lazy" draggable={false} />;
 }
 
 function ColorPreview({ texture, colorId, label }: { texture: DecisionTextureOption; colorId: string; label: string }) {
@@ -90,12 +91,12 @@ function ColorPreview({ texture, colorId, label }: { texture: DecisionTextureOpt
 
   return (
     <span className="selection-color-card__media">
-      <img src={directImage ?? variant?.image} alt={`${texture.label} en color ${label}`} className="selection-color-card__image mate-product-photo" loading="lazy" draggable={false} />
+      <img src={directImage ?? variant?.image} alt={`${texture.label} en color ${label}`} className="selection-color-card__image mate-product-photo" style={catalogImageCropStyle(texture.colorPreviewCrops?.[colorId])} loading="lazy" draggable={false} />
     </span>
   );
 }
 
-function MetalPreview({ image, label, metalId }: { image?: string; label: string; metalId: string }) {
+function MetalPreview({ image, label, metalId, crop }: { image?: string; label: string; metalId: string; crop?: CatalogImageCrop }) {
   if (!image) {
     return (
       <span className="selection-image selection-image--pending" role="img" aria-label={`${label}. Imagen de alpaca pendiente`}>
@@ -104,7 +105,7 @@ function MetalPreview({ image, label, metalId }: { image?: string; label: string
     );
   }
 
-  return <img src={image} alt={label} className={`selection-image selection-image--metal-${metalId}`} loading="lazy" draggable={false} />;
+  return <img src={image} alt={label} className={`selection-image selection-image--metal-${metalId}`} style={catalogImageCropStyle(crop)} loading="lazy" draggable={false} />;
 }
 
 export function MateSelectionStep({ stage, selection, onChange, onBack, onContinue }: MateSelectionStepProps) {
@@ -161,15 +162,28 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
     onChange({ familyId, textureId: null, colorId: null, metalId: null, sizeId: null, engravingTypeId: null, flejeEngravingTypeId: null });
   };
 
+  const chooseTexture = (item: DecisionTextureOption) => {
+    const isEstribo = selection.familyId === "estribo";
+    onChange({
+      ...selection,
+      textureId: item.id,
+      colorId: isEstribo ? "calabaza" : null,
+      metalId: isEstribo ? item.metals[0]?.id ?? null : null,
+      sizeId: isEstribo ? "medio" : null,
+      engravingTypeId: null,
+      flejeEngravingTypeId: null,
+    });
+  };
+
   return (
-    <main id="main-content" className="selection-page" data-stage={stage}>
+    <main id="main-content" className="selection-page" data-stage={stage} data-family={selection.familyId ?? undefined}>
       {stage === "model" ? (
         <header className="selection-heading selection-heading--model">
           <h1>Elegí el modelo que va con vos</h1>
         </header>
       ) : stage === "texture" || stage === "metal" ? (
         <header className={`selection-heading selection-heading--${stage}`}>
-          <h1>{stage === "texture" ? "Dale carácter con textura y color" : "Elegí el metal de los detalles"}</h1>
+          <h1>{stage === "texture" ? (selection.familyId === "estribo" ? "Elegí tu Estribo" : "Dale carácter con textura y color") : "Elegí el metal de los detalles"}</h1>
         </header>
       ) : (
         <header className={`selection-heading selection-heading--${stage}`}>
@@ -183,7 +197,7 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
           {mateDecisionCatalog.filter((item) => item.enabled !== false).map((item) => (
             <button key={item.id} type="button" onClick={() => chooseFamily(item.id)} aria-pressed={item.id === selection.familyId} className="selection-product-card">
               <span className={`selection-model-card__image selection-model-card__image--${item.id}`}>
-                <ProductImage variantId={item.representativeVariantId} alt={`Mate ${item.label}`} image={item.previewImage} />
+                <ProductImage variantId={item.representativeVariantId} alt={`Mate ${item.label}`} image={item.previewImage} crop={item.previewCrop} />
               </span>
               <span className="selection-product-card__title">{item.label}</span>
               <span className="sr-only">{item.description}</span>
@@ -198,20 +212,20 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
           <fieldset className={`selection-texture-grid ${family.textures.length === 1 ? "selection-texture-grid--single" : ""} ${family.textures.length === 3 ? "selection-texture-grid--triple" : ""} ${family.textures.length > 4 ? "selection-texture-grid--dense" : ""}`}>
             <legend className="sr-only">Textura o construcción</legend>
             {family.textures.filter((item) => item.enabled !== false).map((item) => (
-              <button key={item.id} type="button" onClick={() => onChange({ ...selection, textureId: item.id, colorId: null, metalId: null, sizeId: null, engravingTypeId: null, flejeEngravingTypeId: null })} aria-pressed={item.id === selection.textureId} className={`selection-product-card selection-product-card--texture selection-product-card--${item.id}`}>
+              <button key={item.id} type="button" onClick={() => chooseTexture(item)} aria-pressed={item.id === selection.textureId} className={`selection-product-card selection-product-card--texture selection-product-card--${item.id}`}>
                 <span className={`selection-texture-card__image selection-texture-card__image--${item.id}`}>
-                  <ProductImage variantId={item.representativeVariantId} alt={item.label} pending={item.status === "pending"} image={item.previewImage} />
+                  <ProductImage variantId={item.representativeVariantId} alt={item.label} pending={item.status === "pending"} image={item.previewImage} crop={item.previewCrop} />
                 </span>
                 <span className="selection-product-card__title">{item.label}</span>
                 <span className="sr-only">{item.description}</span>
                 {item.status === "pending"
                   ? <PendingLabel copy="Datos pendientes" />
-                  : <SelectionPrice value={getTextureStartingPrice(pricingCatalog, family.id, item.id)} pendingCopy={pendingPriceCopy} from />}
+                  : <SelectionPrice value={getTextureStartingPrice(pricingCatalog, family.id, item.id)} pendingCopy={pendingPriceCopy} from={family.id !== "estribo"} />}
               </button>
             ))}
           </fieldset>
 
-          {selectedTexture && (
+          {selectedTexture && family.id !== "estribo" && (
             <fieldset
               className={`selection-colors selection-colors--family-${family.id} selection-colors--texture-${selectedTexture.id}`}
               style={{ "--selection-color-count": selectedTexture.colors.length } as CSSProperties}
@@ -253,7 +267,7 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
           <legend className="sr-only">Tipo de alpaca o metal</legend>
           {selectedTexture.metals.filter((item) => item.enabled !== false).map((item) => (
             <button key={item.id} type="button" onClick={() => onChange({ ...selection, metalId: item.id, sizeId: null, engravingTypeId: null, flejeEngravingTypeId: null })} aria-pressed={item.id === selection.metalId} className="selection-product-card">
-              <MetalPreview image={item.previewImage} label={item.label} metalId={item.id} />
+              <MetalPreview image={item.previewImage} label={item.label} metalId={item.id} crop={item.previewCrop} />
               <span className="selection-product-card__title">{item.label}</span>
               <span className="sr-only">Muestra del material de {item.label.toLowerCase()}</span>
               {hasPurchasableSku({ familyId: selection.familyId ?? undefined, textureId: selectedTexture.id, colorId: selection.colorId ?? undefined, metalId: item.id })
@@ -272,15 +286,18 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
             const pricing = getSelectionPricing(pricingCatalog, { ...selection, sizeId: size });
             return (
               <button key={size} type="button" onClick={() => onChange({ ...selection, sizeId: size, engravingTypeId: null, flejeEngravingTypeId: null })} aria-pressed={size === selection.sizeId}>
-                <img
-                  className={`selection-size-list__image ${usesTorpedoVirolaEngravingAssets(selection) ? `selection-size-list__image--torpedo-${size}` : ""}`}
-                  src={preview.src}
-                  alt={preview.alt}
-                  width="240"
-                  height="240"
-                  loading="lazy"
-                  draggable={false}
-                />
+                <span className="selection-size-list__media">
+                  <img
+                    className={`selection-size-list__image ${usesTorpedoVirolaEngravingAssets(selection) ? `selection-size-list__image--torpedo-${size}` : ""}`}
+                    src={preview.src}
+                    style={catalogImageCropStyle(preview.crop)}
+                    alt={preview.alt}
+                    width="240"
+                    height="240"
+                    loading="lazy"
+                    draggable={false}
+                  />
+                </span>
                 <strong>{mateSizeDisplayLabels[size]}</strong>
                 {showSizeDiameters && (
                   <span className="selection-size-list__diameter">
@@ -316,6 +333,7 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
               <img
                 className="selection-image"
                 src={useTorpedoImages ? option.torpedoImage ?? option.image : option.image}
+                style={catalogImageCropStyle(useTorpedoImages ? option.torpedoImageCrop ?? option.imageCrop : option.imageCrop)}
                 alt={`Referencia de ${option.label}`}
                 loading="lazy"
                 draggable={false}
@@ -347,7 +365,7 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
               aria-pressed={selection.flejeEngravingTypeId === option.id}
               className="selection-product-card selection-product-card--engraving"
             >
-              <img className="selection-image" src={option.flejeImage ?? option.image} alt={`Referencia de ${option.label} en el fleje`} loading="lazy" draggable={false} />
+              <img className="selection-image" src={option.flejeImage ?? option.image} style={catalogImageCropStyle(option.flejeImageCrop ?? option.imageCrop)} alt={`Referencia de ${option.label} en el fleje`} loading="lazy" draggable={false} />
               <span className="selection-product-card__title">{option.label}</span>
               <span className="selection-product-card__description sr-only">{option.description}</span>
               <EngravingPrice
