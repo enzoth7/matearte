@@ -20,7 +20,7 @@ describe("ArgentinaOrderPayment", () => {
     render(<ArgentinaOrderPayment {...props} />);
 
     expect(screen.getByRole("heading", { name: "Completá la transferencia" })).toBeInTheDocument();
-    expect(screen.getByText(/20[.,]500 ARS/)).toBeInTheDocument();
+    expect(screen.getAllByText(/20[.,]500 ARS/)).toHaveLength(2);
     expect(screen.getByText("MATEARTE.COLON")).toBeInTheDocument();
     expect(screen.getByText(props.bank.cbu)).toBeInTheDocument();
     expect(screen.queryByText("Titular")).not.toBeInTheDocument();

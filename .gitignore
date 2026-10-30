@@ -56,6 +56,9 @@ dashboard/.codex-inspect-workbook.mjs
 # Large binaries and documents (available on Google Drive)
 *.pdf
 
+# Keep original personalizer photos locally; publish their WebP versions.
+/assets/Catálogo web/CAMBIO/fotospersonalizador/*.png
+
 # Private contact records (the GitHub repository is public)
 /Informacion/Todos_los_contactos.xlsx
 /Informacion/agenda_contactos_revision.json

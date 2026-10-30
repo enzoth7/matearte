@@ -1,8 +1,9 @@
 import DOMPurify from "dompurify";
+import { convertRasterToWebp } from "./convertRasterToWebp";
 
 const MAX_ICON_BYTES = 2 * 1024 * 1024;
 
-export async function preparePersonalizerIcon(file: File): Promise<{ file: File; extension: "svg" | "png" | "webp" }> {
+export async function preparePersonalizerIcon(file: File): Promise<{ file: File; extension: "svg" | "webp" }> {
   if (!file.size || file.size > MAX_ICON_BYTES)
     throw new Error("Elegí un SVG, PNG o WebP de hasta 2 MB.");
 
@@ -36,5 +37,5 @@ export async function preparePersonalizerIcon(file: File): Promise<{ file: File;
   image.close();
   if (width < 256 || height < 256 || width > 4096 || height > 4096)
     throw new Error("El ícono debe medir entre 256 y 4096 píxeles por lado.");
-  return { file, extension: file.type === "image/png" ? "png" : "webp" };
+  return { file: await convertRasterToWebp(file, 1, MAX_ICON_BYTES), extension: "webp" };
 }

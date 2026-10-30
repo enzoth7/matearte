@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { convertRasterToWebp } from "./convertRasterToWebp";
 import type { CatalogImageCrop } from "../../../personalizador/src/catalog/catalogImageCrop";
 
 export type CatalogSection =
@@ -116,16 +117,11 @@ export async function uploadPersonalizerCatalogImage(
   ) {
     throw new Error("Elegí una imagen PNG, JPG o WebP de hasta 10 MB.");
   }
-  const extension =
-    file.type === "image/png"
-      ? "png"
-      : file.type === "image/webp"
-        ? "webp"
-        : "jpg";
-  const path = `catalog/${crypto.randomUUID()}.${extension}`;
+  const prepared = await convertRasterToWebp(file, 0.88, 10 * 1024 * 1024);
+  const path = `catalog/${crypto.randomUUID()}.webp`;
   const bucket = supabase.storage.from("visualizer-catalog");
-  const { error } = await bucket.upload(path, file, {
-    contentType: file.type,
+  const { error } = await bucket.upload(path, prepared, {
+    contentType: prepared.type,
     cacheControl: "31536000",
     upsert: false,
   });
