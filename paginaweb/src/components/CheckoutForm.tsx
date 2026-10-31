@@ -1,6 +1,7 @@
 "use client";
 
 import { toArsMinor } from "@/lib/argentina";
+import { uruguayTransferUnitPriceMinor } from "@/lib/uruguay-transfer-pricing";
 import { useStorefrontCurrency } from "./StorefrontCurrency";
 
 import { Bank, Check, GlobeHemisphereWest, MapPin, UploadSimple } from "@phosphor-icons/react";
@@ -119,7 +120,7 @@ export function CheckoutForm({
   const argentinaSubtotal = subtotalMinor !== null && arsPerUyu > 0 ? cartItems.reduce((sum, item) => sum + toArsMinor(arsUseBasePrice && item.item_type === "catalog" ? item.catalog_base_unit_price_minor ?? item.unit_price_minor : item.unit_price_minor, arsPerUyu) * item.quantity, 0) : null;
   const isInternational = !isWholesale && isDelivery && purchaseRegion === "international";
   const isUruguayTransfer = !isWholesale && !isArgentina && !isInternational && uruguayTransfer;
-  const transferSubtotal = subtotalMinor === null ? null : cartItems.reduce((sum, item) => sum + (item.item_type === "catalog" ? item.catalog_base_unit_price_minor ?? item.unit_price_minor : item.unit_price_minor) * item.quantity, 0);
+  const transferSubtotal = subtotalMinor === null ? null : cartItems.reduce((sum, item) => sum + uruguayTransferUnitPriceMinor(item.unit_price_minor) * item.quantity, 0);
 
   const internationalShippingCalc = useMemo(() => {
     if (!isInternational || !international.country) return null;

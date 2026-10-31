@@ -22,8 +22,12 @@ function mockCheckoutFetch(cartPayload: Record<string, unknown> = { items: [{ un
       return { ok: true, text: async () => JSON.stringify(cartPayload) };
     }
     if (url.includes("/api/discounts/validate")) {
-      const argentina = JSON.parse(String(init?.body || "{}"))?.currency === "ARS";
-      return { ok: true, text: async () => JSON.stringify({ code: "MATE10", discountType: "percentage", discountValue: 25, discountMinor: argentina ? 150000 : 25000, itemsSubtotalMinor: argentina ? 600000 : 100000, discountedItemsSubtotalMinor: argentina ? 450000 : 75000 }) };
+      const request = JSON.parse(String(init?.body || "{}"));
+      const argentina = request.currency === "ARS";
+      const transfer = request.paymentMethod === "bank_transfer";
+      const itemsSubtotalMinor = argentina ? 600000 : transfer ? 90000 : 100000;
+      const discountMinor = argentina ? 150000 : transfer ? 22500 : 25000;
+      return { ok: true, text: async () => JSON.stringify({ code: "MATE10", discountType: "percentage", discountValue: 25, discountMinor, itemsSubtotalMinor, discountedItemsSubtotalMinor: itemsSubtotalMinor - discountMinor }) };
     }
     return { ok: true, text: async () => JSON.stringify({ rates: [pickupRate, deliveryRate] }) };
   }));
@@ -116,21 +120,44 @@ describe("CheckoutForm", () => {
 
   it("ofrece transferencia en Uruguay, muestra las dos vías BROU y conserva Mercado Pago", async () => {
     mockCheckoutFetch({
-      items: [{ item_type: "catalog", unit_price_minor: 11364, catalog_base_unit_price_minor: 10000, quantity: 2 }],
+      items: [
+        { item_type: "catalog", unit_price_minor: 100000, catalog_base_unit_price_minor: 87000, quantity: 2 },
+        { item_type: "design", unit_price_minor: 20000, quantity: 1 },
+      ],
       bank_transfer: { account_holder: "Richard Ortiz", transfer_account: "BROU CA $ 110882545-00002", cash_deposit_account: "601-0384954", cash_deposit_label: "Depósitos en RED PAGOS/ABITAB · BROU CA $ (numeración vieja)" },
     });
     render(<CheckoutForm initialCustomer={initialCustomer} />);
     fireEvent.click(await screen.findByRole("radio", { name: /retiro en tienda/i }));
-    expect(screen.getByText(/recibís un 13% de descuento/i)).toBeInTheDocument();
+    expect(screen.getByText(/recibís un 10% de descuento/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /pagar por transferencia/i }));
     expect(screen.getByText("BROU CA $ 110882545-00002")).toBeInTheDocument();
     expect(screen.getByText("601-0384954")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /completar pedido/i })).toBeDisabled();
     expect(screen.getByText(/descuento por transferencia/i)).toBeInTheDocument();
+    expect(screen.getByText("$ 220 UYU")).toBeInTheDocument();
+    expect(screen.getByText("$ 1.980 UYU")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/comprobante de pago/i), { target: { files: [new File(["receipt"], "pago.pdf", { type: "application/pdf" })] } });
     expect(screen.getByRole("button", { name: /completar pedido/i })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: /mercado pago/i }));
     expect(screen.queryByText("BROU CA $ 110882545-00002")).not.toBeInTheDocument();
+  });
+
+  it("acumula el 10% por transferencia con un código válido", async () => {
+    mockCheckoutFetch({
+      items: [{ item_type: "catalog", unit_price_minor: 100000, catalog_base_unit_price_minor: 87000, quantity: 1 }],
+      bank_transfer: { account_holder: "Richard Ortiz", transfer_account: "BROU CA $ 110882545-00002", cash_deposit_account: "601-0384954", cash_deposit_label: "Depósitos en RED PAGOS/ABITAB" },
+    });
+    render(<CheckoutForm initialCustomer={initialCustomer} />);
+    fireEvent.click(await screen.findByRole("radio", { name: /retiro en tienda/i }));
+    fireEvent.click(screen.getByRole("button", { name: /pagar por transferencia/i }));
+    fireEvent.click(screen.getByRole("button", { name: /tengo un código de descuento/i }));
+    fireEvent.change(screen.getByLabelText(/código de descuento/i), { target: { value: "MATE10" } });
+    fireEvent.click(screen.getByRole("button", { name: /^validar$/i }));
+
+    expect(await screen.findByText(/código MATE10 aplicado/i)).toBeInTheDocument();
+    expect(screen.getByText("$ 100 UYU")).toBeInTheDocument();
+    expect(screen.getByText("$ 225 UYU")).toBeInTheDocument();
+    expect(screen.getByText("$ 675 UYU")).toBeInTheDocument();
   });
 
   it("reemplaza los pagos online por transferencia cuando el carrito es mayorista", async () => {

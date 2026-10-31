@@ -38,6 +38,22 @@ it("uses server prices and categories, ignoring totals supplied by the customer"
   });
 });
 
+it("validates Uruguay transfer coupons against 90% of published catalog and design prices", async () => {
+  mock.cart.mockResolvedValue({ wholesale: { eligible: false }, items: [
+    { item_type: "catalog", unit_price_minor: 11365, catalog_base_unit_price_minor: 10000, quantity: 2, variant: { product: { category_code: "mates" } } },
+    { item_type: "design", unit_price_minor: 1015, quantity: 1 },
+  ] });
+  const response = await POST(new Request("https://store.test/api/discounts/validate", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code: "MATE10", currency: "UYU", paymentMethod: "bank_transfer" }),
+  }));
+  expect(response.status).toBe(200);
+  expect(mock.rpc).toHaveBeenCalledWith("validate_commerce_discount_scoped", {
+    p_user_id: "buyer", p_code: "MATE10", p_items_subtotal_minor: 21372,
+    p_design_subtotal_minor: 914, p_category_subtotals: { mates: 20458 },
+  });
+});
+
 it("returns a non-applicable response when no selected products qualify", async () => {
   mock.rpc.mockResolvedValue({ error: { message: "discount:not_applicable" } });
   const response = await POST(request());
