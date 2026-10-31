@@ -13,6 +13,7 @@ export async function POST(request: Request) {
   try {
     const body = await readJson(request);
     const argentina = body.currency === "ARS";
+    const uruguayTransfer = !argentina && body.paymentMethod === "bank_transfer";
     const code = normalizeDiscountCode(body.code);
     if (!/^[A-Z0-9][A-Z0-9_-]{3,31}$/.test(code)) {
       return apiError("Ingresá un código válido.", 422, { reason: "invalid" });
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
     const pricedItems = cart.items.map(item => {
       const variant = item.variant as unknown as { product?: { category_code?: string; category?: string } } | null;
       return { itemType: item.item_type, category: variant?.product?.category_code || variant?.product?.category,
-        unitPriceMinor: Number(useBasePrice && item.item_type === "catalog" ? item.catalog_base_unit_price_minor ?? item.unit_price_minor : item.unit_price_minor), quantity: Number(item.quantity) };
+        unitPriceMinor: Number(((useBasePrice && argentina) || uruguayTransfer) && item.item_type === "catalog" ? item.catalog_base_unit_price_minor ?? item.unit_price_minor : item.unit_price_minor), quantity: Number(item.quantity) };
     });
     const subtotalMinor = pricedItems.reduce((sum, item) => sum + item.unitPriceMinor * item.quantity, 0);
     const designSubtotalMinor = pricedItems.filter(item => item.itemType === "design")

@@ -7,14 +7,16 @@ export async function GET() {
   if (!user) return apiError("Necesitás iniciar sesión.", 401);
   try {
     const cart = await readPricedCart(client, user.id);
-    if (!cart.wholesale.eligible) return apiOk(cart);
     const admin = createAdminSupabase();
     const { data: bank, error } = await admin
       .from("commerce_bank_transfer_settings")
       .select("account_holder,transfer_account,cash_deposit_account,cash_deposit_label")
       .eq("singleton", true)
       .single();
-    if (error || !bank) throw new Error("La transferencia bancaria todavía no está configurada.");
+    if (error || !bank) {
+      if (cart.wholesale.eligible) throw new Error("La transferencia bancaria todavía no está configurada.");
+      return apiOk(cart);
+    }
     return apiOk({ ...cart, bank_transfer: bank });
   }
   catch (error) { return apiError(error instanceof Error ? error.message : "No se pudo leer el carrito.", 500); }

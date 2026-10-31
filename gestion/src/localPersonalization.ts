@@ -6,13 +6,14 @@ import { catalogAttributeDetails, catalogPurchaseAxes, catalogValueLabel, defaul
 export type PersonalizationKind = "mate" | "matera" | "bombilla";
 export type PersonalizationTechnique = "none" | "laser" | "bronze-applique" | "alpaca-applique";
 export type PersonalizationContent = "text" | "logo" | "text-logo";
+export type LocalDesignIcon = { id: string; selectedImageId: string; side?: "front" | "back" };
 
 export type LocalPersonalizationDraft = {
   kind: PersonalizationKind;
   rimIconId?: string;
   flejeIconId?: string;
-  rimIcons?: { id: string; selectedImageId: string }[];
-  flejeIcons?: { id: string; selectedImageId: string }[];
+  rimIcons?: LocalDesignIcon[];
+  flejeIcons?: LocalDesignIcon[];
   designTransforms?: Record<string, ElementTransform>;
   rimTechnique: PersonalizationTechnique;
   rimContent: PersonalizationContent;
@@ -54,13 +55,15 @@ const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u0
 const hasText = (content: PersonalizationContent) => content === "text" || content === "text-logo";
 const hasLogo = (content: PersonalizationContent) => content === "logo" || content === "text-logo";
 
-export function localDesignIcons(draft: LocalPersonalizationDraft, part: "rim" | "fleje") {
+export function localDesignIcons(draft: LocalPersonalizationDraft, part: "rim" | "fleje"): LocalDesignIcon[] {
   const legacy = part === "rim" ? draft.rimIconId : draft.flejeIconId;
   return (part === "rim" ? draft.rimIcons : draft.flejeIcons) ?? (legacy ? [{ id: `${part}-icon`, selectedImageId: legacy }] : []);
 }
 
 export function localDesignTransform(draft: LocalPersonalizationDraft, key: string, side: "rim" | "front" | "back"): ElementTransform {
-  const iconIndex = localDesignIcons(draft, side === "rim" ? "rim" : "fleje").findIndex(icon => icon.id === key);
+  const iconIndex = localDesignIcons(draft, side === "rim" ? "rim" : "fleje")
+    .filter(icon => side === "rim" || (icon.side ?? "front") === side)
+    .findIndex(icon => icon.id === key);
   if (iconIndex >= 0 && !draft.designTransforms?.[key]) {
     const angle = Math.PI / 2 + iconIndex * Math.PI / 4;
     return { x: side === "rim" ? .5 + .35 * Math.cos(angle) : .2 + (iconIndex % 4) * .2, y: side === "rim" ? .5 + .35 * Math.sin(angle) : .5, scale: 1, rotation: 0, side };
@@ -284,10 +287,9 @@ export function buildLocalPersonalizationSnapshot(
   const detailLabels = Object.fromEntries(mateCharacteristicDetails(product).map(detail => [detail.code, detail.values.join(", ")]));
   const color = typeof product.options?.color === "string" ? catalogValueLabel(defaultCatalogTaxonomy, "color", product.options.color) : product.variant;
   const transform = (key: string, side: "rim" | "front" | "back") => localDesignTransform(draft, key, side);
-  const designIcons = (part: "rim" | "fleje", asset?: StoredPersonalizationAsset) => {
-    const side = part === "rim" ? "rim" : "front";
-    const selectedIcons = localDesignIcons(draft, part);
-    return [...icon(asset, side).map(item => ({ ...item, id: `${part}-upload`, transform: transform(`${part}-upload`, side) })), ...selectedIcons.map(item => ({ ...item, customImage: null, transform: transform(item.id, side) }))];
+  const designIcons = (part: "rim" | "fleje", side: "rim" | "front" | "back", asset?: StoredPersonalizationAsset) => {
+    const selectedIcons = localDesignIcons(draft, part).filter(item => side === "rim" || (item.side ?? "front") === side);
+    return [...icon(asset, side === "rim" ? "rim" : "front").map(item => ({ ...item, id: `${part}-upload`, transform: transform(`${part}-upload`, side) })), ...selectedIcons.map(item => ({ ...item, customImage: null, transform: transform(item.id, side) }))];
   };
   return {
     schemaVersion: 1,
@@ -322,7 +324,7 @@ export function buildLocalPersonalizationSnapshot(
           { id: "text-2", text: draft.rimText2.trim(), inverted: draft.rimText2Inverted, transform: transform("rim-text-2", "rim") },
         ] : [],
         imageMode: hasRimLogo ? "image" : "none",
-        icons: hasRimLogo ? designIcons("rim", stored.rim) : [],
+        icons: hasRimLogo ? designIcons("rim", "rim", stored.rim) : [],
         textTransform: transform("rim-text", "rim"),
       },
     },
@@ -336,17 +338,17 @@ export function buildLocalPersonalizationSnapshot(
           imageMode: hasFlejeLogo ? "image" : "none",
           selectedImageId: null,
           customImage: hasFlejeLogo ? customImage(stored.fleje) : null,
-          icons: hasFlejeLogo ? designIcons("fleje", stored.fleje) : [],
+          icons: hasFlejeLogo ? designIcons("fleje", "front", stored.fleje) : [],
           textTransform: transform("front-text", "front"),
         },
         back: {
           textMode: flejeAvailable && draft.flejeTechnique !== "none" && hasText(draft.flejeContent) && draft.flejeBackText.trim() ? "text" : "none",
           text: draft.flejeBackText.trim(),
           textTransform: transform("back-text", "back"),
-          imageMode: "none",
+          imageMode: hasFlejeLogo && localDesignIcons(draft, "fleje").some(item => item.side === "back") ? "image" : "none",
           selectedImageId: null,
           customImage: null,
-          icons: [],
+          icons: hasFlejeLogo ? designIcons("fleje", "back") : [],
         },
       },
     },

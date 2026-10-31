@@ -102,6 +102,7 @@ export function CheckoutForm({
   const [wholesale, setWholesale] = useState<WholesaleState | null>(null);
   const [bankTransfer, setBankTransfer] = useState<BankTransferDetails | null>(null);
   const [transferConfirmed, setTransferConfirmed] = useState(false);
+  const [uruguayTransfer, setUruguayTransfer] = useState(false);
   const [receipt, setReceipt] = useState<File | null>(null);
   const [ratesLoading, setRatesLoading] = useState(true);
   const [ratesError, setRatesError] = useState("");
@@ -117,6 +118,8 @@ export function CheckoutForm({
   const isArgentina = !isWholesale && isDelivery && purchaseRegion === "argentina";
   const argentinaSubtotal = subtotalMinor !== null && arsPerUyu > 0 ? cartItems.reduce((sum, item) => sum + toArsMinor(arsUseBasePrice && item.item_type === "catalog" ? item.catalog_base_unit_price_minor ?? item.unit_price_minor : item.unit_price_minor, arsPerUyu) * item.quantity, 0) : null;
   const isInternational = !isWholesale && isDelivery && purchaseRegion === "international";
+  const isUruguayTransfer = !isWholesale && !isArgentina && !isInternational && uruguayTransfer;
+  const transferSubtotal = subtotalMinor === null ? null : cartItems.reduce((sum, item) => sum + (item.item_type === "catalog" ? item.catalog_base_unit_price_minor ?? item.unit_price_minor : item.unit_price_minor) * item.quantity, 0);
 
   const internationalShippingCalc = useMemo(() => {
     if (!isInternational || !international.country) return null;
@@ -142,7 +145,7 @@ export function CheckoutForm({
     ? null
     : isInternational
       ? (internationalShippingMinor === null ? null : subtotalMinor - discountMinor + internationalShippingMinor)
-      : (shippingMinor === null ? null : subtotalMinor - discountMinor + shippingMinor);
+      : (shippingMinor === null ? null : (isUruguayTransfer ? transferSubtotal ?? subtotalMinor : subtotalMinor) - discountMinor + shippingMinor);
 
   const loadRates = useCallback(async () => {
     setRatesLoading(true);
@@ -220,6 +223,7 @@ export function CheckoutForm({
     setArgentinaAvailable(null);
     setArgentinaBank(null);
     setReceipt(null);
+    setUruguayTransfer(false);
     setForm(current => ({ ...current, department: "", city: "", postalCode: "" }));
     setPaypalReady(false);
     setAppliedDiscount(null);
@@ -251,7 +255,7 @@ export function CheckoutForm({
       const response = await fetch("/api/discounts/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: discountCode, currency: isArgentina ? "ARS" : "UYU" }),
+        body: JSON.stringify({ code: discountCode, currency: isArgentina ? "ARS" : "UYU", paymentMethod: isUruguayTransfer ? "bank_transfer" : undefined }),
       });
       const text = await response.text();
       const value = text ? JSON.parse(text) : {};
@@ -335,6 +339,24 @@ export function CheckoutForm({
         const value = text ? JSON.parse(text) : {};
         if (!response.ok) throw new Error(value.error || t("bankTransferFailed"));
         sessionStorage.removeItem("matearte_bank_transfer_idempotency");
+        window.location.assign(localizeCanonicalPath(`/pedidos/${value.orderId}`, locale));
+        return;
+      }
+      if (isUruguayTransfer) {
+        if (!bankTransfer || !cartReady || !transferSubtotal) throw new Error(t("bankTransferUnavailable"));
+        if (!receipt) throw new Error(t("receiptRequired"));
+        const storageKey = "matearte_uruguay_transfer_idempotency";
+        const key = sessionStorage.getItem(storageKey) || crypto.randomUUID();
+        sessionStorage.setItem(storageKey, key);
+        const payload = new FormData();
+        payload.set("shippingRateId", rateId);
+        payload.set("customer", JSON.stringify(customerPayload));
+        payload.set("receipt", receipt);
+        if (appliedDiscount?.code) payload.set("discountCode", appliedDiscount.code);
+        const response = await fetch("/api/checkout/uruguay-transfer", { method: "POST", headers: { "Idempotency-Key": key }, body: payload });
+        const value = await response.json();
+        if (!response.ok) throw new Error(responseError(value, t("bankTransferFailed")));
+        sessionStorage.removeItem(storageKey);
         window.location.assign(localizeCanonicalPath(`/pedidos/${value.orderId}`, locale));
         return;
       }
@@ -603,7 +625,8 @@ export function CheckoutForm({
               </label>
             </div>
           ))}
-          <p className="pt-8 text-[11px] leading-5 text-black/50">
+          {!isWholesale && !isArgentina && !isInternational && <p className="pt-8 text-sm font-bold text-[var(--walnut)]">{t("uruguayTransferDiscountNotice")}</p>}
+          <p className="pt-2 text-[11px] leading-5 text-black/50">
             {t("purchasePolicyNotice")}{" "}<Link href="/compras/condiciones-de-compra" target="_blank" className="underline underline-offset-2">{t("purchasePolicyLink")}</Link>
           </p>
         </div>
@@ -617,6 +640,7 @@ export function CheckoutForm({
               <dt className="text-white/75">{tCart("subtotal")}</dt>
               <dd className="font-semibold"><MoneyValue amount={isArgentina ? argentinaSubtotal : subtotalMinor} argentina={isArgentina} locale={locale} exchangeRates={exchangeRates} /></dd>
             </div>
+            {isUruguayTransfer && subtotalMinor !== null && transferSubtotal !== null && <div className="flex items-baseline justify-between gap-4"><dt className="text-white/75">{t("uruguayTransferDiscount")}</dt><dd className="font-semibold">−<MoneyValue amount={subtotalMinor - transferSubtotal} locale={locale} exchangeRates={exchangeRates} /></dd></div>}
             {appliedDiscount && (
               <div className="flex items-baseline justify-between gap-4" aria-live="polite">
                 <dt className="text-white/75">{t("discount")}</dt>
@@ -778,6 +802,8 @@ export function CheckoutForm({
 
           {!paypalReady && !isWholesale && !isArgentina && (
             <button
+              type={isUruguayTransfer ? "button" : "submit"}
+              onClick={isUruguayTransfer ? () => { setUruguayTransfer(false); setAppliedDiscount(null); setDiscountError(""); } : undefined}
               disabled={busy || !cartReady || (isArgentina ? !domesticReady || !argentinaAvailable || argentinaSubtotal === null : isInternational ? !internationalReady : !domesticReady)}
               className="mt-8 flex min-h-13 w-full items-center justify-center gap-2.5 rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-[var(--paper)] transition hover:bg-[#4a2a1c] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -805,6 +831,8 @@ export function CheckoutForm({
             </button>
           )}
 
+          {!paypalReady && !isWholesale && !isArgentina && !isInternational && <button type="button" aria-pressed={isUruguayTransfer} disabled={busy || !cartReady || !domesticReady || !bankTransfer} onClick={() => { setUruguayTransfer(true); setAppliedDiscount(null); setDiscountError(""); }} className="mt-3 flex min-h-13 w-full items-center justify-center gap-2.5 rounded-xl border border-white bg-white px-6 text-sm font-bold text-[var(--walnut)] transition hover:bg-[#f7f0e5] disabled:opacity-50"><Bank size={22} aria-hidden="true" />{t("uruguayTransferAction")}</button>}
+          {isUruguayTransfer && bankTransfer && <section className="mt-4 rounded-xl border border-white/25 bg-white/10 p-4" aria-labelledby="uruguay-bank-title"><h2 id="uruguay-bank-title" className="text-base font-bold">{t("bankTransferTitle")}</h2><p className="mt-2 text-xs leading-5 text-white/75">{t("uruguayBankInstructions")}</p><dl className="mt-4 space-y-3 rounded-xl border border-white/20 bg-black/10 p-4 text-sm"><div><dt className="text-xs text-white/65">{t("accountHolder")}</dt><dd className="mt-1 font-bold">{bankTransfer.account_holder}</dd></div><div><dt className="text-xs text-white/65">{t("bankTransferAccount")}</dt><dd className="mt-1 font-bold select-all">{bankTransfer.transfer_account}</dd></div><div><dt className="text-xs text-white/65">{bankTransfer.cash_deposit_label}</dt><dd className="mt-1 font-bold select-all">{bankTransfer.cash_deposit_account}</dd></div></dl><label htmlFor="uruguay-transfer-receipt" className="mt-5 block text-sm font-bold">{t("receiptLabel")}</label><p className="mt-1 text-xs text-white/75">{t("receiptHelp")}</p><label className="mt-3 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-white/70 px-4 text-sm font-semibold"><UploadSimple size={20} aria-hidden="true" />{receipt?.name || t("chooseReceipt")}<input id="uruguay-transfer-receipt" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="sr-only" required onChange={event => { const next = event.target.files?.[0] || null; if (next && (next.size > 5 * 1024 * 1024 || !receiptTypes.has(next.type))) { setReceipt(null); setError(t(next.size > 5 * 1024 * 1024 ? "receiptTooLarge" : "receiptInvalidType")); event.currentTarget.value = ""; } else { setError(""); setReceipt(next); } }} /></label><button type="submit" disabled={busy || !receipt || !domesticReady || !cartReady} className="mt-4 flex min-h-13 w-full items-center justify-center rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-white disabled:opacity-50">{busy ? t("uploadingReceipt") : t("completeOrder")}</button></section>}
           {!paypalReady && !isWholesale && !isArgentina && discountControl}
         </aside>
       </form>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Product } from "./data";
-import { buildLocalPersonalizationSnapshot, createPersonalizationDraft, invertLocalRimText, matePurchaseAxes, personalizationKind, productHasFleje, validatePersonalization } from "./localPersonalization";
+import { buildLocalPersonalizationSnapshot, createPersonalizationDraft, invertLocalRimText, localDesignTransform, matePurchaseAxes, personalizationKind, productHasFleje, validatePersonalization } from "./localPersonalization";
 
 const product = (changes: Partial<Product> = {}): Product => ({
   id: "variant", name: "Mate Imperial Personalizado", sku: "P-1", categoryCode: "mates-personalizados", family: "Mates personalizados",
@@ -17,6 +17,25 @@ describe("personalización de ventas locales", () => {
     expect(validatePersonalization(draft, product())).toBe("");
     const snapshot = buildLocalPersonalizationSnapshot(draft, product()) as any;
     expect(snapshot.configuration.rim.icons[0]).toMatchObject({ selectedImageId: "corazon", transform: draft.designTransforms["rim-icon"] });
+  });
+  it("guarda los íconos del fleje en el lado elegido y conserva los anteriores en el frente", () => {
+    const draft = createPersonalizationDraft("mate");
+    draft.rimText = "MATE";
+    draft.flejeTechnique = "bronze-applique";
+    draft.flejeContent = "logo";
+    draft.flejeIcons = [
+      { id: "legacy-front", selectedImageId: "sol" },
+      { id: "back-one", selectedImageId: "corazon", side: "back" },
+      { id: "back-two", selectedImageId: "escudo", side: "back" },
+    ];
+    draft.designTransforms = { "back-one": { x: .7, y: .3, scale: 1.2, rotation: 15, side: "back" } };
+    expect(validatePersonalization(draft, product())).toBe("");
+    const snapshot = buildLocalPersonalizationSnapshot(draft, product()) as any;
+    expect(snapshot.flejeConfiguration.sides.front.icons.map((item: any) => item.id)).toEqual(["legacy-front"]);
+    expect(snapshot.flejeConfiguration.sides.back.imageMode).toBe("image");
+    expect(snapshot.flejeConfiguration.sides.back.icons.map((item: any) => item.id)).toEqual(["back-one", "back-two"]);
+    expect(snapshot.flejeConfiguration.sides.back.icons[0].transform).toEqual(draft.designTransforms["back-one"]);
+    expect(localDesignTransform(draft, "back-two", "back").x).toBe(.4);
   });
   it("distingue mates, materas y bombillas personalizadas", () => {
     expect(personalizationKind(product())).toBe("mate");

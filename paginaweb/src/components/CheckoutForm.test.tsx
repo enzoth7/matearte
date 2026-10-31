@@ -114,6 +114,25 @@ describe("CheckoutForm", () => {
     expect(screen.getByText(/750/)).toBeInTheDocument();
   });
 
+  it("ofrece transferencia en Uruguay, muestra las dos vías BROU y conserva Mercado Pago", async () => {
+    mockCheckoutFetch({
+      items: [{ item_type: "catalog", unit_price_minor: 11364, catalog_base_unit_price_minor: 10000, quantity: 2 }],
+      bank_transfer: { account_holder: "Richard Ortiz", transfer_account: "BROU CA $ 110882545-00002", cash_deposit_account: "601-0384954", cash_deposit_label: "Depósitos en RED PAGOS/ABITAB · BROU CA $ (numeración vieja)" },
+    });
+    render(<CheckoutForm initialCustomer={initialCustomer} />);
+    fireEvent.click(await screen.findByRole("radio", { name: /retiro en tienda/i }));
+    expect(screen.getByText(/recibís un 13% de descuento/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /pagar por transferencia/i }));
+    expect(screen.getByText("BROU CA $ 110882545-00002")).toBeInTheDocument();
+    expect(screen.getByText("601-0384954")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /completar pedido/i })).toBeDisabled();
+    expect(screen.getByText(/descuento por transferencia/i)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/comprobante de pago/i), { target: { files: [new File(["receipt"], "pago.pdf", { type: "application/pdf" })] } });
+    expect(screen.getByRole("button", { name: /completar pedido/i })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: /mercado pago/i }));
+    expect(screen.queryByText("BROU CA $ 110882545-00002")).not.toBeInTheDocument();
+  });
+
   it("reemplaza los pagos online por transferencia cuando el carrito es mayorista", async () => {
     mockCheckoutFetch({
       items: [{ unit_price_minor: 70000, quantity: 30 }],
