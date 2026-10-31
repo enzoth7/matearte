@@ -463,7 +463,7 @@ export function CheckoutForm({
         className="lg:grid lg:grid-cols-[minmax(0,1fr)_22rem]"
       >
         {/* ── Columna izquierda — formulario ── */}
-        <div className="min-w-0 space-y-6 p-8 sm:p-10">
+        <div className="flex min-w-0 flex-col gap-6 p-8 sm:p-10">
 
           {/* Nombre + Teléfono */}
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -625,10 +625,12 @@ export function CheckoutForm({
               </label>
             </div>
           ))}
-          {!isWholesale && !isArgentina && !isInternational && <p className="pt-8 text-sm font-bold text-[var(--walnut)]">{t("uruguayTransferDiscountNotice")}</p>}
-          <p className="pt-2 text-[11px] leading-5 text-black/50">
-            {t("purchasePolicyNotice")}{" "}<Link href="/compras/condiciones-de-compra" target="_blank" className="underline underline-offset-2">{t("purchasePolicyLink")}</Link>
-          </p>
+          <div className="mt-auto pt-6">
+            {!isWholesale && !isArgentina && !isInternational && <p className="text-sm font-bold text-[var(--walnut)]">{t("uruguayTransferDiscountNotice")}</p>}
+            <p className="text-[11px] leading-5 text-black/50">
+              {t("purchasePolicyNotice")}{" "}<Link href="/compras/condiciones-de-compra" target="_blank" className="underline underline-offset-2">{t("purchasePolicyLink")}</Link>
+            </p>
+          </div>
         </div>
 
         {/* ── Sidebar derecha — resumen o WhatsApp ── */}
@@ -700,8 +702,8 @@ export function CheckoutForm({
                 <button type="submit" disabled={busy || !domesticReady || !argentinaAvailable || !cartReady || !cartItems.length || !argentinaSubtotal || !receipt} className="mt-4 flex min-h-13 w-full items-center justify-center rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-[var(--paper)] transition hover:bg-[#4a2a1c] disabled:cursor-not-allowed disabled:opacity-50">
                   {busy ? t("uploadingReceipt") : t("argentinaAction")}
                 </button>
-                {discountControl}
               </div>
+              {discountControl}
             </section>
           )}
 
