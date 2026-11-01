@@ -40,7 +40,7 @@ Los pedidos internacionales se crean con estado de revisión manual y abren What
 
 Los pedidos personalizados guardan un snapshot inmutable con las vistas PNG y los originales activos utilizados al comprar. Gestión permite consultar las vistas y los originales mediante enlaces firmados temporales.
 
-La disponibilidad comercial depende de `NEXT_PUBLIC_COMMERCE_ENABLED`, `NEXT_PUBLIC_COMMERCE_PROVIDER` y los controles de `commerce_settings` en Supabase.
+La disponibilidad comercial depende de los controles de `commerce_settings` en Supabase.
 
 ## Variables de entorno
 
@@ -49,7 +49,6 @@ La configuración local se guarda solo en `paginaweb/.env`, excluido de Git. Las
 - `NEXT_PUBLIC_SITE_URL`: URL canónica; en producción, `https://www.matearteuruguay.com`.
 - `NEXT_PUBLIC_PERSONALIZER_URL`: URL del personalizador.
 - `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: cliente público de Supabase.
-- `NEXT_PUBLIC_COMMERCE_ENABLED` y `NEXT_PUBLIC_COMMERCE_PROVIDER`: disponibilidad del comercio.
 - `NEXT_PUBLIC_PRESENTATION_MODE` y `NEXT_PUBLIC_ENABLE_RESTRICTED_MEDIA`: material editorial sujeto a aprobación.
 - `GOOGLE_SITE_VERIFICATION` y `BING_SITE_VERIFICATION`: verificaciones de buscadores.
 
