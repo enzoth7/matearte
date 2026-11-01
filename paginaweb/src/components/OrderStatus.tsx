@@ -293,7 +293,7 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
                 return (
                   <article className="order-mobile-item" key={item.id}>
                     <div className="order-mobile-thumbnail">
-                      <Image src={itemImage(item)} alt={copy.name} fill priority={index === 0} sizes="96px" />
+                      <Image src={itemImage(item)} alt={copy.name} fill priority={index === 0} sizes="96px" unoptimized={itemImage(item).startsWith("http") || itemImage(item).startsWith("/imagenes/productos/")} />
                     </div>
                     <div className="order-mobile-item-copy">
                       <h2>{copy.name}</h2>
@@ -359,7 +359,7 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
                 return (
                   <article className="order-desktop-item" key={item.id}>
                     <div className="order-desktop-thumbnail">
-                      <Image src={itemImage(item)} alt={copy.name} fill priority={index === 0} sizes="120px" />
+                      <Image src={itemImage(item)} alt={copy.name} fill priority={index === 0} sizes="120px" unoptimized={itemImage(item).startsWith("http") || itemImage(item).startsWith("/imagenes/productos/")} />
                     </div>
                     <div className="order-desktop-item-copy">
                       <h2>{copy.name}</h2>

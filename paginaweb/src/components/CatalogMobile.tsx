@@ -90,6 +90,7 @@ function CatalogMobileCard({
               className={emphasizeProductImage ? "catalog-mobile-product-image-estribo" : undefined}
               style={coverStyle}
               priority={index < 2}
+              unoptimized={imageSrc.startsWith("http") || imageSrc.startsWith("/imagenes/productos/")}
             />
           ) : null}
         </div>

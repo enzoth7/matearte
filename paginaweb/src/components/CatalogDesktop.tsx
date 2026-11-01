@@ -108,6 +108,7 @@ function CatalogDesktopCard({
               className={`catalog-product-image ${presentation?.imageClass ?? ""} ${emphasizeProductImage ? "catalog-product-image-estribo" : ""}`}
               style={coverStyle}
               priority={index < 3}
+              unoptimized={imageSrc.startsWith("http") || imageSrc.startsWith("/imagenes/productos/")}
             />
           ) : null}
         </div>

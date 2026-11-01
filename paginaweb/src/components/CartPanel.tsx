@@ -555,7 +555,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
                 <article key={item.lineKey} className="cart-mobile-item">
                   <div className="cart-mobile-item-row">
                     <div className="cart-mobile-thumbnail">
-                      <Image src={item.imageSrc} alt={item.title} fill sizes="104px" />
+                      <Image src={item.imageSrc} alt={item.title} fill sizes="104px" unoptimized={item.imageSrc.startsWith("http") || item.imageSrc.startsWith("/imagenes/productos/")} />
                     </div>
                     <div className="cart-mobile-item-copy">
                       <h3>{item.title}</h3>
@@ -608,7 +608,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
               {localItems.map((item) => (
                 <article key={item.lineKey} className="cart-desktop-item">
                   <div className="cart-desktop-thumbnail">
-                    <Image src={item.imageSrc} alt={item.title} fill sizes="120px" />
+                    <Image src={item.imageSrc} alt={item.title} fill sizes="120px" unoptimized={item.imageSrc.startsWith("http") || item.imageSrc.startsWith("/imagenes/productos/")} />
                   </div>
                   <div className="cart-desktop-item-copy">
                     <h3>{item.title}</h3>
@@ -720,6 +720,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
                       fill
                       loading={cart.items[0]?.id === item.id ? "eager" : "lazy"}
                       sizes="104px"
+                      unoptimized={itemImage(item).startsWith("http") || itemImage(item).startsWith("/imagenes/productos/")}
                     />
                   </div>
                   <div className="cart-mobile-item-copy">
@@ -811,6 +812,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
                   fill
                   loading={cart.items[0]?.id === item.id ? "eager" : "lazy"}
                   sizes="120px"
+                  unoptimized={itemImage(item).startsWith("http") || itemImage(item).startsWith("/imagenes/productos/")}
                 />
               </div>
               <div className="cart-desktop-item-copy">

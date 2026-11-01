@@ -371,7 +371,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               <div className="profile-empty-account-identity">
                 <div className="profile-empty-account-avatar">
                   {avatarUrl ? (
-                    <Image src={avatarUrl} alt={t("avatarAlt", { name: name || firstName })} fill sizes="88px" className="object-cover" priority />
+                    <Image src={avatarUrl} alt={t("avatarAlt", { name: name || firstName })} fill sizes="88px" className="object-cover" priority unoptimized />
                   ) : (
                     <Image src="/assets/matearte/profile-empty-desktop/avatar.webp" alt="" width={88} height={88} aria-hidden="true" />
                   )}
@@ -435,7 +435,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             <section className="profile-empty-mobile-account" aria-labelledby="profile-empty-mobile-account-title">
               <div className="profile-empty-mobile-avatar">
                 {avatarUrl ? (
-                  <Image src={avatarUrl} alt={t("avatarAlt", { name: name || firstName })} fill sizes="72px" className="object-cover" priority />
+                  <Image src={avatarUrl} alt={t("avatarAlt", { name: name || firstName })} fill sizes="72px" className="object-cover" priority unoptimized />
                 ) : (
                   <Image src="/assets/matearte/profile-empty-desktop/avatar.webp" alt="" width={72} height={72} aria-hidden="true" />
                 )}
@@ -490,7 +490,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               <div className="profile-empty-account-identity">
                 <div className="profile-empty-account-avatar">
                   {avatarUrl ? (
-                    <Image src={avatarUrl} alt={t("avatarAlt", { name: name || firstName })} fill sizes="88px" className="object-cover" priority />
+                    <Image src={avatarUrl} alt={t("avatarAlt", { name: name || firstName })} fill sizes="88px" className="object-cover" priority unoptimized />
                   ) : (
                     <Image src="/assets/matearte/profile-empty-desktop/avatar.webp" alt="" width={88} height={88} aria-hidden="true" />
                   )}
@@ -554,6 +554,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                           alt={firstItem?.item_type === "design" ? "MateArte" : firstItem ? itemTitle(firstItem) : t("orderNumber", { number: order.order_number })}
                           fill
                           sizes="138px"
+                          unoptimized={orderThumbnail(firstItem).startsWith("http") || orderThumbnail(firstItem).startsWith("/imagenes/productos/")}
                         />
                       </div>
 
@@ -594,7 +595,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           <section className="profile-empty-mobile-account" aria-labelledby="profile-orders-mobile-account-title">
             <div className="profile-empty-mobile-avatar">
               {avatarUrl ? (
-                <Image src={avatarUrl} alt={t("avatarAlt", { name: name || firstName })} fill sizes="72px" className="object-cover" priority />
+                <Image src={avatarUrl} alt={t("avatarAlt", { name: name || firstName })} fill sizes="72px" className="object-cover" priority unoptimized />
               ) : (
                 <Image src="/assets/matearte/profile-empty-desktop/avatar.webp" alt="" width={72} height={72} aria-hidden="true" />
               )}
@@ -648,6 +649,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                           alt={firstItem?.item_type === "design" ? "MateArte" : firstItem ? itemTitle(firstItem) : t("orderNumber", { number: order.order_number })}
                           fill
                           sizes="96px"
+                          unoptimized={orderThumbnail(firstItem).startsWith("http") || orderThumbnail(firstItem).startsWith("/imagenes/productos/")}
                         />
                       </div>
 
@@ -697,7 +699,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
                 <div className="relative size-24 shrink-0 overflow-hidden rounded-full border-4 border-[var(--cream-deep)] bg-[var(--leather)] shadow-md sm:size-28">
                   {avatarUrl ? (
-                    <Image src={avatarUrl} alt={t("avatarAlt", { name: name || firstName })} fill sizes="112px" className="object-cover" priority />
+                    <Image src={avatarUrl} alt={t("avatarAlt", { name: name || firstName })} fill sizes="112px" className="object-cover" priority unoptimized />
                   ) : (
                     <span className="display-font grid size-full place-items-center text-3xl font-semibold text-[var(--cream-deep)]" aria-label={t("initialsLabel", { name: name || firstName })}>{initials}</span>
                   )}
