@@ -7,6 +7,7 @@ import { localizeCanonicalPath } from "@/i18n/paths";
 import { requireUser } from "@/lib/supabase/server";
 import type { Locale } from "@/types/catalog";
 import { safeStoreRedirect } from "@/lib/auth-redirect";
+import { countryOptionsForLocale, countryPhoneOptionsForLocale } from "@/lib/countries";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale() as Locale;
@@ -34,11 +35,13 @@ export default async function EditProfilePage({ searchParams }: { searchParams: 
       : "";
 
   return (
-    <main id="contenido" className="bg-[#f5f0e8] py-10 sm:py-12 lg:py-14">
-      <div className="container-shell max-w-[68rem]">
+    <main id="contenido" className="bg-[#f5f0e8] py-10 sm:py-12 lg:pb-16 lg:pt-[66px]">
+      <div className="container-shell max-w-[1232px]">
         <ProfileEditor
           welcome={!profile?.profile_completed_at}
           postSaveRedirect={safeStoreRedirect(params.redirect) || undefined}
+          countryChoices={countryOptionsForLocale(locale)}
+          phoneCountryChoices={countryPhoneOptionsForLocale(locale)}
           initial={{
             fullName: profile?.full_name || fallbackName,
             phone: profile?.phone || "",

@@ -21,12 +21,18 @@ export type ProfileFormData = {
   postalCode: string;
 };
 
-export function ProfileEditor({ initial, welcome, postSaveRedirect }: { initial: ProfileFormData; welcome: boolean; postSaveRedirect?: StoreRedirect }) {
+export function ProfileEditor({ initial, welcome, postSaveRedirect, countryChoices, phoneCountryChoices }: {
+  initial: ProfileFormData;
+  welcome: boolean;
+  postSaveRedirect?: StoreRedirect;
+  countryChoices?: ReturnType<typeof countryOptionsForLocale>;
+  phoneCountryChoices?: ReturnType<typeof countryPhoneOptionsForLocale>;
+}) {
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations("profileEditor");
-  const countryOptions = countryOptionsForLocale(locale);
-  const phoneCountryOptions = countryPhoneOptionsForLocale(locale);
+  const countryOptions = countryChoices ?? countryOptionsForLocale(locale);
+  const phoneCountryOptions = phoneCountryChoices ?? countryPhoneOptionsForLocale(locale);
   const firstInvalid = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState(initial);
   const [parsedPhone] = useState(() => parsePhoneNumber(initial.phone, initial.countryCode || "UY"));
@@ -110,33 +116,32 @@ export function ProfileEditor({ initial, welcome, postSaveRedirect }: { initial:
     }
   };
 
-  const fieldClass = "mt-2 min-h-12 w-full rounded-lg border border-[#311c12]/75 bg-[#fffdf8] px-4 text-sm text-[#311c12] outline-none transition focus:border-[#79452d] focus:ring-2 focus:ring-[#c7a071]/45";
+  const fieldClass = "mt-1.5 h-[53px] w-full rounded-lg border border-[#67564c] bg-[#fffdf8] px-4 text-sm font-normal text-[#311c12] outline-none transition focus:border-[#79452d] focus:ring-2 focus:ring-[#c7a071]/45";
 
   return (
-    <div className="flex flex-col gap-11 lg:gap-12">
-      <header className="flex min-h-40 flex-col items-center justify-center rounded-2xl bg-[#311c12] px-6 py-8 text-center text-[#fffdf8] sm:min-h-48 sm:px-10 lg:min-h-55">
-        <h1 className="display-font text-4xl font-medium leading-none tracking-tight sm:text-5xl">{welcome ? t("welcomeTitle") : t("editTitle")}</h1>
-        <p className="mt-5 max-w-3xl text-sm leading-6 text-white/90 sm:text-base sm:leading-7">{t("intro")}</p>
+    <div className="flex flex-col gap-8 lg:gap-[52px]">
+      <header className="flex min-h-44 flex-col items-center justify-center rounded-2xl bg-[#311c12] px-6 py-9 text-center text-[#fffdf8] sm:min-h-52 sm:px-10 lg:min-h-[250px]">
+        <h1 className="display-font text-4xl font-medium leading-none tracking-tight sm:text-5xl">{t("editTitle")}</h1>
+        <p className="mt-5 max-w-4xl text-sm leading-6 text-white/90 sm:text-lg sm:leading-7 lg:text-xl">{t("intro")}</p>
       </header>
 
-      <form onSubmit={(event) => void submit(event)} className="border border-[#79452d]/25 bg-[#fffdf8] p-6 sm:p-8 lg:p-6">
-        {welcome && <p className="eyebrow mb-7 text-[var(--leather)]">{t("welcomeEyebrow")}</p>}
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_19.5rem] lg:gap-5">
-          <div>
-            <div className="grid gap-x-3 gap-y-5 sm:grid-cols-2">
-              <label className="text-xs font-semibold text-[#17130f]">
+      <form onSubmit={(event) => void submit(event)} className="border border-[#79452d]/15 bg-[#fffdf8] p-6 sm:p-8 lg:min-h-[533px] lg:pb-[38px] lg:pl-[38px] lg:pr-[30px] lg:pt-[78px]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_355px] lg:gap-[29px]">
+          <div className="min-w-0">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-x-[14px] gap-y-6 sm:grid-cols-2 lg:gap-y-8">
+              <label className="text-[13px] font-bold text-[#17130f]">
                 {t("fullName")}
                 <input ref={firstInvalid} name="name" autoComplete="name" required maxLength={120} value={form.fullName} onChange={(event) => update("fullName", event.target.value)} className={fieldClass} />
               </label>
 
-              <label className="text-xs font-semibold text-[#17130f]">
+              <label className="text-[13px] font-bold text-[#17130f]">
                 {t("phone")}
-                <div className="mt-2 flex min-h-12 w-full rounded-lg border border-[#311c12]/75 bg-[#fffdf8] transition focus-within:border-[#79452d] focus-within:ring-2 focus-within:ring-[#c7a071]/45">
+                <div className="mt-1.5 flex h-[53px] w-full rounded-lg border border-[#67564c] bg-[#fffdf8] transition focus-within:border-[#79452d] focus-within:ring-2 focus-within:ring-[#c7a071]/45">
                   <select
                     aria-label={t("phoneCountryAria")}
                     value={phoneCountry}
                     onChange={(event) => updatePhoneCountry(event.target.value)}
-                    className="max-w-[44%] shrink-0 rounded-l-lg border-r border-[#311c12]/30 bg-transparent px-2.5 text-xs text-[#311c12] outline-none transition sm:max-w-[48%] sm:text-sm"
+                    className="max-w-[60%] shrink-0 rounded-l-lg border-r border-[#311c12]/30 bg-transparent px-2.5 text-xs font-normal text-[#311c12] outline-none transition sm:max-w-[48%] sm:text-sm"
                   >
                     {phoneCountryOptions.map((country) => (
                       <option key={country.code} value={country.code}>
@@ -152,18 +157,18 @@ export function ProfileEditor({ initial, welcome, postSaveRedirect }: { initial:
                     value={phoneNumber}
                     onChange={(event) => updatePhone(event.target.value)}
                     aria-label={callingCode ? `${t("phone")}. ${t("callingCode", { code: callingCode })}` : t("chooseCountryForCode")}
-                    className="min-w-0 flex-1 rounded-r-lg bg-transparent px-3 text-sm text-[#311c12] outline-none"
+                    className="min-w-0 flex-1 rounded-r-lg bg-transparent px-3 text-sm font-normal text-[#311c12] outline-none"
                   />
                 </div>
                 <span className="sr-only">{callingCode ? t("callingCode", { code: callingCode }) : t("chooseCountryForCode")}. {t("phoneHelp")}</span>
               </label>
 
-              <label className="text-xs font-semibold text-[#17130f]">
+              <label className="text-[13px] font-bold text-[#17130f]">
                 {t("birthday")}
                 <input type="date" required min="1900-01-01" max={new Date().toISOString().slice(0, 10)} value={form.birthDate} onChange={(event) => update("birthDate", event.target.value)} className={fieldClass} />
               </label>
 
-              <label className="text-xs font-semibold text-[#17130f]">
+              <label className="text-[13px] font-bold text-[#17130f]">
                 {t("country")}
                 <select autoComplete="country" required value={form.countryCode} onChange={(event) => updateCountry(event.target.value)} className={fieldClass}>
                   <option value="">{t("chooseCountry")}</option>
@@ -171,13 +176,13 @@ export function ProfileEditor({ initial, welcome, postSaveRedirect }: { initial:
                 </select>
               </label>
 
-              <label className="text-xs font-semibold text-[#17130f]">
+              <label className="text-[13px] font-bold text-[#17130f]">
                 {t("city")}
                 <input autoComplete="address-level2" required maxLength={120} value={form.city} onChange={(event) => update("city", event.target.value)} className={fieldClass} />
               </label>
 
               {regions.length > 0 ? (
-                <label className="text-xs font-semibold text-[#17130f]">
+                <label className="text-[13px] font-bold text-[#17130f]">
                   {form.countryCode === "UY" ? t("department") : t("state")}
                   <select autoComplete="address-level1" required value={form.department} onChange={(event) => update("department", event.target.value)} className={fieldClass}>
                     <option value="">{t("chooseOption")}</option>
@@ -185,13 +190,13 @@ export function ProfileEditor({ initial, welcome, postSaveRedirect }: { initial:
                   </select>
                 </label>
               ) : (
-                <label className="text-xs font-semibold text-[#17130f]">
+                <label className="text-[13px] font-bold text-[#17130f]">
                   {t("state")} <span className="font-normal text-black/45">({t("optional")})</span>
                   <input autoComplete="address-level1" maxLength={80} value={form.department} onChange={(event) => update("department", event.target.value)} className={fieldClass} />
                 </label>
               )}
 
-              <label className="text-xs font-semibold text-[#17130f] sm:col-span-1">
+              <label className="text-[13px] font-bold text-[#17130f] sm:col-span-1">
                 {t("address")}
                 <input autoComplete="street-address" required maxLength={180} value={form.addressLine1} onChange={(event) => update("addressLine1", event.target.value)} className={fieldClass} />
               </label>
@@ -202,19 +207,19 @@ export function ProfileEditor({ initial, welcome, postSaveRedirect }: { initial:
             </div>}
           </div>
 
-          <aside className="flex flex-col gap-7">
-            <div className="flex min-h-60 flex-col items-center justify-center rounded-[14px] bg-[#908c76] px-5 py-7 text-center text-[#fffdf8]">
-              <p className="display-font text-2xl font-medium">{t("profilePhoto")}</p>
-              <p className="mt-3 max-w-40 text-xs leading-5 text-white/85">{t("fileHelp")}</p>
-              <label className="mt-8 flex min-h-12 w-full cursor-pointer items-center justify-center rounded-xl bg-[#fffdf8] px-4 text-sm font-semibold text-[#311c12] transition hover:bg-[#f5f0e8] focus-within:outline-3 focus-within:outline-offset-3 focus-within:outline-[#fffdf8]">
+          <aside className="flex min-w-0 flex-col gap-7 lg:pt-6">
+            <div className="flex min-h-[276px] flex-col items-center justify-center rounded-[14px] bg-[#908c76] px-8 py-8 text-center text-[#fffdf8]">
+              <p className="text-[26px] font-normal leading-tight">{t("profilePhoto")}</p>
+              <p className="mt-3 max-w-40 text-[13px] leading-5 text-white/90">{t("fileHelp")}</p>
+              <label className="mt-11 flex min-h-[50px] w-full cursor-pointer items-center justify-center rounded-xl bg-[#fffdf8] px-4 text-sm font-bold text-[#311c12] transition hover:bg-[#f5f0e8] focus-within:outline-3 focus-within:outline-offset-3 focus-within:outline-[#fffdf8]">
                 <span className="truncate">{avatar ? avatar.name : t("selectImage")}</span>
                 <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setAvatar(event.target.files?.[0] || null)} className="sr-only" />
               </label>
             </div>
 
-            <div className="flex flex-wrap justify-end gap-3">
-              {!welcome && <button type="button" onClick={() => router.push("/perfil")} className="min-h-12 rounded-xl border border-[#311c12] bg-[#fffdf8] px-6 text-sm font-semibold text-[#311c12] transition hover:bg-[#f5f0e8] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#c7a071]">{t("cancel")}</button>}
-              <button type="submit" disabled={busy} className="min-h-12 rounded-xl bg-[#311c12] px-6 text-sm font-semibold text-[#fffdf8] transition hover:bg-[#4a2a1c] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#c7a071] disabled:cursor-wait disabled:opacity-60">{busy ? t("saving") : t("save")}</button>
+            <div className="flex flex-wrap justify-end gap-3.5 lg:mt-4">
+              <button type="button" onClick={() => router.push(welcome ? (postSaveRedirect === "/checkout" ? "/carrito" : "/") : "/perfil")} className="min-h-[52px] rounded-xl border border-[#67564c] bg-[#fffdf8] px-7 text-sm font-bold text-[#311c12] transition hover:bg-[#f5f0e8] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#c7a071]">{t("cancel")}</button>
+              <button type="submit" disabled={busy} className="min-h-[52px] rounded-xl bg-[#311c12] px-5 text-sm font-bold text-[#fffdf8] transition hover:bg-[#4a2a1c] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#c7a071] disabled:cursor-wait disabled:opacity-60">{busy ? t("saving") : t("save")}</button>
             </div>
           </aside>
         </div>
