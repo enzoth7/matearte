@@ -83,16 +83,15 @@ function orderThumbnail(item?: OrderItem) {
   return item?.image_url || "/assets/matearte/profile-orders-desktop/catalog-fallback.webp";
 }
 
-type PersonalCoupon = { id: string; code: string; validUntil: string; designOnly: boolean };
+type ProfileCoupon = { id: string; code: string; title: string; validUntil: string | null; designOnly: boolean; available: boolean };
 
-function ProfileCoupons({ id, welcomeCode, personalCoupons, labels, locale }: {
+function ProfileCoupons({ id, coupons, labels, locale }: {
   id: string;
-  welcomeCode: string | null;
-  personalCoupons: PersonalCoupon[];
+  coupons: ProfileCoupon[];
   labels: {
-    heading: string; empty: string; welcomeTitle: string; welcomeValidity: string;
-    discountName: string; validUntil: string; code: string; copy: string; copied: string; copyFailed: string;
-    personalTitle: string;
+    heading: string; empty: string; welcomeValidity: string;
+    discountName: string; status: string; available: string; unavailable: string;
+    validUntil: string; code: string; copy: string; copied: string; copyFailed: string;
     designOnly: string;
   };
   locale: Locale;
@@ -100,41 +99,33 @@ function ProfileCoupons({ id, welcomeCode, personalCoupons, labels, locale }: {
   return (
     <section className="profile-coupons" aria-labelledby={id}>
       <h2 id={id}>{labels.heading}</h2>
-      {welcomeCode || personalCoupons.length ? (
+      {coupons.length ? (
         <div className="profile-coupons-list">
           <div className="profile-coupon-header">
             <span>{labels.discountName}</span>
+            <span>{labels.status}</span>
             <span>{labels.validUntil}</span>
             <span>{labels.code}</span>
           </div>
-          {welcomeCode && (
-            <article className="profile-coupon-row">
-              <div className="profile-coupon-name">
-                <h3>{labels.welcomeTitle}</h3>
-              </div>
-              <div className="profile-coupon-validity">
-                <span className="profile-coupon-validity-mobile-label">{labels.validUntil}</span>
-                <span>{labels.welcomeValidity}</span>
-              </div>
-              <div className="profile-coupon-code-value">
-                <code>{welcomeCode}</code>
-                <CouponCopyButton code={welcomeCode} copyLabel={labels.copy} copiedLabel={labels.copied} failedLabel={labels.copyFailed} />
-              </div>
-            </article>
-          )}
-          {personalCoupons.map((coupon) => (
+          {coupons.map((coupon) => (
             <article className="profile-coupon-row" key={coupon.id}>
               <div className="profile-coupon-name">
-                <h3>{labels.personalTitle}</h3>
+                <h3>{coupon.title}</h3>
                 {coupon.designOnly && <p>{labels.designOnly}</p>}
               </div>
+              <div className="profile-coupon-status">
+                <span className="profile-coupon-mobile-label">{labels.status}</span>
+                <span className={`profile-coupon-status-badge ${coupon.available ? "is-available" : "is-unavailable"}`}>
+                  {coupon.available ? labels.available : labels.unavailable}
+                </span>
+              </div>
               <div className="profile-coupon-validity">
-                <span className="profile-coupon-validity-mobile-label">{labels.validUntil}</span>
-                <span>{date(`${coupon.validUntil}T12:00:00Z`, locale)}</span>
+                <span className="profile-coupon-mobile-label">{labels.validUntil}</span>
+                <span>{coupon.validUntil ? date(`${coupon.validUntil}T12:00:00Z`, locale) : labels.welcomeValidity}</span>
               </div>
               <div className="profile-coupon-code-value">
                 <code>{coupon.code}</code>
-                <CouponCopyButton code={coupon.code} copyLabel={labels.copy} copiedLabel={labels.copied} failedLabel={labels.copyFailed} />
+                {coupon.available && <CouponCopyButton code={coupon.code} copyLabel={labels.copy} copiedLabel={labels.copied} failedLabel={labels.copyFailed} />}
               </div>
             </article>
           ))}
@@ -307,39 +298,65 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
     .join("") || "MA";
   const hasNoOrders = !error && orders.length === 0;
   const hasOrders = !error && orders.length > 0;
-  let welcomeCouponCode: string | null = null;
-  let personalCoupons: PersonalCoupon[] = [];
+  const coupons: ProfileCoupon[] = [];
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Montevideo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   const admin = createAdminSupabase();
-  const { data: ownedDiscounts } = await admin.from("commerce_discounts")
-    .select("id,code,valid_until,applicability,category_codes,include_design_items")
-    .eq("owner_user_id", user.id).eq("enabled", true)
-    .lte("valid_from", today).gte("valid_until", today)
-    .order("valid_until", { ascending: true });
-  if (ownedDiscounts?.length) {
-    const { data: redeemed, error: redeemedError } = await admin.from("commerce_discount_usages")
-      .select("discount_id").eq("user_id", user.id).eq("status", "redeemed")
-      .in("discount_id", ownedDiscounts.map((discount) => discount.id));
-    if (!redeemedError) {
-      const redeemedIds = new Set((redeemed || []).map((usage) => usage.discount_id));
-      personalCoupons = ownedDiscounts.filter((discount) => !redeemedIds.has(discount.id)).map((discount) => ({
-        id: discount.id, code: discount.code, validUntil: discount.valid_until,
-        designOnly: discount.applicability === "design_items" || (discount.applicability === "categories" && discount.include_design_items && !discount.category_codes?.length),
-      }));
-    }
+  const [{ data: ownedDiscounts }, { data: publicDiscounts }] = await Promise.all([
+    admin.from("commerce_discounts")
+      .select("id,code,valid_until,applicability,category_codes,include_design_items,redemption_limit")
+      .eq("owner_user_id", user.id).eq("enabled", true)
+      .lte("valid_from", today).gte("valid_until", today)
+      .order("valid_until", { ascending: true }),
+    admin.from("commerce_discounts")
+      .select("id,code,discount_type,value,valid_until,applicability,category_codes,include_design_items,redemption_limit,welcome_only")
+      .is("owner_user_id", null).eq("enabled", true)
+      .lte("valid_from", today).gte("valid_until", today)
+      .order("valid_until", { ascending: true }),
+  ]);
+  const activeDiscounts = [...(ownedDiscounts || []), ...(publicDiscounts || [])];
+  const limitedIds = activeDiscounts.filter((discount) => discount.redemption_limit !== null).map((discount) => discount.id);
+  const { data: usages, error: usagesError } = limitedIds.length
+    ? await admin.from("commerce_discount_usages").select("discount_id,status,reserved_until").in("discount_id", limitedIds).in("status", ["redeemed", "reserved"])
+    : { data: [] as { discount_id: string; status: string; reserved_until: string | null }[], error: null };
+  const isAvailable = (discount: { id: string; redemption_limit: number | null }) => {
+    if (discount.redemption_limit === null) return true;
+    if (usagesError) return false;
+    const discountUsages = (usages || []).filter((usage) => usage.discount_id === discount.id);
+    return discountUsages.filter((usage) => usage.status === "redeemed").length < discount.redemption_limit
+      && !discountUsages.some((usage) => usage.status === "reserved" && usage.reserved_until && new Date(usage.reserved_until) > new Date());
+  };
+  const designOnly = (discount: { applicability: string; include_design_items: boolean; category_codes: string[] }) =>
+    discount.applicability === "design_items" || (discount.applicability === "categories" && discount.include_design_items && !discount.category_codes?.length);
+  for (const discount of ownedDiscounts || []) {
+    coupons.push({
+      id: discount.id, code: discount.code, title: t("personalCouponTitle"), validUntil: discount.valid_until,
+      designOnly: designOnly(discount), available: isAvailable(discount),
+    });
+  }
+  for (const discount of publicDiscounts || []) {
+    if (discount.welcome_only) continue;
+    const value = discount.discount_type === "percentage"
+      ? `${Number(discount.value).toLocaleString(languageTags[locale])}%`
+      : new Intl.NumberFormat(languageTags[locale], { style: "currency", currency: "UYU", maximumFractionDigits: 0 }).format(Number(discount.value) / 100);
+    coupons.push({
+      id: discount.id, code: discount.code, title: t("generalCouponTitle", { value }), validUntil: discount.valid_until,
+      designOnly: designOnly(discount), available: isAvailable(discount),
+    });
   }
   if (user.email) {
     const [{ data: subscriber }, { count: paidOrders }] = await Promise.all([
       admin.from("newsletter_subscribers").select("status,confirmed_at").eq("email", user.email.trim().toLowerCase()).maybeSingle(),
       admin.from("orders").select("id", { count: "exact", head: true }).eq("user_id", user.id).not("paid_at", "is", null),
     ]);
-    if (paidOrders === 0 && subscriber?.status === "active" && subscriber.confirmed_at) {
+    if (subscriber?.status === "active" && subscriber.confirmed_at) {
       const { data: offer } = await admin.from("marketing_subscription_settings")
         .select("discount_code").eq("id", true).maybeSingle();
       if (offer?.discount_code) {
-        const { data: discount } = await admin.from("commerce_discounts")
-          .select("enabled,welcome_only,valid_from,valid_until").eq("code", offer.discount_code).maybeSingle();
-        if (discount?.enabled && discount.welcome_only && discount.valid_from <= today && discount.valid_until >= today) welcomeCouponCode = offer.discount_code;
+        const discount = (publicDiscounts || []).find((item) => item.code === offer.discount_code && item.welcome_only);
+        if (discount) coupons.unshift({
+          id: discount.id, code: discount.code, title: t("welcomeCouponTitle"), validUntil: null,
+          designOnly: false, available: paidOrders === 0,
+        });
       }
     }
   }
@@ -348,15 +365,13 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
     return item.selection_label ? `${title.split(" — ")[0]} · ${item.selection_label}` : title;
   };
   const couponProps = {
-    welcomeCode: welcomeCouponCode,
-    personalCoupons,
+    coupons,
     locale,
     labels: {
-      heading: t("myCoupons"), empty: t("noCoupons"), welcomeTitle: t("welcomeCouponTitle"),
+      heading: t("myCoupons"), empty: t("noCoupons"),
       welcomeValidity: t("welcomeCouponValidity"), discountName: t("couponDiscountName"),
-      validUntil: t("couponValidUntil"),
+      status: t("couponStatus"), available: t("couponAvailable"), unavailable: t("couponUnavailable"), validUntil: t("couponValidUntil"),
       code: t("couponCode"), copy: t("couponCopy"), copied: t("couponCopied"), copyFailed: t("couponCopyFailed"),
-      personalTitle: t("personalCouponTitle"),
       designOnly: t("personalCouponDesignOnly"),
     },
   };

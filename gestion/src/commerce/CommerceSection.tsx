@@ -8,7 +8,7 @@ import { InternationalShipping } from './InternationalShippingView';
 import { Announcements } from './Announcements';
 
 export function CommerceSection({ path, notify, commerce }: PageProps & { path: string }) {
-  const [shipping, setShipping] = useState('Tarifas y simulador');
+  const [shipping, setShipping] = useState('Simulador internacional');
   return <div className="commerce-tools">
     {path === 'marketing/descuentos' && <Discounts onNotice={notify} />}
     {path === 'marketing/avisos' && <Announcements onNotice={notify} />}
@@ -17,8 +17,8 @@ export function CommerceSection({ path, notify, commerce }: PageProps & { path: 
     {path === 'finanzas/monedas' && <Rates onNotice={notify} wholesaleRate={commerce?.wholesale?.exchangeRate} />}
     {path === 'administracion/canales' && <Settings section="payments" onNotice={notify} />}
     {path === 'entregas/tarifas' && <>
-      <div className="tabs">{['Tarifas y simulador', 'Editar tarifas internacionales'].map(value => <button key={value} className={value === shipping ? 'active' : ''} onClick={() => setShipping(value)}>{value}</button>)}</div>
-      {shipping === 'Tarifas y simulador' ? <CommerceShipping snapshot={commerce} /> : <InternationalShipping onNotice={notify} />}
+      <div className="tabs">{['Simulador internacional', 'Editar tarifas internacionales'].map(value => <button key={value} className={value === shipping ? 'active' : ''} onClick={() => setShipping(value)}>{value}</button>)}</div>
+      {shipping === 'Simulador internacional' ? <CommerceShipping snapshot={commerce} /> : <InternationalShipping onNotice={notify} />}
     </>}
   </div>;
 }

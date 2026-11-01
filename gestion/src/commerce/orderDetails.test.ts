@@ -46,7 +46,7 @@ describe('getOrderDeliveryDetails', () => {
       city: 'Paysandú',
       department: 'Paysandú',
       country: 'Uruguay',
-      zone: 'Envío al interior',
+      zone: '',
       methodLabel: 'Envío nacional',
     });
   });

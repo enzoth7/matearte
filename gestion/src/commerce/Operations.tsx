@@ -476,7 +476,7 @@ export function getOrderDeliveryDetails(order:Pick<Order,'shipping_method'|'ship
     city: snapshotValue(source,'city'),
     department: snapshotValue(source,'department','state','province'),
     country,
-    zone: snapshotValue(shipping,'name'),
+    zone: isInternational ? snapshotValue(shipping,'name') : '',
     methodLabel,
   };
 }

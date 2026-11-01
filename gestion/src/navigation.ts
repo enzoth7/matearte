@@ -90,7 +90,7 @@ export const areas = [
       ["pendientes", "Pendientes de entrega"],
       ["retiros", "Retiros en local"],
       ["envios", "Envíos y seguimiento"],
-      ["tarifas", "Tarifas y simulador"],
+      ["tarifas", "Tarifas internacionales"],
     ],
   },
   {

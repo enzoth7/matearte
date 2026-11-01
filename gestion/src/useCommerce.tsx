@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { commerceSource, readCommerceOrders, readCommerceProducts, readCommerceReference } from "./commerceSource";
-import { adaptCommerce, type CommerceSnapshot, type CommercePayment, type NationalRate, type RuralRaffleEntry, type WebCustomerProfile, type WebLead } from "./commerceAdapter";
+import { adaptCommerce, type CommerceSnapshot, type CommercePayment, type RuralRaffleEntry, type WebCustomerProfile, type WebLead } from "./commerceAdapter";
 import { loadState, type State } from "./data";
 import type { LocalCustomer, LocalSale, LocalSaleReceipt } from "./localSource";
 import { adaptExpenses, canReadExpenses, readExpenseSources } from "./expenseSource";
@@ -115,7 +115,7 @@ export function useCommerce() {
     busyRef.current = true;
     setLoading(true);
     try {
-      const [products, orders, payments, reference, shipping, customerProfiles, localCustomerResult, localSales, localReceipts, ruralRaffleEntries, wholesale, webLeads, membership, expenseSources, contactOrigins, contactFirstSeen] = await Promise.all([
+      const [products, orders, payments, reference, customerProfiles, localCustomerResult, localSales, localReceipts, ruralRaffleEntries, wholesale, webLeads, membership, expenseSources, contactOrigins, contactFirstSeen] = await Promise.all([
         readAllPages((page) => readCommerceProducts(client, page)),
         readAllPages((page) => readCommerceOrders(client, page)),
         readAllPages<CommercePayment>(async (page) => {
@@ -124,7 +124,6 @@ export function useCommerce() {
           return { rows: data || [], count: count ?? 0 };
         }),
         readCommerceReference(client),
-        client.from("shipping_rates").select("id,name,rate_minor,is_pickup,active,departments").order("name"),
         readCustomerProfiles(),
         readLocalCustomers(client, localCustomerCache.current),
         readAllPages<LocalSale>(async (page) => {
@@ -172,11 +171,10 @@ export function useCommerce() {
         }),
       ]);
       if (requestEpoch !== epoch.current) return;
-      if (shipping.error) throw shipping.error;
       if (membership.error) throw membership.error;
       localCustomerCache.current = localCustomerResult;
       const localCustomers = localCustomerResult.rows;
-      const next: CommerceSnapshot = { products, orders, payments, reference, nationalRates: (shipping.data || []) as NationalRate[], customerProfiles, localCustomers, localSales, localReceipts, ruralRaffleEntries, wholesale, webLeads, contactOrigins: contactOrigins.error ? undefined : (contactOrigins.data || []) as { contact_key: string; origin: string }[], contactFirstSeen };
+      const next: CommerceSnapshot = { products, orders, payments, reference, customerProfiles, localCustomers, localSales, localReceipts, ruralRaffleEntries, wholesale, webLeads, contactOrigins: contactOrigins.error ? undefined : (contactOrigins.data || []) as { contact_key: string; origin: string }[], contactFirstSeen };
       const base = adaptWholesale(adaptCommerce(next, (path) => client.storage.from("product-images").getPublicUrl(path).data.publicUrl), wholesale);
       const rates = Object.fromEntries(reference.exchangeRates.map((rate) => [rate.currency_code, Number(rate.rate_to_uyu)]));
       // Sin ningún egreso cargado no se calcula ganancia: se vería como si no hubiera gastos.

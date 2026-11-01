@@ -8,14 +8,13 @@ import { formatContactName } from "../../shared/contactName";
 import { countryDisplayName } from "./location";
 
 export type CommercePayment = { id: string; order_id: string; provider: string; status: string; amount_minor: number; currency: string; approved_at: string | null; created_at: string };
-export type NationalRate = { id: string; name: string; rate_minor: number; is_pickup: boolean; active: boolean; departments: string[] };
 export type LocalCustomerBirth = { source_user_id: string | null; email: string | null; birth_date: string | null };
 export type WebCustomerProfile = { user_id: string; birth_date: string | null; city: string | null; country_code: string | null; company?: string | null; address_line1?: string | null; department?: string | null; postal_code?: string | null };
 export type RuralRaffleEntry = { id: string; full_name: string | null; company_name?: string | null; address?: string | null; notes?: string | null; email: string; phone: string; city: string | null; country: string | null; department?: string | null; postal_code?: string | null; additional_phones?: string[]; inferred_category?: string | null; birth_date: string | null; product_interest: string; origin_channel?: CustomerSourceChannel; customer_type?: "Minorista" | "Mayorista"; created_at: string };
 export type WebLead = { source_kind: "account" | "newsletter"; source_id: string; full_name: string | null; email: string; phone: string | null; city: string | null; country_code: string | null; birth_date: string | null; company: string | null; origin_channel: CustomerSourceChannel; customer_type: "Minorista" | "Mayorista"; created_at: string; address?: string | null; department?: string | null; postal_code?: string | null; notes?: string | null; additional_phones?: string[]; inferred_category?: string | null; product_interest?: string | null };
 export type CommerceSnapshot = {
   products: CommerceProduct[]; orders: CommerceOrder[]; payments: CommercePayment[];
-  reference: CommerceReference; nationalRates: NationalRate[]; customerBirthdays?: LocalCustomerBirth[]; customerProfiles?: WebCustomerProfile[];
+  reference: CommerceReference; customerBirthdays?: LocalCustomerBirth[]; customerProfiles?: WebCustomerProfile[];
   localCustomers?: LocalCustomer[]; localSales?: LocalSale[]; localReceipts?: LocalSaleReceipt[];
   /** Origen calculado en la base (primer canal de entrada); es el mismo que usa Marketing → Leads. */
   contactOrigins?: { contact_key: string; origin: string }[];
