@@ -3,7 +3,9 @@
 /auditoria-movil-2026-08-24
 
 /dashboard
-/supabase
+# Gestión importa las plantillas de correo de supabase/functions para mostrarlas en Email templates.
+/supabase/migrations
+/supabase/tests
 **/node_modules
 **/.next
 **/dist
