@@ -1,12 +1,13 @@
 "use client";
 import { useStorefrontCurrency, useStorefrontProduct } from "./StorefrontCurrency";
 
-import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
-import { addLocalCartItem } from "@/lib/browser-cart";
+import { addLocalCartItem, readLocalCart } from "@/lib/browser-cart";
+import { countCartItems, notifyCartAdded } from "@/lib/cart-feedback";
+import { catalogCoverStyle } from "@/lib/catalog-cover";
 import type { Product } from "@/types/catalog";
-import { Link, useRouter } from "@/i18n/navigation";
+import { Link } from "@/i18n/navigation";
 import { ProductGallery } from "./ProductGallery";
 import { StructuredVariantPicker } from "./product/StructuredVariantPicker";
 import { useStructuredVariantSelection } from "./product/useStructuredVariantSelection";
@@ -52,7 +53,6 @@ export function ProductMobile({ product, exchangeRates }: { product: Product; ex
   const locale = useLocale();
   const t = useTranslations("product");
   const common = useTranslations("common");
-  const router = useRouter();
   
   const formatPrice = (amount: number) => formatCatalogPrice(amount, undefined, locale, displayRates, displayCurrency);
   const [commerce, setCommerce] = useState<CommerceData | null>(null);
@@ -103,6 +103,15 @@ export function ProductMobile({ product, exchangeRates }: { product: Product; ex
     if (!targetVariantId) return;
 
     const selectedOptions = variantSelection.selected;
+    const image = galleryImages[0];
+    const confirmation = {
+      name: product.name,
+      imageSrc: image?.src,
+      imageUnoptimized: image?.source === "supabase" || image?.src.startsWith("/imagenes/productos/"),
+      imageStyle: catalogCoverStyle(image?.optionValues),
+      price: displayedPrice,
+      confirmation: t("added"),
+    };
 
     setBusy(true);
     try {
@@ -114,10 +123,12 @@ export function ProductMobile({ product, exchangeRates }: { product: Product; ex
       if (response.status === 401) {
         addLocalCartItem(targetVariantId, 1, selectedOptions);
         setMessage(t("savedLocally"));
+        notifyCartAdded({ ...confirmation, count: countCartItems(readLocalCart()) });
       } else {
-        await response.json();
+        const cart = await response.json() as { items?: Array<{ quantity: number }> };
         if (response.ok) {
           setMessage(t("added"));
+          if (Array.isArray(cart.items)) notifyCartAdded({ ...confirmation, count: countCartItems(cart.items) });
         } else {
           setMessage(t("addFailed"));
         }

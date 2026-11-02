@@ -5,9 +5,11 @@ import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from "react";
+import { Toaster, toast } from "sonner";
 import { Link, useRouter } from "@/i18n/navigation";
 import { canonicalPathname, localizeCurrentPathname } from "@/i18n/paths";
 import { readLocalCart } from "@/lib/browser-cart";
+import { CART_ADDED_EVENT, type CartAddedDetail } from "@/lib/cart-feedback";
 import { CurrencySelector } from "./StorefrontCurrency";
 import { persistLocalePreference } from "@/lib/locale-preference";
 import type { Locale } from "@/types/catalog";
@@ -41,6 +43,7 @@ export function Header() {
   const languageButtonRef = useRef<HTMLButtonElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const cartCountRevision = useRef(0);
   const canonical = canonicalPathname(pathname, locale);
 
   useEffect(() => {
@@ -89,12 +92,13 @@ export function Header() {
 
   useEffect(() => {
     const controller = new AbortController();
+    const requestedCartRevision = cartCountRevision.current;
     fetch("/api/session", { signal: controller.signal, credentials: "same-origin" })
       .then((response) => response.ok ? response.json() : null)
       .then((value) => {
         if (!value) return;
         if (value.authenticated) {
-          setSession(value);
+          setSession(prev => ({ ...value, cartCount: requestedCartRevision === cartCountRevision.current ? value.cartCount : prev.cartCount }));
         } else {
           try {
             const entries = readLocalCart();
@@ -120,6 +124,29 @@ export function Header() {
     syncGuestCartCount();
     window.addEventListener("matearte-cart-change", syncGuestCartCount);
     return () => window.removeEventListener("matearte-cart-change", syncGuestCartCount);
+  }, []);
+
+  useEffect(() => {
+    const showCartConfirmation = (event: Event) => {
+      const detail = (event as CustomEvent<CartAddedDetail>).detail;
+      if (!detail || !Number.isFinite(detail.count)) return;
+      cartCountRevision.current += 1;
+      setSession(prev => ({ ...prev, cartCount: detail.count }));
+      toast.custom(() => (
+        <div className="cart-added-notice" role="status">
+          <strong>{detail.confirmation.replace(/\.$/, "")}</strong>
+          <div className="cart-added-notice-content">
+            {detail.imageSrc && <div className="cart-added-notice-image"><Image src={detail.imageSrc} alt="" fill sizes="(max-width: 479px) 84px, 104px" style={detail.imageStyle} unoptimized={detail.imageUnoptimized} /></div>}
+            <div className="cart-added-notice-copy">
+              <span className="cart-added-notice-name">{detail.name}</span>
+              <span className="cart-added-notice-price">{detail.price}</span>
+            </div>
+          </div>
+        </div>
+      ), { duration: 2000 });
+    };
+    window.addEventListener(CART_ADDED_EVENT, showCartConfirmation);
+    return () => window.removeEventListener(CART_ADDED_EVENT, showCartConfirmation);
   }, []);
 
   const isActive = (href: string) => canonical === href || canonical.startsWith(`${href}/`);
@@ -193,6 +220,7 @@ export function Header() {
           </nav>
           <div className="home-header-mobile-actions">
             <button type="button" className="home-header-mobile-search" aria-label={t("search")} aria-expanded={searchOpen} aria-controls="home-catalog-search" onClick={toggleSearch}><MagnifyingGlass size={23} aria-hidden="true" /></button>
+            <Link href="/carrito" className="home-header-mobile-cart" aria-label={session.cartCount ? t("cartCount", { count: session.cartCount }) : t("cart")}><ShoppingCart size={23} aria-hidden="true" />{session.cartCount > 0 && <span>{Math.min(99, session.cartCount)}</span>}</Link>
             <button type="button" className="home-header-menu" aria-label={open ? t("closeMenu") : t("openMenu")} aria-expanded={open} aria-controls="home-menu-mobile" onClick={() => { setSearchOpen(false); setOpen((value) => !value); }}>
               {open ? <X size={25} aria-hidden="true" /> : <List size={25} aria-hidden="true" />}
             </button>
@@ -234,6 +262,7 @@ export function Header() {
           </div>
         </>
       )}
+      <Toaster position="top-right" visibleToasts={1} duration={2000} offset={{ top: 102, right: 24 }} mobileOffset={{ top: 84, right: 12, left: 12 }} />
     </>
   );
 }
