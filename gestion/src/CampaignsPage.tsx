@@ -5,6 +5,7 @@ import { formatDate } from "./dateFormat";
 import { marketingCampaignHtml, type MarketingCampaignMode } from "../../shared/marketingCampaignHtml";
 import { describeSegment } from "../../shared/marketingSegments";
 import type { SavedSegment } from "./SegmentsPage";
+import { UnsubscribedPeople } from "./UnsubscribedPeople";
 
 type AudienceMode = "all" | "selected";
 type AudienceChoice = AudienceMode | "segment";
@@ -83,6 +84,7 @@ export function CampaignsPage({ notify }: { notify: (message: string) => void })
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
   const [audienceQuery, setAudienceQuery] = useState("");
   const [audiencePage, setAudiencePage] = useState(0);
+  const [audienceVersion, setAudienceVersion] = useState(0);
   const [audience, setAudience] = useState<AudienceContact[]>([]);
   const [audienceCount, setAudienceCount] = useState(0);
   const [audienceTotal, setAudienceTotal] = useState<number | null>(null);
@@ -130,7 +132,7 @@ export function CampaignsPage({ notify }: { notify: (message: string) => void })
       .then((result) => { if (active) { setAudience(result.contacts); setAudienceCount(result.count); setAudienceTotal(result.total); } })
       .catch((reason) => { if (active) setError(reason.message); });
     return () => { active = false; };
-  }, [audienceQuery, audiencePage]);
+  }, [audienceQuery, audiencePage, audienceVersion]);
   useEffect(() => {
     if (!file) { setFilePreview(""); return; }
     const url = URL.createObjectURL(file); setFilePreview(url);
@@ -328,6 +330,7 @@ export function CampaignsPage({ notify }: { notify: (message: string) => void })
             <div className="marketing-campaign-contacts">{audience.map((contact) => <label key={contact.email}><input type="checkbox" checked={selectedEmails.includes(contact.email)} onChange={() => toggleEmail(contact.email)} /><span><strong>{contact.name || contact.email}</strong><small>{contact.email}</small></span></label>)}{!audience.length && <p>No hay personas con esa búsqueda.</p>}</div>
             {audienceCount > 12 && <div className="marketing-campaign-pages"><button type="button" className="secondary" disabled={audiencePage === 0} onClick={() => setAudiencePage((value) => value - 1)}>Anterior</button><span>{audiencePage + 1} / {Math.ceil(audienceCount / 12)}</span><button type="button" className="secondary" disabled={(audiencePage + 1) * 12 >= audienceCount} onClick={() => setAudiencePage((value) => value + 1)}>Siguiente</button></div>}
           </div>}
+          <UnsubscribedPeople onNew={() => setAudienceVersion((value) => value + 1)} />
           {error && <p className="error" role="alert">{error}</p>}
           <button className="primary" type="submit" disabled={busy}>{busy ? "Procesando…" : "Guardar borrador"}</button>
         </form>

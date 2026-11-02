@@ -307,6 +307,51 @@ Deno.serve(async (request) => {
     const removed = await admin.from("marketing_segments").delete().eq("id", clean(body.id, 36));
     return removed.error ? response({ error: "No se pudo eliminar el segmento." }, 500, origin) : response({ ok: true }, 200, origin);
   }
+  if (action === "syncUnsubscribes") {
+    // Quien toca "Cancelar suscripción" queda dado de baja en Resend; acá se copia a la lista propia para que
+    // Leads, Segmentos y Campañas lo dejen afuera y se vea quién es. Una baja registrada no se borra sola.
+    let config;
+    try { config = await resendConfig(async () => await admin.rpc("get_email_delivery_config")); } catch (error) { return response({ error: (error as Error).message }, 503, origin); }
+    const optedOut = new Set<string>();
+    try {
+      let after = "";
+      for (let page = 0; ; page += 1) {
+        if (page === 50) throw new Error("Demasiados contactos.");
+        const params = new URLSearchParams({ limit: "100", ...(after ? { after } : {}) });
+        const list = await resendJson(config.apiKey, `/contacts?${params}`) as { data?: { id?: string; email?: string; unsubscribed?: boolean }[]; has_more?: boolean };
+        const rows = Array.isArray(list.data) ? list.data : [];
+        for (const row of rows) {
+          const email = (row.email || "").trim().toLowerCase();
+          if (email && row.unsubscribed) optedOut.add(email);
+        }
+        if (!list.has_more || !rows.length) break;
+        after = String(rows.at(-1)?.id || "");
+      }
+    } catch { return response({ error: "No se pudieron consultar las bajas en Resend." }, 502, origin); }
+    const known = await admin.from("marketing_unsubscribes").select("email");
+    if (known.error) return response({ error: "No se pudo leer la lista de bajas." }, 500, origin);
+    const knownEmails = new Set((known.data || []).map((row) => row.email as string));
+    const fresh = [...optedOut].filter((email) => !knownEmails.has(email));
+    if (fresh.length) {
+      const saved = await admin.from("marketing_unsubscribes").upsert(fresh.map((email) => ({ email })), { onConflict: "email", ignoreDuplicates: true });
+      if (saved.error) return response({ error: "No se pudieron guardar las bajas." }, 500, origin);
+    }
+    const [people, total] = await Promise.all([
+      admin.from("marketing_unsubscribes").select("email,detected_at").order("detected_at", { ascending: false }).limit(200),
+      admin.from("marketing_unsubscribes").select("email", { count: "exact", head: true }),
+    ]);
+    if (people.error || total.error) return response({ error: "No se pudo leer la lista de bajas." }, 500, origin);
+    const emails = (people.data || []).map((row) => row.email as string);
+    const names = new Map<string, string | null>();
+    if (emails.length) {
+      const found = await admin.from("marketing_campaign_email_directory").select("email,name").in("email", emails);
+      for (const row of found.data || []) names.set(row.email as string, (row.name as string | null) || null);
+    }
+    return response({
+      added: fresh.length, total: total.count || 0, freshEmails: fresh,
+      unsubscribed: (people.data || []).map((row) => ({ email: row.email, name: names.get(row.email as string) ?? null, detected_at: row.detected_at })),
+    }, 200, origin);
+  }
   if (action === "campaignDiscounts") {
     const { data, error } = await admin.from("commerce_discounts").select("code,discount_type,value,valid_from,valid_until")
       .eq("enabled", true).eq("welcome_only", false).gte("valid_until", montevideoToday()).order("valid_until");
@@ -677,6 +722,8 @@ Deno.serve(async (request) => {
             if (page === 99) throw new Error("No se pudieron revisar todas las bajas.");
           }
           if (provider.unsubscribed || subscriptions.some((topic) => topic.id === config.topicId && topic.subscription === "opt_out")) {
+            const registered = await admin.from("marketing_unsubscribes").upsert({ email: contact.email }, { onConflict: "email", ignoreDuplicates: true });
+            if (registered.error) throw new Error("No se pudo registrar una baja.");
             const excluded = await admin.from("marketing_campaign_targets").update({ status: "excluded" }).eq("campaign_id", id).eq("email", contact.email);
             if (excluded.error) throw new Error("No se pudo registrar una exclusión.");
             continue;

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { callMarketing } from "./marketingApi";
 import { formatDate } from "./dateFormat";
 import { countryDisplayName } from "./location";
+import { UnsubscribedPeople } from "./UnsubscribedPeople";
 import { describeSegment, type AccountFilter, type PurchaseFilter, type SegmentContact, type SegmentFilters } from "../../shared/marketingSegments";
 
 export type SavedSegment = { id: string; name: string; filters: SegmentFilters; updated_at: string };
@@ -98,6 +99,7 @@ export function SegmentsPage({ notify }: { notify: (message: string) => void }) 
         <div className="marketing-segments-heading"><h2>Segmentos</h2><button type="button" className="secondary" onClick={() => choose(null)}>Nuevo</button></div>
         <p>{total === null ? "Cargando…" : `${number(total)} personas con correo pueden recibir campañas.`} Quienes se dieron de baja nunca se incluyen.</p>
         {!segments.length && total !== null && <p>Todavía no guardaste segmentos.</p>}
+        <UnsubscribedPeople onNew={() => { void load().catch(() => undefined); setFilters((current) => ({ ...current })); }} />
       </aside>
       {segments.length > 0 && <nav className="marketing-segments-saved" aria-label="Segmentos guardados">
         {segments.map((segment) => <button type="button" key={segment.id} className={`marketing-segment-row${segment.id === selectedId ? " active" : ""}`} aria-pressed={segment.id === selectedId} onClick={() => choose(segment)}>

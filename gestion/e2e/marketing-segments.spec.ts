@@ -15,6 +15,10 @@ test("Segmentos combina criterios, cuenta en vivo y guarda sin desborde", async 
       segmentPreview: { count: never ? 133 : 165, sample: [{ email: "ana@example.com", name: "Ana", source: "Web", country: "UY", channel: null, purchase_count: never ? 0 : 2, last_purchase_at: never ? null : "2026-10-20T12:00:00Z" }] },
       saveSegment: { id: "seg-2" },
       deleteSegment: { ok: true },
+      syncUnsubscribes: {
+        added: 1, total: 2, freshEmails: ["bruno@example.com"],
+        unsubscribed: [{ email: "bruno@example.com", name: "Bruno", detected_at: "2026-11-02T22:00:00Z" }, { email: "lara@example.com", name: null, detected_at: "2026-10-30T12:00:00Z" }],
+      },
     };
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(results[body.action] || {}) });
   });
@@ -23,6 +27,12 @@ test("Segmentos combina criterios, cuenta en vivo y guarda sin desborde", async 
   await expect(page.getByRole("heading", { name: "Segmentos", level: 2 })).toBeVisible();
   await expect(page.getByText("165 personas con correo pueden recibir campañas.")).toBeVisible();
   await expect(page.getByText("de 165")).toBeVisible();
+
+  await expect(page.getByText("Nueva baja: Bruno. No va a recibir más campañas.")).toBeVisible();
+  await expect.poll(() => sent.filter((item) => item.action === "segments").length).toBe(2);
+  await page.getByText("2 personas se dieron de baja").click();
+  await expect(page.getByText("lara@example.com", { exact: true })).toBeVisible();
+  await expect(page.getByText("Detectada el 30/10/2026")).toBeVisible();
 
   await page.getByRole("button", { name: /Nunca compraron/ }).click();
   await expect(page.getByLabel("Compras", { exact: true })).toHaveValue("never");
