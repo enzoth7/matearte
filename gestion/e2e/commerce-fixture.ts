@@ -77,6 +77,7 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
       return respond({ user: { accessUserId: body.accessUserId, username: body.username, configured: true } });
     }
     if (table === 'gestion_customer_profile_details' || table === 'gestion_customer_profile_details_full') return respond([{ user_id: 'customer-1', birth_date: '1993-04-05', city: 'Montevideo', country_code: 'UY', company: null, address_line1: null, department: null, postal_code: null }]);
+    if (table === 'gestion_ad_report_retail_purchases') return respond(tables.ad_reports.map((report: any) => ({ report_id: report.id, purchases: tables.ad_report_purchase_counts?.[report.id] ?? 0 })));
     if (table === 'gestion_next_wholesale_order_code') return respond(`#M${String(tables.order_lines.length + 96).padStart(3, '0')}`);
     if (table === 'gestion_web_leads') return respond(tables.web_leads);
     if (table === 'gestion_contact_origins') return respond([]);
@@ -98,6 +99,8 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
         return respond({ today: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Montevideo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()), days, trend: [] });
       }
       const marketing: Record<string, unknown> = {
+        emailTemplates: { templates: [{ id: 'hosted-preview', name: 'Plantilla guardada', status: 'published' }] },
+        emailTemplate: { template: { subject: 'Asunto de Resend', html: '<h1>Contenido de Resend</h1>' } },
         contacts: { contacts: [], count: 0, summary: { total: 0, origins: [] } },
         campaigns: { campaigns: [] },
         settings: { settings: { enabled: false, headline: '', description: '', image_url: null, discount_code: '' } },

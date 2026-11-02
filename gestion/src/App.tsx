@@ -463,7 +463,7 @@ export default function App() {
             </div>
           </div>
         </header>
-        <main id="main" className={path === "/clientes/base" ? "customers-page" : undefined}>
+        <main id="main" className={path === "/clientes/base" ? "customers-page" : path === "/marketing/pauta" ? "ad-reports-main" : path === "/marketing/campanas" || path === "/marketing/segmentos" ? "marketing-campaigns-main" : undefined}>
           
           {storageError && (
             <div className="error" role="alert">

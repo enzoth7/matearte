@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type FormEvent, type PointerEvent, type ReactNode } from "react";
 import * as flags from "country-flag-icons/react/3x2";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { commerceSource } from "./commerceSource";
 import { callMarketing } from "./marketingApi";
 import { customerOriginClass, customerOriginLabel, customerOriginOptions, customerOriginValue } from "./customerChannel";
 import { formatDate } from "./dateFormat";
@@ -9,12 +8,14 @@ import { LocationLabel } from "./location";
 import type { CommerceSnapshot } from "./commerceAdapter";
 import type { State } from "./data";
 import { AdReports } from "./AdReportsPage";
+import { EmailTemplatesPage } from "./EmailTemplatesPage";
+import { CampaignsPage } from "./CampaignsPage";
+import { SegmentsPage } from "./SegmentsPage";
 import { Badge } from "./ui";
 
 type Contact = { id: string; name: string | null; source: string; channel: string | null; country: string | null; created_at: string; has_account: boolean; subscription_status: string };
 type ContactSummary = { total: number; origins: { source: string; contacts: number }[] };
 type RegistrationTrend = { today: string; days: number; trend: { registered_on: string; registered: number; purchased: number }[] };
-type Campaign = { id: string; subject: string; body: string; image_url: string | null; target_url: string | null; status: string; created_at: string; sent_at: string | null };
 type Settings = { enabled: boolean; headline: string; description: string; image_url: string | null; discount_code: string };
 
 const date = (value: string | null) => formatDate(value);
@@ -159,90 +160,6 @@ function Subscription({ notify }: { notify: (message: string) => void }) {
         <div className="marketing-subscription-preview-field">Nombre</div><div className="marketing-subscription-preview-field">Correo electrónico</div><div className="marketing-subscription-preview-button">Quiero mi 10%</div>
       </div></aside>
     </div>
-  </div>;
-}
-
-function Campaigns({ notify }: { notify: (message: string) => void }) {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [id, setId] = useState("");
-  const [subject, setSubject] = useState("");
-  const [message, setMessage] = useState("");
-  const [targetUrl, setTargetUrl] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [testEmail, setTestEmail] = useState("");
-  const [dirty, setDirty] = useState(false);
-  const [syncProgress, setSyncProgress] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [viewing, setViewing] = useState<Campaign | null>(null);
-  const load = useCallback(async () => { const result = await callMarketing<{ campaigns: Campaign[] }>("campaigns"); setCampaigns(result.campaigns); }, []);
-  useEffect(() => { void load().catch((reason) => setError(reason.message)); }, [load]);
-  const reset = () => { setViewing(null); setId(""); setSubject(""); setMessage(""); setTargetUrl(""); setImageUrl(""); setFile(null); setDirty(false); setError(""); };
-  const edit = (campaign: Campaign) => { setViewing(null); setId(campaign.id); setSubject(campaign.subject); setMessage(campaign.body); setTargetUrl(campaign.target_url || ""); setImageUrl(campaign.image_url || ""); setFile(null); setDirty(false); setError(""); };
-  const save = async (event?: FormEvent) => {
-    event?.preventDefault();
-    setBusy(true); setError("");
-    try {
-      let uploaded = imageUrl;
-      if (file) {
-        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 8 * 1024 * 1024) throw new Error("La foto debe ser JPG, PNG o WebP de hasta 8 MB.");
-        const path = `${crypto.randomUUID()}.${file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg"}`;
-        const result = await commerceSource!.storage.from("marketing-campaigns").upload(path, file, { contentType: file.type, upsert: false });
-        if (result.error) throw result.error;
-        uploaded = commerceSource!.storage.from("marketing-campaigns").getPublicUrl(path).data.publicUrl;
-      }
-      const result = await callMarketing<{ id: string }>("saveCampaign", { id: id || undefined, subject, message, imageUrl: uploaded, targetUrl });
-      setId(result.id); setImageUrl(uploaded); setFile(null); setDirty(false); await load(); notify("Borrador guardado.");
-    } catch (reason) { setError((reason as Error).message); }
-    setBusy(false);
-  };
-  const send = async (action: "testCampaign" | "sendCampaign") => {
-    if (!id) { setError("Guardá el borrador antes de enviar."); return; }
-    if (dirty) { setError("Guardá los cambios antes de enviar."); return; }
-    if (action === "sendCampaign" && !window.confirm("¿Enviar esta campaña a todos los suscriptores activos?")) return;
-    setBusy(true); setError("");
-    try {
-      if (action === "sendCampaign") {
-        let processed = 0;
-        while (true) {
-          const result = await callMarketing<{ processed: number; remaining: number; done: boolean }>("syncContacts");
-          processed += result.processed;
-          setSyncProgress(`Preparando destinatarios: ${processed} de ${processed + result.remaining}`);
-          if (result.done) break;
-        }
-      }
-      await callMarketing(action, { id, testEmail }); await load(); notify(action === "testCampaign" ? "Correo de prueba enviado." : "Campaña enviada."); if (action === "sendCampaign") reset();
-    }
-    catch (reason) { setError((reason as Error).message); }
-    setSyncProgress(null);
-    setBusy(false);
-  };
-  const sent = campaigns.filter((campaign) => campaign.status === "sent");
-  const others = campaigns.filter((campaign) => campaign.status !== "sent");
-  const campaignRow = (campaign: Campaign) => <button key={campaign.id} className={`marketing-campaign-row${viewing?.id === campaign.id ? " is-selected" : ""}`} onClick={() => campaign.status === "draft" ? edit(campaign) : (reset(), setViewing(campaign))}><strong>{campaign.subject}</strong><span>{campaign.status === "draft" ? "Borrador" : campaign.status === "sent" ? "Enviada" : "En proceso"} · {date(campaign.sent_at || campaign.created_at)}</span></button>;
-  return <div className="marketing-layout">
-    {viewing ? <section className="marketing-panel marketing-sent-view"><div className="marketing-inline"><h2>Campaña enviada</h2><button className="secondary" type="button" onClick={reset}>Nueva campaña</button></div>
-      <p className="marketing-hint">Enviada el {date(viewing.sent_at || viewing.created_at)}</p>
-      <h3>{viewing.subject}</h3>
-      {viewing.image_url && (viewing.target_url ? <a href={viewing.target_url} target="_blank" rel="noreferrer"><img className="marketing-preview-image" src={viewing.image_url} alt="Imagen de la campaña" /></a> : <img className="marketing-preview-image" src={viewing.image_url} alt="Imagen de la campaña" />)}
-      <div className="marketing-sent-body">{viewing.body}</div>
-      {viewing.target_url ? <p className="marketing-hint">Enlace de la promoción: <a href={viewing.target_url} target="_blank" rel="noreferrer">{viewing.target_url}</a></p> : <p className="marketing-hint">Esta campaña no tenía enlace.</p>}
-    </section> : <section className="marketing-panel marketing-form"><div className="marketing-inline"><h2>{id ? "Editar campaña" : "Nueva campaña"}</h2>{id && <button className="secondary" type="button" onClick={reset}>Nueva</button>}</div>
-      <form onSubmit={(event) => void save(event)}>
-        <label><span>Asunto</span><input required maxLength={160} value={subject} onChange={(event) => { setSubject(event.target.value); setDirty(true); }} /></label>
-        <label><span>Mensaje</span><textarea required rows={8} maxLength={10000} value={message} onChange={(event) => { setMessage(event.target.value); setDirty(true); }} /></label>
-        <label><span>Foto</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { setFile(event.target.files?.[0] || null); setDirty(true); }} /></label>
-        {imageUrl && <img className="marketing-preview-image" src={imageUrl} alt="Vista previa de la campaña" />}
-        <label><span>Enlace de la promoción</span><input type="url" placeholder="https://…" value={targetUrl} onChange={(event) => { setTargetUrl(event.target.value); setDirty(true); }} /><small className="marketing-hint">Al hacer clic en la foto o en el mensaje del correo se abre este enlace.</small></label>
-        {error && <p className="error" role="alert">{error}</p>}
-        <button className="primary" type="submit" disabled={busy}>{busy ? "Procesando…" : "Guardar borrador"}</button>
-      </form>
-      {id && <div className="marketing-send"><label><span>Correo de prueba</span><input type="email" value={testEmail} onChange={(event) => setTestEmail(event.target.value)} /></label><div className="marketing-inline"><button className="secondary" disabled={busy || !testEmail} onClick={() => void send("testCampaign")}>Enviar prueba</button><button className="primary" disabled={busy} onClick={() => void send("sendCampaign")}>Enviar a suscriptores</button></div></div>}
-      {syncProgress && <p role="status">{syncProgress}</p>}
-    </section>}
-    <section className="marketing-panel"><h2>Campañas enviadas ({sent.length})</h2>{sent.map(campaignRow)}{!sent.length && <p>Todavía no enviaste ninguna campaña.</p>}
-      {others.length > 0 && <><h2 className="marketing-subtitle">Borradores y en proceso</h2>{others.map(campaignRow)}</>}</section>
   </div>;
 }
 
@@ -455,6 +372,8 @@ export function MarketingSection({ page, notify }: { page: string; notify: (mess
   if (page === "contactos") return <Contacts />;
   if (page === "analytics") return <Analytics />;
   if (page === "pauta") return <AdReports notify={notify} />;
+  if (page === "email-templates") return <EmailTemplatesPage />;
+  if (page === "segmentos") return <SegmentsPage notify={notify} />;
   if (page === "suscripcion") return <Subscription notify={notify} />;
-  return <Campaigns notify={notify} />;
+  return <CampaignsPage notify={notify} />;
 }

@@ -4,7 +4,7 @@ import { today } from "./data";
 import { Plus } from "@phosphor-icons/react";
 import { Modal, Stats, Table } from "./ui";
 import {
-  adCurrencies, adPlatforms, formatMoney, fromMinorText, parseAmount, periodLabel, reportText, summarizeReport,
+  adCurrencies, adPlatforms, estimatedCppMinor, formatMoney, fromMinorText, parseAmount, periodLabel, reportDate, reportText, summarizeReport,
   type AdCampaign, type AdCurrency, type AdReport,
 } from "./adReports";
 
@@ -91,7 +91,7 @@ function ReportCard({ report, onEdit, onDelete, onCopy }: { report: AdReport; on
       <div className="ad-campaign ad-campaign-sum" role="row"><span role="cell">Total</span><span role="cell" data-label="Conversaciones">{number(summary.conversations)}</span><span role="cell" data-label="Costo promedio">{money(summary.averageCostMinor)}</span><strong role="cell" data-label="Total">{money(summary.spend)}</strong></div>
     </div>
     <dl className="ad-funds" aria-label="Disponibilidad de fondos">
-      {report.deposit_minor > 0 && <div><dt>Depósito{report.deposit_on ? ` (${new Intl.DateTimeFormat("es-UY", { day: "2-digit", month: "2-digit", timeZone: "UTC" }).format(new Date(`${report.deposit_on}T00:00:00Z`))})` : ""}</dt><dd>{money(report.deposit_minor)}</dd></div>}
+      {report.deposit_minor > 0 && <div><dt>Depósito{report.deposit_on ? ` (${reportDate(report.deposit_on)})` : ""}</dt><dd>{money(report.deposit_minor)}</dd></div>}
       {report.previous_balance_minor !== 0 && <div><dt>{report.previous_balance_minor < 0 ? "Saldo pendiente anterior" : "Saldo a favor anterior"}</dt><dd>{money(Math.abs(report.previous_balance_minor))}</dd></div>}
       <div><dt>Subtotal</dt><dd>{money(summary.subtotal)}</dd></div>
       <div><dt>Total actual</dt><dd>{money(summary.spend)}</dd></div>
@@ -108,6 +108,7 @@ function ReportCard({ report, onEdit, onDelete, onCopy }: { report: AdReport; on
 
 export function AdReports({ notify }: { notify: (message: string) => void }) {
   const [reports, setReports] = useState<AdReport[]>([]);
+  const [retailPurchases, setRetailPurchases] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<{ id: string | null; draft: Draft } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -116,8 +117,19 @@ export function AdReports({ notify }: { notify: (message: string) => void }) {
 
   const load = useCallback(async () => {
     if (!commerceSource) return;
-    const { data, error } = await commerceSource.from("ad_reports").select(columns).order("period_end", { ascending: false }).order("created_at", { ascending: false }).limit(200);
+    const [reportResult, purchaseResult] = await Promise.all([
+      commerceSource.from("ad_reports").select(columns).order("period_end", { ascending: false }).order("created_at", { ascending: false }).limit(200),
+      commerceSource.rpc("gestion_ad_report_retail_purchases"),
+    ]);
+    const { data, error } = reportResult;
     if (error) notify("No se pudieron cargar los informes de pauta."); else setReports((data || []) as AdReport[]);
+    if (purchaseResult.error) {
+      setRetailPurchases({});
+      notify("No se pudieron cargar las compras minoristas de los períodos.");
+    } else {
+      setRetailPurchases(Object.fromEntries(((purchaseResult.data || []) as { report_id: string; purchases: number }[])
+        .map((row) => [row.report_id, Number(row.purchases)])));
+    }
     setLoading(false);
   }, [notify]);
   useEffect(() => { void load(); }, [load]);
@@ -139,6 +151,7 @@ export function AdReports({ notify }: { notify: (message: string) => void }) {
   }, [reports]);
   const totalConversations = Object.values(totals.conversations).reduce((sum, value) => sum + (value || 0), 0);
   const hasDebt = Object.values(totals.balance).some((value) => (value || 0) < 0);
+  const hasCredit = Object.values(totals.balance).some((value) => (value || 0) > 0);
 
   const open = (report?: AdReport) => { setDetailId(null); setFormError(""); setEditing(report ? { id: report.id, draft: draftOf(report) } : { id: null, draft: emptyDraft(reports[0]) }); };
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setEditing((current) => current && { ...current, draft: { ...current.draft, [key]: value } });
@@ -188,7 +201,7 @@ export function AdReports({ notify }: { notify: (message: string) => void }) {
       { label: "Invertido en pauta", value: sumLabel(totals.spend), tone: "brown", note: reports.length ? `${reports.length} ${reports.length === 1 ? "informe" : "informes"}` : undefined },
       { label: "Conversaciones iniciadas", value: number(totalConversations) },
       { label: "Costo promedio por conversación", value: sumLabel(totals.average) },
-      { label: "Saldo actual", value: sumLabel(totals.balance), tone: hasDebt ? "red" : undefined, note: hasDebt ? "Hay saldo pendiente de pago" : undefined },
+      { label: "Saldo actual", value: sumLabel(totals.balance), tone: hasDebt ? "red" : hasCredit ? "green" : undefined, note: hasDebt ? "Hay saldo pendiente de pago" : undefined },
     ]} />
     {loading ? <p role="status">Cargando informes…</p> : <Table rows={reports} className="ad-reports-table" searchText={(row) => `${periodLabel(row.period_start, row.period_end)} ${row.platform} ${row.campaigns.map((campaign) => campaign.name).join(" ")} ${row.notes || ""}`}
       action={<button type="button" className="primary" onClick={() => open()}>Nuevo informe</button>}
@@ -196,7 +209,8 @@ export function AdReports({ notify }: { notify: (message: string) => void }) {
         { label: "Período", render: (row) => <><strong>{periodLabel(row.period_start, row.period_end)}</strong><small className="ad-platform">{row.platform}</small></> },
         { label: "Campañas", render: (row) => <><strong>{row.campaigns.length} {row.campaigns.length === 1 ? "campaña" : "campañas"}</strong><small className="ad-campaign-names">{row.campaigns.map((campaign) => campaign.name).join(" · ")}</small></> },
         { label: "Conversaciones", render: (row) => number(summarizeReport(row).conversations) },
-        { label: "Costo por conversación", render: (row) => formatMoney(summarizeReport(row).averageCostMinor, row.currency) },
+        { label: "Compras en período", render: (row) => retailPurchases[row.id] === undefined ? "—" : number(retailPurchases[row.id]) },
+        { label: "CPP estimado", header: <span title="Inversión en pauta dividida entre todas las compras minoristas del período; no indica compras atribuidas a anuncios.">CPP estimado</span>, render: (row) => { const cpp = estimatedCppMinor(summarizeReport(row).spend, retailPurchases[row.id] ?? 0); return cpp === null ? "—" : formatMoney(cpp, row.currency); } },
         { label: "Total invertido", render: (row) => <strong>{formatMoney(summarizeReport(row).spend, row.currency)}</strong> },
         { label: "Depósito", render: (row) => row.deposit_minor ? formatMoney(row.deposit_minor, row.currency) : "—" },
         { label: "Nuevo saldo", render: (row) => { const balance = summarizeReport(row).newBalance; return <span className={balance < 0 ? "ad-balance is-debt" : "ad-balance is-credit"}>{formatMoney(balance, row.currency)}</span>; } },

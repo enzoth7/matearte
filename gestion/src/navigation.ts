@@ -25,6 +25,8 @@ export const areas = [
     hint: "Suscriptores, campañas y promociones",
     pages: [
       ["campanas", "Campañas"],
+      ["segmentos", "Segmentos"],
+      ["email-templates", "Email templates"],
       ["pauta", "Informes de pauta"],
       ["sorteo", "Sorteo"],
       ["contactos", "Leads"],

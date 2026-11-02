@@ -40,22 +40,25 @@ test("Informes de pauta: se carga el informe del 19 al 26 de octubre, calcula la
   await form.getByRole("button", { name: "Guardar informe" }).click();
 
   // En la tabla queda lo principal; el detalle completo se abre con el botón +.
-  const row = page.getByRole("row").filter({ hasText: "19 al 26 de octubre de 2026" });
+  const row = page.getByRole("row").filter({ hasText: "19/10/2026 - 26/10/2026" });
   await expect(row).toBeVisible();
   await expect(row).toContainText("3 campañas");
   await expect(row).toContainText("Botas Iguazú · Mates Personalizados · Matera paso atrás");
   await expect(row).toContainText("290");
-  await expect(row).toContainText("UYU 31,85");
+  await expect(page.locator(".ad-reports-table th").filter({ hasText: "Compras en período" })).toHaveCount(1);
+  await expect(row.getByRole("cell").nth(3)).toHaveText("0");
+  await expect(page.locator(".ad-reports-table th").filter({ hasText: "CPP estimado" })).toHaveCount(1);
+  await expect(row.getByRole("cell").nth(4)).toHaveText("—");
   await expect(row).toContainText("UYU 9.237,00");
   await expect(row).toContainText("UYU 10.000,00");
   await expect(row.locator(".ad-balance.is-debt")).toContainText("3.017,00");
-  await expect(page.getByLabel("Informe del 19 al 26 de octubre de 2026", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Informe del 19/10/2026 - 26/10/2026", { exact: true })).toHaveCount(0);
   await row.getByRole("button", { name: /Ver detalle/ }).click();
   const detail = page.getByRole("dialog");
   await expect(detail.getByRole("heading", { name: "Detalle del informe de pauta" })).toBeVisible();
-  const card = detail.getByLabel("Informe del 19 al 26 de octubre de 2026", { exact: true });
+  const card = detail.getByLabel("Informe del 19/10/2026 - 26/10/2026", { exact: true });
   await expect(card).toBeVisible();
-  await expect(card.getByRole("heading")).toHaveText("19 al 26 de octubre de 2026");
+  await expect(card.getByRole("heading")).toHaveText("19/10/2026 - 26/10/2026");
   await expect(card.getByLabel("Campañas del informe")).toContainText("Mates Personalizados");
   await expect(card.getByLabel("Campañas del informe")).toContainText("UYU 38,44");
   await expect(card.getByLabel("Disponibilidad de fondos")).toContainText("Saldo pendiente anterior");
@@ -95,10 +98,34 @@ test("Informes de pauta: se carga el informe del 19 al 26 de octubre, calcula la
   await page.getByRole("dialog").getByRole("button", { name: "Guardar informe" }).click();
   await expect.poll(() => tables.ad_reports[0].notes).toBe("Nota corregida.");
   await row.getByRole("button", { name: /Ver detalle/ }).click();
-  await expect(page.getByRole("dialog").getByLabel("Informe del 19 al 26 de octubre de 2026", { exact: true })).toContainText("Nota corregida.");
+  await expect(page.getByRole("dialog").getByLabel("Informe del 19/10/2026 - 26/10/2026", { exact: true })).toContainText("Nota corregida.");
 
   page.on("dialog", (dialog) => void dialog.accept());
   await page.getByRole("dialog").getByRole("button", { name: "Eliminar" }).click();
   await expect(page.getByText("Todavía no cargaste informes de pauta")).toBeVisible();
   expect(tables.ad_reports).toHaveLength(0);
+});
+
+test("Pauta muestra el CPP estimado cuando hay compras minoristas", async ({ page }) => {
+  const { tables } = await mockCommerce(page);
+  tables.ad_reports.push({
+    id: "weekly-report", period_start: "2026-10-26", period_end: "2026-11-02", platform: "Meta", currency: "UYU",
+    campaigns: [{ name: "Botas Iguazú", conversations: 76, cost_per_conversation_minor: 2367, total_minor: 685700 }],
+    deposit_minor: 1400000, deposit_on: null, previous_balance_minor: -301700, notes: null,
+  });
+  tables.ad_report_purchase_counts = { "weekly-report": 12 };
+  await page.goto("/marketing/pauta");
+  const row = page.getByRole("row").filter({ hasText: "26/10/2026 - 02/11/2026" });
+  await expect(row.getByRole("cell").nth(3)).toHaveText("12");
+  await expect(row.getByRole("cell").nth(4)).toHaveText("UYU 571,42");
+  await expect(page.locator(".ad-reports-table th").filter({ hasText: "Costo por conversación" })).toHaveCount(0);
+  for (const width of [1920, 1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const dimensions = await page.locator(".ad-reports-table .table-scroll").evaluate((element) => ({
+      scroll: element.scrollWidth, visible: element.clientWidth,
+    }));
+    expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.visible + 1);
+    const pageWidth = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, visible: window.innerWidth }));
+    expect(pageWidth.scroll).toBeLessThanOrEqual(pageWidth.visible + 1);
+  }
 });

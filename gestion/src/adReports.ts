@@ -48,21 +48,19 @@ export function summarizeReport(report: Pick<AdReport, "campaigns" | "deposit_mi
   };
 }
 
-const dayFormat = (options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("es-UY", { ...options, timeZone: "UTC" });
-const asDate = (value: string) => new Date(`${value.slice(0, 10)}T00:00:00Z`);
+/** Pauta por compra minorista del período; no atribuye la venta al anuncio. */
+export const estimatedCppMinor = (spendMinor: number, purchases: number): number | null =>
+  purchases > 0 ? Math.round(spendMinor / purchases) : null;
 
-/** "19 al 26 de octubre de 2026" · "28 de septiembre al 3 de octubre de 2026". */
+/** Fechas de los informes en formato DD/MM/AAAA. */
+export const reportDate = (value: string): string => {
+  const [year, month, day] = value.slice(0, 10).split("-");
+  return `${day}/${month}/${year}`;
+};
+
 export function periodLabel(start: string, end: string): string {
-  const a = asDate(start);
-  const b = asDate(end);
-  if (start === end) return dayFormat({ day: "numeric", month: "long", year: "numeric" }).format(a);
-  const sameMonth = a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth();
-  if (sameMonth) return `${a.getUTCDate()} al ${dayFormat({ day: "numeric", month: "long", year: "numeric" }).format(b)}`;
-  const sameYear = a.getUTCFullYear() === b.getUTCFullYear();
-  return `${dayFormat(sameYear ? { day: "numeric", month: "long" } : { day: "numeric", month: "long", year: "numeric" }).format(a)} al ${dayFormat({ day: "numeric", month: "long", year: "numeric" }).format(b)}`;
+  return start === end ? reportDate(start) : `${reportDate(start)} - ${reportDate(end)}`;
 }
-
-const shortDate = (value: string) => dayFormat({ day: "2-digit", month: "2-digit" }).format(asDate(value));
 
 /** El mismo formato que se comparte por WhatsApp, listo para pegar. */
 export function reportText(report: AdReport): string {
@@ -73,7 +71,7 @@ export function reportText(report: AdReport): string {
     lines.push(campaign.name, `- ${campaign.conversations} conversaciones iniciadas`, `- ${money(campaign.cost_per_conversation_minor)} costo por conversación iniciada`, `- Total de campaña ${money(campaign.total_minor)}`, "");
   }
   lines.push(`TOTAL GENERAL: ${money(summary.spend)}`, "", "Disponibilidad de fondos");
-  if (report.deposit_minor) lines.push(`Depósito realizado${report.deposit_on ? ` (${shortDate(report.deposit_on)})` : ""}: ${money(report.deposit_minor)}`);
+  if (report.deposit_minor) lines.push(`Depósito realizado${report.deposit_on ? ` (${reportDate(report.deposit_on)})` : ""}: ${money(report.deposit_minor)}`);
   if (report.previous_balance_minor) lines.push(`${report.previous_balance_minor < 0 ? "Saldo pendiente anterior" : "Saldo a favor anterior"}: ${money(Math.abs(report.previous_balance_minor))}`);
   lines.push(`Subtotal: ${money(summary.subtotal)}`, `Total actual: ${money(summary.spend)}`, `Nuevo saldo: ${money(summary.newBalance)}`);
   if (report.notes?.trim()) lines.push("", "Importante", report.notes.trim());

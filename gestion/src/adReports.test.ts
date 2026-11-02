@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMoney, fromMinorText, parseAmount, periodLabel, reportText, summarizeReport, type AdReport } from "./adReports";
+import { estimatedCppMinor, formatMoney, fromMinorText, parseAmount, periodLabel, reportText, summarizeReport, type AdReport } from "./adReports";
 
 // El informe real del 19 al 26 de octubre.
 const report: AdReport = {
@@ -27,6 +27,12 @@ describe("informes de pauta", () => {
     expect(summarizeReport({ campaigns: [], deposit_minor: 500000, previous_balance_minor: 20000 })).toMatchObject({ spend: 0, averageCostMinor: 0, subtotal: 520000, newBalance: 520000 });
   });
 
+  it("calcula el CPP estimado solo cuando hay compras", () => {
+    expect(estimatedCppMinor(685700, 12)).toBe(57142);
+    expect(estimatedCppMinor(923700, 19)).toBe(48616);
+    expect(estimatedCppMinor(685700, 0)).toBeNull();
+  });
+
   it("lee importes escritos como en los informes", () => {
     expect(parseAmount("1.388")).toBe(138800);
     expect(parseAmount("20,10")).toBe(2010);
@@ -49,18 +55,18 @@ describe("informes de pauta", () => {
   });
 
   it("escribe el período como se lee en el informe", () => {
-    expect(periodLabel("2026-10-19", "2026-10-26")).toBe("19 al 26 de octubre de 2026");
-    expect(periodLabel("2026-09-28", "2026-10-04")).toBe("28 de setiembre al 4 de octubre de 2026");
-    expect(periodLabel("2025-12-28", "2026-01-03")).toBe("28 de diciembre de 2025 al 3 de enero de 2026");
-    expect(periodLabel("2026-10-19", "2026-10-19")).toBe("19 de octubre de 2026");
+    expect(periodLabel("2026-10-19", "2026-10-26")).toBe("19/10/2026 - 26/10/2026");
+    expect(periodLabel("2026-09-28", "2026-10-04")).toBe("28/09/2026 - 04/10/2026");
+    expect(periodLabel("2025-12-28", "2026-01-03")).toBe("28/12/2025 - 03/01/2026");
+    expect(periodLabel("2026-10-19", "2026-10-19")).toBe("19/10/2026");
   });
 
   it("arma el texto para compartir con todos los datos y sin el signo de pesos", () => {
     const text = reportText(report);
-    expect(text).toContain("Detalle de campañas en el periodo 19 al 26 de octubre de 2026");
+    expect(text).toContain("Detalle de campañas en el periodo 19/10/2026 - 26/10/2026");
     expect(text).toContain("Botas Iguazú\n- 66 conversaciones iniciadas\n- USD 20,10 costo por conversación iniciada\n- Total de campaña USD 1.388,00");
     expect(text).toContain("TOTAL GENERAL: USD 9.237,00");
-    expect(text).toContain("Depósito realizado (19/10): USD 10.000,00");
+    expect(text).toContain("Depósito realizado (19/10/2026): USD 10.000,00");
     expect(text).toContain("Saldo pendiente anterior: USD 3.780,00");
     expect(text).toContain("Subtotal: USD 6.220,00");
     expect(text).toContain("Total actual: USD 9.237,00");
