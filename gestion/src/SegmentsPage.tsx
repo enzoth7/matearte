@@ -93,14 +93,18 @@ export function SegmentsPage({ notify }: { notify: (message: string) => void }) 
   const purchase = filters.purchase || "any";
   const summary = describeSegment(filters);
   return <div className="marketing-segments-page">
-    <aside className="marketing-panel marketing-segments-list" aria-label="Segmentos guardados">
-      <div className="marketing-segments-heading"><h2>Segmentos</h2><button type="button" className="secondary" onClick={() => choose(null)}>Nuevo</button></div>
-      <p>{total === null ? "Cargando…" : `${number(total)} personas con correo pueden recibir campañas.`} Quienes se dieron de baja nunca se incluyen.</p>
-      {segments.map((segment) => <button type="button" key={segment.id} className={`marketing-segment-row${segment.id === selectedId ? " active" : ""}`} onClick={() => choose(segment)}>
-        <strong>{segment.name}</strong><small>{describeSegment(segment.filters).join(" · ") || "Todas las personas"}</small>
-      </button>)}
-      {!segments.length && total !== null && <p>Todavía no guardaste segmentos.</p>}
-    </aside>
+    <div className="marketing-segments-side">
+      <aside className="marketing-panel marketing-segments-list" aria-label="Resumen de segmentos">
+        <div className="marketing-segments-heading"><h2>Segmentos</h2><button type="button" className="secondary" onClick={() => choose(null)}>Nuevo</button></div>
+        <p>{total === null ? "Cargando…" : `${number(total)} personas con correo pueden recibir campañas.`} Quienes se dieron de baja nunca se incluyen.</p>
+        {!segments.length && total !== null && <p>Todavía no guardaste segmentos.</p>}
+      </aside>
+      {segments.length > 0 && <nav className="marketing-segments-saved" aria-label="Segmentos guardados">
+        {segments.map((segment) => <button type="button" key={segment.id} className={`marketing-segment-row${segment.id === selectedId ? " active" : ""}`} aria-pressed={segment.id === selectedId} onClick={() => choose(segment)}>
+          <strong>{segment.name}</strong><small>{describeSegment(segment.filters).join(" · ") || "Todas las personas"}</small>
+        </button>)}
+      </nav>}
+    </div>
     <section className="marketing-panel marketing-segment-editor">
       <h2>{selectedId ? "Editar segmento" : "Nuevo segmento"}</h2>
       <p className="marketing-segment-help">Combiná criterios para ordenar a quién le toca cada envío. Sin criterios, el segmento incluye a todas las personas con correo.</p>

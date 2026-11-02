@@ -450,6 +450,23 @@ Deno.serve(async (request) => {
           for (const item of metrics.data || []) if (item.broadcast_id && typeof item.sent === "number") counts.set(item.broadcast_id, item.sent);
         } catch { /* The history still works when metrics are unavailable. */ }
       }
+      // Las métricas de Resend no siempre traen el total: para los envíos que Gestión no registró se cuentan los destinatarios enviados.
+      const recipientCounts = new Map<string, number>();
+      for (const item of external.slice(0, 15)) {
+        try {
+          let total = 0;
+          let afterRecipient = "";
+          for (let page = 0; page < 10; page += 1) {
+            const params = new URLSearchParams({ type: "sent", limit: "100", ...(afterRecipient ? { after: afterRecipient } : {}) });
+            const list = await resendJson(config.apiKey, `/broadcasts/${encodeURIComponent(String(item.id))}/recipients?${params}`) as { data?: { id?: string }[]; has_more?: boolean };
+            const rows = Array.isArray(list.data) ? list.data : [];
+            total += rows.length;
+            if (!list.has_more || !rows.length) break;
+            afterRecipient = String(rows.at(-1)?.id || "");
+          }
+          recipientCounts.set(String(item.id), total);
+        } catch { /* Queda "sin dato" para este envío. */ }
+      }
       const known = new Map((local || []).filter((item) => item.resend_broadcast_id).map((item) => [item.resend_broadcast_id, item]));
       for (const item of sent) {
         const own = known.get(String(item.id));
@@ -461,7 +478,7 @@ Deno.serve(async (request) => {
         const id = String(item.id);
         const own = known.get(id);
         return { id: own?.id || id, broadcast_id: id, subject: own?.subject || subjects.get(id) || item.name || "Campaña", sent_at: item.sent_at || own?.sent_at || item.created_at,
-          audience_mode: own?.audience_mode || "external", recipient_count: counts.get(id) ?? null, status: item.status, source: own ? "gestion" : "resend",
+          audience_mode: own?.audience_mode || "external", recipient_count: own?.recipient_count ?? recipientCounts.get(id) ?? (counts.get(id) || null), status: item.status, source: own ? "gestion" : "resend",
           batch_number: own?.batch_number ?? null, batch_total: own?.batch_total ?? null, segment_name: own?.segment_name ?? null };
       });
       for (const item of local || []) if (!item.resend_broadcast_id || !sent.some((entry) => entry.id === item.resend_broadcast_id)) {

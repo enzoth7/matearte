@@ -4105,9 +4105,12 @@ dialog.ad-report-dialog{width:min(860px,calc(100% - 24px));max-height:90dvh}
 .marketing-segments-heading h2{margin:0}
 .marketing-segments-list{display:grid;gap:10px;align-content:start}
 .marketing-segments-list p{margin:0;color:var(--muted)}
-.marketing-segment-row{display:grid;gap:4px;width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--white,#fff);color:inherit;text-align:left;cursor:pointer;overflow-wrap:anywhere}
-.marketing-segment-row.active{border-color:var(--brown);background:var(--surface-warm)}
-.marketing-segment-row small{color:var(--muted)}
+.marketing-segments-side{display:grid;gap:14px;align-content:start;min-width:0}
+.marketing-segments-saved{display:grid;gap:10px}
+.marketing-segment-row{display:grid;gap:4px;width:100%;padding:14px 18px;border:2px solid var(--brown);border-radius:14px;background:var(--brown);color:#fff;text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.marketing-segment-row:hover{filter:brightness(1.12)}
+.marketing-segment-row.active{box-shadow:0 0 0 3px #fff,0 0 0 5px var(--brown)}
+.marketing-segment-row small{color:rgba(255,255,255,.85)}
 .marketing-segment-editor{display:grid;gap:16px}
 .marketing-segment-editor h2,.marketing-segment-result h2{margin:0}
 .marketing-segment-help{margin:0;color:var(--muted)}
