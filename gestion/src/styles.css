@@ -4137,3 +4137,4 @@ dialog.ad-report-dialog{width:min(860px,calc(100% - 24px));max-height:90dvh}
 .marketing-campaign-batch p,.marketing-campaign-plan p{margin:0}
 .marketing-campaign-plan label{display:grid;gap:7px;font-weight:600}
 .marketing-campaign-quota{background:transparent}
+.marketing-campaign-batch label{display:grid;gap:7px;font-weight:600}

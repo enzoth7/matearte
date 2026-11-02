@@ -91,6 +91,7 @@ test("Campañas divide un segmento en tandas, comparte el descuento y avisa el c
       campaignQuota: { sentToday: 16 },
       saveCampaign: { id: "draft-2" },
       createBatches: (split = true, { groupId: "group-1", total: 165, batches: [80, 80, 5] }),
+      rebatchCampaigns: { batches: [2, 1] },
       prepareCampaign: { processed: 90, remaining: 0, ready: 90, excluded: 0, done: true },
       sendCampaign: { ok: true, status: "sending", id: "broadcast-1" },
     };
@@ -120,6 +121,12 @@ test("Campañas divide un segmento en tandas, comparte el descuento y avisa el c
   await expect(page.getByText("Tanda 1 de 3", { exact: true })).toBeVisible();
   await expect(page.getByText("Segmento Nunca compraron · 1 persona")).toBeVisible();
   await expect(page.getByRole("button", { name: "Eliminar tandas pendientes" })).toBeVisible();
+  await expect(page.getByLabel("Cantidad de tandas pendientes")).toHaveValue("3");
+  await expect(page.getByRole("button", { name: "Reorganizar tandas" })).toBeDisabled();
+  await page.getByLabel("Cantidad de tandas pendientes").fill("2");
+  await expect(page.getByText(/3 personas → 2 tandas de 2 como máximo/)).toBeVisible();
+  await page.getByRole("button", { name: "Reorganizar tandas" }).click();
+  await expect.poll(() => sent.some((item) => item.action === "rebatchCampaigns" && (item as { batches?: number }).batches === 2 && item.id === "draft-2")).toBe(true);
   await expect(page.getByRole("button", { name: "Enviar tanda 1 de 3" })).toBeVisible();
   await expect(page.getByRole("radio", { name: /Todos/ })).toHaveCount(0);
 

@@ -364,6 +364,60 @@ Deno.serve(async (request) => {
     }
     return response({ groupId, total: emails.length, batches: batches.map((batch) => batch.length) }, 200, origin);
   }
+  if (action === "rebatchCampaigns") {
+    const id = clean(body.id, 36);
+    const count = Math.floor(Number(body.batches));
+    if (!(count >= 1 && count <= 60)) return response({ error: "Elegí entre 1 y 60 tandas." }, 400, origin);
+    const { data: campaign } = await admin.from("marketing_campaigns")
+      .select("id,status,batch_group_id,subject,headline,body,button_label,image_url,target_url,mode,discount_code,utm_campaign,segment_name")
+      .eq("id", id).maybeSingle();
+    if (!campaign || campaign.status !== "draft" || !campaign.batch_group_id) return response({ error: "Esta campaña no tiene tandas pendientes." }, 409, origin);
+    const { data: drafts, error: draftsError } = await admin.from("marketing_campaigns").select("id,batch_number,selected_emails,resend_segment_id")
+      .eq("batch_group_id", campaign.batch_group_id).eq("status", "draft").order("batch_number");
+    const { count: finished } = await admin.from("marketing_campaigns").select("id", { count: "exact", head: true })
+      .eq("batch_group_id", campaign.batch_group_id).neq("status", "draft");
+    if (draftsError || !drafts?.length) return response({ error: "No se pudieron leer las tandas." }, 500, origin);
+    // Se reparten las personas de las tandas pendientes, en el mismo orden, entre la cantidad elegida.
+    const emails = drafts.flatMap((draft) => (draft.selected_emails || []) as string[]);
+    if (count > emails.length) return response({ error: "Hay menos personas que tandas." }, 400, origin);
+    const base = Math.floor(emails.length / count), extra = emails.length % count;
+    const parts: string[][] = [];
+    let offset = 0;
+    for (let index = 0; index < count; index += 1) {
+      const size = base + (index < extra ? 1 : 0);
+      parts.push(emails.slice(offset, offset + size));
+      offset += size;
+    }
+    const prepared = drafts.filter((draft) => draft.resend_segment_id);
+    if (prepared.length) {
+      try {
+        const { apiKey } = await resendConfig(async () => await admin.rpc("get_email_delivery_config"));
+        for (const draft of prepared) {
+          const removed = await fetch(`https://api.resend.com/segments/${encodeURIComponent(draft.resend_segment_id)}`, { method: "DELETE", headers: resendHeaders(apiKey) });
+          if (!removed.ok && removed.status !== 404) throw new Error("segment");
+        }
+      } catch { return response({ error: "No se pudo liberar el público preparado en Resend. Intentá nuevamente." }, 502, origin); }
+    }
+    const cleared = await admin.from("marketing_campaign_targets").delete().in("campaign_id", drafts.map((draft) => draft.id));
+    if (cleared.error) return response({ error: "No se pudo actualizar los destinatarios preparados." }, 500, origin);
+    const done = finished || 0;
+    const total = done + count;
+    for (let index = 0; index < count; index += 1) {
+      const row = { batch_number: done + index + 1, batch_total: total, selected_emails: parts[index], recipient_count: null, resend_segment_id: null };
+      const draft = drafts[index];
+      const saved = draft
+        ? await admin.from("marketing_campaigns").update(row).eq("id", draft.id).eq("status", "draft")
+        : await admin.from("marketing_campaigns").insert({ ...row, subject: campaign.subject, headline: campaign.headline, body: campaign.body, button_label: campaign.button_label, image_url: campaign.image_url, target_url: campaign.target_url, mode: campaign.mode, discount_code: campaign.discount_code, utm_campaign: campaign.utm_campaign, segment_name: campaign.segment_name, audience_mode: "selected", batch_group_id: campaign.batch_group_id, created_by: user.id });
+      if (saved.error) return response({ error: "No se pudieron reorganizar las tandas. Volvé a intentar." }, 500, origin);
+    }
+    const surplus = drafts.slice(count).map((draft) => draft.id);
+    if (surplus.length) {
+      const removed = await admin.from("marketing_campaigns").delete().in("id", surplus).eq("status", "draft");
+      if (removed.error) return response({ error: "No se pudieron quitar las tandas sobrantes. Volvé a intentar." }, 500, origin);
+    }
+    if (done) await admin.from("marketing_campaigns").update({ batch_total: total }).eq("batch_group_id", campaign.batch_group_id).neq("status", "draft");
+    return response({ batches: parts.map((part) => part.length) }, 200, origin);
+  }
   if (action === "deleteCampaignDraft") {
     const { data: campaign } = await admin.from("marketing_campaigns").select("id,status,batch_group_id").eq("id", clean(body.id, 36)).maybeSingle();
     if (!campaign || campaign.status !== "draft") return response({ error: "Solo se pueden eliminar borradores." }, 409, origin);

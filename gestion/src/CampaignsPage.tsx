@@ -75,6 +75,7 @@ export function CampaignsPage({ notify }: { notify: (message: string) => void })
   const [segmentCount, setSegmentCount] = useState<number | null>(null);
   const [batchSize, setBatchSize] = useState(defaultBatchSize);
   const [batch, setBatch] = useState<BatchInfo | null>(null);
+  const [rebatchCount, setRebatchCount] = useState(2);
   const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [discountCode, setDiscountCode] = useState("");
   const [utmCampaign, setUtmCampaign] = useState("");
@@ -144,6 +145,10 @@ export function CampaignsPage({ notify }: { notify: (message: string) => void })
     discount_code: discountCode || null, utm_campaign: utmCampaign || null,
   }), [mode, subject, headline, message, buttonLabel, filePreview, imageUrl, targetUrl, discountCode, utmCampaign]);
   const drafts = campaigns.filter((campaign) => campaign.status === "draft");
+  const groupDrafts = batch ? drafts.filter((entry) => entry.batch_group_id === batch.groupId) : [];
+  const pendingBatches = groupDrafts.length;
+  const pendingPeople = groupDrafts.reduce((total, entry) => total + (entry.selected_emails?.length || 0), 0);
+  useEffect(() => { if (pendingBatches) setRebatchCount(pendingBatches); }, [batch?.groupId, pendingBatches]);
 
   const reset = (nextView: View = "message") => {
     setId(""); setSubject(""); setHeadline(""); setMessage(""); setButtonLabel(""); setTargetUrl(""); setImageUrl(""); setFile(null);
@@ -226,6 +231,18 @@ export function CampaignsPage({ notify }: { notify: (message: string) => void })
     } catch (reason) { setError((reason as Error).message); }
     setBusy(false);
   };
+  const rebatch = async () => {
+    if (!id || dirty) { setError("Guardá el borrador antes de reorganizar las tandas."); return; }
+    setBusy(true); setError("");
+    try {
+      const result = await callMarketing<{ batches: number[] }>("rebatchCampaigns", { id, batches: rebatchCount });
+      const list = await load();
+      const current = list.find((entry) => entry.id === id) || list.filter((entry) => entry.batch_group_id === batch?.groupId && entry.status === "draft").sort((a, b) => (a.batch_number || 0) - (b.batch_number || 0))[0];
+      if (current) edit(current); else reset(view);
+      notify(`Quedaron ${result.batches.length} ${result.batches.length === 1 ? "tanda pendiente" : "tandas pendientes"}: ${result.batches.join(", ")} personas.`);
+    } catch (reason) { setError((reason as Error).message); }
+    setBusy(false);
+  };
   const removeDraft = async (scope: "one" | "group") => {
     if (!id || !window.confirm(scope === "group" ? "¿Eliminar todas las tandas pendientes de esta campaña?" : "¿Eliminar este borrador?")) return;
     setBusy(true); setError("");
@@ -289,7 +306,10 @@ export function CampaignsPage({ notify }: { notify: (message: string) => void })
           {batch ? <div className="marketing-campaign-batch" role="note">
             <p><strong>Tanda {batch.number} de {batch.total}</strong> · {batch.segmentName ? `Segmento ${batch.segmentName}` : "Todas las personas"} · {selectedEmails.length} {selectedEmails.length === 1 ? "persona" : "personas"}</p>
             <p>El texto, la imagen, el enlace y el descuento se comparten con las demás tandas pendientes. Enviá una tanda por día para no pasar el límite de Resend.</p>
-            <div className="marketing-campaign-actions"><button type="button" className="secondary" disabled={busy} onClick={() => void removeDraft("group")}>Eliminar tandas pendientes</button></div>
+            <label>Cantidad de tandas pendientes<input type="number" min={1} max={Math.max(1, Math.min(60, pendingPeople))} inputMode="numeric" value={rebatchCount} onChange={(event) => setRebatchCount(Math.min(60, Math.max(1, Math.floor(Number(event.target.value)) || 1)))} /></label>
+            <p>{pendingPeople} {pendingPeople === 1 ? "persona" : "personas"} → {rebatchCount} {rebatchCount === 1 ? "tanda" : "tandas"} de {Math.ceil(pendingPeople / rebatchCount)} como máximo. Se reparten parejo y salen primero quienes compraron hace menos tiempo.</p>
+            <div className="marketing-campaign-actions"><button type="button" className="secondary" disabled={busy || dirty || !pendingBatches || rebatchCount === pendingBatches} onClick={() => void rebatch()}>Reorganizar tandas</button><button type="button" className="secondary" disabled={busy} onClick={() => void removeDraft("group")}>Eliminar tandas pendientes</button></div>
+            {dirty && <small>Guardá el borrador antes de reorganizar las tandas.</small>}
           </div> : <>
             <fieldset className="marketing-campaign-audience"><legend>Enviar a</legend><label><input type="radio" checked={audienceChoice === "all"} onChange={() => { setAudienceChoice("all"); mark(); }} />Todos ({audienceTotal === null ? "…" : audienceTotal})</label><label><input type="radio" checked={audienceChoice === "segment"} onChange={() => { setAudienceChoice("segment"); mark(); }} />Un segmento ({segments.length})</label><label><input type="radio" checked={audienceChoice === "selected"} onChange={() => { setAudienceChoice("selected"); mark(); }} />Elegir personas ({selectedEmails.length})</label></fieldset>
             {audienceChoice === "segment" && <div className="marketing-campaign-plan">
