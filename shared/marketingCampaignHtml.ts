@@ -40,8 +40,13 @@ export function marketingCampaignHtml(campaign: MarketingCampaignContent, test =
   const footer = test ? "Esta es una prueba de la campaña." : '<a href="{{{RESEND_UNSUBSCRIBE_URL}}}" style="color:#79452d;text-decoration:underline">Cancelar suscripción</a>';
 
   if (campaign.mode === "image") {
-    const linkedImage = targetUrl ? `<a href="${targetUrl}" style="display:block;text-decoration:none">${image}</a>` : image;
-    return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#f6f0e8;color:#302018;font-family:Arial,sans-serif"><main style="max-width:600px;margin:auto;padding:0;background:#fffdf9">${linkedImage}<p style="margin:32px 16px 0;padding-bottom:20px;font-size:11px;color:#695950">${footer}</p></main></body></html>`;
+    // Fondo blanco y la imagen centrada en una tabla: los clientes de correo ignoran margin:auto en <main>.
+    // El asunto va como texto alternativo para cuando el cliente bloquea las imágenes.
+    const picture = campaign.image_url
+      ? `<img src="${escapeHtml(campaign.image_url)}" alt="${escapeHtml(campaign.subject)}" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0">`
+      : "";
+    const linkedImage = targetUrl ? `<a href="${targetUrl}" style="display:block;text-decoration:none">${picture}</a>` : picture;
+    return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#ffffff;color:#302018;font-family:Arial,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;background:#ffffff;border-collapse:collapse"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:600px;border-collapse:collapse"><tr><td align="center">${linkedImage}</td></tr><tr><td align="center" style="padding:20px 16px 0;font-family:Arial,sans-serif;font-size:11px;line-height:16px;color:#695950">${footer}</td></tr></table></td></tr></table></body></html>`;
   }
 
   const title = escapeHtml((campaign.headline || campaign.subject).trim());

@@ -40,4 +40,15 @@ describe("marketingCampaignHtml", () => {
     expect(html).not.toContain(">Promoción<");
     expect(html).not.toContain("ARTE &amp; TRADICIÓN");
   });
+
+  it("centra la imagen sobre fondo blanco y usa el asunto como texto alternativo", () => {
+    const html = marketingCampaignHtml({ mode: "image", subject: "Cyber <MateArte>", body: "", image_url: "https://example.com/foto.png", target_url: "https://www.matearteuruguay.com/", utm_campaign: "cyber-20261102" });
+    expect(html).toContain("background:#ffffff");
+    expect(html).not.toContain("#f6f0e8");
+    expect(html).not.toContain("<main");
+    expect(html).toContain('<td align="center">');
+    expect(html).toContain('alt="Cyber &lt;MateArte&gt;"');
+    expect(html).toContain("utm_campaign=cyber-20261102");
+    expect(html).toContain("max-width:600px");
+  });
 });
