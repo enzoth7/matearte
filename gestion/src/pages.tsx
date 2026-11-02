@@ -1020,6 +1020,7 @@ export function Customers({
         {typeHeader}
       </div>
       <div className="customers-table"><Table
+        className="customers-data-table"
         rows={filteredCustomers}
         pageSize={75}
         searchText={customerTableSearchText}

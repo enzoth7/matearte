@@ -1158,7 +1158,7 @@ main {
 .table-pagination { display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding: 12px 16px; font-size: 13px; }
 .table-pagination span { margin-right: auto; }
 .customer-history-tabs { margin: 20px 0 12px; }
-@media (max-width: 1100px) {
+@media (max-width: 1399px) {
   .customers-mobile-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 18px; margin: 12px 0; }
   .customers-mobile-filters .customer-filter-heading { max-width: 145px; }
   .customers-mobile-filters .customer-filter-heading select { min-height: 44px; }
@@ -3486,7 +3486,7 @@ dialog.local-mate-summary-dialog{width:min(920px,calc(100% - 24px));max-height:9
 .wholesale-variant-summary-table td:nth-child(1){font-weight:700}
 .wholesale-variant-summary-table td:nth-child(2){line-height:1.45;overflow-wrap:anywhere}
 .wholesale-variant-summary-table td{vertical-align:top}
-@media(max-width:1100px){
+@media(max-width:1399px){
   .wholesale-compact-filters.is-orders{display:block}
   .wholesale-production-orders-table thead{display:none}
   .wholesale-production-orders-table table,.wholesale-production-orders-table tbody{display:block;width:100%}
@@ -3500,7 +3500,7 @@ dialog.local-mate-summary-dialog{width:min(920px,calc(100% - 24px));max-height:9
   .wholesale-production-orders-table td:last-child{grid-column:1/-1}
   .wholesale-production-orders-table .wholesale-row-actions{display:flex;flex-direction:row}
 }
-@media(max-width:700px){
+@media(max-width:1399px){
   .wholesale-compact-filters{display:block}
   .wholesale-production-table:not(.wholesale-production-orders-table) thead{display:none}
   .wholesale-production-table:not(.wholesale-production-orders-table) table,.wholesale-production-table:not(.wholesale-production-orders-table) tbody{display:block;width:100%}

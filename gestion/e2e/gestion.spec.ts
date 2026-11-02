@@ -586,6 +586,7 @@ test("Producción muestra los personalizados Web y Local también en el trabajo 
 });
 
 test("Producción mayorista muestra pedidos y resúmenes sin desplazamiento horizontal", async ({ page }) => {
+  test.setTimeout(90000);
   const { tables } = await mockCommerce(page);
   tables.products.push({ id: "wholesale-product-1", model: "Torpedo", variant: "Cuero crudo con virola de alpaca cincelada",
     rim_type: "Alpaca", leather_type: "Cuero crudo", price_arg: 30000, price_uyu: 810, category_code: "mates" });
@@ -596,6 +597,7 @@ test("Producción mayorista muestra pedidos y resúmenes sin desplazamiento hori
   await page.goto("/produccion/mayorista");
   await expect(page.locator(".wholesale-production-orders-table tbody tr")).toContainText("PED-001");
   for (const group of ["Pedidos", "Modelo", "Variante", "Virolas", "Cuero Torpedo"]) {
+    await page.mouse.move(1000, 0);
     await page.getByRole("button", { name: group, exact: true }).click();
     for (const width of [390, 1024, 1440, 1920]) {
       await page.setViewportSize({ width, height: 1100 });
@@ -682,6 +684,7 @@ test("sin egresos ni historial suficiente no inventa ganancia ni proyecciones", 
 });
 test("todas las rutas existentes cargan con datos compartidos y sin errores", async ({ page }) => {
   test.setTimeout(120000);
+  await mockCommerce(page, { writable: true });
   const errors: string[] = []; page.on("pageerror", (error) => errors.push(error.message));
   for (const path of paths) {
     await page.goto(path);

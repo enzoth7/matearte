@@ -183,6 +183,7 @@ export default function App() {
   const [path, setPath] = useState(() => currentRoute().split("?")[0]);
   const [revision, setRevision] = useState(0);
   const [mobile, setMobile] = useState(false);
+  const [expandedMobileArea, setExpandedMobileArea] = useState<string | null>(null);
   const [userMenu, setUserMenu] = useState(false);
   const [search, setSearch] = useState("");
   const [toast, setToast] = useState("");
@@ -225,6 +226,27 @@ export default function App() {
   useEffect(() => {
     document.title = `${title} · Matearte Gestión`;
   }, [title]);
+  useEffect(() => {
+    if (!mobile) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobile(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [mobile]);
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 761px)");
+    const closeMobileNavigation = () => {
+      if (desktop.matches) setMobile(false);
+    };
+    desktop.addEventListener("change", closeMobileNavigation);
+    return () => desktop.removeEventListener("change", closeMobileNavigation);
+  }, []);
   const go = (url: string) => {
     history.pushState(null, "", url);
     setPath(url.split("?")[0]);
@@ -270,6 +292,31 @@ export default function App() {
           onClick={() => setMobile(false)}
         />
       )}
+      <nav id="mobile-navigation" className={`mobile-navigation ${mobile ? "mobile-open" : ""}`} aria-label="Navegación móvil">
+        <div className="mobile-navigation-head">
+          <strong>MateArte · Gestión</strong>
+          <button className="icon-button" aria-label="Cerrar navegación" onClick={() => setMobile(false)}><X size={22} /></button>
+        </div>
+        <div className="mobile-navigation-list">
+          {allowedAreas.map((entry) => {
+            const Icon = icons[areas.findIndex((candidate) => candidate.id === entry.id)];
+            const expanded = expandedMobileArea === entry.id;
+            return <section key={entry.id} className="mobile-navigation-area">
+              <button className="mobile-navigation-area-button" type="button" aria-expanded={expanded} onClick={() => setExpandedMobileArea(expanded ? null : entry.id)}>
+                <Icon size={21} weight={area.id === entry.id ? "fill" : "regular"} />
+                <span>{entry.name}</span>
+                <span aria-hidden="true">{expanded ? "−" : "+"}</span>
+              </button>
+              {expanded && <div className="mobile-navigation-pages">
+                {entry.pages.filter(([slug]) => canAccess(s, `/${entry.id}/${slug}`)).map(([slug, label]) => {
+                  const url = `/${entry.id}/${slug}`;
+                  return <a key={slug} href={url} aria-current={path === url ? "page" : undefined} onClick={(event) => { event.preventDefault(); go(url); }}>{label}</a>;
+                })}
+              </div>}
+            </section>;
+          })}
+        </div>
+      </nav>
       <nav
         className={`area-rail ${mobile ? "mobile-open" : ""}`}
         aria-label="Áreas"
@@ -333,7 +380,9 @@ export default function App() {
           <button
             className="icon-button mobile-toggle"
             aria-label="Abrir navegación"
-            onClick={() => setMobile(!mobile)}
+            aria-expanded={mobile}
+            aria-controls="mobile-navigation"
+            onClick={() => { setExpandedMobileArea(area.id); setMobile(!mobile); }}
           >
             {mobile ? <X size={23} /> : <List size={23} />}
           </button>
@@ -379,10 +428,12 @@ export default function App() {
             <div className="user-control">
               <button
                 className="user-button"
+                aria-label={s.user}
                 aria-expanded={userMenu}
                 aria-haspopup="true"
                 onClick={() => setUserMenu(!userMenu)}
               >
+                <UserSwitch className="user-avatar-icon" size={21} aria-hidden="true" />
                 <strong>{s.user}</strong>
                 
               </button>

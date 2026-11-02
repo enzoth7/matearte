@@ -1,0 +1,152 @@
+/* The wide desktop layout stays in styles.css. These rules only use space that
+   is actually available on smaller screens. */
+.mobile-navigation,
+.user-avatar-icon {
+  display: none;
+}
+
+@media screen and (min-width: 761px) and (max-width: 1399px) {
+  .area-rail { width: 64px; }
+  .subnav { left: 64px; width: 200px; }
+  .app-content { margin-left: 264px; }
+  .area-links { padding-inline: 7px; }
+  .topbar { padding-inline: 24px; }
+  main { padding: 26px 24px 42px; }
+  .global-search { width: min(310px, 40vw); }
+  .customers-table tbody { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 12px; }
+  .customers-table tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 3px 22px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; }
+  .customers-table td { display: grid; grid-template-columns: minmax(0, 39%) minmax(0, 1fr); align-items: start; gap: 8px; min-width: 0; }
+  .customers-table td:first-child { grid-column: 1 / -1; }
+  .customers-table td::before { min-width: 0; }
+  .customers-table td > * { min-width: 0; }
+  .customers-table td .badge { justify-self: start; width: fit-content; }
+  .customers-table td:first-child .text-button { text-align: left; }
+}
+
+@media screen and (max-width: 1399px) {
+  .app-content { container: management-layout / inline-size; min-width: 0; }
+  main, main > *, .commerce-tools, .table-wrap, .table-scroll { min-width: 0; max-width: 100%; }
+  .table-wrap, .table-scroll { overscroll-behavior-inline: contain; }
+  .table-card { container: management-table / inline-size; }
+  .table-tools, .toolbar, .orders-page-toolbar, .panel-head, .panel-heading, .data-panel-header { flex-wrap: wrap; }
+  .table-actions { flex-wrap: wrap; min-width: 0; }
+  .table-actions > *, .toolbar > * { max-width: 100%; }
+  .source-status small { font-size: 13px; }
+  dialog { max-height: calc(100dvh - 20px); overscroll-behavior: contain; }
+
+  /* Dense lists become readable records; all values and actions remain present. */
+  :is(.sales-orders-table, .ad-reports-table) .table-scroll,
+  .marketing-directory .table-wrap { overflow: visible; }
+  :is(.sales-orders-table, .ad-reports-table) table,
+  :is(.sales-orders-table, .ad-reports-table) tbody,
+  .marketing-directory-table,
+  .marketing-directory-table tbody { display: block; width: 100%; min-width: 0; }
+  :is(.sales-orders-table, .ad-reports-table) thead,
+  .marketing-directory-table thead { display: none; }
+  :is(.sales-orders-table, .ad-reports-table) tbody,
+  .marketing-directory-table tbody { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 430px), 1fr)); gap: 12px; }
+  :is(.sales-orders-table, .ad-reports-table) tbody tr,
+  .marketing-directory-table tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 10px 14px; min-width: 0; padding: 15px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); }
+  :is(.sales-orders-table, .ad-reports-table) td,
+  .marketing-directory-table td { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; width: auto; min-width: 0; padding: 0; border: 0; overflow: visible; text-align: left; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; font-size: 13px; }
+  :is(.sales-orders-table, .ad-reports-table) td::before,
+  .marketing-directory-table td::before { content: attr(data-label); color: #5d554e; font-size: 12px; font-weight: 600; line-height: 1.3; }
+  :is(.sales-orders-table, .ad-reports-table) td:first-child,
+  .marketing-directory-table td:first-child { grid-column: 1 / -1; font-size: 15px; font-weight: 600; }
+  :is(.sales-orders-table, .ad-reports-table) td:last-child { grid-column: 1 / -1; }
+  :is(.sales-orders-table, .ad-reports-table) .badge,
+  .marketing-directory-table .badge { max-width: 100%; overflow: visible; text-overflow: clip; white-space: normal; }
+  .sales-orders-table .order-details-button { width: 44px; height: 44px; }
+  .ad-reports-table td:last-child { position: static; width: auto; background: transparent; text-align: left; }
+  .ad-reports-table tbody tr:hover td:last-child { background: transparent; }
+  .marketing-directory-table .marketing-directory-name { max-width: none; }
+  .wholesale-production-table td::before, .workshop-orders-table td::before { font-size: 12px; color: #5d554e; }
+  .wholesale-production-table .badge, .workshop-orders-table .badge { font-size: 12px; }
+}
+
+@container management-layout (max-width: 950px) {
+  .overview-grid, .overview-rankings-grid, .overview-bottom, .two-grid,
+  .ca-grid, .wholesale-summary-charts, .personalizer-catalog__grid,
+  .catalog-split-view, .commerce-tools .catalog-layout,
+  .commerce-tools .catalog-workspace, .commerce-tools .discounts-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .catalog-product-rail { position: static; max-height: none; }
+  .catalog-rail-grid { display: flex; overflow-x: auto; padding-bottom: 8px; }
+  .catalog-rail-grid .product-card { flex: 0 0 235px; }
+}
+
+@container management-table (max-width: 900px) {
+  .table-card:not(:is(.sales-orders-table, .ad-reports-table, .customers-data-table, .workshop-orders-table, .wholesale-production-table)) .table-scroll { overflow: visible; }
+  .table-card:not(:is(.sales-orders-table, .ad-reports-table, .customers-data-table, .workshop-orders-table, .wholesale-production-table)) table,
+  .table-card:not(:is(.sales-orders-table, .ad-reports-table, .customers-data-table, .workshop-orders-table, .wholesale-production-table)) tbody { display: block; width: 100%; min-width: 0; }
+  .table-card:not(:is(.sales-orders-table, .ad-reports-table, .customers-data-table, .workshop-orders-table, .wholesale-production-table)) thead { display: none; }
+  .table-card:not(:is(.sales-orders-table, .ad-reports-table, .customers-data-table, .workshop-orders-table, .wholesale-production-table)) tbody { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 12px; }
+  .table-card:not(:is(.sales-orders-table, .ad-reports-table, .customers-data-table, .workshop-orders-table, .wholesale-production-table)) tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; }
+  .table-card:not(:is(.sales-orders-table, .ad-reports-table, .customers-data-table, .workshop-orders-table, .wholesale-production-table)) td { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; width: auto; min-width: 0; padding: 0; border: 0; overflow: visible; text-align: left; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; font-size: 13px; }
+  .table-card:not(:is(.sales-orders-table, .ad-reports-table, .customers-data-table, .workshop-orders-table, .wholesale-production-table)) td::before { content: attr(data-label); color: #5d554e; font-size: 12px; font-weight: 600; }
+  .table-card:not(:is(.sales-orders-table, .ad-reports-table, .customers-data-table, .workshop-orders-table, .wholesale-production-table)) td:first-child { grid-column: 1 / -1; font-weight: 600; }
+  .catalog-general-list .table-card table { min-width: 0; }
+}
+
+@media screen and (max-width: 760px) {
+  .area-rail.mobile-open, .subnav.mobile-open { display: none; }
+  .mobile-navigation.mobile-open { position: fixed; inset: 0 auto 0 0; z-index: 80; display: flex; flex-direction: column; width: min(340px, calc(100vw - 24px)); height: 100vh; height: 100dvh; padding-bottom: env(safe-area-inset-bottom, 0px); overflow-y: auto; overscroll-behavior: contain; background: var(--black); color: var(--white); box-shadow: 12px 0 40px rgb(23 20 18 / .25); }
+  .mobile-navigation-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 72px; padding: calc(10px + env(safe-area-inset-top, 0px)) 15px 10px; border-bottom: 1px solid rgb(255 255 255 / .15); background: var(--black); }
+  .mobile-navigation-head strong { font-family: Newsreader, Georgia, serif; font-size: 23px; }
+  .mobile-navigation-head .icon-button { flex: 0 0 44px; color: var(--white); }
+  .mobile-navigation-list { padding: 8px 10px 18px; }
+  .mobile-navigation-area { border-bottom: 1px solid rgb(255 255 255 / .11); }
+  .mobile-navigation-area-button { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 52px; padding: 10px 9px; color: var(--white); text-align: left; font-size: 15px; }
+  .mobile-navigation-area-button span:nth-child(2) { flex: 1; }
+  .mobile-navigation-area-button span:last-child { font-size: 23px; line-height: 1; }
+  .mobile-navigation-pages { display: grid; gap: 2px; padding: 0 0 10px 38px; }
+  .mobile-navigation-pages a { display: flex; align-items: center; min-height: 44px; padding: 8px 11px; border-radius: 8px; color: rgb(255 255 255 / .8); font-size: 14px; line-height: 1.3; }
+  .mobile-navigation-pages a[aria-current="page"] { background: var(--brown); color: var(--white); font-weight: 600; }
+  .mobile-overlay { backdrop-filter: none; }
+  .topbar { height: calc(73px + env(safe-area-inset-top, 0px)); padding-top: env(safe-area-inset-top, 0px); }
+  main { padding-bottom: calc(35px + env(safe-area-inset-bottom, 0px)); }
+  .user-avatar-icon { display: block; }
+  .user-button { justify-content: center; width: 44px; min-width: 44px; }
+  .user-button strong { display: none; }
+  .global-search { width: auto; }
+  .global-search input { font-size: 16px; }
+  .toast { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+  .stat-help-tooltip, .stats.strip .stat:first-child .stat-help-tooltip { width: min(160px, calc(100vw / 2 - 18px)); }
+  .table-tools .table-actions, .toolbar > .table-actions { justify-content: flex-start; }
+  .table-pagination { flex-wrap: wrap; }
+  .table-pagination span { flex: 1 0 100%; }
+  .catalog-general-list .catalog-sort { display: flex; flex-wrap: wrap; width: 100%; white-space: normal; }
+  .catalog-general-list .catalog-sort select { flex: 1 1 180px; width: 100%; min-width: 0; max-width: 100%; }
+  .channel-origin-grid { grid-template-columns: minmax(0, 1fr); }
+  .channel-origin-grid > * { min-width: 0; }
+  .channel-origin-grid .marketing-panel { padding: 16px; }
+  .channel-origin-table, .channel-origin-table tbody { display: block; width: 100%; min-width: 0; }
+  .channel-origin-table thead { display: none; }
+  .channel-origin-table tbody tr { display: grid; grid-template-columns: minmax(0, 1fr); gap: 7px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .channel-origin-table tbody td, .channel-origin-table tbody td:first-child { display: block; width: auto; padding: 0; border: 0; white-space: normal; }
+  .channel-origin-table .badge { max-width: 100%; white-space: normal; }
+  :is(.sales-orders-table, .ad-reports-table) tbody,
+  .marketing-directory-table tbody { grid-template-columns: minmax(0, 1fr); }
+  dialog { width: calc(100vw - 12px); max-height: calc(100dvh - 12px); padding: 16px; border-radius: 14px; }
+  dialog .modal-head { margin-bottom: 16px; }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  textarea, select { font-size: 16px !important; }
+}
+
+@media screen and (max-width: 390px) {
+  .topbar { gap: 4px; padding-inline: 8px; }
+  .notification { width: 32px; }
+  .topbar-right { gap: 0; }
+  .user-menu { width: min(270px, calc(100vw - 16px)); }
+  .page-title h1 { font-size: 30px; }
+}
+
+@media screen and (max-width: 1399px) and (max-height: 680px) {
+  .brand-mark { height: 72px; min-height: 72px; }
+  .subnav { padding-top: 72px; }
+  .topbar { height: 64px; }
+  .page-title { margin-bottom: 16px; }
+  dialog { max-height: calc(100dvh - 12px); }
+  dialog .modal-head { margin-bottom: 16px; }
+}
