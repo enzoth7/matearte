@@ -72,8 +72,13 @@ Deno.serve(async (request) => {
 
   for (const job of jobs) {
     try {
-      const { data: order, error: orderError } = await admin.from("orders").select("id,order_number,status,items_subtotal_minor,shipping_minor,payment_fee_minor,discount_code,discount_minor,total_minor,currency,shipping_method,shipping_snapshot,customer_snapshot,order_items(item_type,title,quantity,total_minor,review_reason)").eq("id", job.order_id).single();
+      const { data: order, error: orderError } = await admin.from("orders").select("id,order_number,status,items_subtotal_minor,shipping_minor,payment_fee_minor,discount_code,discount_minor,total_minor,currency,shipping_method,shipping_snapshot,customer_snapshot,order_items(item_type,title,quantity,unit_price_minor,total_minor,immutable_snapshot,review_reason)").eq("id", job.order_id).single();
       if (orderError || !order) throw new Error(orderError?.message || "Pedido inexistente.");
+      if (job.event_type === "admin_payment_review_required" && order.status !== "payment_verification_pending") {
+        await admin.from("commerce_email_outbox").delete().eq("id", job.id).eq("status", "sending");
+        results.push({ id: job.id, status: "skipped" });
+        continue;
+      }
       const customerEmail = String((order.customer_snapshot as Record<string, unknown>)?.email || "");
       const recipients = job.recipient_kind === "admin" ? adminEmails : [job.recipient_email || customerEmail].filter(Boolean);
       if (!recipients.length) throw new Error("El destinatario no tiene correo.");

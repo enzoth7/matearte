@@ -245,6 +245,27 @@ export function getItemPricing(item: OrderItem): { unitPriceMinor: number; total
   }
   return { unitPriceMinor: 0, totalMinor: 0 };
 }
+export function getOrderPriceBreakdown(order: Pick<Order, 'customer_snapshot' | 'order_items' | 'items_subtotal_minor'>) {
+  const transferDiscountApplies = order.customer_snapshot.purchaseFlow === 'uruguay_retail_transfer'
+    && order.customer_snapshot.priceSource === 'published_discount_10'
+    && Number(order.customer_snapshot.transferDiscountPercent) === 10;
+  const itemTotals = order.order_items.map(item => {
+    const pricing = getItemPricing(item);
+    if (!transferDiscountApplies) return pricing.totalMinor;
+    const variant = recordValue(recordValue(item.immutable_snapshot).variant);
+    const savedOriginal = numberValue(variant.price_minor);
+    // Catalog orders keep the original price. Designs only keep the discounted
+    // unit price, so reverse the recorded 10% at the same minor-unit precision.
+    const originalUnit = item.item_type === 'catalog' && savedOriginal !== null
+      && Math.round(savedOriginal * 0.9) === pricing.unitPriceMinor
+      ? savedOriginal : Math.round(pricing.unitPriceMinor / 0.9);
+    return originalUnit * item.quantity;
+  });
+  const chargedSubtotal = Number(order.items_subtotal_minor ?? order.order_items.reduce((sum, item) => sum + getItemPricing(item).totalMinor, 0));
+  const originalSubtotal = transferDiscountApplies ? itemTotals.reduce((sum, total) => sum + total, 0) : chargedSubtotal;
+  return { itemTotals, originalSubtotal, transferDiscount: transferDiscountApplies ? originalSubtotal - chargedSubtotal : 0 };
+}
+
 export function getCatalogOrderOptionDetails(item:Pick<OrderItem,'item_type'|'immutable_snapshot'>,taxonomy:CatalogTaxonomy=defaultCatalogTaxonomy) {
   if (item.item_type !== 'catalog') return [];
   const snapshot = recordValue(item.immutable_snapshot);
@@ -2077,10 +2098,8 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
       : ['ready_for_fulfillment','shipped','delivered'].includes(detailOrder.status) ? 'Completada'
       : 'Requiere revisión'
     : 'No aplica';
-  const detailItemsSubtotal = detailOrder
-    ? Number(detailOrder.items_subtotal_minor ?? detailOrder.order_items.reduce((sum,item) => sum + getItemPricing(item).totalMinor,0))
-    : 0;
-  const detailItemRows: OrderDetailRow[] = detailOrder?.order_items.map(item => {
+  const detailPricing = detailOrder ? getOrderPriceBreakdown(detailOrder) : null;
+  const detailItemRows: OrderDetailRow[] = detailOrder?.order_items.map((item, index) => {
     const isDesign = item.item_type === 'design';
     const isCustom = isDesign || Boolean(item.requires_review);
     const options = !isDesign ? getCatalogOrderOptionDetails(item, taxonomy) : [];
@@ -2099,7 +2118,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
       size,
       weight: weight > 0 ? formatWeight(weight) : undefined,
       quantity: item.quantity,
-      amount: money(getItemPricing(item).totalMinor,detailOrder?.currency),
+      amount: money(detailPricing?.itemTotals[index] ?? getItemPricing(item).totalMinor,detailOrder?.currency),
       extra: [isCustom ? 'Personalizado' : '', ...extra.map(option => `${option.label}: ${option.value}`)].filter(Boolean).join(' · '),
     };
   }) || [];
@@ -2142,7 +2161,8 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
     </section> : undefined,
     totals: <>
       {detailOrder.currency === "ARS" && <div className="data-note">Envío dentro de Argentina a cargo del destinatario. No incluido en el total.</div>}
-      {(Number(detailOrder.discount_minor) > 0 || Number(detailOrder.shipping_minor) > 0 || Number(detailOrder.payment_fee_minor) > 0) && <div className="line-item"><div>Subtotal</div><strong>{money(detailItemsSubtotal,detailOrder.currency)}</strong></div>}
+      {(Number(detailPricing?.transferDiscount) > 0 || Number(detailOrder.discount_minor) > 0 || Number(detailOrder.shipping_minor) > 0 || Number(detailOrder.payment_fee_minor) > 0) && <div className="line-item"><div>{detailPricing?.transferDiscount ? 'Subtotal sin descuentos' : 'Subtotal'}</div><strong>{money(detailPricing?.originalSubtotal ?? 0,detailOrder.currency)}</strong></div>}
+      {Number(detailPricing?.transferDiscount) > 0 && <div className="line-item"><div>Descuento por transferencia · 10%</div><strong>−{money(detailPricing?.transferDiscount ?? 0,detailOrder.currency)}</strong></div>}
       {Number(detailOrder.discount_minor) > 0 && <div className="line-item"><div>Descuento{detailOrder.discount_code ? ` · ${detailOrder.discount_code}` : ''}</div><strong>−{money(Number(detailOrder.discount_minor),detailOrder.currency)}</strong></div>}
       {Number(detailOrder.shipping_minor) > 0 && <div className="line-item"><div>Envío</div><strong>{money(Number(detailOrder.shipping_minor),detailOrder.currency)}</strong></div>}
       {Number(detailOrder.payment_fee_minor) > 0 && <div className="line-item"><div>Cargos</div><strong>{money(Number(detailOrder.payment_fee_minor),detailOrder.currency)}</strong></div>}

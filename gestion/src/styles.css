@@ -4016,7 +4016,9 @@ dialog.ad-report-dialog{width:min(860px,calc(100% - 24px));max-height:90dvh}
 .email-templates-page{display:grid;gap:22px}
 .email-templates-intro{margin:0;color:var(--muted);line-height:1.5}
 .email-templates-layout{display:grid;grid-template-columns:minmax(250px,340px) minmax(0,1fr);gap:24px;align-items:start}
-.email-templates-list{display:grid;gap:8px}
+.email-templates-list{display:grid;gap:20px}
+.email-template-group{display:grid;gap:8px}
+.email-template-group h3{margin:0 0 2px;font-size:13px;font-weight:600;color:var(--muted);line-height:1.4}
 .email-templates-list button{display:grid;gap:5px;width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:10px;background:var(--white);color:var(--black);text-align:left;cursor:pointer}
 .email-templates-list button.active{border-color:var(--brown);background:var(--surface-warm)}
 .email-templates-list button small{color:var(--muted);line-height:1.35}

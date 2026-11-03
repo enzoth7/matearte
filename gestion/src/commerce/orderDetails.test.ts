@@ -4,6 +4,7 @@ import {
   formatOrderPhone,
   getCatalogOrderOptionDetails,
   getItemPricing,
+  getOrderPriceBreakdown,
   getItemSku,
   getOrderDeliveryDetails,
   formatWeight,
@@ -14,6 +15,35 @@ import {
   type OrderItem,
 } from './Operations';
 import { defaultCatalogTaxonomy } from '../../../shared/catalog-taxonomy';
+
+describe('getOrderPriceBreakdown', () => {
+  const transferSnapshot = { purchaseFlow: 'uruguay_retail_transfer', priceSource: 'published_discount_10', transferDiscountPercent: 10 };
+  const item = (original: number, charged: number, quantity = 1): OrderItem => ({
+    id: String(original), item_type: 'catalog', title: 'Producto', quantity,
+    requires_review: false, review_status: null, unit_price_minor: charged,
+    total_minor: charged * quantity, immutable_snapshot: { variant: { price_minor: original } },
+  });
+
+  it('desglosa W023 sin descontar la transferencia dos veces', () => {
+    const result = getOrderPriceBreakdown({
+      customer_snapshot: transferSnapshot, items_subtotal_minor: 729000,
+      order_items: [item(110000, 99000), item(140000, 126000), item(295000, 265500), item(265000, 238500)],
+    });
+    expect(result).toEqual({ itemTotals: [110000, 140000, 295000, 265000], originalSubtotal: 810000, transferDiscount: 81000 });
+    expect(result.originalSubtotal - result.transferDiscount - 72900).toBe(656100);
+  });
+
+  it('incluye diseños y respeta el redondeo por unidad y las cantidades', () => {
+    const design = { ...item(330000, 297000, 2), item_type: 'design' as const, immutable_snapshot: {} };
+    expect(getOrderPriceBreakdown({ customer_snapshot: transferSnapshot, order_items: [design, item(10001, 9001, 3)] }))
+      .toEqual({ itemTotals: [660000, 30003], originalSubtotal: 690003, transferDiscount: 69000 });
+  });
+
+  it.each([{}, { purchaseFlow: 'wholesale_bank_transfer' }, { purchaseFlow: 'uruguay_retail_transfer', priceSource: 'base' }])('no inventa descuentos para otros flujos: %j', customer_snapshot => {
+    expect(getOrderPriceBreakdown({ customer_snapshot, items_subtotal_minor: 99000, order_items: [item(110000, 99000)] }))
+      .toEqual({ itemTotals: [99000], originalSubtotal: 99000, transferDiscount: 0 });
+  });
+});
 
 describe('getOrderDeliveryDetails', () => {
   it('usa la copia inmutable del cliente como destino de un envío nacional', () => {

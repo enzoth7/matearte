@@ -1,9 +1,11 @@
 export const COMMERCE_EMAIL_EVENT_TYPES = [
   "customer_order_received",
+  "customer_payment_confirmed",
   "customer_custom_approved",
   "customer_order_ready",
   "customer_order_shipped",
   "admin_payment_confirmed",
+  "admin_payment_review_required",
 ] as const;
 
 export type CommerceEmailEventType = typeof COMMERCE_EMAIL_EVENT_TYPES[number];
@@ -33,7 +35,9 @@ export type EmailOrderItem = {
   item_type: "catalog" | "design";
   title: string;
   quantity: number;
+  unit_price_minor?: number;
   total_minor: number;
+  immutable_snapshot?: Record<string, unknown>;
   review_reason?: string | null;
 };
 
@@ -48,7 +52,8 @@ const money = (minor: number, currency = "UYU") => new Intl.NumberFormat("es-UY"
   style: "currency",
   currency,
   currencyDisplay: "code",
-  maximumFractionDigits: 0,
+  minimumFractionDigits: minor % 100 === 0 ? 0 : 2,
+  maximumFractionDigits: minor % 100 === 0 ? 0 : 2,
 }).format(minor / 100).replaceAll("\u00a0", " ");
 
 const normalizedSiteUrl = (siteUrl: string) => siteUrl.replace(/\/$/, "");
@@ -124,6 +129,44 @@ const lineItem = (item: EmailOrderItem, currency: string) => `<table role="prese
 
 const itemsBlock = (items: EmailOrderItem[], currency: string) => items.map((item) => lineItem(item, currency)).join("");
 
+const record = (value: unknown): Record<string, unknown> => value && typeof value === "object" && !Array.isArray(value)
+  ? value as Record<string, unknown> : {};
+
+function paymentBreakdown(order: EmailOrder, items: EmailOrderItem[]) {
+  const flow = order.customer_snapshot?.purchaseFlow;
+  const transferTenPercent = flow === "uruguay_retail_transfer"
+    && order.customer_snapshot?.priceSource === "published_discount_10"
+    && Number(order.customer_snapshot?.transferDiscountPercent) === 10;
+  const originalItems = items.map((item) => {
+    const quantity = item.quantity > 0 ? item.quantity : 1;
+    const chargedUnit = item.unit_price_minor ?? Math.round(item.total_minor / quantity);
+    const snapshot = record(item.immutable_snapshot);
+    const variant = record(snapshot.variant);
+    let originalUnit = chargedUnit;
+    if (transferTenPercent) {
+      const catalogPrice = Number(variant.price_minor);
+      originalUnit = item.item_type === "catalog" && Number.isSafeInteger(catalogPrice)
+        && Math.round(catalogPrice * 0.9) === chargedUnit
+        ? catalogPrice : Math.round(chargedUnit / 0.9);
+    } else if (flow === "wholesale_bank_transfer" && snapshot.wholesaleBankTransfer === true) {
+      const basePrice = Number(variant.base_price_minor);
+      if (Number.isSafeInteger(basePrice) && basePrice > chargedUnit) originalUnit = basePrice;
+    }
+    return { ...item, total_minor: originalUnit * quantity };
+  });
+  const originalSubtotal = order.items_subtotal_minor + originalItems.reduce(
+    (sum, item, index) => sum + item.total_minor - items[index].total_minor, 0,
+  );
+  const paypalShipping = flow === "international_paypal" ? order.shipping_minor : 0;
+  const totalDiscount = Math.max(0, originalSubtotal + paypalShipping + order.payment_fee_minor - order.total_minor);
+  const summary = `${summaryRow("Subtotal", money(originalSubtotal, order.currency), { height: 24 })}`
+    + (totalDiscount > 0 ? summaryRow("Descuento total", `−${money(totalDiscount, order.currency)}`) : "")
+    + (flow === "international_paypal" ? summaryRow("Envío", money(order.shipping_minor, order.currency)) : "")
+    + (order.payment_fee_minor > 0 ? summaryRow("Cargos", money(order.payment_fee_minor, order.currency)) : "")
+    + summaryRow("Total", money(order.total_minor, order.currency));
+  return { products: itemsBlock(originalItems, order.currency), summary };
+}
+
 const button = (label: string, url: string) => `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:0;border-collapse:separate;border-spacing:0"><tr><td style="background:#79452d;border-radius:4px"><a href="${escapeHtml(url)}" style="display:inline-block;padding:12px 24px;color:#fffdf8;font-family:'Outfit',Arial,sans-serif;font-size:13px;font-weight:600;letter-spacing:1.04px;line-height:16px;text-decoration:none;text-transform:uppercase;white-space:nowrap">${escapeHtml(label.toUpperCase())}</a></td></tr></table>`;
 
 const customerName = (order: EmailOrder) => String(order.customer_snapshot?.fullName || "").trim();
@@ -146,13 +189,14 @@ export function buildCommerceEmail(
   const orderRow = summaryRow("Pedido", `#${order.order_number}`, { strong: false });
   const products = itemsBlock(items, order.currency);
   const totalRow = summaryRow("Total", money(order.total_minor, order.currency));
+  const payment = paymentBreakdown(order, items);
 
   switch (job.event_type) {
     case "customer_order_received":
       return {
         subject: `Recibimos tu pedido #${order.order_number}`,
         html: layout(
-          `${heading("Recibimos tu pedido")}${copy(`Hola ${greetingName}, gracias por elegir MateArte. Ya recibimos tu pedido y te avisaremos cuando confirmemos el pago.`)}${orderRow}${products}${summaryRow("Subtotal", money(order.items_subtotal_minor, order.currency), { height: 24 })}${order.discount_minor > 0 ? summaryRow(`Descuento${order.discount_code ? ` · ${order.discount_code}` : ""}`, `−${money(order.discount_minor, order.currency)}`) : ""}${summaryRow("Envío", order.currency === "ARS" ? "A cargo del destinatario (no incluido)" : money(order.shipping_minor, order.currency))}${order.payment_fee_minor > 0 ? summaryRow("Cargos", money(order.payment_fee_minor, order.currency)) : ""}${totalRow}${button("Ver estado del pedido", orderUrl)}`,
+          `${heading("Recibimos tu pedido")}${copy(`Hola ${greetingName}, gracias por elegir MateArte. Recibimos tu pedido y ya podés seguir su estado.`)}${orderRow}${payment.products}${payment.summary}${button("Ver estado del pedido", orderUrl)}`,
           siteUrl,
         ),
       };
@@ -180,11 +224,27 @@ export function buildCommerceEmail(
           siteUrl,
         ),
       };
+    case "customer_payment_confirmed":
+      return {
+        subject: `Pago confirmado · Pedido #${order.order_number}`,
+        html: layout(
+          `${heading("Pago confirmado")}${copy(`Hola ${greetingName}! El pago del pedido fue aprobado y comenzaremos a prepararlo.`)}${orderRow}${payment.products}${payment.summary}${button("Ver estado del pedido", orderUrl)}`,
+          siteUrl,
+        ),
+      };
     case "admin_payment_confirmed":
       return {
         subject: `Pago confirmado · Pedido #${order.order_number}`,
         html: layout(
-          `${heading("Pago confirmado")}${copy(`Hola ${greetingName}! El pago del pedido fue aprobado y comenzaremos a prepararlo.`)}${orderRow}${products}${totalRow}${button("Gestionar pedido", adminUrl)}`,
+          `${heading("Pago confirmado")}${copy("Hola Richard! El pago del pedido fue aprobado.")}${orderRow}${payment.products}${payment.summary}${button("Gestionar pedido", adminUrl)}`,
+          siteUrl,
+        ),
+      };
+    case "admin_payment_review_required":
+      return {
+        subject: `Pago pendiente de confirmación · Pedido #${order.order_number}`,
+        html: layout(
+          `${heading("Pago pendiente de confirmación")}${copy("Hola Richard! Hay un pedido que está pendiente de confirmación.")}${orderRow}${payment.products}${payment.summary}${button("Gestionar pedido", adminUrl)}`,
           siteUrl,
         ),
       };
