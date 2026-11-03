@@ -6,6 +6,7 @@ import type { LocalCustomer, LocalSale, LocalSaleReceipt } from "./localSource";
 import type { WholesaleSnapshot } from "./wholesaleSource";
 import { formatContactName } from "../../shared/contactName";
 import { countryDisplayName } from "./location";
+import { workshopOrderRows } from "./productionPresentation";
 
 export type CommercePayment = { id: string; order_id: string; provider: string; status: string; amount_minor: number; currency: string; approved_at: string | null; created_at: string };
 export type LocalCustomerBirth = { source_user_id: string | null; email: string | null; birth_date: string | null };
@@ -357,8 +358,12 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       design: false, approved: true,
     };
   });
+  const localOrdersWithProduction = localOrders.map((order) => {
+    const workshopOrder = workshopOrderRows([order], products)[0];
+    return workshopOrder ? { ...order, production: workshopOrder.production } : order;
+  });
   return {
-    ...state, products, orders: [...orders, ...localOrders].sort((a, b) => b.date.localeCompare(a.date)), customers: [...customers.values()],
+    ...state, products, orders: [...orders, ...localOrdersWithProduction].sort((a, b) => b.date.localeCompare(a.date)), customers: [...customers.values()],
     payments: snapshot.payments.filter((payment) => payment.status === "approved" && orderIds.has(payment.order_id)).map((payment): Payment => {
       const order = snapshot.orders.find((order) => order.id === payment.order_id)!;
       const originalMinor = Number(payment.amount_minor);

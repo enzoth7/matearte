@@ -250,6 +250,21 @@ describe("integración de commerce en el estado compartido", () => {
     expect(state.payments.find(payment => payment.orderId === deposit.id)?.amount).toBe(100);
     expect(overviewScope(state, "14d", "2026-10-13").orders.reduce((sum, order) => sum + order.quantity, 0)).toBe(6);
   });
+  it("muestra en Ventas el estado del trabajo local que aparece en Minorista", () => {
+    const fixture = commerceFixture();
+    fixture.localSales = [{
+      id: "sale-r007", sale_number: 7, reference_code: "#R007", channel: "WhatsApp", customer_id: null,
+      customer_name: "Camila", sold_on: "2026-11-03", payment_method: "Efectivo",
+      total_minor: 428000, currency: "UYU", created_at: "2026-11-03T15:00:00Z",
+      local_sale_items: [
+        { id: "custom", variant_id: null, sku: "", product_name: "Mate Imperial personalizado", variant_name: "", quantity: 1, unit_price_minor: 400000, line_total_minor: 400000, customization: { itemKind: "custom_mate" }, production_status: "in_production" },
+        { id: "catalog", variant_id: null, sku: "", product_name: "Bombilla", variant_name: "", quantity: 1, unit_price_minor: 28000, line_total_minor: 28000, production_status: "pending" },
+      ],
+    }];
+    expect(adaptCommerce(fixture).orders.find((order) => order.id === "sale-r007")?.production).toBe("En producción");
+    fixture.localSales[0].local_sale_items[0].production_status = "completed";
+    expect(adaptCommerce(fixture).orders.find((order) => order.id === "sale-r007")?.production).toBe("Terminado");
+  });
   it("conserva el medio de pago y el saldo cuando una venta tiene seña", () => {
     const fixture = commerceFixture();
     fixture.localSales = [{

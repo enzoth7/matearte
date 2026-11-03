@@ -54,6 +54,8 @@ function localWorkshopKind(item: OrderLine, product: Product | undefined): Perso
   const name = (product?.name || item.productName || item.title).toLocaleLowerCase('es');
   const savedKind = item.personalization?.localPersonalization && typeof item.personalization.localPersonalization === 'object'
     ? (item.personalization.localPersonalization as Record<string, unknown>).kind : null;
+  // Los productos de catálogo (por ejemplo, una bombilla común) no son encargos de taller.
+  if (!item.personalization && !category.includes('servicio') && !item.productionNotes) return null;
   if (savedKind === 'mate' || savedKind === 'matera' || savedKind === 'bombilla') return savedKind;
   if (category.includes('servicio')) return /aplique/.test(name) ? 'aplique' : 'service';
   if (category.includes('aplique')) return 'aplique';
@@ -347,7 +349,7 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
                   <td className="payment-status-cell">
                     <Badge tone={getPaymentStatusValue(order) === 'cancelled' ? 'red' : undefined}>{paymentStatusLabel(order)}</Badge>
                   </td>
-                  <td><Badge>{personalizedProductionStatus(order)}</Badge></td>
+                  <td><Badge tone={personalizedProductionStatus(order) === 'En producción' ? 'blue' : undefined}>{personalizedProductionStatus(order)}</Badge></td>
                   <td className="action-column"><button className="secondary order-details-button personalized-details-button" type="button" onClick={() => { setActiveTab('detail'); setSelectedId(order.id); }} aria-label={`Ver detalle del pedido ${reference(order)}`} title="Ver detalle"><Plus size={18} weight="bold" aria-hidden="true" /></button></td>
                 </tr>;
               })}

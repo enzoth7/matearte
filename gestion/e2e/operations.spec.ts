@@ -468,6 +468,27 @@ test('personalizados y ventas coinciden cuando el pedido enviado conserva una pi
   await expect(detail).not.toContainText('Pendiente');
 });
 
+test('una bombilla de catálogo no queda pendiente entre los personalizados', async({page}) => {
+  const {tables}=await mockCommerce(page);
+  const base={customer_id:null,sold_on:'2026-11-03',payment_method:'Efectivo',currency:'UYU',created_at:'2026-11-03T15:00:00Z',status:'internal_completed'};
+  tables.local_sales.push(
+    {...base,id:'sale-bombilla',sale_number:60,reference_code:'#L060',channel:'Local',customer_name:'Cliente de bombilla',total_minor:80000,local_sale_items:[
+      {id:'item-bombilla',variant_id:null,sku:'',product_name:'Bombilla Cincelada',variant_name:'Metálico',quantity:1,unit_price_minor:80000,line_total_minor:80000,production_status:'pending',customization:null},
+    ]},
+    {...base,id:'sale-custom',sale_number:61,reference_code:'#R061',channel:'Instagram',customer_name:'Cliente personalizado',total_minor:200000,local_sale_items:[
+      {id:'item-custom',variant_id:null,sku:'',product_name:'Mate personalizado',variant_name:'Imperial',quantity:1,unit_price_minor:200000,line_total_minor:200000,production_status:'in_production',customization:{itemKind:'custom_mate'}},
+    ]},
+  );
+  await page.goto('/comercial/pedidos');
+  await expect(page.getByRole('row').filter({hasText:'#R061'})).toContainText('En producción');
+  await page.goto('/produccion/minorista');
+  await expect(page.getByRole('row').filter({hasText:'#L060'})).toHaveCount(0);
+  await expect(page.getByRole('row').filter({hasText:'#R061'})).toContainText('En producción');
+  await page.goto('/produccion/personalizados');
+  await expect(page.getByRole('row').filter({hasText:'#L060'})).toHaveCount(0);
+  await expect(page.getByRole('row').filter({hasText:'#R061'}).locator('.badge.blue')).toHaveText('En producción');
+});
+
 test('editores utilizables en móvil y sin desbordamiento del documento',async({page})=>{
   await mockCommerce(page);
   await page.setViewportSize({width:390,height:844});
