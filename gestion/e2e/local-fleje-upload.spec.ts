@@ -1,0 +1,62 @@
+import { expect, test } from "@playwright/test";
+import { mockCommerce } from "./commerce-fixture";
+
+test("el logo temporal se agrega y se quita desde los íconos de cada lado", async ({ page }) => {
+  const { tables } = await mockCommerce(page);
+  tables.visualizer_icons = [];
+  tables.visualizer_hidden_builtin_icons = [];
+  await page.goto("/comercial/registrar-min");
+  await page.getByRole("tab", { name: "Personalizados" }).click();
+  await page.getByLabel("Categoría de artículo").selectOption("mate");
+  await page.getByLabel("Modelo", { exact: true }).selectOption("imperial");
+  await page.locator(".local-custom-builder").getByLabel("Cuero o textura", { exact: true }).selectOption("liso");
+  await page.getByRole("button", { name: /Agregar personalizado/ }).click();
+  const card = page.locator(".local-personalization-card");
+  await card.getByRole("navigation").getByRole("button", { name: /Fleje/ }).click();
+  await page.getByLabel("Técnica de fleje de Mate Imperial personalizado").selectOption("bronze-applique");
+  await page.getByLabel("Contenido de fleje de Mate Imperial personalizado").selectOption("logo");
+  await page.getByLabel("Logo de fleje de Mate Imperial personalizado").setInputFiles({
+    name: "logo.svg", mimeType: "image/svg+xml",
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="navy"/><text x="50" y="60" text-anchor="middle" fill="white">LOGO</text></svg>'),
+  });
+  const surfaces = card.getByLabel("Vista del fleje metálico").locator("svg");
+  const picker = card.getByRole("group", { name: "Lado del fleje para agregar íconos" });
+  const logo = () => card.getByRole("button", { name: /logo subido/ });
+  await expect(logo()).toBeVisible();
+  await expect(surfaces.nth(0).locator('image[href^="blob:"]')).toHaveCount(0);
+  await expect(surfaces.nth(1).locator('image[href^="blob:"]')).toHaveCount(0);
+  await logo().click();
+  await expect(logo()).toHaveAttribute("aria-pressed", "true");
+  await card.getByLabel("Tamaño del elemento").fill("0.8");
+  await picker.getByRole("button", { name: /Dorso/ }).click();
+  await expect(logo()).toHaveAttribute("aria-pressed", "false");
+  await logo().click();
+  await expect(surfaces.nth(0).locator('image[href^="blob:"]')).toHaveCount(1);
+  await expect(surfaces.nth(1).locator('image[href^="blob:"]')).toHaveCount(1);
+  await card.getByLabel("Tamaño del elemento").fill("1.3");
+  await card.getByLabel("Giro del elemento").fill("30");
+  await logo().click();
+  await expect(surfaces.nth(1).locator('image[href^="blob:"]')).toHaveCount(0);
+  await expect(logo()).toBeVisible();
+  await logo().click();
+  await expect(card.getByLabel("Tamaño del elemento")).toHaveValue("1.3");
+  await expect(card.getByLabel("Giro del elemento")).toHaveValue("30");
+  await card.getByRole("button", { name: "Sin ícono", exact: true }).click();
+  await expect(surfaces.nth(1).locator('image[href^="blob:"]')).toHaveCount(0);
+  await expect(surfaces.nth(0).locator('image[href^="blob:"]')).toHaveCount(1);
+  await logo().click();
+  await picker.getByRole("button", { name: /Frente/ }).click();
+  await logo().click();
+  await logo().click();
+  await expect(card.getByLabel("Tamaño del elemento")).toHaveValue("0.8");
+  await card.locator(".local-design-editor").screenshot({ path: "artifacts/fleje-logo-temporal.png" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(logo()).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await card.locator(".local-design-editor").screenshot({ path: "artifacts/fleje-logo-temporal-mobile.png" });
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await card.getByRole("button", { name: "Ver resumen" }).click();
+  const dialog = page.getByRole("dialog", { name: "Vista previa para compartir" });
+  await expect(dialog.locator('[data-local-preview="fleje_front"] image[href^="blob:"]')).toHaveCount(1);
+  await expect(dialog.locator('[data-local-preview="fleje_back"] image[href^="blob:"]')).toHaveCount(1);
+});

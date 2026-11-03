@@ -6,7 +6,7 @@ import { commerceSource } from "./commerceSource";
 import { createDefaultFlejeSide, type ElementTransform, type IconElement, type CustomImageAsset } from "../../personalizador/src/types/personalizer";
 import type { MateModel } from "../../personalizador/src/catalog/mateCatalog";
 import type { Product } from "./data";
-import { invertLocalRimText, localDesignIcons, localDesignTransform, type LocalDesignIcon, type LocalPersonalizationDraft } from "./localPersonalization";
+import { invertLocalRimText, localDesignIcons, localDesignTransform, localFlejeUploadSides, localFlejeUploadTransform, type LocalDesignIcon, type LocalPersonalizationDraft } from "./localPersonalization";
 import { customModelLabel } from "./CustomArticlePicker";
 
 export function LocalMateDesignPreview({ product, draft, surface, update }: { product: Product; draft: LocalPersonalizationDraft; surface: "rim" | "fleje"; update: (changes: Partial<LocalPersonalizationDraft>) => void }) {
@@ -42,7 +42,7 @@ export function LocalMateDesignPreview({ product, draft, surface, update }: { pr
     const url = URL.createObjectURL(file); setPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [file]);
-  const transform = (key: string, side: "rim" | "front" | "back") => localDesignTransform(draft, key, side);
+  const transform = (key: string, side: "rim" | "front" | "back") => key === "fleje-upload-front" || key === "fleje-upload-back" ? localFlejeUploadTransform(draft, key === "fleje-upload-front" ? "front" : "back") : localDesignTransform(draft, key, side);
   const move = (key: string, value: ElementTransform) => update({ designTransforms: { ...draft.designTransforms, [key]: value } });
   const selectedIcons = localDesignIcons(draft, surface);
   const visibleIcons = surface === "rim" ? selectedIcons : selectedIcons.filter(item => (item.side ?? "front") === side);
@@ -52,10 +52,22 @@ export function LocalMateDesignPreview({ product, draft, surface, update }: { pr
   const technique = surface === "rim" ? draft.rimTechnique : draft.flejeTechnique;
   const enabled = technique !== "none";
   const previewIcon = (item: LocalDesignIcon, iconSide: "rim" | "front" | "back"): IconElement => ({ ...item, customImage: null, transform: transform(item.id, iconSide) });
-  const upload: IconElement[] = file && previewUrl ? [{ id: `${surface}-upload`, selectedImageId: null, customImage: { id: file.name, name: file.name, mimeType: file.type, size: file.size, previewUrl, originalUrl: previewUrl, source: "upload" } as CustomImageAsset, transform: transform(`${surface}-upload`, surface === "rim" ? "rim" : "front") }] : [];
-  const rimIcons: IconElement[] = content === "text" || !enabled ? [] : [...selectedIcons.map(item => previewIcon(item, "rim")), ...upload];
-  const frontIcons: IconElement[] = content === "text" || !enabled ? [] : [...selectedIcons.filter(item => (item.side ?? "front") === "front").map(item => previewIcon(item, "front")), ...upload];
-  const backIcons: IconElement[] = content === "text" || !enabled ? [] : selectedIcons.filter(item => item.side === "back").map(item => previewIcon(item, "back"));
+  const uploadSides = localFlejeUploadSides(draft);
+  const uploadFor = (uploadSide: "rim" | "front" | "back"): IconElement[] => file && previewUrl ? [{ id: uploadSide === "rim" ? "rim-upload" : `fleje-upload-${uploadSide}`, selectedImageId: null, customImage: { id: file.name, name: file.name, mimeType: file.type, size: file.size, previewUrl, originalUrl: previewUrl, source: "upload" } as CustomImageAsset, transform: uploadSide === "rim" ? transform("rim-upload", "rim") : localFlejeUploadTransform(draft, uploadSide) }] : [];
+  const uploadedOnSide = surface === "fleje" && Boolean(file) && uploadSides.includes(side);
+  const sideCount = (value: "front" | "back") => selectedIcons.filter(item => (item.side ?? "front") === value).length + Number(Boolean(file) && uploadSides.includes(value));
+  const toggleUpload = () => {
+    update({ flejeLogoSides: uploadedOnSide ? uploadSides.filter(value => value !== side) : [...uploadSides, side], flejeContent: content === "text" ? "text-logo" : content });
+    setSelected(uploadedOnSide ? null : `fleje-upload-${side}`);
+  };
+  const clearIcons = () => {
+    changeIcons(surface === "rim" ? [] : selectedIcons.filter(item => (item.side ?? "front") !== side));
+    if (surface === "fleje") update({ flejeLogoSides: uploadSides.filter(value => value !== side) });
+    setSelected(null);
+  };
+  const rimIcons: IconElement[] = content === "text" || !enabled ? [] : [...selectedIcons.map(item => previewIcon(item, "rim")), ...uploadFor("rim")];
+  const frontIcons: IconElement[] = content === "text" || !enabled ? [] : [...selectedIcons.filter(item => (item.side ?? "front") === "front").map(item => previewIcon(item, "front")), ...(uploadSides.includes("front") ? uploadFor("front") : [])];
+  const backIcons: IconElement[] = content === "text" || !enabled ? [] : [...selectedIcons.filter(item => item.side === "back").map(item => previewIcon(item, "back")), ...(uploadSides.includes("back") ? uploadFor("back") : [])];
   const model = customModelLabel(product).toLowerCase().match(/imperial|camionero|criollo|torpedo/)?.[0] as MateModel || "camionero";
   return <section className="local-design-editor" aria-label="Diseño visual del personalizado">
     <p>{surface === "fleje" ? "Elegí Frente o Dorso para agregar íconos en ese lado. Arrastrá el texto o los íconos para ubicarlos; al cambiar de lado se conserva el diseño anterior." : "Arrastrá el texto o la imagen para ubicarlos. Seleccioná las letras y tocá Invertir dentro de la virola para pasarlas arriba o abajo. Si hay dos textos, quedan en lados opuestos."}</p>
@@ -72,7 +84,20 @@ export function LocalMateDesignPreview({ product, draft, surface, update }: { pr
       } }} />}
     </div>
     {selected && (() => { const key = selected === "text-1" ? "rim-text" : selected === "text-2" ? "rim-text-2" : selected === "text" ? `${side}-text` : selected; const current = transform(key, surface === "rim" ? "rim" : side); return <div className="local-design-adjustments"><label>Tamaño del elemento<input type="range" min="0.5" max="1.6" step="0.05" value={current.scale} onChange={e => move(key, { ...current, scale: Number(e.target.value) })} /></label><label>Giro del elemento<input type="range" min="-180" max="180" value={current.rotation} onChange={e => move(key, { ...current, rotation: Number(e.target.value) })} /></label></div>; })()}
-    {enabled && <><strong>Íconos del personalizador</strong>{surface === "fleje" && <div className="local-design-side-picker" role="group" aria-label="Lado del fleje para agregar íconos"><span>Agregar íconos en</span><div><button type="button" aria-pressed={side === "front"} onClick={() => chooseSide("front")}>Frente ({selectedIcons.filter(item => (item.side ?? "front") === "front").length})</button><button type="button" aria-pressed={side === "back"} onClick={() => chooseSide("back")}>Dorso ({selectedIcons.filter(item => item.side === "back").length})</button></div></div>}{iconError && <small>No se pudieron cargar los íconos nuevos. Reabrí el diseño para reintentar.</small>}<div className="local-design-icons"><button type="button" aria-pressed={!visibleIcons.length} onClick={() => { changeIcons(surface === "rim" ? [] : selectedIcons.filter(item => (item.side ?? "front") !== side)); setSelected(null); }}>Sin ícono</button>{orderedRimIconCatalog.map(icon => <button key={icon.id} type="button" title={icon.name} aria-label={icon.name} onClick={() => { const id = `${surface}-${crypto.randomUUID()}`; changeIcons([...selectedIcons, { id, selectedImageId: icon.id, ...(surface === "fleje" ? { side } : {}) }]); setSelected(id); }}><img src={icon.src} alt="" /></button>)}</div></>}
+    {enabled && <>
+      <strong>Íconos del personalizador</strong>
+      {surface === "fleje" && <div className="local-design-side-picker" role="group" aria-label="Lado del fleje para agregar íconos"><span>Agregar íconos en</span><div><button type="button" aria-pressed={side === "front"} onClick={() => chooseSide("front")}>Frente ({sideCount("front")})</button><button type="button" aria-pressed={side === "back"} onClick={() => chooseSide("back")}>Dorso ({sideCount("back")})</button></div></div>}
+      {surface === "fleje" && file && <small>El logo subido queda disponible para este diseño. Tocá su miniatura para agregarlo o quitarlo del lado elegido.</small>}
+      {iconError && <small>No se pudieron cargar los íconos nuevos. Reabrí el diseño para reintentar.</small>}
+      <div className="local-design-icons">
+        <button type="button" aria-pressed={!visibleIcons.length && !uploadedOnSide} onClick={clearIcons}>Sin ícono</button>
+        {surface === "fleje" && file && <button type="button" className="local-design-upload-icon" aria-label={`${uploadedOnSide ? "Quitar" : "Agregar"} logo subido ${uploadedOnSide ? "de" : "en"} ${side === "front" ? "Frente" : "Dorso"}`} aria-pressed={uploadedOnSide} title={file.name} onClick={toggleUpload}>
+          {previewUrl ? <img src={previewUrl} alt="" /> : <span>PDF</span>}
+          <span>Logo subido</span>
+        </button>}
+        {orderedRimIconCatalog.map(icon => <button key={icon.id} type="button" title={icon.name} aria-label={icon.name} onClick={() => { const id = `${surface}-${crypto.randomUUID()}`; changeIcons([...selectedIcons, { id, selectedImageId: icon.id, ...(surface === "fleje" ? { side } : {}) }]); setSelected(id); }}><img src={icon.src} alt="" /></button>)}
+      </div>
+    </>}
     {visibleIcons.length > 0 && <div className="local-design-icons">{visibleIcons.map((item, index) => <button type="button" key={item.id} onClick={() => { changeIcons(selectedIcons.filter(icon => icon.id !== item.id)); if (selected === item.id) setSelected(null); }}>Quitar ícono {index + 1}</button>)}</div>}
     {file?.type === "application/pdf" && <p>El PDF se adjunta a la venta. Para verlo en el diseño, cargá una imagen PNG, JPG o SVG.</p>}
   </section>;

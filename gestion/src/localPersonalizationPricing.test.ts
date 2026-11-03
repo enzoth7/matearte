@@ -67,6 +67,18 @@ describe("precio de mates personalizados en ventas locales", () => {
     ]);
     expect(price.extrasMinor).toBe(92000);
   });
+  it("cobra solo las copias del logo temporal agregadas al fleje", () => {
+    const draft = createPersonalizationDraft("mate");
+    draft.rimTechnique = "none";
+    draft.flejeTechnique = "bronze-applique";
+    draft.flejeContent = "logo";
+    draft.flejeLogoFile = {} as File;
+    for (const sides of [[], ["front"], ["front", "back"], ["back"], []] as ("front" | "back")[][]) {
+      draft.flejeLogoSides = sides;
+      const quote = calculateLocalPersonalizationPrice(draft, catalog);
+      expect(quote.extrasMinor).toBe(sides.length * 45000);
+    }
+  });
   it("cobra los íconos del frente y del dorso del fleje", () => {
     const draft = createPersonalizationDraft("mate");
     draft.rimTechnique = "none";

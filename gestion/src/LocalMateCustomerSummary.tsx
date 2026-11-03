@@ -3,14 +3,14 @@ import { domToBlob } from "modern-screenshot";
 import type { Product } from "./data";
 import { Modal } from "./ui";
 import { SavedDesignViews } from "./localDesignPreviews";
-import { buildLocalPersonalizationSnapshot, localDesignTransform, productHasFleje, type LocalPersonalizationDraft } from "./localPersonalization";
+import { buildLocalPersonalizationSnapshot, localDesignTransform, localFlejeUploadSides, localFlejeUploadTransform, productHasFleje, type LocalPersonalizationDraft } from "./localPersonalization";
 import { getSelectionPreviewImage, type MateFamilyId } from "../../personalizador/src/catalog/mateDecisionCatalog";
 import { catalogValueLabel, defaultCatalogTaxonomy } from "../../shared/catalog-taxonomy";
 
 type PreviewUrls = { rim?: string; fleje?: string };
 type VisualSnapshot = ReturnType<typeof buildLocalPersonalizationSnapshot> & {
   configuration: { rim: { icons: unknown[]; imageMode: string }; selectionLabels: Record<string, string>; capabilities: { hasRim: boolean; hasFleje: boolean } };
-  flejeConfiguration: { sides: { front: { icons: unknown[]; imageMode: string; customImage: unknown } } };
+  flejeConfiguration: { sides: Record<"front" | "back", { icons: unknown[]; imageMode: string; customImage: unknown }> };
 };
 
 function uploadedImage(file: File, url: string) {
@@ -43,13 +43,15 @@ function visualSnapshot(product: Product, draft: LocalPersonalizationDraft, urls
     }];
   }
   if (urls.fleje && draft.flejeLogoFile && draft.flejeTechnique !== "none" && draft.flejeContent !== "text" && productHasFleje(product)) {
-    const front = snapshot.flejeConfiguration.sides.front;
-    front.imageMode = "image";
-    front.customImage = uploadedImage(draft.flejeLogoFile, urls.fleje);
-    front.icons = [...front.icons, {
-      id: "fleje-upload", selectedImageId: null, customImage: uploadedImage(draft.flejeLogoFile, urls.fleje),
-      transform: localDesignTransform(draft, "fleje-upload", "front"),
-    }];
+    for (const uploadSide of localFlejeUploadSides(draft)) {
+      const target = snapshot.flejeConfiguration.sides[uploadSide];
+      target.imageMode = "image";
+      target.customImage = uploadedImage(draft.flejeLogoFile, urls.fleje);
+      target.icons = [...target.icons, {
+        id: `fleje-upload-${uploadSide}`, selectedImageId: null, customImage: uploadedImage(draft.flejeLogoFile, urls.fleje),
+        transform: localFlejeUploadTransform(draft, uploadSide),
+      }];
+    }
   }
   return snapshot;
 }

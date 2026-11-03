@@ -13,6 +13,7 @@ import {
   createPersonalizationDraft,
   mateCharacteristicDetails,
   matePurchaseAxes,
+  localFlejeUploadSides,
   personalizationKind,
   productHasFleje,
   validatePersonalization,
@@ -122,7 +123,7 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
       reportError("El archivo debe ser PNG, JPG, SVG o PDF y pesar hasta 10 MB.");
       return;
     }
-    update({ [field]: file });
+    update({ [field]: file, ...(field === "flejeLogoFile" ? { flejeLogoSides: [] } : {}) });
     reportError("");
   };
 
@@ -466,7 +467,7 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
           assets[role] = { bucket_id: "order-assets", object_path: path, original_name: file.name, mime_type: file.type, byte_size: file.size };
         };
         if (line.personalization?.rimLogoFile) await upload(line.personalization.rimLogoFile, "rim");
-        if (line.personalization?.flejeLogoFile) await upload(line.personalization.flejeLogoFile, "fleje");
+        if (line.personalization?.flejeLogoFile && localFlejeUploadSides(line.personalization).length && line.personalization.flejeTechnique !== "none" && contentUsesLogo(line.personalization.flejeContent)) await upload(line.personalization.flejeLogoFile, "fleje");
         if (line.personalization?.materaLogoFile) await upload(line.personalization.materaLogoFile, "matera");
         if (line.personalization?.bombillaLogoFile) await upload(line.personalization.bombillaLogoFile, "bombilla");
         const snapshot = line.personalization ? buildLocalPersonalizationSnapshot(line.personalization, line.product, assets) : null;
