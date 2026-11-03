@@ -102,7 +102,7 @@ export function InternationalShipping({ onNotice }: Props) {
 
       if (error) {
         if (error.code === '42P01') {
-          onNotice('La tabla en Supabase aún no existe. Ejecutá la migración 20260919193000_international_shipping_rates.sql');
+          onNotice('La tabla de tarifas internacionales aún no existe en Supabase.');
 
         } else {
           onNotice(`Error al guardar tarifas: ${error.message}`);

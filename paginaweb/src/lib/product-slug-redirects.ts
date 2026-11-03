@@ -1,7 +1,7 @@
 /**
  * URLs de producto que cambiaron cuando el slug pasó a derivarse del nombre del producto.
  * Cada par es [slug anterior, slug actual] y se publica como redirección permanente en es, en y pt.
- * La migración `20261024190000_product_slugs_from_names.sql` aplica los mismos cambios en `commerce_products`.
+ * La migración `20261024192324_product_slugs_from_names.sql` aplica los mismos cambios en `commerce_products`.
  */
 export const productSlugRedirects: ReadonlyArray<readonly [string, string]> = [
   ["bombillon-pico-de-loro", "bombillon-pico-de-loro-alpaca"],

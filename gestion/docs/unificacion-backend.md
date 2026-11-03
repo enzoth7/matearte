@@ -2,6 +2,8 @@
 
 Estado: diagnóstico de la base activa, 19 de octubre de 2026. No es una orden de fusión de personas ni de artículos.
 
+Actualización del 3 de noviembre de 2026: este documento conserva los conteos y riesgos observados el 19 de octubre. El historial de migraciones se reconcilió después; las referencias a migraciones pendientes de aquella fecha ya no describen el estado actual.
+
 ## Qué hay realmente
 
 | Entidad | Fuentes actuales | Registros en la base activa | Destino canónico |
@@ -18,7 +20,6 @@ Estado: diagnóstico de la base activa, 19 de octubre de 2026. No es una orden d
 - Las 46 fichas mayoristas sólo coinciden por nombre con 2 fichas del catálogo web; un nombre igual tampoco autoriza fusionar productos. La migración de catálogo ya preparada crea vínculos uno a uno, sin fusiones.
 - `order_lines.customer` es una clave de texto hacia `customers.full_name`; `local_sales.customer_id` es UUID hacia `local_sales_customers`; `orders.user_id` apunta a Auth. Un corte directo de tablas rompería estas relaciones. Cinco ventas locales no tienen cliente asociado y deben seguir siendo ventas válidas.
 - El dashboard y Gestión todavía escriben `customers`, `products` y `order_lines`; web/personalizador escriben `customer_profiles`; el local escribe `local_sales_customers`. Las tres tablas legacy tienen una política `ALL` con `true` para `public` y privilegios directos de lectura, escritura, borrado y `TRUNCATE` para `anon`. Es un riesgo de seguridad **urgente**; el dashboard debe pasar a un acceso autenticado antes de revocar esos permisos, y la tabla nueva nunca debe heredarlos.
-- Las migraciones locales `20261019120000_unified_catalog_channels_and_mate_details.sql`, `20261019143000_color_only_catalog_variants.sql`, `20261019200000_add_personalized_production_access.sql` y `20261019210000_local_sale_personalizations.sql` no tienen entradas con esos nombres en el historial remoto. Además, faltan en la base activa columnas que requieren la primera y la última. Hay que reconciliar esquema e historial antes de ejecutar una migración posterior.
 
 ## Contrato de datos objetivo
 
