@@ -402,7 +402,7 @@ td small { display: block; }
 .tracking-summary { max-width: 13rem; margin-top: .25rem; color: #31566a; line-height: 1.35; overflow-wrap: anywhere; }
 
 .modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; overflow-y: auto; background: rgba(8,20,14,.58); padding: 1.25rem; }
-.shipment-modal { width: min(31rem,100%); max-height: calc(100dvh - 2.5rem); overflow-y: auto; border: 1px solid var(--line); border-radius: .75rem; background: var(--paper); box-shadow: 0 2rem 5rem rgba(8,20,14,.3); }
+.shipment-modal { width: min(42rem,100%); max-height: calc(100dvh - 2.5rem); overflow-y: auto; border: 1px solid var(--line); border-radius: .75rem; background: var(--paper); box-shadow: 0 2rem 5rem rgba(8,20,14,.3); }
 .order-detail-modal { width: min(46rem,100%); }
 .shipment-modal form { padding: 1.5rem; }
 .order-detail-modal__content { padding: 1.5rem; }
@@ -422,7 +422,7 @@ td small { display: block; }
 .order-delivery-grid address { display: flex; flex-direction: column; gap: .22rem; font-style: normal; }
 .missing-delivery-data { color: var(--danger) !important; }
 .order-delivery-summary--compact { margin-bottom: 1.15rem; background: #fffaf2; }
-.order-delivery-summary--compact .order-delivery-grid { grid-template-columns: 1fr; }
+.order-delivery-summary--compact .order-delivery-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
 .order-delivery-phone-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .order-delivery-phone-text { display: flex; align-items: center; gap: 0.35rem; color: #142019; font-weight: 500; font-size: 0.82rem; }
 .order-delivery-phone-badge { display: inline-block; font-family: monospace; font-weight: 700; font-size: 0.72rem; padding: 0.1rem 0.35rem; border-radius: 3px; background: #edf3ec; color: #274836; border: 1px solid #cfe0ce; }
@@ -596,6 +596,7 @@ td small { display: block; }
   .shipment-modal footer button { width: 100%; }
   .order-detail-modal__title-row { align-items: stretch; flex-direction: column; }
   .order-delivery-grid { grid-template-columns: 1fr; }
+  .order-delivery-summary--compact .order-delivery-grid { grid-template-columns: 1fr; }
   .order-delivery-summary__heading { align-items: stretch; flex-direction: column; }
   .order-delivery-summary__heading > span { align-self: flex-start; }
 }

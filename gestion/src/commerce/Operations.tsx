@@ -1943,6 +1943,27 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
     }
   };
 
+  const deliverInStore = async (order:Order) => {
+    if (!window.confirm('¿Confirmás que el cliente recibió este pedido en el local? Quedará como entregado y no se enviará un correo.')) return;
+    setBusy(order.id);
+    setShipmentError('');
+    try {
+      const response = await fetch(`${getStoreApiUrl()}/api/admin/orders/${order.id}/fulfillment`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ action: 'deliver_in_store' }),
+      });
+      const value = await response.json();
+      if (!response.ok) throw new Error(value.error || 'No se pudo marcar el pedido como entregado.');
+      onNotice('Pedido marcado como entregado en el local, sin correo.');
+      setShipmentOrder(null);
+      await load();
+      onClose?.();
+    } catch (error) {
+      setShipmentError(error instanceof Error ? error.message : 'No se pudo marcar el pedido como entregado.');
+    } finally { setBusy(''); }
+  };
+
   const updateFulfillment = async(order:Order,action:'ship'|'restore',details?:{shippingCarrier:string;trackingCode:string}) => {
     setBusy(order.id);
     setShipmentError('');
@@ -2311,6 +2332,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
             {shipmentError&&<div className="modal-error" role="alert">{shipmentError}</div>}
             <footer>
               <button type="button" className="secondary-button" disabled={busy===shipmentOrder.id} onClick={closeShipment}>Cancelar</button>
+              {shipmentOrder.status!=='shipped'&&shipmentOrder.shipping_method==='national_shipping'&&<button type="button" className="secondary-button" disabled={busy===shipmentOrder.id} onClick={()=>void deliverInStore(shipmentOrder)}>Entregado</button>}
               <button type="submit" disabled={busy===shipmentOrder.id}>{busy===shipmentOrder.id?'Guardando…':shipmentOrder.status==='shipped'?'Guardar cambios':'Confirmar envío'}</button>
             </footer>
           </form>

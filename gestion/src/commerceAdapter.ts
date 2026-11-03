@@ -347,13 +347,13 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
     const charged = Number(source.total_minor) / 100;
     const itemsAmount = items.reduce((sum, item) => sum + item.amount, 0);
     return {
-      id: source.id, number: source.sale_number, referenceCode: source.reference_code, source: "local", status: "local_sale", createdAt: source.created_at,
+      id: source.id, number: source.sale_number, referenceCode: source.reference_code, source: "local", status: source.status || "local_sale", createdAt: source.created_at,
       customerId: source.customer_id ? localCustomerIds.get(source.customer_id) || `local:${source.customer_id}` : `local-anon:${source.id}`,
       customerName: source.customer_name, productId: items[0]?.productId || source.id,
       quantity: items.reduce((sum, item) => sum + item.quantity, 0), unitPrice: 0,
       items, totalAmount: source.deposit_minor != null || source.payment_method === "Seña" ? Math.max(charged, itemsAmount) : charged,
       localItemsAmount: itemsAmount, depositAmount: source.deposit_minor == null ? (source.payment_method === "Seña" ? charged : undefined) : Number(source.deposit_minor) / 100, paymentMethod: source.payment_method,
-      channel: source.channel && ["Feria", "Instagram", "Facebook", "WhatsApp"].includes(source.channel) ? source.channel : "Local", date: source.sold_on, due: "", production: "No aplica", delivery: "No aplica", method: "No aplica",
+      channel: source.channel && ["Feria", "Instagram", "Facebook", "WhatsApp"].includes(source.channel) ? source.channel : "Local", date: source.sold_on, due: "", production: "No aplica", delivery: source.status === "delivered" ? "Entregado" : "No aplica", method: source.status === "delivered" ? "Retiro" : "No aplica",
       design: false, approved: true,
     };
   });

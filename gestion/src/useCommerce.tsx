@@ -137,7 +137,15 @@ export function useCommerce() {
           }
           const { data, count, error } = result;
           if (error) throw error;
-          return { rows: (data || []) as LocalSale[], count: count ?? 0 };
+          const rows = (data || []) as LocalSale[];
+          if (rows.length) {
+            const { data: statuses, error: statusError } = await client.from("orders")
+              .select("id,status").in("id", rows.map((sale) => sale.id));
+            if (statusError) throw statusError;
+            const byId = new Map((statuses || []).map((entry) => [entry.id, entry.status]));
+            rows.forEach((sale) => { sale.status = byId.get(sale.id); });
+          }
+          return { rows, count: count ?? 0 };
         }),
         readAllPages<LocalSaleReceipt>(async (page) => {
           const { data, count, error } = await client.from("local_sale_receipts")

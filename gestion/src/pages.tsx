@@ -21,7 +21,7 @@ import { OrderDetailContent, type OrderDetailView } from "./OrderDetailContent";
 import { PersonalizedOrders } from "./commerce/PersonalizedOrdersView";
 import { naturalCaseName, workshopOrderRows } from "./productionPresentation";
 import type { Session } from "@supabase/supabase-js";
-import { Orders as CommerceOrderDetails, formatWeight } from "./commerce/Operations";
+import { Orders as CommerceOrderDetails, formatWeight, getStoreApiUrl } from "./commerce/Operations";
 import type { CommerceSnapshot } from "./commerceAdapter";
 import { ChartTooltip } from "./ui";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -462,7 +462,7 @@ function OrderTable({
         },
         {
           label: "Envío",
-          render: (o) => o.source === "local" ? "—" : <Badge>{orderShippingStatus(o)}</Badge>,
+          render: (o) => o.source === "local" && o.status !== "delivered" ? "—" : <Badge>{orderShippingStatus(o)}</Badge>,
         },
         ...(["pendientes", "retiros", "envios"].includes(mode)
           ? [
@@ -513,6 +513,26 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
   const [saleBusy, setSaleBusy] = useState(false);
   const [saleError, setSaleError] = useState("");
   const items = order.items || [];
+  const workshopOrder = order.source === "local" ? workshopOrderRows([order], s.products)[0] : undefined;
+  const canDeliverLocal = order.source === "local" && order.status !== "delivered" && workshopOrder?.production === "Terminado";
+  const deliverLocal = async () => {
+    if (!props.session || !window.confirm("¿Confirmás que el cliente retiró este pedido?")) return;
+    setSaleBusy(true); setSaleError("");
+    try {
+      const response = await fetch(`${getStoreApiUrl()}/api/admin/orders/${order.id}/fulfillment`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${props.session.access_token}` },
+        body: JSON.stringify({ action: "deliver" }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "No se pudo marcar el pedido como entregado.");
+      await props.refresh?.(true);
+      props.notify?.("Pedido marcado como entregado.");
+      onClose();
+    } catch (error) {
+      setSaleError(error instanceof Error ? error.message : "No se pudo marcar el pedido como entregado.");
+    } finally { setSaleBusy(false); }
+  };
   const localDeposit = order.source === "local" && order.depositAmount != null;
   const orderPayments = s.payments.filter((payment) => payment.orderId === order.id);
   const localPaymentMethods = [...new Set([order.paymentMethod, ...orderPayments.map((payment) => payment.method)]
@@ -555,7 +575,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
     customer: naturalCaseName(customer(s, order).name), products: orderCategoryLabels(order, s.products),
     payment: showAmounts ? paymentStatus(s, order) : undefined,
     paymentNote: showAmounts ? `${localDeposit ? "Saldo de la seña" : "Saldo pendiente"}: ${money(balance(s, order))}` : undefined,
-    production: order.production, rows: detailRows,
+    production: workshopOrder?.production || order.production, rows: detailRows,
     delivery: {
       method: order.method === "Envío" ? "Envío" : order.method === "Retiro" ? "Retiro en el local" : "Venta en el local",
       paymentMethod: localPaymentMethods,
@@ -599,6 +619,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
         })()}><Trash size={20} aria-hidden="true" /></button>
       </div>}
       {canEditLocalSale(order) && balance(s, order) > 0 && <button type="button" className="unified-order-action unified-order-action--primary" onClick={() => setRecordingReceipt(true)}>Registrar cobro</button>}
+      {canDeliverLocal && props.session && <button type="button" className="unified-order-action unified-order-action--primary" disabled={saleBusy} onClick={() => void deliverLocal()}>Marcar entregado</button>}
       <button className="unified-order-action" onClick={onClose}>Cerrar</button>
       {s.customers.some((entry) => entry.id === order.customerId) && <button className="unified-order-action" onClick={() => go(`/clientes/base?cliente=${order.customerId}`)}>Ver ficha del cliente</button>}
       {order.source === "wholesale" && wholesaleLines.length > 0 && props.commerce?.wholesale && <><button className="unified-order-action" onClick={() => downloadWholesalePdf("workshop")}>Descargar PDF Taller</button><button className="unified-order-action" onClick={() => downloadWholesalePdf("customer")}>Descargar PDF Cliente</button></>}

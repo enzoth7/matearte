@@ -233,6 +233,57 @@ test('un retiro se marca como entregado sin pedir transportista',async({page})=>
   await expect(page.getByRole('row').filter({hasText:'#9001'})).toContainText('Entregado');
 });
 
+test('un envío nacional puede registrarse como entregado en el local sin seguimiento',async({page})=>{
+  const {fixture}=await mockCommerce(page,{writable:true});
+  const fulfillmentCalls: Record<string,string>[]=[];
+  await page.route(/\/api\/admin\/orders\/[^/]+\/fulfillment$/,async route=>{
+    const body=route.request().postDataJSON() as Record<string,string>;
+    fulfillmentCalls.push(body);
+    fixture.orders[0].status='delivered';
+    fixture.orders[0].shipping_method='pickup';
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true})});
+  });
+  await page.goto('/comercial/pedidos');
+  await page.getByRole('row').filter({hasText:'#9001'}).getByRole('button',{name:'Ver detalle del pedido #9001'}).click();
+  await page.getByRole('button',{name:'Marcar enviado',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Entregado',exact:true})).toBeVisible();
+  page.once('dialog',confirmation=>void confirmation.accept());
+  await page.getByRole('button',{name:'Entregado',exact:true}).click();
+  await expect.poll(()=>fixture.orders[0].status).toBe('delivered');
+  expect(fulfillmentCalls).toEqual([{action:'deliver_in_store'}]);
+  await expect(page.getByRole('row').filter({hasText:'#9001'})).toContainText('Entregado');
+});
+
+test('una venta local habilita Marcar entregado al completar el personalizado',async({page})=>{
+  const {tables}=await mockCommerce(page,{writable:true});
+  const sale={id:'local-diego',sale_number:50,reference_code:'#L050',channel:'Local',customer_id:null,customer_name:'Diego Repicio',sold_on:'2026-10-31',payment_method:'Efectivo',total_minor:545000,currency:'UYU',created_at:'2026-10-31T14:48:00Z',status:'internal_completed',local_sale_items:[
+    {id:'local-mate',variant_id:null,sku:'',product_name:'Mate personalizado',variant_name:'Camionero',quantity:1,unit_price_minor:255000,line_total_minor:255000,production_status:'pending',customization:{itemKind:'custom_mate'}},
+    {id:'local-termo',variant_id:null,sku:'',product_name:'Termo',variant_name:'Metálico',quantity:1,unit_price_minor:290000,line_total_minor:290000,production_status:'pending',customization:null},
+  ]};
+  tables.local_sales.push(sale);
+  const calls: Record<string,string>[]=[];
+  await page.route(/\/api\/admin\/orders\/[^/]+\/fulfillment$/,async route=>{
+    calls.push(route.request().postDataJSON() as Record<string,string>);
+    sale.status='delivered';
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true})});
+  });
+  await page.goto('/comercial/pedidos');
+  await page.getByRole('row').filter({hasText:'#L050'}).getByRole('button',{name:'Ver detalle del pedido #L050'}).click();
+  await expect(page.getByRole('dialog',{name:'Detalle del pedido'}).getByRole('button',{name:'Marcar entregado'})).toHaveCount(0);
+  await page.getByRole('dialog',{name:'Detalle del pedido'}).getByRole('button',{name:'Cerrar',exact:true}).last().click();
+  await page.goto('/produccion/minorista');
+  await page.getByRole('combobox',{name:'Estado de producción del pedido #L050'}).selectOption('completed');
+  await page.goto('/comercial/pedidos');
+  await page.getByRole('row').filter({hasText:'#L050'}).getByRole('button',{name:'Ver detalle del pedido #L050'}).click();
+  const dialog=page.getByRole('dialog',{name:'Detalle del pedido'});
+  await expect(dialog.getByRole('button',{name:'Marcar entregado'})).toBeVisible();
+  page.once('dialog',confirmation=>void confirmation.accept());
+  await dialog.getByRole('button',{name:'Marcar entregado'}).click();
+  await expect.poll(()=>sale.status).toBe('delivered');
+  expect(calls).toEqual([{action:'deliver'}]);
+  await expect(page.getByRole('row').filter({hasText:'#L050'})).toContainText('Entregado');
+});
+
 test('cotizaciones, descuentos y tarifas guardan valores y unidades correctos',async({page})=>{
   const {fixture,writes}=await mockCommerce(page,{writable:true});
   await page.goto('/finanzas/monedas');

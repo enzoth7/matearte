@@ -41,6 +41,7 @@ export type LocalSaleItem = {
 
 export type LocalSale = {
   id: string;
+  status?: string;
   sale_number: number;
   reference_code?: string | null;
   channel?: "Local" | "Feria" | "Instagram" | "Facebook" | "WhatsApp";

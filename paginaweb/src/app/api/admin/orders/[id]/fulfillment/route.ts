@@ -48,11 +48,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const body = await readJson(request);
     const action = body.action;
-    if (action !== "ship" && action !== "deliver" && action !== "restore") return response(origin, { error: "Acción inválida." }, 400);
+    if (action !== "ship" && action !== "deliver" && action !== "deliver_in_store" && action !== "restore") return response(origin, { error: "Acción inválida." }, 400);
 
     const { data: order, error: orderError } = await admin
       .from("orders")
-      .select("id,status,shipping_method,shipped_at,order_items(requires_review,review_status)")
+      .select("id,status,channel,shipping_method,shipping_snapshot,shipped_at,order_items(item_type,production_status,immutable_snapshot,requires_review,review_status)")
       .eq("id", id)
       .maybeSingle();
     if (orderError) throw orderError;
@@ -98,7 +98,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (order.shipping_method !== "pickup") {
         return response(origin, { error: "Solo los pedidos con retiro se marcan como entregados." }, 409);
       }
-      if (!["paid_pending_review", "ready_for_fulfillment", "ready_for_production", "manual_review"].includes(order.status)) {
+      const local = ["Local", "Feria", "WhatsApp", "Instagram", "Facebook"].includes(order.channel);
+      if (local && order.status === "internal_completed") {
+        const workshopItems = (order.order_items || []).filter((item) =>
+          item.item_type === "service" || Boolean((item.immutable_snapshot as Record<string, unknown> | null)?.customization));
+        if (!workshopItems.length || workshopItems.some((item) => item.production_status !== "completed")) {
+          return response(origin, { error: "Terminá primero la producción del pedido." }, 409);
+        }
+      } else if (!["paid_pending_review", "ready_for_fulfillment", "ready_for_production", "manual_review"].includes(order.status)) {
         return response(origin, { error: "El pedido todavía no se puede marcar como entregado." }, 409);
       }
       const { data: updated, error: updateError } = await admin
@@ -108,6 +115,26 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         .eq("status", order.status)
         .select("id,status,delivered_at")
         .maybeSingle();
+      if (updateError) throw updateError;
+      if (!updated) return response(origin, { error: "El pedido cambió mientras lo actualizabas. Recargá e intentá de nuevo." }, 409);
+      return response(origin, { ok: true, order: updated });
+    }
+
+    if (action === "deliver_in_store") {
+      if (["Local", "Feria", "WhatsApp", "Instagram", "Facebook"].includes(order.channel) || order.shipping_method !== "national_shipping" ||
+          !["paid_pending_review", "ready_for_fulfillment", "ready_for_production", "manual_review"].includes(order.status)) {
+        return response(origin, { error: "Este pedido no se puede entregar en el local desde envíos." }, 409);
+      }
+      const snapshot = (order.shipping_snapshot || {}) as Record<string, unknown>;
+      const { data: updated, error: updateError } = await admin.from("orders")
+        .update({
+          status: "delivered", shipping_method: "pickup",
+          shipping_snapshot: { ...snapshot, name: "Retiro en local", is_pickup: true },
+          shipping_carrier: null, tracking_code: null, shipped_at: null,
+          delivered_at: new Date().toISOString(),
+        })
+        .eq("id", id).eq("status", order.status)
+        .select("id,status,shipping_method,delivered_at").maybeSingle();
       if (updateError) throw updateError;
       if (!updated) return response(origin, { error: "El pedido cambió mientras lo actualizabas. Recargá e intentá de nuevo." }, 409);
       return response(origin, { ok: true, order: updated });
