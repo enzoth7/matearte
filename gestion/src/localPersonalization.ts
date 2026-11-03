@@ -7,6 +7,7 @@ export type PersonalizationKind = "mate" | "matera" | "bombilla";
 export type PersonalizationTechnique = "none" | "laser" | "bronze-applique" | "alpaca-applique";
 export type PersonalizationContent = "text" | "logo" | "text-logo";
 export type LocalDesignIcon = { id: string; selectedImageId: string; side?: "front" | "back" };
+export type LocalRimLogo = { id: string; file: File; enabled: boolean };
 
 export type LocalPersonalizationDraft = {
   kind: PersonalizationKind;
@@ -38,6 +39,7 @@ export type LocalPersonalizationDraft = {
   instructions: string;
   selectedOptions: Record<string, string>;
   rimLogoFile: File | null;
+  rimLogos?: LocalRimLogo[];
   flejeLogoFile: File | null;
   flejeLogoSides?: ("front" | "back")[];
   materaLogoFile: File | null;
@@ -52,9 +54,21 @@ export type StoredPersonalizationAsset = {
   byte_size: number;
 };
 
+export type StoredLocalPersonalizationAssets = {
+  rim?: StoredPersonalizationAsset;
+  rimLogos?: { id: string; asset: StoredPersonalizationAsset }[];
+  fleje?: StoredPersonalizationAsset;
+  matera?: StoredPersonalizationAsset;
+  bombilla?: StoredPersonalizationAsset;
+};
+
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
 const hasText = (content: PersonalizationContent) => content === "text" || content === "text-logo";
 const hasLogo = (content: PersonalizationContent) => content === "logo" || content === "text-logo";
+
+export function localRimLogos(draft: Pick<LocalPersonalizationDraft, "rimLogos" | "rimLogoFile">): LocalRimLogo[] {
+  return draft.rimLogos ?? (draft.rimLogoFile ? [{ id: "rim-upload", file: draft.rimLogoFile, enabled: true }] : []);
+}
 
 export function localDesignIcons(draft: LocalPersonalizationDraft, part: "rim" | "fleje"): LocalDesignIcon[] {
   const legacy = part === "rim" ? draft.rimIconId : draft.flejeIconId;
@@ -72,6 +86,11 @@ export function localFlejeUploadTransform(draft: LocalPersonalizationDraft, side
 }
 
 export function localDesignTransform(draft: LocalPersonalizationDraft, key: string, side: "rim" | "front" | "back"): ElementTransform {
+  const logoIndex = side === "rim" && key !== "rim-upload" ? localRimLogos(draft).findIndex(logo => logo.id === key) : -1;
+  if (logoIndex >= 0 && !draft.designTransforms?.[key]) {
+    const angle = logoIndex * 2.399963229728653;
+    return { x: .5 + .35 * Math.cos(angle), y: .5 + .35 * Math.sin(angle), scale: 1, rotation: 0, side };
+  }
   const iconIndex = localDesignIcons(draft, side === "rim" ? "rim" : "fleje")
     .filter(icon => side === "rim" || (icon.side ?? "front") === side)
     .findIndex(icon => icon.id === key);
@@ -183,7 +202,7 @@ export function validatePersonalization(draft: LocalPersonalizationDraft, produc
   }
   if (draft.rimTechnique !== "none") {
     if (hasText(draft.rimContent) && !draft.rimText.trim() && !draft.rimText2.trim()) return `Ingresá el texto de la virola para ${product.name}.`;
-    if (hasLogo(draft.rimContent) && !draft.rimLogoFile && !localDesignIcons(draft, "rim").length) return `Adjuntá el logo de la virola para ${product.name}.`;
+    if (hasLogo(draft.rimContent) && !localRimLogos(draft).some(logo => logo.enabled) && !localDesignIcons(draft, "rim").length) return `Adjuntá el logo de la virola para ${product.name}.`;
   }
   if (productHasFleje(product) && draft.flejeTechnique !== "none") {
     if (hasText(draft.flejeContent) && !draft.flejeFrontText.trim() && !draft.flejeBackText.trim()) return `Ingresá el texto del fleje para ${product.name}.`;
@@ -240,9 +259,11 @@ const optionText = (product: Product, ...keys: string[]) => {
 export function buildLocalPersonalizationSnapshot(
   draft: LocalPersonalizationDraft,
   product: Product,
-  stored: { rim?: StoredPersonalizationAsset; fleje?: StoredPersonalizationAsset; matera?: StoredPersonalizationAsset; bombilla?: StoredPersonalizationAsset } = {},
+  stored: StoredLocalPersonalizationAssets = {},
 ): Record<string, unknown> {
-  const assets = [stored.rim, stored.fleje, stored.matera, stored.bombilla].filter((asset): asset is StoredPersonalizationAsset => Boolean(asset));
+  const rimAssets = (stored.rimLogos ?? (stored.rim ? [{ id: "rim-upload", asset: stored.rim }] : []))
+    .filter(item => !draft.rimLogos || draft.rimLogos.some(logo => logo.id === item.id && logo.enabled));
+  const assets = [...rimAssets.map(item => item.asset), stored.fleje, stored.matera, stored.bombilla].filter((asset): asset is StoredPersonalizationAsset => Boolean(asset));
   if (draft.kind === "bombilla") {
     return {
       schemaVersion: 1,
@@ -336,7 +357,7 @@ export function buildLocalPersonalizationSnapshot(
           { id: "text-2", text: draft.rimText2.trim(), inverted: draft.rimText2Inverted, transform: transform("rim-text-2", "rim") },
         ] : [],
         imageMode: hasRimLogo ? "image" : "none",
-        icons: hasRimLogo ? designIcons("rim", "rim", stored.rim) : [],
+        icons: hasRimLogo ? [...designIcons("rim", "rim"), ...rimAssets.map(({ id, asset }) => ({ id, selectedImageId: null, customImage: customImage(asset), transform: transform(id, "rim") }))] : [],
         textTransform: transform("rim-text", "rim"),
       },
     },

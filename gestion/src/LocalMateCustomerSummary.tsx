@@ -6,8 +6,10 @@ import { SavedDesignViews } from "./localDesignPreviews";
 import { buildLocalPersonalizationSnapshot, localDesignTransform, localFlejeUploadSides, localFlejeUploadTransform, productHasFleje, type LocalPersonalizationDraft } from "./localPersonalization";
 import { getSelectionPreviewImage, type MateFamilyId } from "../../personalizador/src/catalog/mateDecisionCatalog";
 import { catalogValueLabel, defaultCatalogTaxonomy } from "../../shared/catalog-taxonomy";
+import { useLocalRimLogos } from "./useLocalRimLogos";
+import type { LocalRimLogo } from "./localPersonalization";
 
-type PreviewUrls = { rim?: string; fleje?: string };
+type PreviewUrls = { fleje?: string };
 type VisualSnapshot = ReturnType<typeof buildLocalPersonalizationSnapshot> & {
   configuration: { rim: { icons: unknown[]; imageMode: string }; selectionLabels: Record<string, string>; capabilities: { hasRim: boolean; hasFleje: boolean } };
   flejeConfiguration: { sides: Record<"front" | "back", { icons: unknown[]; imageMode: string; customImage: unknown }> };
@@ -33,14 +35,16 @@ function matePhoto(product: Product) {
   return getSelectionPreviewImage(selection) || getSelectionPreviewImage({ ...selection, colorId: "natural" });
 }
 
-function visualSnapshot(product: Product, draft: LocalPersonalizationDraft, urls: PreviewUrls): VisualSnapshot {
+function visualSnapshot(product: Product, draft: LocalPersonalizationDraft, urls: PreviewUrls, rimLogos: LocalRimLogo[], rimLogoUrls: Record<string, string>): VisualSnapshot {
   const snapshot = buildLocalPersonalizationSnapshot(draft, product) as VisualSnapshot;
-  if (urls.rim && draft.rimLogoFile && draft.rimTechnique !== "none" && draft.rimContent !== "text") {
-    snapshot.configuration.rim.imageMode = "image";
-    snapshot.configuration.rim.icons = [...snapshot.configuration.rim.icons, {
-      id: "rim-upload", selectedImageId: null, customImage: uploadedImage(draft.rimLogoFile, urls.rim),
-      transform: localDesignTransform(draft, "rim-upload", "rim"),
-    }];
+  if (draft.rimTechnique !== "none" && draft.rimContent !== "text") {
+    for (const logo of rimLogos.filter(item => item.enabled && rimLogoUrls[item.id])) {
+      snapshot.configuration.rim.imageMode = "image";
+      snapshot.configuration.rim.icons = [...snapshot.configuration.rim.icons, {
+        id: logo.id, selectedImageId: null, customImage: uploadedImage(logo.file, rimLogoUrls[logo.id]),
+        transform: localDesignTransform(draft, logo.id, "rim"),
+      }];
+    }
   }
   if (urls.fleje && draft.flejeLogoFile && draft.flejeTechnique !== "none" && draft.flejeContent !== "text" && productHasFleje(product)) {
     for (const uploadSide of localFlejeUploadSides(draft)) {
@@ -66,14 +70,14 @@ export function LocalMateCustomerSummary({ product, draft, quantity, onClose }: 
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
   const sheetRef = useRef<HTMLDivElement>(null);
+  const { logos: rimLogos, urls: rimLogoUrls } = useLocalRimLogos(draft);
   useEffect(() => {
     const next: PreviewUrls = {};
-    if (draft.rimLogoFile?.type.startsWith("image/")) next.rim = URL.createObjectURL(draft.rimLogoFile);
     if (draft.flejeLogoFile?.type.startsWith("image/")) next.fleje = URL.createObjectURL(draft.flejeLogoFile);
     setUrls(next);
-    return () => { if (next.rim) URL.revokeObjectURL(next.rim); if (next.fleje) URL.revokeObjectURL(next.fleje); };
-  }, [draft.rimLogoFile, draft.flejeLogoFile]);
-  const snapshot = useMemo(() => visualSnapshot(product, draft, urls), [product, draft, urls]);
+    return () => { if (next.fleje) URL.revokeObjectURL(next.fleje); };
+  }, [draft.flejeLogoFile]);
+  const snapshot = useMemo(() => visualSnapshot(product, draft, urls, rimLogos, rimLogoUrls), [product, draft, urls, rimLogos, rimLogoUrls]);
   const photo = matePhoto(product);
   const labels = snapshot.configuration.selectionLabels;
   const colorLabel = product.assembly ? product.assembly.color ? catalogValueLabel(defaultCatalogTaxonomy, "color", product.assembly.color) : "Pendiente de elegir" : labels.color;
@@ -122,7 +126,7 @@ export function LocalMateCustomerSummary({ product, draft, quantity, onClose }: 
           <h3>Vistas del diseño</h3>
           <SavedDesignViews snapshot={snapshot} />
         </section>}
-        {(draft.rimLogoFile?.type === "application/pdf" || draft.flejeLogoFile?.type === "application/pdf") && <p className="local-mate-summary-note">Los logos en PDF se adjuntan al pedido, pero no aparecen en esta vista. Para mostrarlos, cargá una imagen PNG, JPG o SVG.</p>}
+        {(rimLogos.some(logo => logo.enabled && logo.file.type === "application/pdf") || draft.flejeLogoFile?.type === "application/pdf") && <p className="local-mate-summary-note">Los logos en PDF se adjuntan al pedido, pero no aparecen en esta vista. Para mostrarlos, cargá una imagen PNG, JPG o SVG.</p>}
       </div>
     </div>
     <footer className="local-mate-summary-actions">

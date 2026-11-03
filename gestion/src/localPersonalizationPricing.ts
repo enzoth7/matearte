@@ -1,4 +1,4 @@
-import { localDesignIcons, localFlejeUploadSides, type LocalPersonalizationDraft } from "./localPersonalization";
+import { localDesignIcons, localFlejeUploadSides, localRimLogos, type LocalPersonalizationDraft } from "./localPersonalization";
 
 export type PublishedLocalPricing = {
   versionId: string;
@@ -43,8 +43,9 @@ export function calculateLocalPersonalizationPrice(draft: LocalPersonalizationDr
   };
 
   if (draft.kind === "mate" && draft.rimTechnique !== "none") {
+    const logoCount = localRimLogos(draft).filter(logo => logo.enabled).length + localDesignIcons(draft, "rim").length;
     if (draft.rimTechnique === "laser") {
-      if ((usesText(draft.rimContent) && (characterCount(draft.rimText) + characterCount(draft.rimText2)) > 0) || (usesLogo(draft.rimContent) && (draft.rimLogoFile || localDesignIcons(draft, "rim").length))) {
+      if ((usesText(draft.rimContent) && (characterCount(draft.rimText) + characterCount(draft.rimText2)) > 0) || (usesLogo(draft.rimContent) && logoCount)) {
         add("laser", "rim_text", "Grabado láser en virola", 1);
       }
     } else {
@@ -52,7 +53,7 @@ export function calculateLocalPersonalizationPrice(draft: LocalPersonalizationDr
         const count = characterCount(draft.rimText) + characterCount(draft.rimText2);
         add(draft.rimTechnique, "rim_text", "Letras en virola", count);
       }
-      if (usesLogo(draft.rimContent) && (draft.rimLogoFile || localDesignIcons(draft, "rim").length)) add(draft.rimTechnique, "rim_image", "Logo en virola", Number(Boolean(draft.rimLogoFile)) + localDesignIcons(draft, "rim").length);
+      if (usesLogo(draft.rimContent)) add(draft.rimTechnique, "rim_image", "Logo en virola", logoCount);
     }
   }
   if (draft.kind === "mate" && draft.flejeTechnique !== "none") {

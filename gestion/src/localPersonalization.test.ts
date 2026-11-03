@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Product } from "./data";
-import { buildLocalPersonalizationSnapshot, createPersonalizationDraft, invertLocalRimText, localDesignTransform, matePurchaseAxes, personalizationKind, productHasFleje, validatePersonalization } from "./localPersonalization";
+import { buildLocalPersonalizationSnapshot, createPersonalizationDraft, invertLocalRimText, localDesignTransform, localRimLogos, matePurchaseAxes, personalizationKind, productHasFleje, validatePersonalization } from "./localPersonalization";
 
 const product = (changes: Partial<Product> = {}): Product => ({
   id: "variant", name: "Mate Imperial Personalizado", sku: "P-1", categoryCode: "mates-personalizados", family: "Mates personalizados",
@@ -9,6 +9,32 @@ const product = (changes: Partial<Product> = {}): Product => ({
 });
 
 describe("personalización de ventas locales", () => {
+  it("conserva muchos logos independientes en virola y excluye los que se quitaron del diseño", () => {
+    const draft = createPersonalizationDraft("mate");
+    draft.rimContent = "logo";
+    draft.rimLogos = Array.from({ length: 64 }, (_, index) => ({ id: `logo-${index}`, file: { name: "repetido.png" } as File, enabled: index !== 1 }));
+    draft.designTransforms = { "logo-63": { x: .6, y: .2, scale: .8, rotation: 25, side: "rim" } };
+    const rimLogos = draft.rimLogos.map(({ id }) => ({ id, asset: { bucket_id: "order-assets" as const, object_path: `${id}/logo.png`, original_name: "repetido.png", mime_type: "image/png", byte_size: 100 } }));
+    const snapshot = buildLocalPersonalizationSnapshot(draft, product(), { rimLogos }) as any;
+    expect(validatePersonalization(draft, product())).toBe("");
+    expect(snapshot.configuration.rim.icons).toHaveLength(63);
+    expect(snapshot.assets).toHaveLength(63);
+    expect(new Set(snapshot.configuration.rim.icons.map((item: any) => item.customImage.storageRef)).size).toBe(63);
+    expect(snapshot.configuration.rim.icons.find((item: any) => item.id === "logo-63").transform).toEqual(draft.designTransforms["logo-63"]);
+    expect(localDesignTransform(draft, "logo-0", "rim")).not.toEqual(localDesignTransform(draft, "logo-2", "rim"));
+    draft.rimLogos = draft.rimLogos.map(logo => ({ ...logo, enabled: false }));
+    expect(validatePersonalization(draft, product())).toContain("logo de la virola");
+    expect((buildLocalPersonalizationSnapshot(draft, product(), { rimLogos }) as any).configuration.rim.icons).toEqual([]);
+  });
+  it("recupera el logo único de borradores anteriores y conserva su transformación", () => {
+    const draft = createPersonalizationDraft("mate");
+    draft.rimLogoFile = { name: "anterior.png" } as File;
+    draft.rimContent = "logo";
+    draft.designTransforms = { "rim-upload": { x: .2, y: .4, scale: 1.3, rotation: 40, side: "rim" } };
+    expect(localRimLogos(draft)).toEqual([{ id: "rim-upload", file: draft.rimLogoFile, enabled: true }]);
+    const snapshot = buildLocalPersonalizationSnapshot(draft, product(), { rim: { bucket_id: "order-assets", object_path: "anterior.png", original_name: "anterior.png", mime_type: "image/png", byte_size: 100 } }) as any;
+    expect(snapshot.configuration.rim.icons[0]).toMatchObject({ id: "rim-upload", transform: draft.designTransforms["rim-upload"] });
+  });
   it("conserva el ícono y la ubicación del diseño sin exigir un archivo adicional", () => {
     const draft = createPersonalizationDraft("mate");
     draft.rimContent = "logo";

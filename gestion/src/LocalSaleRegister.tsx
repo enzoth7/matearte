@@ -14,11 +14,13 @@ import {
   mateCharacteristicDetails,
   matePurchaseAxes,
   localFlejeUploadSides,
+  localRimLogos,
   personalizationKind,
   productHasFleje,
   validatePersonalization,
   type LocalPersonalizationDraft,
   type PersonalizationKind,
+  type StoredLocalPersonalizationAssets,
   type StoredPersonalizationAsset,
 } from "./localPersonalization";
 import { calculateLocalPersonalizationPrice, parsePublishedLocalPricing, type PublishedLocalPricing } from "./localPersonalizationPricing";
@@ -116,6 +118,18 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
   const needsMateraLogo = draft.kind === "matera" && contentUsesLogo(draft.materaContent);
   const needsBombillaLogo = draft.kind === "bombilla" && contentUsesLogo(draft.bombillaContent);
   const onFile = (field: "rimLogoFile" | "flejeLogoFile" | "materaLogoFile" | "bombillaLogoFile") => (event: ChangeEvent<HTMLInputElement>) => {
+    if (field === "rimLogoFile") {
+      const files = Array.from(event.target.files ?? []);
+      event.target.value = "";
+      if (!files.length) return;
+      if (files.some(file => !uploadTypes.has(file.type) || file.size > 10 * 1024 * 1024)) {
+        reportError("Cada logo debe ser PNG, JPG, SVG o PDF y pesar hasta 10 MB. Los logos anteriores se conservaron.");
+        return;
+      }
+      update({ rimLogoFile: null, rimLogos: [...localRimLogos(draft), ...files.map(file => ({ id: `rim-upload-${crypto.randomUUID()}`, file, enabled: true }))] });
+      reportError("");
+      return;
+    }
     const file = event.target.files?.[0] || null;
     if (file && (!uploadTypes.has(file.type) || file.size > 10 * 1024 * 1024)) {
       event.target.value = "";
@@ -202,7 +216,7 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
 
       {(mateStep === "Virola" || mateStep === "Fleje") && <LocalMateDesignPreview product={line.product} draft={draft} surface={mateStep === "Virola" ? "rim" : "fleje"} update={update} />}
       {needsMateLogo && (mateStep === "Virola" || mateStep === "Fleje") && <div className="local-personalization-uploads">
-        {mateStep === "Virola" && draft.rimTechnique !== "none" && contentUsesLogo(draft.rimContent) && <label className="local-personalization-upload"><span><FileArrowUp size={21} /><span><strong>Logo de la virola</strong><small>PNG, JPG, SVG o PDF · hasta 10 MB</small></span></span><input aria-label={`Logo de virola de ${line.product.name}`} type="file" accept="image/png,image/jpeg,image/svg+xml,application/pdf" onChange={onFile("rimLogoFile")} /><b>{draft.rimLogoFile?.name || "Seleccionar archivo"}</b></label>}
+        {mateStep === "Virola" && draft.rimTechnique !== "none" && contentUsesLogo(draft.rimContent) && <label className="local-personalization-upload"><span><FileArrowUp size={21} /><span><strong>Logos de la virola</strong><small>Sin límite de cantidad · PNG, JPG, SVG o PDF · hasta 10 MB por archivo</small></span></span><input aria-label={`Logo de virola de ${line.product.name}`} type="file" multiple accept="image/png,image/jpeg,image/svg+xml,application/pdf" onChange={onFile("rimLogoFile")} /><b>{localRimLogos(draft).length ? `${localRimLogos(draft).length} logos cargados · Agregar más` : "Seleccionar archivos"}</b></label>}
         {mateStep === "Fleje" && draft.flejeTechnique !== "none" && contentUsesLogo(draft.flejeContent) && <label className="local-personalization-upload"><span><FileArrowUp size={21} /><span><strong>Logo del fleje</strong><small>Puede ser distinto al de la virola</small></span></span><input aria-label={`Logo de fleje de ${line.product.name}`} type="file" accept="image/png,image/jpeg,image/svg+xml,application/pdf" onChange={onFile("flejeLogoFile")} /><b>{draft.flejeLogoFile?.name || "Seleccionar archivo"}</b></label>}
       </div>}
     </div> : draft.kind === "matera" ? <div className="local-personalization-body">
@@ -457,19 +471,24 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
       if (authError || (personalizedLines.length && !authData.user)) throw new Error("No se pudo validar la sesión para adjuntar los diseños.");
       const items = [];
       for (const line of lines) {
-        const assets: { rim?: StoredPersonalizationAsset; fleje?: StoredPersonalizationAsset; matera?: StoredPersonalizationAsset; bombilla?: StoredPersonalizationAsset } = {};
-        const upload = async (file: File, role: keyof typeof assets) => {
+        const assets: StoredLocalPersonalizationAssets = {};
+        const upload = async (file: File, role: "rim" | "fleje" | "matera" | "bombilla"): Promise<StoredPersonalizationAsset> => {
           const safeName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "archivo";
           const path = `local-sales/${authData.user!.id}/${crypto.randomUUID()}/${role}-${safeName}`;
           const { error: uploadError } = await source.storage.from("order-assets").upload(path, file, { contentType: file.type, cacheControl: "3600", upsert: false });
           if (uploadError) throw new Error(`No se pudo subir ${file.name}.`);
           uploadedPaths.push(path);
-          assets[role] = { bucket_id: "order-assets", object_path: path, original_name: file.name, mime_type: file.type, byte_size: file.size };
+          return { bucket_id: "order-assets", object_path: path, original_name: file.name, mime_type: file.type, byte_size: file.size };
         };
-        if (line.personalization?.rimLogoFile) await upload(line.personalization.rimLogoFile, "rim");
-        if (line.personalization?.flejeLogoFile && localFlejeUploadSides(line.personalization).length && line.personalization.flejeTechnique !== "none" && contentUsesLogo(line.personalization.flejeContent)) await upload(line.personalization.flejeLogoFile, "fleje");
-        if (line.personalization?.materaLogoFile) await upload(line.personalization.materaLogoFile, "matera");
-        if (line.personalization?.bombillaLogoFile) await upload(line.personalization.bombillaLogoFile, "bombilla");
+        if (line.personalization && line.personalization.rimTechnique !== "none" && contentUsesLogo(line.personalization.rimContent)) {
+          assets.rimLogos = [];
+          for (const logo of localRimLogos(line.personalization).filter(item => item.enabled)) {
+            assets.rimLogos.push({ id: logo.id, asset: await upload(logo.file, "rim") });
+          }
+        }
+        if (line.personalization?.flejeLogoFile && localFlejeUploadSides(line.personalization).length && line.personalization.flejeTechnique !== "none" && contentUsesLogo(line.personalization.flejeContent)) assets.fleje = await upload(line.personalization.flejeLogoFile, "fleje");
+        if (line.personalization?.materaLogoFile) assets.matera = await upload(line.personalization.materaLogoFile, "matera");
+        if (line.personalization?.bombillaLogoFile) assets.bombilla = await upload(line.personalization.bombillaLogoFile, "bombilla");
         const snapshot = line.personalization ? buildLocalPersonalizationSnapshot(line.personalization, line.product, assets) : null;
         const previews = [];
         if (snapshot) for (const {role,blob} of await captureLocalDesign(snapshot)) {

@@ -13,6 +13,18 @@ const catalog = parsePublishedLocalPricing({ versionId: "published-1", version: 
 } });
 
 describe("precio de mates personalizados en ventas locales", () => {
+  it("cuenta todos los logos activos en apliques y mantiene una sola tarifa de láser", () => {
+    const draft = createPersonalizationDraft("mate");
+    draft.rimContent = "logo";
+    draft.rimLogos = Array.from({ length: 40 }, (_, index) => ({ id: `logo-${index}`, file: {} as File, enabled: index !== 0 }));
+    expect(calculateLocalPersonalizationPrice(draft, catalog).extrasMinor).toBe(12000);
+    draft.rimTechnique = "bronze-applique";
+    expect(calculateLocalPersonalizationPrice(draft, catalog).extrasMinor).toBe(39 * 35000);
+    draft.rimTechnique = "alpaca-applique";
+    expect(calculateLocalPersonalizationPrice(draft, catalog).extrasMinor).toBe(39 * 40000);
+    draft.rimLogos = draft.rimLogos.map(logo => ({ ...logo, enabled: false }));
+    expect(calculateLocalPersonalizationPrice(draft, catalog).extrasMinor).toBe(0);
+  });
   it("incluye íconos de biblioteca y cuenta imagen e ícono por separado en apliques", () => {
     const draft = createPersonalizationDraft("mate");
     draft.rimContent = "logo";
