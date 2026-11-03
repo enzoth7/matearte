@@ -1,13 +1,14 @@
 import { expect, test } from "@playwright/test";
 import { mockCommerce } from "./commerce-fixture";
 
-test("Leads oculta datos de contacto y compara registros con compras por período", async ({ page }) => {
+test("Leads oculta datos de contacto y compara registros con ventas minoristas por día", async ({ page }) => {
   await mockCommerce(page);
   await page.route("https://*.supabase.co/functions/v1/marketing-workspace", async (route) => {
     const body = route.request().postDataJSON();
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Montevideo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    const yesterday = new Date(Date.parse(`${today}T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
     const result = body.action === "registrationTrend"
-      ? { today, days: Number(body.days), trend: [{ registered_on: today, registered: 5, purchased: 2 }] }
+      ? { today, days: Number(body.days), trend: [{ day: yesterday, registrations: 0, retail_sales: 3 }, { day: today, registrations: 5, retail_sales: 2 }] }
       : { contacts: [{ id: "email:test@example.invalid", name: "Lead Prueba", email: "test@example.invalid", phone: "099000000", source: "Instagram", channel: "Web", country: "UY", created_at: `${today}T15:00:00Z`, has_account: true, subscription_status: "none" }], count: 1, summary: { total: 1, origins: [{ source: "Instagram", contacts: 1 }] } };
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(result) });
   });
@@ -23,8 +24,10 @@ test("Leads oculta datos de contacto y compara registros con compras por períod
   await expect(row.getByRole("button")).toHaveCount(0);
   await expect(table).not.toContainText("test@example.invalid");
   await expect(table).not.toContainText("099000000");
-  await expect(page.getByRole("heading", { name: "Registros y compras" })).toBeVisible();
-  await expect(page.locator(".marketing-trend-key")).toHaveText("RegistradosCon compra");
+  await expect(page.getByRole("heading", { name: "Registros y ventas minoristas" })).toBeVisible();
+  await expect(page.locator(".marketing-trend-key")).toHaveText("RegistrosVentas minoristas");
+  await expect(page.locator(".recharts-bar").nth(0).locator(".recharts-bar-rectangle")).toHaveCount(1);
+  await expect(page.locator(".recharts-bar").nth(1).locator(".recharts-bar-rectangle")).toHaveCount(2);
   await page.screenshot({ path: "artifacts/marketing-leads-desktop.png", fullPage: true });
 
   for (const days of [7, 14]) {

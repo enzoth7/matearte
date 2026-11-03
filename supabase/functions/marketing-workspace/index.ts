@@ -131,9 +131,9 @@ Deno.serve(async (request) => {
     const part = (type: string) => parts.find((item) => item.type === type)?.value || "";
     const today = `${part("year")}-${part("month")}-${part("day")}`;
     const startDate = new Date(Date.parse(`${today}T00:00:00Z`) - (days - 1) * 86400000).toISOString().slice(0, 10);
-    const { data, error } = await admin.from("marketing_registration_purchase_daily")
-      .select("registered_on,registered,purchased").gte("registered_on", startDate).lte("registered_on", today).order("registered_on");
-    if (error) return response({ error: "No se pudo cargar la evolución de registros y compras." }, 500, origin);
+    const { data, error } = await admin.from("marketing_daily_registrations_retail_sales")
+      .select("day,registrations,retail_sales").gte("day", startDate).lte("day", today).order("day");
+    if (error) return response({ error: "No se pudo cargar la evolución de registros y ventas minoristas." }, 500, origin);
     return response({ today, days, trend: data || [] }, 200, origin);
   }
   if (action === "contacts") {

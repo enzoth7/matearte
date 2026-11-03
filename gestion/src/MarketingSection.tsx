@@ -15,7 +15,7 @@ import { Badge } from "./ui";
 
 type Contact = { id: string; name: string | null; source: string; channel: string | null; country: string | null; created_at: string; has_account: boolean; subscription_status: string };
 type ContactSummary = { total: number; origins: { source: string; contacts: number }[] };
-type RegistrationTrend = { today: string; days: number; trend: { registered_on: string; registered: number; purchased: number }[] };
+type RegistrationTrend = { today: string; days: number; trend: { day: string; registrations: number; retail_sales: number }[] };
 type Settings = { enabled: boolean; headline: string; description: string; image_url: string | null; discount_code: string };
 
 const date = (value: string | null) => formatDate(value);
@@ -57,12 +57,12 @@ function Contacts() {
   }, [days]);
   const chartData = useMemo(() => {
     if (!trend || trend.days !== days) return [];
-    const byDay = new Map(trend.trend.map((entry) => [entry.registered_on, entry]));
+    const byDay = new Map(trend.trend.map((entry) => [entry.day, entry]));
     const today = Date.parse(`${trend.today}T00:00:00Z`);
     return Array.from({ length: days }, (_, index) => {
       const day = new Date(today - (days - index - 1) * 86400000).toISOString().slice(0, 10);
       const entry = byDay.get(day);
-      return { day: `${day.slice(8)}/${day.slice(5, 7)}`, registered: entry?.registered || 0, purchased: entry?.purchased || 0 };
+      return { day: `${day.slice(8)}/${day.slice(5, 7)}`, registrations: entry?.registrations || 0, retail_sales: entry?.retail_sales || 0 };
     });
   }, [days, trend]);
   useEffect(() => {
@@ -85,7 +85,7 @@ function Contacts() {
     </div>}
     <section className="marketing-trend" aria-labelledby="marketing-trend-title">
       <div className="marketing-trend-heading">
-        <div><h2 id="marketing-trend-title">Registros y compras</h2><p>Por fecha de registro. «Con compra» cuenta las personas registradas ese día que ya hicieron al menos una compra.</p></div>
+        <div><h2 id="marketing-trend-title">Registros y ventas minoristas</h2><p>Comparación diaria: cuentas creadas y ventas minoristas realizadas, sin importar cuándo se registró el comprador.</p></div>
         <label>Período <select aria-label="Período del gráfico" value={days} onChange={(event) => setDays(Number(event.target.value) as 7 | 14 | 30)}><option value={7}>7 días</option><option value={14}>14 días</option><option value={30}>30 días</option></select></label>
       </div>
       {trendError && <p className="error" role="alert">{trendError}</p>}
@@ -96,11 +96,11 @@ function Contacts() {
             <XAxis dataKey="day" tickLine={false} axisLine={false} interval={days === 30 ? 4 : days === 14 ? 1 : 0} tick={{ fontSize: 11 }} />
             <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
             <Tooltip />
-            <Bar dataKey="registered" name="Registrados" fill="#276b91" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="purchased" name="Con compra" fill="#167344" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="registrations" name="Registros" fill="#276b91" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="retail_sales" name="Ventas minoristas" fill="#167344" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
-      </div></div><div className="marketing-trend-key"><span><i className="marketing-trend-registered" />Registrados</span><span><i className="marketing-trend-purchased" />Con compra</span></div></>}
+      </div></div><div className="marketing-trend-key"><span><i className="marketing-trend-registered" />Registros</span><span><i className="marketing-trend-purchased" />Ventas minoristas</span></div></>}
     </section>
     <section className="marketing-directory">
     <div className="marketing-directory-toolbar">
