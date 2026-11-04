@@ -1,7 +1,7 @@
 "use client";
 
 import { toArsMinor } from "@/lib/argentina";
-import { uruguayTransferUnitPriceMinor } from "@/lib/uruguay-transfer-pricing";
+import { appliesUruguayTransferDiscount, uruguayTransferUnitPriceMinor, type UruguayTransferDiscount } from "@/lib/uruguay-transfer-pricing";
 import { useStorefrontCurrency } from "./StorefrontCurrency";
 
 import { Bank, Check, GlobeHemisphereWest, MapPin, UploadSimple } from "@phosphor-icons/react";
@@ -20,7 +20,7 @@ type Rate = { id: string; name: string; rate_minor: number; is_pickup: boolean; 
 type CustomerForm = { fullName: string; phone: string; department: string; city: string; address: string };
 type InitialDestination = { international: boolean; country: string; city: string };
 type PurchaseRegion = "uruguay" | "argentina" | "international";
-type CartItem = { quantity: number; unit_price_minor: number; item_type?: string; catalog_base_unit_price_minor?: number };
+type CartItem = { quantity: number; unit_price_minor: number; item_type?: string; catalog_base_unit_price_minor?: number; variant?: { product?: { category_code?: string | null; category?: string | null } } | null };
 type WholesaleState = { eligible: boolean; mate_quantity: number; threshold: number; discount_percent: number; savings_minor: number; checkout_mode: string };
 type BankTransferDetails = { account_holder: string; transfer_account: string; cash_deposit_account: string; cash_deposit_label: string };
 type ArgentinaBankDetails = { bank_name: string; account_holder: string; cbu: string; alias: string };
@@ -92,6 +92,7 @@ export function CheckoutForm({
   const [internationalRates, setInternationalRates] = useState<InternationalShippingRow[]>(DEFAULT_INTERNATIONAL_SHIPPING_RATES);
   const [cartWeightGrams, setCartWeightGrams] = useState<number>(0);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [transferDiscount, setTransferDiscount] = useState<UruguayTransferDiscount | null>(null);
   const [argentinaAvailable, setArgentinaAvailable] = useState<boolean | null>(null);
   const [argentinaBank, setArgentinaBank] = useState<ArgentinaBankDetails | null>(null);
   const [subtotalMinor, setSubtotalMinor] = useState<number | null>(null);
@@ -120,7 +121,8 @@ export function CheckoutForm({
   const argentinaSubtotal = subtotalMinor !== null && arsPerUyu > 0 ? cartItems.reduce((sum, item) => sum + toArsMinor(arsUseBasePrice && item.item_type === "catalog" ? item.catalog_base_unit_price_minor ?? item.unit_price_minor : item.unit_price_minor, arsPerUyu) * item.quantity, 0) : null;
   const isInternational = !isWholesale && isDelivery && purchaseRegion === "international";
   const isUruguayTransfer = !isWholesale && !isArgentina && !isInternational && uruguayTransfer;
-  const transferSubtotal = subtotalMinor === null ? null : cartItems.reduce((sum, item) => sum + uruguayTransferUnitPriceMinor(item.unit_price_minor) * item.quantity, 0);
+  const transferSubtotal = subtotalMinor === null || !transferDiscount ? null : cartItems.reduce((sum, item) => sum + uruguayTransferUnitPriceMinor(item.unit_price_minor,
+    appliesUruguayTransferDiscount({ item_type: item.item_type, category: item.variant?.product?.category_code || item.variant?.product?.category }, transferDiscount)) * item.quantity, 0);
 
   const internationalShippingCalc = useMemo(() => {
     if (!isInternational || !international.country) return null;
@@ -185,8 +187,11 @@ export function CheckoutForm({
       if (!Array.isArray(value.items)) return;
       const nextWholesale = value.wholesale && typeof value.wholesale === "object" ? value.wholesale as WholesaleState : null;
       const nextBankTransfer = value.bank_transfer && typeof value.bank_transfer === "object" ? value.bank_transfer as BankTransferDetails : null;
+      const nextTransferDiscount = value.uruguay_transfer_discount && typeof value.uruguay_transfer_discount === "object" ? value.uruguay_transfer_discount as UruguayTransferDiscount : null;
       setWholesale(nextWholesale);
       setBankTransfer(nextBankTransfer);
+      setTransferDiscount(nextTransferDiscount);
+      if (!nextTransferDiscount) setCartError(tCart("loadFailed"));
       if (nextWholesale?.eligible && !nextBankTransfer) setCartError(t("bankTransferUnavailable"));
       const items = value.items as CartItem[];
       setCartItems(items);
@@ -195,6 +200,7 @@ export function CheckoutForm({
       setSubtotalMinor(null);
       setWholesale(null);
       setBankTransfer(null);
+      setTransferDiscount(null);
       setCartError(reason instanceof Error ? reason.message : tCart("loadFailed"));
     }
   }, [t, tCart]);
@@ -627,7 +633,7 @@ export function CheckoutForm({
             </div>
           ))}
           <div className="mt-auto pt-6">
-            {!isWholesale && !isArgentina && !isInternational && <p className="text-sm font-bold text-[var(--walnut)]">{t("uruguayTransferDiscountNotice")}</p>}
+            {!isWholesale && !isArgentina && !isInternational && subtotalMinor !== null && transferSubtotal !== null && transferSubtotal < subtotalMinor && <p className="text-sm font-bold text-[var(--walnut)]">{t("uruguayTransferDiscountNotice")}</p>}
             <p className="text-[11px] leading-5 text-black/50">
               {t("purchasePolicyNotice")}{" "}<Link href="/compras/condiciones-de-compra" target="_blank" className="underline underline-offset-2">{t("purchasePolicyLink")}</Link>
             </p>
@@ -643,7 +649,7 @@ export function CheckoutForm({
               <dt className="text-white/75">{tCart("subtotal")}</dt>
               <dd className="font-semibold"><MoneyValue amount={isArgentina ? argentinaSubtotal : subtotalMinor} argentina={isArgentina} locale={locale} exchangeRates={exchangeRates} /></dd>
             </div>
-            {isUruguayTransfer && subtotalMinor !== null && transferSubtotal !== null && <div className="flex items-baseline justify-between gap-4"><dt className="text-white/75">{t("uruguayTransferDiscount")}</dt><dd className="font-semibold">−<MoneyValue amount={subtotalMinor - transferSubtotal} locale={locale} exchangeRates={exchangeRates} /></dd></div>}
+            {isUruguayTransfer && subtotalMinor !== null && transferSubtotal !== null && transferSubtotal < subtotalMinor && <div className="flex items-baseline justify-between gap-4"><dt className="text-white/75">{t("uruguayTransferDiscount")}</dt><dd className="font-semibold">−<MoneyValue amount={subtotalMinor - transferSubtotal} locale={locale} exchangeRates={exchangeRates} /></dd></div>}
             {appliedDiscount && (
               <div className="flex items-baseline justify-between gap-4" aria-live="polite">
                 <dt className="text-white/75">{t("discount")}</dt>

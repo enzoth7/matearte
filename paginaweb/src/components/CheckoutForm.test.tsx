@@ -19,7 +19,9 @@ function mockCheckoutFetch(cartPayload: Record<string, unknown> = { items: [{ un
     const url = typeof input === "string" ? input : (input as Request).url || "";
     if (url.includes("/api/checkout/argentina")) return { ok: true, json: async () => ({ enabled: true, bank: { alias: "MATEARTE.COLON", cbu: "0170119340000000993887", bank_name: "BBVA Argentina", account_holder: "" } }) };
     if (url.includes("/api/cart")) {
-      return { ok: true, text: async () => JSON.stringify(cartPayload) };
+      const items = ((cartPayload.items || []) as Record<string, unknown>[]).map(item => ({ ...item, item_type: item.item_type || "catalog", variant: item.variant || { product: { category_code: "mates" } } }));
+      return { ok: true, text: async () => JSON.stringify({ ...cartPayload, items,
+        uruguay_transfer_discount: cartPayload.uruguay_transfer_discount || { enabled: true, categories: ["mates"], designs: true } }) };
     }
     if (url.includes("/api/discounts/validate")) {
       const request = JSON.parse(String(init?.body || "{}"));
@@ -140,6 +142,22 @@ describe("CheckoutForm", () => {
     expect(screen.getByRole("button", { name: /completar pedido/i })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: /mercado pago/i }));
     expect(screen.queryByText("BROU CA $ 110882545-00002")).not.toBeInTheDocument();
+  });
+
+  it("aplica el 10% solo a las categorías seleccionadas", async () => {
+    mockCheckoutFetch({
+      items: [
+        { item_type: "catalog", unit_price_minor: 100000, quantity: 1, variant: { product: { category_code: "mates" } } },
+        { item_type: "catalog", unit_price_minor: 100000, quantity: 1, variant: { product: { category_code: "bombillas" } } },
+      ],
+      uruguay_transfer_discount: { enabled: true, categories: ["mates"], designs: false },
+      bank_transfer: { account_holder: "Richard Ortiz", transfer_account: "BROU", cash_deposit_account: "601", cash_deposit_label: "Depósitos" },
+    });
+    render(<CheckoutForm initialCustomer={initialCustomer} />);
+    fireEvent.click(await screen.findByRole("radio", { name: /retiro en tienda/i }));
+    fireEvent.click(screen.getByRole("button", { name: /pagar por transferencia/i }));
+    expect(screen.getByText("$ 100 UYU")).toBeInTheDocument();
+    expect(screen.getByText("$ 1.900 UYU")).toBeInTheDocument();
   });
 
   it("acumula el 10% por transferencia con un código válido", async () => {

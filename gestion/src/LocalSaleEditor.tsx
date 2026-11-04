@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Trash } from "@phosphor-icons/react";
 import { commerceSource } from "./commerceSource";
+import { joinCustomerPhone, splitCustomerPhone } from "./customerPhone";
 import { money, today, type Customer, type Order, type Product } from "./data";
 import { salePriceMinor } from "./localSalePricing";
 import { Modal } from "./ui";
@@ -14,12 +15,30 @@ export const canEditLocalSale = (order: Order) => order.source === "local" && !!
 type LineDraft = { id: string; name: string; sku: string; quantity: string; price: string; notes: string; service: boolean; personalized: boolean; assemblySummary?: string; isNew?: boolean; variablePrice?: boolean; priceOverridden?: boolean };
 
 const errorText = (error: unknown) => error instanceof Error ? error.message : "No se pudo completar la operación.";
+const normalizeCustomerName = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
+const phoneSearchVariants = (value: string, country: string) => {
+  const { prefix, number } = splitCustomerPhone(value, country);
+  return [value.replace(/\D/g, ""), number.replace(/\D/g, ""), joinCustomerPhone(prefix, number).replace(/\D/g, "")].filter(Boolean);
+};
+const customerLabel = (customer: Customer) => `${customer.name} | ${splitCustomerPhone(customer.phone, customer.country).number || "Sin celular"}`;
 
 export function LocalSaleEditor({ order, customers, products, depositAmount, onClose, onChanged }: {
   order: Order; customers: Customer[]; products: Product[]; depositAmount?: number; onClose: () => void; onChanged: (message: string) => Promise<void> | void;
 }) {
   const localCustomers = customers.filter((customer) => customer.localCustomerId).sort((a, b) => a.name.localeCompare(b.name, "es"));
   const [customerId, setCustomerId] = useState(customers.find((customer) => customer.id === order.customerId)?.localCustomerId || "");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const selectedCustomer = localCustomers.find((customer) => customer.localCustomerId === customerId);
+  const customerMatches = customerSearch.trim() ? localCustomers.filter((customer) => {
+    const query = customerSearch.trim();
+    if (normalizeCustomerName(customer.name).includes(normalizeCustomerName(query))) return true;
+    if (!/^[\d\s()+.-]+$/.test(query)) return false;
+    const queryVariants = phoneSearchVariants(query, customer.country || "");
+    return [customer.phone, ...(customer.agendaAdditionalPhones || [])].some((phone) => {
+      const variants = phoneSearchVariants(phone, customer.country || "");
+      return queryVariants.some((needle) => variants.some((number) => number.includes(needle)));
+    });
+  }).slice(0, 30) : [];
   const [date, setDate] = useState(order.date);
   const [payment, setPayment] = useState(order.paymentMethod === "Seña" ? "" : order.paymentMethod || "Efectivo");
   const [hasDeposit, setHasDeposit] = useState(order.depositAmount != null || order.paymentMethod === "Seña");
@@ -84,7 +103,25 @@ export function LocalSaleEditor({ order, customers, products, depositAmount, onC
         })); }} required>{!payment && <option value="">Elegir medio de pago</option>}{paymentMethods.map((method) => <option key={method}>{method}</option>)}</select></label>
         <label className="local-sale-deposit-toggle"><input type="checkbox" checked={hasDeposit} onChange={(event) => setHasDeposit(event.target.checked)} />Con seña</label>
         {hasDeposit && <label>Seña cobrada (UYU)<input type="number" min="0.01" step="0.01" value={deposit} onChange={(event) => setDeposit(event.target.value)} required /></label>}
-        <label className="wide">Cliente<select value={customerId} onChange={(event) => setCustomerId(event.target.value)}><option value="">Cliente sin registrar</option>{localCustomers.map((customer) => <option key={customer.id} value={customer.localCustomerId}>{customer.name}</option>)}</select></label>
+        <div className="wide local-sale-editor-customer-fields">
+          <div className="local-sale-editor-customer-search">
+            <label htmlFor="local-sale-editor-customer-search">Buscar cliente por nombre o celular</label>
+            <input id="local-sale-editor-customer-search" type="search" value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Nombre o celular" autoComplete="off" />
+            {customerSearch.trim() && <div className="local-sale-editor-customer-results" aria-label="Coincidencias de clientes">
+              {customerMatches.map((customer) => <button type="button" key={customer.id} onClick={() => { setCustomerId(customer.localCustomerId || ""); setCustomerSearch(""); }}>
+                {customerLabel(customer)}
+              </button>)}
+              {!customerMatches.length && <span>No encontramos clientes.</span>}
+            </div>}
+          </div>
+          <div className="local-sale-editor-customer-selection">
+            <span>Cliente de la venta</span>
+            <div className="local-sale-editor-customer-value" aria-live="polite">
+              <output>{selectedCustomer ? customerLabel(selectedCustomer) : "Cliente sin registrar"}</output>
+              {selectedCustomer && <button type="button" onClick={() => setCustomerId("")} aria-label="Quitar cliente de la venta">Quitar</button>}
+            </div>
+          </div>
+        </div>
       </div>
       <div className="local-sale-editor-add">
         <label>Agregar artículo por SKU<input value={skuInput} onChange={(event) => { setSkuInput(event.target.value); setError(""); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addSku(); } }} placeholder="Ingresá el SKU exacto" autoComplete="off" /></label>

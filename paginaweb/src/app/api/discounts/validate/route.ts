@@ -3,7 +3,7 @@ import { readPricedCart } from "@/lib/cart";
 import { discountErrorMessage, discountReasonFromError, normalizeDiscountCode, type ValidatedDiscount } from "@/lib/discounts";
 import { argentinaDiscountMinor, toArsMinor } from "@/lib/argentina";
 import { getArgentinaBasePricing, getArgentinaSettings } from "@/lib/argentina-server";
-import { uruguayTransferUnitPriceMinor } from "@/lib/uruguay-transfer-pricing";
+import { appliesUruguayTransferDiscount, uruguayTransferUnitPriceMinor, type UruguayTransferDiscount } from "@/lib/uruguay-transfer-pricing";
 import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
 import { discountCategorySubtotals } from "../../../../../../shared/discount-scope";
 
@@ -28,12 +28,21 @@ export async function POST(request: Request) {
     const settings = argentina ? await getArgentinaSettings() : null;
     if (argentina && !settings) throw new Error("discount:not_applicable");
     const useBasePrice = argentina ? await getArgentinaBasePricing() : false;
+    const transferSettings = uruguayTransfer ? await admin.from("commerce_settings")
+      .select("uruguay_transfer_discount_enabled,uruguay_transfer_discount_categories,uruguay_transfer_discount_designs")
+      .eq("singleton", true).single() : null;
+    if (transferSettings?.error || (uruguayTransfer && !transferSettings?.data)) throw new Error("No se pudo cargar la configuración de descuentos.");
+    const transferDiscount: UruguayTransferDiscount | null = transferSettings?.data ? {
+      enabled: transferSettings.data.uruguay_transfer_discount_enabled,
+      categories: transferSettings.data.uruguay_transfer_discount_categories,
+      designs: transferSettings.data.uruguay_transfer_discount_designs,
+    } : null;
     const pricedItems = cart.items.map(item => {
       const variant = item.variant as unknown as { product?: { category_code?: string; category?: string } } | null;
       const publishedUnitPriceMinor = Number(item.unit_price_minor);
       return { itemType: item.item_type, category: variant?.product?.category_code || variant?.product?.category,
         unitPriceMinor: uruguayTransfer
-          ? uruguayTransferUnitPriceMinor(publishedUnitPriceMinor)
+          ? uruguayTransferUnitPriceMinor(publishedUnitPriceMinor, appliesUruguayTransferDiscount({ item_type: item.item_type, category: variant?.product?.category_code || variant?.product?.category }, transferDiscount!))
           : Number(useBasePrice && argentina && item.item_type === "catalog" ? item.catalog_base_unit_price_minor ?? publishedUnitPriceMinor : publishedUnitPriceMinor),
         quantity: Number(item.quantity) };
     });

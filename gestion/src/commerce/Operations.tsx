@@ -252,7 +252,10 @@ export function getOrderPriceBreakdown(order: Pick<Order, 'customer_snapshot' | 
   const itemTotals = order.order_items.map(item => {
     const pricing = getItemPricing(item);
     if (!transferDiscountApplies) return pricing.totalMinor;
-    const variant = recordValue(recordValue(item.immutable_snapshot).variant);
+    const snapshot = recordValue(item.immutable_snapshot);
+    const recordedOriginal = numberValue(snapshot.transferOriginalUnitPriceMinor);
+    if (recordedOriginal !== null) return recordedOriginal * item.quantity;
+    const variant = recordValue(snapshot.variant);
     const savedOriginal = numberValue(variant.price_minor);
     // Catalog orders keep the original price. Designs only keep the discounted
     // unit price, so reverse the recorded 10% at the same minor-unit precision.
@@ -2353,6 +2356,9 @@ type CommerceSettings = {
   wholesale_mate_quantity_threshold:number;
   wholesale_mate_discount_percent:number;
   wholesale_discount_categories:string[];
+  uruguay_transfer_discount_enabled:boolean;
+  uruguay_transfer_discount_categories:string[];
+  uruguay_transfer_discount_designs:boolean;
 };
 type BankTransferSettings = {
   account_holder:string;
@@ -2368,12 +2374,14 @@ export function Settings({onNotice,section="all"}:{onNotice:(v:string)=>void;sec
   const [wholesaleThreshold,setWholesaleThreshold]=useState('');
   const [wholesalePercent,setWholesalePercent]=useState('');
   const [wholesaleCategories,setWholesaleCategories]=useState<string[]>([]);
+  const [transferCategories,setTransferCategories]=useState<string[]>([]);
+  const [transferDesigns,setTransferDesigns]=useState(true);
   const [discountCategoryOptions,setDiscountCategoryOptions]=useState<{code:string;label_es:string}[]>([]);
   const [saving,setSaving]=useState(false);
   const [bankSaving,setBankSaving]=useState(false);
   const load=useCallback(async()=>{
     const [settingsResult,bankResult,categoriesResult]=await Promise.all([
-      supabase.from('commerce_settings').select('commerce_enabled,mercado_pago_enabled,paypal_enabled,ars_use_base_price,catalog_price_adjustment_enabled,catalog_price_adjustment_percent,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories').eq('singleton',true).single(),
+      supabase.from('commerce_settings').select('commerce_enabled,mercado_pago_enabled,paypal_enabled,ars_use_base_price,catalog_price_adjustment_enabled,catalog_price_adjustment_percent,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories,uruguay_transfer_discount_enabled,uruguay_transfer_discount_categories,uruguay_transfer_discount_designs').eq('singleton',true).single(),
       supabase.from('commerce_bank_transfer_settings').select('account_holder,transfer_account,cash_deposit_account,cash_deposit_label').eq('singleton',true).single(),
       supabase.from('commerce_categories').select('code,label_es').eq('active',true).order('label_es'),
     ]);
@@ -2387,6 +2395,8 @@ export function Settings({onNotice,section="all"}:{onNotice:(v:string)=>void;sec
     setWholesaleThreshold(String(next.wholesale_mate_quantity_threshold));
     setWholesalePercent(String(next.wholesale_mate_discount_percent));
     setWholesaleCategories(next.wholesale_discount_categories || ['mates']);
+    setTransferCategories(next.uruguay_transfer_discount_categories || []);
+    setTransferDesigns(next.uruguay_transfer_discount_designs);
     setDiscountCategoryOptions(categoriesResult.data || []);
   },[onNotice]);
   useEffect(()=>{void load()},[load]);
@@ -2421,6 +2431,12 @@ export function Settings({onNotice,section="all"}:{onNotice:(v:string)=>void;sec
     if(await save({wholesale_mate_quantity_threshold:threshold,wholesale_mate_discount_percent:normalizedDiscount,wholesale_discount_categories:wholesaleCategories},'Regla de mayoreo guardada.')){
       setWholesaleThreshold(String(threshold));
       setWholesalePercent(String(normalizedDiscount));
+    }
+  };
+  const saveTransfer=async(event:React.FormEvent)=>{
+    event.preventDefault();
+    if(await save({uruguay_transfer_discount_categories:transferCategories,uruguay_transfer_discount_designs:transferDesigns},'Categorías de transferencia guardadas.')){
+      setTransferCategories([...transferCategories]);
     }
   };
   const saveBank=async(event:React.FormEvent)=>{
@@ -2460,6 +2476,18 @@ export function Settings({onNotice,section="all"}:{onNotice:(v:string)=>void;sec
       </div>
     </section>}
     {section !== "payments" && <>
+    <section className="panel settings settings-section transfer-discount-section">
+      <header className="settings-heading"><h2>10% por transferencia</h2><p>Se aplica al precio publicado de las categorías elegidas. Puede combinarse con un código de descuento.</p></header>
+      <label className="channel-switch transfer-discount-switch"><div className="channel-switch-text"><strong>Aplicar descuento</strong><small>Activo actualmente para las categorías seleccionadas.</small></div><span className="channel-switch-state">{value.uruguay_transfer_discount_enabled?'Activo':'Apagado'}</span><input type="checkbox" role="switch" aria-label="Aplicar 10% por transferencia" checked={value.uruguay_transfer_discount_enabled} disabled={saving} onChange={event=>void save({uruguay_transfer_discount_enabled:event.target.checked},event.target.checked?'Descuento por transferencia activado.':'Descuento por transferencia desactivado.')}/></label>
+      <form className="transfer-discount-form" onSubmit={event=>void saveTransfer(event)}>
+        <fieldset className="wholesale-category-fieldset" disabled={saving}>
+          <legend>Categorías con 10% por transferencia</legend>
+          <p>Las categorías nuevas se agregan cuando las selecciones acá.</p>
+          <div className="wholesale-category-options">{discountCategoryOptions.map(category=><label key={category.code}><input type="checkbox" checked={transferCategories.includes(category.code)} onChange={event=>setTransferCategories(current=>event.target.checked?[...current,category.code]:current.filter(code=>code!==category.code))}/><span>{category.label_es}</span></label>)}<label><input type="checkbox" checked={transferDesigns} onChange={event=>setTransferDesigns(event.target.checked)}/><span>Diseños personalizados</span></label></div>
+        </fieldset>
+        <button type="submit" disabled={saving}>{saving?'Guardando…':'Guardar categorías'}</button>
+      </form>
+    </section>
     <section className="panel settings settings-section">
       <header className="settings-heading"><h2>Ajuste del catálogo</h2></header>
       <label className="toggle adjustment-toggle"><input type="checkbox" disabled={saving} checked={value.catalog_price_adjustment_enabled} onChange={event=>void save({catalog_price_adjustment_enabled:event.target.checked},event.target.checked?'Ajuste activado y precios recalculados.':'Ajuste desactivado; se restauraron los precios base.')}/><strong>Aplicar ajuste</strong></label>

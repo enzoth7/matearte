@@ -144,8 +144,10 @@ function paymentBreakdown(order: EmailOrder, items: EmailOrderItem[]) {
     const variant = record(snapshot.variant);
     let originalUnit = chargedUnit;
     if (transferTenPercent) {
+      const recordedOriginal = Number(snapshot.transferOriginalUnitPriceMinor);
       const catalogPrice = Number(variant.price_minor);
-      originalUnit = item.item_type === "catalog" && Number.isSafeInteger(catalogPrice)
+      originalUnit = snapshot.transferOriginalUnitPriceMinor != null && Number.isSafeInteger(recordedOriginal)
+        ? recordedOriginal : item.item_type === "catalog" && Number.isSafeInteger(catalogPrice)
         && Math.round(catalogPrice * 0.9) === chargedUnit
         ? catalogPrice : Math.round(chargedUnit / 0.9);
     } else if (flow === "wholesale_bank_transfer" && snapshot.wholesaleBankTransfer === true) {

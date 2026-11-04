@@ -8,16 +8,22 @@ export async function GET() {
   try {
     const cart = await readPricedCart(client, user.id);
     const admin = createAdminSupabase();
-    const { data: bank, error } = await admin
-      .from("commerce_bank_transfer_settings")
-      .select("account_holder,transfer_account,cash_deposit_account,cash_deposit_label")
-      .eq("singleton", true)
-      .single();
+    const [{ data: bank, error }, { data: discountSettings, error: discountError }] = await Promise.all([
+      admin.from("commerce_bank_transfer_settings")
+        .select("account_holder,transfer_account,cash_deposit_account,cash_deposit_label")
+        .eq("singleton", true).single(),
+      admin.from("commerce_settings")
+        .select("uruguay_transfer_discount_enabled,uruguay_transfer_discount_categories,uruguay_transfer_discount_designs")
+        .eq("singleton", true).single(),
+    ]);
+    if (discountError || !discountSettings) throw new Error("No se pudo cargar la configuración de descuentos.");
+    const transferDiscount = { enabled: discountSettings.uruguay_transfer_discount_enabled,
+      categories: discountSettings.uruguay_transfer_discount_categories, designs: discountSettings.uruguay_transfer_discount_designs };
     if (error || !bank) {
       if (cart.wholesale.eligible) throw new Error("La transferencia bancaria todavía no está configurada.");
-      return apiOk(cart);
+      return apiOk({ ...cart, uruguay_transfer_discount: transferDiscount });
     }
-    return apiOk({ ...cart, bank_transfer: bank });
+    return apiOk({ ...cart, bank_transfer: bank, uruguay_transfer_discount: transferDiscount });
   }
   catch (error) { return apiError(error instanceof Error ? error.message : "No se pudo leer el carrito.", 500); }
 }

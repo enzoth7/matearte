@@ -357,6 +357,28 @@ test('configuración de pagos y cuenta bancaria se guarda sin cambiar contratos'
   await expect(page.getByRole('textbox',{name:'Titular',exact:true})).toHaveValue('Titular corregido');
 });
 
+test('ajustes guarda las categorías de transferencia',async({page})=>{
+  const {tables}=await mockCommerce(page,{writable:true});
+  tables.commerce_categories.push({code:'bombillas',label_es:'Bombillas',active:true});
+  tables.commerce_settings.uruguay_transfer_discount_categories=['mates','bombillas'];
+  await page.goto('/productos/ajustes');
+  await expect(page.getByRole('heading',{name:'Descuentos y condiciones'})).toHaveCount(0);
+  await expect(page.getByText('Pago en Uruguay')).toHaveCount(0);
+  await expect(page.getByRole('switch',{name:'Aplicar 10% por transferencia'})).toBeChecked();
+  const categories=page.getByRole('group',{name:'Categorías con 10% por transferencia'});
+  await expect(categories.getByLabel('Mates')).toBeChecked();
+  await expect(categories.getByLabel('Bombillas')).toBeChecked();
+  await expect(categories.getByLabel('Diseños personalizados')).toBeChecked();
+  await categories.getByLabel('Bombillas').uncheck();
+  await page.getByRole('button',{name:'Guardar categorías'}).click();
+  await expect.poll(()=>tables.commerce_settings.uruguay_transfer_discount_categories).toEqual(['mates']);
+  await page.reload();
+  await expect(page.getByRole('group',{name:'Categorías con 10% por transferencia'}).getByLabel('Bombillas')).not.toBeChecked();
+  await page.setViewportSize({width:390,height:844});
+  await expect(page.getByRole('heading',{name:'10% por transferencia'})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+
 test('personalizaciones abre los archivos privados y sus descargas',async({page})=>{
   const {fixture,writes}=await mockCommerce(page,{writable:true});
   const order=fixture.orders[0];

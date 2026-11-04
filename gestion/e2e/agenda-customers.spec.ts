@@ -1,6 +1,28 @@
 import { test, expect } from "@playwright/test";
 import { mockCommerce } from "./commerce-fixture";
 
+test("la base encuentra celulares con formato local, internacional y números adicionales", async ({ page }) => {
+  const { tables } = await mockCommerce(page);
+  tables.local_sales_customers.push(
+    { id: "phone-ana", full_name: "Ana Imperial", phone: "+59899123456", email: null, city: null, country: "Uruguay", agenda_additional_phones: ["+59899234567"] },
+    { id: "phone-luis", full_name: "Luis Pérez", phone: "+59899777888", email: null, city: null, country: "Uruguay", agenda_additional_phones: [] },
+  );
+  await page.goto("/clientes/base");
+  const search = page.getByLabel("Buscar en la tabla");
+  const rows = page.locator(".customers-table tbody tr");
+  const count = page.locator(".stat").filter({ hasText: "Clientes en esta vista" }).locator("strong");
+
+  for (const query of ["099123456", "099 123 456", "+598 99-123-456", "99123456", "099234567"]) {
+    await search.fill(query);
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toContainText("Ana Imperial");
+    await expect(count).toHaveText("1");
+  }
+  await search.fill("Luis Pérez");
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText("Luis Pérez");
+});
+
 test("la base de clientes pagina la agenda y ordena desde los encabezados", async ({ page }) => {
   await page.setViewportSize({ width: 2064, height: 964 });
   const { tables } = await mockCommerce(page);

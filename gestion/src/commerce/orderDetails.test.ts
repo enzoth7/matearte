@@ -39,6 +39,13 @@ describe('getOrderPriceBreakdown', () => {
       .toEqual({ itemTotals: [660000, 30003], originalSubtotal: 690003, transferDiscount: 69000 });
   });
 
+  it('muestra el descuento real cuando solo una categoría lo recibe', () => {
+    const discounted = { ...item(100000, 90000), immutable_snapshot: { variant: { price_minor: 100000 }, transferOriginalUnitPriceMinor: 100000, transferDiscountApplied: true } };
+    const regular = { ...item(100000, 100000), id: 'regular', immutable_snapshot: { variant: { price_minor: 100000 }, transferOriginalUnitPriceMinor: 100000, transferDiscountApplied: false } };
+    expect(getOrderPriceBreakdown({ customer_snapshot: transferSnapshot, items_subtotal_minor: 190000, order_items: [discounted, regular] }))
+      .toEqual({ itemTotals: [100000, 100000], originalSubtotal: 200000, transferDiscount: 10000 });
+  });
+
   it.each([{}, { purchaseFlow: 'wholesale_bank_transfer' }, { purchaseFlow: 'uruguay_retail_transfer', priceSource: 'base' }])('no inventa descuentos para otros flujos: %j', customer_snapshot => {
     expect(getOrderPriceBreakdown({ customer_snapshot, items_subtotal_minor: 99000, order_items: [item(110000, 99000)] }))
       .toEqual({ itemTotals: [99000], originalSubtotal: 99000, transferDiscount: 0 });

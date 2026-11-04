@@ -87,6 +87,19 @@ const product = (s: State, o: Order) =>
   s.products.find((p) => p.id === o.productId) ?? { name: o.items?.[0]?.title || "Artículo sin nombre", family: o.items?.[0]?.family || "Sin categoría", variant: "", rim: "Sin especificar", leather: "Sin especificar" };
 const orderDate = (date: string) => formatDate(date);
 const customerSearchText = (customer: Customer) => `${customer.name} ${customer.companyName || ""} ${customer.email} ${customer.phone} ${(customer.agendaAdditionalPhones || []).join(" ")} ${customer.birthDate || ""} ${customer.city} ${customer.country || countryForCity(customer.city)}`;
+const phoneSearchVariants = (value: string, country: string) => {
+  const { prefix, number } = splitCustomerPhone(value, country);
+  return [value.replace(/\D/g, ""), number.replace(/\D/g, ""), joinCustomerPhone(prefix, number).replace(/\D/g, "")].filter(Boolean);
+};
+const matchesCustomerPhone = (customer: Customer, query: string) => {
+  if (!/^[\d\s()+.-]+$/.test(query)) return false;
+  const country = customer.country || countryForCity(customer.city);
+  const queryVariants = phoneSearchVariants(query, country);
+  return [customer.phone, ...(customer.agendaAdditionalPhones || [])].some((phone) => {
+    const phoneVariants = phoneSearchVariants(phone, country);
+    return queryVariants.some((needle) => phoneVariants.some((number) => number.includes(needle)));
+  });
+};
 const paymentStatus = (s: State, o: Order) =>
   o.status === "cancelled" ? "Cancelado" : o.status === "refunded" ? "Reembolsado" : o.status === "payment_failed" ? "Pago fallido" : o.status === "payment_verification_pending" ? "Comprobante por verificar" : balance(s, o) === 0
     ? "Pagado"
@@ -918,6 +931,10 @@ export function Customers({
     return purchase?.date ? purchase.category.split(",").map((category) => category.trim()).filter(Boolean) : [];
   }))].sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" })), [customers, purchaseByCustomer]);
   const customerTableSearchText = (entry: Customer) => `${customerSearchText(entry)} ${purchaseByCustomer.get(entry.id)?.category || ""}`;
+  const customerTableSearchMatches = (entry: Customer, query: string) => {
+    const normalizedQuery = query.trim().toLocaleLowerCase("es");
+    return !normalizedQuery || customerTableSearchText(entry).toLocaleLowerCase("es").includes(normalizedQuery) || matchesCustomerPhone(entry, normalizedQuery);
+  };
   const channelByCustomer = useMemo(() => new Map(customers.map((customer) => [
     customer.id, customerDisplayChannel(customer, ordersByCustomer.get(customer.id) || []),
   ])), [customers, ordersByCustomer]);
@@ -954,9 +971,8 @@ export function Customers({
     return true;
   }), [sortedCustomers, channelFilter, channelByCustomer, typeFilter, countryFilter, categoryFilter, purchaseByCustomer]);
   const queryFilteredCustomers = useMemo(() => {
-    const normalizedQuery = customerQuery.trim().toLocaleLowerCase("es");
-    return normalizedQuery
-      ? selectedFilterCustomers.filter((entry) => customerTableSearchText(entry).toLocaleLowerCase("es").includes(normalizedQuery))
+    return customerQuery.trim()
+      ? selectedFilterCustomers.filter((entry) => customerTableSearchMatches(entry, customerQuery))
       : selectedFilterCustomers;
   }, [customerQuery, purchaseByCustomer, selectedFilterCustomers]);
   const customersWithOrders = useMemo(() => new Set(orders.map((order) => order.customerId)), [orders]);
@@ -1045,6 +1061,7 @@ export function Customers({
         rows={filteredCustomers}
         pageSize={75}
         searchText={customerTableSearchText}
+        searchMatches={customerTableSearchMatches}
         searchQuery={customerQuery}
         onSearchQueryChange={setCustomerQuery}
         action={<div className="table-actions customers-table-actions">

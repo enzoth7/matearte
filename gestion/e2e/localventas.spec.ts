@@ -124,6 +124,45 @@ test('una seña con débito conserva el precio publicado y el saldo pendiente', 
   expect(await page.locator('body').evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
 });
 
+test('editar venta busca clientes por nombre o celular y distingue nombres iguales', async ({ page }) => {
+  const { tables, writes } = await mockCommerce(page, { writable: true });
+  tables.local_sales_customers.push(
+    { id: 'client-alisson-1', full_name: 'Alisson Pereira', phone: '+59899123456', email: null, country: 'Uruguay' },
+    { id: 'client-alisson-2', full_name: 'Alisson Pereira', phone: '+59899234567', email: null, country: 'Uruguay' },
+  );
+  tables.local_sales.push({ id: 'sale-edit-customer', sale_number: 38, reference_code: '#L038', channel: 'Local',
+    customer_id: null, customer_name: 'Cliente sin registrar', sold_on: '2026-10-24', payment_method: 'Transferencia',
+    total_minor: 200000, currency: 'UYU', created_at: '2026-10-24T12:00:00Z',
+    local_sale_items: [{ id: 'item-edit-customer', variant_id: 'variant-2', sku: 'SKU-2', product_name: 'Mate de catálogo',
+      variant_name: 'Cuero marrón', quantity: 1, unit_price_minor: 200000, line_total_minor: 200000 }] });
+  await page.goto('/comercial/pedidos');
+  await page.getByRole('row').filter({ hasText: '#L038' }).getByRole('button', { name: 'Ver detalle del pedido #L038' }).click();
+  await page.getByRole('dialog', { name: 'Detalle del pedido' }).getByRole('button', { name: 'Editar esta venta' }).click();
+  const editor = page.getByRole('dialog', { name: 'Editar venta' });
+  const search = editor.getByRole('searchbox', { name: 'Buscar cliente por nombre o celular' });
+  const results = editor.getByLabel('Coincidencias de clientes');
+  await expect(editor.locator('.local-sale-editor-customer-value')).toContainText('Cliente sin registrar');
+  await expect(editor.locator('.local-sale-editor-customer-fields select')).toHaveCount(0);
+  await search.fill('Alisson');
+  await expect(results.getByRole('button')).toHaveCount(2);
+  await expect(results.getByRole('button').first()).toHaveText('Alisson Pereira | 099123456');
+  await expect(results.getByRole('button').last()).toHaveText('Alisson Pereira | 099234567');
+  await search.fill('099 234 567');
+  await expect(results.getByRole('button')).toHaveCount(1);
+  await results.getByRole('button').click();
+  await expect(editor.locator('.local-sale-editor-customer-value')).toContainText('Alisson Pereira | 099234567');
+  await expect(results).toHaveCount(0);
+  await search.fill('+598 99-123-456');
+  await expect(results.getByRole('button')).toHaveText('Alisson Pereira | 099123456');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(search).toBeVisible();
+  await expect(editor.locator('.local-sale-editor-customer-value')).toBeVisible();
+  expect(await editor.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  await editor.getByRole('button', { name: 'Guardar cambios' }).click();
+  await expect(editor).toHaveCount(0);
+  expect(writes.find(write => write.table === 'gestion_update_local_sale')?.body.p_customer_id).toBe('client-alisson-2');
+});
+
 test('editar venta permite sumar un artículo con el SKU exacto', async ({ page }) => {
   const { fixture, tables, writes } = await mockCommerce(page, { writable: true });
   fixture.products[0].commerce_variants[0].base_price_minor = 100050;

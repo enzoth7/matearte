@@ -185,7 +185,7 @@ export function getPricingRuleLabel(key: string) {
     const [, familyId, textureId] = key.split(":");
     return getMateFamily(familyId as MateFamilyId)?.textures.find((texture) => texture.id === textureId)?.label ?? key;
   }
-  if (key.includes("alpaca-grande-lacre")) return "Alpaca grande al lacre";
+  if (key.includes("alpaca-grande-lacre")) return "Alpaca grande cincelado Premium";
   return key;
 }
 

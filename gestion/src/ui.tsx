@@ -243,6 +243,7 @@ export function Table<
   rows,
   columns,
   searchText,
+  searchMatches,
   title,
   action,
   showSearch = true,
@@ -254,6 +255,7 @@ export function Table<
   rows: T[];
   columns: Column<T>[];
   searchText: (r: T) => string;
+  searchMatches?: (r: T, query: string) => boolean;
   title?: string;
   action?: ReactNode;
   showSearch?: boolean;
@@ -270,9 +272,9 @@ export function Table<
     else setInternalQuery(value);
     setPage(1);
   };
-  const shown = rows.filter((r) =>
-    searchText(r).toLowerCase().includes(query.toLowerCase()),
-  );
+  const shown = rows.filter((r) => searchMatches
+    ? searchMatches(r, query)
+    : searchText(r).toLowerCase().includes(query.toLowerCase()));
   const pageCount = pageSize ? Math.max(1, Math.ceil(shown.length / pageSize)) : 1;
   const actualPage = Math.min(page, pageCount);
   const displayed = pageSize ? shown.slice((actualPage - 1) * pageSize, actualPage * pageSize) : shown;

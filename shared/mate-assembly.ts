@@ -17,7 +17,7 @@ const initial: Record<string, number> = { "tipo-cuero:croco": 600, "pie:alpaca":
 const extras: Record<string, Array<[string, string]>> = {
   "tipo-cuero": [["vaqueta", "Vaqueta"]], color: [["animal-print", "Animal print"]],
   interior: [["madera", "Madera"], ["acero-inoxidable", "Acero inoxidable"]],
-  "tipo-virola": [["alpaca-grande-lacre", "Alpaca grande al lacre"]],
+  "tipo-virola": [["alpaca-grande-lacre", "Alpaca grande cincelado Premium"]],
   "diseno-fleje": [["sin-fleje", "Sin fleje"]],
   "forma-criollo": [["imperial", "Imperial"], ["torpedo", "Torpedo"], ["camionero", "Camionero"]],
 };
@@ -57,6 +57,6 @@ export function mateAssemblyRuleKeys(assembly: MateAssembly) {
 }
 export function priceMateAssembly(assembly: MateAssembly, rules: Record<string, number> | undefined) {
   const missing = mateAssemblyRuleKeys(assembly).filter(key => typeof rules?.[key] !== "number" || !Number.isFinite(rules[key]) || rules[key] < 0);
-  const items = mateAssemblyRuleKeys(assembly).filter(key => !missing.includes(key)).map(ruleKey => ({ ruleKey, label: mateAssemblyFields.flatMap(f => f.options.map(o => ({ ...o, label: `${f.label}: ${o.label}` }))).find(o => o.ruleKey === ruleKey)?.label || (ruleKey === "leather:raw-posa-mate" ? "Cuero crudo con posamate" : "Alpaca grande al lacre"), totalMinor: Math.round(rules![ruleKey] * 100) }));
+  const items = mateAssemblyRuleKeys(assembly).filter(key => !missing.includes(key)).map(ruleKey => ({ ruleKey, label: mateAssemblyFields.flatMap(f => f.options.map(o => ({ ...o, label: `${f.label}: ${o.label}` }))).find(o => o.ruleKey === ruleKey)?.label || (ruleKey === "leather:raw-posa-mate" ? "Cuero crudo con posamate" : "Alpaca grande cincelado Premium"), totalMinor: Math.round(rules![ruleKey] * 100) }));
   return { items, missing, totalMinor: items.reduce((sum, item) => sum + item.totalMinor, 0), ready: !validateMateAssembly(assembly) && !missing.length && Boolean(rules) };
 }

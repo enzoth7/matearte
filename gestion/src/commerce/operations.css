@@ -1326,6 +1326,19 @@ td small { display: block; }
 .commerce-tools .wholesale-category-options { display: flex; flex-wrap: wrap; gap: 8px 18px; }
 .commerce-tools .wholesale-category-options label { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
 .commerce-tools .wholesale-category-options input { accent-color: #7c4f35; }
+.commerce-tools .settings-section:not(.transfer-discount-section) .adjustment-toggle { display: flex; width: min(100%, 640px); margin: 8px 0; padding: 9px 12px; border: 1px solid rgb(121 76 50 / .14); border-radius: 8px; background: white; }
+.commerce-tools .wholesale-category-options label { min-height: 38px; padding: 7px 11px; border: 1px solid rgb(121 76 50 / .16); border-radius: 8px; background: white; font-size: 13px; }
+.commerce-tools .wholesale-category-options label:has(input:checked) { border-color: rgb(121 76 50 / .5); background: #f1e6d9; }
+.commerce-tools .transfer-discount-section .settings-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.commerce-tools .transfer-discount-section .settings-heading p { max-width: 430px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.commerce-tools .transfer-discount-switch { max-width: 480px; margin-bottom: 18px; }
+.commerce-tools .transfer-discount-form { display: grid; justify-items: start; gap: 18px; }
+.commerce-tools .transfer-discount-form fieldset { width: 100%; }
+.commerce-tools .transfer-discount-form fieldset p { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+.commerce-tools .transfer-discount-form .wholesale-category-options { gap: 8px; }
+.commerce-tools .transfer-discount-form .wholesale-category-options label { min-height: 38px; padding: 7px 11px; border: 1px solid rgb(121 76 50 / .16); border-radius: 8px; background: white; font-size: 13px; }
+.commerce-tools .transfer-discount-form .wholesale-category-options label:has(input:checked) { border-color: rgb(121 76 50 / .5); background: #f1e6d9; }
+.commerce-tools .transfer-discount-form button { min-height: 42px; }
 .commerce-tools .table-scroll { max-width: 100%; }
 .commerce-tools .product-fields label { font-weight: 400; font-size: 14px; }
 .commerce-tools .catalog-layout { min-width: 0; }
@@ -1346,6 +1359,7 @@ td small { display: block; }
 @media(max-width: 1100px) { .commerce-tools .discounts-workspace { grid-template-columns: 1fr; } }
 .commerce-tools .table-scroll, .commerce-tools .table-wrap { position: relative; }
 @media(max-width: 600px) { .commerce-tools .settings-section { padding: 18px; } .commerce-tools .adjustment-form > label { flex-basis: 135px; } }
+@media(max-width: 900px) { .commerce-tools .transfer-discount-section .settings-heading { display: block; } .commerce-tools .transfer-discount-section .settings-heading p { margin-top: 8px; } }
 
 .catalog-editor-section { min-width: 0; margin-top: 22px; border-top: 1px solid rgb(23 20 18 / .12); }
 .catalog-editor-section > summary {

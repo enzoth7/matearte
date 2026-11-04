@@ -120,6 +120,9 @@ export type CommerceSettings = {
   wholesale_mate_quantity_threshold: number;
   wholesale_mate_discount_percent: number;
   wholesale_discount_categories: string[];
+  uruguay_transfer_discount_enabled: boolean;
+  uruguay_transfer_discount_categories: string[];
+  uruguay_transfer_discount_designs: boolean;
 };
 export type CommerceReference = {
   discounts: CommerceDiscount[];
@@ -185,7 +188,7 @@ export async function readCommerceReference(client: SupabaseClient): Promise<Com
     client.from("commerce_international_shipping_rates").select("row_order,weight_label,weight_min_g,weight_max_g,argentina,suramerica,estados_unidos,resto_america,espana,resto_europa,resto_mundo").order("row_order"),
     client.from("commerce_exchange_rates").select("currency_code,rate_to_uyu,updated_at").order("currency_code"),
     client.from("commerce_categories").select("code,label_es,active").order("sort_order"),
-    client.from("commerce_settings").select("commerce_enabled,mercado_pago_enabled,paypal_enabled,catalog_price_adjustment_enabled,catalog_price_adjustment_percent,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories").eq("singleton", true).single(),
+    client.from("commerce_settings").select("commerce_enabled,mercado_pago_enabled,paypal_enabled,catalog_price_adjustment_enabled,catalog_price_adjustment_percent,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories,uruguay_transfer_discount_enabled,uruguay_transfer_discount_categories,uruguay_transfer_discount_designs").eq("singleton", true).single(),
   ]);
   for (const result of [discounts, shippingRates, exchangeRates, categories, settings]) {
     if (result.error) throw result.error;
