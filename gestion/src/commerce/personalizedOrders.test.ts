@@ -112,6 +112,17 @@ describe('summarizePersonalization', () => {
     });
   });
 
+  it('muestra por separado logos del fleje aunque tengan el mismo nombre de archivo', () => {
+    const logos = ['uno', 'dos'].map(id => ({ id, customImage: { name: 'escudo.png', storageRef: `storage:order-assets:${id}`, mimeType: 'image/png' } }));
+    const summary = summarizePersonalization(item({
+      localPersonalization: { kind: 'mate' },
+      configuration: { capabilities: { hasFleje: true }, selectionLabels: {}, rim: {} },
+      flejeConfiguration: { sides: { front: { imageMode: 'image', customImage: logos[0].customImage, icons: logos }, back: {} } },
+    }));
+    expect(summary.fleje.front.images).toEqual(['escudo.png', 'escudo.png']);
+    expect(summary.files.filter(file => file.kind === 'upload')).toHaveLength(2);
+  });
+
   it('marca como lisas las partes que el cliente no activó', () => {
     const summary = summarizePersonalization(item({
       configuration: {

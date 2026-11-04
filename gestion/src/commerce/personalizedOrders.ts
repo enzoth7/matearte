@@ -254,14 +254,17 @@ function readSurfaceSide(value: unknown): SurfaceSideSummary {
   const side = asRecord(value);
   const images: string[] = [];
   if (asString(side.imageMode) === 'image') {
-    if (Object.keys(asRecord(side.customImage)).length) images.push(customImageName(side.customImage));
-    const selected = asString(side.selectedImageId);
-    if (selected) images.push(humanizeId(selected));
-    images.push(...collectIconNames(side.icons));
+    const icons = asArray(side.icons);
+    if (icons.length) images.push(...collectIconNames(icons));
+    else {
+      if (Object.keys(asRecord(side.customImage)).length) images.push(customImageName(side.customImage));
+      const selected = asString(side.selectedImageId);
+      if (selected) images.push(humanizeId(selected));
+    }
   }
   return {
     text: asString(side.textMode) === 'text' ? asString(side.text) : '',
-    images: [...new Set(images)],
+    images,
   };
 }
 

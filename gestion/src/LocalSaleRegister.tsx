@@ -13,7 +13,7 @@ import {
   createPersonalizationDraft,
   mateCharacteristicDetails,
   matePurchaseAxes,
-  localFlejeUploadSides,
+  localFlejeLogos,
   localRimLogos,
   personalizationKind,
   productHasFleje,
@@ -118,7 +118,7 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
   const needsMateraLogo = draft.kind === "matera" && contentUsesLogo(draft.materaContent);
   const needsBombillaLogo = draft.kind === "bombilla" && contentUsesLogo(draft.bombillaContent);
   const onFile = (field: "rimLogoFile" | "flejeLogoFile" | "materaLogoFile" | "bombillaLogoFile") => (event: ChangeEvent<HTMLInputElement>) => {
-    if (field === "rimLogoFile") {
+    if (field === "rimLogoFile" || field === "flejeLogoFile") {
       const files = Array.from(event.target.files ?? []);
       event.target.value = "";
       if (!files.length) return;
@@ -126,7 +126,8 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
         reportError("Cada logo debe ser PNG, JPG, SVG o PDF y pesar hasta 10 MB. Los logos anteriores se conservaron.");
         return;
       }
-      update({ rimLogoFile: null, rimLogos: [...localRimLogos(draft), ...files.map(file => ({ id: `rim-upload-${crypto.randomUUID()}`, file, enabled: true }))] });
+      if (field === "rimLogoFile") update({ rimLogoFile: null, rimLogos: [...localRimLogos(draft), ...files.map(file => ({ id: `rim-upload-${crypto.randomUUID()}`, file, enabled: true }))] });
+      else update({ flejeLogoFile: null, flejeLogos: [...localFlejeLogos(draft), ...files.map(file => ({ id: `fleje-upload-${crypto.randomUUID()}`, file, sides: [] }))] });
       reportError("");
       return;
     }
@@ -137,7 +138,7 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
       reportError("El archivo debe ser PNG, JPG, SVG o PDF y pesar hasta 10 MB.");
       return;
     }
-    update({ [field]: file, ...(field === "flejeLogoFile" ? { flejeLogoSides: [] } : {}) });
+    update({ [field]: file });
     reportError("");
   };
 
@@ -217,7 +218,7 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
       {(mateStep === "Virola" || mateStep === "Fleje") && <LocalMateDesignPreview product={line.product} draft={draft} surface={mateStep === "Virola" ? "rim" : "fleje"} update={update} />}
       {needsMateLogo && (mateStep === "Virola" || mateStep === "Fleje") && <div className="local-personalization-uploads">
         {mateStep === "Virola" && draft.rimTechnique !== "none" && contentUsesLogo(draft.rimContent) && <label className="local-personalization-upload"><span><FileArrowUp size={21} /><span><strong>Logos de la virola</strong><small>Sin límite de cantidad · PNG, JPG, SVG o PDF · hasta 10 MB por archivo</small></span></span><input aria-label={`Logo de virola de ${line.product.name}`} type="file" multiple accept="image/png,image/jpeg,image/svg+xml,application/pdf" onChange={onFile("rimLogoFile")} /><b>{localRimLogos(draft).length ? `${localRimLogos(draft).length} logos cargados · Agregar más` : "Seleccionar archivos"}</b></label>}
-        {mateStep === "Fleje" && draft.flejeTechnique !== "none" && contentUsesLogo(draft.flejeContent) && <label className="local-personalization-upload"><span><FileArrowUp size={21} /><span><strong>Logo del fleje</strong><small>Puede ser distinto al de la virola</small></span></span><input aria-label={`Logo de fleje de ${line.product.name}`} type="file" accept="image/png,image/jpeg,image/svg+xml,application/pdf" onChange={onFile("flejeLogoFile")} /><b>{draft.flejeLogoFile?.name || "Seleccionar archivo"}</b></label>}
+        {mateStep === "Fleje" && draft.flejeTechnique !== "none" && contentUsesLogo(draft.flejeContent) && <label className="local-personalization-upload"><span><FileArrowUp size={21} /><span><strong>Logos del fleje</strong><small>Sin límite de cantidad · PNG, JPG, SVG o PDF · hasta 10 MB por archivo</small></span></span><input aria-label={`Logo de fleje de ${line.product.name}`} type="file" multiple accept="image/png,image/jpeg,image/svg+xml,application/pdf" onChange={onFile("flejeLogoFile")} /><b>{localFlejeLogos(draft).length ? `${localFlejeLogos(draft).length} logos cargados · Agregar más` : "Seleccionar archivos"}</b></label>}
       </div>}
     </div> : draft.kind === "matera" ? <div className="local-personalization-body">
       <section className="local-personalization-surface">
@@ -486,7 +487,12 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
             assets.rimLogos.push({ id: logo.id, asset: await upload(logo.file, "rim") });
           }
         }
-        if (line.personalization?.flejeLogoFile && localFlejeUploadSides(line.personalization).length && line.personalization.flejeTechnique !== "none" && contentUsesLogo(line.personalization.flejeContent)) assets.fleje = await upload(line.personalization.flejeLogoFile, "fleje");
+        if (line.personalization && line.personalization.flejeTechnique !== "none" && contentUsesLogo(line.personalization.flejeContent)) {
+          assets.flejeLogos = [];
+          for (const logo of localFlejeLogos(line.personalization).filter(item => item.sides.length)) {
+            assets.flejeLogos.push({ id: logo.id, asset: await upload(logo.file, "fleje") });
+          }
+        }
         if (line.personalization?.materaLogoFile) assets.matera = await upload(line.personalization.materaLogoFile, "matera");
         if (line.personalization?.bombillaLogoFile) assets.bombilla = await upload(line.personalization.bombillaLogoFile, "bombilla");
         const snapshot = line.personalization ? buildLocalPersonalizationSnapshot(line.personalization, line.product, assets) : null;

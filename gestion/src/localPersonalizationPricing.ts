@@ -1,4 +1,4 @@
-import { localDesignIcons, localFlejeUploadSides, localRimLogos, type LocalPersonalizationDraft } from "./localPersonalization";
+import { localDesignIcons, localFlejeLogos, localRimLogos, type LocalPersonalizationDraft } from "./localPersonalization";
 
 export type PublishedLocalPricing = {
   versionId: string;
@@ -58,7 +58,7 @@ export function calculateLocalPersonalizationPrice(draft: LocalPersonalizationDr
   }
   if (draft.kind === "mate" && draft.flejeTechnique !== "none") {
     if (usesText(draft.flejeContent)) add(draft.flejeTechnique, "fleje_text", "Caracteres en fleje", characterCount(draft.flejeFrontText) + characterCount(draft.flejeBackText));
-    if (usesLogo(draft.flejeContent)) add(draft.flejeTechnique, "fleje_image", "Logo en fleje", (draft.flejeLogoFile ? localFlejeUploadSides(draft).length : 0) + localDesignIcons(draft, "fleje").length);
+    if (usesLogo(draft.flejeContent)) add(draft.flejeTechnique, "fleje_image", "Logo en fleje", localFlejeLogos(draft).reduce((count, logo) => count + logo.sides.length, 0) + localDesignIcons(draft, "fleje").length);
   }
   if (draft.kind === "matera" || draft.kind === "bombilla") {
     // Las tres técnicas comparten las tarifas publicadas de texto e imagen de la virola.

@@ -8,6 +8,7 @@ export type PersonalizationTechnique = "none" | "laser" | "bronze-applique" | "a
 export type PersonalizationContent = "text" | "logo" | "text-logo";
 export type LocalDesignIcon = { id: string; selectedImageId: string; side?: "front" | "back" };
 export type LocalRimLogo = { id: string; file: File; enabled: boolean };
+export type LocalFlejeLogo = { id: string; file: File; sides: ("front" | "back")[] };
 
 export type LocalPersonalizationDraft = {
   kind: PersonalizationKind;
@@ -42,6 +43,7 @@ export type LocalPersonalizationDraft = {
   rimLogos?: LocalRimLogo[];
   flejeLogoFile: File | null;
   flejeLogoSides?: ("front" | "back")[];
+  flejeLogos?: LocalFlejeLogo[];
   materaLogoFile: File | null;
   bombillaLogoFile: File | null;
 };
@@ -58,6 +60,7 @@ export type StoredLocalPersonalizationAssets = {
   rim?: StoredPersonalizationAsset;
   rimLogos?: { id: string; asset: StoredPersonalizationAsset }[];
   fleje?: StoredPersonalizationAsset;
+  flejeLogos?: { id: string; asset: StoredPersonalizationAsset }[];
   matera?: StoredPersonalizationAsset;
   bombilla?: StoredPersonalizationAsset;
 };
@@ -77,6 +80,18 @@ export function localDesignIcons(draft: LocalPersonalizationDraft, part: "rim" |
 
 export function localFlejeUploadSides(draft: LocalPersonalizationDraft): ("front" | "back")[] {
   return draft.flejeLogoSides ?? [draft.designTransforms?.["fleje-upload"]?.side === "back" ? "back" : "front"];
+}
+
+export function localFlejeLogos(draft: LocalPersonalizationDraft): LocalFlejeLogo[] {
+  return draft.flejeLogos ?? (draft.flejeLogoFile ? [{ id: "fleje-upload", file: draft.flejeLogoFile, sides: localFlejeUploadSides(draft) }] : []);
+}
+
+export function localFlejeLogoTransform(draft: LocalPersonalizationDraft, logoId: string, side: "front" | "back"): ElementTransform {
+  const key = `${logoId}-${side}`;
+  if (logoId === "fleje-upload") return localFlejeUploadTransform(draft, side);
+  const siblings = localFlejeLogos(draft).filter(logo => logo.sides.includes(side));
+  const index = Math.max(0, siblings.findIndex(logo => logo.id === logoId));
+  return draft.designTransforms?.[key] ?? { x: .2 + (index % 4) * .2, y: .5, scale: 1, rotation: 0, side };
 }
 
 export function localFlejeUploadTransform(draft: LocalPersonalizationDraft, side: "front" | "back"): ElementTransform {
@@ -206,7 +221,7 @@ export function validatePersonalization(draft: LocalPersonalizationDraft, produc
   }
   if (productHasFleje(product) && draft.flejeTechnique !== "none") {
     if (hasText(draft.flejeContent) && !draft.flejeFrontText.trim() && !draft.flejeBackText.trim()) return `Ingresá el texto del fleje para ${product.name}.`;
-    if (hasLogo(draft.flejeContent) && !(draft.flejeLogoFile && localFlejeUploadSides(draft).length) && !localDesignIcons(draft, "fleje").length) return `Agregá un ícono o el logo subido al frente o al dorso del fleje para ${product.name}.`;
+    if (hasLogo(draft.flejeContent) && !localFlejeLogos(draft).some(logo => logo.sides.length) && !localDesignIcons(draft, "fleje").length) return `Agregá un ícono o el logo subido al frente o al dorso del fleje para ${product.name}.`;
   }
   return "";
 }
@@ -263,7 +278,9 @@ export function buildLocalPersonalizationSnapshot(
 ): Record<string, unknown> {
   const rimAssets = (stored.rimLogos ?? (stored.rim ? [{ id: "rim-upload", asset: stored.rim }] : []))
     .filter(item => !draft.rimLogos || draft.rimLogos.some(logo => logo.id === item.id && logo.enabled));
-  const assets = [...rimAssets.map(item => item.asset), stored.fleje, stored.matera, stored.bombilla].filter((asset): asset is StoredPersonalizationAsset => Boolean(asset));
+  const flejeAssets = (stored.flejeLogos ?? (stored.fleje ? [{ id: "fleje-upload", asset: stored.fleje }] : []))
+    .filter(item => !draft.flejeLogos && item.id === "fleje-upload" || localFlejeLogos(draft).some(logo => logo.id === item.id && logo.sides.length));
+  const assets = [...rimAssets.map(item => item.asset), ...flejeAssets.map(item => item.asset), stored.matera, stored.bombilla].filter((asset): asset is StoredPersonalizationAsset => Boolean(asset));
   if (draft.kind === "bombilla") {
     return {
       schemaVersion: 1,
@@ -313,17 +330,21 @@ export function buildLocalPersonalizationSnapshot(
 
   const hasRimLogo = draft.rimTechnique !== "none" && hasLogo(draft.rimContent);
   const hasFlejeLogo = draft.flejeTechnique !== "none" && hasLogo(draft.flejeContent);
-  const flejeUploadSides = localFlejeUploadSides(draft);
   const flejeAvailable = productHasFleje(product);
   const selectedOptions = Object.fromEntries(matePurchaseAxes(product).map(axis => [axis.code, draft.selectedOptions[axis.code]]));
   const attributes = normalizeCatalogValueMap(product.attributes);
   const detailLabels = Object.fromEntries(mateCharacteristicDetails(product).map(detail => [detail.code, detail.values.join(", ")]));
   const color = typeof product.options?.color === "string" ? catalogValueLabel(defaultCatalogTaxonomy, "color", product.options.color) : product.variant;
   const transform = (key: string, side: "rim" | "front" | "back") => localDesignTransform(draft, key, side);
-  const designIcons = (part: "rim" | "fleje", side: "rim" | "front" | "back", asset?: StoredPersonalizationAsset) => {
+  const designIcons = (part: "rim" | "fleje", side: "rim" | "front" | "back") => {
     const selectedIcons = localDesignIcons(draft, part).filter(item => side === "rim" || (item.side ?? "front") === side);
-    return [...icon(asset, side).map(item => ({ ...item, id: part === "fleje" ? `fleje-upload-${side}` : "rim-upload", transform: part === "fleje" && side !== "rim" ? localFlejeUploadTransform(draft, side) : transform("rim-upload", "rim") })), ...selectedIcons.map(item => ({ ...item, customImage: null, transform: transform(item.id, side) }))];
+    return selectedIcons.map(item => ({ ...item, customImage: null, transform: transform(item.id, side) }));
   };
+  const flejeIcons = (side: "front" | "back") => [
+    ...flejeAssets.filter(item => !draft.flejeLogos && item.id === "fleje-upload" ? localFlejeUploadSides(draft).includes(side) : localFlejeLogos(draft).some(logo => logo.id === item.id && logo.sides.includes(side)))
+      .map(({ id, asset }) => ({ ...icon(asset, side)[0], id: `${id}-${side}`, transform: localFlejeLogoTransform(draft, id, side) })),
+    ...designIcons("fleje", side),
+  ];
   return {
     schemaVersion: 1,
     source: "local",
@@ -368,20 +389,20 @@ export function buildLocalPersonalizationSnapshot(
         front: {
           textMode: flejeAvailable && draft.flejeTechnique !== "none" && hasText(draft.flejeContent) && draft.flejeFrontText.trim() ? "text" : "none",
           text: draft.flejeFrontText.trim(),
-          imageMode: hasFlejeLogo && ((flejeUploadSides.includes("front") && stored.fleje) || localDesignIcons(draft, "fleje").some(item => (item.side ?? "front") === "front")) ? "image" : "none",
+          imageMode: hasFlejeLogo && flejeIcons("front").length ? "image" : "none",
           selectedImageId: null,
-          customImage: hasFlejeLogo && flejeUploadSides.includes("front") ? customImage(stored.fleje) : null,
-          icons: hasFlejeLogo ? designIcons("fleje", "front", flejeUploadSides.includes("front") ? stored.fleje : undefined) : [],
+          customImage: hasFlejeLogo ? flejeIcons("front").find(item => item.customImage)?.customImage ?? null : null,
+          icons: hasFlejeLogo ? flejeIcons("front") : [],
           textTransform: transform("front-text", "front"),
         },
         back: {
           textMode: flejeAvailable && draft.flejeTechnique !== "none" && hasText(draft.flejeContent) && draft.flejeBackText.trim() ? "text" : "none",
           text: draft.flejeBackText.trim(),
           textTransform: transform("back-text", "back"),
-          imageMode: hasFlejeLogo && ((flejeUploadSides.includes("back") && stored.fleje) || localDesignIcons(draft, "fleje").some(item => item.side === "back")) ? "image" : "none",
+          imageMode: hasFlejeLogo && flejeIcons("back").length ? "image" : "none",
           selectedImageId: null,
-          customImage: hasFlejeLogo && flejeUploadSides.includes("back") ? customImage(stored.fleje) : null,
-          icons: hasFlejeLogo ? designIcons("fleje", "back", flejeUploadSides.includes("back") ? stored.fleje : undefined) : [],
+          customImage: hasFlejeLogo ? flejeIcons("back").find(item => item.customImage)?.customImage ?? null : null,
+          icons: hasFlejeLogo ? flejeIcons("back") : [],
         },
       },
     },

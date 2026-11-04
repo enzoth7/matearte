@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Product } from "./data";
-import { buildLocalPersonalizationSnapshot, createPersonalizationDraft, invertLocalRimText, localDesignTransform, localRimLogos, matePurchaseAxes, personalizationKind, productHasFleje, validatePersonalization } from "./localPersonalization";
+import { buildLocalPersonalizationSnapshot, createPersonalizationDraft, invertLocalRimText, localDesignTransform, localFlejeLogoTransform, localFlejeLogos, localRimLogos, matePurchaseAxes, personalizationKind, productHasFleje, validatePersonalization } from "./localPersonalization";
 
 const product = (changes: Partial<Product> = {}): Product => ({
   id: "variant", name: "Mate Imperial Personalizado", sku: "P-1", categoryCode: "mates-personalizados", family: "Mates personalizados",
@@ -108,6 +108,29 @@ describe("personalización de ventas locales", () => {
       }
       expect(snapshot.flejeConfiguration.sides.front.icons.some((item: any) => item.id === "sol")).toBe(true);
     }
+  });
+  it("conserva muchos logos independientes del fleje, sus lados y sus posiciones en el pedido", () => {
+    const draft = createPersonalizationDraft("mate");
+    draft.rimTechnique = "none";
+    draft.flejeTechnique = "bronze-applique";
+    draft.flejeContent = "logo";
+    draft.flejeLogos = Array.from({ length: 64 }, (_, index) => ({
+      id: `fleje-upload-${index}`, file: { name: "mismo.png" } as File,
+      sides: index === 1 ? [] : index === 2 ? ["front", "back"] as ("front" | "back")[] : [index % 2 ? "back" : "front"] as ("front" | "back")[],
+    }));
+    draft.designTransforms = { "fleje-upload-63-back": { x: .7, y: .3, scale: .8, rotation: 25, side: "back" } };
+    const flejeLogos = draft.flejeLogos.map(({ id }) => ({ id, asset: { bucket_id: "order-assets" as const, object_path: `${id}/mismo.png`, original_name: "mismo.png", mime_type: "image/png", byte_size: 100 } }));
+    expect(validatePersonalization(draft, product())).toBe("");
+    expect(localFlejeLogos(draft)).toHaveLength(64);
+    const snapshot = buildLocalPersonalizationSnapshot(draft, product(), { flejeLogos }) as any;
+    expect(snapshot.assets).toHaveLength(63);
+    expect(snapshot.flejeConfiguration.sides.front.icons).toHaveLength(32);
+    expect(snapshot.flejeConfiguration.sides.back.icons).toHaveLength(32);
+    expect(new Set(snapshot.assets.map((asset: any) => asset.object_path)).size).toBe(63);
+    expect(snapshot.flejeConfiguration.sides.back.icons.find((icon: any) => icon.id === "fleje-upload-63-back").transform).toEqual(draft.designTransforms["fleje-upload-63-back"]);
+    expect(localFlejeLogoTransform(draft, "fleje-upload-0", "front")).not.toEqual(localFlejeLogoTransform(draft, "fleje-upload-2", "front"));
+    draft.flejeLogos = draft.flejeLogos.map(logo => ({ ...logo, sides: [] }));
+    expect(validatePersonalization(draft, product())).toContain("Agregá un ícono");
   });
   it("distingue mates, materas y bombillas personalizadas", () => {
     expect(personalizationKind(product())).toBe("mate");
