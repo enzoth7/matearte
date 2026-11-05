@@ -1,10 +1,20 @@
-# Consultas de Gestión desde ChatGPT
+# Gestión desde ChatGPT
 
 El servidor MCP de Gestión está en `supabase/functions/gestion-mcp/`. Su URL es:
 
 `https://agdkljuulwjwjasftcce.supabase.co/functions/v1/gestion-mcp`
 
 Ofrece herramientas para identificar la cuenta, enumerar fuentes y consultar registros comerciales, clientes, productos, producción, entregas, finanzas y Marketing. Las listas tienen paginación y límites. Los importes cuyo nombre termina en `_minor` están en centésimos. Las páginas de Gestión que todavía no tienen una fuente conectada tampoco tienen datos reales para consultar en el MCP.
+
+## Escritura de gastos para Richard
+
+La cuenta de Richard puede descubrir `listar_opciones_gastos` y `registrar_gastos`. La segunda herramienta crea entre 1 y 25 gastos por llamada en `purchases`, que alimenta Compras y Finanzas. Usa su token OAuth y las políticas RLS existentes; no se amplían permisos de base de datos para otras cuentas. El servidor comprueba el ID de la cuenta de Richard antes de anunciar las herramientas. El MCP no crea ingresos, ventas, pedidos, categorías ni gastos fijos.
+
+Richard puede adjuntar un estado de cuenta a su chat para que ChatGPT extraiga los débitos que sean gastos. El MCP registra los movimientos revisados, pero no recibe ni guarda el PDF. ChatGPT debe mostrar fechas, conceptos, importes, monedas y categorías, y obtener confirmación expresa antes de llamar a `registrar_gastos`. Los créditos y transferencias entre cuentas no se registran como gastos.
+
+Cada movimiento lleva una `clave_movimiento` estable que se reutiliza al reintentar. El servidor deriva de ella un ID único para la cuenta de Richard: repetir la misma llamada no duplica el gasto. También detiene el lote si detecta fecha, descripción, importe y moneda iguales a otro gasto, salvo que Richard confirme expresamente que son transacciones distintas. Si falla un lote a mitad de camino, el resultado indica cuáles se guardaron; el mismo lote puede reintentarse con las mismas claves.
+
+Después de publicar una versión nueva del MCP, Richard debe actualizar su conexión en ChatGPT y abrir un chat nuevo para descubrir las herramientas. La pantalla de consentimiento de Gestión informa el alcance de escritura.
 
 Las consultas de catálogo y variantes devuelven `imagen_principal_url`, `image_url` e `images` con la foto pública actual de Gestión, seleccionada por variante y color; `imagenes_catalogo` devuelve `image_url`. Cuando se busca un único producto o variante, la herramienta también adjunta los píxeles de esa foto al resultado. ChatGPT debe usar solo esa imagen al mostrar un producto y no sustituirla por fotos de terceros obtenidas mediante búsqueda web. Este refuerzo se publicó en la versión 5 de `gestion-mcp` el 24/10/2026.
 
@@ -34,7 +44,7 @@ Se mantiene el perfil propietario y la sesión individual de Supabase en todas l
 Pruebas recomendadas después de actualizar la conexión en ChatGPT: `quien_soy` debe identificar a Richard; consultar ventas locales con `pagina: 1` y con una página fuera de rango; pedir un resumen de Local y otro de todos los canales; consultar un pedido por referencia, producción por estado y las categorías de un cupón. La llamada observada confirma que la cuenta de Richard ya está conectada; la actualización de herramientas debe verificarse en un chat nuevo.
 
 - Cada petición exige un token de Supabase Auth. El servidor comprueba que corresponda a una cuenta activa de Gestión con perfil propietario (`t1`) y consulta con las políticas RLS de esa misma cuenta.
-- Las herramientas solo contienen operaciones de lectura; no exponen SQL arbitrario, funciones de escritura ni claves de servicio. La función `marketing-workspace` se invoca únicamente con sus acciones de lectura permitidas.
+- Las consultas no exponen SQL arbitrario ni claves de servicio. La única escritura del MCP es `registrar_gastos`, disponible solo para Richard y limitada a `purchases`. La función `marketing-workspace` se invoca únicamente con sus acciones de lectura permitidas.
 - Esto describe el alcance del **MCP**. Una sesión OAuth de Supabase conserva los permisos propios de la cuenta fuera del MCP; el consentimiento debe tratarse como acceso a esa cuenta. Revocar la autorización OAuth corta nuevas llamadas.
 - Un `401` anónimo debe incluir `WWW-Authenticate` con la URL de metadatos OAuth. La ruta `/oauth-protected-resource` debe responder con la URL de Supabase Auth. El servidor no devuelve datos sin iniciar sesión.
 
@@ -44,15 +54,15 @@ Pruebas recomendadas después de actualizar la conexión en ChatGPT: `quien_soy`
 2. En la **cuenta Free de prueba elegida por el usuario**, abrir **Complementos → Añadir → Añadir servidor MCP personalizado**, indicar la URL anterior y elegir OAuth. Abrir **Ajustes avanzados de OAuth** y copiar la **URL de devolución de llamada** que muestre esa cuenta. No utilizar una URL copiada desde otro perfil de Chrome o cuenta de ChatGPT.
 3. Registrar en Supabase un cliente OAuth específico para esa cuenta de ChatGPT con la URL de devolución de llamada exacta. Para la prueba Free de Enzo Gaston ya se registró un cliente público con ID `2f985e64-d473-4e8a-9c0a-ce9c767c4af0` y URL de retorno `https://chatgpt.com/connector/oauth/uZ05yJTPcXGG`. El formulario observado permite elegir **Cliente OAuth definido por el usuario** e introducir el ID; este cliente público no tiene secreto. Así no hace falta habilitar el registro dinámico para cualquier aplicación. Mantener `offline_access` entre los ámbitos si el cliente lo solicita para renovar la sesión.
 4. Introducir el ID del cliente OAuth en ChatGPT y completar la conexión con una cuenta propietaria de Gestión. Revisar los permisos y aceptar el consentimiento.
-5. Probar `quien_soy`, `listar_fuentes`, una consulta de catálogo y una consulta de pedidos. Comprobar que una cuenta sin perfil propietario reciba `403` y que nunca aparezcan herramientas de escritura.
+5. Probar `quien_soy`, `listar_fuentes`, una consulta de catálogo y una consulta de pedidos. Comprobar que una cuenta sin perfil propietario reciba `403`. Después de publicar la nueva versión, comprobar que solo Richard vea `listar_opciones_gastos` y `registrar_gastos`.
 6. Repetir los pasos 2 a 5 en la **cuenta de Richard**, con su propia URL de devolución de llamada y un cliente OAuth separado.
 
-**Disponibilidad observada:** el 24/10/2026 se creó el complemento en la cuenta ChatGPT Free de Enzo Gaston y el usuario confirmó que consulta Gestión correctamente. Esto contradice la conclusión anterior basada en la documentación general de planes de OpenAI. La cuenta Plus de Richard aún no se ha probado; verificar allí la disponibilidad al configurarla.
+**Disponibilidad observada:** el 24/10/2026 se creó el complemento en la cuenta ChatGPT Free de Enzo Gaston y el usuario confirmó que consulta Gestión correctamente. El 28/10/2026 se observó una consulta autenticada con la cuenta de Richard. La escritura de gastos debe verificarse en su conexión después de actualizar las herramientas.
 
 ## Mantenimiento
 
-- Cambiar columnas y fuentes permitidas solo en `supabase/functions/gestion-mcp/index.ts`. No añadir mutaciones, SQL libre ni campos de pagos internos como `raw_payload`.
-- Comprobar tipos con `npx deno check --lock supabase/functions/gestion-mcp/deno.lock supabase/functions/gestion-mcp/index.ts` y probar paginación, errores, límites y cálculos con `npx deno test --lock supabase/functions/gestion-mcp/deno.lock supabase/functions/gestion-mcp/queries_test.ts`. Compilar Gestión solo si también cambia su interfaz.
+- Cambiar columnas y fuentes permitidas solo en `supabase/functions/gestion-mcp/index.ts`. Mantener la escritura acotada a gastos de Richard; no añadir SQL libre ni campos de pagos internos como `raw_payload`.
+- Comprobar tipos con `npx deno check --lock supabase/functions/gestion-mcp/deno.lock supabase/functions/gestion-mcp/index.ts` y probar consultas y escritura con `npx deno test --lock supabase/functions/gestion-mcp/deno.lock supabase/functions/gestion-mcp/queries_test.ts supabase/functions/gestion-mcp/financeWrites_test.ts`. Compilar Gestión si cambia su interfaz.
 - La función usa `verify_jwt = false` para que el descubrimiento OAuth anónimo llegue al middleware; `withSupabase({ auth: "user" })` verifica el token antes de cualquier consulta.
 - Si cambia la lista o los esquemas de herramientas, actualizar la conexión en ChatGPT y repetir las pruebas de lectura y autorización.
 

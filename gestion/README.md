@@ -1,8 +1,8 @@
 # MateArte Gestión
 
-## Consultas desde ChatGPT
+## Gestión desde ChatGPT
 
-Gestión incluye un servidor MCP de consultas con autenticación de propietario y fuentes comerciales paginadas. La implementación y los pasos de conexión están en [MCP de solo lectura](docs/mcp-solo-lectura.md). El usuario confirmó que el complemento funciona en la cuenta Free de prueba. Falta configurar y probar la cuenta de ChatGPT de Richard.
+Gestión incluye un servidor MCP con autenticación de propietario y fuentes comerciales paginadas. Las consultas están disponibles para las cuentas propietarias; la cuenta de Richard también puede registrar gastos en Finanzas con confirmación previa. La implementación y los pasos de conexión están en [MCP de Gestión](docs/mcp-solo-lectura.md).
 
 Gestión integra Commerce Admin y LocalVentas en las pantallas existentes. No hay un panel paralelo ni datos ficticios en la aplicación. Las 42 subáreas conservan su navegación y diseño; las fuentes aún no conectadas muestran ausencia de datos.
 

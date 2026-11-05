@@ -69,11 +69,11 @@ export function OAuthConsent() {
       </form>
     </>}
     {status === "ready" && details && <>
-      <p><strong>{details.client.name}</strong> solicita conectar tu cuenta de MateArte Gestión. El MCP de MateArte ofrece únicamente herramientas de consulta.</p>
+      <p><strong>{details.client.name}</strong> solicita conectar tu cuenta de MateArte Gestión. El MCP permite consultar datos y, con la cuenta de Richard, registrar gastos en Finanzas. Antes de guardar un lote, ChatGPT debe mostrarlo y pedir confirmación.</p>
       <p>Destino: {details.redirect_uri}</p>
       <p>Permisos solicitados: {details.scope || "identidad de la cuenta"}</p>
       <div className="commerce-auth-actions">
-        <button type="button" className="primary" disabled={busy} onClick={() => void decide(true)}>Permitir consulta</button>
+        <button type="button" className="primary" disabled={busy} onClick={() => void decide(true)}>Permitir conexión</button>
         <button type="button" className="secondary" disabled={busy} onClick={() => void decide(false)}>Rechazar</button>
       </div>
     </>}

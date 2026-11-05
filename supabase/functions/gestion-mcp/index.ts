@@ -4,6 +4,7 @@ import { pipeline } from "npm:@supabase/middleware@1.0.0";
 import { withOAuthProtectedResource, withSupabase } from "npm:@supabase/server@1.9.2";
 import { z } from "npm:zod@4.6.7";
 import { pageNumber, queryErrorMessage, readAll, readPage, summarizeLocalSales, type LocalSale, type LocalItem, type LocalReceipt } from "./queries.ts";
+import { expenseId, expenseRow, sameExpense } from "./financeWrites.ts";
 
 type Dataset = {
   table: string;
@@ -71,6 +72,21 @@ const filters: Partial<Record<keyof typeof datasets, Record<string, string>>> = 
 };
 const pageSchema = z.number().int().min(0).max(200).default(1).describe("Primera página: 1. Usar siguiente_pagina para continuar. 0 se acepta como alias de 1.");
 const readOnly = { readOnlyHint: true, openWorldHint: false, destructiveHint: false };
+const financeWriterId = "5afbc94d-aecf-44e8-b12e-e136f49abb62"; // Richard Ortiz's Gestión account.
+const expenseColumns = "id,purchased_on,description,category,amount_minor,currency,status,paid_on,supplier,payment_method,notes";
+const expenseInput = z.object({
+  clave_movimiento: z.string().trim().min(8).max(120).describe("Clave estable de esta transacción bancaria o UUID. Reutilizarla al reintentar; no incluir número de cuenta completo."),
+  fecha: z.iso.date().describe("Fecha del gasto, AAAA-MM-DD."),
+  descripcion: z.string().trim().min(1).max(200),
+  categoria: z.string().trim().min(1).max(60).describe("Nombre exacto de una categoría activa de Compras; consultar listar_opciones_gastos antes."),
+  importe: z.string().describe("Importe positivo sin símbolo ni separadores de miles; máximo dos decimales, por ejemplo 7982.00."),
+  moneda: z.enum(["UYU", "USD"]),
+  estado: z.enum(["pagada", "pendiente"]),
+  proveedor: z.string().trim().max(120).optional(),
+  medio_pago: z.string().trim().max(60).optional(),
+  fecha_pago: z.iso.date().optional(),
+  notas: z.string().trim().max(1000).optional().describe("Referencia o contexto breve; no guardar números completos de cuenta ni datos sensibles del estado de cuenta."),
+});
 type ResultContent = { type: "text"; text: string } | { type: "image"; mimeType: string; data: string };
 const result = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value) }] as ResultContent[] });
 const failure = (value: unknown) => ({ ...result(value), isError: true });
@@ -109,8 +125,8 @@ Deno.serve(pipeline(
 
     const handler = createMcpHandler(() => {
       const server = new McpServer({
-        name: "matearte-gestion-lectura",
-        version: "1.1.0",
+        name: "matearte-gestion",
+        version: "1.2.0",
       });
 
       server.registerTool("quien_soy", {
@@ -124,6 +140,76 @@ Deno.serve(pipeline(
         description: "Enumera las fuentes de Gestión que se pueden consultar. Úsala antes de elegir una fuente.",
         inputSchema: z.object({}), annotations: readOnly,
       }, async () => result({ primera_pagina: 1, importes: "Los campos _minor son centésimos; no mezclar monedas ni sumar fuentes que representan los mismos pedidos. Para totales de ventas de local/feria/redes usar resumir_ventas_locales.", fuentes: Object.entries(datasets).map(([name, entry]) => { const dataset: Dataset = entry; return { nombre: name, descripcion: dataset.description, pagina: `https://matearte-gestion.vercel.app${dataset.path}`, campo_busqueda: dataset.search ?? null, campo_fecha: dataset.date ?? null, filtros_exactos: Object.keys(filters[name as keyof typeof datasets] ?? {}) }; }) }));
+
+      if (userClaims?.id === financeWriterId) {
+        server.registerTool("listar_opciones_gastos", {
+          title: "Categorías disponibles para registrar gastos",
+          description: "Consulta las categorías activas de Compras antes de preparar gastos de Richard. Solo lectura.",
+          inputSchema: z.object({}), annotations: readOnly,
+        }, async () => {
+          const { data, error } = await supabase.from("expense_categories").select("name,kind")
+            .eq("active", true).in("kind", ["compra", "ambas"]).order("name");
+          return error ? failure({ error: "No se pudieron consultar las categorías." }) : result({ categorias: data ?? [] });
+        });
+
+        server.registerTool("registrar_gastos", {
+          title: "Registrar gastos de Richard en Finanzas",
+          description: "Crea hasta 25 gastos en Compras/Finanzas con la sesión de Richard. Puede usar movimientos de un estado de cuenta que Richard adjunte al chat: registrar solo débitos que sean gastos, nunca créditos, transferencias entre cuentas ni el archivo PDF. Antes de llamar, mostrarle fechas, conceptos, importes, monedas, categorías y total por moneda, y pedirle confirmación explícita. Usar una clave estable por movimiento y reutilizarla en reintentos. Si hay coincidencias con gastos existentes, revisar con Richard antes de permitirlas.",
+          inputSchema: z.object({
+            gastos: z.array(expenseInput).min(1).max(25),
+            confirmado: z.literal(true).describe("Solo true después de mostrar el resumen y recibir confirmación explícita de Richard para este lote."),
+            permitir_coincidencias: z.boolean().default(false).describe("Solo true si Richard confirma expresamente que los movimientos marcados como posibles duplicados son gastos distintos."),
+          }),
+          annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        }, async ({ gastos, permitir_coincidencias }) => {
+          const { data: categories, error: categoryError } = await supabase.from("expense_categories")
+            .select("name").eq("active", true).in("kind", ["compra", "ambas"]);
+          if (categoryError) return failure({ error: "No se pudieron validar las categorías. No se registró ningún gasto." });
+          const allowed = new Set((categories ?? []).map((category) => category.name));
+          if (gastos.some((gasto) => !allowed.has(gasto.categoria)))
+            return failure({ error: "Hay una categoría inexistente o inactiva. No se registró ningún gasto.", categorias: [...allowed] });
+          if (new Set(gastos.map((gasto) => gasto.clave_movimiento)).size !== gastos.length)
+            return failure({ error: "Cada movimiento del lote necesita una clave distinta. No se registró ningún gasto." });
+
+          let rows: ReturnType<typeof expenseRow>[];
+          try {
+            rows = await Promise.all(gastos.map(async (gasto) => expenseRow(gasto, await expenseId(userClaims.id, gasto.clave_movimiento))));
+          } catch (error) {
+            return failure({ error: error instanceof Error ? error.message : "Hay un gasto inválido.", registrados: 0 });
+          }
+          const { data: existing, error: existingError } = await supabase.from("purchases")
+            .select(expenseColumns).in("id", rows.map((row) => row.id));
+          if (existingError) return failure({ error: "No se pudieron comprobar los reintentos. No se registró ningún gasto." });
+          const byId = new Map((existing ?? []).map((row) => [row.id, row]));
+          const changed = rows.find((row) => byId.has(row.id) && !sameExpense(row, byId.get(row.id) as typeof row));
+          if (changed) return failure({ error: "La clave de un movimiento ya corresponde a un gasto con otros datos. Revisá el gasto existente; no se registró ningún gasto.", id: changed.id });
+
+          const possibleDuplicates: { indice: number; id_existente?: string }[] = [];
+          for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            if (byId.has(row.id)) continue;
+            if (rows.slice(0, i).some((previous) => previous.id !== row.id && previous.purchased_on === row.purchased_on && previous.description === row.description && previous.amount_minor === row.amount_minor && previous.currency === row.currency))
+              possibleDuplicates.push({ indice: i + 1 });
+            const { data: matches, error } = await supabase.from("purchases").select("id")
+              .eq("purchased_on", row.purchased_on).eq("description", row.description)
+              .eq("amount_minor", row.amount_minor).eq("currency", row.currency).limit(1);
+            if (error) return failure({ error: "No se pudo comprobar si hay gastos repetidos. No se registró ningún gasto." });
+            if (matches?.[0] && matches[0].id !== row.id) possibleDuplicates.push({ indice: i + 1, id_existente: matches[0].id });
+          }
+          if (possibleDuplicates.length && !permitir_coincidencias)
+            return failure({ error: "Hay movimientos que coinciden con gastos existentes o del mismo lote. No se registró ningún gasto. Pedí a Richard que los revise.", posibles_duplicados: possibleDuplicates });
+
+          const outcome: { indice: number; id: string; estado: string }[] = [];
+          for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            if (byId.has(row.id)) { outcome.push({ indice: i + 1, id: row.id, estado: "ya_registrado" }); continue; }
+            const { error } = await supabase.from("purchases").insert(row);
+            if (error) return failure({ error: "No se pudo registrar un gasto. Revisá el detalle y reintentá con las mismas claves; los ya registrados no se duplicarán.", detalle: outcome, indice_fallido: i + 1 });
+            outcome.push({ indice: i + 1, id: row.id, estado: "registrado" });
+          }
+          return result({ detalle: outcome, registrados: outcome.filter((entry) => entry.estado === "registrado").length, ya_registrados: outcome.filter((entry) => entry.estado === "ya_registrado").length, pagina: "https://matearte-gestion.vercel.app/inventario/compras" });
+        });
+      }
 
       server.registerTool("consultar_registros", {
         title: "Consultar registros de Gestión",
