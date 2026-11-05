@@ -31,8 +31,8 @@ export const rimFinishCatalog: RimFinish[] = personalizationAssets.virola.map((a
   id: previousRimIds[asset.id] ?? asset.id,
   name: rimFinishNames[asset.id] ?? asset.name,
   image: asset.src,
-  width: 1093,
-  height: 1093,
+  width: asset.id === "petalos" ? 1138 : 1093,
+  height: asset.id === "petalos" ? 1138 : 1093,
 }));
 
 export const appliqueRimFinishCatalog: RimFinish[] = [
