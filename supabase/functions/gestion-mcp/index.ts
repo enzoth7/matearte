@@ -122,18 +122,19 @@ Deno.serve(pipeline(
     if (memberError || !member || member.access_user_id !== "t1") {
       return Response.json({ error: "Solo las cuentas propietarias de Gestión pueden consultar este MCP." }, { status: 403 });
     }
+    const canRegisterExpenses = userClaims?.id === financeWriterId;
 
     const handler = createMcpHandler(() => {
       const server = new McpServer({
         name: "matearte-gestion",
-        version: "1.2.0",
+        version: "1.2.1",
       });
 
       server.registerTool("quien_soy", {
         title: "Cuenta conectada",
-        description: "Comprueba qué cuenta de Gestión está conectada y si puede consultar datos.",
+        description: "Comprueba qué cuenta de Gestión está conectada y si puede registrar gastos.",
         inputSchema: z.object({}), annotations: readOnly,
-      }, async () => result({ nombre: member.display_name, perfil: "propietario", solo_lectura: true }));
+      }, async () => result({ nombre: member.display_name, perfil: "propietario", solo_lectura: !canRegisterExpenses, puede_registrar_gastos: canRegisterExpenses }));
 
       server.registerTool("listar_fuentes", {
         title: "Fuentes disponibles",
@@ -141,12 +142,12 @@ Deno.serve(pipeline(
         inputSchema: z.object({}), annotations: readOnly,
       }, async () => result({ primera_pagina: 1, importes: "Los campos _minor son centésimos; no mezclar monedas ni sumar fuentes que representan los mismos pedidos. Para totales de ventas de local/feria/redes usar resumir_ventas_locales.", fuentes: Object.entries(datasets).map(([name, entry]) => { const dataset: Dataset = entry; return { nombre: name, descripcion: dataset.description, pagina: `https://matearte-gestion.vercel.app${dataset.path}`, campo_busqueda: dataset.search ?? null, campo_fecha: dataset.date ?? null, filtros_exactos: Object.keys(filters[name as keyof typeof datasets] ?? {}) }; }) }));
 
-      if (userClaims?.id === financeWriterId) {
         server.registerTool("listar_opciones_gastos", {
           title: "Categorías disponibles para registrar gastos",
-          description: "Consulta las categorías activas de Compras antes de preparar gastos de Richard. Solo lectura.",
+          description: "Consulta las categorías activas de Compras antes de preparar gastos. Solo la cuenta de Gestión de Richard puede usarla.",
           inputSchema: z.object({}), annotations: readOnly,
         }, async () => {
+          if (!canRegisterExpenses) return failure({ error: "Solo la cuenta de Gestión de Richard puede registrar gastos por este MCP." });
           const { data, error } = await supabase.from("expense_categories").select("name,kind")
             .eq("active", true).in("kind", ["compra", "ambas"]).order("name");
           return error ? failure({ error: "No se pudieron consultar las categorías." }) : result({ categorias: data ?? [] });
@@ -162,6 +163,7 @@ Deno.serve(pipeline(
           }),
           annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
         }, async ({ gastos, permitir_coincidencias }) => {
+          if (!canRegisterExpenses) return failure({ error: "Solo la cuenta de Gestión de Richard puede registrar gastos por este MCP." });
           const { data: categories, error: categoryError } = await supabase.from("expense_categories")
             .select("name").eq("active", true).in("kind", ["compra", "ambas"]);
           if (categoryError) return failure({ error: "No se pudieron validar las categorías. No se registró ningún gasto." });
@@ -209,7 +211,6 @@ Deno.serve(pipeline(
           }
           return result({ detalle: outcome, registrados: outcome.filter((entry) => entry.estado === "registrado").length, ya_registrados: outcome.filter((entry) => entry.estado === "ya_registrado").length, pagina: "https://matearte-gestion.vercel.app/inventario/compras" });
         });
-      }
 
       server.registerTool("consultar_registros", {
         title: "Consultar registros de Gestión",
