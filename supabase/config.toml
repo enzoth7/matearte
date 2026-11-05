@@ -18,6 +18,21 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/marketing-workspace/index.ts"
 
+[functions.analytics-collect]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/analytics-collect/index.ts"
+
+[functions.analytics-archive]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/analytics-archive/index.ts"
+
+[functions.analytics-admin]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/analytics-admin/index.ts"
+
 [functions.commerce-email]
 enabled = true
 verify_jwt = false

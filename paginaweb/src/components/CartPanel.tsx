@@ -10,6 +10,7 @@ import { products } from "@/data/catalog";
 import { Link } from "@/i18n/navigation";
 import type { Locale, Product } from "@/types/catalog";
 import { localCartEntryKey, readLocalCart, removeLocalCartItem, updateLocalCartItemQuantity } from "@/lib/browser-cart";
+import { trackJourneyStep } from "../../../shared/journeyAnalytics";
 import { defaultCatalogTaxonomy, formatPurchaseSelectionLabel, normalizeCatalogValueMap, type CatalogValueMap } from "../../../shared/catalog-taxonomy";
 import { applyWholesaleMateDiscount, isWholesaleMateCategory, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
 
@@ -479,6 +480,15 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
     window.addEventListener("matearte-cart-change", handleCartChange);
     return () => { window.removeEventListener("matearte-cart-change", handleCartChange); };
   }, [needsLogin, resolveLocalCart]);
+
+  useEffect(() => {
+    if (needsLogin) {
+      if (localItems.some((item) => item.quantity > 0)) trackJourneyStep('catalog', 'cart');
+      return;
+    }
+    if (cart?.items.some((item) => item.item_type === 'catalog' && item.quantity > 0)) trackJourneyStep('catalog', 'cart');
+    if (cart?.items.some((item) => item.item_type === 'design' && item.quantity > 0)) trackJourneyStep('custom', 'cart');
+  }, [needsLogin, localItems, cart?.items]);
 
   const removeLocalItem = (lineKey: string) => {
     removeLocalCartItem(lineKey);

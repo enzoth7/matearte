@@ -228,7 +228,7 @@ export function Header() {
         </div>
       </header>
       {searchOpen && (
-        <div id="home-catalog-search" className="home-catalog-search">
+        <div id="home-catalog-search" data-clarity-mask="true" className="home-catalog-search">
           <form role="search" onSubmit={submitSearch}>
             <MagnifyingGlass size={22} aria-hidden="true" />
             <label className="sr-only" htmlFor="home-catalog-search-input">{t("search")}</label>

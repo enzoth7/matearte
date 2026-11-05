@@ -82,7 +82,7 @@ Deno.serve(async (request) => {
   const url = Deno.env.get("SUPABASE_URL") || "";
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   if (!url || !key) return response({ error: "Servicio no configurado." }, 503, origin);
-  const admin = createClient(url, key, { auth: { persistSession: false } });
+  let admin = createClient(url, key, { auth: { persistSession: false } });
   const { data: { user }, error: authError } = await admin.auth.getUser(token);
   if (authError || !user) return response({ error: "Sesión inválida." }, 401, origin);
   const { data: membership } = await admin.from("commerce_admin_users").select("active,access_user_id,allowed_paths").eq("user_id", user.id).maybeSingle();
@@ -90,6 +90,9 @@ Deno.serve(async (request) => {
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return response({ error: "Solicitud inválida." }, 400, origin); }
   const action = clean(body.action, 30);
+  // Actor comes exclusively from the verified bearer, never from request fields.
+  const systemAdmin = admin;
+  admin = createClient(url, key, { auth: { persistSession: false }, global: { headers: { "x-gestion-actor-id": user.id, "x-gestion-operation-id": crypto.randomUUID() } } });
   const route = action === "contacts" || action === "registrationTrend" ? "/marketing/contactos" : action === "analytics" ? "/marketing/analytics" : action === "metrics" ? "/marketing/metricas" : action === "settings" || action === "saveSettings" ? "/marketing/suscripcion" : action === "emailTemplates" || action === "emailTemplate" ? "/marketing/email-templates" : action === "segmentPreview" || action === "saveSegment" || action === "deleteSegment" ? "/marketing/segmentos" : "/marketing/campanas";
   if (membership.access_user_id !== "t1" && !membership.allowed_paths?.includes(route)) return response({ error: "No tenés acceso a esta pestaña." }, 403, origin);
 
@@ -570,7 +573,7 @@ Deno.serve(async (request) => {
       for (const item of sent) {
         const own = known.get(String(item.id));
         if (own?.status === "sending" && item.status === "sent") {
-          await admin.from("marketing_campaigns").update({ status: "sent", sent_at: item.sent_at || new Date().toISOString() }).eq("id", own.id).eq("status", "sending");
+          await systemAdmin.from("marketing_campaigns").update({ status: "sent", sent_at: item.sent_at || new Date().toISOString() }).eq("id", own.id).eq("status", "sending");
         }
       }
       const history = sent.map((item) => {
@@ -665,7 +668,7 @@ Deno.serve(async (request) => {
     try { config = await resendConfig(async () => await admin.rpc("get_email_delivery_config")); } catch (error) { return response({ error: (error as Error).message }, 503, origin); }
     let segmentId = campaign.resend_segment_id as string | null;
     if (!segmentId) {
-      await releaseFinishedSegments(admin, config.apiKey);
+      await releaseFinishedSegments(systemAdmin, config.apiKey);
       try {
         const segment = await resendJson(config.apiKey, "/segments", { method: "POST", body: JSON.stringify({ name: `MateArte ${campaign.subject.slice(0, 40)} ${id.slice(0, 8)}` }) });
         segmentId = String(segment.id || "");

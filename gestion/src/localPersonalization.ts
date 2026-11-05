@@ -33,9 +33,8 @@ export type LocalPersonalizationDraft = {
   materaContent: PersonalizationContent;
   materaPlacement: "front" | "lid" | "front-lid";
   materaText: string;
-  bombillaTechnique: Exclude<PersonalizationTechnique, "none">;
+  bombillaTechnique: "" | "bronze-applique" | "alpaca-applique";
   bombillaContent: PersonalizationContent;
-  bombillaPlacement: string;
   bombillaText: string;
   instructions: string;
   selectedOptions: Record<string, string>;
@@ -173,9 +172,8 @@ export function createPersonalizationDraft(kind: PersonalizationKind, product?: 
     materaContent: "logo",
     materaPlacement: "front",
     materaText: "",
-    bombillaTechnique: "laser",
+    bombillaTechnique: "",
     bombillaContent: "text",
-    bombillaPlacement: "Cuerpo",
     bombillaText: "",
     instructions: "",
     selectedOptions,
@@ -196,9 +194,9 @@ export function productHasFleje(product: Product): boolean {
 export function validatePersonalization(draft: LocalPersonalizationDraft, product: Product): string {
   if (product.assembly && validateMateAssembly(product.assembly)) return `Elegí ${validateMateAssembly(product.assembly)} para completar el armado.`;
   if (draft.kind === "bombilla") {
+    if (!draft.bombillaTechnique) return `Elegí la técnica de aplique para ${product.name}.`;
     if (hasText(draft.bombillaContent) && !draft.bombillaText.trim()) return `Ingresá el texto para ${product.name}.`;
     if (hasLogo(draft.bombillaContent) && !draft.bombillaLogoFile) return `Adjuntá el logo para ${product.name}.`;
-    if (!draft.bombillaPlacement.trim()) return `Indicá dónde va el diseño en ${product.name}.`;
     return "";
   }
   if (draft.kind === "matera") {
@@ -289,11 +287,9 @@ export function buildLocalPersonalizationSnapshot(
       localPersonalization: {
         kind: "bombilla",
         technique: draft.bombillaTechnique,
-        techniqueLabel: techniqueLabel(draft.bombillaTechnique),
+        techniqueLabel: draft.bombillaTechnique ? techniqueLabel(draft.bombillaTechnique) : "",
         content: draft.bombillaContent,
         contentLabel: contentLabel(draft.bombillaContent),
-        placement: draft.bombillaPlacement.trim(),
-        placementLabel: draft.bombillaPlacement.trim(),
         text: hasText(draft.bombillaContent) ? draft.bombillaText.trim() : "",
         logoName: hasLogo(draft.bombillaContent) ? stored.bombilla?.original_name || "" : "",
         instructions: draft.instructions.trim(),
@@ -384,7 +380,7 @@ export function buildLocalPersonalizationSnapshot(
     },
     flejeConfiguration: {
       finishMode: flejeAvailable && draft.flejeTechnique !== "none" && draft.flejeFinish !== "none" ? "finish" : "none",
-      finishId: draft.flejeFinish === "none" ? "pattern-1" : draft.flejeFinish,
+      finishId: draft.flejeFinish === "none" ? "1" : draft.flejeFinish,
       sides: {
         front: {
           textMode: flejeAvailable && draft.flejeTechnique !== "none" && hasText(draft.flejeContent) && draft.flejeFrontText.trim() ? "text" : "none",

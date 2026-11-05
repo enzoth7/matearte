@@ -31,7 +31,7 @@ async function authorize(request: Request) {
   if (!token) return { error: responseWithCors({ error: "Falta la sesión." }, origin, 401) };
   const { data: { user } } = await createTokenSupabase(token).auth.getUser(token);
   if (!user) return { error: responseWithCors({ error: "Sesión inválida." }, origin, 401) };
-  const admin = createAdminSupabase();
+  const admin = createAdminSupabase(user.id);
   const membership = await admin.from("commerce_admin_users").select("user_id").eq("user_id", user.id).eq("active", true).maybeSingle();
   if (!membership.data) return { error: responseWithCors({ error: "No tenés acceso al panel comercial." }, origin, 403) };
   return { origin, user, admin };

@@ -43,6 +43,7 @@ describe("entrega desde Gestión", () => {
     const update = adminFor({ id, status: "paid_pending_review", channel: "Web", shipping_method: "national_shipping", shipping_snapshot: { name: "Envío a domicilio" }, order_items: [] });
     const response = await PATCH(request("deliver_in_store"), { params: Promise.resolve({ id }) });
     expect(response.status).toBe(200);
+    expect(createAdminSupabase).toHaveBeenCalledWith("admin");
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "delivered", shipping_method: "pickup", shipping_carrier: null, tracking_code: null }));
     expect(dispatchCommerceEmails).not.toHaveBeenCalled();
   });

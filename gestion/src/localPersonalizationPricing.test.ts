@@ -125,12 +125,14 @@ describe("precio de mates personalizados en ventas locales", () => {
 });
 
 describe("precio de materas y bombillas personalizadas en ventas locales", () => {
-  it("cobra el grabado láser por aplicación, no por letra", () => {
+  it("cobra las letras del aplique de bronce en bombillas, sin tarifa láser", () => {
     const draft = createPersonalizationDraft("bombilla");
     draft.bombillaText = "ANA";
+    expect(calculateLocalPersonalizationPrice(draft, catalog).items).toEqual([]);
+    draft.bombillaTechnique = "bronze-applique";
     expect(calculateLocalPersonalizationPrice(draft, catalog)).toMatchObject({
-      extrasMinor: 12000,
-      items: [{ ruleKey: "customization:laser:rim_text", quantity: 1 }],
+      extrasMinor: 7500,
+      items: [{ ruleKey: "customization:bronze-applique:rim_text", quantity: 3 }],
       missingRuleKeys: [],
     });
   });

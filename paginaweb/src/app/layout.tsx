@@ -10,6 +10,7 @@ import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { CartMerger } from "@/components/CartMerger";
+import { JourneyTracker } from "@/components/JourneyTracker";
 import { WhatsAppFab } from "@/components/WhatsAppFab";
 import { LanguageNotice } from "@/components/LanguageNotice";
 import { ScrollRevealController } from "@/components/ScrollRevealController";
@@ -97,6 +98,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <NextIntlClientProvider locale={locale} messages={messages}>
           <StorefrontCurrency initialCurrency={preferredCurrency} arsPerUyu={arsPerUyu} arsUseBasePrice={arsUseBasePrice}>
           <CartMerger />
+          <JourneyTracker />
           <a className="skip-link" href="#contenido">{common("skipToContent")}</a>
           <LanguageNotice />
           <ScrollRevealController />

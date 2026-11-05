@@ -14,7 +14,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   const [{ id }, query, exchangeRates] = await Promise.all([params, searchParams, getExchangeRates()]);
   const t = await getTranslations("order");
   return (
-    <main id="contenido" className="order-detail-page pb-24 pt-8 sm:pb-32 sm:pt-12">
+    <main id="contenido" data-clarity-mask="true" className="order-detail-page pb-24 pt-8 sm:pb-32 sm:pt-12">
       <div className="order-detail-shell container-shell">
         <div className="order-detail-card">
           <header className="order-detail-desktop-header">

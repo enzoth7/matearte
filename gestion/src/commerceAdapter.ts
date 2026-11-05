@@ -60,10 +60,11 @@ const ruralInterestLabel: Record<string, string> = {
   "otros-articulos-cuero": "Otros artículos en cuero",
 };
 
-const catalogProductType = (categoryCode: string, attributes?: Record<string, unknown>) => {
+const catalogProductType = (categoryCode: string, attributes?: Record<string, unknown>, modelOptions: CommerceReference["modelOptions"] = []) => {
   const key = categoryCode === "mates" ? "tipo-mate" : categoryCode === "materas" ? "forma" : categoryCode === "bombillas" ? "tipo-bombilla" : "";
   const code = key && typeof attributes?.[key] === "string" ? String(attributes[key]).trim() : "";
-  return code ? catalogValueLabel(defaultCatalogTaxonomy, key, code) : undefined;
+  if (!code) return undefined;
+  return modelOptions?.find(option => option.attribute_code === key && option.code === code)?.label_es || catalogValueLabel(defaultCatalogTaxonomy, key, code);
 };
 
 export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: string) => string = () => ""): State {
@@ -87,7 +88,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       name: product.name, sku: variant?.sku ?? "", variant: variant?.name ?? "Sin variantes",
       options: variant ? { ...(variant.option_values || {}), ...(variant.color && !variant.option_values?.color ? { color: variant.color } : {}) } : undefined,
       attributes: product.attributes || {},
-      categoryCode, family: category, catalogType: catalogProductType(categoryCode, product.attributes), personalizationType: product.attributes?.["tipo-personalizado"] === "matera" ? "matera" : product.attributes?.["tipo-personalizado"] === "mate" ? "mate" : undefined, rim: variant?.rim_type || text(variant?.option_values, "virola", "rim"), leather: variant?.leather_type || text(variant?.option_values, "cuero", "leather"),
+      categoryCode, family: category, catalogType: catalogProductType(categoryCode, product.attributes, snapshot.reference.modelOptions), personalizationType: product.attributes?.["tipo-personalizado"] === "matera" ? "matera" : product.attributes?.["tipo-personalizado"] === "mate" ? "mate" : undefined, rim: variant?.rim_type || text(variant?.option_values, "virola", "rim"), leather: variant?.leather_type || text(variant?.option_values, "cuero", "leather"),
       imageUrl: cover ? imageUrl(cover.storage_path) : undefined,
       imageCrop: cover ? { x: Number(cover.option_values?.cover_x) || 0, y: Number(cover.option_values?.cover_y) || 0, zoom: Number(cover.option_values?.cover_zoom) || 1 } : undefined,
       cost: 0, stock: 0, min: 0,

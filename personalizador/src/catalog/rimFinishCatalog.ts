@@ -68,6 +68,46 @@ export const appliqueRimFinishCatalog: RimFinish[] = [
     height: 1093,
     textKnockoutScale: 0.25,
   },
+  {
+    id: "applique-finish-laureles",
+    name: "Laureles",
+    image: "/assets/personalizacion/virola/laureles.webp",
+    width: 1093,
+    height: 1093,
+    textKnockoutScale: 0.25,
+  },
+  {
+    id: "applique-finish-petalos",
+    name: "Pétalos",
+    image: "/assets/personalizacion/virola/petalos.webp",
+    width: 1138,
+    height: 1138,
+    textKnockoutScale: 0.25,
+  },
+  {
+    id: "applique-finish-puntas-cinceladas",
+    name: "Puntas",
+    image: "/assets/personalizacion/viroladeapliques/apliques-05-puntas-cinceladas.webp",
+    width: 1093,
+    height: 1093,
+    textKnockoutScale: 0.25,
+  },
+  {
+    id: "applique-finish-cadenas",
+    name: "Cadenas",
+    image: "/assets/personalizacion/viroladeapliques/apliques-06-cadenas.webp",
+    width: 1093,
+    height: 1093,
+    textKnockoutScale: 0.25,
+  },
+  {
+    id: "applique-finish-coronas-2",
+    name: "Coronas 2",
+    image: "/assets/personalizacion/viroladeapliques/apliques-07-coronas-2.webp",
+    width: 1093,
+    height: 1093,
+    textKnockoutScale: 0.25,
+  },
 ];
 
 export function usesAppliqueRimFinishes(engravingTypeId: EngravingTypeId | null | undefined) {

@@ -37,6 +37,12 @@ export const areas = [
     ],
   },
   {
+    id: "analitica",
+    name: "Analítica",
+    hint: "Recorridos y cambios de la experiencia",
+    pages: [["recorridos", "Recorridos"]],
+  },
+  {
     id: "clientes",
     name: "Clientes",
     hint: "Relaciones que perduran",
@@ -128,7 +134,7 @@ export const areas = [
       ["origen-canal", "Canal y origen"],
       ["automatizaciones", "Automatizaciones"],
       ["links", "Links"],
-      ["actividad", "Registro de actividad"],
+      ["logs", "Logs"],
     ],
   },
 ] as const;

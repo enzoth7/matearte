@@ -19,10 +19,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes("node_modules"))
-            return id.includes("recharts") || id.includes("d3-")
-              ? "charts"
-              : "vendor";
+          if (id.includes("node_modules/recharts") || id.includes("node_modules/d3-"))
+            return "charts";
         },
       },
     },

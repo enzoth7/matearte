@@ -3846,6 +3846,8 @@ dialog.wholesale-order-dialog{width:min(1120px,calc(100% - 24px));max-height:90d
 .unified-order-icon-action--danger:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 78%, #000); }
 .unified-order-icon-action:disabled { opacity: .5; cursor: not-allowed; }
 .local-sale-editor-lines { display: grid; margin: 12px 0; }
+.local-sale-original-date { display: grid; align-content: end; gap: 8px; margin-top: 1rem; font-size: .78rem; font-weight: 700; }
+.local-sale-original-date strong { display: flex; align-items: center; min-height: 44px; padding: .65rem .75rem; border: 1px solid var(--line); border-radius: .25rem; background: var(--surface-warm); font-size: 1rem; }
 .local-sale-editor-customer-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .local-sale-editor-customer-search, .local-sale-editor-customer-selection { min-width: 0; }
 .local-sale-editor-customer-search > label, .local-sale-editor-customer-selection > span { display: block; margin-bottom: 8px; }

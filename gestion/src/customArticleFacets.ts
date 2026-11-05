@@ -7,7 +7,7 @@ export const isMateArticle = (product: Product) => product.categoryCode === "mat
 export const customModelLabel = (product: Product) => {
   const code = product.categoryCode === "materas" ? "tipo-matera" : product.categoryCode?.startsWith("bombill") ? "tipo-bombilla" : "tipo-mate";
   const raw = product.attributes?.[code];
-  if (typeof raw === "string") return catalogValueLabel(defaultCatalogTaxonomy, code, raw);
+  if (typeof raw === "string") return code === "tipo-bombilla" && product.catalogType ? product.catalogType : catalogValueLabel(defaultCatalogTaxonomy, code, raw);
   return product.catalogType || product.name.match(/imperial|camionero|criollo|torpedo|ovalada|cuadrada|bombillón|bombilla/i)?.[0].toLocaleLowerCase() || "General";
 };
 

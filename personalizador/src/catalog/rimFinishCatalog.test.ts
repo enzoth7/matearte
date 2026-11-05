@@ -15,19 +15,24 @@ describe("catálogo de terminaciones para la virola", () => {
   });
 
   it.each(["bronze-applique", "alpaca-applique"] as const)(
-    "reemplaza las terminaciones de %s por las cuatro de viroladeapliques",
+    "ofrece nueve terminaciones para %s",
     (engravingTypeId) => {
       const catalog = getRimFinishCatalogForEngravingType(engravingTypeId);
 
       expect(usesAppliqueRimFinishes(engravingTypeId)).toBe(true);
       expect(catalog).toBe(appliqueRimFinishCatalog);
-      expect(catalog).toHaveLength(4);
+      expect(catalog).toHaveLength(9);
       expect(catalog.every((finish) => finish.textKnockoutScale === 0.25)).toBe(true);
       expect(catalog.map((finish) => finish.image)).toEqual([
         "/assets/personalizacion/viroladeapliques/apliques-01-espirales.webp",
         "/assets/personalizacion/viroladeapliques/apliques-02-triangulos.webp",
         "/assets/personalizacion/viroladeapliques/apliques-03-escamas.webp",
         "/assets/personalizacion/viroladeapliques/apliques-04-coronas.webp",
+        "/assets/personalizacion/virola/laureles.webp",
+        "/assets/personalizacion/virola/petalos.webp",
+        "/assets/personalizacion/viroladeapliques/apliques-05-puntas-cinceladas.webp",
+        "/assets/personalizacion/viroladeapliques/apliques-06-cadenas.webp",
+        "/assets/personalizacion/viroladeapliques/apliques-07-coronas-2.webp",
       ]);
     },
   );

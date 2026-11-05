@@ -19,8 +19,10 @@ export async function createServerSupabase() {
   });
 }
 
-export function createAdminSupabase() {
+// Pass only an actor verified by auth.getUser, never a caller-provided ID.
+export function createAdminSupabase(auditActorId?: string) {
   return createClient(supabaseUrl(), supabaseServiceRoleKey(), {
+    ...(auditActorId ? { global: { headers: { "x-gestion-actor-id": auditActorId, "x-gestion-operation-id": crypto.randomUUID() } } } : {}),
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
 }

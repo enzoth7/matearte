@@ -60,7 +60,7 @@ export function calculateLocalPersonalizationPrice(draft: LocalPersonalizationDr
     if (usesText(draft.flejeContent)) add(draft.flejeTechnique, "fleje_text", "Caracteres en fleje", characterCount(draft.flejeFrontText) + characterCount(draft.flejeBackText));
     if (usesLogo(draft.flejeContent)) add(draft.flejeTechnique, "fleje_image", "Logo en fleje", localFlejeLogos(draft).reduce((count, logo) => count + logo.sides.length, 0) + localDesignIcons(draft, "fleje").length);
   }
-  if (draft.kind === "matera" || draft.kind === "bombilla") {
+  if (draft.kind === "matera" || (draft.kind === "bombilla" && draft.bombillaTechnique)) {
     // Las tres técnicas comparten las tarifas publicadas de texto e imagen de la virola.
     const matera = draft.kind === "matera";
     const technique = matera ? draft.materaTechnique : draft.bombillaTechnique;

@@ -157,7 +157,7 @@ export function createDefaultFlejeSide(side: FlejeSide): FlejeSideCustomization 
 export function createDefaultFlejeCustomization(): FlejeCustomization {
   return {
     finishMode: "none",
-    finishId: "pattern-1",
+    finishId: "1",
     sides: {
       front: createDefaultFlejeSide("front"),
       back: createDefaultFlejeSide("back"),
@@ -202,7 +202,7 @@ export function normalizeFlejeCustomization(value: unknown): FlejeCustomization 
 
   return {
     finishMode: input.finishMode === "finish" ? "finish" : "none",
-    finishId: typeof input.finishId === "string" ? input.finishId as FlejeFinishId : "pattern-1",
+    finishId: typeof input.finishId === "string" ? input.finishId as FlejeFinishId : "1",
     sides: {
       front: normalizeSide("front"),
       back: normalizeSide("back"),

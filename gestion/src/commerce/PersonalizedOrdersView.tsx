@@ -461,7 +461,7 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
                     <dl className="compact-specs">
                       <div><dt>Técnica</dt><dd>{summary.matera.technique}</dd></div>
                       <div><dt>Contenido</dt><dd>{summary.matera.content}</dd></div>
-                      <div><dt>Ubicación</dt><dd>{summary.matera.placement}</dd></div>
+                      {(summary.kind === 'matera' || summary.matera.placement !== 'No especificado') && <div><dt>Ubicación</dt><dd>{summary.matera.placement}</dd></div>}
                       <div><dt>Texto</dt><dd>{summary.matera.text || <div className="muted-value">Ninguno</div>}</dd></div>
                       <div><dt>Logo</dt><dd>{summary.matera.logo || <div className="muted-value">Ninguno</div>}</dd></div>
                     </dl>

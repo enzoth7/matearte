@@ -34,7 +34,7 @@ Deno.serve(async (request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const service = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+  let service = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return json({ error: "JSON inválido." }, 400, origin); }
 
@@ -47,6 +47,8 @@ Deno.serve(async (request) => {
   if (!user) return json({ error: "Sesión inválida." }, 401, origin);
   const { data: caller } = await service.from("commerce_admin_users").select("access_user_id,active").eq("user_id", user.id).maybeSingle();
   if (!caller?.active || caller.access_user_id !== "t1") return json({ error: "Solo Richard puede administrar usuarios." }, 403, origin);
+
+  service = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false }, global: { headers: { "x-gestion-actor-id": user.id, "x-gestion-operation-id": crypto.randomUUID() } } });
 
   if (body.action === "list") {
     const { data: memberships, error } = await service.from("commerce_admin_users").select("user_id,access_user_id,display_name,allowed_paths,active").or(`access_user_id.in.(${fixedAccessUserIds.join(",")}),access_user_id.like.u*`).order("created_at");
@@ -87,8 +89,8 @@ Deno.serve(async (request) => {
     if (!isManagedId(accessUserId) || !allowedPaths || allowedPaths.length > 100) {
       return json({ error: "Revisá los permisos seleccionados." }, 400, origin);
     }
-    if (allowedPaths.some((path) => !path.startsWith("/") || path === "/administracion/usuarios")) {
-      return json({ error: "Usuarios y permisos sólo puede usarlo Richard." }, 400, origin);
+    if (allowedPaths.some((path) => !path.startsWith("/") || ["/administracion/usuarios", "/administracion/logs", "/administracion/actividad"].includes(path))) {
+      return json({ error: "Usuarios y permisos, y Logs, son accesos reservados para dirección." }, 400, origin);
     }
     const { data, error } = await service.from("commerce_admin_users")
       .update({ allowed_paths: allowedPaths })

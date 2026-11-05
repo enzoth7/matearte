@@ -200,12 +200,16 @@ describe("personalización de ventas locales", () => {
   it("valida y guarda el diseño de una bombilla y las indicaciones para taller", () => {
     const draft = createPersonalizationDraft("bombilla");
     const bombilla = product({ name: "Bombilla de alpaca", categoryCode: "bombillas" });
+    expect(validatePersonalization(draft, bombilla)).toContain("técnica");
+    draft.bombillaTechnique = "bronze-applique";
     expect(validatePersonalization(draft, bombilla)).toContain("texto");
     draft.bombillaText = "ENZO";
     draft.instructions = "Letra cursiva de 8 mm";
     expect(validatePersonalization(draft, bombilla)).toBe("");
     const snapshot = buildLocalPersonalizationSnapshot(draft, bombilla) as any;
-    expect(snapshot.localPersonalization).toMatchObject({ kind: "bombilla", text: "ENZO", placement: "Cuerpo", instructions: "Letra cursiva de 8 mm" });
+    expect(snapshot.localPersonalization).toMatchObject({ kind: "bombilla", technique: "bronze-applique", text: "ENZO", instructions: "Letra cursiva de 8 mm" });
+    expect(snapshot.localPersonalization).not.toHaveProperty("placement");
+    expect(snapshot.localPersonalization).not.toHaveProperty("placementLabel");
     expect(snapshot.configuration).not.toHaveProperty("rim");
   });
 });

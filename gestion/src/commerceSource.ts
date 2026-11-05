@@ -129,6 +129,7 @@ export type CommerceReference = {
   shippingRates: CommerceShippingRate[];
   exchangeRates: { currency_code: string; rate_to_uyu: number; updated_at: string }[];
   categories: { code: string; label_es: string; active: boolean }[];
+  modelOptions?: { attribute_code: string; code: string; label_es: string }[];
   settings: CommerceSettings;
 };
 
@@ -183,14 +184,15 @@ export async function readCommerceOrders(client: SupabaseClient, page: number) {
 }
 
 export async function readCommerceReference(client: SupabaseClient): Promise<CommerceReference> {
-  const [discounts, shippingRates, exchangeRates, categories, settings] = await Promise.all([
+  const [discounts, shippingRates, exchangeRates, categories, modelOptions, settings] = await Promise.all([
     client.from("commerce_discounts").select("id,code,discount_type,value,valid_from,valid_until,enabled").order("code"),
     client.from("commerce_international_shipping_rates").select("row_order,weight_label,weight_min_g,weight_max_g,argentina,suramerica,estados_unidos,resto_america,espana,resto_europa,resto_mundo").order("row_order"),
     client.from("commerce_exchange_rates").select("currency_code,rate_to_uyu,updated_at").order("currency_code"),
     client.from("commerce_categories").select("code,label_es,active").order("sort_order"),
+    client.from("commerce_attribute_options").select("attribute_code,code,label_es").in("attribute_code", ["tipo-mate", "forma", "tipo-matera", "tipo-bombilla"]),
     client.from("commerce_settings").select("commerce_enabled,mercado_pago_enabled,paypal_enabled,catalog_price_adjustment_enabled,catalog_price_adjustment_percent,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories,uruguay_transfer_discount_enabled,uruguay_transfer_discount_categories,uruguay_transfer_discount_designs").eq("singleton", true).single(),
   ]);
-  for (const result of [discounts, shippingRates, exchangeRates, categories, settings]) {
+  for (const result of [discounts, shippingRates, exchangeRates, categories, modelOptions, settings]) {
     if (result.error) throw result.error;
   }
   return {
@@ -198,6 +200,7 @@ export async function readCommerceReference(client: SupabaseClient): Promise<Com
     shippingRates: (shippingRates.data || []) as CommerceShippingRate[],
     exchangeRates: (exchangeRates.data || []) as CommerceReference["exchangeRates"],
     categories: (categories.data || []) as CommerceReference["categories"],
+    modelOptions: (modelOptions.data || []) as NonNullable<CommerceReference["modelOptions"]>,
     settings: settings.data as CommerceSettings,
   };
 }

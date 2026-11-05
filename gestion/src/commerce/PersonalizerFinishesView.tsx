@@ -6,7 +6,7 @@ type Finish = { id: string; name: string; image: string };
 
 const groups: { id: string; title: string; description: string; finishes: Finish[]; shape: "round" | "band" }[] = [
   { id: "virola", title: "Virola con grabado láser", description: "Terminaciones para la virola con grabado láser.", finishes: rimFinishCatalog, shape: "round" },
-  { id: "apliques", title: "Virola con apliques", description: "Terminaciones para apliques de bronce o alpaca.", finishes: appliqueRimFinishCatalog, shape: "round" },
+  { id: "apliques", title: "Virola con apliques o cincelado", description: "Terminaciones para apliques de bronce o alpaca y diseños cincelados.", finishes: appliqueRimFinishCatalog, shape: "round" },
   { id: "fleje", title: "Fleje", description: "Terminaciones para el frente y el dorso del fleje.", finishes: flejeFinishCatalog, shape: "band" },
 ];
 

@@ -139,6 +139,8 @@ test('editar venta busca clientes por nombre o celular y distingue nombres igual
   await page.getByRole('row').filter({ hasText: '#L038' }).getByRole('button', { name: 'Ver detalle del pedido #L038' }).click();
   await page.getByRole('dialog', { name: 'Detalle del pedido' }).getByRole('button', { name: 'Editar esta venta' }).click();
   const editor = page.getByRole('dialog', { name: 'Editar venta' });
+  await expect(editor.locator('.local-sale-original-date').first()).toContainText('24/10/2026');
+  await expect(editor.locator('input[type="date"]')).toHaveCount(0);
   const search = editor.getByRole('searchbox', { name: 'Buscar cliente por nombre o celular' });
   const results = editor.getByLabel('Coincidencias de clientes');
   await expect(editor.locator('.local-sale-editor-customer-value')).toContainText('Cliente sin registrar');
@@ -161,6 +163,7 @@ test('editar venta busca clientes por nombre o celular y distingue nombres igual
   await editor.getByRole('button', { name: 'Guardar cambios' }).click();
   await expect(editor).toHaveCount(0);
   expect(writes.find(write => write.table === 'gestion_update_local_sale')?.body.p_customer_id).toBe('client-alisson-2');
+  expect(writes.find(write => write.table === 'gestion_update_local_sale')?.body.p_sold_on).toBe('2026-10-24');
 });
 
 test('editar venta permite sumar un artículo con el SKU exacto', async ({ page }) => {
@@ -169,7 +172,7 @@ test('editar venta permite sumar un artículo con el SKU exacto', async ({ page 
   fixture.products[0].commerce_variants[0].price_minor = 110050;
   tables.local_sales.push({ id: 'sale-edit-sku', sale_number: 37, reference_code: '#L037', channel: 'Local',
     customer_id: null, customer_name: 'Cliente sin registrar', sold_on: '2026-10-24', payment_method: 'Transferencia',
-    total_minor: 200000, currency: 'UYU', created_at: '2026-10-24T12:00:00Z',
+    total_minor: 200000, deposit_minor: 200000, currency: 'UYU', created_at: '2026-10-24T12:00:00Z',
     local_sale_items: [{ id: 'item-existing', variant_id: 'variant-2', sku: 'SKU-2', product_name: 'Mate de catálogo',
       variant_name: 'Cuero marrón', quantity: 1, unit_price_minor: 200000, line_total_minor: 200000 }] });
   await page.goto('/comercial/pedidos');
@@ -184,9 +187,8 @@ test('editar venta permite sumar un artículo con el SKU exacto', async ({ page 
   await expect(editor).toContainText('Mate de catálogo · $ 1.000,5');
   await editor.getByLabel('Agregar artículo por SKU').press('Enter');
   await expect(editor.locator('.local-sale-editor-line')).toHaveCount(2);
-  await editor.getByLabel('Forma de pago').selectOption('Débito');
-  await expect(editor.locator('.local-sale-editor-line').nth(1).getByLabel('Precio unitario')).toHaveValue('1100.5');
-  await editor.getByLabel('Forma de pago').selectOption('Transferencia');
+  await expect(editor.locator('.local-sale-original-date').nth(1)).toContainText('Transferencia');
+  await expect(editor.getByLabel('Forma de pago')).toHaveCount(0);
   await expect(editor.locator('.local-sale-editor-line').nth(1).getByLabel('Precio unitario')).toHaveValue('1000.5');
   await editor.screenshot({ path: 'artifacts/editar-venta-sku-desktop.png' });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -197,8 +199,32 @@ test('editar venta permite sumar un artículo con el SKU exacto', async ({ page 
   await editor.getByRole('button', { name: 'Guardar cambios' }).click();
   await expect(editor).toHaveCount(0);
   expect(tables.local_sales[0].local_sale_items).toHaveLength(2);
-  expect(tables.local_sales[0].total_minor).toBe(300050);
+  expect(tables.local_sales[0].total_minor).toBe(200000);
+  expect(tables.local_sales[0].sold_on).toBe('2026-10-24');
+  expect(tables.local_sales[0].payment_method).toBe('Transferencia');
+  await expect(row).toContainText('Pago parcial');
+  await row.getByRole('button', { name: 'Ver detalle del pedido #L037' }).click();
+  const updated = page.getByRole('dialog', { name: 'Detalle del pedido' });
+  await expect(updated).toContainText('Seña');
+  await expect(updated).toContainText('Saldo pendiente');
   expect(writes.find(write => write.table === 'gestion_update_local_sale')?.body.p_items[1]).toEqual({ sku: 'SKU-1', quantity: 1, unit_price_minor: 100050 });
+});
+
+test('una diferencia histórica de artículos no se convierte en saldo por cobrar', async ({ page }) => {
+  const { tables } = await mockCommerce(page, { writable: true });
+  tables.local_sales.push({ id: 'sale-old-difference', sale_number: 20, reference_code: '#L020', channel: 'Local',
+    customer_id: null, customer_name: 'Cliente histórico', sold_on: '2026-10-09', payment_method: 'Transferencia',
+    total_minor: 410000, currency: 'UYU', created_at: '2026-10-09T21:30:28Z',
+    local_sale_items: [{ id: 'item-old-difference', variant_id: null, sku: '207', product_name: 'Mate a medida',
+      variant_name: '', quantity: 1, unit_price_minor: 4100000, line_total_minor: 4100000 }] });
+  await page.goto('/comercial/pedidos');
+  const row = page.getByRole('row').filter({ hasText: '#L020' });
+  await expect(row).toContainText('Pagado');
+  await row.getByRole('button', { name: 'Ver detalle del pedido #L020' }).click();
+  const detail = page.getByRole('dialog', { name: 'Detalle del pedido' });
+  await expect(detail).toContainText('Revisar valor de artículos');
+  await expect(detail).toContainText('$ 41.000 en artículos, $ 4.100 cobrados');
+  await expect(detail).toContainText('Saldo pendiente: $ 0');
 });
 
 test('la seña muestra lo cobrado y el saldo se cobra en el mismo pedido', async ({ page }) => {
@@ -245,6 +271,24 @@ test('la seña muestra lo cobrado y el saldo se cobra en el mismo pedido', async
   expect(writes.filter(write => write.table === 'gestion_record_local_sale_payment')).toHaveLength(1);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await detail.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+});
+
+test('un cobro admite la fecha actual aunque Gestión siga abierta desde otro día', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-11-03T15:00:00Z') });
+  const { tables } = await mockCommerce(page, { writable: true });
+  tables.local_sales.push({ id: 'sale-stale-date', sale_number: 37, reference_code: '#R037', channel: 'Instagram',
+    customer_id: null, customer_name: 'Cliente sin registrar', sold_on: '2026-11-01',
+    payment_method: 'Transferencia', total_minor: 100000, deposit_minor: 100000, currency: 'UYU',
+    created_at: '2026-11-01T12:00:00Z', local_sale_items: [{ id: 'item-stale-date', variant_id: 'variant-2',
+      sku: '102', product_name: 'Cartera Matera', variant_name: 'Negro/Blanco', quantity: 1,
+      unit_price_minor: 200000, line_total_minor: 200000 }] });
+  await page.goto('/comercial/pedidos');
+  await page.clock.setSystemTime(new Date('2026-11-05T15:00:00Z'));
+  await page.getByRole('row').filter({ hasText: '#R037' }).getByRole('button', { name: 'Ver detalle del pedido #R037' }).click();
+  await page.getByRole('dialog', { name: 'Detalle del pedido' }).getByRole('button', { name: 'Registrar cobro' }).click();
+  const date = page.getByRole('dialog', { name: 'Registrar cobro de #R037' }).getByLabel('Fecha del cobro');
+  await expect(date).toHaveValue('2026-11-05');
+  await expect(date).toHaveAttribute('max', '2026-11-05');
 });
 
 test('una variante oculta en la web se puede registrar en el local', async ({ page }) => {
@@ -347,10 +391,14 @@ test('personalizados combina un mate armado, matera y bombilla y guarda los dise
 
   await page.getByLabel('Categoría de artículo').selectOption('bombilla');
   await page.getByLabel('Modelo', { exact: true }).selectOption({ index: 1 });
+  await page.getByLabel('Nombre', { exact: true }).selectOption('variant-custom-bombilla');
   await page.getByRole('button', { name: /Agregar personalizado/ }).click();
+  await expect(page.getByLabel('Técnica de Bombilla de alpaca').locator('option')).toHaveText(['Elegir técnica', 'Aplique de bronce', 'Aplique de alpaca']);
+  await expect(page.getByLabel('Ubicación de Bombilla de alpaca')).toHaveCount(0);
+  await page.getByLabel('Técnica de Bombilla de alpaca').selectOption('bronze-applique');
   await page.getByLabel('Texto de Bombilla de alpaca').fill('ANA');
-  await expect(page.getByLabel('Precio unitario de Bombilla de alpaca')).toHaveValue(/1\.120,5/);
-  await expect(page.getByLabel('Precio de Bombilla de alpaca')).toContainText('Grabado láser en bombilla');
+  await expect(page.getByLabel('Precio unitario de Bombilla de alpaca')).toHaveValue(/1\.075,5/);
+  await expect(page.getByLabel('Precio de Bombilla de alpaca')).toContainText('Texto en bombilla');
   await page.getByLabel('Indicaciones para Bombilla de alpaca').fill('Letra cursiva');
   await expect(page.locator('.local-sale-photo-item')).toHaveCount(3);
   await page.getByRole('button', { name: 'Guardar venta' }).click();
@@ -365,8 +413,8 @@ test('personalizados combina un mate armado, matera y bombilla y guarda los dise
   expect(write?.body.p_items[1].unit_price_minor).toBe(124050);
   expect(write?.body.p_items[1].customization.localPricing).toMatchObject({ source: 'published-personalizer', versionId: 'pricing-test', extrasUnitPriceMinor: 24000 });
   expect(write?.body.p_items[1].customization.localPersonalization).toMatchObject({ kind: 'matera', placement: 'front-lid', logoName: 'logo-cliente.svg' });
-  expect(write?.body.p_items[2].unit_price_minor).toBe(112050);
-  expect(write?.body.p_items[2].customization.localPricing).toMatchObject({ source: 'published-personalizer', versionId: 'pricing-test', extrasUnitPriceMinor: 12000 });
+  expect(write?.body.p_items[2].unit_price_minor).toBe(107550);
+  expect(write?.body.p_items[2].customization.localPricing).toMatchObject({ source: 'published-personalizer', versionId: 'pricing-test', extrasUnitPriceMinor: 7500 });
   expect(write?.body.p_items[2].customization.localPersonalization).toMatchObject({ kind: 'bombilla', text: 'ANA', instructions: 'Letra cursiva' });
 
   await page.goto('/produccion/personalizados');

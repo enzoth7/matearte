@@ -33,7 +33,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { data: { user } } = await createTokenSupabase(token).auth.getUser(token);
   if (!user) return response(origin, { error: "Sesión inválida." }, 401);
 
-  const admin = createAdminSupabase();
+  const admin = createAdminSupabase(user.id);
   const membership = await admin
     .from("commerce_admin_users")
     .select("user_id")

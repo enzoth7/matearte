@@ -20,6 +20,59 @@ async function completeMaterials(page: Page, changes: Record<string, string> = {
   return card;
 }
 
+test('bombillones se eligen por nombre y conservan el precio de su artículo', async ({ page }) => {
+  const { fixture, writes, tables } = await mockCommerce(page, { writable: true });
+  const template = fixture.products[0];
+  const variant = template.commerce_variants[0];
+  tables.commerce_attribute_options.push({ attribute_code: 'tipo-bombilla', code: 'clasica', label_es: 'Fina' });
+  for (const [name, sku, price] of [
+    ['Bombillón Pico Alpaca', '318', 120000],
+    ['Bombillón Con Aros Pico Alpaca', '319', 130000],
+  ] as const) fixture.products.push({
+    ...template, id: `product-${sku}`, name, category: 'bombillas', category_code: 'bombillas',
+    attributes: { 'tipo-bombilla': 'bombillon' }, commerce_product_images: [],
+    commerce_variants: [{ ...variant, id: `variant-${sku}`, sku, name: 'Metálico', color: 'metalico',
+      option_values: { color: 'metalico' }, price_minor: price, base_price_minor: price }],
+  });
+  fixture.products.push({
+    ...template, id: 'product-fina', name: 'Bombilla Cincelada', category: 'bombillas', category_code: 'bombillas',
+    attributes: { 'tipo-bombilla': 'clasica' }, commerce_product_images: [],
+    commerce_variants: [{ ...variant, id: 'variant-fina', sku: '320', name: 'Metálico', color: 'metalico',
+      option_values: { color: 'metalico' }, price_minor: 95000, base_price_minor: 95000 }],
+  });
+
+  await page.goto('/comercial/registrar-min');
+  await page.getByRole('tab', { name: 'Personalizados' }).click();
+  await page.getByLabel('Categoría de artículo').selectOption('bombilla');
+  const builder = page.locator('#local-panel-custom > .local-custom-builder');
+  await expect(builder.getByLabel('Modelo', { exact: true })).toContainText('Fina');
+  await expect(builder.getByLabel('Modelo', { exact: true })).not.toContainText('Clásica');
+  await builder.getByLabel('Modelo', { exact: true }).selectOption({ index: 1 });
+  await expect(builder.getByLabel('Color', { exact: true })).toHaveCount(0);
+  await expect(builder.getByLabel('Precio base', { exact: true })).toHaveCount(0);
+  const names = builder.getByLabel('Nombre', { exact: true });
+  await expect(names.locator('option')).toHaveText([
+    'Elegir nombre', 'Bombillón Con Aros Pico Alpaca', 'Bombillón Pico Alpaca',
+  ]);
+  await expect(builder.getByRole('button', { name: /Agregar personalizado/ })).toBeDisabled();
+  await names.selectOption('variant-319');
+  await expect(builder.getByRole('button', { name: /Agregar personalizado/ })).toContainText('1.300');
+  await builder.getByRole('button', { name: /Agregar personalizado/ }).click();
+  const technique = page.getByLabel('Técnica de Bombillón Con Aros Pico Alpaca');
+  await expect(technique.locator('option')).toHaveText(['Elegir técnica', 'Aplique de bronce', 'Aplique de alpaca']);
+  await expect(page.getByLabel('Ubicación de Bombillón Con Aros Pico Alpaca')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Guardar venta' })).toBeDisabled();
+  await technique.selectOption('bronze-applique');
+  await page.getByLabel('Texto de Bombillón Con Aros Pico Alpaca').fill('ANA');
+  await expect(page.getByLabel('Precio de Bombillón Con Aros Pico Alpaca')).not.toContainText('Grabado láser');
+  await page.getByRole('button', { name: 'Guardar venta' }).click();
+  await expect.poll(() => writes.some(write => write.table === 'gestion_create_local_sale_with_items')).toBe(true);
+  const item = writes.find(write => write.table === 'gestion_create_local_sale_with_items')!.body.p_items[0];
+  expect(item.variant_id).toBe('variant-319');
+  expect(item.unit_price_minor).toBe(137500);
+  expect(item.customization.localPersonalization).not.toHaveProperty('placement');
+});
+
 test('arma por piezas sin catálogo y conserva diseño y precio en venta y producción', async ({ page }) => {
   const {fixture,writes,tables} = await mockCommerce(page, {writable:true});
   fixture.products.splice(0);
@@ -50,8 +103,8 @@ test('arma por piezas sin catálogo y conserva diseño y precio en venta y produ
   await page.getByRole('navigation',{name:/Pasos del diseño/}).getByRole('button',{name:/Fleje/}).click();
   await page.getByLabel('Técnica de fleje de Mate Imperial personalizado').selectOption('bronze-applique');
   await page.getByLabel('Texto del frente del fleje de Mate Imperial personalizado').fill('MATE');
-  await page.getByLabel('Terminación de fleje de Mate Imperial personalizado').selectOption('pattern-1');
-  const finishOverlay = card.locator('.fleje-preview-side').first().locator('svg image[href$="/laurel.webp"]');
+  await page.getByLabel('Terminación de fleje de Mate Imperial personalizado').selectOption('1');
+  const finishOverlay = card.locator('.fleje-preview-side').first().locator('svg image[href$="/1.webp"]');
   await expect(finishOverlay).toHaveCount(1);
   const finishUrl = await finishOverlay.getAttribute('href');
   expect((await page.request.get(new URL(finishUrl!, page.url()).toString())).status()).toBe(200);
@@ -101,6 +154,28 @@ test('ofrece Pétalos en la virola de una venta minorista personalizada', async 
   await expect(finishImage).toHaveCount(1);
   const finishUrl = await finishImage.getAttribute('href');
   expect((await page.request.get(new URL(finishUrl!, page.url()).toString())).status()).toBe(200);
+  await page.getByLabel('Técnica de virola de Mate Imperial personalizado').selectOption('bronze-applique');
+  const finishSelect = page.getByLabel('Terminación de virola de Mate Imperial personalizado');
+  await expect(finishSelect).toHaveValue('none');
+  await expect(finishSelect.locator('option', { hasText: 'Laureles' })).toHaveCount(1);
+  await expect(finishSelect.locator('option', { hasText: 'Pétalos' })).toHaveCount(1);
+  await finishSelect.selectOption('applique-finish-petalos');
+  await expect(finishImage).toHaveCount(1);
+  await finishSelect.selectOption('applique-finish-puntas-cinceladas');
+  const cinceladoImage = card.getByLabel('Vista editable de la virola imperial').locator('svg image[href$="/apliques-05-puntas-cinceladas.webp"]');
+  await expect(cinceladoImage).toHaveCount(1);
+  const cinceladoUrl = await cinceladoImage.getAttribute('href');
+  expect((await page.request.get(new URL(cinceladoUrl!, page.url()).toString())).status()).toBe(200);
+  await finishSelect.selectOption('applique-finish-cadenas');
+  const cadenasImage = card.getByLabel('Vista editable de la virola imperial').locator('svg image[href$="/apliques-06-cadenas.webp"]');
+  await expect(cadenasImage).toHaveCount(1);
+  const cadenasUrl = await cadenasImage.getAttribute('href');
+  expect((await page.request.get(new URL(cadenasUrl!, page.url()).toString())).status()).toBe(200);
+  await finishSelect.selectOption('applique-finish-coronas-2');
+  const coronas2Image = card.getByLabel('Vista editable de la virola imperial').locator('svg image[href$="/apliques-07-coronas-2.webp"]');
+  await expect(coronas2Image).toHaveCount(1);
+  const coronas2Url = await coronas2Image.getAttribute('href');
+  expect((await page.request.get(new URL(coronas2Url!, page.url()).toString())).status()).toBe(200);
 });
 
 test('cambiar piezas conserva elecciones y sin virola permite guardar sin grabado',async({page})=>{

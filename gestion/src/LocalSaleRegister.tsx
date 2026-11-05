@@ -36,8 +36,8 @@ import { formatPercent, parseDiscountPercent } from "./wholesaleDiscount";
 import { useOrderDraft } from "./orderDraft";
 import { OrderDraftList } from "./OrderDraftList";
 import { catalogValueLabel, defaultCatalogTaxonomy, normalizeCatalogValueMap } from "../../shared/catalog-taxonomy";
-import { appliqueRimFinishCatalog, rimFinishCatalog } from "../../personalizador/src/catalog/rimFinishCatalog";
-import { flejeFinishCatalog } from "../../personalizador/src/catalog/flejeFinishCatalog";
+import { getRimFinish, getRimFinishCatalogForEngravingType } from "../../personalizador/src/catalog/rimFinishCatalog";
+import { flejeFinishCatalog, getFlejeFinish } from "../../personalizador/src/catalog/flejeFinishCatalog";
 
 type SaleLine = { id: string; product: Product; quantity: number; unitPriceMinor: number; priceEntered?: boolean; priceOverridden?: boolean; personalization?: LocalPersonalizationDraft; notes?: string };
 type LocalSaleDraft = { lines: SaleLine[]; articleTab: "articles" | "custom"; customerId: string; customerSearch: string; newCustomer: boolean; name: string; email: string; phone: string; birthDate: string; date: string; payment: string; hasDeposit: boolean; deposit: string; discountOn: boolean; discountText: string; channel: "Local" | "Feria" | "Instagram" | "Facebook" | "WhatsApp"; city: string; country: string; department: string };
@@ -74,7 +74,6 @@ const techniqueOptions = [
   ["alpaca-applique", "Aplique de alpaca"],
 ] as const;
 const contentOptions = [["text", "Texto"], ["logo", "Logo o imagen"], ["text-logo", "Texto y logo"]] as const;
-const rimFinishOptions = [["none", "Lisa, sin terminación"], ...[...rimFinishCatalog, ...appliqueRimFinishCatalog].map((finish) => [finish.id, finish.name] as const)] as const;
 const flejeFinishOptions = [["none", "Liso, sin terminación"], ...flejeFinishCatalog.map((finish) => [finish.id, finish.name] as const)] as const;
 const uploadTypes = new Set(["image/png", "image/jpeg", "image/svg+xml", "application/pdf"]);
 
@@ -101,6 +100,11 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
   updateAssembly: (assembly: MateAssembly) => void;
 }) {
   const draft = line.personalization!;
+  const rimFinishes = getRimFinishCatalogForEngravingType(draft.rimTechnique === "none" ? null : draft.rimTechnique);
+  const previousRimFinish = draft.rimFinish !== "none" && !rimFinishes.some((finish) => finish.id === draft.rimFinish)
+    ? getRimFinish(draft.rimFinish) : undefined;
+  const previousFlejeFinish = draft.flejeFinish !== "none" && !flejeFinishCatalog.some((finish) => finish.id === draft.flejeFinish)
+    ? getFlejeFinish(draft.flejeFinish) : undefined;
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [mateStepIndex, setMateStepIndex] = useState(line.product.assembly ? 0 : 4);
   const mateSteps = [...(line.product.assembly ? [] : ["Modelo", "Textura y color", "Metal", "Tamaño e interior"]), ...(line.product.assembly?.["tipo-virola"] === "sin-virola" ? [] : ["Virola"]), ...(productHasFleje(line.product) ? ["Fleje"] : []), ...(line.product.assembly ? ["Materiales"] : ["Resumen"])];
@@ -190,10 +194,18 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
       {mateStep === "Virola" && <section className="local-personalization-surface">
         <div className="local-personalization-surface-title"><strong>Virola</strong><small>Elegí técnica, contenido y terminación</small></div>
         <div className="local-personalization-fields">
-          <label>Técnica<select aria-label={`Técnica de virola de ${line.product.name}`} value={draft.rimTechnique} onChange={(event) => update({ rimTechnique: event.target.value as LocalPersonalizationDraft["rimTechnique"] })}>{techniqueOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label>Técnica<select aria-label={`Técnica de virola de ${line.product.name}`} value={draft.rimTechnique} onChange={(event) => {
+            const rimTechnique = event.target.value as LocalPersonalizationDraft["rimTechnique"];
+            const available = getRimFinishCatalogForEngravingType(rimTechnique === "none" ? null : rimTechnique);
+            update({ rimTechnique, rimFinish: draft.rimFinish === "none" || available.some((finish) => finish.id === draft.rimFinish) ? draft.rimFinish : "none" });
+          }}>{techniqueOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           {draft.rimTechnique !== "none" && <>
             <label>Contenido<select aria-label={`Contenido de virola de ${line.product.name}`} value={draft.rimContent} onChange={(event) => update({ rimContent: event.target.value as LocalPersonalizationDraft["rimContent"] })}>{contentOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-            <label>Terminación<select aria-label={`Terminación de virola de ${line.product.name}`} value={draft.rimFinish} onChange={(event) => update({ rimFinish: event.target.value })}>{rimFinishOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label>Terminación<select aria-label={`Terminación de virola de ${line.product.name}`} value={draft.rimFinish} onChange={(event) => update({ rimFinish: event.target.value })}>
+              <option value="none">Lisa, sin terminación</option>
+              {rimFinishes.map((finish) => <option key={finish.id} value={finish.id}>{finish.name}</option>)}
+              {previousRimFinish && <option value={previousRimFinish.id}>{previousRimFinish.name}</option>}
+            </select></label>
             {contentUsesText(draft.rimContent) && <div className="local-personalization-rim-texts">
               <label>Texto 1<input aria-label={`Texto de virola de ${line.product.name}`} value={draft.rimText} onChange={(event) => update({ rimText: event.target.value.toLocaleUpperCase("es").slice(0, 40) })} maxLength={40} placeholder="Primer texto" /></label>
               <label>Texto 2 (opcional)<input aria-label={`Texto 2 para la virola de ${line.product.name}`} value={draft.rimText2} onChange={(event) => update({ rimText2: event.target.value.toLocaleUpperCase("es").slice(0, 40), ...(!draft.rimText2 && event.target.value && draft.rimTextInverted === draft.rimText2Inverted ? { rimText2Inverted: !draft.rimTextInverted } : {}) })} maxLength={40} placeholder="Segundo texto" /></label>
@@ -208,7 +220,10 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
             <label>Técnica<select aria-label={`Técnica de fleje de ${line.product.name}`} value={draft.flejeTechnique} onChange={(event) => update({ flejeTechnique: event.target.value as LocalPersonalizationDraft["flejeTechnique"] })}>{techniqueOptions.filter(([value]) => value !== "laser").map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           {draft.flejeTechnique !== "none" && <>
             <label>Contenido<select aria-label={`Contenido de fleje de ${line.product.name}`} value={draft.flejeContent} onChange={(event) => update({ flejeContent: event.target.value as LocalPersonalizationDraft["flejeContent"] })}>{contentOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-            <label>Terminación<select aria-label={`Terminación de fleje de ${line.product.name}`} value={draft.flejeFinish} onChange={(event) => update({ flejeFinish: event.target.value })}>{flejeFinishOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label>Terminación<select aria-label={`Terminación de fleje de ${line.product.name}`} value={draft.flejeFinish} onChange={(event) => update({ flejeFinish: event.target.value })}>
+              {flejeFinishOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              {previousFlejeFinish && <option value={previousFlejeFinish.id}>{previousFlejeFinish.name}</option>}
+            </select></label>
             {contentUsesText(draft.flejeContent) && <>
               <label>Texto del frente<input aria-label={`Texto del frente del fleje de ${line.product.name}`} value={draft.flejeFrontText} onChange={(event) => update({ flejeFrontText: event.target.value.toLocaleUpperCase("es").slice(0, 40) })} maxLength={40} placeholder="Frente" /></label>
               <label>Texto del dorso<input aria-label={`Texto del dorso del fleje de ${line.product.name}`} value={draft.flejeBackText} onChange={(event) => update({ flejeBackText: event.target.value.toLocaleUpperCase("es").slice(0, 40) })} maxLength={40} placeholder="Dorso" /></label>
@@ -237,9 +252,8 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
       <section className="local-personalization-surface">
         <div className="local-personalization-surface-title"><strong>Diseño de la bombilla</strong><small>Indicá exactamente qué se graba o aplica</small></div>
         <div className="local-personalization-fields">
-          <label>Técnica<select aria-label={`Técnica de ${line.product.name}`} value={draft.bombillaTechnique} onChange={(event) => update({ bombillaTechnique: event.target.value as LocalPersonalizationDraft["bombillaTechnique"] })}>{techniqueOptions.slice(1).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label>Técnica<select aria-label={`Técnica de ${line.product.name}`} value={draft.bombillaTechnique} onChange={(event) => update({ bombillaTechnique: event.target.value as LocalPersonalizationDraft["bombillaTechnique"] })} required><option value="">Elegir técnica</option>{techniqueOptions.filter(([value]) => value === "bronze-applique" || value === "alpaca-applique").map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <label>Contenido<select aria-label={`Contenido de ${line.product.name}`} value={draft.bombillaContent} onChange={(event) => update({ bombillaContent: event.target.value as LocalPersonalizationDraft["bombillaContent"] })}>{contentOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          <label>Ubicación<input aria-label={`Ubicación de ${line.product.name}`} value={draft.bombillaPlacement} onChange={(event) => update({ bombillaPlacement: event.target.value.slice(0, 80) })} maxLength={80} placeholder="Ej.: cuerpo o boquilla" required /></label>
           {contentUsesText(draft.bombillaContent) && <label className="local-personalization-text">Texto exacto<input aria-label={`Texto de ${line.product.name}`} value={draft.bombillaText} onChange={(event) => update({ bombillaText: event.target.value.toLocaleUpperCase("es").slice(0, 60) })} maxLength={60} required /></label>}
         </div>
       </section>
@@ -249,10 +263,10 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
     {(draft.kind !== "mate" || Boolean(line.product.assembly) || mateStep === "Resumen") && <>{!line.product.assembly && <div className="local-personalization-price" aria-label={`Precio de ${line.product.name}`}>
       <div><span>Precio del artículo</span><strong>{money(line.unitPriceMinor / 100)}</strong></div>
       {quote.items.map((item) => <div key={item.ruleKey}><span>{item.label} · {item.quantity} × {money(item.unitPriceMinor / 100)}</span><strong>{money(item.totalMinor / 100)}</strong></div>)}
-      <div className="local-personalization-price-total"><span>Total unitario</span><strong>{pricing && !quote.missingRuleKeys.length ? money((line.unitPriceMinor + quote.extrasMinor) / 100) : pricingLoading ? "Cargando precios…" : "Precio no disponible"}</strong></div>
+      <div className="local-personalization-price-total"><span>Total unitario</span><strong>{draft.kind === "bombilla" && !draft.bombillaTechnique ? "Elegí una técnica" : pricing && !quote.missingRuleKeys.length ? money((line.unitPriceMinor + quote.extrasMinor) / 100) : pricingLoading ? "Cargando precios…" : "Precio no disponible"}</strong></div>
       {!!quote.missingRuleKeys.length && !pricingLoading && <small>Falta publicar un precio de personalización en Productos → Personalizador.</small>}
     </div>}
-    <label className="local-personalization-instructions">Indicaciones para el taller<textarea aria-label={`Indicaciones para ${line.product.name}`} value={draft.instructions} onChange={(event) => update({ instructions: event.target.value.slice(0, 1000) })} maxLength={1000} rows={3} placeholder="Ubicación precisa, tipografía, medidas u otro detalle acordado con el cliente" /></label></>}
+    <label className="local-personalization-instructions">Indicaciones para el taller<textarea aria-label={`Indicaciones para ${line.product.name}`} value={draft.instructions} onChange={(event) => update({ instructions: event.target.value.slice(0, 1000) })} maxLength={1000} rows={3} placeholder={draft.kind === "bombilla" ? "Tipografía, medidas u otro detalle acordado con el cliente" : "Ubicación precisa, tipografía, medidas u otro detalle acordado con el cliente"} /></label></>}
   </article>{summaryOpen && draft.kind === "mate" && <LocalMateCustomerSummary product={line.product} draft={draft} quantity={line.quantity} onClose={() => setSummaryOpen(false)} />}</>;
 }
 
@@ -367,7 +381,7 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
   const listItemsMinor = lines.reduce((sum, line) => sum + line.quantity * unitPriceMinor(line), 0);
   const itemsMinor = lines.reduce((sum, line) => sum + line.quantity * soldUnitMinor(line), 0);
   const depositMinor = cents(deposit);
-  const linePriceReady = (line: SaleLine) => !line.personalization || (Boolean(pricing) && !pricingLoading && (!line.product.assembly || priceMateAssembly(line.product.assembly, pricing?.rules).ready) && !calculateLocalPersonalizationPrice(line.personalization, pricing).missingRuleKeys.length);
+  const linePriceReady = (line: SaleLine) => !line.personalization || (Boolean(pricing) && !pricingLoading && (line.personalization.kind !== "bombilla" || Boolean(line.personalization.bombillaTechnique)) && (!line.product.assembly || priceMateAssembly(line.product.assembly, pricing?.rules).ready) && !calculateLocalPersonalizationPrice(line.personalization, pricing).missingRuleKeys.length);
   const customPricesReady = lines.every(linePriceReady);
   const linePriceAvailable = (line: SaleLine) => !line.personalization || (Boolean(pricing) && !pricingLoading && (!line.product.assembly || (!validateMateAssemblyCore(line.product.assembly) && !priceMateAssembly(line.product.assembly, pricing?.rules).missing.length)) && !calculateLocalPersonalizationPrice(line.personalization, pricing).missingRuleKeys.length);
   const pricesAvailable = lines.every(linePriceAvailable);
@@ -573,7 +587,7 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
       </div> : <div id="local-panel-custom" role="tabpanel" aria-labelledby="local-tab-custom" className="local-sale-tab-panel">
         <p className="local-sale-custom-intro">Armá el artículo por sus características y diseñá el grabado de la virola y el fleje.</p>
         <label><span className="local-sale-custom-field-label">Categoría de artículo<span className="field-required" aria-hidden="true">*</span></span><select value={customKind} onChange={event => setCustomKind(event.target.value as PersonalizationKind | "")}><option value="">Elegir categoría</option><option value="mate">Mate</option><option value="matera">Matera</option><option value="bombilla">Bombilla</option></select></label>
-        {customKind === "mate" ? <MateAssemblyPicker pricing={pricing} onAdd={assembly => addCustom(mateAssemblyPresentation(assembly, pricing?.rules))} /> : customKind && <CustomArticlePicker key={customKind} products={customProducts} onAdd={addCustom} priceForProduct={product => salePriceMinor(product, payment) / 100} priceLabel={usesBasePrice(payment) ? "Precio base" : "Precio publicado"} />}
+        {customKind === "mate" ? <MateAssemblyPicker pricing={pricing} onAdd={assembly => addCustom(mateAssemblyPresentation(assembly, pricing?.rules))} /> : customKind && <CustomArticlePicker key={customKind} products={customProducts} onAdd={addCustom} priceForProduct={product => salePriceMinor(product, payment) / 100} priceLabel={usesBasePrice(payment) ? "Precio base" : "Precio publicado"} showProductNames={customKind === "bombilla"} />}
         {customKind && customKind !== "mate" && !customProducts.length && <p className="local-sale-custom-empty">No hay {customKind === "matera" ? "materas" : "bombillas"} activos para venta local en el catálogo.</p>}
         {pricingError && <p role="alert">{pricingError} <button type="button" onClick={() => setPricingRefresh(value => value + 1)}>Reintentar precios</button></p>}
         {!!personalizedLines.length && <>

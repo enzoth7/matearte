@@ -3,10 +3,10 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const mock = vi.hoisted(() => ({ rpc: vi.fn(), cart: vi.fn() }));
+const mock = vi.hoisted(() => ({ rpc: vi.fn(), cart: vi.fn(), settings: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({
   requireUser: async () => ({ user: { id: "buyer" } }),
-  createAdminSupabase: () => ({ rpc: mock.rpc }),
+  createAdminSupabase: () => ({ rpc: mock.rpc, from: () => ({ select: () => ({ eq: () => ({ single: mock.settings }) }) }) }),
 }));
 vi.mock("@/lib/cart", () => ({ readPricedCart: mock.cart }));
 vi.mock("@/lib/argentina-server", () => ({
@@ -23,6 +23,11 @@ beforeEach(() => {
     { item_type: "design", unit_price_minor: 40000, quantity: 1 },
   ] });
   mock.rpc.mockResolvedValue({ data: { discountMinor: 2000 }, error: null });
+  mock.settings.mockResolvedValue({ data: {
+    uruguay_transfer_discount_enabled: true,
+    uruguay_transfer_discount_categories: ["mates"],
+    uruguay_transfer_discount_designs: true,
+  }, error: null });
 });
 
 const request = () => new Request("https://store.test/api/discounts/validate", {

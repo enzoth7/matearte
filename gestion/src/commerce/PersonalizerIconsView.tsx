@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ImageSquare, Trash, WarningCircle } from "@phosphor-icons/react";
 import { personalizationAssets } from "virtual:personalization-assets";
 import { supabase } from "./supabase";
-import { preparePersonalizerIcon } from "./personalizerIconUpload";
+import { preparePersonalizerIcon } from "./personalizerIconConversion";
 
 type UploadedIcon = {
   id: string;
@@ -21,6 +21,9 @@ export function PersonalizerIconsView() {
   const [hiddenBuiltIns, setHiddenBuiltIns] = useState<string[]>([]);
   const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [prepared, setPrepared] = useState<Awaited<ReturnType<typeof preparePersonalizerIcon>> | null>(null);
+  const [preparing, setPreparing] = useState(false);
+  const [conversionError, setConversionError] = useState("");
   const [preview, setPreview] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -42,20 +45,36 @@ export function PersonalizerIconsView() {
   }, []);
 
   useEffect(() => {
-    if (!file) { setPreview(""); return; }
-    const url = URL.createObjectURL(file);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
+    if (!file) { setPrepared(null); setPreparing(false); setConversionError(""); return; }
+    let active = true;
+    setPrepared(null);
+    setPreparing(true);
+    setConversionError("");
+    const format = file.type === "image/svg+xml" || /\.svg$/i.test(file.name) ? "svg" : "webp";
+    void preparePersonalizerIcon(file, format).then((result) => {
+      if (active) setPrepared(result);
+    }).catch((reason: unknown) => {
+      if (active) setConversionError(errorMessage(reason));
+    }).finally(() => {
+      if (active) setPreparing(false);
+    });
+    return () => { active = false; };
   }, [file]);
 
+  useEffect(() => {
+    if (!prepared) { setPreview(""); return; }
+    const url = URL.createObjectURL(prepared.file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [prepared]);
+
   const upload = async () => {
-    if (!file || !name.trim() || busy) return;
+    if (!prepared || !name.trim() || busy || preparing) return;
     setError("");
     setNotice("");
     setBusy(true);
     let path = "";
     try {
-      const prepared = await preparePersonalizerIcon(file);
       const id = crypto.randomUUID();
       path = `icons/${id}.${prepared.extension}`;
       const uploaded = await bucket.upload(path, prepared.file, { contentType: prepared.file.type, upsert: false, cacheControl: "31536000" });
@@ -65,6 +84,7 @@ export function PersonalizerIconsView() {
       setIcons((current) => [...current, result.data]);
       setName("");
       setFile(null);
+      setPrepared(null);
       setNotice("Ícono publicado. Aparecerá al abrir de nuevo el Personalizador o la venta minorista.");
     } catch (reason) {
       if (path) await bucket.remove([path]);
@@ -118,11 +138,22 @@ export function PersonalizerIconsView() {
     {error && <p className="personalizer-icons__message is-error" role="alert"><WarningCircle size={18} />{error}</p>}
     {notice && <p className="personalizer-icons__message" role="status">{notice}</p>}
     <div className="personalizer-icons__upload">
-      <div><h3>Agregar ícono</h3></div>
+      <div><h3>Agregar ícono</h3><p>Subí una imagen de hasta 20 MB. Admite JPG, PNG, WebP, GIF, BMP, AVIF, HEIC, TIFF y SVG.</p></div>
       {preview && <img src={preview} alt="Vista previa del ícono nuevo" />}
       <label>Nombre<input value={name} onChange={(event) => setName(event.target.value)} maxLength={80} placeholder="Ej.: Flor" disabled={busy} /></label>
-      <label>Archivo SVG, PNG o WebP<input type="file" accept="image/svg+xml,.svg,image/png,image/webp" onChange={(event) => { setFile(event.currentTarget.files?.[0] ?? null); event.currentTarget.value = ""; }} disabled={busy} />{file && <small>{file.name}</small>}</label>
-      <button type="button" disabled={!file || !name.trim() || busy} onClick={() => void upload()}>{busy ? "Guardando…" : "Subir ícono"}</button>
+      <label>Foto o imagen<input type="file" accept="image/*,.heic,.heif,.tif,.tiff" onChange={(event) => {
+        const selected = event.currentTarget.files?.[0] ?? null;
+        setFile(selected);
+        setPrepared(null);
+        setConversionError("");
+        event.currentTarget.value = "";
+      }} disabled={busy} />{file && <small>{file.name}</small>}</label>
+      <div className="personalizer-icons__conversion-status" aria-live="polite">
+        {preparing && <span>Convirtiendo imagen…</span>}
+        {prepared && <span>Listo: {prepared.file.name} ({Math.max(1, Math.round(prepared.file.size / 1024))} KB)</span>}
+        {conversionError && <span className="is-error" role="alert">{conversionError}</span>}
+      </div>
+      <button type="button" disabled={!prepared || !name.trim() || busy || preparing} onClick={() => void upload()}>{busy ? "Guardando…" : "Publicar ícono"}</button>
     </div>
     <h3>Íconos actuales</h3>
     <div className="personalizer-icons__grid">

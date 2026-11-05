@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { auditAvailability } from "./auditLogs";
 import type { Session } from "@supabase/supabase-js";
 import { commerceSource, readCommerceOrders, readCommerceProducts, readCommerceReference } from "./commerceSource";
 import { adaptCommerce, type CommerceSnapshot, type CommercePayment, type RuralRaffleEntry, type WebCustomerProfile, type WebLead } from "./commerceAdapter";
@@ -80,13 +81,17 @@ export function useCommerce() {
     if (!session || !commerceSource) { setAccess("login"); return; }
     setAccess("loading");
     void commerceSource.from("commerce_admin_users").select("user_id,display_name,access_user_id,allowed_paths").eq("user_id", session.user.id).eq("active", true).maybeSingle()
-      .then(({ data, error }) => {
+      .then(async ({ data, error }) => {
         if (cancelled) return;
         if (data && !error) {
+          const logs = await commerceSource!.rpc("gestion_logs_context");
+          if (cancelled) return;
           setState((current) => ({
             ...current,
             user: data.display_name || current.user,
             activeUserId: data.access_user_id || current.activeUserId,
+            canViewAnalytics: ['deeec8ea-ace6-4f0a-a578-17751a83f707', '5afbc94d-aecf-44e8-b12e-e136f49abb62'].includes(data.user_id),
+            ...auditAvailability(data.user_id, logs),
             access: Array.isArray(data.allowed_paths) && data.access_user_id
               ? { ...current.access, [data.access_user_id]: data.allowed_paths }
               : current.access,
@@ -180,6 +185,8 @@ export function useCommerce() {
       ]);
       if (requestEpoch !== epoch.current) return;
       if (membership.error) throw membership.error;
+      const logs = await client.rpc("gestion_logs_context");
+      if (requestEpoch !== epoch.current) return;
       localCustomerCache.current = localCustomerResult;
       const localCustomers = localCustomerResult.rows;
       const next: CommerceSnapshot = { products, orders, payments, reference, customerProfiles, localCustomers, localSales, localReceipts, ruralRaffleEntries, wholesale, webLeads, contactOrigins: contactOrigins.error ? undefined : (contactOrigins.data || []) as { contact_key: string; origin: string }[], contactFirstSeen };
@@ -196,6 +203,8 @@ export function useCommerce() {
           : current.access,
         user: membership.data?.display_name || current.user,
         activeUserId: membership.data?.access_user_id || current.activeUserId,
+        canViewAnalytics: Boolean(membership.data) && ['deeec8ea-ace6-4f0a-a578-17751a83f707', '5afbc94d-aecf-44e8-b12e-e136f49abb62'].includes(session!.user.id),
+        ...auditAvailability(membership.data ? session!.user.id : undefined, logs),
       }));
       setSnapshot(next); setLoadedAt(new Date()); setError("");
     } catch (error) {

@@ -1,7 +1,9 @@
+import { AuditLogs } from "./AuditLogsView";
 import { CommerceSection } from "./commerce/CommerceSection";
 import { ChannelOrigin } from "./ChannelOrigin";
 import { Links } from "./Links";
 import { MarketingSection } from "./MarketingSection";
+import { AnalyticsJourneys } from "./AnalyticsJourneys";
 import { Purchases } from "./Purchases";
 import { SorteoView } from "./SorteoView";
 import { CustomerAnalyticsView } from "./CustomerInsights";
@@ -17,6 +19,7 @@ import {
   Warehouse,
   Truck,
   ChartLineUp,
+  ChartBar,
   IdentificationCard,
   GearSix,
   List,
@@ -41,12 +44,12 @@ import { People, Permissions } from "./people";
 import { CommerceLogin, useCommerce } from "./useCommerce";
 import { PersonalizerConfiguratorView } from "./commerce/PersonalizerConfiguratorView";
 import { CommerceShipping } from "./CommerceShipping";
-import { Card, Table, Badge, Modal } from "./ui";
-import { formatDate } from "./dateFormat";
+import { Card, Badge, Modal } from "./ui";
 const icons = [
   House,
   Handshake,
   Megaphone,
+  ChartBar,
   UsersThree,
   Package,
   Hammer,
@@ -57,6 +60,7 @@ const icons = [
   GearSix,
 ];
 const retiredRoutes: Record<string, string> = {
+  "/administracion/actividad": "/administracion/logs",
   "/administracion/comercio": "/comercial/pedidos",
   "/comercial/registrar": "/comercial/registrar-min",
   "/productos/precios": "/productos/catalogo?vista=lista",
@@ -90,6 +94,7 @@ function Content(
   if (["marketing/descuentos", "marketing/avisos", "productos/categorias", "productos/ajustes", "administracion/canales", "finanzas/monedas", "entregas/tarifas"].includes(key)) return <CommerceSection {...props} path={key} />;
   if (key === "marketing/sorteo") return <SorteoView />;
   if (area === "marketing") return <MarketingSection page={page} notify={props.notify} s={s} go={go} commerce={props.commerce} />;
+  if (key === "analitica/recorridos") return <AnalyticsJourneys />;
   if (key === "inventario/compras") return <Purchases notify={props.notify} />;
   if (collections[key]) return <CollectionPage {...props} path={key} />;
   if (key === "inicio/resumen") return <Overview {...props} />;
@@ -156,18 +161,7 @@ function Content(
   if (key === "administracion/usuarios") return <Permissions {...props} />;
   if (key === "administracion/origen-canal") return <ChannelOrigin />;
   if (key === "administracion/links") return <Links />;
-  if (key === "administracion/actividad")
-    return (
-      <Table
-        rows={s.activity}
-        searchText={(r) => Object.values(r).join(" ")}
-        columns={[
-          { label: "Momento", render: (r) => formatDate(String(r.fecha)) },
-          { label: "Usuario", render: (r) => String(r.usuario) },
-          { label: "Actividad", render: (r) => String(r.accion) },
-        ]}
-      />
-    );
+  if (key === "administracion/logs") return <AuditLogs pendingActivation={s.logsPendingActivation} />;
   return (
     <Card title="Dirección no encontrada">
       <button className="primary" onClick={() => go("/inicio/resumen")}>

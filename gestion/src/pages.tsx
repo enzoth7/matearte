@@ -587,7 +587,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
     reference: orderName(order), date: orderDate(order.date), channel: order.channel, shipping,
     customer: naturalCaseName(customer(s, order).name), products: orderCategoryLabels(order, s.products),
     payment: showAmounts ? paymentStatus(s, order) : undefined,
-    paymentNote: showAmounts ? `${localDeposit ? "Saldo de la seña" : "Saldo pendiente"}: ${money(balance(s, order))}` : undefined,
+    paymentNote: showAmounts ? `${order.source === "local" && order.depositAmount != null ? "Saldo de la seña" : "Saldo pendiente"}: ${money(balance(s, order))}` : undefined,
     production: workshopOrder?.production || order.production, rows: detailRows,
     delivery: {
       method: order.method === "Envío" ? "Envío" : order.method === "Retiro" ? "Retiro en el local" : "Venta en el local",
@@ -605,9 +605,11 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       {!!order.discountAmount && <div className="line-item"><div>Descuento</div><strong>{money(-order.discountAmount)}</strong></div>}
       {!!order.shippingAmount && <div className="line-item"><div>Envío</div><strong>{money(order.shippingAmount)}</strong></div>}
       {!!order.feeAmount && <div className="line-item"><div>Cargo por pago</div><strong>{money(order.feeAmount)}</strong></div>}
+      {order.source === "local" && !localDeposit && items.length > 0 && Math.abs(items.reduce((sum, item) => sum + item.amount, 0) - total(order)) > 0.01 &&
+        <div className="line-item"><div>Revisar valor de artículos</div><strong>{money(items.reduce((sum, item) => sum + item.amount, 0))} en artículos, {money(total(order))} cobrados</strong></div>}
       {localDeposit ? <>
         <div className="line-item"><div>Valor de artículos</div><strong>{money(total(order))}</strong></div>
-        {orderPayments.map((payment, index) => <div className="line-item" key={payment.id}><div>{index === 0 ? "Seña" : "Cobro"} · {payment.method} · {orderDate(payment.date)}</div><strong>{money(payment.amount || 0)}</strong></div>)}
+        {orderPayments.map((payment, index) => <div className="line-item" key={payment.id}><div>{index === 0 ? order.depositAmount != null ? "Seña" : "Cobro inicial" : "Cobro"} , {payment.method} , {orderDate(payment.date)}</div><strong>{money(payment.amount || 0)}</strong></div>)}
         <div className="line-item"><div>Saldo pendiente</div><strong>{money(balance(s, order))}</strong></div>
         <div className="line-item"><div>Cobrado hasta ahora</div><strong>{money(paid(s, order))}</strong></div>
       </> : <>

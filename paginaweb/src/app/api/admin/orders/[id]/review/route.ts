@@ -15,7 +15,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!token) return apiError("Falta la sesión.", 401);
   const { data: { user } } = await createTokenSupabase(token).auth.getUser(token);
   if (!user) return apiError("Sesión inválida.", 401);
-  const admin = createAdminSupabase();
+  const admin = createAdminSupabase(user.id);
   const membership = await admin.from("commerce_admin_users").select("user_id").eq("user_id", user.id).eq("active", true).maybeSingle();
   if (!membership.data) return apiError("No tenés acceso al panel comercial.", 403);
   try {

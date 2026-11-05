@@ -221,7 +221,7 @@ const friendlyIds: Record<string, string> = {
   'frame-28': 'Griego',
   'frame-29': 'Floral',
   'frame-30': 'Guarda pampa',
-  '1': 'Manos',
+  '1': 'Rupestre',
   '2': 'Pampa',
   '3': 'Abstracto',
   '4': 'Flores',
@@ -230,6 +230,11 @@ const friendlyIds: Record<string, string> = {
   'applique-finish-triangulos': 'Triángulos',
   'applique-finish-escamas': 'Escamas',
   'applique-finish-coronas': 'Coronas',
+  'applique-finish-laureles': 'Laureles',
+  'applique-finish-petalos': 'Pétalos',
+  'applique-finish-puntas-cinceladas': 'Puntas',
+  'applique-finish-cadenas': 'Cadenas',
+  'applique-finish-coronas-2': 'Coronas 2',
 };
 
 export function humanizeId(value: unknown, fallback = 'No especificado'): string {

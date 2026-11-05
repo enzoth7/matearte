@@ -91,8 +91,7 @@ export function personalizationAssetsPlugin(): Plugin {
         response.setHeader("Content-Type", mime[path.extname(file)] || "application/octet-stream");
         response.end(readFileSync(file));
       });
-      const directories = personalizationFolders.map((folder) => path.join(personalizationRoot, folder))
-      server.watcher.add(directories)
+      server.watcher.add(personalizationRoot)
 
       const refreshCatalog = (event: string, filePath: string) => {
         if (!['add', 'unlink'].includes(event) || !isPersonalizationImage(filePath)) return

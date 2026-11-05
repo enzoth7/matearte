@@ -148,6 +148,9 @@ export type State = {
   expenseHistorySeeded?: boolean;
   user: string;
   activeUserId?: string;
+  canViewLogs?: boolean;
+  logsPendingActivation?: boolean;
+  canViewAnalytics?: boolean;
   access?: Record<string, string[]>;
   products: Product[];
   customers: Customer[];
@@ -164,7 +167,8 @@ export type State = {
   published: Record<string, number>;
   activity: Row[];
 };
-export const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Montevideo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+export const montevideoToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Montevideo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+export const today = montevideoToday();
 export const money = (n: number) =>
   new Intl.NumberFormat("es-UY", {
     style: "currency",

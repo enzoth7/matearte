@@ -52,7 +52,7 @@ export function NewsletterForm({
         : "";
 
   return (
-    <form ref={formRef} action={formAction} onSubmit={(event) => {
+    <form ref={formRef} action={formAction} data-clarity-mask="true" onSubmit={(event) => {
       const input = event.currentTarget.elements.namedItem("utm_source");
       if (input instanceof HTMLInputElement) input.value = new URLSearchParams(window.location.search).get("utm_source") || "";
     }}>

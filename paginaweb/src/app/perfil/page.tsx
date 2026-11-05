@@ -139,7 +139,7 @@ async function AccountAccessRequired({ authError, redirect: redirectPath }: { au
   const t = await getTranslations("profile");
   const [guestTitleOne, guestTitleTwo] = t("guestTitle").split("|");
   return (
-    <main id="contenido" className="profile-guest-page">
+    <main id="contenido" data-clarity-mask="true" className="profile-guest-page">
       <div className="profile-guest-desktop">
         <section className="profile-guest-editorial" aria-labelledby="profile-guest-title">
           <div className="profile-guest-visual">
@@ -377,7 +377,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   };
 
   return (
-    <main id="contenido" className={`profile-account-page${hasNoOrders ? " profile-account-page-empty" : ""}${hasOrders ? " profile-account-page-orders" : ""}`}>
+    <main id="contenido" data-clarity-mask="true" className={`profile-account-page${hasNoOrders ? " profile-account-page-empty" : ""}${hasOrders ? " profile-account-page-orders" : ""}`}>
       {hasNoOrders && (
         <>
           <div className="profile-empty-desktop">

@@ -35,7 +35,7 @@ export default async function EditProfilePage({ searchParams }: { searchParams: 
       : "";
 
   return (
-    <main id="contenido" className="bg-[#f5f0e8] py-10 sm:py-12 lg:pb-16 lg:pt-[66px]">
+    <main id="contenido" data-clarity-mask="true" className="bg-[#f5f0e8] py-10 sm:py-12 lg:pb-16 lg:pt-[66px]">
       <div className="container-shell max-w-[1232px]">
         <ProfileEditor
           welcome={!profile?.profile_completed_at}

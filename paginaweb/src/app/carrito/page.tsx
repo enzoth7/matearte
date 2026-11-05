@@ -14,7 +14,7 @@ export default async function CarritoPage() {
   const { getExchangeRates, getWholesaleDiscountSettings } = await import("@/lib/storefront-catalog");
   const [exchangeRates, wholesaleSettings] = await Promise.all([getExchangeRates(), getWholesaleDiscountSettings()]);
   return (
-    <main id="contenido" className="cart-page pb-24 pt-8 sm:pb-32 sm:pt-12">
+    <main id="contenido" data-clarity-mask="true" className="cart-page pb-24 pt-8 sm:pb-32 sm:pt-12">
       <div className="cart-page-shell container-shell">
         <section className="cart-page-card overflow-hidden border border-black/15 bg-[var(--paper)] shadow-[var(--shadow-soft)]" aria-labelledby="cart-title">
           <div className="cart-page-rule h-1.5 bg-[var(--leather)]" aria-hidden="true" />

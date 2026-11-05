@@ -13,9 +13,9 @@ function wholesaleAsCatalog(rows: any[]) {
   }));
 }
 
-export async function mockCommerce(page: Page, options: { denied?: boolean; failure?: boolean; authenticated?: boolean; writable?: boolean; failWrite?: string; needsSetup?: boolean; accessUserId?: "t1" | "t2" | "t3"; allowedPaths?: string[] | null } = {}) {
+export async function mockCommerce(page: Page, options: { userId?: string; denied?: boolean; failure?: boolean; authenticated?: boolean; writable?: boolean; failWrite?: string; needsSetup?: boolean; accessUserId?: "t1" | "t2" | "t3"; allowedPaths?: string[] | null } = {}) {
   const fixture = commerceFixture();
-  const user = { id: "admin-test", aud: "authenticated", role: "authenticated", email: "test@example.invalid", app_metadata: {}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z" };
+  const user = { id: options.userId ?? "admin-test", aud: "authenticated", role: "authenticated", email: "test@example.invalid", app_metadata: {}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z" };
   const session = { access_token: "header.payload.signature", refresh_token: "test-only", token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user };
   await page.addInitScript(({ session, authenticated }) => {
     localStorage.setItem("matearte-gestion-demo-v1", JSON.stringify({ orders: [{ id: "MA-FAKE" }] }));
@@ -166,11 +166,8 @@ export async function mockCommerce(page: Page, options: { denied?: boolean; fail
             unit_price_minor: line.unit_price_minor, line_total_minor: line.quantity * line.unit_price_minor });
         }
         sale.local_sale_items = items;
-        sale.sold_on = body.p_sold_on;
-        sale.payment_method = body.p_payment_method;
-        sale.deposit_minor = body.p_deposit_minor;
         const itemsTotal = items.reduce((sum: number, item: any) => sum + item.line_total_minor, 0);
-        sale.total_minor = body.p_deposit_minor ?? itemsTotal;
+        if (body.p_sold_on !== sale.sold_on || body.p_payment_method !== sale.payment_method || body.p_deposit_minor !== (sale.deposit_minor ?? null)) return respond({ message: 'El cobro inicial no se puede modificar' }, 400);
         return respond({ id: sale.id, items_total_minor: itemsTotal, charged_total_minor: sale.total_minor });
       }
       if (table === 'create_local_sale_with_items' || table === 'create_channel_sale_with_items' || table === 'gestion_create_local_sale_with_items') {

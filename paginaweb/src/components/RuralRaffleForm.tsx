@@ -77,7 +77,7 @@ export function RuralRaffleForm({ countries, initialCities }: { countries: { cod
         : "";
 
   return (
-    <form ref={formRef} action={formAction} className={styles.form} noValidate>
+    <form ref={formRef} action={formAction} className={styles.form} data-clarity-mask="true" noValidate>
       <div className={styles.field}>
         <label htmlFor="rural-full-name">Nombre y apellido</label>
         <input id="rural-full-name" name="fullName" type="text" autoComplete="name" maxLength={120} placeholder="Tu nombre y apellido" required />
