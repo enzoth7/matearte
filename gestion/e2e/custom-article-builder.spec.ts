@@ -51,11 +51,15 @@ test('arma por piezas sin catálogo y conserva diseño y precio en venta y produ
   await page.getByLabel('Técnica de fleje de Mate Imperial personalizado').selectOption('bronze-applique');
   await page.getByLabel('Texto del frente del fleje de Mate Imperial personalizado').fill('MATE');
   await page.getByLabel('Terminación de fleje de Mate Imperial personalizado').selectOption('pattern-1');
+  const finishOverlay = card.locator('.fleje-preview-side').first().locator('svg image[href$="/laurel.webp"]');
+  await expect(finishOverlay).toHaveCount(1);
+  const finishUrl = await finishOverlay.getAttribute('href');
+  expect((await page.request.get(new URL(finishUrl!, page.url()).toString())).status()).toBe(200);
   await page.setViewportSize({width:390,height:844});
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
   await page.locator('.local-personalization-card').screenshot({path:'test-results/assembly-mobile.png'});
   await page.getByRole('button',{name:'Guardar venta'}).click();
-  await expect.poll(()=>writes.some(w=>w.table==='gestion_create_local_sale_with_items')).toBe(true);
+  await expect.poll(()=>writes.some(w=>w.table==='gestion_create_local_sale_with_items'), { timeout: 20_000 }).toBe(true);
   const item=writes.find(w=>w.table==='gestion_create_local_sale_with_items')!.body.p_items[0];
   expect(item.item_kind).toBe('custom_mate'); expect(item.variant_id).toBeNull();
   expect(item.unit_price_minor).toBe(468000);

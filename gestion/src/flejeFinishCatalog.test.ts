@@ -1,0 +1,21 @@
+import { statSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { getFlejeFinish } from "../../personalizador/src/catalog/flejeFinishCatalog";
+
+describe("terminaciones del fleje en Gestión", () => {
+  it.each([
+    ["pattern-1", "Laurel"],
+    ["frame-25", "Azteca"],
+    ["frame-26", "Sol"],
+    ["frame-27", "Abstracta"],
+    ["frame-28", "Griego"],
+    ["frame-29", "Floral"],
+    ["frame-30", "Guarda Pampa"],
+  ])("encuentra la imagen de %s (%s)", (id, name) => {
+    const finish = getFlejeFinish(id);
+    expect(finish?.name).toBe(name);
+    expect(finish?.src).toMatch(/^\/assets\/personalizacion\/fleje\/.*\.webp$/);
+    expect(statSync(join(process.cwd(), "..", "personalizador", "public", finish!.src.slice(1))).size).toBeGreaterThan(1000);
+  });
+});
