@@ -90,6 +90,19 @@ test('arma por piezas sin catálogo y conserva diseño y precio en venta y produ
   await page.locator('.recovered-production-views').screenshot({path:'test-results/production-layout.png'});
 });
 
+test('ofrece Pétalos en la virola de una venta minorista personalizada', async ({ page }) => {
+  await mockCommerce(page, { writable: true });
+  const builder = await assemble(page);
+  await builder.getByRole('button', { name: /Agregar personalizado/ }).click();
+  const card = page.locator('.local-personalization-card').first();
+  await card.getByRole('navigation', { name: /Pasos del diseño/ }).getByRole('button', { name: /Virola/ }).click();
+  await page.getByLabel('Terminación de virola de Mate Imperial personalizado').selectOption('petalos');
+  const finishImage = card.getByLabel('Vista editable de la virola imperial').locator('svg image[href$="/petalos.webp"]');
+  await expect(finishImage).toHaveCount(1);
+  const finishUrl = await finishImage.getAttribute('href');
+  expect((await page.request.get(new URL(finishUrl!, page.url()).toString())).status()).toBe(200);
+});
+
 test('cambiar piezas conserva elecciones y sin virola permite guardar sin grabado',async({page})=>{
   const {writes}=await mockCommerce(page,{writable:true});
   const builder=await assemble(page,{'tipo-cuero':'pelos'});

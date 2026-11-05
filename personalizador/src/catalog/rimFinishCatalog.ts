@@ -19,9 +19,17 @@ const previousRimIds: Record<string, string> = {
   hojas: "frame-25",
 };
 
+const rimFinishNames: Record<string, string> = {
+  laureles: "Laureles",
+  sol: "Sol",
+  azteca: "Azteca",
+  hojas: "Hojas",
+  petalos: "Pétalos",
+};
+
 export const rimFinishCatalog: RimFinish[] = personalizationAssets.virola.map((asset) => ({
   id: previousRimIds[asset.id] ?? asset.id,
-  name: asset.name,
+  name: rimFinishNames[asset.id] ?? asset.name,
   image: asset.src,
   width: 1093,
   height: 1093,

@@ -1041,7 +1041,21 @@ td small { display: block; }
 .personalizer-icons__hidden summary { width: fit-content; margin-bottom: 15px; color: #754b32; font-weight: 700; cursor: pointer; }
 .personalizer-icons__message { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 8px; background: #edf5eb; }
 .personalizer-icons__message.is-error { background: #fff0eb; color: #8b361e; }
+.personalizer-finishes { max-width: 1440px; padding: 28px; border: 1px solid #e9e2d8; border-radius: 16px; background: #fff; color: #30251e; }
+.personalizer-finishes__group + .personalizer-finishes__group { margin-top: 30px; }
+.personalizer-finishes__group-heading { display: flex; justify-content: space-between; align-items: start; gap: 16px; margin-bottom: 14px; }
+.personalizer-finishes__group-heading h3 { margin: 0 0 4px; font-size: 19px; }
+.personalizer-finishes__group-heading p { margin: 0; color: #695e55; }
+.personalizer-finishes__group-heading > span { padding: 5px 10px; border-radius: 20px; background: #f4efe8; font-weight: 700; }
+.personalizer-finishes__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }
+.personalizer-finishes__card { display: grid; gap: 10px; min-width: 0; padding: 12px; border: 1px solid #e8dfd3; border-radius: 12px; background: #fff; }
+.personalizer-finishes__card strong { overflow-wrap: anywhere; }
+.personalizer-finishes__image { display: grid; place-items: center; height: 148px; overflow: hidden; border-radius: 8px; background: #f6f2ec; }
+.personalizer-finishes__image img { width: calc(100% - 14px); height: 134px; object-fit: contain; }
+.personalizer-finishes__image.is-band img { width: calc(100% - 8px); height: 100%; }
+.personalizer-finishes__image span { padding: 12px; color: #8b361e; font-size: 12px; text-align: center; }
 @media (max-width: 700px) { .personalizer-icons { padding: 16px; } .personalizer-icons__header { flex-direction: column; } .personalizer-icons__upload label, .personalizer-icons__upload button { width: 100%; } }
+@media (max-width: 700px) { .personalizer-finishes { padding: 16px; } .personalizer-finishes__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .personalizer-finishes__image { height: 118px; } .personalizer-finishes__image img { height: 106px; } }
 .personalizer-configurator button:focus-visible, .personalizer-configurator input:focus-visible, .personalizer-configurator select:focus-visible, .personalizer-configurator textarea:focus-visible { outline: 3px solid #ac7959; outline-offset: 2px; }
 .personalizer-catalog__selectors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
 .personalizer-catalog__selectors label, .personalizer-catalog__field { display: grid; gap: 7px; color: #42342a; font-size: 12px; font-weight: 700; }

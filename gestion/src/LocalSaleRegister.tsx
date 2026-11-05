@@ -36,6 +36,8 @@ import { formatPercent, parseDiscountPercent } from "./wholesaleDiscount";
 import { useOrderDraft } from "./orderDraft";
 import { OrderDraftList } from "./OrderDraftList";
 import { catalogValueLabel, defaultCatalogTaxonomy, normalizeCatalogValueMap } from "../../shared/catalog-taxonomy";
+import { appliqueRimFinishCatalog, rimFinishCatalog } from "../../personalizador/src/catalog/rimFinishCatalog";
+import { flejeFinishCatalog } from "../../personalizador/src/catalog/flejeFinishCatalog";
 
 type SaleLine = { id: string; product: Product; quantity: number; unitPriceMinor: number; priceEntered?: boolean; priceOverridden?: boolean; personalization?: LocalPersonalizationDraft; notes?: string };
 type LocalSaleDraft = { lines: SaleLine[]; articleTab: "articles" | "custom"; customerId: string; customerSearch: string; newCustomer: boolean; name: string; email: string; phone: string; birthDate: string; date: string; payment: string; hasDeposit: boolean; deposit: string; discountOn: boolean; discountText: string; channel: "Local" | "Feria" | "Instagram" | "Facebook" | "WhatsApp"; city: string; country: string; department: string };
@@ -72,8 +74,8 @@ const techniqueOptions = [
   ["alpaca-applique", "Aplique de alpaca"],
 ] as const;
 const contentOptions = [["text", "Texto"], ["logo", "Logo o imagen"], ["text-logo", "Texto y logo"]] as const;
-const rimFinishOptions = [["none", "Lisa, sin terminación"], ["finish-1", "Laureles"], ["frame-1", "Sol"], ["frame-5", "Azteca"], ["frame-25", "Hojas"], ["applique-finish-espirales", "Espirales"], ["applique-finish-triangulos", "Triángulos"], ["applique-finish-escamas", "Escamas"], ["applique-finish-coronas", "Coronas"]] as const;
-const flejeFinishOptions = [["none", "Liso, sin terminación"], ["pattern-1", "Laurel"], ["frame-25", "Azteca"], ["frame-26", "Sol"], ["frame-27", "Abstracta"], ["frame-28", "Griego"], ["frame-29", "Floral"], ["frame-30", "Guarda pampa"]] as const;
+const rimFinishOptions = [["none", "Lisa, sin terminación"], ...[...rimFinishCatalog, ...appliqueRimFinishCatalog].map((finish) => [finish.id, finish.name] as const)] as const;
+const flejeFinishOptions = [["none", "Liso, sin terminación"], ...flejeFinishCatalog.map((finish) => [finish.id, finish.name] as const)] as const;
 const uploadTypes = new Set(["image/png", "image/jpeg", "image/svg+xml", "application/pdf"]);
 
 const mateFacet = (product: Product, code: "tipo-cuero" | "tipo-virola" | "color") => {

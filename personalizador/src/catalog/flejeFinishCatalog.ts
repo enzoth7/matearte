@@ -17,6 +17,11 @@ const namedFinishes = [
   { assetId: "griego", id: "frame-28", name: "Griego" },
   { assetId: "floral", id: "frame-29", name: "Floral" },
   { assetId: "guarda-pampa", id: "frame-30", name: "Guarda Pampa" },
+  { assetId: "1", id: "1", name: "Manos" },
+  { assetId: "2", id: "2", name: "Pampa" },
+  { assetId: "3", id: "3", name: "Abstracto" },
+  { assetId: "4", id: "4", name: "Flores" },
+  { assetId: "5", id: "5", name: "Griego" },
 ];
 
 export const flejeFinishCatalog: FlejeFinish[] = personalizationAssets.fleje.map((asset) => {

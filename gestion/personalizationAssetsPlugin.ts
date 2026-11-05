@@ -82,7 +82,7 @@ export function personalizationAssetsPlugin(): Plugin {
       for (const [fileName, fullPath] of assetFiles()) this.emitFile({ type: "asset", fileName, source: readFileSync(fullPath) });
     },
     configureServer(server) {
-      const files = new Map(assetFiles());
+      let files = new Map(assetFiles());
       server.middlewares.use((request, response, next) => {
         const name = decodeURIComponent((request.url || "").split("?")[0]).replace(/^\//, "");
         const file = files.get(name);
@@ -96,6 +96,7 @@ export function personalizationAssetsPlugin(): Plugin {
 
       const refreshCatalog = (event: string, filePath: string) => {
         if (!['add', 'unlink'].includes(event) || !isPersonalizationImage(filePath)) return
+        files = new Map(assetFiles())
         const virtualModule = server.moduleGraph.getModuleById(resolvedVirtualAssetsId)
         if (virtualModule) server.moduleGraph.invalidateModule(virtualModule)
         server.ws.send({ type: 'full-reload', path: '*' })

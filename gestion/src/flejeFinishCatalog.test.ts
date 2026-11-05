@@ -12,6 +12,11 @@ describe("terminaciones del fleje en Gestión", () => {
     ["frame-28", "Griego"],
     ["frame-29", "Floral"],
     ["frame-30", "Guarda Pampa"],
+    ["1", "Manos"],
+    ["2", "Pampa"],
+    ["3", "Abstracto"],
+    ["4", "Flores"],
+    ["5", "Griego"],
   ])("encuentra la imagen de %s (%s)", (id, name) => {
     const finish = getFlejeFinish(id);
     expect(finish?.name).toBe(name);

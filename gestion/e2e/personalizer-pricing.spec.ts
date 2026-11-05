@@ -151,7 +151,7 @@ test('permite editar y publicar opciones del catálogo sin alterar los IDs', asy
   });
   await page.goto('/productos/personalizador');
   const configuratorTabs = page.getByRole('navigation', { name: 'Configuración del Personalizador' });
-  await expect(configuratorTabs.getByRole('button')).toHaveCount(4);
+  await expect(configuratorTabs.getByRole('button')).toHaveCount(5);
   await configuratorTabs.getByRole('button', { name: 'Modelos, colores y metales' }).click();
   await expect(page.getByRole('tablist', { name: 'Secciones del catálogo' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Opciones del Personalizador' })).toHaveCount(0);

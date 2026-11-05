@@ -11,6 +11,7 @@ describe("catálogo de terminaciones para la virola", () => {
   it("mantiene las terminaciones generales para grabado láser", () => {
     expect(getRimFinishCatalogForEngravingType("laser")).toBe(rimFinishCatalog);
     expect(usesAppliqueRimFinishes("laser")).toBe(false);
+    expect(getRimFinish("petalos")).toMatchObject({ id: "petalos", name: "Pétalos", image: "/assets/personalizacion/virola/petalos.webp" });
   });
 
   it.each(["bronze-applique", "alpaca-applique"] as const)(
