@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { calculateRimCharacterLayout, createArcPath, getRimGeometryProfile } from "./rimGeometry";
 import { getDefaultColor, getDefaultVariant, getVariantsByModel } from "./mateCatalog";
-import { createDefaultRimSelection, MAX_RIM_ICONS, MAX_RIM_TEXT_LENGTH, normalizeRimIcons, normalizeRimSelection, sanitizeRimText } from "./rimCatalog";
+import { createDefaultRimSelection, invertRimText, MAX_RIM_ICONS, MAX_RIM_TEXT_LENGTH, normalizeRimIcons, normalizeRimSelection, sanitizeRimText } from "./rimCatalog";
 import {
   calculateOrderPricing,
   countChargeableCharacters,
@@ -59,6 +59,17 @@ describe("catálogo enriquecido", () => {
 });
 
 describe("compatibilidad de personalizaciones", () => {
+  it("invierte solo el texto elegido en la virola", () => {
+    const texts = createDefaultRimSelection(getDefaultVariant("imperial")).texts.map((item, index) => ({
+      ...item,
+      text: index === 0 ? "LUCA" : "FRIDA",
+    }));
+    const inverted = invertRimText(texts, "text-2");
+    expect(inverted.map((item) => item.inverted)).toEqual([false, false]);
+    expect(invertRimText(inverted, "text-1").map((item) => item.inverted)).toEqual([true, false]);
+    expect(texts.map((item) => item.inverted)).toEqual([false, true]);
+  });
+
   it("usa la misma geometría de virola en todos los modelos", () => {
     const imperialProfile = getRimGeometryProfile("imperial");
 

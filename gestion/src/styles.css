@@ -3901,6 +3901,7 @@ dialog.customer-detail-modal { width: min(1320px, calc(100% - 32px)); padding: 3
 .local-custom-builder-summary button { flex-shrink: 0; }
 .local-design-editor { display: grid; gap: 14px; min-width: 0; padding: 20px; background: white; border: 1px solid var(--line); border-radius: 14px; }
 .local-design-editor p { color: var(--muted); font-size: 13px; margin: 0; }
+.local-design-editor-guide { color: var(--muted); font-size: 13px; }
 .local-design-preview { width: 100%; max-width: 540px; margin: auto; }
 .local-design-preview > div[aria-label^="Vista editable"] { width: 100%; aspect-ratio: 1; position: relative; overflow: hidden; }
 .local-design-preview svg { display: block; width: 100%; height: 100%; touch-action: none; user-select: none; }

@@ -97,6 +97,10 @@ export function createDefaultRimTextElements(): RimTextElement[] {
   ];
 }
 
+export function invertRimText(texts: RimTextElement[], selectedId: string): RimTextElement[] {
+  return texts.map((item) => item.id === selectedId ? { ...item, inverted: !item.inverted } : item);
+}
+
 export const rimCatalog: RimOption[] = [
   { id: "original", name: "Original del producto", shortName: "Original", material: "original" },
   { id: "acero", name: "Virola de acero", shortName: "Acero", material: "acero" },

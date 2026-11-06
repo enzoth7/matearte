@@ -9,7 +9,7 @@ vi.mock("@/lib/commerce-email", () => ({ dispatchCommerceEmails }));
 vi.mock("@/lib/supabase/config", () => ({ isAllowedCommerceAdminOrigin: () => true }));
 vi.mock("@/lib/supabase/server", () => ({
   createAdminSupabase,
-  createTokenSupabase: () => ({ auth: { getUser: async () => ({ data: { user: { id: "admin" } } }) } }),
+  getFirstPartyTokenUser: async () => ({ id: "admin" }),
 }));
 
 import { PATCH } from "./route";

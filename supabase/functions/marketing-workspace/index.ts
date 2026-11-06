@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.112.4";
+import { hasOAuthClient } from "../../../shared/supabase-oauth-session.ts";
+import { loadMcpBridgeKey, mcpMarketingReads, mcpProofHeader, oauthIdentity, verifyMcpRequest } from "../_shared/gestionMcpBridge.ts";
 import { marketingCampaignHtml } from "../../../shared/marketingCampaignHtml.ts";
 import { applySegmentFilters, normalizeSegmentFilters, splitIntoBatches, type SegmentContact, type SegmentFilters, type SegmentQuery } from "../../../shared/marketingSegments.ts";
 
@@ -83,16 +85,32 @@ Deno.serve(async (request) => {
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   if (!url || !key) return response({ error: "Servicio no configurado." }, 503, origin);
   let admin = createClient(url, key, { auth: { persistSession: false } });
-  const { data: { user }, error: authError } = await admin.auth.getUser(token);
-  if (authError || !user) return response({ error: "Sesión inválida." }, 401, origin);
-  const { data: membership } = await admin.from("commerce_admin_users").select("active,access_user_id,allowed_paths").eq("user_id", user.id).maybeSingle();
-  if (!membership?.active) return response({ error: "Sin acceso." }, 403, origin);
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return response({ error: "Solicitud inválida." }, 400, origin); }
   const action = clean(body.action, 30);
+  let actorId: string;
+  if (hasOAuthClient(token)) {
+    const proof = request.headers.get(mcpProofHeader);
+    if (!proof || !mcpMarketingReads.some((read) => read === action)) {
+      return response({ error: "Usá las herramientas del MCP con esta credencial." }, 403, origin);
+    }
+    const { data } = await admin.auth.getClaims(token);
+    const identity = oauthIdentity(data?.claims);
+    const bridgeKey = identity ? await loadMcpBridgeKey(admin) : null;
+    if (!identity || !bridgeKey || !await verifyMcpRequest(bridgeKey, identity, `marketing:${action}`, proof)) {
+      return response({ error: "La solicitud del MCP no está autorizada." }, 403, origin);
+    }
+    actorId = identity.sub;
+  } else {
+    const { data: { user }, error: authError } = await admin.auth.getUser(token);
+    if (authError || !user) return response({ error: "Sesión inválida." }, 401, origin);
+    actorId = user.id;
+  }
+  const { data: membership } = await admin.from("commerce_admin_users").select("active,access_user_id,allowed_paths").eq("user_id", actorId).maybeSingle();
+  if (!membership?.active) return response({ error: "Sin acceso." }, 403, origin);
   // Actor comes exclusively from the verified bearer, never from request fields.
   const systemAdmin = admin;
-  admin = createClient(url, key, { auth: { persistSession: false }, global: { headers: { "x-gestion-actor-id": user.id, "x-gestion-operation-id": crypto.randomUUID() } } });
+  admin = createClient(url, key, { auth: { persistSession: false }, global: { headers: { "x-gestion-actor-id": actorId, "x-gestion-operation-id": crypto.randomUUID() } } });
   const route = action === "contacts" || action === "registrationTrend" ? "/marketing/contactos" : action === "analytics" ? "/marketing/analytics" : action === "metrics" ? "/marketing/metricas" : action === "settings" || action === "saveSettings" ? "/marketing/suscripcion" : action === "emailTemplates" || action === "emailTemplate" ? "/marketing/email-templates" : action === "segmentPreview" || action === "saveSegment" || action === "deleteSegment" ? "/marketing/segmentos" : "/marketing/campanas";
   if (membership.access_user_id !== "t1" && !membership.allowed_paths?.includes(route)) return response({ error: "No tenés acceso a esta pestaña." }, 403, origin);
 
@@ -302,7 +320,7 @@ Deno.serve(async (request) => {
     const row = { name, filters: normalizeSegmentFilters(body.filters), updated_at: new Date().toISOString() };
     const result = id
       ? await admin.from("marketing_segments").update(row).eq("id", id).select("id").maybeSingle()
-      : await admin.from("marketing_segments").insert({ ...row, created_by: user.id }).select("id").single();
+      : await admin.from("marketing_segments").insert({ ...row, created_by: actorId }).select("id").single();
     if (result.error) return response({ error: result.error.code === "23505" ? "Ya hay un segmento con ese nombre." : "No se pudo guardar el segmento." }, result.error.code === "23505" ? 409 : 400, origin);
     return result.data ? response({ id: result.data.id }, 200, origin) : response({ error: "El segmento ya no existe." }, 404, origin);
   }
@@ -401,7 +419,7 @@ Deno.serve(async (request) => {
     const group = { batch_group_id: groupId, batch_total: batches.length, segment_name: segmentName, audience_mode: "selected", utm_campaign: utmCampaign };
     const content = { subject: campaign.subject, headline: campaign.headline, body: campaign.body, button_label: campaign.button_label, image_url: campaign.image_url, target_url: campaign.target_url, mode: campaign.mode, discount_code: campaign.discount_code };
     if (batches.length > 1) {
-      const inserted = await admin.from("marketing_campaigns").insert(batches.slice(1).map((batch, index) => ({ ...content, ...group, batch_number: index + 2, selected_emails: batch, created_by: user.id })));
+      const inserted = await admin.from("marketing_campaigns").insert(batches.slice(1).map((batch, index) => ({ ...content, ...group, batch_number: index + 2, selected_emails: batch, created_by: actorId })));
       if (inserted.error) return response({ error: "No se pudieron crear las tandas." }, 500, origin);
     }
     const first = await admin.from("marketing_campaigns").update({ ...group, batch_number: 1, selected_emails: batches[0], recipient_count: null })
@@ -455,7 +473,7 @@ Deno.serve(async (request) => {
       const draft = drafts[index];
       const saved = draft
         ? await admin.from("marketing_campaigns").update(row).eq("id", draft.id).eq("status", "draft")
-        : await admin.from("marketing_campaigns").insert({ ...row, subject: campaign.subject, headline: campaign.headline, body: campaign.body, button_label: campaign.button_label, image_url: campaign.image_url, target_url: campaign.target_url, mode: campaign.mode, discount_code: campaign.discount_code, utm_campaign: campaign.utm_campaign, segment_name: campaign.segment_name, audience_mode: "selected", batch_group_id: campaign.batch_group_id, created_by: user.id });
+        : await admin.from("marketing_campaigns").insert({ ...row, subject: campaign.subject, headline: campaign.headline, body: campaign.body, button_label: campaign.button_label, image_url: campaign.image_url, target_url: campaign.target_url, mode: campaign.mode, discount_code: campaign.discount_code, utm_campaign: campaign.utm_campaign, segment_name: campaign.segment_name, audience_mode: "selected", batch_group_id: campaign.batch_group_id, created_by: actorId });
       if (saved.error) return response({ error: "No se pudieron reorganizar las tandas. Volvé a intentar." }, 500, origin);
     }
     const surplus = drafts.slice(count).map((draft) => draft.id);
@@ -649,7 +667,7 @@ Deno.serve(async (request) => {
     }
     const result = id
       ? await admin.from("marketing_campaigns").update({ subject, headline: mode === "image" ? null : headline, body: mode === "image" ? "" : message, button_label: mode === "image" ? null : buttonLabel, image_url: imageUrl, target_url: targetUrl, mode, audience_mode: audienceMode, selected_emails: selectedEmails, recipient_count: null, resend_segment_id: null, discount_code: discountCode || null, utm_campaign: utmCampaign }).eq("id", id).eq("status", "draft").select("id").maybeSingle()
-      : await admin.from("marketing_campaigns").insert({ subject, headline: mode === "image" ? null : headline, body: mode === "image" ? "" : message, button_label: mode === "image" ? null : buttonLabel, image_url: imageUrl, target_url: targetUrl, mode, audience_mode: audienceMode, selected_emails: selectedEmails, discount_code: discountCode || null, utm_campaign: utmCampaign, created_by: user.id }).select("id").single();
+      : await admin.from("marketing_campaigns").insert({ subject, headline: mode === "image" ? null : headline, body: mode === "image" ? "" : message, button_label: mode === "image" ? null : buttonLabel, image_url: imageUrl, target_url: targetUrl, mode, audience_mode: audienceMode, selected_emails: selectedEmails, discount_code: discountCode || null, utm_campaign: utmCampaign, created_by: actorId }).select("id").single();
     if (result.error || !result.data) return response({ error: "No se pudo guardar el borrador." }, 400, origin);
     if (inBatch && existing?.batch_group_id) {
       const shared = await admin.from("marketing_campaigns").update({ subject, headline: mode === "image" ? null : headline, body: mode === "image" ? "" : message, button_label: mode === "image" ? null : buttonLabel, image_url: imageUrl, target_url: targetUrl, mode, discount_code: discountCode || null })

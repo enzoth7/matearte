@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.112.4";
+import { hasOAuthClient } from "../../../shared/supabase-oauth-session.ts";
 
 const origins = new Set(['https://matearte-gestion.vercel.app', 'http://localhost:5180', 'http://127.0.0.1:5180', 'http://localhost:5181', 'http://127.0.0.1:5181']);
 const readers = new Set(['deeec8ea-ace6-4f0a-a578-17751a83f707', '5afbc94d-aecf-44e8-b12e-e136f49abb62']);
@@ -43,6 +44,7 @@ Deno.serve(async (request) => {
   const url = Deno.env.get('SUPABASE_URL') || '';
   const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
   if (!token || !url || !key) return reply({ error: 'Sesión o servicio no configurado.' }, 401, origin);
+  if (hasOAuthClient(token)) return reply({ error: 'Usá el panel de Gestión para acceder a Analítica.' }, 403, origin);
   const admin = createClient(url, key, { auth: { persistSession: false } });
   const { data: { user }, error: authError } = await admin.auth.getUser(token);
   if (authError || !user) return reply({ error: 'Sesión inválida.' }, 401, origin);

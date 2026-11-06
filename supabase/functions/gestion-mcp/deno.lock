@@ -5,6 +5,7 @@
     "npm:@modelcontextprotocol/server@2.3.1": "2.3.1",
     "npm:@supabase/middleware@1.0.0": "1.0.0",
     "npm:@supabase/server@1.9.2": "1.9.2_@supabase+supabase-js@2.117.1",
+    "npm:@supabase/supabase-js@2.117.1": "2.117.1",
     "npm:openai@^4.52.5": "4.104.0_zod@4.6.7",
     "npm:zod@4.6.7": "4.6.7"
   },

@@ -79,7 +79,7 @@ export function LocalMateDesignPreview({ product, draft, surface, update }: { pr
   const backIcons: IconElement[] = content === "text" || !enabled ? [] : [...selectedIcons.filter(item => item.side === "back").map(item => previewIcon(item, "back")), ...uploadFor("back")];
   const model = customModelLabel(product).toLowerCase().match(/imperial|camionero|criollo|torpedo/)?.[0] as MateModel || "camionero";
   return <section className="local-design-editor" aria-label="Diseño visual del personalizado">
-    <p>{surface === "fleje" ? "Elegí Frente o Dorso para agregar íconos en ese lado. Arrastrá el texto o los íconos para ubicarlos; al cambiar de lado se conserva el diseño anterior." : "Arrastrá el texto o la imagen para ubicarlos. Seleccioná las letras y tocá Invertir dentro de la virola para pasarlas arriba o abajo. Si hay dos textos, quedan en lados opuestos."}</p>
+    <div className="local-design-editor-guide">{surface === "fleje" ? "Elegí Frente o Dorso para agregar íconos en ese lado. Arrastrá el texto o los íconos para ubicarlos; al cambiar de lado se conserva el diseño anterior." : "Arrastrá el texto o la imagen para ubicarlos. Seleccioná un texto y tocá Invertir dentro de la virola para mover solo ese texto arriba o abajo."}</div>
     <div className="local-design-preview">
       {surface === "rim" ? <ConfiguratorPreview model={model} editable selectedElement={selected} onSelectElement={setSelected} onTransformChange={(id, value) => move(id === "text-1" ? "rim-text" : id === "text-2" ? "rim-text-2" : id, value)} onToggleInvert={id => update(invertLocalRimText(draft, id))} rim={{
         rimId: product.rim, finishMode: enabled && draft.rimFinish !== "none" ? "finish" : "none", finishId: draft.rimFinish,

@@ -116,13 +116,10 @@ export function localDesignTransform(draft: LocalPersonalizationDraft, key: stri
   return draft.designTransforms?.[key] || { ...position, scale: 1, rotation: 0, side };
 }
 
-export function invertLocalRimText(draft: LocalPersonalizationDraft, id: string): Pick<LocalPersonalizationDraft, "rimTextInverted" | "rimText2Inverted"> {
-  if (id === "text-2") {
-    const rimText2Inverted = !draft.rimText2Inverted;
-    return { rimText2Inverted, rimTextInverted: draft.rimText.trim() && draft.rimTextInverted === rimText2Inverted ? !rimText2Inverted : draft.rimTextInverted };
-  }
-  const rimTextInverted = !draft.rimTextInverted;
-  return { rimTextInverted, rimText2Inverted: draft.rimText2.trim() && draft.rimText2Inverted === rimTextInverted ? !rimTextInverted : draft.rimText2Inverted };
+export function invertLocalRimText(draft: LocalPersonalizationDraft, id: string): Partial<Pick<LocalPersonalizationDraft, "rimTextInverted" | "rimText2Inverted">> {
+  if (id === "text-2") return { rimText2Inverted: !draft.rimText2Inverted };
+  if (id === "text-1") return { rimTextInverted: !draft.rimTextInverted };
+  return {};
 }
 
 export function personalizationKind(product: Product): PersonalizationKind | null {

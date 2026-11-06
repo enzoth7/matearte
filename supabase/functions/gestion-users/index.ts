@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.112.4";
+import { hasOAuthClient } from "../../../shared/supabase-oauth-session.ts";
 
 const allowedOrigins = new Set([
   "https://matearte-gestion.vercel.app",
@@ -41,6 +42,7 @@ Deno.serve(async (request) => {
   // Initial provisioning is permanently closed. Recovery requires a trusted operator.
   if (body.action === "status") return json({ needsSetup: false }, 200, origin);
   if (body.action === "bootstrap") return json({ error: "El acceso inicial está cerrado." }, 410, origin);
+  if (hasOAuthClient(bearer)) return json({ error: "Usá el panel de Gestión para administrar usuarios." }, 403, origin);
 
   const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: `Bearer ${bearer}` } }, auth: { persistSession: false } });
   const { data: { user } } = await userClient.auth.getUser(bearer);

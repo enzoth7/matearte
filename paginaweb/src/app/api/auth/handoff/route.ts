@@ -1,6 +1,6 @@
 import { apiError, apiOk, readJson } from "@/lib/api";
 import { isAllowedPersonalizerOrigin, siteUrl, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
-import { createTokenSupabase } from "@/lib/supabase/server";
+import { getFirstPartyTokenUser } from "@/lib/supabase/server";
 
 const allowedTargets = new Set(["/", "/carrito", "/checkout", "/pedidos", "/perfil"]);
 const allowedActions = new Set(["continue", "open_cart", "add_design", "checkout"]);
@@ -31,9 +31,7 @@ export async function POST(request: Request) {
   const accessToken = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!accessToken) return withCors(apiError("Falta la sesión.", 401), origin);
 
-  const tokenClient = createTokenSupabase(accessToken);
-  const { data: { user }, error: userError } = await tokenClient.auth.getUser(accessToken);
-  if (userError || !user) return withCors(apiError("La sesión no es válida.", 401), origin);
+  if (!await getFirstPartyTokenUser(accessToken)) return withCors(apiError("La sesión no es válida.", 401), origin);
 
   try {
     const body = await readJson(request);

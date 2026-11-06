@@ -5,10 +5,13 @@ import { seedFixture as seed } from "./testing/fixture";
 describe("visibilidad de los tres perfiles", () => {
   it("reserva Analítica a las dos cuentas autorizadas incluso si otro perfil intenta habilitarla", () => {
     const owner = { ...seed(), canViewAnalytics: true };
-    expect(canAccess(owner, '/analitica/recorridos')).toBe(true);
-    expect(canAccess({ ...owner, canViewAnalytics: false }, '/analitica/recorridos')).toBe(false);
     const other = { ...owner, activeUserId: 't5', canViewAnalytics: false };
-    expect(canAccess(setPageAccess(other, 't5', '/analitica/recorridos', true), '/analitica/recorridos')).toBe(false);
+    for (const page of ['recorridos', 'google-analytics', 'clarity', 'vercel', 'cambios']) {
+      const path = '/analitica/' + page;
+      expect(canAccess(owner, path)).toBe(true);
+      expect(canAccess({ ...owner, canViewAnalytics: false }, path)).toBe(false);
+      expect(canAccess(setPageAccess(other, 't5', path, true), path)).toBe(false);
+    }
   });
   it("mantiene Marketing como acceso inicial de Betiana y permite configurarle otras secciones", () => {
     const s = { ...seed(), activeUserId: "t5", user: "Betiana" };

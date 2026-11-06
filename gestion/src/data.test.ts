@@ -45,7 +45,7 @@ describe("estado sin registros ficticios", () => {
   });
   it("mantiene las rutas vigentes sin las páginas duplicadas", () => {
     expect(new Set(paths).size).toBe(paths.length);
-    expect(paths).toContain('/analitica/recorridos');
+    for (const page of ['recorridos', 'google-analytics', 'clarity', 'vercel', 'cambios']) expect(paths).toContain('/analitica/' + page);
     expect(resolvePath("/marketing/segmentos")?.page[1]).toBe("Segmentos");
     expect(resolvePath("/clientes/analitica")?.page[1]).toBe("Análisis de clientes");
     expect(resolvePath("/marketing/pauta")?.page[1]).toBe("Informes de pauta");

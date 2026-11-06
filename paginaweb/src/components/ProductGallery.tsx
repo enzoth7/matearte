@@ -44,7 +44,7 @@ export function ProductGallery({ images }: { images: MediaAsset[] }) {
         tabIndex={0}
       >
         {images.map((image) => (
-          <div key={image.src} className="relative aspect-[4/5] w-full shrink-0 snap-start">
+          <div key={image.src} className="relative aspect-[4/5] w-full shrink-0 snap-start" data-clarity-unmask="true">
             <Image
               src={image.src}
               alt={image.alt}
@@ -63,6 +63,7 @@ export function ProductGallery({ images }: { images: MediaAsset[] }) {
             <button
               key={image.src}
               type="button"
+              data-clarity-unmask="true"
               className={`relative size-16 shrink-0 overflow-hidden rounded-md transition-all ${
                 activeIndex === i
                   ? "ring-2 ring-[var(--ink)] ring-offset-2 ring-offset-[#f3efe6]"

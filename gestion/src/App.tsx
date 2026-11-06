@@ -3,7 +3,7 @@ import { CommerceSection } from "./commerce/CommerceSection";
 import { ChannelOrigin } from "./ChannelOrigin";
 import { Links } from "./Links";
 import { MarketingSection } from "./MarketingSection";
-import { AnalyticsJourneys } from "./AnalyticsJourneys";
+import { AnalyticsJourneys, type AnalyticsSection } from "./AnalyticsJourneys";
 import { Purchases } from "./Purchases";
 import { SorteoView } from "./SorteoView";
 import { CustomerAnalyticsView } from "./CustomerInsights";
@@ -70,6 +70,13 @@ const retiredRoutes: Record<string, string> = {
   "/comercial/descuentos": "/marketing/descuentos",
   "/marketing/metricas": "/marketing/contactos",
 };
+const analyticsSections: Record<string, AnalyticsSection> = {
+  recorridos: "journeys",
+  "google-analytics": "ga4",
+  clarity: "clarity",
+  vercel: "vercel",
+  cambios: "changes",
+};
 const currentRoute = () => retiredRoutes[location.pathname] || (location.pathname === "/" ? "/inicio/resumen" : location.pathname + location.search);
 function Content(
   props: PageProps & {
@@ -94,7 +101,7 @@ function Content(
   if (["marketing/descuentos", "marketing/avisos", "productos/categorias", "productos/ajustes", "administracion/canales", "finanzas/monedas", "entregas/tarifas"].includes(key)) return <CommerceSection {...props} path={key} />;
   if (key === "marketing/sorteo") return <SorteoView />;
   if (area === "marketing") return <MarketingSection page={page} notify={props.notify} s={s} go={go} commerce={props.commerce} />;
-  if (key === "analitica/recorridos") return <AnalyticsJourneys />;
+  if (area === "analitica") return <AnalyticsJourneys section={analyticsSections[page]} />;
   if (key === "inventario/compras") return <Purchases notify={props.notify} />;
   if (collections[key]) return <CollectionPage {...props} path={key} />;
   if (key === "inicio/resumen") return <Overview {...props} />;

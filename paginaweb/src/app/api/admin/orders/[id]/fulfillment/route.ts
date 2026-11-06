@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { readJson } from "@/lib/api";
 import { dispatchCommerceEmails } from "@/lib/commerce-email";
 import { isAllowedCommerceAdminOrigin } from "@/lib/supabase/config";
-import { createAdminSupabase, createTokenSupabase } from "@/lib/supabase/server";
+import { createAdminSupabase, getFirstPartyTokenUser } from "@/lib/supabase/server";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const cors = (origin: string) => ({
@@ -30,7 +30,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const token = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!token) return response(origin, { error: "Falta la sesión." }, 401);
 
-  const { data: { user } } = await createTokenSupabase(token).auth.getUser(token);
+  const user = await getFirstPartyTokenUser(token);
   if (!user) return response(origin, { error: "Sesión inválida." }, 401);
 
   const admin = createAdminSupabase(user.id);

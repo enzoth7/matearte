@@ -176,12 +176,13 @@ describe("personalización de ventas locales", () => {
     expect(snapshot.configuration.rim.texts[1]).toMatchObject({ text: "ABAJO", inverted: true });
   });
 
-  it("al invertir un texto mueve el otro al lado opuesto", () => {
+  it("invierte solo el texto seleccionado", () => {
     const draft = createPersonalizationDraft("mate");
     draft.rimText = "ARRIBA";
     draft.rimText2 = "ABAJO";
-    expect(invertLocalRimText(draft, "text-1")).toEqual({ rimTextInverted: true, rimText2Inverted: false });
-    expect(invertLocalRimText({ ...draft, rimText2: "" }, "text-1")).toEqual({ rimTextInverted: true, rimText2Inverted: true });
+    expect(invertLocalRimText(draft, "text-1")).toEqual({ rimTextInverted: true });
+    expect(invertLocalRimText(draft, "text-2")).toEqual({ rimText2Inverted: false });
+    expect(invertLocalRimText(draft, "unknown")).toEqual({});
   });
 
   it("exige tamaño e interior cuando el mate base ofrece todos y los conserva en el pedido", () => {

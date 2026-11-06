@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.112.4";
+import { hasOAuthClient } from "../../../shared/supabase-oauth-session.ts";
 
 const allowedOrigins = new Set(["https://personalizador.matearteuruguay.com", "http://localhost:5173"]);
 const allowedTargets = new Set(["/", "/carrito", "/checkout", "/pedidos", "/perfil"]);
@@ -24,6 +25,7 @@ Deno.serve(async (request) => {
     if (!allowedOrigins.has(origin)) return json({ error: "Origen no permitido." }, 403, origin);
     const bearer = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
     if (!bearer) return json({ error: "Falta la sesión." }, 401, origin);
+    if (hasOAuthClient(bearer)) return json({ error: "Usá una sesión del sitio para continuar." }, 403, origin);
     const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: `Bearer ${bearer}` } }, auth: { persistSession: false } });
     const { data: { user } } = await userClient.auth.getUser(bearer);
     if (!user) return json({ error: "Sesión inválida." }, 401, origin);

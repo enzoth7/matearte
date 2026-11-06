@@ -34,7 +34,7 @@ export function defaultAccess(): Record<string, string[]> {
 
 // Finanzas ya no es exclusiva: Richard decide quién la ve desde Usuarios y permisos.
 export function lockedForRichard(path: string): boolean {
-  return ["/administracion/usuarios", "/administracion/logs", "/analitica/recorridos"].includes(path);
+  return ["/administracion/usuarios", "/administracion/logs"].includes(path) || path.startsWith("/analitica/");
 }
 
 export function accessUserId(s: State): AccessUserId {
@@ -48,7 +48,7 @@ export function canAccess(s: State, path: string): boolean {
   if (!resolvePath(normalized)) return false;
   const userId = accessUserId(s);
   if (normalized === "/administracion/logs") return userId === "t1" && (s.canViewLogs === true || s.logsPendingActivation === true);
-  if (normalized === "/analitica/recorridos") return s.canViewAnalytics === true;
+  if (normalized.startsWith("/analitica/")) return s.canViewAnalytics === true;
   if (userId === "t1") return true;
   if (lockedForRichard(normalized)) return false;
   return accessFor(s, userId).includes(normalized);

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
 import { isAllowedCommerceAdminOrigin } from "@/lib/supabase/config";
-import { createAdminSupabase, createTokenSupabase } from "@/lib/supabase/server";
+import { createAdminSupabase, getFirstPartyTokenUser } from "@/lib/supabase/server";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const cors = (origin: string) => ({
@@ -29,7 +29,7 @@ async function authorize(request: Request) {
   if (!origin || !isAllowedCommerceAdminOrigin(origin)) return { error: apiError("Origen no permitido.", 403) };
   const token = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!token) return { error: responseWithCors({ error: "Falta la sesión." }, origin, 401) };
-  const { data: { user } } = await createTokenSupabase(token).auth.getUser(token);
+  const user = await getFirstPartyTokenUser(token);
   if (!user) return { error: responseWithCors({ error: "Sesión inválida." }, origin, 401) };
   const admin = createAdminSupabase(user.id);
   const membership = await admin.from("commerce_admin_users").select("user_id").eq("user_id", user.id).eq("active", true).maybeSingle();

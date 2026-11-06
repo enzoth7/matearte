@@ -44,7 +44,7 @@ import {
   type MateSelectionStage,
   type ResolvedMateProduct,
 } from "./catalog/mateDecisionCatalog";
-import { createDefaultRimSelection, MAX_RIM_ICONS, normalizeRimIcons, normalizeRimSelection } from "./catalog/rimCatalog";
+import { createDefaultRimSelection, invertRimText, MAX_RIM_ICONS, normalizeRimIcons, normalizeRimSelection } from "./catalog/rimCatalog";
 import { getRimFinish, getRimFinishCatalogForEngravingType } from "./catalog/rimFinishCatalog";
 import { getFlejeFinish } from "./catalog/flejeFinishCatalog";
 import { calculateOrderPricing, countChargeableCharacters, formatUYU, getCustomizationPrice } from "./catalog/pricingCatalog";
@@ -1577,17 +1577,11 @@ function PersonalizerApp() {
                       onPlacementComplete={() => setPlacingRimIconId(null)}
                       onSelectElement={setSelectedRimElement}
                       onToggleInvert={(element) => setConfiguration((current) => {
-                        const updatedTexts = current.rim.texts.map((t, idx) => {
-                          if (t.id === element || (element === "text" && idx === 0)) {
-                            return { ...t, inverted: !t.inverted };
-                          }
-                          return t;
-                        });
                         return {
                           ...current,
                           rim: {
                             ...current.rim,
-                            texts: updatedTexts,
+                            texts: invertRimText(current.rim.texts, element),
                           },
                         };
                       })}

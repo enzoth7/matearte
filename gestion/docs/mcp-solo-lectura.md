@@ -16,6 +16,21 @@ Cada movimiento lleva una `clave_movimiento` estable que se reutiliza al reinten
 
 Después de publicar una versión nueva del MCP, hay que ejecutar la exploración de herramientas del complemento en ChatGPT y abrir un chat nuevo. Reconectar OAuth por sí solo no garantiza que ChatGPT incorpore las herramientas nuevas. La pantalla de consentimiento de Gestión informa el alcance de escritura.
 
+## Alta de productos y separación de credenciales
+
+`registrar_producto` está reservado a Richard. Crea la ficha y las variantes opcionales en una sola transacción. La ficha queda sin publicar y las variantes quedan inactivas para Local, Web y Mayorista. El alta requiere confirmación y reutiliza la misma `clave_alta` ante reintentos. Las opciones del catálogo se consultan con `listar_opciones_alta_producto`. Los servicios se cargan en Gestión porque sus variantes se activan para Local al crearlas.
+
+El conector utiliza su sesión OAuth y conserva las políticas de fila del usuario. La API de datos solo acepta esa sesión si la llamada a una ruta permitida trae una firma interna del servidor MCP, ligada al usuario, la sesión, el método, la ruta y el momento. El token OAuth por sí solo queda bloqueado en la API de datos y en el acceso autenticado a archivos. Las funciones administrativas y las rutas web que verifican sesiones también separan OAuth de las sesiones directas. Marketing solo admite las lecturas que hace el MCP con su firma.
+
+Para activar el cambio en producción:
+
+1. Verificar que el Supabase Auth administrado incluya [la corrección que reserva los endpoints de cuenta a las sesiones directas](https://github.com/supabase/auth/pull/2898). La versión de Auth del proyecto informaba `v2.197.0` al preparar el cambio. Las políticas de datos no controlan los endpoints del propio Auth.
+2. Aplicar `20261106140611_gestion_mcp_catalog_and_bridge.sql`. Genera la clave en Vault y prepara el alta sin activar todavía el bloqueo general.
+3. Publicar las cinco funciones modificadas y desplegar las rutas web y la pantalla de consentimiento desde GitHub. Comprobar las consultas del MCP y las sesiones del panel.
+4. Aplicar `20261106140619_gestion_mcp_enforce_oauth_boundary.sql`. Comprobar que la API directa rechace las credenciales OAuth, que el panel siga operando y que las consultas y los gastos continúen en el MCP. Actualizar herramientas del complemento de Richard y verificar la disponibilidad del alta en un chat nuevo.
+
+La prueba reproducible se ejecuta con `psql -v ON_ERROR_STOP=1 -f supabase/tests/gestion_mcp_oauth.sql` en una base PostgreSQL vacía y aislada. Usa datos de prueba y simula el contexto de PostgREST.
+
 Las consultas de catálogo y variantes devuelven `imagen_principal_url`, `image_url` e `images` con la foto pública actual de Gestión, seleccionada por variante y color; `imagenes_catalogo` devuelve `image_url`. Cuando se busca un único producto o variante, la herramienta también adjunta los píxeles de esa foto al resultado. ChatGPT debe usar solo esa imagen al mostrar un producto y no sustituirla por fotos de terceros obtenidas mediante búsqueda web. Este refuerzo se publicó en la versión 5 de `gestion-mcp` el 24/10/2026.
 
 Límite observado: ChatGPT siguió buscando imágenes en la web y mostró fotos de tiendas ajenas aun después de recibir la imagen oficial del MCP. El servidor no controla la búsqueda web de ChatGPT. La ficha pública del SKU 105 responde correctamente, figura en el sitemap y anuncia la foto correcta en `og:image`; el archivo de Supabase Storage responde con `X-Robots-Tag: none`, lo que puede impedir su aparición en buscadores de imágenes. Servir las fotos desde el dominio propio sería una mejora de indexación separada; no garantiza que ChatGPT deje de elegir otras fotos en sus búsquedas.
@@ -44,8 +59,8 @@ Se mantiene el perfil propietario y la sesión individual de Supabase en todas l
 Pruebas recomendadas después de actualizar la conexión en ChatGPT: `quien_soy` debe identificar a Richard; consultar ventas locales con `pagina: 1` y con una página fuera de rango; pedir un resumen de Local y otro de todos los canales; consultar un pedido por referencia, producción por estado y las categorías de un cupón. La llamada observada confirma que la cuenta de Richard ya está conectada; la actualización de herramientas debe verificarse en un chat nuevo.
 
 - Cada petición exige un token de Supabase Auth. El servidor comprueba que corresponda a una cuenta activa de Gestión con perfil propietario (`t1`) y consulta con las políticas RLS de esa misma cuenta.
-- Las consultas no exponen SQL arbitrario ni claves de servicio. La única escritura del MCP es `registrar_gastos`, disponible solo para Richard y limitada a `purchases`. La función `marketing-workspace` se invoca únicamente con sus acciones de lectura permitidas.
-- Esto describe el alcance del **MCP**. Una sesión OAuth de Supabase conserva los permisos propios de la cuenta fuera del MCP; el consentimiento debe tratarse como acceso a esa cuenta. Revocar la autorización OAuth corta nuevas llamadas.
+- Las consultas no exponen SQL arbitrario ni claves de servicio. Las herramientas de escritura están reservadas a Richard y crean gastos o fichas de productos en borrador. Marketing admite únicamente las lecturas indicadas arriba.
+- El bloqueo del acceso directo a los datos entra en vigencia al aplicar la segunda migración, después de desplegar el puente y sus controles. Antes de esa migración, la sesión OAuth conserva el alcance anterior fuera del MCP.
 - Un `401` anónimo debe incluir `WWW-Authenticate` con la URL de metadatos OAuth. La ruta `/oauth-protected-resource` debe responder con la URL de Supabase Auth. El servidor no devuelve datos sin iniciar sesión.
 
 ## Conexión con una cuenta compatible
@@ -61,7 +76,7 @@ Pruebas recomendadas después de actualizar la conexión en ChatGPT: `quien_soy`
 
 ## Mantenimiento
 
-- Cambiar columnas y fuentes permitidas solo en `supabase/functions/gestion-mcp/index.ts`. Mantener la escritura acotada a gastos de Richard; no añadir SQL libre ni campos de pagos internos como `raw_payload`.
+- Al cambiar las fuentes, mantener alineada la lista de herramientas con las rutas autorizadas en Supabase. Mantener la escritura acotada a gastos y altas de productos de Richard, sin SQL libre ni campos de pagos internos como `raw_payload`.
 - Comprobar tipos con `npx deno check --lock supabase/functions/gestion-mcp/deno.lock supabase/functions/gestion-mcp/index.ts` y probar consultas y escritura con `npx deno test --lock supabase/functions/gestion-mcp/deno.lock supabase/functions/gestion-mcp/queries_test.ts supabase/functions/gestion-mcp/financeWrites_test.ts`. Compilar Gestión si cambia su interfaz.
 - La función usa `verify_jwt = false` para que el descubrimiento OAuth anónimo llegue al middleware; `withSupabase({ auth: "user" })` verifica el token antes de cualquier consulta.
 - Si cambia la lista o los esquemas de herramientas, actualizar la conexión en ChatGPT y repetir las pruebas de lectura y autorización.

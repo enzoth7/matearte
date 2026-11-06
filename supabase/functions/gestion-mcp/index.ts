@@ -2,9 +2,12 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createMcpHandler, McpServer } from "npm:@modelcontextprotocol/server@2.3.1";
 import { pipeline } from "npm:@supabase/middleware@1.0.0";
 import { withOAuthProtectedResource, withSupabase } from "npm:@supabase/server@1.9.2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 import { z } from "npm:zod@4.6.7";
 import { pageNumber, queryErrorMessage, readAll, readPage, summarizeLocalSales, type LocalSale, type LocalItem, type LocalReceipt } from "./queries.ts";
 import { expenseId, expenseRow, sameExpense } from "./financeWrites.ts";
+import { catalogDraft, loadMcpCatalogTaxonomy, productInput, productOptions } from "./catalogWrites.ts";
+import { loadMcpBridgeKey, mcpMarketingReads, mcpProofHeader, oauthIdentity, signedMcpRestFetch, signMcpRequest } from "../_shared/gestionMcpBridge.ts";
 
 type Dataset = {
   table: string;
@@ -72,7 +75,7 @@ const filters: Partial<Record<keyof typeof datasets, Record<string, string>>> = 
 };
 const pageSchema = z.number().int().min(0).max(200).default(1).describe("Primera página: 1. Usar siguiente_pagina para continuar. 0 se acepta como alias de 1.");
 const readOnly = { readOnlyHint: true, openWorldHint: false, destructiveHint: false };
-const financeWriterId = "5afbc94d-aecf-44e8-b12e-e136f49abb62"; // Richard Ortiz's Gestión account.
+const writerId = "5afbc94d-aecf-44e8-b12e-e136f49abb62"; // Richard Ortiz's Gestión account.
 const expenseColumns = "id,purchased_on,description,category,amount_minor,currency,status,paid_on,supplier,payment_method,notes";
 const expenseInput = z.object({
   clave_movimiento: z.string().trim().min(8).max(120).describe("Clave estable de esta transacción bancaria o UUID. Reutilizarla al reintentar; no incluir número de cuenta completo."),
@@ -112,29 +115,44 @@ function catalogCover(images: CatalogImage[], variant?: CatalogRecord) {
 
 Deno.serve(pipeline(
   [withOAuthProtectedResource(), withSupabase({ auth: "user" })],
-  async (request, { supabase, userClaims }) => {
+  async (request, { supabaseAdmin, jwtClaims }) => {
+    const identity = oauthIdentity(jwtClaims);
+    const token = request.headers.get("authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
+    if (!identity || !token) {
+      return Response.json({ error: "Conectá MateArte Gestión por OAuth." }, { status: 403 });
+    }
+    const url = Deno.env.get("SUPABASE_URL");
+    const publishableKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const bridgeKey = await loadMcpBridgeKey(supabaseAdmin);
+    if (!url || !publishableKey || !bridgeKey) {
+      return Response.json({ error: "El acceso del MCP a Gestión no está disponible." }, { status: 503 });
+    }
+    const supabase = createClient(url, publishableKey, {
+      accessToken: async () => token,
+      global: { fetch: signedMcpRestFetch(bridgeKey, identity, url) },
+    });
     // RLS applies to every query; the membership check is a second, server-side gate.
     const { data: member, error: memberError } = await supabase.from("commerce_admin_users")
       .select("user_id,display_name,active,access_user_id")
-      .eq("user_id", userClaims?.id ?? "")
+      .eq("user_id", identity.sub)
       .eq("active", true)
       .maybeSingle();
     if (memberError || !member || member.access_user_id !== "t1") {
       return Response.json({ error: "Solo las cuentas propietarias de Gestión pueden consultar este MCP." }, { status: 403 });
     }
-    const canRegisterExpenses = userClaims?.id === financeWriterId;
+    const canWrite = identity.sub === writerId;
 
     const handler = createMcpHandler(() => {
       const server = new McpServer({
         name: "matearte-gestion",
-        version: "1.2.1",
+        version: "1.3.0",
       });
 
       server.registerTool("quien_soy", {
         title: "Cuenta conectada",
-        description: "Comprueba qué cuenta de Gestión está conectada y si puede registrar gastos.",
+        description: "Comprueba qué cuenta de Gestión está conectada y si puede registrar gastos o productos en borrador.",
         inputSchema: z.object({}), annotations: readOnly,
-      }, async () => result({ nombre: member.display_name, perfil: "propietario", solo_lectura: !canRegisterExpenses, puede_registrar_gastos: canRegisterExpenses }));
+      }, async () => result({ nombre: member.display_name, perfil: "propietario", solo_lectura: !canWrite, puede_registrar_gastos: canWrite, puede_registrar_productos: canWrite }));
 
       server.registerTool("listar_fuentes", {
         title: "Fuentes disponibles",
@@ -147,7 +165,7 @@ Deno.serve(pipeline(
           description: "Consulta las categorías activas de Compras antes de preparar gastos. Solo la cuenta de Gestión de Richard puede usarla.",
           inputSchema: z.object({}), annotations: readOnly,
         }, async () => {
-          if (!canRegisterExpenses) return failure({ error: "Solo la cuenta de Gestión de Richard puede registrar gastos por este MCP." });
+          if (!canWrite) return failure({ error: "Solo la cuenta de Gestión de Richard puede registrar gastos por este MCP." });
           const { data, error } = await supabase.from("expense_categories").select("name,kind")
             .eq("active", true).in("kind", ["compra", "ambas"]).order("name");
           return error ? failure({ error: "No se pudieron consultar las categorías." }) : result({ categorias: data ?? [] });
@@ -163,7 +181,7 @@ Deno.serve(pipeline(
           }),
           annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
         }, async ({ gastos, permitir_coincidencias }) => {
-          if (!canRegisterExpenses) return failure({ error: "Solo la cuenta de Gestión de Richard puede registrar gastos por este MCP." });
+          if (!canWrite) return failure({ error: "Solo la cuenta de Gestión de Richard puede registrar gastos por este MCP." });
           const { data: categories, error: categoryError } = await supabase.from("expense_categories")
             .select("name").eq("active", true).in("kind", ["compra", "ambas"]);
           if (categoryError) return failure({ error: "No se pudieron validar las categorías. No se registró ningún gasto." });
@@ -175,7 +193,7 @@ Deno.serve(pipeline(
 
           let rows: ReturnType<typeof expenseRow>[];
           try {
-            rows = await Promise.all(gastos.map(async (gasto) => expenseRow(gasto, await expenseId(userClaims.id, gasto.clave_movimiento))));
+            rows = await Promise.all(gastos.map(async (gasto) => expenseRow(gasto, await expenseId(identity.sub, gasto.clave_movimiento))));
           } catch (error) {
             return failure({ error: error instanceof Error ? error.message : "Hay un gasto inválido.", registrados: 0 });
           }
@@ -211,6 +229,52 @@ Deno.serve(pipeline(
           }
           return result({ detalle: outcome, registrados: outcome.filter((entry) => entry.estado === "registrado").length, ya_registrados: outcome.filter((entry) => entry.estado === "ya_registrado").length, pagina: "https://matearte-gestion.vercel.app/inventario/compras" });
         });
+
+      server.registerTool("listar_opciones_alta_producto", {
+        title: "Consultar opciones para dar de alta un producto",
+        description: "Lista categorías activas o los atributos y colores de una categoría. Para Personalizados, indicá si es Mate o Matera cuando se sepa. No modifica datos.",
+        inputSchema: z.object({
+          categoria: z.string().max(80).optional(),
+          tipo_personalizado: z.enum(["mate", "matera"]).optional(),
+          tipo_mate: z.enum(["imperial", "camionero", "criollo", "torpedo"]).optional(),
+        }),
+        annotations: readOnly,
+      }, async ({ categoria, tipo_personalizado, tipo_mate }) => {
+        try {
+          const taxonomy = await loadMcpCatalogTaxonomy(supabase);
+          const active = taxonomy.categories.filter((entry) => entry.active && entry.code !== "servicios");
+          if (!categoria) return result({ categorias: active.map(({ code, label_es }) => ({ codigo: code, nombre: label_es })) });
+          if (!active.some((entry) => entry.code === categoria)) return failure({ error: "La categoría no está activa." });
+          const attributes = {
+            ...(tipo_personalizado ? { "tipo-personalizado": tipo_personalizado } : {}),
+            ...(tipo_mate ? { "tipo-mate": tipo_mate } : {}),
+          };
+          return result({ categoria, atributos: productOptions(taxonomy, categoria, attributes) });
+        } catch {
+          return failure({ error: "No se pudo consultar la configuración del catálogo." });
+        }
+      });
+
+      server.registerTool("registrar_producto", {
+        title: "Crear una ficha de producto en borrador",
+        description: "Solo Richard. Crea una ficha nueva en Gestión con variantes opcionales, todas fuera de venta hasta revisarlas en el panel. Consultá primero listar_opciones_alta_producto. Mostrá nombre, categoría, atributos y variantes y pedí confirmación antes de guardar. Reutilizá clave_alta en reintentos.",
+        inputSchema: productInput,
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      }, async (input) => {
+        if (!canWrite) return failure({ error: "Solo la cuenta de Gestión de Richard puede registrar productos por este MCP." });
+        try {
+          const draft = catalogDraft(input, await loadMcpCatalogTaxonomy(supabase));
+          const { data, error } = await supabase.rpc("gestion_mcp_create_catalog_product", {
+            p_request_id: input.clave_alta, p_product: draft.product, p_variants: draft.variants,
+          });
+          if (error?.code === "23505") return failure({ error: "Ya existe un producto, SKU o clave de alta con esos datos. Revisá el catálogo antes de reintentar." });
+          if (error?.code === "22023") return failure({ error: error.message });
+          if (error || !data) return failure({ error: "No se pudo confirmar el alta. Reintentá con la misma clave." });
+          return result({ ...data, pagina: "https://matearte-gestion.vercel.app/productos/catalogo" });
+        } catch (error) {
+          return failure({ error: error instanceof Error ? error.message : "No se pudo preparar el alta." });
+        }
+      });
 
       server.registerTool("consultar_registros", {
         title: "Consultar registros de Gestión",
@@ -355,7 +419,7 @@ Deno.serve(pipeline(
         title: "Consultar Marketing",
         description: "Lee contactos, campañas, métricas, suscripción o Analytics usando las mismas lecturas autenticadas de Gestión.",
         inputSchema: z.object({
-          consulta: z.enum(["contacts", "campaigns", "metrics", "settings", "analytics"]),
+          consulta: z.enum(mcpMarketingReads),
           pagina: pageSchema,
           buscar: z.string().max(100).default(""),
           sitio: z.enum(["tienda", "personalizador"]).default("tienda"),
@@ -364,6 +428,7 @@ Deno.serve(pipeline(
       }, async ({ consulta, pagina, buscar, sitio, dias }) => {
         const { data, error } = await supabase.functions.invoke("marketing-workspace", {
           body: { action: consulta, page: pageNumber(pagina) - 1, query: buscar, site: sitio, days: dias },
+          headers: { [mcpProofHeader]: await signMcpRequest(bridgeKey, identity, `marketing:${consulta}`) },
         });
         if (error || data?.error) return failure({ consulta, error: "No se pudo consultar Marketing." });
         return result({ consulta, datos: data });

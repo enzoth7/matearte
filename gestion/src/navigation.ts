@@ -40,7 +40,13 @@ export const areas = [
     id: "analitica",
     name: "Analítica",
     hint: "Recorridos y cambios de la experiencia",
-    pages: [["recorridos", "Recorridos"]],
+    pages: [
+      ["recorridos", "Recorridos"],
+      ["google-analytics", "Google Analytics"],
+      ["clarity", "Clarity"],
+      ["vercel", "Vercel"],
+      ["cambios", "Cambios"],
+    ],
   },
   {
     id: "clientes",

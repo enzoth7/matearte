@@ -3,7 +3,7 @@ import { sanitizeDesignSvg } from "@/lib/design-svg";
 import { NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { isAllowedPersonalizerOrigin } from "@/lib/supabase/config";
-import { createAdminSupabase, createTokenSupabase } from "@/lib/supabase/server";
+import { createAdminSupabase, createTokenSupabase, getFirstPartyTokenUser } from "@/lib/supabase/server";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const cors = (origin: string) => ({ "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Headers": "authorization, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS", Vary: "Origin" });
@@ -18,9 +18,9 @@ export async function POST(request: Request) {
   if (!origin || !isAllowedPersonalizerOrigin(origin)) return apiError("Origen no permitido.", 403);
   const accessToken = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!accessToken) return apiError("Falta la sesión.", 401);
-  const client = createTokenSupabase(accessToken);
-  const { data: { user } } = await client.auth.getUser(accessToken);
+  const user = await getFirstPartyTokenUser(accessToken);
   if (!user) return apiError("La sesión no es válida.", 401);
+  const client = createTokenSupabase(accessToken);
   try {
     const form = await request.formData();
     const file = form.get("file"), designId = String(form.get("designId") || ""), assetId = String(form.get("assetId") || "");

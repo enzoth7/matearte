@@ -590,7 +590,7 @@ function AccessPermissions({ s, update }: Pick<PageProps, "s" | "update">) {
                           )}
                         />
                         <div>{title}</div>
-                        {path === "/administracion/logs" || path === "/analitica/recorridos" ? <small>Solo Enzo y Richard</small> : locked && <small>Solo Richard</small>}
+                        {path === "/administracion/logs" || path.startsWith("/analitica/") ? <small>Solo Enzo y Richard</small> : locked && <small>Solo Richard</small>}
                       </label>
                     );
                   })}

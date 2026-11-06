@@ -59,9 +59,9 @@ export function OAuthConsent() {
   return <main className="gestion-login"><div className="commerce-auth">
     <img src="/matearte-icon.png" width="52" height="52" alt="MateArte" />
     <h1>Conectar con Gestión</h1>
-    {status === "loading" && <p role="status">Comprobando la solicitud…</p>}
+    {status === "loading" && <div role="status">Comprobando la solicitud…</div>}
     {status === "login" && <>
-      <p>Ingresá con tu cuenta de Gestión para revisar esta conexión.</p>
+      <div>Ingresá con tu cuenta de Gestión para revisar esta conexión.</div>
       <form onSubmit={(event) => void login(event)}>
         <label>Usuario o correo<input name="email" autoComplete="username" required /></label>
         <label>Contraseña<input name="password" type="password" autoComplete="current-password" required /></label>
@@ -69,15 +69,17 @@ export function OAuthConsent() {
       </form>
     </>}
     {status === "ready" && details && <>
-      <p><strong>{details.client.name}</strong> solicita conectar tu cuenta de MateArte Gestión. El MCP permite consultar datos y, con la cuenta de Richard, registrar gastos en Finanzas. Antes de guardar un lote, ChatGPT debe mostrarlo y pedir confirmación.</p>
-      <p>Destino: {details.redirect_uri}</p>
-      <p>Permisos solicitados: {details.scope || "identidad de la cuenta"}</p>
+      <div><strong>{details.client.name}</strong> solicita conectar tu cuenta de MateArte Gestión. El MCP permite consultar datos. Richard también puede registrar gastos y crear productos en borrador con confirmación previa.</div>
+      <dl>
+        <dt>Destino</dt><dd>{details.redirect_uri}</dd>
+        <dt>Permisos solicitados</dt><dd>{details.scope || "Identidad de la cuenta"}</dd>
+      </dl>
       <div className="commerce-auth-actions">
         <button type="button" className="primary" disabled={busy} onClick={() => void decide(true)}>Permitir conexión</button>
         <button type="button" className="secondary" disabled={busy} onClick={() => void decide(false)}>Rechazar</button>
       </div>
     </>}
-    {status === "denied" && <p>No se puede autorizar esta conexión.</p>}
-    {error && <p className="error" role="alert">{error}</p>}
+    {status === "denied" && <div>No se puede autorizar esta conexión.</div>}
+    {error && <div className="error" role="alert">{error}</div>}
   </div></main>;
 }
