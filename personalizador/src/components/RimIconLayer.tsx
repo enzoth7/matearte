@@ -11,6 +11,8 @@ interface RimIconLayerProps {
   selected?: boolean;
   onPointerDown?: PointerEventHandler<SVGGElement>;
   onResizeDown?: PointerEventHandler<SVGGElement>;
+  onRotateDown?: PointerEventHandler<SVGGElement>;
+  onRotateStep?: (degrees: number) => void;
 }
 
 export function RimIconLayer({
@@ -21,6 +23,8 @@ export function RimIconLayer({
   selected,
   onPointerDown,
   onResizeDown,
+  onRotateDown,
+  onRotateStep,
 }: RimIconLayerProps) {
   const catalogIcon = rimIconCatalog.find((item) => item.id === selectedImageId);
   const src = customImage?.previewUrl || catalogIcon?.src;
@@ -35,6 +39,7 @@ export function RimIconLayer({
   const hitRadius = Math.max(85, halfSize * 1.55);
   const selectionRadius = Math.max(80, halfSize * 1.45);
   const handleOffset = selectionRadius * 0.707;
+  const rotation = transform?.rotation ?? 0;
 
   return (
     <g
@@ -44,32 +49,59 @@ export function RimIconLayer({
     >
       <circle cx={x} cy={y} r={radiusKnockout} fill="#EAE4DC" />
       <circle cx={x} cy={y} r={hitRadius} fill="transparent" pointerEvents={onPointerDown ? "all" : "none"} />
-      {selected && (
-        <g pointerEvents="none">
-          <circle cx={x} cy={y} r={selectionRadius} fill="none" stroke="#7a4a31" strokeWidth="5" strokeDasharray="18 12" />
-          {onResizeDown && (
-            <circle 
-              cx={x + handleOffset} cy={y + handleOffset} r={16} 
-              fill="#fff" stroke="#7a4a31" strokeWidth="4"
-              pointerEvents="all"
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                onResizeDown(e);
-              }}
-              className="cursor-nwse-resize"
-            />
-          )}
-        </g>
-      )}
-      <image
-        href={src}
-        x={x - halfSize}
-        y={y - halfSize}
-        width={size}
-        height={size}
-        preserveAspectRatio="xMidYMid meet"
-        pointerEvents="none"
-      />
+      <g transform={`rotate(${rotation} ${x} ${y})`}>
+        <image
+          href={src}
+          x={x - halfSize}
+          y={y - halfSize}
+          width={size}
+          height={size}
+          preserveAspectRatio="xMidYMid meet"
+          pointerEvents="none"
+        />
+        {selected && (
+          <g>
+            <circle cx={x} cy={y} r={selectionRadius} fill="none" stroke="#7a4a31" strokeWidth="5" strokeDasharray="18 12" pointerEvents="none" />
+            {onResizeDown && (
+              <circle
+                cx={x + handleOffset} cy={y + handleOffset} r={16}
+                fill="#fff" stroke="#7a4a31" strokeWidth="4"
+                pointerEvents="all"
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  onResizeDown(e);
+                }}
+                className="cursor-nwse-resize"
+              />
+            )}
+            {onRotateDown && (
+              <g
+                transform={`translate(${x - handleOffset}, ${y - handleOffset})`}
+                pointerEvents="all"
+                className="cursor-grab active:cursor-grabbing"
+                role="button"
+                tabIndex={0}
+                aria-label="Girar ícono"
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                  onRotateDown(event);
+                }}
+                onKeyDown={(event) => {
+                  const degrees = event.key === "ArrowRight" ? 5 : event.key === "ArrowLeft" ? -5 : 0;
+                  if (!degrees) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onRotateStep?.(degrees);
+                }}
+              >
+                <circle r="25" fill="transparent" />
+                <circle r="17" fill="#fff" stroke="#7a4a31" strokeWidth="4" />
+                <text x="0" y="1" textAnchor="middle" dominantBaseline="middle" fill="#7a4a31" fontSize="20" pointerEvents="none">↻</text>
+              </g>
+            )}
+          </g>
+        )}
+      </g>
     </g>
   );
 }

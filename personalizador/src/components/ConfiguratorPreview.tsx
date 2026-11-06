@@ -8,6 +8,7 @@ import type { ElementTransform, RimTextElement } from "../types/personalizer";
 import { CircularRimText } from "./CircularRimText";
 import { RimFinishLayer } from "./RimFinishLayer";
 import { RimIconLayer } from "./RimIconLayer";
+import { rotationFromPointer } from "../lib/iconRotation";
 
 interface ConfiguratorPreviewProps {
   rim: RimCustomization;
@@ -30,7 +31,7 @@ interface DragState {
   startAngle: number;
   initialRotation: number;
   initialScale: number;
-  mode: "move" | "resize";
+  mode: "move" | "resize" | "rotate";
 }
 
 export function ConfiguratorPreview({
@@ -104,13 +105,14 @@ export function ConfiguratorPreview({
     return { x: 0.5 + dx * ratio, y: 0.5 + dy * ratio };
   };
 
-  const beginDrag = (id: string, event: ReactPointerEvent<SVGGElement>, mode: "move" | "resize" = "move") => {
+  const beginDrag = (id: string, event: ReactPointerEvent<SVGGElement>, mode: "move" | "resize" | "rotate" = "move") => {
     if (!editable || !onTransformChange) return;
     event.preventDefault();
     event.stopPropagation();
     const point = pointFromEvent(event);
     const transform = getElementTransform(id);
-    const pointerAngle = Math.atan2(point.y - 0.5, point.x - 0.5) * (180 / Math.PI);
+    const center = mode === "rotate" ? transform : { x: 0.5, y: 0.5 };
+    const pointerAngle = Math.atan2(point.y - center.y, point.x - center.x) * (180 / Math.PI);
 
     dragRef.current = {
       elementId: id,
@@ -132,6 +134,15 @@ export function ConfiguratorPreview({
     const point = pointFromEvent(event);
     const current = getElementTransform(drag.elementId);
     const isTextElement = drag.elementId === "text" || drag.elementId.startsWith("text");
+
+    if (drag.mode === "rotate") {
+      const angle = Math.atan2(point.y - current.y, point.x - current.x) * (180 / Math.PI);
+      onTransformChange(drag.elementId, {
+        ...current,
+        rotation: rotationFromPointer(drag.initialRotation, drag.startAngle, angle),
+      });
+      return;
+    }
 
     if (isTextElement) {
       if (drag.mode === "resize") {
@@ -266,6 +277,11 @@ export function ConfiguratorPreview({
             selected={editable && selectedElement === icon.id}
             onPointerDown={editable && !placingElementId ? (event) => beginDrag(icon.id, event) : undefined}
             onResizeDown={editable && !placingElementId ? (event) => beginDrag(icon.id, event, "resize") : undefined}
+            onRotateDown={editable && !placingElementId ? (event) => beginDrag(icon.id, event, "rotate") : undefined}
+            onRotateStep={editable && onTransformChange ? (degrees) => {
+              const current = getElementTransform(icon.id);
+              onTransformChange(icon.id, { ...current, rotation: rotationFromPointer(current.rotation, 0, degrees) });
+            } : undefined}
           />
         ))}
         <image href="/assets/plantillas/virola/contorno.svg" x="0" y="0" width={RIM_VIEWBOX_SIZE} height={RIM_VIEWBOX_SIZE} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />

@@ -3,6 +3,7 @@ import { rimIconCatalog } from "../catalog/rimIconCatalog";
 import { getFlejeFinish } from "../catalog/flejeFinishCatalog";
 import type { EditableElement, ElementTransform, FlejeCustomization, FlejeSide, FlejeSideCustomization } from "../types/personalizer";
 import type { EngravingTypeId } from "../catalog/mateDecisionCatalog";
+import { rotationFromPointer } from "../lib/iconRotation";
 
 export type { FlejeCustomization } from "../types/personalizer";
 
@@ -39,12 +40,14 @@ const FLEJE_HEIGHT = 239;
 
 interface DragState {
   element: EditableElement;
-  mode: "move" | "resize";
+  mode: "move" | "resize" | "rotate";
   pointerId: number;
   offsetX: number;
   offsetY: number;
   initialScale: number;
   initialDist: number;
+  initialRotation: number;
+  startAngle: number;
 }
 
 function FlejeSurface({
@@ -61,12 +64,14 @@ function FlejeSurface({
   const svgRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<DragState | null>(null);
 
-  const pointFromEvent = (event: ReactPointerEvent) => {
+  const pointFromEvent = (event: ReactPointerEvent, clamp = true) => {
     const bounds = svgRef.current?.getBoundingClientRect();
     if (!bounds) return { x: 0.5, y: 0.5 };
+    const x = (event.clientX - bounds.left) / bounds.width;
+    const y = (event.clientY - bounds.top) / bounds.height;
     return {
-      x: Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)),
-      y: Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height)),
+      x: clamp ? Math.max(0, Math.min(1, x)) : x,
+      y: clamp ? Math.max(0, Math.min(1, y)) : y,
     };
   };
 
@@ -94,6 +99,8 @@ function FlejeSurface({
       offsetY: transform.y - point.y,
       initialScale: transform.scale || 1,
       initialDist: 0.1,
+      initialRotation: transform.rotation || 0,
+      startAngle: 0,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
     onSelectElement?.(element);
@@ -117,16 +124,49 @@ function FlejeSurface({
       offsetY: 0,
       initialScale: transform.scale || 1,
       initialDist: Math.max(0.02, initialDist),
+      initialRotation: transform.rotation || 0,
+      startAngle: 0,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
+    onSelectElement?.(element);
+  };
+
+  const beginRotate = (element: EditableElement, event: ReactPointerEvent<SVGGElement>) => {
+    if (!editable || !onTransformChange) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onSelectSide?.(side);
+    const point = pointFromEvent(event, false);
+    const transform = getTransform(element);
+    dragRef.current = {
+      element,
+      mode: "rotate",
+      pointerId: event.pointerId,
+      offsetX: 0,
+      offsetY: 0,
+      initialScale: transform.scale || 1,
+      initialDist: 0,
+      initialRotation: transform.rotation || 0,
+      startAngle: Math.atan2((point.y - transform.y) * FLEJE_HEIGHT, (point.x - transform.x) * FLEJE_WIDTH) * (180 / Math.PI),
+    };
+    svgRef.current?.setPointerCapture(event.pointerId);
     onSelectElement?.(element);
   };
 
   const moveDrag = (event: ReactPointerEvent<SVGSVGElement>) => {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId || !onTransformChange) return;
-    const point = pointFromEvent(event);
+    const point = pointFromEvent(event, drag.mode !== "rotate");
     const transform = getTransform(drag.element);
+
+    if (drag.mode === "rotate") {
+      const angle = Math.atan2((point.y - transform.y) * FLEJE_HEIGHT, (point.x - transform.x) * FLEJE_WIDTH) * (180 / Math.PI);
+      onTransformChange(side, drag.element, {
+        ...transform,
+        rotation: rotationFromPointer(drag.initialRotation, drag.startAngle, angle),
+      });
+      return;
+    }
 
     if (drag.mode === "resize") {
       const elemCenterX = transform.x;
@@ -324,6 +364,27 @@ function FlejeSurface({
                   <g transform={`translate(${iSize * 0.52}, ${iSize * 0.52})`} pointerEvents="all" className="cursor-nwse-resize" onPointerDown={(e) => beginResize(icon.id, e)}>
                     <circle r="16" fill="#ffffff" stroke="#7a4a31" strokeWidth="3.5" className="filter drop-shadow-md" />
                     <text x="0" y="1" textAnchor="middle" dominantBaseline="middle" fill="#7a4a31" fontSize="13" fontWeight="bold" pointerEvents="none">⤢</text>
+                  </g>
+                  <g
+                    transform={`translate(${-iSize * 0.52}, ${-iSize * 0.52})`}
+                    pointerEvents="all"
+                    className="cursor-grab active:cursor-grabbing"
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Girar ícono"
+                    onPointerDown={(event) => beginRotate(icon.id, event)}
+                    onKeyDown={(event) => {
+                      const degrees = event.key === "ArrowRight" ? 5 : event.key === "ArrowLeft" ? -5 : 0;
+                      if (!degrees || !onTransformChange) return;
+                      event.preventDefault();
+                      event.stopPropagation();
+                      const current = getTransform(icon.id);
+                      onTransformChange(side, icon.id, { ...current, rotation: rotationFromPointer(current.rotation, 0, degrees) });
+                    }}
+                  >
+                    <circle r="25" fill="transparent" />
+                    <circle r="17" fill="#fff" stroke="#7a4a31" strokeWidth="3.5" />
+                    <text x="0" y="1" textAnchor="middle" dominantBaseline="middle" fill="#7a4a31" fontSize="20" pointerEvents="none">↻</text>
                   </g>
                 </g>
               )}
