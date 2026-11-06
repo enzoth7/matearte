@@ -145,10 +145,16 @@ export function useCommerce() {
           const rows = (data || []) as LocalSale[];
           if (rows.length) {
             const { data: statuses, error: statusError } = await client.from("orders")
-              .select("id,status").in("id", rows.map((sale) => sale.id));
+              .select("id,status,shipping_method,shipping_carrier,tracking_code").in("id", rows.map((sale) => sale.id));
             if (statusError) throw statusError;
-            const byId = new Map((statuses || []).map((entry) => [entry.id, entry.status]));
-            rows.forEach((sale) => { sale.status = byId.get(sale.id); });
+            const byId = new Map((statuses || []).map((entry) => [entry.id, entry]));
+            rows.forEach((sale) => {
+              const details = byId.get(sale.id);
+              sale.status = details?.status;
+              sale.shipping_method = details?.shipping_method;
+              sale.shipping_carrier = details?.shipping_carrier;
+              sale.tracking_code = details?.tracking_code;
+            });
           }
           return { rows, count: count ?? 0 };
         }),

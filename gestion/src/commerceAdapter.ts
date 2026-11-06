@@ -343,7 +343,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
         sku: item.sku || "", quantity: item.quantity, unitPrice: Number(item.unit_price_minor) / 100,
         amount: Number(item.line_total_minor) / 100, family: item.customization ? "Personalizados" : catalog?.family || "",
         variant: item.variant_name, rim: catalog?.rim || "", leather: catalog?.leather || "",
-        productionStatus: item.production_status || "pending", reviewStatus: null, orderType: item.customization ? "local_design" : undefined,
+        productionStatus: source.status === "shipped" || source.status === "delivered" ? "completed" : item.production_status || "pending", reviewStatus: null, orderType: item.customization ? "local_design" : undefined,
       };
     });
     const charged = Number(source.total_minor) / 100;
@@ -355,7 +355,8 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       quantity: items.reduce((sum, item) => sum + item.quantity, 0), unitPrice: 0,
       items, totalAmount: source.deposit_minor != null || source.payment_method === "Seña" ? Math.max(charged, itemsAmount) : charged,
       localItemsAmount: itemsAmount, depositAmount: source.deposit_minor == null ? (source.payment_method === "Seña" ? charged : undefined) : Number(source.deposit_minor) / 100, paymentMethod: source.payment_method,
-      channel: source.channel && ["Feria", "Instagram", "Facebook", "WhatsApp"].includes(source.channel) ? source.channel : "Local", date: source.sold_on, due: "", production: "No aplica", delivery: source.status === "delivered" ? "Entregado" : "No aplica", method: source.status === "delivered" ? "Retiro" : "No aplica",
+      channel: source.channel && ["Feria", "Instagram", "Facebook", "WhatsApp"].includes(source.channel) ? source.channel : "Local", date: source.sold_on, due: "", production: "No aplica", delivery: source.status === "delivered" ? "Entregado" : source.status === "shipped" ? "Enviado" : "Pendiente", method: source.shipping_method === "pickup" ? "Retiro" : source.shipping_method ? "Envío" : "No aplica",
+      carrier: source.shipping_carrier || "", tracking: source.tracking_code || "",
       design: false, approved: true,
     };
   });

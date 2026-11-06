@@ -232,7 +232,7 @@ export async function mockCommerce(page: Page, options: { userId?: string; denie
     if (data === undefined) throw Error(`Lectura no prevista: ${table}`);
     const ids = url.searchParams.get('id')?.match(/^in\.\((.*)\)$/)?.[1].split(',').map((value) => value.replace(/^"|"$/g, ''));
     const id = url.searchParams.get('id')?.replace('eq.','');
-    if (table === 'orders' && ids) data = [...fixture.orders, ...tables.local_sales.map((sale: any) => ({ id: sale.id, status: sale.status || 'internal_completed' }))];
+    if (table === 'orders' && ids) data = [...fixture.orders, ...tables.local_sales.map((sale: any) => ({ id: sale.id, status: sale.status || 'internal_completed', shipping_method: sale.shipping_method, shipping_carrier: sale.shipping_carrier, tracking_code: sale.tracking_code }))];
     if (Array.isArray(data) && id && !ids) data = data.filter((row: any) => row.id === id);
     if (Array.isArray(data) && ids) data = data.filter((row: any) => ids.includes(String(row.id)));
     const customerName = url.searchParams.get('customer')?.replace('eq.','');

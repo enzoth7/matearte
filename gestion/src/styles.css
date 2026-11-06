@@ -3840,6 +3840,11 @@ dialog.wholesale-order-dialog{width:min(1120px,calc(100% - 24px));max-height:90d
 .unified-order-modal button.order-detail-item-link:focus-visible { outline: 2px solid var(--brown); outline-offset: 3px; border-radius: 2px; }
 
 .unified-order-sale-tools { display: flex; gap: 10px; margin-right: auto; }
+.local-shipment-modal { width: min(520px, calc(100vw - 24px)); max-width: none; border: 1px solid var(--line); border-radius: 14px; background: var(--white); }
+.local-shipment-form { display: grid; gap: 18px; padding: 20px 28px 28px; }
+.local-shipment-form label { display: grid; gap: 7px; font-weight: 600; }
+.local-shipment-form input, .local-shipment-form select { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--white); color: var(--black); font: inherit; }
+.local-shipment-form .form-actions { margin-top: 4px; }
 .unified-order-icon-action { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); color: var(--brown); cursor: pointer; }
 .unified-order-icon-action:hover:not(:disabled) { background: var(--cream, #f5f1ea); }
 .unified-order-icon-action--danger { border-color: var(--red); background: var(--red); color: var(--white); }

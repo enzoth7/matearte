@@ -525,9 +525,32 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
   const [recordingReceipt, setRecordingReceipt] = useState(false);
   const [saleBusy, setSaleBusy] = useState(false);
   const [saleError, setSaleError] = useState("");
+  const [shipmentOpen, setShipmentOpen] = useState(false);
+  const [deliveryMethod, setDeliveryMethod] = useState<"pickup" | "shipping">(order.method === "Envío" ? "shipping" : "pickup");
+  const [shippingCarrier, setShippingCarrier] = useState(order.carrier || "");
+  const [trackingCode, setTrackingCode] = useState(order.tracking || "");
   const items = order.items || [];
   const workshopOrder = order.source === "local" ? workshopOrderRows([order], s.products)[0] : undefined;
-  const canDeliverLocal = order.source === "local" && order.status !== "delivered" && workshopOrder?.production === "Terminado";
+  const canShipLocal = order.source === "local" && ["internal_completed", "shipped"].includes(order.status || "");
+  const canDeliverLocal = order.source === "local" && ["internal_completed", "shipped"].includes(order.status || "") && order.method !== "Envío";
+  const shipLocal = async () => {
+    if (!props.session) return;
+    setSaleBusy(true); setSaleError("");
+    try {
+      const response = await fetch(`${getStoreApiUrl()}/api/admin/orders/${order.id}/fulfillment`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${props.session.access_token}` },
+        body: JSON.stringify({ action: "ship", deliveryMethod, shippingCarrier, trackingCode }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "No se pudo marcar el pedido como enviado.");
+      await props.refresh?.(true);
+      props.notify?.(deliveryMethod === "pickup" ? "Pedido preparado para retiro y producción terminada." : "Pedido marcado como enviado y producción terminada.");
+      onClose();
+    } catch (error) {
+      setSaleError(error instanceof Error ? error.message : "No se pudo marcar el pedido como enviado.");
+    } finally { setSaleBusy(false); }
+  };
   const deliverLocal = async () => {
     if (!props.session || !window.confirm("¿Confirmás que el cliente retiró este pedido?")) return;
     setSaleBusy(true); setSaleError("");
@@ -549,7 +572,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
   const localDeposit = order.source === "local" && order.depositAmount != null;
   const orderPayments = s.payments.filter((payment) => payment.orderId === order.id);
   const localPaymentMethods = [...new Set([order.paymentMethod, ...orderPayments.map((payment) => payment.method)]
-    .filter((method): method is string => Boolean(method && method !== "Seña")))].join(" · ") || "No registrado";
+    .filter((method): method is string => Boolean(method && method !== "Seña")))].join(", ") || "No registrado";
   const shipping = orderShippingStatus(order);
   const contact = s.customers.find((entry) => entry.id === order.customerId);
   const phone = contact?.phone?.trim() || "";
@@ -580,7 +603,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       onOpen: catalogProduct ? () => go(`/productos/catalogo?producto=${encodeURIComponent(catalogProduct.sourceProductId || catalogProduct.id)}&variante=${encodeURIComponent(catalogProduct.id)}`) : undefined,
       weight: item.weightGrams && item.weightGrams > 0 ? formatWeight(item.weightGrams) : undefined,
       quantity: item.quantity, amount: showAmounts ? money(item.amount) : undefined,
-      extra: wholesaleItem ? "" : extra.map((detail) => `${detail.label}: ${detail.value}`).join(" · "), notes: item.productionNotes,
+      extra: wholesaleItem ? "" : extra.map((detail) => `${detail.label}: ${detail.value}`).join(", "), notes: item.productionNotes,
     };
   }) : [{ id: order.id, name: product(s, order).name, quantity: order.quantity, amount: showAmounts ? money(total(order)) : undefined }];
   const detail: OrderDetailView = {
@@ -600,7 +623,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       country, pickup: order.method !== "Envío",
     },
     totals: showAmounts ? <>
-      {order.originalCurrency === "ARS" && <div className="line-item"><div>Total original ARS · importes restantes en UYU a cotización del pedido</div><strong>{new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",currencyDisplay:"code"}).format(order.originalTotalAmount || 0)}</strong></div>}
+      {order.originalCurrency === "ARS" && <div className="line-item"><div>Total original ARS, importes restantes en UYU a cotización del pedido</div><strong>{new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",currencyDisplay:"code"}).format(order.originalTotalAmount || 0)}</strong></div>}
       {(!!order.discountAmount || !!order.shippingAmount || !!order.feeAmount) && <div className="line-item"><div>Subtotal</div><strong>{money(items.length ? items.reduce((sum, item) => sum + item.amount, 0) : total(order))}</strong></div>}
       {!!order.discountAmount && <div className="line-item"><div>Descuento</div><strong>{money(-order.discountAmount)}</strong></div>}
       {!!order.shippingAmount && <div className="line-item"><div>Envío</div><strong>{money(order.shippingAmount)}</strong></div>}
@@ -619,7 +642,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
     </> : undefined,
     tracking: order.method === "Envío" && (order.carrier || order.tracking) ? { carrier: order.carrier || "", code: order.tracking || "" } : undefined,
   };
-  return <Modal title="Detalle del pedido" className="order-detail-modal unified-order-modal" onClose={onClose}>
+  return <><Modal title="Detalle del pedido" className="order-detail-modal unified-order-modal" onClose={onClose}>
     <OrderDetailContent detail={detail} />
     {saleError && <div className="error" role="alert">{saleError}</div>}
     <div className="form-actions unified-order-actions">
@@ -634,6 +657,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
         })()}><Trash size={20} aria-hidden="true" /></button>
       </div>}
       {canEditLocalSale(order) && balance(s, order) > 0 && <button type="button" className="unified-order-action unified-order-action--primary" onClick={() => setRecordingReceipt(true)}>Registrar cobro</button>}
+      {canShipLocal && props.session && <button type="button" className="unified-order-action unified-order-action--primary" disabled={saleBusy} onClick={() => setShipmentOpen(true)}>{order.status === "shipped" ? "Editar envío" : "Marcar enviado"}</button>}
       {canDeliverLocal && props.session && <button type="button" className="unified-order-action unified-order-action--primary" disabled={saleBusy} onClick={() => void deliverLocal()}>Marcar entregado</button>}
       <button className="unified-order-action" onClick={onClose}>Cerrar</button>
       {s.customers.some((entry) => entry.id === order.customerId) && <button className="unified-order-action" onClick={() => go(`/clientes/base?cliente=${order.customerId}`)}>Ver ficha del cliente</button>}
@@ -642,7 +666,28 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
     </div>
     {editingSale && <LocalSaleEditor order={order} customers={s.customers} products={s.products} depositAmount={s.payments.find((payment) => payment.orderId === order.id)?.amount ?? undefined} onClose={() => setEditingSale(false)} onChanged={async (message) => { await props.refresh?.(true); props.notify?.(message); setEditingSale(false); onClose(); }} />}
     {recordingReceipt && <LocalSaleReceiptForm order={order} remaining={balance(s, order)} onClose={() => setRecordingReceipt(false)} onChanged={async () => { await props.refresh?.(true); props.notify?.("Cobro registrado en el mismo pedido"); setRecordingReceipt(false); }} />}
-  </Modal>;
+  </Modal>
+    {shipmentOpen && <Modal title={order.status === "shipped" ? "Editar envío" : "Marcar como enviado"} className="local-shipment-modal" onClose={() => setShipmentOpen(false)}>
+      <form className="local-shipment-form" onSubmit={(event) => { event.preventDefault(); void shipLocal(); }}>
+        <div>Al confirmar, los artículos quedarán terminados en producción.</div>
+        <label>Modalidad de entrega
+          <select value={deliveryMethod} onChange={(event) => setDeliveryMethod(event.target.value as "pickup" | "shipping")}>
+            <option value="pickup">Retiro en el local</option>
+            <option value="shipping">Envío</option>
+          </select>
+        </label>
+        {deliveryMethod === "shipping" && <>
+          <label>Empresa de envío, opcional<input minLength={2} maxLength={120} value={shippingCarrier} onChange={(event) => setShippingCarrier(event.target.value)} /></label>
+          <label>Código de seguimiento, opcional<input minLength={3} maxLength={160} value={trackingCode} onChange={(event) => setTrackingCode(event.target.value)} /></label>
+        </>}
+        {saleError && <div className="error" role="alert">{saleError}</div>}
+        <div className="form-actions">
+          <button type="button" className="secondary" disabled={saleBusy} onClick={() => setShipmentOpen(false)}>Cancelar</button>
+          <button type="submit" disabled={saleBusy}>{saleBusy ? "Guardando…" : "Confirmar"}</button>
+        </div>
+      </form>
+    </Modal>}
+  </>;
 }
 
 export function Orders(

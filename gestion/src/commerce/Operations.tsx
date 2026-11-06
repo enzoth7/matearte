@@ -1777,6 +1777,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
   const [busy,setBusy] = useState('');
   const [detailOrder,setDetailOrder] = useState<Order|null>(null);
   const [shipmentOrder,setShipmentOrder] = useState<Order|null>(null);
+  const [deliveryMethod,setDeliveryMethod] = useState<'pickup'|'shipping'>('shipping');
   const [shippingCarrier,setShippingCarrier] = useState('');
   const [selectedCarrier,setSelectedCarrier] = useState('');
   const [customCarrier,setCustomCarrier] = useState('');
@@ -1974,21 +1975,26 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
       if (action === 'ship') {
         const carrier = (details?.shippingCarrier || '').trim();
         const tracking = (details?.trackingCode || '').trim();
-        if (carrier.length < 2 || carrier.length > 120) {
+        if (deliveryMethod === 'shipping' && (carrier.length < 2 || carrier.length > 120)) {
           setShipmentError('Ingresá una empresa de envío válida.');
           return false;
         }
-        if (tracking.length < 3 || tracking.length > 160) {
+        if (deliveryMethod === 'shipping' && (tracking.length < 3 || tracking.length > 160)) {
           setShipmentError('Ingresá un código de seguimiento válido.');
           return false;
         }
 
         const isWholesaleBankTransfer = textValue(order.customer_snapshot.purchaseFlow) === 'wholesale_bank_transfer';
         if (isWholesaleBankTransfer) {
+          const pickup = deliveryMethod === 'pickup';
+          const shippingMethod = pickup ? 'pickup' : order.shipping_method === 'pickup' ? 'national_shipping' : order.shipping_method;
+          const shippingSnapshot = shippingMethod === order.shipping_method ? order.shipping_snapshot : pickup
+            ? { ...order.shipping_snapshot, name: 'Retiro en local', is_pickup: true }
+            : { ...order.shipping_snapshot, name: 'Envío', is_pickup: false };
           const shippedAt = order.status === 'shipped' && order.shipped_at ? order.shipped_at : new Date().toISOString();
-          const { error } = await supabase
-            .from('orders')
-            .update({ status: 'shipped', shipping_carrier: carrier, tracking_code: tracking, shipped_at: shippedAt })
+          const { error } = await supabase.from('orders')
+            .update({ status: 'shipped', shipping_method: shippingMethod, shipping_snapshot: shippingSnapshot,
+              shipping_carrier: pickup ? null : carrier, tracking_code: pickup ? null : tracking, shipped_at: shippedAt })
             .eq('id', order.id).select('id').single();
           if (error) {
             setShipmentError(`No se pudo actualizar el envío: ${error.message}`);
@@ -1998,7 +2004,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
           const response = await fetch(`${getStoreApiUrl()}/api/admin/orders/${order.id}/fulfillment`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-            body: JSON.stringify({ action: 'ship', shippingCarrier: carrier, trackingCode: tracking }),
+            body: JSON.stringify({ action: 'ship', deliveryMethod, shippingCarrier: carrier, trackingCode: tracking }),
           });
           const value = await response.json();
           if (!response.ok) {
@@ -2007,7 +2013,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
           }
         }
 
-        onNotice(order.status === 'shipped' ? 'Datos de envío actualizados.' : isWholesaleBankTransfer ? 'Pedido marcado como enviado.' : 'Pedido marcado como enviado. Aviso por correo en proceso.');
+        onNotice(order.status === 'shipped' ? 'Datos de envío actualizados.' : deliveryMethod === 'pickup' ? 'Pedido preparado para retiro y producción terminada.' : isWholesaleBankTransfer ? 'Pedido marcado como enviado y producción terminada.' : 'Pedido marcado como enviado. Aviso por correo en proceso.');
         await load();
         return true;
       }
@@ -2057,6 +2063,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
 
   const openShipment = (order:Order) => {
     setShipmentOrder(order);
+    setDeliveryMethod(order.shipping_method === 'pickup' ? 'pickup' : 'shipping');
     const resolved = resolveCarrierSelection(order.shipping_carrier);
     setSelectedCarrier(!order.shipping_carrier && order.customer_snapshot.purchaseFlow === "argentina_retail_transfer" ? "__other__" : resolved.selectedCarrier);
     setCustomCarrier(resolved.customCarrier);
@@ -2143,7 +2150,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
       weight: weight > 0 ? formatWeight(weight) : undefined,
       quantity: item.quantity,
       amount: money(detailPricing?.itemTotals[index] ?? getItemPricing(item).totalMinor,detailOrder?.currency),
-      extra: [isCustom ? 'Personalizado' : '', ...extra.map(option => `${option.label}: ${option.value}`)].filter(Boolean).join(' · '),
+      extra: [isCustom ? 'Personalizado' : '', ...extra.map(option => `${option.label}: ${option.value}`)].filter(Boolean).join(', '),
     };
   }) || [];
 
@@ -2151,7 +2158,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
   const detailView: OrderDetailView | null = detailOrder && detailDelivery ? {
     reference: detailOrder.reference_code || `#${detailOrder.order_number}`,
     date: formatDate(detailOrder.created_at), channel: 'Web',
-    shipping: detailOrder.status === 'delivered' ? 'Entregado' : detailOrder.shipping_method === 'pickup' ? 'Retiro' : detailOrder.status === 'shipped' ? 'Enviado' : 'No enviado',
+    shipping: detailOrder.status === 'delivered' ? 'Entregado' : detailOrder.status === 'shipped' ? 'Enviado' : 'No enviado',
     customer: orderCustomer(detailOrder.customer_snapshot), products: detailCategories,
     payment: detailPayment, paymentNote: orderStatus(detailOrder.status), production: detailProduction,
     delivery: {
@@ -2174,7 +2181,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
         <div><h3 id="bank-receipt-title">Comprobante de pago</h3></div>
         <div className={`receipt-status receipt-status--${detailOrder.commerce_bank_transfer_receipts[0].status}`}>{detailOrder.commerce_bank_transfer_receipts[0].status==='pending'?'Pendiente':detailOrder.commerce_bank_transfer_receipts[0].status==='approved'?'Aprobado':'Rechazado'}</div>
       </div>
-      <div>{detailOrder.commerce_bank_transfer_receipts[0].original_name} · {(detailOrder.commerce_bank_transfer_receipts[0].byte_size/1024/1024).toFixed(2)} MB</div>
+      <div>{detailOrder.commerce_bank_transfer_receipts[0].original_name}, {(detailOrder.commerce_bank_transfer_receipts[0].byte_size/1024/1024).toFixed(2)} MB</div>
       {receiptLoading && <div className="receipt-loading" role="status">Cargando comprobante…</div>}
       {receiptError && <div className="modal-error" role="alert">{receiptError}</div>}
       {receiptPreview && (receiptPreview.mimeType === 'application/pdf'
@@ -2186,8 +2193,8 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
     totals: <>
       {detailOrder.currency === "ARS" && <div className="data-note">Envío dentro de Argentina a cargo del destinatario. No incluido en el total.</div>}
       {(Number(detailPricing?.transferDiscount) > 0 || Number(detailOrder.discount_minor) > 0 || Number(detailOrder.shipping_minor) > 0 || Number(detailOrder.payment_fee_minor) > 0) && <div className="line-item"><div>{detailPricing?.transferDiscount ? 'Subtotal sin descuentos' : 'Subtotal'}</div><strong>{money(detailPricing?.originalSubtotal ?? 0,detailOrder.currency)}</strong></div>}
-      {Number(detailPricing?.transferDiscount) > 0 && <div className="line-item"><div>Descuento por transferencia · 10%</div><strong>−{money(detailPricing?.transferDiscount ?? 0,detailOrder.currency)}</strong></div>}
-      {Number(detailOrder.discount_minor) > 0 && <div className="line-item"><div>Descuento{detailOrder.discount_code ? ` · ${detailOrder.discount_code}` : ''}</div><strong>−{money(Number(detailOrder.discount_minor),detailOrder.currency)}</strong></div>}
+      {Number(detailPricing?.transferDiscount) > 0 && <div className="line-item"><div>Descuento por transferencia, 10%</div><strong>−{money(detailPricing?.transferDiscount ?? 0,detailOrder.currency)}</strong></div>}
+      {Number(detailOrder.discount_minor) > 0 && <div className="line-item"><div>Descuento{detailOrder.discount_code ? `, ${detailOrder.discount_code}` : ''}</div><strong>−{money(Number(detailOrder.discount_minor),detailOrder.currency)}</strong></div>}
       {Number(detailOrder.shipping_minor) > 0 && <div className="line-item"><div>Envío</div><strong>{money(Number(detailOrder.shipping_minor),detailOrder.currency)}</strong></div>}
       {Number(detailOrder.payment_fee_minor) > 0 && <div className="line-item"><div>Cargos</div><strong>{money(Number(detailOrder.payment_fee_minor),detailOrder.currency)}</strong></div>}
       <div className="line-item"><div>Total {detailOrder.currency || "UYU"}</div><strong>{money(detailOrder.total_minor,detailOrder.currency)}</strong></div>
@@ -2228,17 +2235,17 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
                   ? [textValue(order.shipping_snapshot.city),textValue(order.shipping_snapshot.country)].filter(Boolean).join(', ') || 'Exterior'
                   : order.shipping_method === 'pickup' ? 'Retiro' : 'Envío';
                 const canFulfill = ['paid_pending_review', 'ready_for_fulfillment', 'ready_for_production', 'manual_review'].includes(order.status);
-                const canShip = order.shipping_method !== 'pickup' && canFulfill;
-                const canDeliver = order.shipping_method === 'pickup' && canFulfill;
+                const canShip = canFulfill;
+                const canDeliver = order.shipping_method === 'pickup' && (canFulfill || order.status === 'shipped');
                 return <tr key={order.id} id={`order-${order.order_number}`} className={order.status==='payment_verification_pending'?'bank-transfer-pending-row':undefined}>
                   <td><button type="button" className="order-detail-trigger" onClick={()=>openDetails(order)} aria-label={`Ver detalle del pedido ${order.reference_code || `#${order.order_number}`}`}>{order.reference_code || `#${order.order_number}`}</button></td>
                   <td>{formatDate(order.created_at)}</td>
                   <td>{orderCustomer(order.customer_snapshot)}</td>
-                  <td className="order-items-cell">{order.order_items.length?<div className="order-items-summary">{order.order_items.map(item=>{const options=getCatalogOrderOptionDetails(item,taxonomy);const name=getOrderItemDisplayName(item);return options.length?<details className="commerce-order-item-disclosure" key={item.id}><summary>{name} <span>×{item.quantity}</span></summary><small>{options.map(option=>`${option.label}: ${option.value}`).join(' · ')}</small></details>:<div key={item.id}><strong>{name} <span>×{item.quantity}</span></strong></div>})}</div>:'Sin artículos'}</td>
-                  <td><strong>{destination}</strong>{order.status==='shipped'&&<small className="tracking-summary">{order.shipping_carrier} · {order.tracking_code}</small>}</td>
+                  <td className="order-items-cell">{order.order_items.length?<div className="order-items-summary">{order.order_items.map(item=>{const options=getCatalogOrderOptionDetails(item,taxonomy);const name=getOrderItemDisplayName(item);return options.length?<details className="commerce-order-item-disclosure" key={item.id}><summary>{name} <small>×{item.quantity}</small></summary><small>{options.map(option=>`${option.label}: ${option.value}`).join(', ')}</small></details>:<div key={item.id}><strong>{name} <small>×{item.quantity}</small></strong></div>})}</div>:'Sin artículos'}</td>
+                  <td><strong>{destination}</strong>{order.status==='shipped'&&order.tracking_code&&<small className="tracking-summary">{order.shipping_carrier}, {order.tracking_code}</small>}</td>
                   <td><div className={`status-badge status-${order.status}`}>{orderStatus(order.status)}</div></td>
                   <td className="numeric"><div>{formatWeight(getOrderTotalWeight(order))}</div></td>
-                  <td className="numeric"><strong>{money(order.total_minor,order.currency)}{order.paypal_amount_usd_minor != null && <small> · {usdMoney(order.paypal_amount_usd_minor / 100)}</small>}</strong></td>
+                  <td className="numeric"><strong>{money(order.total_minor,order.currency)}{order.paypal_amount_usd_minor != null && <small>, {usdMoney(order.paypal_amount_usd_minor / 100)}</small>}</strong></td>
                   <td><div className="row-actions">
                     <button className="compact-button secondary-button" type="button" onClick={()=>openDetails(order)}>Ver detalle</button>
                     {order.status==='payment_verification_pending'&&<button className="compact-button" type="button" onClick={()=>openDetails(order)}>Revisar comprobante</button>}
@@ -2262,8 +2269,8 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
               <button type="button" className="unified-order-action" autoFocus onClick={closeDetails}>Cerrar</button>
               {onCustomer && <button type="button" className="unified-order-action" onClick={onCustomer}>Ver ficha del cliente</button>}
               {detailOrder.status==='payment_verification_pending'&&<><button type="button" className="unified-order-action unified-order-action--danger" disabled={busy===detailOrder.id||!receiptPreview} onClick={()=>void reviewBankTransfer(detailOrder,'reject')}>{detailOrder.currency === "ARS" ? "Rechazar comprobante" : "Rechazar y cancelar"}</button><button type="button" className="unified-order-action unified-order-action--primary" disabled={busy===detailOrder.id||!receiptPreview} onClick={()=>void reviewBankTransfer(detailOrder,'approve')}>{busy===detailOrder.id?'Procesando…':'Aprobar pago'}</button></>}
-              {detailOrder.shipping_method!=='pickup'&&['paid_pending_review','ready_for_fulfillment','ready_for_production','manual_review'].includes(detailOrder.status)&&<button type="button" className="unified-order-action unified-order-action--primary" onClick={()=>{const order=detailOrder;setDetailOrder(null);openShipment(order)}}>Marcar enviado</button>}
-              {detailOrder.shipping_method==='pickup'&&['paid_pending_review','ready_for_fulfillment','ready_for_production','manual_review'].includes(detailOrder.status)&&<button type="button" className="unified-order-action unified-order-action--primary" disabled={busy===detailOrder.id} onClick={()=>void deliverPickup(detailOrder)}>Marcar entregado</button>}
+              {['paid_pending_review','ready_for_fulfillment','ready_for_production','manual_review'].includes(detailOrder.status)&&<button type="button" className="unified-order-action unified-order-action--primary" onClick={()=>{const order=detailOrder;setDetailOrder(null);openShipment(order)}}>Marcar enviado</button>}
+              {detailOrder.shipping_method==='pickup'&&['paid_pending_review','ready_for_fulfillment','ready_for_production','manual_review','shipped'].includes(detailOrder.status)&&<button type="button" className="unified-order-action unified-order-action--primary" disabled={busy===detailOrder.id} onClick={()=>void deliverPickup(detailOrder)}>Marcar entregado</button>}
               {['shipped','delivered'].includes(detailOrder.status)&&<button type="button" className="unified-order-action" disabled={busy===detailOrder.id} onClick={()=>{if(window.confirm('¿Volver este pedido a preparación?'))void updateFulfillment(detailOrder,'restore')}}>Volver a preparación</button>}
               {detailOrder.status==='shipped'&&<button type="button" className="unified-order-action unified-order-action--primary" onClick={()=>{const order=detailOrder;setDetailOrder(null);openShipment(order)}}>Editar envío</button>}
             </div>
@@ -2275,9 +2282,15 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
             <header>
               
               <h2 id="shipment-modal-title">{shipmentOrder.status==='shipped'?'Editar datos de envío':'Marcar como enviado'}</h2>
-              <div id="shipment-modal-description">Guardá la empresa y el código que el cliente necesita para seguir el paquete.</div>
+              <div id="shipment-modal-description">Al confirmar, los artículos quedarán terminados en producción.</div>
             </header>
             <OrderDeliverySummary order={shipmentOrder} compact/>
+            <label htmlFor="shipment-delivery-method">Modalidad de entrega</label>
+            <select id="shipment-delivery-method" value={deliveryMethod} onChange={event=>setDeliveryMethod(event.target.value as 'pickup'|'shipping')}>
+              <option value="shipping">Envío</option>
+              <option value="pickup">Retiro en el local</option>
+            </select>
+            {deliveryMethod==='shipping'&&<>
             <label htmlFor="shipping-carrier-select">Empresa de envío <div aria-hidden="true">*</div></label>
             <select
               id="shipping-carrier-select"
@@ -2327,8 +2340,11 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
             )}
             <label htmlFor="tracking-code">Código de seguimiento <div aria-hidden="true">*</div></label>
             <input id="tracking-code" required minLength={3} maxLength={160} autoComplete="off" value={trackingCode} onChange={event=>setTrackingCode(event.target.value)} />
+            </>}
             <div className="field-help">{shipmentOrder.status==='shipped'
               ? 'Los cambios se verán en el detalle del pedido del cliente.'
+              : deliveryMethod==='pickup'
+                ? 'El pedido quedará preparado para retirar en el local. Podés marcarlo entregado cuando el cliente lo retire.'
               : textValue(shipmentOrder.customer_snapshot.purchaseFlow)==='wholesale_bank_transfer'
                 ? 'Al confirmar, el pedido cambia a Enviado y el cliente ve estos datos dentro de la web.'
                 : 'Al confirmar, el pedido cambia a Enviado y el cliente recibe estos datos por correo.'}</div>

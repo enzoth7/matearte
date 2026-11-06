@@ -335,7 +335,7 @@ td small { display: block; }
 .order-items-summary strong { color: #24382e; font-size: .75rem; line-height: 1.35; }
 .order-items-summary small { color: #68766e; font-size: .68rem; line-height: 1.4; }
 .commerce-order-item-disclosure summary { color: #24382e; font-size: .75rem; font-weight: 700; line-height: 1.35; cursor: pointer; }
-.commerce-order-item-disclosure summary span { color: #68766e; font-weight: 500; white-space: nowrap; }
+.commerce-order-item-disclosure summary small { color: #68766e; font-weight: 500; white-space: nowrap; }
 .commerce-order-item-disclosure small { display: block; margin: .22rem 0 0 1rem; }
 .order-detail-trigger { min-height: 44px; border: 0; background: transparent; color: var(--green-800); padding: .35rem .25rem; font-size: .78rem; font-weight: 800; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .2rem; cursor: pointer; }
 .order-detail-trigger:hover { color: var(--brown); }

@@ -42,6 +42,9 @@ export type LocalSaleItem = {
 export type LocalSale = {
   id: string;
   status?: string;
+  shipping_method?: string;
+  shipping_carrier?: string | null;
+  tracking_code?: string | null;
   sale_number: number;
   reference_code?: string | null;
   channel?: "Local" | "Feria" | "Instagram" | "Facebook" | "WhatsApp";

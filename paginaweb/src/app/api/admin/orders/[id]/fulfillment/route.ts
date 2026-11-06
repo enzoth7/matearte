@@ -52,35 +52,43 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const { data: order, error: orderError } = await admin
       .from("orders")
-      .select("id,status,channel,shipping_method,shipping_snapshot,shipped_at,order_items(item_type,production_status,immutable_snapshot,requires_review,review_status)")
+      .select("id,status,channel,customer_snapshot,shipping_method,shipping_snapshot,shipped_at,order_items(item_type,production_status,immutable_snapshot,requires_review,review_status)")
       .eq("id", id)
       .maybeSingle();
     if (orderError) throw orderError;
     if (!order) return response(origin, { error: "El pedido no existe." }, 404);
 
     if (action === "ship") {
-      if (!["paid_pending_review", "ready_for_fulfillment", "ready_for_production", "shipped", "manual_review"].includes(order.status)) {
+      if (!["paid_pending_review", "ready_for_fulfillment", "ready_for_production", "shipped", "manual_review", "internal_completed"].includes(order.status)) {
         return response(origin, { error: "El pedido todavía no está listo para enviarse." }, 409);
       }
-      if (order.shipping_method === "pickup") {
-        return response(origin, { error: "Los pedidos con retiro no se marcan como enviados." }, 409);
+      const pickup = body.deliveryMethod === "pickup" || (body.deliveryMethod == null && order.shipping_method === "pickup");
+      if (body.deliveryMethod != null && body.deliveryMethod !== "pickup" && body.deliveryMethod !== "shipping") {
+        return response(origin, { error: "Modalidad de entrega inválida." }, 400);
       }
-
       const shippingCarrier = typeof body.shippingCarrier === "string" ? body.shippingCarrier.trim() : "";
       const trackingCode = typeof body.trackingCode === "string" ? body.trackingCode.trim() : "";
-      if (shippingCarrier.length < 2 || shippingCarrier.length > 120) {
+      const manualSale = ["Local", "Feria", "WhatsApp", "Instagram", "Facebook"].includes(order.channel);
+      if (!pickup && (shippingCarrier.length > 120 || (shippingCarrier.length < 2 && (!manualSale || shippingCarrier.length > 0)))) {
         return response(origin, { error: "Ingresá una empresa de envío válida." }, 400);
       }
-      if (trackingCode.length < 3 || trackingCode.length > 160) {
+      if (!pickup && (trackingCode.length > 160 || (trackingCode.length < 3 && (!manualSale || trackingCode.length > 0)))) {
         return response(origin, { error: "Ingresá un código de seguimiento válido." }, 400);
       }
+      const shippingMethod = pickup ? "pickup" : order.shipping_method === "pickup" ? "national_shipping" : order.shipping_method;
+      const snapshot = (order.shipping_snapshot || {}) as Record<string, unknown>;
+      const shippingSnapshot = shippingMethod === order.shipping_method ? snapshot : pickup
+        ? { ...snapshot, name: "Retiro en local", is_pickup: true }
+        : { ...snapshot, name: "Envío", is_pickup: false };
 
       const { data: updated, error: updateError } = await admin
         .from("orders")
         .update({
           status: "shipped",
-          shipping_carrier: shippingCarrier,
-          tracking_code: trackingCode,
+          shipping_method: shippingMethod,
+          shipping_snapshot: shippingSnapshot,
+          shipping_carrier: pickup || !shippingCarrier ? null : shippingCarrier,
+          tracking_code: pickup || !trackingCode ? null : trackingCode,
           shipped_at: order.status === "shipped" && order.shipped_at ? order.shipped_at : new Date().toISOString(),
         })
         .eq("id", id)
@@ -90,7 +98,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (updateError) throw updateError;
       if (!updated) return response(origin, { error: "El pedido cambió mientras lo actualizabas. Recargá e intentá de nuevo." }, 409);
 
-      if (order.status !== "shipped") await dispatchCommerceEmails(id);
+      if (order.status !== "shipped" && !pickup && ["Web", "Mayorista web"].includes(order.channel)
+          && (order.customer_snapshot as Record<string, unknown> | null)?.purchaseFlow !== "wholesale_bank_transfer") await dispatchCommerceEmails(id);
       return response(origin, { ok: true, order: updated });
     }
 
@@ -98,14 +107,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (order.shipping_method !== "pickup") {
         return response(origin, { error: "Solo los pedidos con retiro se marcan como entregados." }, 409);
       }
-      const local = ["Local", "Feria", "WhatsApp", "Instagram", "Facebook"].includes(order.channel);
-      if (local && order.status === "internal_completed") {
-        const workshopItems = (order.order_items || []).filter((item) =>
-          item.item_type === "service" || Boolean((item.immutable_snapshot as Record<string, unknown> | null)?.customization));
-        if (!workshopItems.length || workshopItems.some((item) => item.production_status !== "completed")) {
-          return response(origin, { error: "Terminá primero la producción del pedido." }, 409);
-        }
-      } else if (!["paid_pending_review", "ready_for_fulfillment", "ready_for_production", "manual_review"].includes(order.status)) {
+      if (!["paid_pending_review", "ready_for_fulfillment", "ready_for_production", "manual_review", "internal_completed", "shipped"].includes(order.status)) {
         return response(origin, { error: "El pedido todavía no se puede marcar como entregado." }, 409);
       }
       const { data: updated, error: updateError } = await admin
@@ -148,7 +150,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const hasCustomItem = items.some((item) => item.requires_review);
     const hasRejectedItem = items.some((item) => item.requires_review && item.review_status === "rejected");
     const hasPendingReview = items.some((item) => item.requires_review && item.review_status !== "approved");
-    const restoredStatus = order.shipping_method === "international_coordination" || hasRejectedItem ? "manual_review"
+    const restoredStatus = ["Local", "Feria", "WhatsApp", "Instagram", "Facebook"].includes(order.channel) ? "internal_completed"
+      : order.shipping_method === "international_coordination" || hasRejectedItem ? "manual_review"
       : hasPendingReview ? "paid_pending_review" : hasCustomItem ? "ready_for_production" : "ready_for_fulfillment";
     const { data: updated, error: updateError } = await admin
       .from("orders")

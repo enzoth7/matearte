@@ -202,7 +202,7 @@ test('seguimiento de pedido se guarda en Entregas y conserva el importe',async({
   await expect.poll(()=>fixture.orders[0].tracking_code).toBe('TRACK-9001');
   expect(fulfillmentCalls).toEqual([{
     authorization:'Bearer header.payload.signature',
-    body:{action:'ship',shippingCarrier:'Transportista',trackingCode:'TRACK-9001'},
+    body:{action:'ship',deliveryMethod:'shipping',shippingCarrier:'Transportista',trackingCode:'TRACK-9001'},
   }]);
   expect(fixture.orders[0].total_minor).toBe(410100);
   await page.reload();
@@ -225,12 +225,42 @@ test('un retiro se marca como entregado sin pedir transportista',async({page})=>
   await page.getByRole('row').filter({hasText:'#9001'}).getByRole('button',{name:'Ver detalle del pedido #9001'}).click();
   const dialog=page.getByRole('dialog',{name:'Detalle del pedido'});
   await expect(dialog.getByRole('button',{name:'Marcar entregado'})).toBeVisible();
-  await expect(dialog.getByRole('button',{name:'Marcar enviado'})).toHaveCount(0);
+  await expect(dialog.getByRole('button',{name:'Marcar enviado'})).toBeVisible();
   page.once('dialog',confirmation=>void confirmation.accept());
   await dialog.getByRole('button',{name:'Marcar entregado'}).click();
   await expect.poll(()=>fixture.orders[0].status).toBe('delivered');
   expect(fulfillmentCalls).toEqual([{action:'deliver'}]);
   await expect(page.getByRole('row').filter({hasText:'#9001'})).toContainText('Entregado');
+});
+
+test('un retiro web puede marcarse enviado antes de entregarlo',async({page})=>{
+  const {fixture}=await mockCommerce(page,{writable:true});
+  fixture.orders[0].shipping_method='pickup';
+  fixture.orders[0].status='ready_for_production';
+  fixture.orders[0].order_items.forEach(item=>{item.production_status='pending'});
+  const calls: Record<string,string>[]=[];
+  await page.route(/\/api\/admin\/orders\/[^/]+\/fulfillment$/,async route=>{
+    const body=route.request().postDataJSON() as Record<string,string>;
+    calls.push(body);
+    fixture.orders[0].status=body.action==='ship'?'shipped':'delivered';
+    if(body.action==='ship') fixture.orders[0].order_items.forEach(item=>{item.production_status='completed'});
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true})});
+  });
+  await page.goto('/comercial/pedidos');
+  await page.getByRole('row').filter({hasText:'#9001'}).getByRole('button',{name:'Ver detalle del pedido #9001'}).click();
+  await page.getByRole('dialog',{name:'Detalle del pedido'}).getByRole('button',{name:'Marcar enviado'}).click();
+  await expect(page.getByLabel('Modalidad de entrega')).toHaveValue('pickup');
+  await expect(page.getByLabel('Empresa de envío')).toHaveCount(0);
+  await page.getByRole('button',{name:'Confirmar envío'}).click();
+  await expect.poll(()=>fixture.orders[0].status).toBe('shipped');
+  expect(calls[0]).toEqual({action:'ship',deliveryMethod:'pickup',shippingCarrier:'',trackingCode:''});
+  await page.getByRole('row').filter({hasText:'#9001'}).getByRole('button',{name:'Ver detalle del pedido #9001'}).click();
+  const dialog=page.getByRole('dialog',{name:'Detalle del pedido'});
+  await expect(dialog.getByRole('button',{name:'Marcar entregado'})).toBeVisible();
+  page.once('dialog',confirmation=>void confirmation.accept());
+  await dialog.getByRole('button',{name:'Marcar entregado'}).click();
+  await expect.poll(()=>fixture.orders[0].status).toBe('delivered');
+  expect(calls[1]).toEqual({action:'deliver'});
 });
 
 test('un envío nacional puede registrarse como entregado en el local sin seguimiento',async({page})=>{
@@ -254,7 +284,7 @@ test('un envío nacional puede registrarse como entregado en el local sin seguim
   await expect(page.getByRole('row').filter({hasText:'#9001'})).toContainText('Entregado');
 });
 
-test('una venta local habilita Marcar entregado al completar el personalizado',async({page})=>{
+test('una venta local puede marcarse enviada aunque el personalizado siga pendiente',async({page})=>{
   const {tables}=await mockCommerce(page,{writable:true});
   const sale={id:'local-diego',sale_number:50,reference_code:'#L050',channel:'Local',customer_id:null,customer_name:'Diego Repicio',sold_on:'2026-10-31',payment_method:'Efectivo',total_minor:545000,currency:'UYU',created_at:'2026-10-31T14:48:00Z',status:'internal_completed',local_sale_items:[
     {id:'local-mate',variant_id:null,sku:'',product_name:'Mate personalizado',variant_name:'Camionero',quantity:1,unit_price_minor:255000,line_total_minor:255000,production_status:'pending',customization:{itemKind:'custom_mate'}},
@@ -263,25 +293,29 @@ test('una venta local habilita Marcar entregado al completar el personalizado',a
   tables.local_sales.push(sale);
   const calls: Record<string,string>[]=[];
   await page.route(/\/api\/admin\/orders\/[^/]+\/fulfillment$/,async route=>{
-    calls.push(route.request().postDataJSON() as Record<string,string>);
-    sale.status='delivered';
+    const body=route.request().postDataJSON() as Record<string,string>;
+    calls.push(body);
+    Object.assign(sale,{status:'shipped',shipping_method:'national_shipping',shipping_carrier:body.shippingCarrier,tracking_code:body.trackingCode});
+    sale.local_sale_items.forEach(item=>{item.production_status='completed'});
     await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true})});
   });
   await page.goto('/comercial/pedidos');
   await page.getByRole('row').filter({hasText:'#L050'}).getByRole('button',{name:'Ver detalle del pedido #L050'}).click();
-  await expect(page.getByRole('dialog',{name:'Detalle del pedido'}).getByRole('button',{name:'Marcar entregado'})).toHaveCount(0);
-  await page.getByRole('dialog',{name:'Detalle del pedido'}).getByRole('button',{name:'Cerrar',exact:true}).last().click();
-  await page.goto('/produccion/minorista');
-  await page.getByRole('combobox',{name:'Estado de producción del pedido #L050'}).selectOption('completed');
-  await page.goto('/comercial/pedidos');
-  await page.getByRole('row').filter({hasText:'#L050'}).getByRole('button',{name:'Ver detalle del pedido #L050'}).click();
   const dialog=page.getByRole('dialog',{name:'Detalle del pedido'});
+  await expect(dialog.getByRole('button',{name:'Marcar enviado'})).toBeVisible();
   await expect(dialog.getByRole('button',{name:'Marcar entregado'})).toBeVisible();
-  page.once('dialog',confirmation=>void confirmation.accept());
-  await dialog.getByRole('button',{name:'Marcar entregado'}).click();
-  await expect.poll(()=>sale.status).toBe('delivered');
-  expect(calls).toEqual([{action:'deliver'}]);
-  await expect(page.getByRole('row').filter({hasText:'#L050'})).toContainText('Entregado');
+  await dialog.getByRole('button',{name:'Marcar enviado'}).click();
+  const shipment=page.getByRole('dialog',{name:'Marcar como enviado'});
+  await expect(shipment.getByLabel('Modalidad de entrega')).toHaveValue('pickup');
+  await shipment.getByLabel('Modalidad de entrega').selectOption('shipping');
+  await expect(shipment.getByLabel('Empresa de envío, opcional')).toBeEmpty();
+  await expect(shipment.getByLabel('Código de seguimiento, opcional')).toBeEmpty();
+  await shipment.getByRole('button',{name:'Confirmar'}).click();
+  await expect.poll(()=>sale.status).toBe('shipped');
+  expect(calls).toEqual([{action:'ship',deliveryMethod:'shipping',shippingCarrier:'',trackingCode:''}]);
+  await page.getByRole('row').filter({hasText:'#L050'}).getByRole('button',{name:'Ver detalle del pedido #L050'}).click();
+  await expect(page.getByRole('dialog',{name:'Detalle del pedido'})).toContainText('Enviado');
+  await expect(page.getByRole('dialog',{name:'Detalle del pedido'})).toContainText('Terminado');
 });
 
 test('cotizaciones, descuentos y tarifas guardan valores y unidades correctos',async({page})=>{
