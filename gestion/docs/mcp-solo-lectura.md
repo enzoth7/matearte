@@ -22,12 +22,13 @@ Después de publicar una versión nueva del MCP, hay que ejecutar la exploració
 
 El conector utiliza su sesión OAuth y conserva las políticas de fila del usuario. La API de datos solo acepta esa sesión si la llamada a una ruta permitida trae una firma interna del servidor MCP, ligada al usuario, la sesión, el método, la ruta y el momento. El token OAuth por sí solo queda bloqueado en la API de datos y en el acceso autenticado a archivos. Las funciones administrativas y las rutas web que verifican sesiones también separan OAuth de las sesiones directas. Marketing solo admite las lecturas que hace el MCP con su firma.
 
-Para activar el cambio en producción:
+El 6 de noviembre de 2026 se aplicó en producción `20261106143342_gestion_mcp_catalog_and_bridge.sql`. Dejó preparada la clave de Vault y la operación interna de alta. La función MCP activa todavía no ofrece el alta.
 
-1. Verificar que el Supabase Auth administrado incluya [la corrección que reserva los endpoints de cuenta a las sesiones directas](https://github.com/supabase/auth/pull/2898). La versión de Auth del proyecto informaba `v2.197.0` al preparar el cambio. Las políticas de datos no controlan los endpoints del propio Auth.
-2. Aplicar `20261106140611_gestion_mcp_catalog_and_bridge.sql`. Genera la clave en Vault y prepara el alta sin activar todavía el bloqueo general.
-3. Publicar las cinco funciones modificadas y desplegar las rutas web y la pantalla de consentimiento desde GitHub. Comprobar las consultas del MCP y las sesiones del panel.
-4. Aplicar `20261106140619_gestion_mcp_enforce_oauth_boundary.sql`. Comprobar que la API directa rechace las credenciales OAuth, que el panel siga operando y que las consultas y los gastos continúen en el MCP. Actualizar herramientas del complemento de Richard y verificar la disponibilidad del alta en un chat nuevo.
+Para completar la activación en producción:
+
+1. Verificar que el Supabase Auth administrado incluya [la corrección que reserva los endpoints de cuenta a las sesiones directas](https://github.com/supabase/auth/pull/2898). El proyecto todavía informaba `v2.197.0` al aplicar la preparación. Las políticas de datos no controlan los endpoints del propio Auth.
+2. Confirmar las rutas web y la pantalla de consentimiento desplegadas desde GitHub. Publicar las cuatro funciones de apoyo y luego `gestion-mcp`. Comprobar las consultas del MCP y las sesiones del panel.
+3. Aplicar `20261106143343_gestion_mcp_enforce_oauth_boundary.sql`. Comprobar que la API directa rechace las credenciales OAuth, que el panel siga operando y que las consultas y los gastos continúen en el MCP. Actualizar herramientas del complemento de Richard y verificar la disponibilidad del alta en un chat nuevo.
 
 La prueba reproducible se ejecuta con `psql -v ON_ERROR_STOP=1 -f supabase/tests/gestion_mcp_oauth.sql` en una base PostgreSQL vacía y aislada. Usa datos de prueba y simula el contexto de PostgREST.
 

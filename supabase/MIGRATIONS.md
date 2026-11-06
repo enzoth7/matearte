@@ -1,5 +1,9 @@
 # Historial de migraciones de Matearte
 
+## Alta de productos por MCP
+
+`20261106143342_gestion_mcp_catalog_and_bridge.sql` se aplicó al proyecto remoto de MateArte el 6 de noviembre de 2026. La clave de firma quedó accesible solo al servidor y el alta interna quedó preparada. El despliegue del MCP nuevo y `20261106143343_gestion_mcp_enforce_oauth_boundary.sql` quedan pendientes de verificar la corrección de OAuth en Supabase Auth. El orden de publicación está en [MCP de Gestión](../gestion/docs/mcp-solo-lectura.md).
+
 ## Analítica de recorridos
 
 `20261105201523_analytics_journeys.sql` se aplicó al proyecto remoto `agdkljuulwjwjasftcce` el 5 de noviembre de 2026, por pedido de Enzo. Se verificaron las seis tablas nuevas con RLS, la falta de acceso directo para `anon` y `authenticated`, la ejecución del informe reservada a `service_role` y una consulta vacía válida. Se publicaron las tres funciones de Analítica y se comprobó que la vista local carga el informe y GA4. Los trabajos diarios de limpieza y archivo de Vercel quedaron activos. El archivo inicial tiene 62 registros completos y 118 pendientes dentro de los 90 días; los pendientes corresponden a fechas que la API de Vercel ya no ofrece.

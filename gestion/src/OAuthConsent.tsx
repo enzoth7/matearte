@@ -69,7 +69,7 @@ export function OAuthConsent() {
       </form>
     </>}
     {status === "ready" && details && <>
-      <div><strong>{details.client.name}</strong> solicita conectar tu cuenta de MateArte Gestión. El MCP permite consultar datos. Richard también puede registrar gastos y crear productos en borrador con confirmación previa.</div>
+      <div><strong>{details.client.name}</strong> solicita conectar tu cuenta de MateArte Gestión. El MCP permite consultar datos y usar las herramientas de escritura habilitadas para tu cuenta. ChatGPT pide confirmación antes de guardar.</div>
       <dl>
         <dt>Destino</dt><dd>{details.redirect_uri}</dd>
         <dt>Permisos solicitados</dt><dd>{details.scope || "Identidad de la cuenta"}</dd>
