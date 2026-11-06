@@ -172,6 +172,34 @@ test("every email button points to its verified destination", () => {
   assert.match(admin.html, /href="https:\/\/admin\.example\/orders"/);
 });
 
+test("manual shipment uses the sale reference and omits missing tracking details", () => {
+  const message = buildCommerceEmail(
+    { event_type: "customer_order_shipped", payload: { shippingCarrier: "DAC", trackingCode: null } },
+    { ...order, reference_code: "#R007", customer_name: "Camila", customer_snapshot: {} },
+    items,
+    "https://www.matearteuruguay.com",
+    "secure-token",
+  );
+  assert.equal(message.subject, "Enviamos tu pedido #R007");
+  assert.match(message.html, />#R007</);
+  assert.match(message.html, />DAC</);
+  assert.match(message.html, /VER PEDIDO/);
+  assert.doesNotMatch(message.html, />Seguimiento</);
+});
+
+test("pickup sends a ready for collection email with the sale reference", () => {
+  const message = buildCommerceEmail(
+    { event_type: "customer_order_ready", payload: {} },
+    { ...order, reference_code: "#R007", shipping_method: "pickup" },
+    items,
+    "https://www.matearteuruguay.com",
+    "secure-token",
+  );
+  assert.equal(message.subject, "Tu pedido #R007 está pronto");
+  assert.match(message.html, /preparado para retirar/);
+  assert.doesNotMatch(message.html, /esperar la coordinación de entrega/);
+});
+
 test("every supported commerce event renders an email", () => {
   for (const event_type of COMMERCE_EMAIL_EVENT_TYPES) {
     const message = buildCommerceEmail(

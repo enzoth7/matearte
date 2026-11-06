@@ -22,6 +22,7 @@ import { PersonalizedOrders } from "./commerce/PersonalizedOrdersView";
 import { naturalCaseName, workshopOrderRows } from "./productionPresentation";
 import type { Session } from "@supabase/supabase-js";
 import { Orders as CommerceOrderDetails, formatWeight, getStoreApiUrl } from "./commerce/Operations";
+import { ShipmentModal, type ShipmentDetails } from "./commerce/ShipmentModal";
 import type { CommerceSnapshot } from "./commerceAdapter";
 import { ChartTooltip } from "./ui";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -526,26 +527,24 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
   const [saleBusy, setSaleBusy] = useState(false);
   const [saleError, setSaleError] = useState("");
   const [shipmentOpen, setShipmentOpen] = useState(false);
-  const [deliveryMethod, setDeliveryMethod] = useState<"pickup" | "shipping">(order.method === "Envío" ? "shipping" : "pickup");
-  const [shippingCarrier, setShippingCarrier] = useState(order.carrier || "");
-  const [trackingCode, setTrackingCode] = useState(order.tracking || "");
   const items = order.items || [];
+  const contact = s.customers.find((entry) => entry.id === order.customerId);
   const workshopOrder = order.source === "local" ? workshopOrderRows([order], s.products)[0] : undefined;
   const canShipLocal = order.source === "local" && ["internal_completed", "shipped"].includes(order.status || "");
   const canDeliverLocal = order.source === "local" && ["internal_completed", "shipped"].includes(order.status || "") && order.method !== "Envío";
-  const shipLocal = async () => {
+  const shipLocal = async (details: ShipmentDetails) => {
     if (!props.session) return;
     setSaleBusy(true); setSaleError("");
     try {
       const response = await fetch(`${getStoreApiUrl()}/api/admin/orders/${order.id}/fulfillment`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${props.session.access_token}` },
-        body: JSON.stringify({ action: "ship", deliveryMethod, shippingCarrier, trackingCode }),
+        body: JSON.stringify({ action: "ship", ...details }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "No se pudo marcar el pedido como enviado.");
       await props.refresh?.(true);
-      props.notify?.(deliveryMethod === "pickup" ? "Pedido preparado para retiro y producción terminada." : "Pedido marcado como enviado y producción terminada.");
+      props.notify?.(contact?.email ? "Pedido marcado como enviado. Aviso por correo en proceso." : "Pedido marcado como enviado y producción terminada.");
       onClose();
     } catch (error) {
       setSaleError(error instanceof Error ? error.message : "No se pudo marcar el pedido como enviado.");
@@ -574,7 +573,6 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
   const localPaymentMethods = [...new Set([order.paymentMethod, ...orderPayments.map((payment) => payment.method)]
     .filter((method): method is string => Boolean(method && method !== "Seña")))].join(", ") || "No registrado";
   const shipping = orderShippingStatus(order);
-  const contact = s.customers.find((entry) => entry.id === order.customerId);
   const phone = contact?.phone?.trim() || "";
   const country = contact?.country || (contact?.city ? countryForCity(contact.city) : "") || (/^0?9\d{7}$/.test(phone.replace(/\D/g, "")) ? "Uruguay" : "");
   const phoneParts = splitCustomerPhone(phone, country);
@@ -667,26 +665,22 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
     {editingSale && <LocalSaleEditor order={order} customers={s.customers} products={s.products} depositAmount={s.payments.find((payment) => payment.orderId === order.id)?.amount ?? undefined} onClose={() => setEditingSale(false)} onChanged={async (message) => { await props.refresh?.(true); props.notify?.(message); setEditingSale(false); onClose(); }} />}
     {recordingReceipt && <LocalSaleReceiptForm order={order} remaining={balance(s, order)} onClose={() => setRecordingReceipt(false)} onChanged={async () => { await props.refresh?.(true); props.notify?.("Cobro registrado en el mismo pedido"); setRecordingReceipt(false); }} />}
   </Modal>
-    {shipmentOpen && <Modal title={order.status === "shipped" ? "Editar envío" : "Marcar como enviado"} className="local-shipment-modal" onClose={() => setShipmentOpen(false)}>
-      <form className="local-shipment-form" onSubmit={(event) => { event.preventDefault(); void shipLocal(); }}>
-        <div>Al confirmar, los artículos quedarán terminados en producción.</div>
-        <label>Modalidad de entrega
-          <select value={deliveryMethod} onChange={(event) => setDeliveryMethod(event.target.value as "pickup" | "shipping")}>
-            <option value="pickup">Retiro en el local</option>
-            <option value="shipping">Envío</option>
-          </select>
-        </label>
-        {deliveryMethod === "shipping" && <>
-          <label>Empresa de envío, opcional<input minLength={2} maxLength={120} value={shippingCarrier} onChange={(event) => setShippingCarrier(event.target.value)} /></label>
-          <label>Código de seguimiento, opcional<input minLength={3} maxLength={160} value={trackingCode} onChange={(event) => setTrackingCode(event.target.value)} /></label>
-        </>}
-        {saleError && <div className="error" role="alert">{saleError}</div>}
-        <div className="form-actions">
-          <button type="button" className="secondary" disabled={saleBusy} onClick={() => setShipmentOpen(false)}>Cancelar</button>
-          <button type="submit" disabled={saleBusy}>{saleBusy ? "Guardando…" : "Confirmar"}</button>
-        </div>
-      </form>
-    </Modal>}
+    {shipmentOpen && <div className="commerce-tools"><ShipmentModal
+      reference={orderName(order)}
+      customer={naturalCaseName(contact?.name || order.customerName || "Cliente sin nombre")}
+      currentDelivery={order.method === "Envío" ? "Envío" : "Retiro en el local"}
+      destination={[contact?.address, contact?.city, contact?.department, contact?.country].filter(Boolean).join(", ")}
+      status={order.status || ""}
+      initialDeliveryMethod={order.method === "Envío" ? "shipping" : "pickup"}
+      initialCarrier={order.carrier}
+      initialTrackingCode={order.tracking}
+      manualSale
+      hasEmail={Boolean(contact?.email)}
+      busy={saleBusy}
+      error={saleError}
+      onCancel={() => setShipmentOpen(false)}
+      onSubmit={shipLocal}
+    /></div>}
   </>;
 }
 

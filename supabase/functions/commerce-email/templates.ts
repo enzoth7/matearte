@@ -18,6 +18,8 @@ export type EmailJob = {
 export type EmailOrder = {
   id: string;
   order_number: number;
+  reference_code?: string | null;
+  customer_name?: string | null;
   status: string;
   total_minor: number;
   items_subtotal_minor: number;
@@ -171,7 +173,7 @@ function paymentBreakdown(order: EmailOrder, items: EmailOrderItem[]) {
 
 const button = (label: string, url: string) => `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:0;border-collapse:separate;border-spacing:0"><tr><td style="background:#79452d;border-radius:4px"><a href="${escapeHtml(url)}" style="display:inline-block;padding:12px 24px;color:#fffdf8;font-family:'Outfit',Arial,sans-serif;font-size:13px;font-weight:600;letter-spacing:1.04px;line-height:16px;text-decoration:none;text-transform:uppercase;white-space:nowrap">${escapeHtml(label.toUpperCase())}</a></td></tr></table>`;
 
-const customerName = (order: EmailOrder) => String(order.customer_snapshot?.fullName || "").trim();
+const customerName = (order: EmailOrder) => String(order.customer_snapshot?.fullName || order.customer_name || "").trim();
 
 export function buildCommerceEmail(
   job: EmailJob,
@@ -185,10 +187,11 @@ export function buildCommerceEmail(
   const adminUrl = safeHttpUrl(gestionOrdersUrl) || "https://matearte-gestion.vercel.app/comercial/pedidos";
   const name = customerName(order);
   const greetingName = escapeHtml(name || "cliente");
-  const trackingCode = String(job.payload?.trackingCode || "—").trim();
+  const trackingCode = String(job.payload?.trackingCode || "").trim();
   const trackingUrl = safeHttpUrl(job.payload?.trackingUrl) || safeHttpUrl(trackingCode);
-  const shippingCarrier = String(job.payload?.shippingCarrier || "—").trim();
-  const orderRow = summaryRow("Pedido", `#${order.order_number}`, { strong: false });
+  const shippingCarrier = String(job.payload?.shippingCarrier || "").trim();
+  const reference = String(order.reference_code || `#${order.order_number}`).trim();
+  const orderRow = summaryRow("Pedido", reference, { strong: false });
   const products = itemsBlock(items, order.currency);
   const totalRow = summaryRow("Total", money(order.total_minor, order.currency));
   const payment = paymentBreakdown(order, items);
@@ -212,17 +215,17 @@ export function buildCommerceEmail(
       };
     case "customer_order_ready":
       return {
-        subject: `Tu pedido #${order.order_number} está pronto`,
+        subject: `Tu pedido ${reference} está pronto`,
         html: layout(
-          `${heading("Tu pedido está pronto")}${copy("¡Buenas noticias! Tu pedido ya está preparado. Podés retirarlo en nuestro local o esperar la coordinación de entrega indicada al comprar.")}${orderRow}${summaryRow("Retiro", "25 de Mayo 1734")}${summaryRow("Horario", "Lun a vie · 10 a 18 h")}${button("Ver pedido", orderUrl)}`,
+          `${heading("Tu pedido está pronto")}${copy("¡Buenas noticias! Tu pedido ya está preparado para retirar en nuestro local.")}${orderRow}${summaryRow("Retiro", "25 de Mayo 1734")}${summaryRow("Horario", "Lunes a viernes, 10 a 18 h")}${button("Ver pedido", orderUrl)}`,
           siteUrl,
         ),
       };
     case "customer_order_shipped":
       return {
-        subject: `Enviamos tu pedido #${order.order_number}`,
+        subject: `Enviamos tu pedido ${reference}`,
         html: layout(
-          `${heading("Tu pedido ya está en camino")}${copy("Despachamos tu compra y pronto estará contigo. Podés seguir el recorrido con los datos de envío.")}${orderRow}${summaryRow("Transportista", shippingCarrier)}${summaryRow("Seguimiento", trackingCode)}${button("Seguir envío", trackingUrl || orderUrl)}`,
+          `${heading("Tu pedido ya está en camino")}${copy(trackingCode ? "Despachamos tu compra y pronto estará contigo. Podés seguir el recorrido con los datos de envío." : "Despachamos tu compra y pronto estará contigo. Podés consultar el estado de tu pedido.")}${orderRow}${shippingCarrier ? summaryRow("Transportista", shippingCarrier) : ""}${trackingCode ? summaryRow("Seguimiento", trackingCode) : ""}${button(trackingCode ? "Seguir envío" : "Ver pedido", trackingUrl || orderUrl)}`,
           siteUrl,
         ),
       };

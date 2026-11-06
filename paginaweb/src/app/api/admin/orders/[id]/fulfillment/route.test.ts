@@ -66,7 +66,7 @@ describe("entrega desde Gestión", () => {
     const shipped = await PATCH(request("ship", { deliveryMethod: "pickup" }), { params: Promise.resolve({ id }) });
     expect(shipped.status).toBe(200);
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "shipped", shipping_method: "pickup", shipping_carrier: null, tracking_code: null }));
-    expect(dispatchCommerceEmails).not.toHaveBeenCalled();
+    expect(dispatchCommerceEmails).toHaveBeenCalledWith(id);
     order.status = "shipped";
     const delivered = await PATCH(request("deliver"), { params: Promise.resolve({ id }) });
     expect(delivered.status).toBe(200);
@@ -80,7 +80,7 @@ describe("entrega desde Gestión", () => {
     const shipped = await PATCH(request("ship", { deliveryMethod: "shipping", shippingCarrier: "Correo", trackingCode: "TRACK-001" }), { params: Promise.resolve({ id }) });
     expect(shipped.status).toBe(200);
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "shipped", shipping_method: "national_shipping", shipping_carrier: "Correo", tracking_code: "TRACK-001" }));
-    expect(dispatchCommerceEmails).not.toHaveBeenCalled();
+    expect(dispatchCommerceEmails).toHaveBeenCalledWith(id);
   });
 
   it("permite un envío manual sin seguimiento", async () => {

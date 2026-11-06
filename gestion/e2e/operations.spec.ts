@@ -308,9 +308,10 @@ test('una venta local puede marcarse enviada aunque el personalizado siga pendie
   const shipment=page.getByRole('dialog',{name:'Marcar como enviado'});
   await expect(shipment.getByLabel('Modalidad de entrega')).toHaveValue('pickup');
   await shipment.getByLabel('Modalidad de entrega').selectOption('shipping');
-  await expect(shipment.getByLabel('Empresa de envío, opcional')).toBeEmpty();
+  await expect(shipment.getByLabel('Empresa de envío, opcional')).toHaveValue('');
+  await expect(shipment.getByLabel('Empresa de envío, opcional').locator('option',{hasText:'DAC'})).toHaveCount(1);
   await expect(shipment.getByLabel('Código de seguimiento, opcional')).toBeEmpty();
-  await shipment.getByRole('button',{name:'Confirmar'}).click();
+  await shipment.getByRole('button',{name:'Confirmar envío'}).click();
   await expect.poll(()=>sale.status).toBe('shipped');
   expect(calls).toEqual([{action:'ship',deliveryMethod:'shipping',shippingCarrier:'',trackingCode:''}]);
   await page.getByRole('row').filter({hasText:'#L050'}).getByRole('button',{name:'Ver detalle del pedido #L050'}).click();

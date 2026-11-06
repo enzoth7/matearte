@@ -403,12 +403,17 @@ td small { display: block; }
 
 .modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; overflow-y: auto; background: rgba(8,20,14,.58); padding: 1.25rem; }
 .shipment-modal { width: min(42rem,100%); max-height: calc(100dvh - 2.5rem); overflow-y: auto; border: 1px solid var(--line); border-radius: .75rem; background: var(--paper); box-shadow: 0 2rem 5rem rgba(8,20,14,.3); }
+.shipment-modal::backdrop { background: rgba(8,20,14,.58); }
 .order-detail-modal { width: min(46rem,100%); }
 .shipment-modal form { padding: 1.5rem; }
 .order-detail-modal__content { padding: 1.5rem; }
 .shipment-modal header { margin-bottom: 1.25rem; }
+.shipment-modal__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.shipment-modal__header > div { min-width: 0; }
+.shipment-modal__close { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 50%; background: #fff; color: #142019; cursor: pointer; }
+.shipment-modal__close:disabled { opacity: .5; cursor: not-allowed; }
 .shipment-modal h2 { margin-top: .3rem; font-size: 1.8rem; }
-.shipment-modal header > p:last-child { margin: .6rem 0 0; color: var(--muted); font-size: .86rem; line-height: 1.55; }
+.shipment-modal__header > div > div { margin: .6rem 0 0; color: var(--muted); font-size: .86rem; line-height: 1.55; }
 .order-detail-modal__title-row { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
 .order-delivery-summary { border: 1px solid #c8d3cb; border-radius: .55rem; background: #f7faf7; padding: 1rem; }
 .order-delivery-summary__heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--line-soft); padding-bottom: .75rem; }

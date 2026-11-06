@@ -98,8 +98,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (updateError) throw updateError;
       if (!updated) return response(origin, { error: "El pedido cambió mientras lo actualizabas. Recargá e intentá de nuevo." }, 409);
 
-      if (order.status !== "shipped" && !pickup && ["Web", "Mayorista web"].includes(order.channel)
-          && (order.customer_snapshot as Record<string, unknown> | null)?.purchaseFlow !== "wholesale_bank_transfer") await dispatchCommerceEmails(id);
+      if (order.status !== "shipped" && (order.customer_snapshot as Record<string, unknown> | null)?.purchaseFlow !== "wholesale_bank_transfer") {
+        await dispatchCommerceEmails(id);
+      }
       return response(origin, { ok: true, order: updated });
     }
 

@@ -21,6 +21,8 @@ import { OrderDetailContent, type OrderDetailView } from '../OrderDetailContent'
 import { Modal } from '../ui';
 import type { Product as CatalogProduct } from '../data';
 import { OrderContactPhone } from '../OrderContactPhone';
+import { ShipmentModal, type ShipmentDetails } from './ShipmentModal';
+export { CARRIER_OPTIONS, resolveCarrierSelection } from './shipmentOptions';
 import {
   catalogAttributeLabel,
   catalogCategoryIds,
@@ -1695,41 +1697,6 @@ export function CatalogList({onNotice,onEdit}:{onNotice:(v:string)=>void;onEdit?
   </section>;
 }
 
-export const CARRIER_OPTIONS = [
-  { value: 'DAC', label: 'DAC', group: 'national' },
-  { value: 'Correo Uruguayo', label: 'Correo Uruguayo', group: 'national' },
-  { value: 'Copay', label: 'Copay', group: 'national' },
-  { value: 'Mirtrans', label: 'Mirtrans', group: 'national' },
-  { value: 'DePunta', label: 'DePunta', group: 'national' },
-  { value: 'DHL Express', label: 'DHL Express', group: 'international' },
-  { value: 'FedEx', label: 'FedEx', group: 'international' },
-  { value: 'UPS', label: 'UPS', group: 'international' },
-];
-
-export function resolveCarrierSelection(rawCarrier?: string | null, predefinedOptions = CARRIER_OPTIONS) {
-  const carrier = rawCarrier?.trim() || '';
-  const matched = predefinedOptions.find(c => c.value === carrier);
-  if (matched) {
-    return {
-      selectedCarrier: matched.value,
-      customCarrier: '',
-      shippingCarrier: matched.value,
-    };
-  }
-  if (carrier) {
-    return {
-      selectedCarrier: '__other__',
-      customCarrier: carrier,
-      shippingCarrier: carrier,
-    };
-  }
-  return {
-    selectedCarrier: '',
-    customCarrier: '',
-    shippingCarrier: '',
-  };
-}
-
 export function getStoreApiUrl(): string {
   const envUrl = (import.meta.env.VITE_STORE_API_URL || '').trim();
   if (envUrl) return envUrl.replace(/\/$/, '');
@@ -1742,46 +1709,12 @@ export function getStoreApiUrl(): string {
   return isLocalhost ? '/commerce-api' : 'https://www.matearteuruguay.com';
 }
 
-function OrderDeliverySummary({order,compact=false}:{order:Order;compact?:boolean}) {
-  const details = getOrderDeliveryDetails(order);
-  const locality = [details.city,details.department].filter((value,index,all)=>value&&all.indexOf(value)===index).join(', ');
-  return <section className={`order-delivery-summary${compact?' order-delivery-summary--compact':''}`} aria-label="Datos de entrega">
-    <div className="order-delivery-summary__heading">
-      <div><small>Entrega</small><strong>{details.methodLabel}</strong></div>
-      {details.zone&&<div>{details.zone}</div>}
-    </div>
-    <div className="order-delivery-grid">
-      <div>
-        <small>Cliente</small>
-        <strong>{details.contactName}</strong>
-        {details.phoneInfo ? <OrderContactPhone prefix={details.phoneInfo.prefix} number={details.phoneInfo.number || details.phone} country={details.phoneInfo.country} whatsappDigits={details.phoneInfo.whatsappDigits} /> : details.phone ? <div>{details.phone}</div> : null}
-        {details.email&&<div>{details.email}</div>}
-      </div>
-      <div>
-        <small>{details.isPickup?'Modalidad':'Enviar a'}</small>
-        {details.isPickup
-          ? <strong>Retiro: no requiere despacho</strong>
-          : <address>
-              <strong className={details.address?'':'missing-delivery-data'}>{details.address||'Dirección no disponible'}</strong>
-              {locality&&<div>{locality}</div>}
-              {details.country&&<div>{details.country}</div>}
-            </address>}
-      </div>
-    </div>
-  </section>;
-}
-
 export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProducts=[],onProduct,paymentProvider}:{session:Session;onNotice:(v:string)=>void;orderId?:string;onClose?:()=>void;onCustomer?:()=>void;catalogProducts?:Pick<CatalogProduct,'id'|'sku'|'sourceProductId'|'wholesaleProductId'>[];onProduct?:(productId:string,variantId:string)=>void;paymentProvider?:string}) {
   const [orders,setOrders] = useState<Order[]>([]);
   const [taxonomy,setTaxonomy] = useState<CatalogTaxonomy>(defaultCatalogTaxonomy);
   const [busy,setBusy] = useState('');
   const [detailOrder,setDetailOrder] = useState<Order|null>(null);
   const [shipmentOrder,setShipmentOrder] = useState<Order|null>(null);
-  const [deliveryMethod,setDeliveryMethod] = useState<'pickup'|'shipping'>('shipping');
-  const [shippingCarrier,setShippingCarrier] = useState('');
-  const [selectedCarrier,setSelectedCarrier] = useState('');
-  const [customCarrier,setCustomCarrier] = useState('');
-  const [trackingCode,setTrackingCode] = useState('');
   const [shipmentError,setShipmentError] = useState('');
   const [receiptPreview,setReceiptPreview] = useState<{url:string;mimeType:string;name:string}|null>(null);
   const [receiptLoading,setReceiptLoading] = useState(false);
@@ -1968,25 +1901,25 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
     } finally { setBusy(''); }
   };
 
-  const updateFulfillment = async(order:Order,action:'ship'|'restore',details?:{shippingCarrier:string;trackingCode:string}) => {
+  const updateFulfillment = async(order:Order,action:'ship'|'restore',details?:ShipmentDetails) => {
     setBusy(order.id);
     setShipmentError('');
     try {
       if (action === 'ship') {
         const carrier = (details?.shippingCarrier || '').trim();
         const tracking = (details?.trackingCode || '').trim();
-        if (deliveryMethod === 'shipping' && (carrier.length < 2 || carrier.length > 120)) {
+        if (details?.deliveryMethod === 'shipping' && (carrier.length < 2 || carrier.length > 120)) {
           setShipmentError('Ingresá una empresa de envío válida.');
           return false;
         }
-        if (deliveryMethod === 'shipping' && (tracking.length < 3 || tracking.length > 160)) {
+        if (details?.deliveryMethod === 'shipping' && (tracking.length < 3 || tracking.length > 160)) {
           setShipmentError('Ingresá un código de seguimiento válido.');
           return false;
         }
 
         const isWholesaleBankTransfer = textValue(order.customer_snapshot.purchaseFlow) === 'wholesale_bank_transfer';
         if (isWholesaleBankTransfer) {
-          const pickup = deliveryMethod === 'pickup';
+          const pickup = details?.deliveryMethod === 'pickup';
           const shippingMethod = pickup ? 'pickup' : order.shipping_method === 'pickup' ? 'national_shipping' : order.shipping_method;
           const shippingSnapshot = shippingMethod === order.shipping_method ? order.shipping_snapshot : pickup
             ? { ...order.shipping_snapshot, name: 'Retiro en local', is_pickup: true }
@@ -2004,7 +1937,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
           const response = await fetch(`${getStoreApiUrl()}/api/admin/orders/${order.id}/fulfillment`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-            body: JSON.stringify({ action: 'ship', deliveryMethod, shippingCarrier: carrier, trackingCode: tracking }),
+            body: JSON.stringify({ action: 'ship', deliveryMethod: details?.deliveryMethod, shippingCarrier: carrier, trackingCode: tracking }),
           });
           const value = await response.json();
           if (!response.ok) {
@@ -2013,7 +1946,8 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
           }
         }
 
-        onNotice(order.status === 'shipped' ? 'Datos de envío actualizados.' : deliveryMethod === 'pickup' ? 'Pedido preparado para retiro y producción terminada.' : isWholesaleBankTransfer ? 'Pedido marcado como enviado y producción terminada.' : 'Pedido marcado como enviado. Aviso por correo en proceso.');
+        const hasEmail = Boolean(textValue(order.customer_snapshot.email));
+        onNotice(order.status === 'shipped' ? 'Datos de envío actualizados.' : isWholesaleBankTransfer ? 'Pedido marcado como enviado y producción terminada.' : hasEmail ? 'Pedido marcado como enviado. Aviso por correo en proceso.' : 'Pedido marcado como enviado y producción terminada.');
         await load();
         return true;
       }
@@ -2063,12 +1997,6 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
 
   const openShipment = (order:Order) => {
     setShipmentOrder(order);
-    setDeliveryMethod(order.shipping_method === 'pickup' ? 'pickup' : 'shipping');
-    const resolved = resolveCarrierSelection(order.shipping_carrier);
-    setSelectedCarrier(!order.shipping_carrier && order.customer_snapshot.purchaseFlow === "argentina_retail_transfer" ? "__other__" : resolved.selectedCarrier);
-    setCustomCarrier(resolved.customCarrier);
-    setShippingCarrier(resolved.shippingCarrier);
-    setTrackingCode(order.tracking_code||'');
     setShipmentError('');
   };
 
@@ -2100,13 +2028,6 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
     setShipmentError('');
     onClose?.();
   };
-
-  useEffect(() => {
-    if (!shipmentOrder) return;
-    const onKeyDown = (event:KeyboardEvent) => { if (event.key === 'Escape') closeShipment(); };
-    window.addEventListener('keydown',onKeyDown);
-    return () => window.removeEventListener('keydown',onKeyDown);
-  },[shipmentOrder,busy]);
 
   const detailCategories = detailOrder ? Array.from(new Set(detailOrder.order_items.map(item => {
     const snapshot = recordValue(item.immutable_snapshot);
@@ -2276,87 +2197,26 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
             </div>
       </Modal>}
 
-      {shipmentOrder&&<div className="modal-backdrop">
-        <section className="shipment-modal" role="dialog" aria-modal="true" aria-labelledby="shipment-modal-title" aria-describedby="shipment-modal-description">
-          <form onSubmit={async event=>{event.preventDefault();const saved=await updateFulfillment(shipmentOrder,'ship',{shippingCarrier,trackingCode});if(saved){setShipmentOrder(null);onClose?.();}}}>
-            <header>
-              
-              <h2 id="shipment-modal-title">{shipmentOrder.status==='shipped'?'Editar datos de envío':'Marcar como enviado'}</h2>
-              <div id="shipment-modal-description">Al confirmar, los artículos quedarán terminados en producción.</div>
-            </header>
-            <OrderDeliverySummary order={shipmentOrder} compact/>
-            <label htmlFor="shipment-delivery-method">Modalidad de entrega</label>
-            <select id="shipment-delivery-method" value={deliveryMethod} onChange={event=>setDeliveryMethod(event.target.value as 'pickup'|'shipping')}>
-              <option value="shipping">Envío</option>
-              <option value="pickup">Retiro en el local</option>
-            </select>
-            {deliveryMethod==='shipping'&&<>
-            <label htmlFor="shipping-carrier-select">Empresa de envío <div aria-hidden="true">*</div></label>
-            <select
-              id="shipping-carrier-select"
-              required
-              autoFocus={selectedCarrier !== '__other__'}
-              value={selectedCarrier}
-              onChange={event => {
-                const val = event.target.value;
-                setSelectedCarrier(val);
-                if (val === '__other__') {
-                  setShippingCarrier(customCarrier);
-                } else {
-                  setShippingCarrier(val);
-                }
-              }}
-            >
-              <option value="" disabled>Seleccioná una empresa</option>
-              <optgroup label="Envíos nacionales (Uruguay)">
-                {CARRIER_OPTIONS.filter(c => c.group === 'national').map(c => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
-                ))}
-              </optgroup>
-              <optgroup label="Envíos internacionales">
-                {CARRIER_OPTIONS.filter(c => c.group === 'international').map(c => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
-                ))}
-              </optgroup>
-              <option value="__other__">Otra empresa (escribir nombre)…</option>
-            </select>
-            {selectedCarrier === '__other__' && (
-              <>
-                <label htmlFor="custom-shipping-carrier">Nombre de la empresa <div aria-hidden="true">*</div></label>
-                <input
-                  id="custom-shipping-carrier"
-                  required
-                  minLength={2}
-                  maxLength={120}
-                  placeholder="Ej.: Turil, Nuñez, Starken…"
-                  value={customCarrier}
-                  onChange={e => {
-                    setCustomCarrier(e.target.value);
-                    setShippingCarrier(e.target.value);
-                  }}
-                  autoFocus
-                />
-              </>
-            )}
-            <label htmlFor="tracking-code">Código de seguimiento <div aria-hidden="true">*</div></label>
-            <input id="tracking-code" required minLength={3} maxLength={160} autoComplete="off" value={trackingCode} onChange={event=>setTrackingCode(event.target.value)} />
-            </>}
-            <div className="field-help">{shipmentOrder.status==='shipped'
-              ? 'Los cambios se verán en el detalle del pedido del cliente.'
-              : deliveryMethod==='pickup'
-                ? 'El pedido quedará preparado para retirar en el local. Podés marcarlo entregado cuando el cliente lo retire.'
-              : textValue(shipmentOrder.customer_snapshot.purchaseFlow)==='wholesale_bank_transfer'
-                ? 'Al confirmar, el pedido cambia a Enviado y el cliente ve estos datos dentro de la web.'
-                : 'Al confirmar, el pedido cambia a Enviado y el cliente recibe estos datos por correo.'}</div>
-            {shipmentError&&<div className="modal-error" role="alert">{shipmentError}</div>}
-            <footer>
-              <button type="button" className="secondary-button" disabled={busy===shipmentOrder.id} onClick={closeShipment}>Cancelar</button>
-              {shipmentOrder.status!=='shipped'&&shipmentOrder.shipping_method==='national_shipping'&&<button type="button" className="secondary-button" disabled={busy===shipmentOrder.id} onClick={()=>void deliverInStore(shipmentOrder)}>Entregado</button>}
-              <button type="submit" disabled={busy===shipmentOrder.id}>{busy===shipmentOrder.id?'Guardando…':shipmentOrder.status==='shipped'?'Guardar cambios':'Confirmar envío'}</button>
-            </footer>
-          </form>
-        </section>
-      </div>}
+      {shipmentOrder&&<ShipmentModal
+        key={shipmentOrder.id}
+        reference={shipmentOrder.reference_code || `#${shipmentOrder.order_number}`}
+        customer={orderCustomer(shipmentOrder.customer_snapshot)}
+        currentDelivery={getOrderDeliveryDetails(shipmentOrder).methodLabel}
+        destination={(() => { const details = getOrderDeliveryDetails(shipmentOrder); return [details.address, details.city, details.department, details.country].filter(Boolean).join(', '); })()}
+        status={shipmentOrder.status}
+        initialDeliveryMethod={shipmentOrder.shipping_method === 'pickup' ? 'pickup' : 'shipping'}
+        initialCarrier={shipmentOrder.shipping_carrier}
+        initialTrackingCode={shipmentOrder.tracking_code}
+        preferCustomCarrier={!shipmentOrder.shipping_carrier && shipmentOrder.customer_snapshot.purchaseFlow === 'argentina_retail_transfer'}
+        manualSale={false}
+        hasEmail={Boolean(textValue(shipmentOrder.customer_snapshot.email))}
+        wholesaleBankTransfer={textValue(shipmentOrder.customer_snapshot.purchaseFlow) === 'wholesale_bank_transfer'}
+        busy={busy===shipmentOrder.id}
+        error={shipmentError}
+        onCancel={closeShipment}
+        onSubmit={async details=>{const saved=await updateFulfillment(shipmentOrder,'ship',details);if(saved){setShipmentOrder(null);onClose?.();}}}
+        onDeliverInStore={shipmentOrder.status!=='shipped'&&shipmentOrder.shipping_method==='national_shipping' ? ()=>void deliverInStore(shipmentOrder) : undefined}
+      />}
     </>
   );
 }
