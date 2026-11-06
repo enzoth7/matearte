@@ -4,7 +4,8 @@ import { beforeEach, expect, it, vi } from "vitest";
 const mock = vi.hoisted(() => ({ upload: vi.fn(), insert: vi.fn(), remove: vi.fn() }));
 vi.mock("@/lib/supabase/config", () => ({ isAllowedPersonalizerOrigin: () => true }));
 vi.mock("@/lib/supabase/server", () => ({
-  createTokenSupabase: () => ({ auth: { getUser: async () => ({ data: { user: { id: "buyer" } } }) }, from: () => {
+  getFirstPartyTokenUser: async () => ({ id: "buyer" }),
+  createTokenSupabase: () => ({ from: () => {
     const chain = { select: () => chain, eq: () => chain, maybeSingle: async () => ({ data: { id: "design" } }) }; return chain;
   } }),
   createAdminSupabase: () => ({ storage: { from: () => ({ upload: mock.upload, remove: mock.remove }) }, from: () => {
