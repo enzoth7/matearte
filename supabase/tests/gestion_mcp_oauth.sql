@@ -1,6 +1,6 @@
 \ir fixtures/gestion_mcp_schema.sql
 \ir ../migrations/20261106143342_gestion_mcp_catalog_and_bridge.sql
-\ir ../migrations/20261106143343_gestion_mcp_enforce_oauth_boundary.sql
+\ir ../migrations/20261106144604_gestion_mcp_enforce_oauth_boundary.sql
 
 begin;
 create function pg_temp.request_as(p_user uuid, p_session uuid, p_oauth boolean, p_method text, p_path text, p_sign boolean, p_age int default 0)

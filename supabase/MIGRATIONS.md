@@ -2,7 +2,7 @@
 
 ## Alta de productos por MCP
 
-`20261106143342_gestion_mcp_catalog_and_bridge.sql` se aplicó al proyecto remoto de MateArte el 6 de noviembre de 2026. La clave de firma quedó accesible solo al servidor y el alta interna quedó preparada. El despliegue del MCP nuevo y `20261106143343_gestion_mcp_enforce_oauth_boundary.sql` quedan pendientes de verificar la corrección de OAuth en Supabase Auth. El orden de publicación está en [MCP de Gestión](../gestion/docs/mcp-solo-lectura.md).
+El 6 de noviembre de 2026 se aplicaron `20261106143342_gestion_mcp_catalog_and_bridge.sql` y `20261106144604_gestion_mcp_enforce_oauth_boundary.sql` en producción. La versión 16 de `gestion-mcp` habilitó el alta en borrador para Richard. Se verificó que la clave de firma esté reservada al servidor y que la API de datos exija la firma para llamadas OAuth. La actualización de herramientas en ChatGPT y el estado de Supabase Auth se detallan en [MCP de Gestión](../gestion/docs/mcp-solo-lectura.md).
 
 ## Analítica de recorridos
 
