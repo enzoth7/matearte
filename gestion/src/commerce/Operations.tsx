@@ -1851,61 +1851,12 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
     }
   };
 
-  const deliverPickup = async(order:Order) => {
-    if (!window.confirm('¿Confirmás que el cliente retiró este pedido? También quedará terminado en Producción.')) return;
-    setBusy(order.id);
-    try {
-      if (textValue(order.customer_snapshot.purchaseFlow) === 'wholesale_bank_transfer') {
-        const { data, error } = await supabase.from('orders')
-          .update({ status: 'delivered', delivered_at: new Date().toISOString() })
-          .eq('id', order.id).eq('status', order.status).select('id').maybeSingle();
-        if (error) throw error;
-        if (!data) throw new Error('El pedido cambió mientras lo actualizabas. Recargá e intentá de nuevo.');
-      } else {
-        const response = await fetch(`${getStoreApiUrl()}/api/admin/orders/${order.id}/fulfillment`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-          body: JSON.stringify({ action: 'deliver' }),
-        });
-        const value = await response.json();
-        if (!response.ok) throw new Error(value.error || 'No se pudo marcar el pedido como entregado.');
-      }
-      onNotice('Pedido marcado como entregado y producción terminada.');
-      setDetailOrder(null);
-      await load();
-    } catch (error) {
-      onNotice(error instanceof Error ? error.message : 'No se pudo marcar el pedido como entregado.');
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const deliverInStore = async (order:Order) => {
-    if (!window.confirm('¿Confirmás que el cliente recibió este pedido en el local? Quedará como entregado y no se enviará un correo.')) return;
-    setBusy(order.id);
-    setShipmentError('');
-    try {
-      const response = await fetch(`${getStoreApiUrl()}/api/admin/orders/${order.id}/fulfillment`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ action: 'deliver_in_store' }),
-      });
-      const value = await response.json();
-      if (!response.ok) throw new Error(value.error || 'No se pudo marcar el pedido como entregado.');
-      onNotice('Pedido marcado como entregado en el local, sin correo.');
-      setShipmentOrder(null);
-      await load();
-      onClose?.();
-    } catch (error) {
-      setShipmentError(error instanceof Error ? error.message : 'No se pudo marcar el pedido como entregado.');
-    } finally { setBusy(''); }
-  };
-
   const updateFulfillment = async(order:Order,action:'ship'|'restore',details?:ShipmentDetails) => {
     setBusy(order.id);
     setShipmentError('');
     try {
       if (action === 'ship') {
+        const pickup = details?.deliveryMethod === 'pickup';
         const carrier = (details?.shippingCarrier || '').trim();
         const tracking = (details?.trackingCode || '').trim();
         if (details?.deliveryMethod === 'shipping' && (carrier.length < 2 || carrier.length > 120)) {
@@ -1919,15 +1870,15 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
 
         const isWholesaleBankTransfer = textValue(order.customer_snapshot.purchaseFlow) === 'wholesale_bank_transfer';
         if (isWholesaleBankTransfer) {
-          const pickup = details?.deliveryMethod === 'pickup';
           const shippingMethod = pickup ? 'pickup' : order.shipping_method === 'pickup' ? 'national_shipping' : order.shipping_method;
           const shippingSnapshot = shippingMethod === order.shipping_method ? order.shipping_snapshot : pickup
             ? { ...order.shipping_snapshot, name: 'Retiro en local', is_pickup: true }
             : { ...order.shipping_snapshot, name: 'Envío', is_pickup: false };
           const shippedAt = order.status === 'shipped' && order.shipped_at ? order.shipped_at : new Date().toISOString();
           const { error } = await supabase.from('orders')
-            .update({ status: 'shipped', shipping_method: shippingMethod, shipping_snapshot: shippingSnapshot,
-              shipping_carrier: pickup ? null : carrier, tracking_code: pickup ? null : tracking, shipped_at: shippedAt })
+            .update({ status: pickup ? 'delivered' : 'shipped', shipping_method: shippingMethod, shipping_snapshot: shippingSnapshot,
+              shipping_carrier: pickup ? null : carrier, tracking_code: pickup ? null : tracking,
+              shipped_at: pickup ? null : shippedAt, delivered_at: pickup ? new Date().toISOString() : null })
             .eq('id', order.id).select('id').single();
           if (error) {
             setShipmentError(`No se pudo actualizar el envío: ${error.message}`);
@@ -1937,7 +1888,9 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
           const response = await fetch(`${getStoreApiUrl()}/api/admin/orders/${order.id}/fulfillment`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-            body: JSON.stringify({ action: 'ship', deliveryMethod: details?.deliveryMethod, shippingCarrier: carrier, trackingCode: tracking }),
+            body: JSON.stringify(pickup
+              ? { action: order.shipping_method === 'pickup' ? 'deliver' : 'deliver_in_store' }
+              : { action: 'ship', deliveryMethod: 'shipping', shippingCarrier: carrier, trackingCode: tracking }),
           });
           const value = await response.json();
           if (!response.ok) {
@@ -1947,7 +1900,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
         }
 
         const hasEmail = Boolean(textValue(order.customer_snapshot.email));
-        onNotice(order.status === 'shipped' ? 'Datos de envío actualizados.' : isWholesaleBankTransfer ? 'Pedido marcado como enviado y producción terminada.' : hasEmail ? 'Pedido marcado como enviado. Aviso por correo en proceso.' : 'Pedido marcado como enviado y producción terminada.');
+        onNotice(pickup ? 'Pedido marcado como entregado en el local, sin correo de seguimiento.' : order.status === 'shipped' ? 'Datos de envío actualizados.' : isWholesaleBankTransfer ? 'Pedido marcado como enviado y producción terminada.' : hasEmail ? 'Pedido marcado como enviado. Aviso por correo en proceso.' : 'Pedido marcado como enviado y producción terminada.');
         await load();
         return true;
       }
@@ -2157,7 +2110,6 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
                   : order.shipping_method === 'pickup' ? 'Retiro' : 'Envío';
                 const canFulfill = ['paid_pending_review', 'ready_for_fulfillment', 'ready_for_production', 'manual_review'].includes(order.status);
                 const canShip = canFulfill;
-                const canDeliver = order.shipping_method === 'pickup' && (canFulfill || order.status === 'shipped');
                 return <tr key={order.id} id={`order-${order.order_number}`} className={order.status==='payment_verification_pending'?'bank-transfer-pending-row':undefined}>
                   <td><button type="button" className="order-detail-trigger" onClick={()=>openDetails(order)} aria-label={`Ver detalle del pedido ${order.reference_code || `#${order.order_number}`}`}>{order.reference_code || `#${order.order_number}`}</button></td>
                   <td>{formatDate(order.created_at)}</td>
@@ -2172,7 +2124,6 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
                     {order.status==='payment_verification_pending'&&<button className="compact-button" type="button" onClick={()=>openDetails(order)}>Revisar comprobante</button>}
                     {order.status==='paid_pending_review'&&<><button className="compact-button" disabled={busy===order.id} onClick={()=>void review(order.id,'approve')}>{busy===order.id?'Procesando…':'Aprobar'}</button><button className="compact-button danger" disabled={busy===order.id} onClick={()=>void review(order.id,'reject')}>Rechazar</button></>}
                     {canShip&&<button className="compact-button" disabled={busy===order.id} onClick={()=>openShipment(order)}>Marcar enviado</button>}
-                    {canDeliver&&<button className="compact-button" disabled={busy===order.id} onClick={()=>void deliverPickup(order)}>Marcar entregado</button>}
                     {order.status==='shipped'&&<><button className="compact-button secondary-button" disabled={busy===order.id} onClick={()=>openShipment(order)}>Editar envío</button><button className="compact-button secondary-button" disabled={busy===order.id} onClick={()=>{if(window.confirm('¿Querés volver este pedido a preparación? El cliente dejará de verlo como enviado.'))void updateFulfillment(order,'restore')}}>{busy===order.id?'Procesando…':order.shipping_method==='international_coordination'||order.order_items.some(item=>item.requires_review&&item.review_status!=='approved')?'Volver a revisión':order.order_items.some(item=>item.requires_review)?'Volver a producción':'Volver a preparación'}</button></>}
                     {order.status==='delivered'&&<button className="compact-button secondary-button" disabled={busy===order.id} onClick={()=>{if(window.confirm('¿Querés volver este pedido a preparación? El cliente dejará de verlo como entregado.'))void updateFulfillment(order,'restore')}}>Volver a preparación</button>}
                   </div></td>
@@ -2191,7 +2142,6 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
               {onCustomer && <button type="button" className="unified-order-action" onClick={onCustomer}>Ver ficha del cliente</button>}
               {detailOrder.status==='payment_verification_pending'&&<><button type="button" className="unified-order-action unified-order-action--danger" disabled={busy===detailOrder.id||!receiptPreview} onClick={()=>void reviewBankTransfer(detailOrder,'reject')}>{detailOrder.currency === "ARS" ? "Rechazar comprobante" : "Rechazar y cancelar"}</button><button type="button" className="unified-order-action unified-order-action--primary" disabled={busy===detailOrder.id||!receiptPreview} onClick={()=>void reviewBankTransfer(detailOrder,'approve')}>{busy===detailOrder.id?'Procesando…':'Aprobar pago'}</button></>}
               {['paid_pending_review','ready_for_fulfillment','ready_for_production','manual_review'].includes(detailOrder.status)&&<button type="button" className="unified-order-action unified-order-action--primary" onClick={()=>{const order=detailOrder;setDetailOrder(null);openShipment(order)}}>Marcar enviado</button>}
-              {detailOrder.shipping_method==='pickup'&&['paid_pending_review','ready_for_fulfillment','ready_for_production','manual_review','shipped'].includes(detailOrder.status)&&<button type="button" className="unified-order-action unified-order-action--primary" disabled={busy===detailOrder.id} onClick={()=>void deliverPickup(detailOrder)}>Marcar entregado</button>}
               {['shipped','delivered'].includes(detailOrder.status)&&<button type="button" className="unified-order-action" disabled={busy===detailOrder.id} onClick={()=>{if(window.confirm('¿Volver este pedido a preparación?'))void updateFulfillment(detailOrder,'restore')}}>Volver a preparación</button>}
               {detailOrder.status==='shipped'&&<button type="button" className="unified-order-action unified-order-action--primary" onClick={()=>{const order=detailOrder;setDetailOrder(null);openShipment(order)}}>Editar envío</button>}
             </div>
@@ -2204,7 +2154,7 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
         currentDelivery={getOrderDeliveryDetails(shipmentOrder).methodLabel}
         destination={(() => { const details = getOrderDeliveryDetails(shipmentOrder); return [details.address, details.city, details.department, details.country].filter(Boolean).join(', '); })()}
         status={shipmentOrder.status}
-        initialDeliveryMethod={shipmentOrder.shipping_method === 'pickup' ? 'pickup' : 'shipping'}
+        initialDeliveryMethod={shipmentOrder.status === 'shipped' ? shipmentOrder.shipping_method === 'pickup' ? 'pickup' : 'shipping' : ''}
         initialCarrier={shipmentOrder.shipping_carrier}
         initialTrackingCode={shipmentOrder.tracking_code}
         preferCustomCarrier={!shipmentOrder.shipping_carrier && shipmentOrder.customer_snapshot.purchaseFlow === 'argentina_retail_transfer'}
@@ -2215,7 +2165,6 @@ export function Orders({session,onNotice,orderId,onClose,onCustomer,catalogProdu
         error={shipmentError}
         onCancel={closeShipment}
         onSubmit={async details=>{const saved=await updateFulfillment(shipmentOrder,'ship',details);if(saved){setShipmentOrder(null);onClose?.();}}}
-        onDeliverInStore={shipmentOrder.status!=='shipped'&&shipmentOrder.shipping_method==='national_shipping' ? ()=>void deliverInStore(shipmentOrder) : undefined}
       />}
     </>
   );

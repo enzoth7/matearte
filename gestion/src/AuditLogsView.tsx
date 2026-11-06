@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
+import { CaretDown } from '@phosphor-icons/react';
 import { commerceSource } from './commerceSource';
 import { auditActions, auditDateBoundary, auditDifference, auditFieldLabel, auditTime, auditValue, type AuditContext, type AuditEvent, type AuditGroup } from './auditLogs';
 import './auditLogs.css';
@@ -15,12 +16,12 @@ function AuditDetail({ group }: { group: string }) {
    });
    return () => { cancelled = true; };
  }, [group]);
- if (error) return <p role="alert">{error}</p>;
- if (!events.length) return <p role="status">Cargando detalle…</p>;
+ if (error) return <div role="alert">{error}</div>;
+ if (!events.length) return <div role="status">Cargando detalle…</div>;
  return <div className="audit-details">{events.map(event => <section key={event.id}>
    <h3>{auditActions[event.operation]}: {event.entity_type}</h3>
-   <p>{event.reference}</p><small>{auditTime(event.occurred_at)}, {event.actor_name}</small>
-   {event.entity_type === 'Pedido' && <p className="audit-hint">En ventas con seña, el importe registrado del pedido corresponde al cobro inicial. Los precios de los artículos y los cobros posteriores se muestran por separado.</p>}
+   <div className="audit-event-reference">{event.reference}</div><small>{auditTime(event.occurred_at)}, {event.actor_name}</small>
+   {event.entity_type === 'Pedido' && <aside className="audit-hint">En ventas con seña, el importe registrado del pedido corresponde al cobro inicial. Los precios de los artículos y los cobros posteriores se muestran por separado.</aside>}
    {event.changed_fields.length > 0 && <div className="audit-table-wrap"><table><thead><tr><th>Campo</th><th>Antes</th><th>Después</th><th>Diferencia</th></tr></thead><tbody>{event.changed_fields.map(key => <tr key={key}>
      <th>{auditFieldLabel(key, event)}</th><td><pre>{auditValue(event.before_values[key], key, event)}</pre></td><td><pre>{auditValue(event.after_values[key], key, event)}</pre></td><td>{auditDifference(event, key) || '—'}</td>
    </tr>)}</tbody></table></div>}
@@ -70,21 +71,25 @@ export function AuditLogs({ pendingActivation = false }: { pendingActivation?: b
    return () => { cancelled = true; };
  }, [context, userId, datePreset, operation, query, page, revision]);
  const resetPage = () => { setPage(0); setExpanded(null); };
+ useEffect(() => {
+   const timer = window.setTimeout(() => setQuery(search.trim()), 300);
+   return () => window.clearTimeout(timer);
+ }, [search]);
  return <div className="audit-page">
-   {pendingActivation && <section className="audit-notice" role="status"><h3>Pendiente de activación</h3><p>El registro todavía no está activo en la base de datos conectada.</p></section>}
-   {context && !context.canViewLogs ? <p role="alert">No tenés acceso a Logs.</p> : context?.canViewLogs && <>
-     <div className="audit-list-heading"><span>{loading ? 'Cargando…' : `${total} registros`}</span><button type="button" onClick={() => setRevision(v => v + 1)}>Actualizar</button></div>
+   {pendingActivation && <section className="audit-notice" role="status"><h3>Pendiente de activación</h3><div>El registro todavía no está activo en la base de datos conectada.</div></section>}
+   {context && !context.canViewLogs ? <div role="alert">No tenés acceso a Logs.</div> : context?.canViewLogs && <>
+     <div className="audit-list-heading"><output>{loading ? 'Cargando…' : `${total} registros`}</output><button type="button" onClick={() => setRevision(v => v + 1)}>Actualizar</button></div>
      <div className="audit-table-scroll"><table className="audit-list"><thead><tr>
-       <th><label className="audit-column-select"><select aria-label="Filtrar fecha y hora" value={datePreset} onChange={event => { setDatePreset(event.target.value); resetPage(); }}><option value="">Fecha y hora</option><option value="today">Hoy</option><option value="yesterday">Ayer</option><option value="7">Últimos 7 días</option><option value="30">Últimos 30 días</option></select><span aria-hidden="true">⌄</span></label></th>
-       <th><label className="audit-column-select"><select aria-label="Filtrar usuario" value={userId} onChange={event => { setUserId(event.target.value); resetPage(); }}><option value="">Usuario</option>{(context.users || []).map(user => <option value={user.id} key={user.id}>{user.name}</option>)}</select><span aria-hidden="true">⌄</span></label></th>
-       <th><label className="audit-column-select"><select aria-label="Filtrar acción" value={operation} onChange={event => { setOperation(event.target.value); resetPage(); }}><option value="">Acción</option>{Object.entries(auditActions).map(([key, label]) => <option key={key} value={key}>{label}</option>)}<option value="money">Cambios de importes</option></select><span aria-hidden="true">⌄</span></label></th>
-       <th><form className="audit-reference-search" onSubmit={event => { event.preventDefault(); setQuery(search); resetPage(); }}><input type="search" aria-label="Buscar referencia o producto" value={search} onChange={event => { setSearch(event.target.value); if (!event.target.value) { setQuery(''); resetPage(); } }} placeholder="Referencia" /><button type="submit" aria-label="Buscar referencia">⌕</button></form></th>
+       <th><label className="audit-column-select"><select aria-label="Filtrar fecha y hora" value={datePreset} onChange={event => { setDatePreset(event.target.value); resetPage(); }}><option value="">Fecha y hora</option><option value="today">Hoy</option><option value="yesterday">Ayer</option><option value="7">Últimos 7 días</option><option value="30">Últimos 30 días</option></select><CaretDown size={14} weight="bold" aria-hidden="true" /></label></th>
+       <th><label className="audit-column-select"><select aria-label="Filtrar usuario" value={userId} onChange={event => { setUserId(event.target.value); resetPage(); }}><option value="">Usuario</option>{(context.users || []).map(user => <option value={user.id} key={user.id}>{user.name}</option>)}</select><CaretDown size={14} weight="bold" aria-hidden="true" /></label></th>
+       <th><label className="audit-column-select"><select aria-label="Filtrar acción" value={operation} onChange={event => { setOperation(event.target.value); resetPage(); }}><option value="">Acción</option>{Object.entries(auditActions).map(([key, label]) => <option key={key} value={key}>{label}</option>)}<option value="money">Cambios de importes</option></select><CaretDown size={14} weight="bold" aria-hidden="true" /></label></th>
+       <th aria-label="Referencia"><label className="audit-reference-search"><input type="search" aria-label="Buscar referencia o producto" value={search} onChange={event => { setSearch(event.target.value); resetPage(); if (!event.target.value) setQuery(''); }} placeholder="Referencia" /></label></th>
        <th>Origen</th><th>Detalle</th></tr></thead><tbody>
        {!loading && !error && groups.length === 0 && <tr><td className="audit-empty" colSpan={6}>No hay registros para esta selección.</td></tr>}
-       {groups.map(group => <Fragment key={group.group_id}><tr className={group.attention ? 'audit-row audit-attention' : 'audit-row'}><td><time>{auditTime(group.occurred_at)}</time></td><td><strong>{group.actor_name}</strong></td><td>{group.operations.map(action => auditActions[action] || action).join(', ')}{group.attention && <span className="audit-alert-label">Cambio de importe o eliminación</span>}</td><td className="audit-reference">{group.reference}</td><td>{group.source}</td><td><button type="button" className="audit-open" aria-expanded={expanded === group.group_id} onClick={() => setExpanded(current => current === group.group_id ? null : group.group_id)}>{expanded === group.group_id ? 'Ocultar' : `Ver cambios (${group.event_count})`}</button></td></tr>{expanded === group.group_id && <tr className="audit-expanded"><td colSpan={6}><AuditDetail group={group.group_id} /></td></tr>}</Fragment>)}
+       {groups.map(group => <Fragment key={group.group_id}><tr className={group.attention ? 'audit-row audit-attention' : 'audit-row'}><td><time>{auditTime(group.occurred_at)}</time></td><td><strong>{group.actor_name}</strong></td><td>{group.operations.map(action => auditActions[action] || action).join(', ')}{group.attention && <small className="audit-alert-label">Cambio de importe o eliminación</small>}</td><td className="audit-reference"><div className="audit-reference-text" title={group.reference}>{group.reference}</div></td><td>{group.source}</td><td><button type="button" className="audit-open" aria-expanded={expanded === group.group_id} onClick={() => setExpanded(current => current === group.group_id ? null : group.group_id)}>{expanded === group.group_id ? 'Ocultar' : `Ver cambios (${group.event_count})`}</button></td></tr>{expanded === group.group_id && <tr className="audit-expanded"><td colSpan={6}><AuditDetail group={group.group_id} /></td></tr>}</Fragment>)}
      </tbody></table></div>
-     <nav className="audit-pagination" aria-label="Páginas del historial"><button disabled={loading || page === 0} onClick={() => setPage(p => p - 1)}>Anterior</button><span>Página {page + 1} de {Math.max(1, Math.ceil(total / 50))}</span><button disabled={loading || (page + 1) * 50 >= total} onClick={() => setPage(p => p + 1)}>Siguiente</button></nav>
+     <nav className="audit-pagination" aria-label="Páginas del historial"><button disabled={loading || page === 0} onClick={() => setPage(p => p - 1)}>Anterior</button><output>Página {page + 1} de {Math.max(1, Math.ceil(total / 50))}</output><button disabled={loading || (page + 1) * 50 >= total} onClick={() => setPage(p => p + 1)}>Siguiente</button></nav>
    </>}
-   {loading && <p role="status">Cargando historial…</p>}{error && <p role="alert">{error}</p>}
+   {loading && <div role="status">Cargando historial…</div>}{error && <div role="alert">{error}</div>}
  </div>;
 }

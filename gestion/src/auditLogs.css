@@ -1,8 +1,7 @@
 
 .audit-page{display:grid;gap:16px;max-width:1500px;min-width:0}
 .audit-page h2,.audit-page h3{margin:0}
-.audit-page p{margin:5px 0}
-.audit-heading p{font-size:13px;color:#73665e}
+.audit-event-reference,.audit-hint,.audit-notice>div{margin:5px 0}
 .audit-toolbar{display:flex;align-items:end;flex-wrap:wrap;gap:12px}
 .audit-toolbar form{display:flex;align-items:end;gap:8px;flex:1 1 300px}
 .audit-toolbar label,.audit-filter-content>label{display:grid;gap:5px;font-size:13px;color:#655950}
@@ -19,16 +18,17 @@
 .audit-filter-content legend{font-weight:600;margin-bottom:8px}
 .audit-filter-content fieldset label,.audit-filter-content>label:has([type=checkbox]){display:flex;align-items:center;gap:6px;color:#241c18}
 .audit-list-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:15px}
-.audit-list-heading span{font-size:13px;color:#73665e}
+.audit-list-heading output{font-size:13px;color:#73665e}
 .audit-table-scroll{width:100%;overflow-x:auto;border:1px solid #e3dcd5;border-radius:10px;background:#fff}
-.audit-list{width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px}
+.audit-list{width:100%;min-width:1180px;border-collapse:collapse;table-layout:fixed;font-size:13px}
 .audit-list th{background:#f7f4f1;color:#655950;text-align:left;font-weight:600;font-size:12px;white-space:nowrap}
 .audit-list th,.audit-list td{padding:13px 12px;border-bottom:1px solid #eee9e5;vertical-align:top}
 .audit-list th:nth-child(1){width:150px}.audit-list th:nth-child(2){width:145px}.audit-list th:nth-child(3){width:185px}.audit-list th:nth-child(5){width:105px}.audit-list th:nth-child(6){width:145px}
 .audit-list tbody tr:last-child td{border-bottom:0}
 .audit-list td{overflow-wrap:anywhere}
 .audit-list time{white-space:nowrap}
-.audit-reference{font-weight:500}
+.audit-reference{font-weight:500;overflow:hidden;white-space:normal}
+.audit-reference-text{display:-webkit-box;max-width:100%;overflow:hidden;overflow-wrap:anywhere;word-break:break-word;white-space:normal;line-height:1.4;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}
 .audit-row:hover{background:#fcfaf8}
 .audit-row.audit-attention{background:#fff5f3}
 .audit-row.audit-attention td:first-child{box-shadow:inset 3px 0 #c04437}
@@ -48,7 +48,7 @@
 .audit-pagination{display:flex;align-items:center;gap:12px;font-size:13px}
 .audit-page button:disabled{opacity:.5;cursor:default}
 .audit-notice{padding:18px;border:1px solid #e6e0da;border-radius:9px;background:#faf8f6}
-@media(max-width:760px){.audit-page{gap:12px}.audit-list{min-width:850px}.audit-toolbar form{flex-basis:100%}.audit-user-select{max-width:none}.audit-pagination{justify-content:space-between;gap:5px}}
+@media(max-width:760px){.audit-page{gap:12px}.audit-toolbar form{flex-basis:100%}.audit-user-select{max-width:none}.audit-pagination{justify-content:space-between;gap:5px}}
 
 
 .audit-list-heading{justify-content:flex-end}
@@ -56,9 +56,8 @@
 .audit-column-select{position:relative;display:flex;align-items:center;width:100%;min-height:30px}
 .audit-column-select select{appearance:none!important;width:100%;height:32px!important;padding:0 19px 0 0!important;border:0!important;border-radius:0!important;background:transparent!important;color:#655950!important;font:inherit!important;font-weight:600!important;cursor:pointer;text-overflow:ellipsis}
 .audit-column-select:has(select:not([value=""])) select{color:#75462f}
-.audit-column-select span{position:absolute;right:1px;pointer-events:none;color:#73665e;font-size:16px}
+.audit-column-select svg{position:absolute;right:1px;pointer-events:none;color:#73665e}
 .audit-column-select:focus-within,.audit-reference-search:focus-within{outline:2px solid #75462f;outline-offset:2px;border-radius:3px}
-.audit-reference-search{display:flex;align-items:center;gap:2px}
+.audit-reference-search{display:flex;align-items:center;min-width:0}
 .audit-reference-search input{width:100%;min-width:0;height:32px!important;padding:0!important;border:0!important;background:transparent!important;color:#655950;font:inherit;font-weight:600;outline:0}
 .audit-reference-search input::placeholder{color:#655950;opacity:1}
-.audit-reference-search button{flex:none;padding:0 2px;border:0;background:transparent;color:#73665e;font-size:20px;cursor:pointer}

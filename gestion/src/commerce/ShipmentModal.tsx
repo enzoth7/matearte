@@ -14,7 +14,7 @@ type ShipmentModalProps = {
   currentDelivery: string;
   destination?: string;
   status: string;
-  initialDeliveryMethod: ShipmentDetails['deliveryMethod'];
+  initialDeliveryMethod: ShipmentDetails['deliveryMethod'] | '';
   initialCarrier?: string | null;
   initialTrackingCode?: string | null;
   preferCustomCarrier?: boolean;
@@ -25,12 +25,11 @@ type ShipmentModalProps = {
   error: string;
   onCancel: () => void;
   onSubmit: (details: ShipmentDetails) => void | Promise<void>;
-  onDeliverInStore?: () => void;
 };
 
 export function ShipmentModal({ reference, customer, currentDelivery, destination, status, initialDeliveryMethod,
   initialCarrier, initialTrackingCode, preferCustomCarrier = false, manualSale, hasEmail,
-  wholesaleBankTransfer = false, busy, error, onCancel, onSubmit, onDeliverInStore }: ShipmentModalProps) {
+  wholesaleBankTransfer = false, busy, error, onCancel, onSubmit }: ShipmentModalProps) {
   const titleId = useId();
   const descriptionId = useId();
   const methodId = useId();
@@ -51,16 +50,17 @@ export function ShipmentModal({ reference, customer, currentDelivery, destinatio
   }, []);
 
   const carrier = selectedCarrier === '__other__' ? customCarrier.trim() : selectedCarrier.trim();
-  const help = status === 'shipped' ? 'Los cambios se verán en el detalle del pedido.'
+  const help = !deliveryMethod ? 'Elegí si el pedido se envió o si el cliente lo retiró en el local.'
+    : status === 'shipped' && deliveryMethod === 'shipping' ? 'Los cambios se verán en el detalle del pedido.'
     : wholesaleBankTransfer ? 'El cliente verá el estado dentro de la web.'
+    : deliveryMethod === 'pickup' ? 'Se registrará la entrega en el local. No se enviará un correo de seguimiento.'
     : !hasEmail ? 'No hay un correo del cliente registrado. El estado se guardará sin aviso por correo.'
-    : deliveryMethod === 'pickup' ? 'Se enviará un correo para avisar que el pedido está pronto para retirar.'
     : 'Se enviará un correo para avisar que el pedido fue despachado.';
 
   return <dialog ref={dialogRef} className="shipment-modal" aria-labelledby={titleId} aria-describedby={descriptionId}
     onCancel={event => { event.preventDefault(); if (!busy) onCancel(); }}
     onClick={event => { if (event.target === dialogRef.current && !busy) onCancel(); }}>
-      <form onSubmit={event => { event.preventDefault(); void onSubmit({ deliveryMethod, shippingCarrier: carrier, trackingCode: trackingCode.trim() }); }}>
+      <form onSubmit={event => { event.preventDefault(); if (deliveryMethod) void onSubmit({ deliveryMethod, shippingCarrier: carrier, trackingCode: trackingCode.trim() }); }}>
         <header className="shipment-modal__header">
           <div>
             <h2 id={titleId}>{status === 'shipped' ? 'Editar datos de envío' : 'Marcar como enviado'}</h2>
@@ -77,7 +77,8 @@ export function ShipmentModal({ reference, customer, currentDelivery, destinatio
           </div>
         </section>
         <label htmlFor={methodId}>Modalidad de entrega</label>
-        <select id={methodId} value={deliveryMethod} autoFocus onChange={event => setDeliveryMethod(event.target.value as ShipmentDetails['deliveryMethod'])}>
+        <select id={methodId} value={deliveryMethod} required autoFocus onChange={event => setDeliveryMethod(event.target.value as ShipmentDetails['deliveryMethod'])}>
+          <option value="" disabled>Seleccioná una modalidad</option>
           <option value="shipping">Envío</option>
           <option value="pickup">Retiro en el local</option>
         </select>
@@ -104,8 +105,7 @@ export function ShipmentModal({ reference, customer, currentDelivery, destinatio
         {error && <div className="modal-error" role="alert">{error}</div>}
         <footer>
           <button type="button" className="secondary-button" disabled={busy} onClick={onCancel}>Cancelar</button>
-          {onDeliverInStore && <button type="button" className="secondary-button" disabled={busy} onClick={onDeliverInStore}>Entregado</button>}
-          <button type="submit" disabled={busy}>{busy ? 'Guardando…' : status === 'shipped' ? 'Guardar cambios' : 'Confirmar envío'}</button>
+          <button type="submit" disabled={busy}>{busy ? 'Guardando…' : deliveryMethod === 'pickup' ? 'Confirmar retiro' : status === 'shipped' ? 'Guardar cambios' : 'Confirmar envío'}</button>
         </footer>
       </form>
   </dialog>;

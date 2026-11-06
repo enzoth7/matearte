@@ -531,7 +531,6 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
   const contact = s.customers.find((entry) => entry.id === order.customerId);
   const workshopOrder = order.source === "local" ? workshopOrderRows([order], s.products)[0] : undefined;
   const canShipLocal = order.source === "local" && ["internal_completed", "shipped"].includes(order.status || "");
-  const canDeliverLocal = order.source === "local" && ["internal_completed", "shipped"].includes(order.status || "") && order.method !== "Envío";
   const shipLocal = async (details: ShipmentDetails) => {
     if (!props.session) return;
     setSaleBusy(true); setSaleError("");
@@ -539,33 +538,17 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       const response = await fetch(`${getStoreApiUrl()}/api/admin/orders/${order.id}/fulfillment`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${props.session.access_token}` },
-        body: JSON.stringify({ action: "ship", ...details }),
+        body: JSON.stringify(details.deliveryMethod === "pickup"
+          ? { action: order.method === "Retiro" ? "deliver" : "deliver_in_store" }
+          : { action: "ship", ...details }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "No se pudo marcar el pedido como enviado.");
       await props.refresh?.(true);
-      props.notify?.(contact?.email ? "Pedido marcado como enviado. Aviso por correo en proceso." : "Pedido marcado como enviado y producción terminada.");
+      props.notify?.(details.deliveryMethod === "pickup" ? "Pedido marcado como entregado en el local." : contact?.email ? "Pedido marcado como enviado. Aviso por correo en proceso." : "Pedido marcado como enviado y producción terminada.");
       onClose();
     } catch (error) {
       setSaleError(error instanceof Error ? error.message : "No se pudo marcar el pedido como enviado.");
-    } finally { setSaleBusy(false); }
-  };
-  const deliverLocal = async () => {
-    if (!props.session || !window.confirm("¿Confirmás que el cliente retiró este pedido?")) return;
-    setSaleBusy(true); setSaleError("");
-    try {
-      const response = await fetch(`${getStoreApiUrl()}/api/admin/orders/${order.id}/fulfillment`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${props.session.access_token}` },
-        body: JSON.stringify({ action: "deliver" }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "No se pudo marcar el pedido como entregado.");
-      await props.refresh?.(true);
-      props.notify?.("Pedido marcado como entregado.");
-      onClose();
-    } catch (error) {
-      setSaleError(error instanceof Error ? error.message : "No se pudo marcar el pedido como entregado.");
     } finally { setSaleBusy(false); }
   };
   const localDeposit = order.source === "local" && order.depositAmount != null;
@@ -656,7 +639,6 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       </div>}
       {canEditLocalSale(order) && balance(s, order) > 0 && <button type="button" className="unified-order-action unified-order-action--primary" onClick={() => setRecordingReceipt(true)}>Registrar cobro</button>}
       {canShipLocal && props.session && <button type="button" className="unified-order-action unified-order-action--primary" disabled={saleBusy} onClick={() => setShipmentOpen(true)}>{order.status === "shipped" ? "Editar envío" : "Marcar enviado"}</button>}
-      {canDeliverLocal && props.session && <button type="button" className="unified-order-action unified-order-action--primary" disabled={saleBusy} onClick={() => void deliverLocal()}>Marcar entregado</button>}
       <button className="unified-order-action" onClick={onClose}>Cerrar</button>
       {s.customers.some((entry) => entry.id === order.customerId) && <button className="unified-order-action" onClick={() => go(`/clientes/base?cliente=${order.customerId}`)}>Ver ficha del cliente</button>}
       {order.source === "wholesale" && wholesaleLines.length > 0 && props.commerce?.wholesale && <><button className="unified-order-action" onClick={() => downloadWholesalePdf("workshop")}>Descargar PDF Taller</button><button className="unified-order-action" onClick={() => downloadWholesalePdf("customer")}>Descargar PDF Cliente</button></>}
@@ -671,7 +653,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       currentDelivery={order.method === "Envío" ? "Envío" : "Retiro en el local"}
       destination={[contact?.address, contact?.city, contact?.department, contact?.country].filter(Boolean).join(", ")}
       status={order.status || ""}
-      initialDeliveryMethod={order.method === "Envío" ? "shipping" : "pickup"}
+      initialDeliveryMethod={order.status === "shipped" ? order.method === "Envío" ? "shipping" : "pickup" : ""}
       initialCarrier={order.carrier}
       initialTrackingCode={order.tracking}
       manualSale

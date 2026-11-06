@@ -40,6 +40,8 @@ const money = (minor: number, currency = "UYU") => new Intl.NumberFormat('es-UY'
 
 const readableDate = (value: string) => formatDateTime(value);
 const shortDate = (value: string) => formatDate(value);
+const orderDate = (order: PersonalizedOrder) => order.sold_on || order.created_at;
+const readableOrderDate = (order: PersonalizedOrder) => order.sold_on ? shortDate(order.sold_on) : readableDate(order.created_at);
 const reference = (order: PersonalizedOrder) => order.reference_code || `#${order.order_number}`;
 const productTypes = (order: PersonalizedOrder) => [...new Set(getPersonalizedItems(order).map((item) => ({
   mate: 'Mates',
@@ -89,6 +91,7 @@ export function localPersonalizedOrders(state: State | undefined): PersonalizedO
       discount_minor: Math.round((order.discountAmount || 0) * 100),
       total_minor: Math.round(total(order) * 100),
       created_at: createdAt,
+      sold_on: order.date,
       paid_at: balance(state, order) === 0 ? createdAt : null,
       payment_label: balance(state, order) > 0 && paid(state, order) > 0 ? 'Pago parcial' : undefined,
       customer_snapshot: {
@@ -231,7 +234,7 @@ function AssetCard({ asset, link }: { asset: PrivateAsset; link?: AssetLink }) {
       </div>
       <div className="asset-caption">
         <strong title={asset.name}>{asset.name}</strong>
-        <small>{[asset.mimeType.replace('image/', '').toUpperCase(), formatFileSize(asset.byteSize)].filter(Boolean).join(' · ')}</small>
+        <small>{[asset.mimeType.replace('image/', '').toUpperCase(), formatFileSize(asset.byteSize)].filter(Boolean).join(', ')}</small>
         {link?.downloadUrl && <a href={link.downloadUrl} target="_blank" rel="noreferrer">{asset.kind === 'preview' ? 'Descargar PNG' : 'Descargar original'}</a>}
       </div>
     </article>
@@ -271,7 +274,7 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
   useEffect(() => { void load(); }, [load]);
 
   const orders = useMemo(() => [...webOrders, ...localPersonalizedOrders(state)]
-    .sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id)), [state, webOrders]);
+    .sort((a, b) => orderDate(b).localeCompare(orderDate(a)) || b.id.localeCompare(a.id)), [state, webOrders]);
   const selected = orders.find((order) => order.id === selectedId) || null;
   const selectedTotals = selected ? personalizedOrderTotals(selected) : null;
   const selectedItems = useMemo(() => selected ? getPersonalizedItems(selected) : [], [selected]);
@@ -341,10 +344,10 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
               {orders.map((order) => {
                 return <tr key={order.id}>
                   <td><strong>{reference(order)}</strong></td>
-                  <td>{shortDate(order.created_at)}</td>
+                  <td>{shortDate(orderDate(order))}</td>
                   <td><strong>{customerName(order.customer_snapshot)}</strong></td>
                   <td>{productTypes(order)}</td>
-                  <td><span className={`badge channel-${order.source === 'local' ? 'local' : 'web'}`}>{order.source === 'local' ? 'Local' : 'Web'}</span></td>
+                  <td><strong className={`badge channel-${order.source === 'local' ? 'local' : 'web'}`}>{order.source === 'local' ? 'Local' : 'Web'}</strong></td>
                   <td><strong>{money(order.total_minor,order.currency)}</strong></td>
                   <td className="payment-status-cell">
                     <Badge tone={getPaymentStatusValue(order) === 'cancelled' ? 'red' : undefined}>{paymentStatusLabel(order)}</Badge>
@@ -362,7 +365,7 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
       {createPortal(<div className="commerce-tools personalized-dialog-portal"><dialog ref={dialogRef} className="personalized-dialog" onClose={() => setSelectedId('')} onCancel={(event) => { event.preventDefault(); closeDetail(); }} onMouseDown={(event) => { if (event.target === event.currentTarget) closeDetail(); }}>
         {selected && <div className="dialog-surface">
           <header className="dialog-header">
-            <div><h2>Pedido {reference(selected)}</h2><div>{customerName(selected.customer_snapshot)} · {readableDate(selected.created_at)}</div></div>
+            <div><h2>Pedido {reference(selected)}</h2><div>{customerName(selected.customer_snapshot)}, {readableOrderDate(selected)}</div></div>
             <button className="icon-button dialog-close" type="button" onClick={closeDetail} aria-label="Cerrar detalle"><CloseIcon/></button>
           </header>
 
@@ -373,7 +376,7 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
 
           <div className="dialog-body">
             <section className={`personalized-tab-panel personalized-tab-panel--detail${activeTab === 'detail' ? ' is-active' : ''}`} id="personalized-detail-panel" role="tabpanel" aria-labelledby="personalized-detail-tab">
-              <div className="personalized-panel-intro"><h3>Detalle del pedido</h3><p>Importes cobrados por cada artículo y personalización.</p></div>
+              <div className="personalized-panel-intro"><h3>Detalle del pedido</h3><div>Importes cobrados por cada artículo y personalización.</div></div>
               <div className="order-status-grid">
               <div>
                 <small>Pago</small>
@@ -389,7 +392,7 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
                 <h4>Desglose del pedido</h4>
                 {selected.order_items.map(item => {
                   const summary = itemSummaries.find(entry => entry.item.id === item.id)?.summary;
-                  const details = summary ? [summary.mate.color, summary.kind === 'mate' ? summary.mate.size : '', summary.kind === 'mate' ? summary.mate.interior : ''].filter((value) => value && value !== 'No especificado' && value !== 'No especificada').join(' · ') : '';
+                  const details = summary ? [summary.mate.color, summary.kind === 'mate' ? summary.mate.size : '', summary.kind === 'mate' ? summary.mate.interior : ''].filter((value) => value && value !== 'No especificado' && value !== 'No especificada').join(', ') : '';
                   const price = personalizedItemPriceDetail(item);
                   return <section className="personalized-price-item" key={item.id} aria-label={`Importes de ${itemTitle(item)}`}>
                     <div className="personalized-price-item-head">
@@ -399,20 +402,20 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
                       <thead><tr><th>Concepto</th><th>Cantidad</th><th>Precio unitario</th><th>Total</th></tr></thead>
                       <tbody>{price.lines.map(line => <tr key={line.key}>
                         <td>{line.label}</td>
-                        <td><span className="personalized-price-mobile-label">Cantidad</span>{line.quantity}</td>
-                        <td><span className="personalized-price-mobile-label">Precio unitario</span>{money(line.unitPriceMinor,selected.currency)}</td>
-                        <td><span className="personalized-price-mobile-label">Total</span>{money(line.totalMinor,selected.currency)}</td>
+                        <td><small className="personalized-price-mobile-label">Cantidad</small>{line.quantity}</td>
+                        <td><small className="personalized-price-mobile-label">Precio unitario</small>{money(line.unitPriceMinor,selected.currency)}</td>
+                        <td><small className="personalized-price-mobile-label">Total</small>{money(line.totalMinor,selected.currency)}</td>
                       </tr>)}</tbody>
                     </table>
-                    {price.notice && <p className="personalized-price-notice">{summary?.kind === 'service' || summary?.kind === 'aplique' ? 'Se muestra el importe cobrado por este trabajo.' : price.notice}</p>}
+                    {price.notice && <div className="personalized-price-notice">{summary?.kind === 'service' || summary?.kind === 'aplique' ? 'Se muestra el importe cobrado por este trabajo.' : price.notice}</div>}
                   </section>;
                 })}
                 {selectedTotals && <div className="personalized-order-totals" aria-label="Totales del pedido">
-                  {selectedTotals.discountMinor > 0 && <div><span>Descuento{selected.discount_code ? ` · ${selected.discount_code}` : ''}</span><strong>−{money(selectedTotals.discountMinor,selected.currency)}</strong></div>}
-                  {selectedTotals.shippingMinor > 0 && <div><span>Envío</span><strong>{money(selectedTotals.shippingMinor,selected.currency)}</strong></div>}
-                  {selectedTotals.paymentFeeMinor > 0 && <div><span>Cargos de pago</span><strong>{money(selectedTotals.paymentFeeMinor,selected.currency)}</strong></div>}
-                  {selectedTotals.otherAdjustmentMinor !== 0 && <div><span>Ajuste no desglosado en el pedido</span><strong>{selectedTotals.otherAdjustmentMinor < 0 ? '−' : '+'}{money(Math.abs(selectedTotals.otherAdjustmentMinor),selected.currency)}</strong></div>}
-                  <div className="personalized-order-grand-total"><span>Total del pedido</span><strong>{money(selectedTotals.totalMinor,selected.currency)}</strong></div>
+                  {selectedTotals.discountMinor > 0 && <div><div>Descuento{selected.discount_code ? `, ${selected.discount_code}` : ''}</div><strong>−{money(selectedTotals.discountMinor,selected.currency)}</strong></div>}
+                  {selectedTotals.shippingMinor > 0 && <div><div>Envío</div><strong>{money(selectedTotals.shippingMinor,selected.currency)}</strong></div>}
+                  {selectedTotals.paymentFeeMinor > 0 && <div><div>Cargos de pago</div><strong>{money(selectedTotals.paymentFeeMinor,selected.currency)}</strong></div>}
+                  {selectedTotals.otherAdjustmentMinor !== 0 && <div><div>Ajuste no desglosado en el pedido</div><strong>{selectedTotals.otherAdjustmentMinor < 0 ? '−' : '+'}{money(Math.abs(selectedTotals.otherAdjustmentMinor),selected.currency)}</strong></div>}
+                  <div className="personalized-order-grand-total"><div>Total del pedido</div><strong>{money(selectedTotals.totalMinor,selected.currency)}</strong></div>
                 </div>}
               </div>
             </section>
@@ -420,17 +423,17 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
             <section className={`personalized-tab-panel personalized-tab-panel--production${activeTab === 'production' ? ' is-active' : ''}`} id="personalized-production-panel" role="tabpanel" aria-labelledby="personalized-production-tab">
             <div className="personalization-images" aria-labelledby="personalization-images-title">
               <div className="section-heading"><h3 id="personalization-images-title">Ficha de producción</h3><strong>{previewCount} {previewCount === 1 ? 'vista' : 'vistas'}</strong></div>
-              <p>Revisá las vistas y las indicaciones de cada pieza antes de fabricarla.</p>
+              <div>Revisá las vistas y las indicaciones de cada pieza antes de fabricarla.</div>
               {assetWarning && <div className="asset-warning" role="alert">{assetWarning}</div>}
             </div>
-            <div className="production-brief"><div><small>Cliente</small><strong>{customerName(selected.customer_snapshot)}</strong></div><div><small>Fecha del pedido</small><strong>{readableDate(selected.created_at)}</strong></div><div><small>Estado</small><strong>{personalizedProductionStatus(selected)}</strong></div><div><small>Contacto</small><strong>{phone || email || 'Sin contacto guardado'}</strong></div></div>
+            <div className="production-brief"><div><small>Cliente</small><strong>{customerName(selected.customer_snapshot)}</strong></div><div><small>Fecha del pedido</small><strong>{readableOrderDate(selected)}</strong></div><div><small>Estado</small><strong>{personalizedProductionStatus(selected)}</strong></div><div><small>Contacto</small><strong>{phone || email || 'Sin contacto guardado'}</strong></div></div>
 
             {itemSummaries.map(({ item, summary }) => (
               <section className="personalized-item" key={item.id}>
                 <div className="personalized-item-head"><h3>{itemTitle(item)}</h3><strong>{item.quantity} {item.quantity === 1 ? 'unidad' : 'unidades'}</strong></div>
                 {summary.instructions && <section className="personalization-card workshop-instructions" aria-label={`Indicaciones de ${itemTitle(item)}`}>
                   <h4>Indicaciones para el taller</h4>
-                  <p>{summary.instructions}</p>
+                  <div>{summary.instructions}</div>
                 </section>}
 
                 <section className="design-artifact-group" aria-label={`Archivos de ${itemTitle(item)}`}>
@@ -438,7 +441,7 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
                   {summary.previews.length
                     ? <div className="customer-assets">{summary.previews.map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}</div>
                     : summary.kind === 'mate' && asRecord(item.immutable_snapshot).configuration ? <RecoveredDesignViews snapshot={item.immutable_snapshot} uniformGrid />
-                      : itemPhoto(item) ? <div className="workshop-product-reference"><img src={itemPhoto(item)} alt={`Referencia del producto: ${itemTitle(item)}`} /><small>Foto del producto de catálogo · el trabajo solicitado se detalla abajo</small></div>
+                      : itemPhoto(item) ? <div className="workshop-product-reference"><img src={itemPhoto(item)} alt={`Referencia del producto: ${itemTitle(item)}`} /><small>Foto del producto de catálogo, el trabajo solicitado se detalla abajo</small></div>
                         : <div className="empty-files">Este pedido no tiene una vista final guardada. Los datos del trabajo están debajo.</div>}
                   <div className="artifact-subheading originals"><strong>Archivos originales</strong><small>{summary.uploads.length ? `${summary.uploads.length} ${summary.uploads.length === 1 ? 'archivo' : 'archivos'}` : 'Sin archivos externos'}</small></div>
                   {summary.uploads.length

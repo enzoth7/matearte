@@ -124,9 +124,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     if (action === "deliver_in_store") {
-      if (["Local", "Feria", "WhatsApp", "Instagram", "Facebook"].includes(order.channel) || order.shipping_method !== "national_shipping" ||
-          !["paid_pending_review", "ready_for_fulfillment", "ready_for_production", "manual_review"].includes(order.status)) {
-        return response(origin, { error: "Este pedido no se puede entregar en el local desde envíos." }, 409);
+      if (order.shipping_method === "pickup" ||
+          !["paid_pending_review", "ready_for_fulfillment", "ready_for_production", "manual_review", "internal_completed", "shipped"].includes(order.status)) {
+        return response(origin, { error: "Este pedido no se puede entregar en el local." }, 409);
       }
       const snapshot = (order.shipping_snapshot || {}) as Record<string, unknown>;
       const { data: updated, error: updateError } = await admin.from("orders")

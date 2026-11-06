@@ -48,6 +48,14 @@ describe("entrega desde Gestión", () => {
     expect(dispatchCommerceEmails).not.toHaveBeenCalled();
   });
 
+  it("registra el retiro de una venta manual aunque se hubiese anotado como envío", async () => {
+    const update = adminFor({ id, status: "internal_completed", channel: "WhatsApp", shipping_method: "national_shipping", shipping_snapshot: {}, order_items: [] });
+    const response = await PATCH(request("deliver_in_store"), { params: Promise.resolve({ id }) });
+    expect(response.status).toBe(200);
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "delivered", shipping_method: "pickup", shipped_at: null }));
+    expect(dispatchCommerceEmails).not.toHaveBeenCalled();
+  });
+
   it("permite entregar una venta local pendiente de producción", async () => {
     const order = { id, status: "internal_completed", channel: "Local", shipping_method: "pickup", order_items: [
       { item_type: "catalog", production_status: "pending", immutable_snapshot: { customization: { itemKind: "custom_mate" } } },

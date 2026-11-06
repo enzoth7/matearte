@@ -33,6 +33,7 @@ export type PersonalizedOrder = {
   total_minor: number;
   currency?: string;
   created_at: string;
+  sold_on?: string | null;
   paid_at: string | null;
   payment_label?: 'Pago parcial';
   customer_snapshot: JsonRecord;
@@ -479,7 +480,7 @@ export function whatsappContactUrl(snapshotValue: unknown, orderNumber: number |
 export function orderStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     pending_payment: 'Pendiente de pago',
-    paid_pending_review: 'Pagado · requiere revisión',
+    paid_pending_review: 'Pagado, requiere revisión',
     ready_for_production: 'Listo para producción',
     ready_for_fulfillment: 'Listo para preparar',
     shipped: 'Enviado',

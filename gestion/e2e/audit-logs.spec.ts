@@ -27,7 +27,7 @@ const users = [
  { id: 'costa', name: 'Florencia Costa', accessId: 't2' }, { id: 'pizzorno', name: 'Florencia Pizzorno', accessId: 't3' },
  { id: 'marketing', name: 'Marketing', accessId: 't5' },
 ];
-async function mockLogs(page: Page, allowed = true, empty = false) {
+async function mockLogs(page: Page, allowed = true, empty = false, reference = '#R004: Mate Imperial, #R006: Bombillon') {
  const requests: Record<string, any>[] = [];
  await page.route('**/rest/v1/rpc/gestion_logs_*', async route => {
    const rpc = new URL(route.request().url()).pathname.split('/').at(-1);
@@ -37,7 +37,7 @@ async function mockLogs(page: Page, allowed = true, empty = false) {
    if (rpc === 'gestion_logs_list') {
      requests.push(body);
      if (empty) return route.fulfill({ json: { total: 0, groups: [] } });
-     return route.fulfill({ json: { total: 51, groups: [{ group_id: 'tx:1', occurred_at: '2026-11-05T17:29:00Z', actor_name: 'Florencia Costa', source: 'gestion', attention: true, event_count: 2, reference: '#R004: Mate Imperial, #R006: Bombillon', operations: ['UPDATE'] }] } });
+     return route.fulfill({ json: { total: 51, groups: [{ group_id: 'tx:1', occurred_at: '2026-11-05T17:29:00Z', actor_name: 'Florencia Costa', source: 'gestion', attention: true, event_count: 2, reference, operations: ['UPDATE'] }] } });
    }
    return route.fulfill({ json: [405000, 160000].map((before, i) => ({ id: String(i), occurred_at: '2026-11-05T17:29:00Z', actor_name: 'Florencia Costa', source: 'gestion', entity_type: 'Artículo del pedido', reference: i ? '#R006: Bombillon' : '#R004: Mate Imperial', operation: 'UPDATE', before_values: { unit_price_minor: before }, after_values: { unit_price_minor: i ? 150000 : 399000 }, changed_fields: ['unit_price_minor'], monetary: true, currency: 'UYU' })) });
  });
@@ -45,7 +45,7 @@ async function mockLogs(page: Page, allowed = true, empty = false) {
 }
 test('Logs muestra importes anteriores y nuevos, filtros y páginas', async ({ page }) => {
  await mockCommerce(page);
- const requests = await mockLogs(page);
+ const requests = await mockLogs(page, true, false, '#R013: Mate Imperial personalizado, interior de cerámica, cuero con textura, virola grabada y diseño especial con una descripción extensa que debe ocupar solo dos líneas');
  await page.goto('/administracion/actividad');
  await expect(page).toHaveURL(/\/administracion\/logs$/);
  await expect(page.getByRole('heading', { name: 'Logs', exact: true })).toBeVisible();
@@ -54,8 +54,19 @@ test('Logs muestra importes anteriores y nuevos, filtros y páginas', async ({ p
  await expect(page.getByRole('columnheader', { name: 'Usuario' })).toBeVisible();
  await expect(page.getByRole('columnheader', { name: 'Acción' })).toBeVisible();
  await expect(page.getByRole('columnheader', { name: 'Referencia' })).toBeVisible();
+ await expect(page.locator('.audit-column-select svg')).toHaveCount(3);
+ await expect(page.getByRole('button', { name: 'Buscar referencia' })).toHaveCount(0);
  await expect.poll(() => requests.at(-1)?.p_users).toBeNull();
  await expect(page.getByRole('row', { name: /Florencia Costa/ })).toHaveClass(/audit-attention/);
+ const referenceLayout = await page.locator('.audit-reference-text').evaluate(element => {
+   const bounds = element.getBoundingClientRect();
+   const origin = element.closest('td')?.nextElementSibling?.getBoundingClientRect();
+   const style = getComputedStyle(element);
+   return { right: bounds.right, originLeft: origin?.left ?? 0, height: bounds.height, lineHeight: Number.parseFloat(style.lineHeight), lines: style.webkitLineClamp };
+ });
+ expect(referenceLayout.lines).toBe('2');
+ expect(referenceLayout.height).toBeLessThanOrEqual(referenceLayout.lineHeight * 2 + 1);
+ expect(referenceLayout.right).toBeLessThanOrEqual(referenceLayout.originLeft);
  await page.getByRole('button', { name: 'Ver cambios (2)' }).click();
  await expect(page.getByRole('cell', { name: 'UYU 4.050', exact: true })).toBeVisible();
  await expect(page.getByRole('cell', { name: 'UYU 3.990', exact: true })).toBeVisible();
@@ -66,7 +77,6 @@ test('Logs muestra importes anteriores y nuevos, filtros y páginas', async ({ p
  await page.getByLabel('Filtrar acción').selectOption('money');
  await expect.poll(() => requests.at(-1)?.p_money_only).toBe(true);
  await page.getByLabel('Buscar referencia o producto').fill('R004');
- await page.getByRole('button', { name: 'Buscar referencia', exact: true }).click();
  await expect.poll(() => requests.at(-1)?.p_search).toBe('R004');
  await page.getByLabel('Filtrar usuario').selectOption('costa');
  await expect.poll(() => requests.at(-1)?.p_users).toEqual(['costa']);
