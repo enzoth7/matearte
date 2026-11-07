@@ -27,11 +27,32 @@ export function isPersonalizedMateOrder(order: Order, products: Product[]): bool
   return (order.items || []).some((item) => isPersonalizedMateItem(order, item, products));
 }
 
-function isWorkshopServiceItem(item: OrderLine, products: Product[]): boolean {
+export function isWorkshopServiceItem(item: OrderLine, products: Product[] = []): boolean {
   if (normalized(item.orderType || "") === "service" || normalized(item.orderType || "") === "servicio") return true;
   if (normalized(item.family || "") === "servicios") return true;
   const product = products.find((entry) => entry.id === item.productId);
   return normalized(product?.categoryCode || product?.family || "") === "servicios";
+}
+
+export function productionStatusLabel(status: string): "Pendiente" | "En producción" | "Terminado" {
+  return status === "completed" || status === "Completado" || status === "Terminado"
+    ? "Terminado"
+    : status === "in_production" || status === "En producción"
+      ? "En producción"
+      : "Pendiente";
+}
+
+function orderItemsProductionStatus(items: OrderLine[]): "Pendiente" | "En producción" | "Terminado" {
+  return items.length > 0 && items.every((item) => productionStatusLabel(item.productionStatus) === "Terminado")
+    ? "Terminado"
+    : items.some((item) => productionStatusLabel(item.productionStatus) === "En producción")
+      ? "En producción"
+      : "Pendiente";
+}
+
+export function orderProductionLabel(order: Order, products: Product[]): "Pendiente" | "En producción" | "Terminado" | "-" {
+  const workshopOrder = workshopOrderRows([order], products)[0];
+  return workshopOrder ? productionStatusLabel(workshopOrder.production) : "-";
 }
 
 export function workshopOrderRows(orders: Order[], products: Product[]): Order[] {
@@ -42,11 +63,7 @@ export function workshopOrderRows(orders: Order[], products: Product[]): Order[]
       return isWorkshopServiceItem(item, products) ? [item] : [];
     });
     if (!workshopItems.length) return [];
-    const production = workshopItems.every((item) => item.productionStatus === "completed" || item.productionStatus === "Completado")
-      ? "Terminado"
-      : workshopItems.some((item) => item.productionStatus === "in_production" || item.productionStatus === "En producción")
-        ? "En producción"
-        : "Pendiente";
+    const production = orderItemsProductionStatus(order.items || []);
     return [{ ...order, items: workshopItems, productId: workshopItems[0].productId, quantity: workshopItems.reduce((sum, item) => sum + item.quantity, 0), production }];
   });
 }

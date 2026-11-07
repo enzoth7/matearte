@@ -12,7 +12,7 @@ Gestión lee `local_sales_customers`, `local_sales` y sus `local_sale_items` de 
 | Primera y última compra, historial de ventas | Ficha del cliente |
 | Catálogo, variantes, precios base, atributos y orden por SKU/precio | Productos → Catálogo general |
 | Ventas por período y por canal | Inicio → Resumen general |
-| Cobros del local | Finanzas → Cobros y comprobantes |
+| Cobros del local | Finanzas → Cuentas por cobrar → Cobros registrados |
 
 La escritura de una venta usa exactamente la función `create_local_sale_with_items` del sistema anterior. No se copian tablas ni se realiza una segunda inserción para Gestión. Ambas aplicaciones leen los mismos registros y pueden seguir funcionando durante la convivencia.
 

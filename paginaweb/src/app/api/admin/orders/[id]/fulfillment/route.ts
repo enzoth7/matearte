@@ -52,11 +52,24 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const { data: order, error: orderError } = await admin
       .from("orders")
-      .select("id,status,channel,customer_snapshot,shipping_method,shipping_snapshot,shipped_at,order_items(item_type,production_status,immutable_snapshot,requires_review,review_status)")
+      .select("id,status,channel,customer_snapshot,shipping_method,shipping_snapshot,shipped_at,order_items(item_type,production_status,immutable_snapshot,requires_review,review_status,commerce_variants(commerce_products(category_code,category)))")
       .eq("id", id)
       .maybeSingle();
     if (orderError) throw orderError;
     if (!order) return response(origin, { error: "El pedido no existe." }, 404);
+
+    const inPersonStockSale = ["Local", "Feria"].includes(order.channel)
+      && (order.order_items || []).length > 0
+      && (order.order_items || []).every((item) => {
+        const snapshot = item.immutable_snapshot as Record<string, unknown> | null;
+        const isService = [item.commerce_variants].flat().some((variant) =>
+          [variant?.commerce_products].flat().some((product) =>
+            (product?.category_code || product?.category)?.trim().toLowerCase() === "servicios"));
+        return item.item_type !== "design" && snapshot?.customization == null && !isService;
+      });
+    if (action !== "restore" && inPersonStockSale) {
+      return response(origin, { error: "Las ventas de catálogo en el local o en feria no requieren envío ni entrega." }, 409);
+    }
 
     if (action === "ship") {
       if (!["paid_pending_review", "ready_for_fulfillment", "ready_for_production", "shipped", "manual_review", "internal_completed"].includes(order.status)) {

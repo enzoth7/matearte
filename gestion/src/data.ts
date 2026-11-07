@@ -39,6 +39,7 @@ export type Product = {
 };
 export type Customer = {
   id: string;
+  contactId?: string;
   localCustomerId?: string;
   wholesaleName?: string;
   companyName?: string;
@@ -83,6 +84,13 @@ export type Order = {
   customerName?: string;
   localItemsAmount?: number;
   depositAmount?: number;
+  wholesaleSaleId?: string;
+  /** null means collections made before the ledger have not been reconciled. */
+  wholesaleOpeningPaid?: number | null;
+  wholesaleOpeningPaidArg?: number | null;
+  wholesalePaidInFullWithoutPrice?: boolean;
+  wholesaleTotalArg?: number | null;
+  wholesaleTotalUyu?: number | null;
   paymentMethod?: string;
   number?: number;
   referenceCode?: string | null;
@@ -97,6 +105,7 @@ export type Order = {
   feeAmount?: number;
   items?: OrderLine[];
   customerId: string;
+  contactId?: string;
   productId: string;
   quantity: number;
   unitPrice: number;
@@ -114,6 +123,8 @@ export type Order = {
 export type Payment = {
   id: string;
   orderId: string;
+  contactId?: string;
+  accountReceiptId?: string;
   /** Historical equivalent in UYU; null means it still needs reconciliation. */
   amount: number | null;
   sourceCurrency?: string;
@@ -122,6 +133,24 @@ export type Payment = {
   date: string;
   method: string;
   derived?: boolean;
+};
+export type CustomerAccountReceipt = {
+  id: string;
+  contactId: string;
+  amountMinor: number;
+  sourceAmountMinor: number;
+  currency: "UYU" | "ARS";
+  paymentMethod: string;
+  paidOn: string;
+  note: string | null;
+};
+export type CustomerAccountAllocation = {
+  id: string;
+  receiptId: string;
+  orderId: string;
+  amountMinor: number;
+  sourceAmountMinor?: number;
+  allocatedAt: string;
 };
 export type Expense = {
   id: string;
@@ -156,6 +185,8 @@ export type State = {
   customers: Customer[];
   orders: Order[];
   payments: Payment[];
+  accountReceipts?: CustomerAccountReceipt[];
+  accountAllocations?: CustomerAccountAllocation[];
   expenses: Expense[];
   /** true cuando los egresos salen de Compras y Gastos fijos y el usuario tiene permiso para leerlos. */
   expensesConnected?: boolean;
@@ -176,6 +207,7 @@ export const money = (n: number) =>
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(n);
+export const arsMoney = (n: number) => `ARS ${n.toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 export const usdMoney = (n: number) => `USD ${n.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 export const paymentMoney = (p: Payment) => {
   const original = p.sourceCurrency && p.sourceCurrency !== "UYU" ? `${p.sourceCurrency} ${(p.sourceAmount ?? 0).toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · ` : "";
@@ -197,15 +229,37 @@ export const orgEmployees: Employee[] = [
   { id: "t7", name: "Julio", role: "Armado de bocas personalizadas", manager: "t4" },
 ];
 export const paid = (s: State, o: Order) =>
-  s.payments
+  (o.source === "wholesale" ? o.wholesaleOpeningPaid ?? 0 : 0) + s.payments
     .filter((p) => p.orderId === o.id)
-    .reduce((a, p) => a + (p.amount ?? 0), 0);
+    .reduce((a, p) => a + (p.amount ?? 0), 0)
+    + (s.accountAllocations || []).filter((allocation) => allocation.orderId === (o.wholesaleSaleId || o.id))
+      .reduce((sum, allocation) => sum + allocation.amountMinor / 100, 0);
+export const wholesalePaidArs = (s: State, o: Order): number | null => {
+  if (o.source !== "wholesale" || o.wholesaleOpeningPaidArg == null) return null;
+  const receipts = s.payments.filter((payment) => payment.orderId === o.id);
+  if (receipts.some((payment) => payment.sourceCurrency !== "ARS" || payment.sourceAmount == null)) return null;
+  const allocations = (s.accountAllocations || []).filter((allocation) => allocation.orderId === (o.wholesaleSaleId || o.id));
+  if (allocations.some((allocation) => allocation.sourceAmountMinor == null)) return null;
+  return o.wholesaleOpeningPaidArg + receipts.reduce((sum, payment) => sum + (payment.sourceAmount || 0), 0)
+    + allocations.reduce((sum, allocation) => sum + (allocation.sourceAmountMinor || 0) / 100, 0);
+};
+export const wholesaleBalanceArs = (s: State, o: Order): number | null => {
+  if (o.source !== "wholesale") return null;
+  if (o.paidAt || ["cancelled", "refunded", "payment_failed"].includes(o.status || "")) return 0;
+  if (o.wholesaleTotalArg == null && o.wholesalePaidInFullWithoutPrice) return 0;
+  if (o.wholesaleTotalArg == null) return null;
+  const collected = wholesalePaidArs(s, o);
+  return collected == null ? null : Math.max(0, o.wholesaleTotalArg - collected);
+};
 export const balance = (s: State, o: Order) =>
-  o.paidAt || ["cancelled", "refunded", "payment_failed"].includes(o.status || "") ? 0 : Math.max(0, total(o) - paid(s, o));
+  o.paidAt || ["cancelled", "refunded", "payment_failed"].includes(o.status || "") ? 0
+    : o.source === "wholesale"
+      ? (wholesaleBalanceArs(s, o) ?? 0) * (o.wholesaleTotalArg && o.wholesaleTotalUyu != null ? o.wholesaleTotalUyu / o.wholesaleTotalArg : 0)
+      : Math.max(0, total(o) - paid(s, o));
 export function seed(): State {
   return {
     version: 1, source: "commerce", user: "Richard Ortiz", activeUserId: "t1",
-    access: defaultAccess(), products: [], customers: [], orders: [], payments: [],
+    access: defaultAccess(), products: [], customers: [], orders: [], payments: [], accountReceipts: [], accountAllocations: [],
     expenses: [], employees: orgEmployees.map((employee) => ({ ...employee })),
     hours: [], records: {}, draft: {}, published: {}, activity: [],
   };

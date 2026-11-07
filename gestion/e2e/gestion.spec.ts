@@ -509,7 +509,10 @@ test("pedido real integrado en ventas, cliente, producción y cobros", async ({ 
   await page.goto("/produccion/resumen");
   await expect(page.getByRole("row").filter({ hasText: "#9001" })).toBeVisible();
   await page.goto("/finanzas/cobros");
-  await expect(page.getByText("payment-1", { exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/finanzas\/por-cobrar\?vista=cobros$/);
+  await expect(page.getByRole("tab", { name: "Cobros registrados" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("row").filter({ hasText: "#9001" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Referencia de pago" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Ver comprobante" })).toHaveCount(0);
 });
 
@@ -613,6 +616,125 @@ test("Producción mayorista muestra pedidos y resúmenes sin desplazamiento hori
       }
     }
   }
+});
+
+test("cuenta mayorista registra cobros reales desde producción y cuentas por cobrar", async ({ page }) => {
+  const { tables } = await mockCommerce(page, { writable: true });
+  tables.products.push({ id: "wholesale-product-ledger", model: "Torpedo", variant: "Negro", price_arg: 30000, price_uyu: 810, category_code: "mates" });
+  tables.customers.push({ full_name: "Cliente de cuenta", first_name: "Cliente", last_name: "de cuenta", phone: "", email: "", address: "", notes: "" });
+  tables.order_lines.push({ line_id: "line-ledger", order_id: "#M111", created_at: "2026-11-03T12:00:00Z", completed_at: null,
+    customer: "Cliente de cuenta", model: "Torpedo", variant: "Negro", quantity: 12, status: "Pendiente", order_type: "normal",
+    unit_price_arg: 30000, unit_price_uyu: 810, exchange_rate: 0.027, total_arg: 360000, total_uyu: 9720 });
+  tables.wholesale_order_records.push({ id: "sale-ledger", reference_code: "#M111", customer_name: "Cliente de cuenta", total_minor: 972000 });
+  tables.wholesale_order_payment_openings.push({ sale_id: "sale-ledger", collected_minor: null });
+
+  await page.goto("/produccion/resumen");
+  const row = page.getByRole("row").filter({ hasText: "#M111" });
+  await expect(row).toContainText("ARS 360.000");
+  await expect(row).toContainText("Por conciliar");
+  await row.getByRole("button", { name: "Ver detalle del pedido #M111" }).click();
+  await page.getByRole("button", { name: "Registrar cobro" }).click();
+  const receipt = page.getByRole("dialog", { name: "Registrar cobro de #M111" });
+  await receipt.getByLabel("Cobrado antes de este registro (ARS)").fill("1000");
+  await receipt.getByLabel("Importe recibido").fill("500");
+  await receipt.getByLabel("Medio de pago").selectOption("Transferencia");
+  await receipt.getByRole("button", { name: "Registrar cobro" }).click();
+  await expect(receipt).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Totales del pedido" })).toContainText("358.500");
+
+  await page.goto("/finanzas/por-cobrar?vista=pedidos");
+  await expect(page.getByRole("button", { name: "Nuevo cobro" })).toBeVisible();
+  await expect(page.locator(".receivables-orders-table thead")).not.toContainText("Envío");
+  for (const width of [390, 1280, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    const overflow = await page.locator(".receivables-orders-table .table-scroll").evaluate((element) => element.scrollWidth - element.clientWidth);
+    expect(overflow, `Cuentas por cobrar se desborda a ${width}px`).toBeLessThanOrEqual(1);
+  }
+  await page.getByRole("button", { name: "Nuevo cobro" }).click();
+  await page.getByRole("dialog", { name: "Nuevo cobro" }).getByRole("button", { name: /#M111: Cliente de cuenta/i }).click({ force: true });
+  const nextReceipt = page.getByRole("dialog", { name: "Registrar cobro de #M111" });
+  await nextReceipt.getByLabel("Importe recibido").fill("220");
+  await nextReceipt.getByLabel("Medio de pago").selectOption("Efectivo");
+  await nextReceipt.getByRole("button", { name: "Registrar cobro" }).click();
+  await expect(page.getByRole("row").filter({ hasText: "#M111" })).toContainText("358.280");
+  await page.getByRole("tab", { name: "Cobros registrados" }).click();
+  await expect(page.getByRole("heading", { name: "Historial de cobros" })).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "#M111" })).toHaveCount(2);
+  await expect(page.getByRole("columnheader", { name: "Referencia de pago" })).toHaveCount(0);
+  for (const width of [390, 1280, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    const overflow = await page.locator(".receivable-history-table .table-scroll").evaluate((element) => element.scrollWidth - element.clientWidth);
+    expect(overflow, `El historial de cobros se desborda a ${width}px`).toBeLessThanOrEqual(1);
+  }
+});
+
+test("egresos muestra pagos y pendientes mientras cuentas por pagar muestra solo pendientes", async ({ page }) => {
+  const { tables } = await mockCommerce(page);
+  tables.purchases.push(
+    { id: "compra-pagada", purchased_on: "2026-11-03", description: "Cuero pagado", category: "Materiales",
+      amount_minor: 12000, currency: "UYU", status: "pagada", paid_on: "2026-11-04" },
+    { id: "compra-pendiente", purchased_on: "2026-11-05", description: "Alpaca pendiente", category: "Materiales",
+      amount_minor: 25000, currency: "UYU", status: "pendiente", paid_on: null },
+  );
+  await page.goto("/finanzas/egresos");
+  await expect(page.getByRole("heading", { name: "Gastos registrados" })).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "Cuero pagado" })).toContainText("Pagado");
+  await expect(page.getByRole("row").filter({ hasText: "Alpaca pendiente" })).toContainText("Por pagar");
+  await page.goto("/finanzas/por-pagar");
+  await expect(page.getByRole("heading", { name: "Pendientes de pago" })).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "Cuero pagado" })).toHaveCount(0);
+  await expect(page.getByRole("row").filter({ hasText: "Alpaca pendiente" })).toHaveCount(1);
+});
+
+test("la cuenta del cliente conserva entregas a favor y separa señas de fiados", async ({ page }) => {
+  const { tables } = await mockCommerce(page, { writable: true });
+  tables.local_sales_customers.push({ id: "account-customer", full_name: "Cliente de cuenta", email: "cuenta@example.invalid",
+    phone: "099123456", birth_date: null, first_purchase_date: "2026-11-03", last_purchase_date: "2026-11-03",
+    source_user_id: null, notes: "", created_at: "2026-11-03T10:00:00Z" });
+  tables.local_sales.push({ id: "account-sale", sale_number: 44, reference_code: "#L044", channel: "Local",
+    customer_id: "account-customer", customer_name: "Cliente de cuenta", sold_on: "2026-11-03",
+    payment_method: "Efectivo", total_minor: 10000, deposit_minor: 10000, currency: "UYU",
+    created_at: "2026-11-03T10:00:00Z", local_sale_items: [{ id: "account-item", variant_id: "variant-1",
+      sku: "SKU-1", product_name: "Mate de catálogo", variant_name: "Cuero negro", quantity: 1,
+      unit_price_minor: 40000, line_total_minor: 40000 }] });
+  await page.goto("/finanzas/por-cobrar");
+  await expect(page.getByRole("tab", { name: "Cuentas de clientes" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("row").filter({ hasText: "Cliente de cuenta" })).toContainText("Con seña");
+  for (const width of [390, 1280, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.locator(".customer-accounts-table .table-scroll").evaluate((node) => node.scrollWidth <= node.clientWidth + 1), `La cuenta se desborda a ${width}px`).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `La página se desborda a ${width}px`).toBe(true);
+  }
+  await page.getByRole("row").filter({ hasText: "Cliente de cuenta" }).getByRole("button", { name: "Ver cuenta" }).click();
+  let account = page.getByRole("dialog", { name: "Cuenta de Cliente de cuenta en UYU" });
+  await expect(account.getByRole("row").filter({ hasText: "#L044" }).first()).toContainText("$ 300");
+  await account.getByRole("button", { name: "Registrar entrega" }).click();
+  const delivery = page.getByRole("dialog", { name: "Entrega de Cliente de cuenta" });
+  await delivery.getByLabel("Importe recibido").fill("100");
+  await delivery.getByLabel("Medio de pago").selectOption("Efectivo");
+  await delivery.getByRole("button", { name: "Registrar entrega" }).click();
+  await expect(delivery).toHaveCount(0);
+  account = page.getByRole("dialog", { name: "Cuenta de Cliente de cuenta en UYU" });
+  await expect(account.getByText("$ 100", { exact: true }).first()).toBeVisible();
+  await account.getByRole("button", { name: "Asignar" }).click();
+  const allocation = page.getByRole("dialog", { name: "Asignar saldo de Cliente de cuenta" });
+  await allocation.getByLabel("Importe a asignar").fill("50");
+  await allocation.getByRole("button", { name: "Asignar al pedido" }).click();
+  await expect(allocation).toHaveCount(0);
+  account = page.getByRole("dialog", { name: "Cuenta de Cliente de cuenta en UYU" });
+  await expect(account.getByRole("row").filter({ hasText: "#L044" }).first()).toContainText("$ 250");
+  await account.getByRole("button", { name: "Registrar venta fiada" }).click();
+  const fiado = page.getByRole("dialog", { name: "Venta fiada de Cliente de cuenta" });
+  await fiado.getByLabel("Buscar mate por nombre o SKU").fill("SKU-1");
+  await fiado.getByRole("button", { name: /SKU-1/ }).first().click();
+  await fiado.getByRole("button", { name: "Registrar venta fiada" }).click();
+  await expect(fiado).toHaveCount(0);
+  await account.getByRole("button", { name: "Cerrar" }).click();
+  await page.getByRole("tab", { name: "Fiados" }).click();
+  await expect(page.getByRole("row").filter({ hasText: "Cliente de cuenta" })).toContainText("Fiado");
+  expect(tables.customer_account_receipts).toHaveLength(1);
+  expect(tables.customer_account_allocations).toHaveLength(1);
+  expect(tables.local_sales.some((sale: { payment_method: string; total_minor: number }) => sale.payment_method === "Cuenta corriente" && sale.total_minor === 0)).toBe(true);
 });
 
 test("ventas muestra referencias nuevas de web y mayorista sin cambiar pedidos anteriores", async ({ page }) => {

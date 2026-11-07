@@ -1,6 +1,6 @@
 import { commerceSource, type CommerceImage, type CommerceVariant } from "./commerceSource";
 import { imageForVariant } from "./catalogImages";
-import { GENERIC_WHOLESALE_VARIANT, genericVariantPriceConflict } from "./wholesaleSaleSelection";
+import { GENERIC_WHOLESALE_VARIANT, firstWholesaleReferenceVariant, genericVariantPriceConflict } from "./wholesaleSaleSelection";
 import { applyDiscount } from "./wholesaleDiscount";
 
 export type WholesaleProduct = {
@@ -38,9 +38,13 @@ export type WholesaleLine = {
 };
 export type WholesaleSnapshot = {
   products: WholesaleProduct[]; customers: WholesaleCustomer[];
+  contacts?: { id: string; wholesale_name: string }[];
   lines: WholesaleLine[]; images: WholesaleProductImage[];
   categories: { code: string; label_es: string; active: boolean }[];
   exchangeRate: number;
+  orderRecords?: { id: string; reference_code: string | null; total_minor: number; customer_name: string | null; contact_id?: string | null }[];
+  paymentOpenings?: { sale_id: string; collected_minor: number | null; collected_arg_minor?: number | null; paid_in_full_without_price?: boolean }[];
+  receipts?: { id: string; sale_id: string; amount_minor: number; source_amount_minor: number; currency: "UYU" | "ARS"; payment_method: string; paid_on: string }[];
 };
 
 const client = () => {
@@ -96,18 +100,48 @@ export function wholesaleFromCatalog(rows: CatalogRow[], rate: number): { produc
   return { products, images };
 }
 export async function readWholesale(): Promise<WholesaleSnapshot> {
-  const [catalog, customers, lines, categories, settings] = await Promise.all([
+  const [catalog, customers, contacts, lines, categories, settings, orderRecords, paymentOpenings, receipts] = await Promise.all([
     readCatalogRows(),
     pages<WholesaleCustomer>("customers", "full_name"),
+    readWholesaleContacts(),
     pages<WholesaleLine>("order_lines", "line_id"),
     client().from("commerce_categories").select("code,label_es,active").order("sort_order"),
     client().from("settings").select("exchange_rate").eq("id", 1).single(),
+    readWholesaleOrderRecords(),
+    pages<{ sale_id: string; collected_minor: number | null; collected_arg_minor: number | null; paid_in_full_without_price?: boolean }>("wholesale_order_payment_openings", "sale_id"),
+    pages<{ id: string; sale_id: string; amount_minor: number; source_amount_minor: number; currency: "UYU" | "ARS"; payment_method: string; paid_on: string }>("wholesale_order_receipts", "id"),
   ]);
   if (settings.error) throw settings.error;
   if (categories.error) throw categories.error;
   const exchangeRate = Number(settings.data.exchange_rate);
   const { products, images } = wholesaleFromCatalog(catalog, exchangeRate);
-  return { products, customers, lines, images, categories: categories.data || [], exchangeRate };
+  return { products, customers, contacts, lines, images, categories: categories.data || [], exchangeRate, orderRecords, paymentOpenings, receipts };
+}
+
+async function readWholesaleContacts(): Promise<NonNullable<WholesaleSnapshot["contacts"]>> {
+  const result: NonNullable<WholesaleSnapshot["contacts"]> = [];
+  for (let start = 0; ; start += 100) {
+    const { data, count, error } = await client().from("contacts")
+      .select("id,wholesale_name", { count: "exact" })
+      .not("wholesale_name", "is", null).order("id").range(start, start + 99);
+    if (error) throw error;
+    result.push(...(data || []) as typeof result);
+    if (result.length >= (count ?? result.length)) return result;
+    if (!data?.length) throw new Error("La lectura de contactos mayoristas quedó incompleta.");
+  }
+}
+
+async function readWholesaleOrderRecords(): Promise<NonNullable<WholesaleSnapshot["orderRecords"]>> {
+  const result: NonNullable<WholesaleSnapshot["orderRecords"]> = [];
+  for (let start = 0; ; start += 100) {
+    const { data, count, error } = await client().from("orders")
+      .select("id,reference_code,total_minor,customer_name,contact_id", { count: "exact" })
+      .eq("channel", "Mayorista").order("id").range(start, start + 99);
+    if (error) throw error;
+    result.push(...(data || []) as typeof result);
+    if (result.length >= (count ?? result.length)) return result;
+    if (!data?.length) throw new Error("La lectura de pedidos mayoristas quedó incompleta.");
+  }
 }
 export async function saveWholesaleCustomer(input: WholesaleCustomer, previousName?: string) {
   const name = clean(input.full_name);
@@ -156,7 +190,8 @@ export async function createWholesaleOrder(customer: string, items: { productId:
   if (codeError || typeof orderId !== "string" || !orderId) throw new Error("No se pudo asignar un número de pedido. Reintentá.");
   const now = new Date().toISOString();
   const lines = items.map((item) => {
-    const product = byId.get(item.productId);
+    const selected = byId.get(item.productId);
+    const product = item.generic && selected ? firstWholesaleReferenceVariant(catalog, selected.model) : selected;
     if (!product || product.available_wholesale === false) throw new Error("Uno de los productos ya no está disponible para mayoristas. Actualizá el catálogo.");
     const count = quantity(item.quantity);
     const priceArg = item.noCost ? 0 : Number(product.price_arg) || 0;

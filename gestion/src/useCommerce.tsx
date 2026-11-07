@@ -9,6 +9,7 @@ import { adaptExpenses, canReadExpenses, readExpenseSources } from "./expenseSou
 import { montevideoToday } from "./overview";
 import { readWholesale } from "./wholesaleSource";
 import { adaptWholesale } from "./wholesaleAdapter";
+import { readCustomerAccounts } from "./customerAccountSource";
 
 export async function readAllPages<T>(read: (page: number) => Promise<{ rows: T[]; count: number }>): Promise<T[]> {
   const rows: T[] = [];
@@ -120,7 +121,7 @@ export function useCommerce() {
     busyRef.current = true;
     setLoading(true);
     try {
-      const [products, orders, payments, reference, customerProfiles, localCustomerResult, localSales, localReceipts, ruralRaffleEntries, wholesale, webLeads, membership, expenseSources, contactOrigins, contactFirstSeen] = await Promise.all([
+      const [products, orders, payments, reference, customerProfiles, localCustomerResult, localSales, localReceipts, ruralRaffleEntries, wholesale, accountLedger, webLeads, membership, expenseSources, contactOrigins, contactFirstSeen] = await Promise.all([
         readAllPages((page) => readCommerceProducts(client, page)),
         readAllPages((page) => readCommerceOrders(client, page)),
         readAllPages<CommercePayment>(async (page) => {
@@ -133,11 +134,11 @@ export function useCommerce() {
         readLocalCustomers(client, localCustomerCache.current),
         readAllPages<LocalSale>(async (page) => {
           let result: { data: unknown[] | null; count: number | null; error: { code?: string; message: string } | null } = await client.from("local_sales")
-            .select("id,sale_number,reference_code,channel,customer_id,customer_name,sold_on,payment_method,total_minor,deposit_minor,currency,created_at,local_sale_items(id,variant_id,sku,product_name,variant_name,quantity,unit_price_minor,line_total_minor,customization,production_notes,production_status)", { count: "exact" })
+            .select("id,sale_number,reference_code,channel,customer_id,customer_name,sold_on,payment_method,total_minor,deposit_minor,currency,created_at,status,shipping_method,shipping_carrier,tracking_code,local_sale_items(id,variant_id,sku,product_name,variant_name,quantity,unit_price_minor,line_total_minor,customization,production_notes,production_status)", { count: "exact" })
             .order("id").range(page * 100, page * 100 + 99);
           if (result.error?.code === "42703" && /customization/i.test(result.error.message)) {
             result = await client.from("local_sales")
-              .select("id,sale_number,reference_code,channel,customer_id,customer_name,sold_on,payment_method,total_minor,deposit_minor,currency,created_at,local_sale_items(id,variant_id,sku,product_name,variant_name,quantity,unit_price_minor,line_total_minor)", { count: "exact" })
+              .select("id,sale_number,reference_code,channel,customer_id,customer_name,sold_on,payment_method,total_minor,deposit_minor,currency,created_at,status,shipping_method,shipping_carrier,tracking_code,local_sale_items(id,variant_id,sku,product_name,variant_name,quantity,unit_price_minor,line_total_minor)", { count: "exact" })
               .order("id").range(page * 100, page * 100 + 99);
           }
           const { data, count, error } = result;
@@ -173,6 +174,7 @@ export function useCommerce() {
           return { rows: (data || []) as RuralRaffleEntry[], count: count ?? 0 };
         }),
         readWholesale(),
+        readCustomerAccounts(),
         readAllPages<WebLead>(async (page) => {
           const { data, error } = await client.rpc("gestion_web_leads", { p_offset: page * 100, p_limit: 100 });
           if (error) throw error;
@@ -201,7 +203,18 @@ export function useCommerce() {
       // Sin ningún egreso cargado no se calcula ganancia: se vería como si no hubiera gastos.
       const connected = Boolean(expenseSources) && canReadExpenses(membership.data) && Boolean(expenseSources!.purchases.length || expenseSources!.fixed.length);
       const expenseResult = connected && expenseSources ? adaptExpenses(expenseSources, rates, montevideoToday()) : null;
-      const adapted: State = { ...base, expenses: expenseResult?.expenses ?? base.expenses, expensesConnected: connected, expensesSkipped: expenseResult?.skipped ?? 0 };
+      const adapted: State = {
+        ...base,
+        accountReceipts: accountLedger.receipts,
+        accountAllocations: accountLedger.allocations,
+        payments: [...base.payments, ...accountLedger.receipts.map((receipt) => ({
+          id: `account-receipt:${receipt.id}`, accountReceiptId: receipt.id, contactId: receipt.contactId,
+          orderId: "", amount: receipt.amountMinor / 100, sourceCurrency: receipt.currency,
+          sourceAmount: receipt.sourceAmountMinor / 100, date: receipt.paidOn, method: receipt.paymentMethod,
+        }))],
+        expenses: expenseResult?.expenses ?? base.expenses,
+        expensesConnected: connected, expensesSkipped: expenseResult?.skipped ?? 0,
+      };
       setState((current) => ({
         ...adapted,
         access: Array.isArray(membership.data?.allowed_paths) && membership.data?.access_user_id

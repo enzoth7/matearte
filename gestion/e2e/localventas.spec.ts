@@ -41,7 +41,8 @@ test('ventas del local comparten pedidos, clientes y cobros con Gestión', async
   await page.getByRole('button', { name: 'Guardar cambios' }).click();
   await expect.poll(() => tables.local_sales_customers[0].phone).toBe('+59899777888');
   await page.goto('/finanzas/cobros');
-  await expect(page.getByText('local:sale-18')).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Cobros registrados' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('row').filter({ hasText: 'Local #00018' })).toContainText('Comprador del local');
   await page.goto('/produccion/resumen');
   await expect(page.getByRole('button', { name: 'Local #00018' })).toHaveCount(0);
 });
@@ -74,9 +75,9 @@ test('registrar venta escribe en las tablas compartidas sin duplicar el cobro', 
   await page.goto('/clientes/base');
   await expect(page.getByRole('button', { name: 'Ver ficha de Nuevo cliente local' })).toBeVisible();
   await page.goto('/finanzas/cobros');
-  await expect(page.getByText('local:sale-19')).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: '#L001' })).toContainText('Nuevo cliente local');
   await page.reload();
-  await expect(page.getByText('local:sale-19')).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: '#L001' })).toContainText('Nuevo cliente local');
 });
 
 test('efectivo y transferencia cobran precio base; tarjeta cobra precio publicado', async ({ page }) => {

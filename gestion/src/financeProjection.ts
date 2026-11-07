@@ -1,4 +1,4 @@
-import { balance, total, isSale, type State } from "./data";
+import { balance, total, isSale, wholesaleBalanceArs, type State } from "./data";
 import { montevideoToday } from "./overview";
 import { buildExpenseForecast, buildRevenueForecast, type RevenueModel } from "./revenueForecast";
 
@@ -45,6 +45,31 @@ export function buildFinanceProjection(
     .reduce((sum, expense) => sum + expense.amount, 0);
   const forecast = buildRevenueForecast(state, { asOf, growthPercent });
   const expenseForecast = buildExpenseForecast(state, { asOf });
+  const appliedByReceipt = new Map<string, number>();
+  for (const allocation of state.accountAllocations || []) {
+    const receipt = (state.accountReceipts || []).find((entry) => entry.id === allocation.receiptId);
+    const amount = receipt?.currency === "ARS" ? allocation.sourceAmountMinor || 0 : allocation.amountMinor;
+    appliedByReceipt.set(allocation.receiptId, (appliedByReceipt.get(allocation.receiptId) || 0) + amount);
+  }
+  const freeCreditByContact = new Map<string, number>();
+  for (const receipt of state.accountReceipts || []) {
+    const key = `${receipt.contactId}:${receipt.currency}`;
+    const amount = receipt.currency === "ARS" ? receipt.sourceAmountMinor : receipt.amountMinor;
+    freeCreditByContact.set(key, (freeCreditByContact.get(key) || 0)
+      + Math.max(0, amount - (appliedByReceipt.get(receipt.id) || 0)));
+  }
+  const collectibleByOrder = new Map<string, number>();
+  for (const order of [...state.orders].sort((a, b) => (a.due || a.date).localeCompare(b.due || b.date))) {
+    const remainingMinor = Math.round(balance(state, order) * 100);
+    const currency = order.source === "wholesale" ? "ARS" : "UYU";
+    const key = `${order.contactId || ""}:${currency}`;
+    const availableMinor = order.contactId ? freeCreditByContact.get(key) || 0 : 0;
+    const remainingSourceMinor = order.source === "wholesale" ? Math.round((wholesaleBalanceArs(state, order) || 0) * 100) : remainingMinor;
+    const creditUsed = Math.min(remainingSourceMinor, availableMinor);
+    const rate = order.source === "wholesale" && order.wholesaleTotalArg ? (order.wholesaleTotalUyu || 0) / order.wholesaleTotalArg : 1;
+    collectibleByOrder.set(order.id, Math.max(0, remainingMinor - Math.round(creditUsed * rate)) / 100);
+    if (order.contactId && creditUsed) freeCreditByContact.set(key, availableMinor - creditUsed);
+  }
   let cumulative = Number.isFinite(openingBalance) ? openingBalance : 0;
 
   return Array.from({ length: 12 }, (_, index) => {
@@ -55,7 +80,7 @@ export function buildFinanceProjection(
       .reduce((sum, payment) => sum + (payment.amount ?? 0), 0);
     const receivable = state.orders
       .filter((order) => scheduledMonth(order.due || order.date) === key)
-      .reduce((sum, order) => sum + balance(state, order), 0);
+      .reduce((sum, order) => sum + (collectibleByOrder.get(order.id) || 0), 0);
     const incomeTarget = forecast.months[index]?.[model]
       ?? (state.source === "commerce" ? 0 : Math.round(baselineIncome * (1 + growthPercent / 100) ** index));
     const estimatedIncome = index === 0 ? 0 : incomeTarget;

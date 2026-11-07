@@ -34,6 +34,7 @@ import { accessUserIds, canAccess, firstVisiblePath, visibleAreas } from "./acce
 import { loadState, storageKey, seed, id, type State } from "./data";
 import { collections } from "./collections";
 import { Overview, Orders, Register, Customers, type PageProps } from "./pages";
+import { Receivables } from "./Receivables";
 import {
   CollectionPage,
   Products,
@@ -69,6 +70,7 @@ const retiredRoutes: Record<string, string> = {
   "/comercial/avisos": "/marketing/avisos",
   "/comercial/descuentos": "/marketing/descuentos",
   "/marketing/metricas": "/marketing/contactos",
+  "/finanzas/cobros": "/finanzas/por-cobrar?vista=cobros",
 };
 const analyticsSections: Record<string, AnalyticsSection> = {
   recorridos: "journeys",
@@ -160,7 +162,7 @@ function Content(
     );
   if (area === "finanzas")
     return page === "por-cobrar" ? (
-      <Orders {...props} mode={page} />
+      <Receivables {...props} />
     ) : (
       <Finance {...props} mode={page} />
     );

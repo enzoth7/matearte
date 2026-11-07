@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Order, Product } from "./data";
-import { orderCategoryLabels, orderShippingStatus } from "./orderListPresentation";
+import { isDeliveryOrder, isInPersonStockSale, orderCategoryLabels, orderShippingStatus } from "./orderListPresentation";
 
 const order = {
   id: "order-1",
@@ -56,5 +56,34 @@ describe("presentación resumida de ventas y pedidos", () => {
     expect(orderShippingStatus({ ...order, delivery: "Pendiente", status: "shipped" })).toBe("Enviado");
     expect(orderShippingStatus({ ...order, delivery: "Pendiente", status: "delivered" })).toBe("Entregado");
     expect(orderShippingStatus({ ...order, delivery: "Pendiente" })).toBe("No enviado");
+  });
+
+  it("identifica artículos de stock vendidos presencialmente aunque alguien haya marcado retiro", () => {
+    const stock = { ...order, source: "local", channel: "Local", status: "delivered", method: "Retiro", items: [{ productId: "termo-1", productionStatus: "completed" }] } as Order;
+    expect(isInPersonStockSale(stock)).toBe(true);
+    expect(isInPersonStockSale({ ...stock, channel: "Feria", status: "internal_completed" })).toBe(true);
+    expect(isInPersonStockSale({ ...stock, channel: "Instagram" })).toBe(false);
+    expect(isInPersonStockSale({ ...stock, status: "shipped", method: "Envío" })).toBe(true);
+    expect(isInPersonStockSale({ ...stock, depositAmount: 100 })).toBe(true);
+    expect(isInPersonStockSale({ ...stock, items: [{ ...stock.items![0], productionStatus: "in_production" }] })).toBe(true);
+    expect(isInPersonStockSale({ ...stock, items: [{ ...stock.items![0], personalization: { text: "Hola" } }] })).toBe(false);
+    expect(isInPersonStockSale({ ...stock, items: [...stock.items!, { ...stock.items![0], productId: "mate-1", orderType: "local_design" }] })).toBe(false);
+    expect(isInPersonStockSale({ ...stock, items: [{ ...stock.items![0], productId: "service-1", family: "Servicios" }] })).toBe(false);
+    expect(isInPersonStockSale({ ...stock, items: [{ ...stock.items![0], productId: "service-1", orderType: "service" }] })).toBe(false);
+    expect(isInPersonStockSale({ ...stock, items: [...stock.items!, { ...stock.items![0], productId: "service-1", family: "Servicios" }] })).toBe(false);
+  });
+
+  it("incluye en Entregas solo ventas que pueden necesitar envío o retiro", () => {
+    const stock = { ...order, source: "local", channel: "Local", status: "internal_completed", method: "Retiro", items: [{ productId: "termo-1" }] } as Order;
+    expect(isDeliveryOrder(stock)).toBe(false);
+    expect(isDeliveryOrder({ ...stock, channel: "Feria", status: "delivered" })).toBe(false);
+    expect(isDeliveryOrder({ ...stock, depositAmount: 100 })).toBe(false);
+    expect(isDeliveryOrder({ ...stock, items: [{ ...stock.items![0], personalization: { text: "Hola" } }] })).toBe(true);
+    expect(isDeliveryOrder({ ...stock, items: [{ ...stock.items![0], productId: "service-1", family: "Servicios" }] })).toBe(true);
+    expect(isDeliveryOrder({ ...stock, channel: "Instagram" })).toBe(true);
+    expect(isDeliveryOrder({ ...stock, channel: "WhatsApp" })).toBe(true);
+    expect(isDeliveryOrder({ ...stock, source: undefined, channel: "Web" })).toBe(true);
+    expect(isDeliveryOrder({ ...stock, source: "wholesale", channel: "Mayorista" })).toBe(false);
+    expect(isDeliveryOrder({ ...stock, status: "cancelled", channel: "Instagram" })).toBe(false);
   });
 });

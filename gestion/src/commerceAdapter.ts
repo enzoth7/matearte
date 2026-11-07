@@ -241,6 +241,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       }
       existing.createdAt = earliestTimestamp(existing.createdAt, source.created_at);
       existing.localCustomerId = source.id;
+      existing.contactId = source.id;
       if (!linkedCopy) existing.name = source.full_name ? formatContactName(source.full_name) : existing.name;
       if (!linkedCopy || !existing.companyName) existing.companyName = source.company_name || undefined;
       existing.address = linkedCopy ? existing.address || source.address || undefined : source.address || existing.address;
@@ -263,7 +264,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       else if (source.customer_type === "Mayorista") existing.segment = "Mayorista";
     } else {
       const contact: Customer = {
-        id: canonicalId, localCustomerId: source.id, name: formatContactName(source.full_name), companyName: source.company_name || undefined, email,
+        id: canonicalId, localCustomerId: source.id, contactId: source.id, name: formatContactName(source.full_name), companyName: source.company_name || undefined, email,
         phone: source.phone || "", birthDate: source.birth_date || "", address: source.address || undefined,
         firstPurchaseDate: source.first_purchase_date || "", lastPurchaseDate: source.last_purchase_date || "",
         notes: source.notes || "", city: source.city || "", country: countryDisplayName(source.country || ""),
@@ -343,7 +344,8 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
         sku: item.sku || "", quantity: item.quantity, unitPrice: Number(item.unit_price_minor) / 100,
         amount: Number(item.line_total_minor) / 100, family: item.customization ? "Personalizados" : catalog?.family || "",
         variant: item.variant_name, rim: catalog?.rim || "", leather: catalog?.leather || "",
-        productionStatus: source.status === "shipped" || source.status === "delivered" ? "completed" : item.production_status || "pending", reviewStatus: null, orderType: item.customization ? "local_design" : undefined,
+        productionStatus: source.status === "shipped" || source.status === "delivered" ? "completed" : item.production_status || "pending", reviewStatus: null,
+        orderType: item.customization ? "local_design" : catalog?.categoryCode?.toLowerCase() === "servicios" ? "service" : undefined,
       };
     });
     const charged = Number(source.total_minor) / 100;
@@ -351,6 +353,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
     return {
       id: source.id, number: source.sale_number, referenceCode: source.reference_code, source: "local", status: source.status || "local_sale", createdAt: source.created_at,
       customerId: source.customer_id ? localCustomerIds.get(source.customer_id) || `local:${source.customer_id}` : `local-anon:${source.id}`,
+      contactId: source.customer_id || undefined,
       customerName: source.customer_name, productId: items[0]?.productId || source.id,
       quantity: items.reduce((sum, item) => sum + item.quantity, 0), unitPrice: 0,
       items, totalAmount: source.deposit_minor != null || source.payment_method === "Seña" ? Math.max(charged, itemsAmount) : charged,

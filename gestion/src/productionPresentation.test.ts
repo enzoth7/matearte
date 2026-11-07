@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Order, OrderLine, Product } from "./data";
-import { isPersonalizedMateOrder, naturalCaseName, workshopOrderRows } from "./productionPresentation";
+import { isPersonalizedMateOrder, naturalCaseName, orderProductionLabel, workshopOrderRows } from "./productionPresentation";
 
 const product = (id: string, name: string, categoryCode: string): Product => ({
   id, name, categoryCode, family: categoryCode, sku: id, variant: "Marrón", rim: "", leather: "", cost: 0,
@@ -52,5 +52,19 @@ describe("presentación de producción", () => {
     expect(isPersonalizedMateOrder(localOrder, products)).toBe(false);
     localLine.orderType = "local_design";
     expect(isPersonalizedMateOrder(localOrder, products)).toBe(true);
+  });
+
+  it("muestra guion para stock y mantiene pendiente un pedido mixto hasta completar todos sus artículos", () => {
+    const products = [product("regular", "Mate Imperial", "mates"), product("custom", "Mate a medida", "personalizados")];
+    const stock = order([line("stock", "regular")]);
+    expect(orderProductionLabel(stock, products)).toBe("-");
+    expect(orderProductionLabel({ ...stock, source: "local", channel: "WhatsApp", production: "No aplica" }, products)).toBe("-");
+
+    const customLine = { ...line("custom", "custom", "design"), productionStatus: "completed" };
+    const stockLine = line("stock", "regular");
+    const mixed = order([customLine, stockLine]);
+    expect(workshopOrderRows([mixed], products)[0].items?.map((item) => item.id)).toEqual(["custom"]);
+    expect(orderProductionLabel(mixed, products)).toBe("Pendiente");
+    expect(orderProductionLabel({ ...mixed, items: [customLine, { ...stockLine, productionStatus: "completed" }] }, products)).toBe("Terminado");
   });
 });

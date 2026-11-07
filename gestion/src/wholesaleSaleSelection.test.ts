@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WholesaleProduct } from "./wholesaleSource";
-import { genericVariantPriceConflict, genericVariantRepresentatives, wholesaleSaleCategory, wholesaleSaleType, wholesaleSaleVariantLabel } from "./wholesaleSaleSelection";
+import { firstWholesaleReferenceVariant, genericVariantPriceConflict, genericVariantRepresentatives, wholesaleSaleCategory, wholesaleSaleType, wholesaleSaleVariantLabel } from "./wholesaleSaleSelection";
 
 const product = (values: Partial<WholesaleProduct>): WholesaleProduct => ({
   id: "1", model: "", variant: "", rim_type: null, leather_type: null, price_arg: 0, price_uyu: 0, ...values,
@@ -21,6 +21,15 @@ describe("selección de artículos mayoristas", () => {
     expect(genericVariantRepresentatives([marron, negro, unico]).map((item) => item.id)).toEqual(["62"]);
     expect(genericVariantPriceConflict([marron, negro])).toBe(false);
     expect(genericVariantPriceConflict([marron, { ...negro, price_arg: 3700 }])).toBe(true);
+  });
+
+  it("vincula un genérico histórico de fleje con el primer SKU del diseño Liso", () => {
+    const variants = [
+      product({ id: "575", model: "Mate Imperial Fleje Liso Pelos", variant: "Negro", sku: "575" }),
+      product({ id: "348", model: "Mate Imperial Fleje Liso Pelos", variant: "Negro/Blanco", sku: "348" }),
+      product({ id: "357", model: "Mate Imperial Fleje Flores Pelos", variant: "Negro/Blanco", sku: "357" }),
+    ];
+    expect(firstWholesaleReferenceVariant(variants, "Mate Imperial Fleje con Pelos")?.sku).toBe("348");
   });
 
   it("usa la forma de la matera", () => {

@@ -62,7 +62,7 @@ export function LocalSaleEditor({ order, customers, products, depositAmount, onC
     const service = skuProduct.categoryCode === "servicios";
     setLines((current) => [...current, {
       id: crypto.randomUUID(), name: skuProduct.name, sku: skuProduct.sku, quantity: "1",
-      price: String(salePriceMinor(skuProduct, payment) / 100), notes: "", service, personalized: false,
+      price: String(salePriceMinor(skuProduct, payment === "Cuenta corriente" ? "Efectivo" : payment) / 100), notes: "", service, personalized: false,
       isNew: true, variablePrice: service && skuProduct.prices.Local === 0,
     }]);
     setSkuInput(""); setError("");
@@ -91,9 +91,9 @@ export function LocalSaleEditor({ order, customers, products, depositAmount, onC
   return <Modal title="Editar venta" className="local-sale-editor-modal" onClose={onClose}>
     <form className="local-sale-editor" onSubmit={(event) => void save(event)}>
       <div className="form-grid">
-        <div className="local-sale-original-date"><span>Fecha de venta</span><strong>{order.date.split("-").reverse().join("/")}</strong></div>
-        <div className="local-sale-original-date"><span>Medio del cobro inicial</span><strong>{payment}</strong></div>
-        <div className="local-sale-original-date"><span>{hasDeposit ? "Seña original" : "Cobro inicial"}</span><strong>{money(originalPaid)}</strong></div>
+        <div className="local-sale-original-date"><small>Fecha de venta</small><strong>{order.date.split("-").reverse().join("/")}</strong></div>
+        <div className="local-sale-original-date"><small>{payment === "Cuenta corriente" ? "Modalidad" : "Medio del cobro inicial"}</small><strong>{payment === "Cuenta corriente" ? "Fiado" : payment}</strong></div>
+        <div className="local-sale-original-date"><small>{payment === "Cuenta corriente" ? "Cobro inicial" : hasDeposit ? "Seña original" : "Cobro inicial"}</small><strong>{money(originalPaid)}</strong></div>
         <div className="wide local-sale-editor-customer-fields">
           <div className="local-sale-editor-customer-search">
             <label htmlFor="local-sale-editor-customer-search">Buscar cliente por nombre o celular</label>
@@ -102,11 +102,11 @@ export function LocalSaleEditor({ order, customers, products, depositAmount, onC
               {customerMatches.map((customer) => <button type="button" key={customer.id} onClick={() => { setCustomerId(customer.localCustomerId || ""); setCustomerSearch(""); }}>
                 {customerLabel(customer)}
               </button>)}
-              {!customerMatches.length && <span>No encontramos clientes.</span>}
+              {!customerMatches.length && <small>No encontramos clientes.</small>}
             </div>}
           </div>
           <div className="local-sale-editor-customer-selection">
-            <span>Cliente de la venta</span>
+            <small>Cliente de la venta</small>
             <div className="local-sale-editor-customer-value" aria-live="polite">
               <output>{selectedCustomer ? customerLabel(selectedCustomer) : "Cliente sin registrar"}</output>
               {selectedCustomer && <button type="button" onClick={() => setCustomerId("")} aria-label="Quitar cliente de la venta">Quitar</button>}
@@ -117,18 +117,18 @@ export function LocalSaleEditor({ order, customers, products, depositAmount, onC
       <div className="local-sale-editor-add">
         <label>Agregar artículo por SKU<input value={skuInput} onChange={(event) => { setSkuInput(event.target.value); setError(""); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addSku(); } }} placeholder="Ingresá el SKU exacto" autoComplete="off" /></label>
         <button type="button" className="secondary" onClick={addSku} disabled={busy}>Agregar</button>
-        {skuInput.trim() && skuProduct && <small>{skuProduct.name} · {money(salePriceMinor(skuProduct, payment) / 100)}</small>}
+        {skuInput.trim() && skuProduct && <small>{skuProduct.name}, {money(salePriceMinor(skuProduct, payment) / 100)}</small>}
       </div>
       <div className="local-sale-editor-lines">
         {lines.map((line) => <div className="local-sale-editor-line" key={line.id}>
-          <div className="local-sale-editor-name"><strong>{line.name}</strong><small>{[line.sku, line.personalized ? "Personalizado" : ""].filter(Boolean).join(" · ")}</small>{line.assemblySummary && <small>{line.assemblySummary}</small>}</div>
+          <div className="local-sale-editor-name"><strong>{line.name}</strong><small>{[line.sku, line.personalized ? "Personalizado" : ""].filter(Boolean).join(", ")}</small>{line.assemblySummary && <small>{line.assemblySummary}</small>}</div>
           <label>Cantidad<input type="number" min="1" max="1000" step="1" value={line.quantity} onChange={(event) => patch(line.id, { quantity: event.target.value })} /></label>
           <label>Precio unitario<input type="number" min={line.variablePrice ? "0.01" : "0"} step="0.01" value={line.price} onChange={(event) => patch(line.id, { price: event.target.value, priceOverridden: true })} /></label>
           <button type="button" className="local-sale-remove" aria-label={`Quitar ${line.name}`} disabled={lines.length === 1} onClick={() => setLines((current) => current.filter((item) => item.id !== line.id))}><Trash size={18} /></button>
           {line.service && <label className="local-sale-line-notes">Notas para producción<textarea maxLength={1000} rows={2} value={line.notes} onChange={(event) => patch(line.id, { notes: event.target.value })} /></label>}
         </div>)}
       </div>
-      <p className="local-sale-editor-total">Total de artículos: <strong>{money(itemsMinor / 100)}</strong></p>
+      <div className="local-sale-editor-total">Total de artículos: <strong>{money(itemsMinor / 100)}</strong></div>
       {error && <div className="error" role="alert">{error}</div>}
       <div className="form-actions">
         <button type="button" className="secondary" onClick={onClose} disabled={busy}>Cancelar</button>

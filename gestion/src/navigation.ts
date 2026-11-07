@@ -113,7 +113,6 @@ export const areas = [
     hint: "Claridad para decidir",
     pages: [
       ["resumen", "Resumen financiero"],
-      ["cobros", "Cobros y comprobantes"],
       ["egresos", "Egresos"],
       ["por-cobrar", "Cuentas por cobrar"],
       ["por-pagar", "Cuentas por pagar"],

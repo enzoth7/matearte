@@ -49,7 +49,7 @@ export async function mockCommerce(page: Page, options: { userId?: string; denie
     commerce_argentina_settings: { singleton: true, enabled: false, bank_name: "", account_holder: "", cbu: "", alias: "", account_type: "", account_name: "", account_number: "", swift_code: "", branch: "" },
     local_sales_customers: [], local_sales: [], local_sale_receipts: [], rural_raffle_entries: [],
     site_announcements: [], ad_reports: [], web_leads: [], contact_first_seen: [],
-    products: [], wholesale_product_images: [], customers: [], order_lines: [], settings: { id: 1, exchange_rate: 0.027 },
+    products: [], wholesale_product_images: [], customers: [], contacts: [], order_lines: [], wholesale_order_records: [], wholesale_order_payment_openings: [], wholesale_order_receipts: [], customer_account_receipts: [], customer_account_allocations: [], settings: { id: 1, exchange_rate: 0.027 },
   };
   await page.route("https://*.supabase.co/**", async (route) => {
     const url = new URL(route.request().url());
@@ -82,6 +82,7 @@ export async function mockCommerce(page: Page, options: { userId?: string; denie
     if (table === 'gestion_web_leads') return respond(tables.web_leads);
     if (table === 'gestion_contact_origins') return respond([]);
     if (table === 'gestion_customer_first_seen') return respond(tables.contact_first_seen.slice(Number(route.request().postDataJSON()?.p_offset || 0), Number(route.request().postDataJSON()?.p_offset || 0) + Number(route.request().postDataJSON()?.p_limit || 500)));
+    if (table === 'gestion_logs_context') return respond({ canViewLogs: false });
     if (table === 'get_published_pricing_catalog') return respond({ versionId: 'pricing-test', version: 7, publishedAt: '2026-10-20T12:00:00Z', rules: {
       ...Object.fromEntries(mateAssemblyFields.flatMap(field => field.options.map(option => [option.ruleKey, option.initialPrice]))),
       'leather:raw-posa-mate': 650,
@@ -109,7 +110,7 @@ export async function mockCommerce(page: Page, options: { userId?: string; denie
       return respond(marketing[action] ?? {});
     }
     if (method !== 'GET' && method !== 'HEAD') {
-      if (!options.writable) throw Error('No se permiten escrituras en esta prueba');
+      if (!options.writable) throw Error(`No se permiten escrituras en esta prueba: ${method} ${table}`);
       const body = route.request().headers()['content-type']?.includes('json') ? route.request().postDataJSON() : {};
       writes.push({ table, method, body });
       if (options.failWrite === table || (options.failWrite === 'gestion_update_customer_contact' && table === 'gestion_update_customer_all')) return respond({message:'Guardado rechazado'},403);
@@ -146,11 +147,56 @@ export async function mockCommerce(page: Page, options: { userId?: string; denie
         const total = sale.local_sale_items.reduce((sum: number, item: any) => sum + item.line_total_minor, 0);
         const laterPaid = tables.local_sale_receipts.filter((entry: any) => entry.sale_id === sale.id)
           .reduce((sum: number, entry: any) => sum + entry.amount_minor, 0);
-        if (body.p_amount_minor <= 0 || body.p_amount_minor > total - sale.total_minor - laterPaid) return respond({ message: 'El cobro supera el saldo pendiente' }, 400);
+        const allocated = tables.customer_account_allocations.filter((entry: any) => entry.order_id === sale.id).reduce((sum: number, entry: any) => sum + entry.amount_minor, 0);
+        if (body.p_amount_minor <= 0 || body.p_amount_minor > total - sale.total_minor - laterPaid - allocated) return respond({ message: 'El cobro supera el saldo pendiente' }, 400);
         const receipt = { id: body.p_receipt_id, sale_id: sale.id, amount_minor: body.p_amount_minor,
           payment_method: body.p_payment_method, paid_on: body.p_paid_on, created_at: new Date().toISOString() };
         tables.local_sale_receipts.push(receipt);
         return respond(receipt);
+      }
+      if (table === 'gestion_record_wholesale_payment') {
+        const sale = tables.wholesale_order_records.find((entry: any) => entry.id === body.p_sale_id);
+        if (!sale) return respond({ message: 'El pedido mayorista no existe' }, 400);
+        const opening = tables.wholesale_order_payment_openings.find((entry: any) => entry.sale_id === sale.id);
+        const lines = tables.order_lines.filter((entry: any) => entry.order_id === sale.reference_code);
+        const totalArs = lines.reduce((sum: number, entry: any) => sum + Number(entry.total_arg || 0), 0);
+        const totalUyu = lines.reduce((sum: number, entry: any) => sum + Number(entry.total_uyu || 0), 0);
+        if (body.p_currency !== 'ARS') return respond({ message: 'Los cobros mayoristas son ARS' }, 400);
+        if (opening?.collected_arg_minor == null) {
+          if (body.p_opening_collected_arg_minor == null) return respond({ message: 'Confirmá lo cobrado anteriormente' }, 400);
+          opening.collected_arg_minor = body.p_opening_collected_arg_minor;
+          opening.collected_minor = Math.round(body.p_opening_collected_arg_minor * totalUyu / totalArs);
+        }
+        const equivalent = Math.round(body.p_source_amount_minor * body.p_uyu_per_ars);
+        const later = tables.wholesale_order_receipts.filter((entry: any) => entry.sale_id === sale.id).reduce((sum: number, entry: any) => sum + entry.source_amount_minor, 0);
+        const allocated = tables.customer_account_allocations.filter((entry: any) => entry.order_id === sale.id).reduce((sum: number, entry: any) => sum + entry.source_amount_minor, 0);
+        if ((opening?.collected_arg_minor || 0) + later + allocated + body.p_source_amount_minor > totalArs * 100) return respond({ message: 'El cobro supera el saldo ARS' }, 400);
+        if (!body.p_source_amount_minor) return respond({ sale_id: sale.id, opening_collected_arg_minor: opening?.collected_arg_minor || 0 });
+        const receipt = { id: body.p_receipt_id, sale_id: sale.id, amount_minor: equivalent, source_amount_minor: body.p_source_amount_minor,
+          currency: body.p_currency, payment_method: body.p_payment_method, paid_on: body.p_paid_on };
+        tables.wholesale_order_receipts.push(receipt);
+        return respond(receipt);
+      }
+      if (table === 'gestion_record_customer_account_receipt') {
+        const existing = tables.customer_account_receipts.find((entry: any) => entry.id === body.p_receipt_id);
+        if (existing) return respond(existing);
+        const equivalent = body.p_currency === 'ARS' ? Math.round(body.p_source_amount_minor * body.p_uyu_per_ars) : body.p_source_amount_minor;
+        const receipt = { id: body.p_receipt_id, contact_id: body.p_contact_id, amount_minor: equivalent,
+          source_amount_minor: body.p_source_amount_minor, currency: body.p_currency, payment_method: body.p_payment_method,
+          paid_on: body.p_paid_on, note: body.p_note };
+        tables.customer_account_receipts.push(receipt);
+        return respond(receipt);
+      }
+      if (table === 'gestion_allocate_customer_account_receipt') {
+        const receipt = tables.customer_account_receipts.find((entry: any) => entry.id === body.p_receipt_id);
+        const sale = tables.local_sales.find((entry: any) => entry.id === body.p_order_id) || tables.wholesale_order_records.find((entry: any) => entry.id === body.p_order_id);
+        if (!receipt || !sale || (sale.customer_id || sale.contact_id) !== receipt.contact_id) return respond({ message: 'El pedido no pertenece al cliente' }, 400);
+        const allocated = tables.customer_account_allocations.filter((entry: any) => entry.receipt_id === receipt.id).reduce((sum: number, entry: any) => sum + entry.source_amount_minor, 0);
+        if (body.p_source_amount_minor > receipt.source_amount_minor - allocated) return respond({ message: 'La entrega no tiene ese saldo a favor' }, 400);
+        const allocation = { id: body.p_allocation_id, receipt_id: receipt.id, order_id: sale.id,
+          amount_minor: Math.round(body.p_source_amount_minor * (receipt.currency === 'ARS' ? receipt.amount_minor / receipt.source_amount_minor : 1)), source_amount_minor: body.p_source_amount_minor, allocated_at: new Date().toISOString() };
+        tables.customer_account_allocations.push(allocation);
+        return respond(allocation);
       }
       if (table === 'gestion_update_local_sale') {
         const sale = tables.local_sales.find((entry: any) => entry.id === body.p_sale_id);
@@ -228,7 +274,8 @@ export async function mockCommerce(page: Page, options: { userId?: string; denie
       }
       return respond(route.request().headers().accept?.includes('object') ? matched[0] : matched);
     }
-    let data = table === 'commerce_products' ? [...fixture.products, ...wholesaleAsCatalog(tables.products)] : tables[table];
+    let data = table === 'commerce_products' ? [...fixture.products, ...wholesaleAsCatalog(tables.products)]
+      : table === 'orders' && url.searchParams.get('channel') === 'eq.Mayorista' ? tables.wholesale_order_records : tables[table];
     if (data === undefined) throw Error(`Lectura no prevista: ${table}`);
     const ids = url.searchParams.get('id')?.match(/^in\.\((.*)\)$/)?.[1].split(',').map((value) => value.replace(/^"|"$/g, ''));
     const id = url.searchParams.get('id')?.replace('eq.','');

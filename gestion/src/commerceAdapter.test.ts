@@ -263,6 +263,8 @@ describe("integración de commerce en el estado compartido", () => {
     }];
     expect(adaptCommerce(fixture).orders.find((order) => order.id === "sale-r007")?.production).toBe("En producción");
     fixture.localSales[0].local_sale_items[0].production_status = "completed";
+    expect(adaptCommerce(fixture).orders.find((order) => order.id === "sale-r007")?.production).toBe("Pendiente");
+    fixture.localSales[0].local_sale_items[1].production_status = "completed";
     expect(adaptCommerce(fixture).orders.find((order) => order.id === "sale-r007")?.production).toBe("Terminado");
   });
   it("conserva el medio de pago y el saldo cuando una venta tiene seña", () => {

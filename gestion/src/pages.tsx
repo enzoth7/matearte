@@ -15,11 +15,11 @@ import { joinCustomerPhone, splitCustomerPhone } from "./customerPhone";
 import { OrderContactPhone } from "./OrderContactPhone";
 import { exportCustomersXlsx } from "./customerExports";
 import { compactOrderItemName, orderItemColor, orderItemDetailRows } from "./orderItemPresentation";
-import { orderCategoryLabels, orderShippingStatus } from "./orderListPresentation";
+import { isDeliveryOrder, isInPersonStockSale, orderCategoryLabels, orderShippingStatus } from "./orderListPresentation";
 import type { OrderDetailRow } from "./OrderDetailItems";
 import { OrderDetailContent, type OrderDetailView } from "./OrderDetailContent";
 import { PersonalizedOrders } from "./commerce/PersonalizedOrdersView";
-import { naturalCaseName, workshopOrderRows } from "./productionPresentation";
+import { naturalCaseName, orderProductionLabel, workshopOrderRows } from "./productionPresentation";
 import type { Session } from "@supabase/supabase-js";
 import { Orders as CommerceOrderDetails, formatWeight, getStoreApiUrl } from "./commerce/Operations";
 import { ShipmentModal, type ShipmentDetails } from "./commerce/ShipmentModal";
@@ -38,6 +38,9 @@ import {
 import { Package, Plus, PencilSimple, CaretDown, FileXls, FunnelX, MagnifyingGlass, Trash } from "@phosphor-icons/react";
 import { LocalSaleEditor, canEditLocalSale, deleteLocalSale } from "./LocalSaleEditor";
 import { LocalSaleReceiptForm } from "./LocalSaleReceiptForm";
+import { WholesaleReceiptForm } from "./WholesaleReceiptForm";
+import { ReceivablePaymentChooser } from "./ReceivablePaymentChooser";
+import { customerAccounts } from "./customerAccountModel";
 import { commerceSource } from "./commerceSource";
 import {
   type State,
@@ -50,9 +53,12 @@ import {
   orderName,
   isSale,
   money,
+  arsMoney,
   total,
   paid,
   balance,
+  wholesaleBalanceArs,
+  wholesalePaidArs,
   id,
   addOrder,
   publishPrices,
@@ -87,6 +93,11 @@ const customer = (s: State, o: Order) =>
 const product = (s: State, o: Order) =>
   s.products.find((p) => p.id === o.productId) ?? { name: o.items?.[0]?.title || "Artículo sin nombre", family: o.items?.[0]?.family || "Sin categoría", variant: "", rim: "Sin especificar", leather: "Sin especificar" };
 const orderDate = (date: string) => formatDate(date);
+const orderAmount = (s: State, order: Order, kind: "total" | "paid" | "balance") => {
+  if (order.source !== "wholesale") return money(kind === "total" ? total(order) : kind === "paid" ? paid(s, order) : balance(s, order));
+  const value = kind === "total" ? order.wholesaleTotalArg : kind === "paid" ? wholesalePaidArs(s, order) : wholesaleBalanceArs(s, order);
+  return value == null ? "Por conciliar" : arsMoney(value);
+};
 const customerSearchText = (customer: Customer) => `${customer.name} ${customer.companyName || ""} ${customer.email} ${customer.phone} ${(customer.agendaAdditionalPhones || []).join(" ")} ${customer.birthDate || ""} ${customer.city} ${customer.country || countryForCity(customer.city)}`;
 const phoneSearchVariants = (value: string, country: string) => {
   const { prefix, number } = splitCustomerPhone(value, country);
@@ -102,9 +113,9 @@ const matchesCustomerPhone = (customer: Customer, query: string) => {
   });
 };
 const paymentStatus = (s: State, o: Order) =>
-  o.status === "cancelled" ? "Cancelado" : o.status === "refunded" ? "Reembolsado" : o.status === "payment_failed" ? "Pago fallido" : o.status === "payment_verification_pending" ? "Comprobante por verificar" : balance(s, o) === 0
+  o.status === "cancelled" ? "Cancelado" : o.status === "refunded" ? "Reembolsado" : o.status === "payment_failed" ? "Pago fallido" : o.status === "payment_verification_pending" ? "Comprobante por verificar" : o.source === "wholesale" && wholesaleBalanceArs(s, o) == null ? "Por conciliar" : (o.source === "wholesale" ? wholesaleBalanceArs(s, o) === 0 : balance(s, o) === 0)
     ? "Pagado"
-    : paid(s, o) > 0
+    : (o.source === "wholesale" ? (wholesalePaidArs(s, o) || 0) > 0 : paid(s, o) > 0)
       ? "Pago parcial"
       : "Pendiente";
 function OverviewRanking({ rows, empty }: { rows: RankingItem[]; empty: string }) {
@@ -418,6 +429,7 @@ function OrderTable({
   productionBusyId?: string | null;
 }) {
   const productionMode = ["mayorista", "mayorista-web", "minorista", "historico", "resumen-produccion"].includes(mode);
+  const fullOrderById = useMemo(() => new Map(s.orders.map((order) => [order.id, order])), [s.orders]);
   const originByOrder = useMemo(() => {
     if (mode !== "pedidos") return new Map<string, string>();
     const ordersByCustomer = new Map<string, Order[]>();
@@ -435,7 +447,7 @@ function OrderTable({
   ].join(" ");
   return (
     <Table
-      className={mode === "pedidos" ? "sales-orders-table" : productionMode || ["pendientes", "envios"].includes(mode) ? `workshop-orders-table${productionMode ? " workshop-orders-table--company" : ""}${showAmounts ? "" : " workshop-orders-table--no-amounts"}${["pendientes", "envios"].includes(mode) ? " logistics-orders-table" : ""}${onProductionStatusChange ? " retail-production-table" : ""}` : undefined}
+      className={mode === "pedidos" ? "sales-orders-table" : mode === "por-cobrar" ? "receivables-orders-table" : productionMode || ["pendientes", "envios"].includes(mode) ? `workshop-orders-table${productionMode ? " workshop-orders-table--company" : ""}${showAmounts ? "" : " workshop-orders-table--no-amounts"}${["pendientes", "envios"].includes(mode) ? " logistics-orders-table" : ""}${onProductionStatusChange ? " retail-production-table" : ""}` : undefined}
       showSearch={searchQuery === undefined}
       searchQuery={searchQuery}
       onSearchQueryChange={onSearchQueryChange}
@@ -456,28 +468,31 @@ function OrderTable({
         ...(productionMode ? [{ label: "Empresa", render: (o: Order) => { const c = customer(s, o); return ("companyName" in c && c.companyName?.trim()) || "—"; } }] : []),
         { label: "Productos", render: (o) => orderCategoryLabels(o, s.products) },
         ...(mode === "pedidos" ? [{ label: "Origen", render: (o: Order) => { const origin = originByOrder.get(o.id); return origin ? <Badge>{customerOriginLabel(origin)}</Badge> : "—"; } }] : []),
-        { label: "Canal", render: (o) => <Badge>{o.channel}</Badge> },
+        ...(mode === "por-cobrar" ? [] : [{ label: "Canal", render: (o: Order) => <Badge>{o.channel}</Badge> }]),
         ...(showAmounts ? [
-          { label: "Importe", render: (o: Order) => <strong>{money(o.source === "local" && o.depositAmount != null ? paid(s, o) : total(o))}{o.paymentAmountUsd != null && <small> · {usdMoney(o.paymentAmountUsd)}</small>}</strong> },
-          { label: "Pago", render: (o: Order) => <Badge>{paymentStatus(s, o)}</Badge> },
+          { label: "Importe", render: (o: Order) => <strong>{orderAmount(s, o, "total")}{o.paymentAmountUsd != null && <small> USD {usdMoney(o.paymentAmountUsd)}</small>}</strong> },
+          ...(mode === "por-cobrar" ? [
+            { label: "Cobrado", render: (o: Order) => orderAmount(s, o, "paid") },
+            { label: "Saldo", render: (o: Order) => <strong>{orderAmount(s, o, "balance")}</strong> },
+          ] : [{ label: "Pago", render: (o: Order) => <Badge>{paymentStatus(s, o)}</Badge> }]),
         ] : []),
-        {
+        ...(mode === "por-cobrar" ? [] : [{
           label: "Producci\u00F3n",
-          render: (o) => onProductionStatusChange && !["shipped", "delivered"].includes(o.status || "")
+          render: (o: Order) => { const production = orderProductionLabel(fullOrderById.get(o.id) || o, s.products); return production === "-" ? "-" : onProductionStatusChange && !["shipped", "delivered"].includes(o.status || "")
             ? <select
-                className={`retail-production-status ${o.production === "En producción" ? "blue" : o.production === "Terminado" ? "green" : "yellow"}`}
+                className={`retail-production-status ${production === "En producción" ? "blue" : production === "Terminado" ? "green" : "yellow"}`}
                 aria-label={`Estado de producción del pedido ${orderName(o)}`}
                 title="Cambiar estado de producción"
-                value={o.production === "Terminado" ? "completed" : o.production === "En producción" ? "in_production" : "pending"}
+                value={production === "Terminado" ? "completed" : production === "En producción" ? "in_production" : "pending"}
                 disabled={productionBusyId === o.id}
                 onChange={(event) => onProductionStatusChange(o, event.target.value as "pending" | "in_production" | "completed")}
-              ><option value="pending">Pendiente</option><option value="in_production">En producción</option><option value="completed">Completado</option></select>
-            : <Badge tone={o.production === "En producción" ? "blue" : o.production === "Terminado" ? "green" : undefined}>{o.production}</Badge>,
-        },
-        {
+              ><option value="pending">Pendiente</option><option value="in_production">En producción</option><option value="completed">Terminado</option></select>
+            : <Badge tone={production === "En producción" ? "blue" : production === "Terminado" ? "green" : undefined}>{production}</Badge>; },
+        }]),
+        ...(mode === "por-cobrar" ? [] : [{
           label: "Envío",
-          render: (o) => o.source === "local" && o.status !== "delivered" ? "—" : <Badge>{orderShippingStatus(o)}</Badge>,
-        },
+          render: (o: Order) => isInPersonStockSale(o) ? "-" : <Badge>{orderShippingStatus(o)}</Badge>,
+        }]),
         ...(["pendientes", "retiros", "envios"].includes(mode)
           ? [
               {
@@ -486,20 +501,13 @@ function OrderTable({
                   <div>
                     {o.method}
                     <small>
-                      {o.carrier || "Sin transportista"} ·{" "}
+                      {o.carrier || "Sin transportista"},{" "}
                       {o.tracking || "Sin c\u00F3digo"}
                     </small>
                   </div>
                 ),
               },
             ]
-          : mode === "por-cobrar"
-            ? [
-                {
-                  label: "Saldo por cobrar",
-                  render: (o: Order) => <strong>{money(balance(s, o))}</strong>,
-                },
-              ]
           : []),
         {
           label: onProductionStatusChange ? "Acciones" : "Detalles",
@@ -529,8 +537,8 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
   const [shipmentOpen, setShipmentOpen] = useState(false);
   const items = order.items || [];
   const contact = s.customers.find((entry) => entry.id === order.customerId);
-  const workshopOrder = order.source === "local" ? workshopOrderRows([order], s.products)[0] : undefined;
-  const canShipLocal = order.source === "local" && ["internal_completed", "shipped"].includes(order.status || "");
+  const inPersonStockSale = isInPersonStockSale(order);
+  const canShipLocal = order.source === "local" && !inPersonStockSale && ["internal_completed", "shipped"].includes(order.status || "");
   const shipLocal = async (details: ShipmentDetails) => {
     if (!props.session) return;
     setSaleBusy(true); setSaleError("");
@@ -555,7 +563,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
   const orderPayments = s.payments.filter((payment) => payment.orderId === order.id);
   const localPaymentMethods = [...new Set([order.paymentMethod, ...orderPayments.map((payment) => payment.method)]
     .filter((method): method is string => Boolean(method && method !== "Seña")))].join(", ") || "No registrado";
-  const shipping = orderShippingStatus(order);
+  const shipping = inPersonStockSale ? "-" : orderShippingStatus(order);
   const phone = contact?.phone?.trim() || "";
   const country = contact?.country || (contact?.city ? countryForCity(contact.city) : "") || (/^0?9\d{7}$/.test(phone.replace(/\D/g, "")) ? "Uruguay" : "");
   const phoneParts = splitCustomerPhone(phone, country);
@@ -583,7 +591,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       name: compactOrderItemName(item), sku: item.sku, color: orderItemColor(item) || (wholesaleItem ? item.variant : undefined), size,
       onOpen: catalogProduct ? () => go(`/productos/catalogo?producto=${encodeURIComponent(catalogProduct.sourceProductId || catalogProduct.id)}&variante=${encodeURIComponent(catalogProduct.id)}`) : undefined,
       weight: item.weightGrams && item.weightGrams > 0 ? formatWeight(item.weightGrams) : undefined,
-      quantity: item.quantity, amount: showAmounts ? money(item.amount) : undefined,
+      quantity: item.quantity, amount: showAmounts ? wholesaleItem ? item.priceArg == null ? "Por conciliar" : arsMoney(item.priceArg) : money(item.amount) : undefined,
       extra: wholesaleItem ? "" : extra.map((detail) => `${detail.label}: ${detail.value}`).join(", "), notes: item.productionNotes,
     };
   }) : [{ id: order.id, name: product(s, order).name, quantity: order.quantity, amount: showAmounts ? money(total(order)) : undefined }];
@@ -591,10 +599,10 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
     reference: orderName(order), date: orderDate(order.date), channel: order.channel, shipping,
     customer: naturalCaseName(customer(s, order).name), products: orderCategoryLabels(order, s.products),
     payment: showAmounts ? paymentStatus(s, order) : undefined,
-    paymentNote: showAmounts ? `${order.source === "local" && order.depositAmount != null ? "Saldo de la seña" : "Saldo pendiente"}: ${money(balance(s, order))}` : undefined,
-    production: workshopOrder?.production || order.production, rows: detailRows,
+    paymentNote: showAmounts ? order.source === "wholesale" && wholesaleBalanceArs(s, order) == null ? "Precio o cobros anteriores pendientes de conciliar" : `${order.paymentMethod === "Cuenta corriente" ? "Saldo fiado" : order.source === "local" && order.depositAmount != null ? "Saldo de la seña" : "Saldo pendiente"}: ${orderAmount(s, order, "balance")}` : undefined,
+    production: orderProductionLabel(s.orders.find((entry) => entry.id === order.id) || order, s.products), rows: detailRows,
     delivery: {
-      method: order.method === "Envío" ? "Envío" : order.method === "Retiro" ? "Retiro en el local" : "Venta en el local",
+      method: inPersonStockSale ? order.channel === "Feria" ? "Venta en feria" : "Venta en el local" : order.method === "Envío" ? "Envío" : order.method === "Retiro" ? "Retiro en el local" : "Venta en el local",
       paymentMethod: localPaymentMethods,
       customer: naturalCaseName(contact?.name || order.customerName || "Cliente sin nombre"),
       phone: phone ? <OrderContactPhone prefix={phoneParts.prefix} number={phoneParts.number} country={country} whatsappDigits={whatsappDigits} /> : undefined,
@@ -611,7 +619,14 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       {!!order.feeAmount && <div className="line-item"><div>Cargo por pago</div><strong>{money(order.feeAmount)}</strong></div>}
       {order.source === "local" && !localDeposit && items.length > 0 && Math.abs(items.reduce((sum, item) => sum + item.amount, 0) - total(order)) > 0.01 &&
         <div className="line-item"><div>Revisar valor de artículos</div><strong>{money(items.reduce((sum, item) => sum + item.amount, 0))} en artículos, {money(total(order))} cobrados</strong></div>}
-      {localDeposit ? <>
+      {order.source === "wholesale" ? <>
+        <div className="line-item"><div>Total del pedido</div><strong>{orderAmount(s, order, "total")}</strong></div>
+        {order.wholesaleOpeningPaidArg == null
+          ? <div className="line-item"><div>Cobros anteriores</div><strong>Por conciliar</strong></div>
+          : order.wholesaleOpeningPaidArg > 0 && <div className="line-item"><div>Cobrado antes del registro</div><strong>{arsMoney(order.wholesaleOpeningPaidArg)}</strong></div>}
+        {orderPayments.map((payment) => <div className="line-item" key={payment.id}><div>Cobro, {payment.method}, {orderDate(payment.date)}</div><strong>{payment.sourceCurrency === "ARS" && payment.sourceAmount != null ? arsMoney(payment.sourceAmount) : "Por conciliar"}</strong></div>)}
+        <div className="line-item"><div>Saldo pendiente</div><strong>{orderAmount(s, order, "balance")}</strong></div>
+      </> : localDeposit ? <>
         <div className="line-item"><div>Valor de artículos</div><strong>{money(total(order))}</strong></div>
         {orderPayments.map((payment, index) => <div className="line-item" key={payment.id}><div>{index === 0 ? order.depositAmount != null ? "Seña" : "Cobro inicial" : "Cobro"} , {payment.method} , {orderDate(payment.date)}</div><strong>{money(payment.amount || 0)}</strong></div>)}
         <div className="line-item"><div>Saldo pendiente</div><strong>{money(balance(s, order))}</strong></div>
@@ -621,7 +636,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
         {orderPayments.filter((payment) => payment.sourceCurrency === "USD").map((payment) => <div className="line-item" key={payment.id}><div>Cobro PayPal</div><strong>{paymentMoney(payment)}</strong></div>)}
       </>}
     </> : undefined,
-    tracking: order.method === "Envío" && (order.carrier || order.tracking) ? { carrier: order.carrier || "", code: order.tracking || "" } : undefined,
+    tracking: !inPersonStockSale && order.method === "Envío" && (order.carrier || order.tracking) ? { carrier: order.carrier || "", code: order.tracking || "" } : undefined,
   };
   return <><Modal title="Detalle del pedido" className="order-detail-modal unified-order-modal" onClose={onClose}>
     <OrderDetailContent detail={detail} />
@@ -638,14 +653,16 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
         })()}><Trash size={20} aria-hidden="true" /></button>
       </div>}
       {canEditLocalSale(order) && balance(s, order) > 0 && <button type="button" className="unified-order-action unified-order-action--primary" onClick={() => setRecordingReceipt(true)}>Registrar cobro</button>}
-      {canShipLocal && props.session && <button type="button" className="unified-order-action unified-order-action--primary" disabled={saleBusy} onClick={() => setShipmentOpen(true)}>{order.status === "shipped" ? "Editar envío" : "Marcar enviado"}</button>}
+      {order.source === "wholesale" && order.wholesaleSaleId && isSale(order) && (wholesaleBalanceArs(s, order) == null || wholesaleBalanceArs(s, order)! > 0) && showAmounts && <button type="button" className="unified-order-action unified-order-action--primary" onClick={() => setRecordingReceipt(true)}>Registrar cobro</button>}
+      {canShipLocal && props.session && <button type="button" className="unified-order-action unified-order-action--primary" disabled={saleBusy} onClick={() => setShipmentOpen(true)}>{order.method === "Retiro" ? "Marcar entregado" : order.status === "shipped" ? "Editar envío" : "Marcar enviado"}</button>}
       <button className="unified-order-action" onClick={onClose}>Cerrar</button>
       {s.customers.some((entry) => entry.id === order.customerId) && <button className="unified-order-action" onClick={() => go(`/clientes/base?cliente=${order.customerId}`)}>Ver ficha del cliente</button>}
       {order.source === "wholesale" && wholesaleLines.length > 0 && props.commerce?.wholesale && <><button className="unified-order-action" onClick={() => downloadWholesalePdf("workshop")}>Descargar PDF Taller</button><button className="unified-order-action" onClick={() => downloadWholesalePdf("customer")}>Descargar PDF Cliente</button></>}
       {order.source === "wholesale" && <button className="unified-order-action unified-order-action--primary" onClick={() => go("/produccion/mayorista")}>Gestionar producción</button>}
     </div>
     {editingSale && <LocalSaleEditor order={order} customers={s.customers} products={s.products} depositAmount={s.payments.find((payment) => payment.orderId === order.id)?.amount ?? undefined} onClose={() => setEditingSale(false)} onChanged={async (message) => { await props.refresh?.(true); props.notify?.(message); setEditingSale(false); onClose(); }} />}
-    {recordingReceipt && <LocalSaleReceiptForm order={order} remaining={balance(s, order)} onClose={() => setRecordingReceipt(false)} onChanged={async () => { await props.refresh?.(true); props.notify?.("Cobro registrado en el mismo pedido"); setRecordingReceipt(false); }} />}
+    {recordingReceipt && order.source === "local" && <LocalSaleReceiptForm order={order} remaining={balance(s, order)} onClose={() => setRecordingReceipt(false)} onChanged={async () => { await props.refresh?.(true); props.notify?.("Cobro registrado en el mismo pedido"); setRecordingReceipt(false); }} />}
+    {recordingReceipt && order.source === "wholesale" && <WholesaleReceiptForm order={order} state={s} exchangeRate={props.commerce?.wholesale?.exchangeRate || 0} onClose={() => setRecordingReceipt(false)} onChanged={async () => { await props.refresh?.(true); props.notify?.("Cuenta del pedido actualizada"); setRecordingReceipt(false); }} />}
   </Modal>
     {shipmentOpen && <div className="commerce-tools"><ShipmentModal
       reference={orderName(order)}
@@ -653,7 +670,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       currentDelivery={order.method === "Envío" ? "Envío" : "Retiro en el local"}
       destination={[contact?.address, contact?.city, contact?.department, contact?.country].filter(Boolean).join(", ")}
       status={order.status || ""}
-      initialDeliveryMethod={order.status === "shipped" ? order.method === "Envío" ? "shipping" : "pickup" : ""}
+      initialDeliveryMethod={order.status === "shipped" ? order.method === "Envío" ? "shipping" : "pickup" : order.method === "Retiro" ? "pickup" : ""}
       initialCarrier={order.carrier}
       initialTrackingCode={order.tracking}
       manualSale
@@ -677,6 +694,8 @@ export function Orders(
     new URLSearchParams(location.search).get("pedido"),
   );
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [choosingPayment, setChoosingPayment] = useState(false);
+  const [paymentOrderId, setPaymentOrderId] = useState<string | null>(null);
   const [channel, setChannel] = useState("Todos");
   const [orderSearch, setOrderSearch] = useState("");
   const [group, setGroup] = useState("Pedidos");
@@ -684,7 +703,7 @@ export function Orders(
   const [productionError, setProductionError] = useState("");
   async function changeProductionStatus(order: Order, status: "pending" | "in_production" | "completed") {
     if (!commerceSource || productionBusyId || ["shipped", "delivered"].includes(order.status || "")) return;
-    const itemIds = order.items?.map((item) => item.id) || [];
+    const itemIds = (s.orders.find((entry) => entry.id === order.id)?.items || order.items || []).map((item) => item.id);
     if (!itemIds.length) return;
     setProductionBusyId(order.id); setProductionError("");
     try {
@@ -704,6 +723,11 @@ export function Orders(
   const productionView = ["mayorista-web", "minorista", "historico", "resumen-produccion"].includes(mode);
   const showAmounts = !productionView || canAccess(s, "/finanzas/resumen");
   const visible = visibleOrders(s, productionView);
+  const receivablePaymentOrders = visible.filter((order) =>
+    order.source === "local" && balance(s, order) > 0
+    || order.source === "wholesale" && Boolean(order.wholesaleSaleId) && isSale(order) && (wholesaleBalanceArs(s, order) == null || wholesaleBalanceArs(s, order)! > 0),
+  );
+  const paymentOrder = s.orders.find((order) => order.id === paymentOrderId);
   const salesFilterChannels: OrderChannel[] = (() => {
     const base = allowedSalesChannels(s) as OrderChannel[];
     return visible.some((o) => o.channel === "Mayorista") ? [base[0], "Mayorista", ...base.slice(1)] : base;
@@ -727,13 +751,13 @@ export function Orders(
     rows = rows.filter((o) => o.production !== "Terminado").map((order) => {
       if (order.source !== "wholesale") return order;
       const active = (order.items || []).filter((item) => item.productionStatus !== "Completado");
-      return { ...order, items: active, quantity: active.reduce((sum, item) => sum + item.quantity, 0), totalAmount: active.reduce((sum, item) => sum + item.amount, 0) };
+      return { ...order, items: active, quantity: active.reduce((sum, item) => sum + item.quantity, 0) };
     });
   if (mode === "pendientes")
-    rows = rows.filter((o) => o.source !== "local" && isSale(o) && o.delivery === "Pendiente");
-  if (mode === "retiros") rows = rows.filter((o) => o.source !== "local" && isSale(o) && o.method === "Retiro");
-  if (mode === "envios") rows = rows.filter((o) => o.source !== "local" && isSale(o) && o.method === "Env\u00EDo");
-  if (mode === "por-cobrar") rows = rows.filter((o) => balance(s, o) > 0);
+    rows = rows.filter((o) => isDeliveryOrder(o) && (o.delivery === "Pendiente" || o.method === "Retiro" && o.status === "shipped"));
+  if (mode === "retiros") rows = rows.filter((o) => isDeliveryOrder(o) && o.method === "Retiro");
+  if (mode === "envios") rows = rows.filter((o) => isDeliveryOrder(o) && o.method === "Env\u00EDo");
+  if (mode === "por-cobrar") rows = rows.filter((o) => o.source === "wholesale" ? isSale(o) && (wholesaleBalanceArs(s, o) == null || wholesaleBalanceArs(s, o)! > 0) : balance(s, o) > 0);
   const groupedItems = rows.flatMap<Order & { item: OrderLine | null }>((order) => order.items?.map((item) => ({ ...order, productId: item.productId, quantity: item.quantity, item })) || [{ ...order, item: null }]);
   const groups = Object.entries(
     groupedItems.reduce(
@@ -743,7 +767,7 @@ export function Orders(
           group === "Modelo"
             ? p.family
             : group === "Variante"
-              ? `${p.family} · ${p.variant}`
+              ? `${p.family}, ${p.variant}`
               : group === "Virola"
                 ? p.rim
                 : p.leather;
@@ -763,17 +787,13 @@ export function Orders(
             label: "Unidades",
             value: rows.reduce((a, o) => a + o.quantity, 0),
           },
-          ...(showAmounts ? [{
-            label:
-              mode === "por-cobrar" ? "Saldo pendiente" : "Valor de pedidos",
-            value: money(
-              rows.reduce(
-                (a, o) =>
-                  a + (mode === "por-cobrar" ? balance(s, o) : total(o)),
-                0,
-              ),
-            ),
-          }] : []),
+          ...(showAmounts ? mode === "por-cobrar" ? [
+            { label: "Saldo mayorista", value: arsMoney(rows.filter((order) => order.source === "wholesale").reduce((sum, order) => sum + (wholesaleBalanceArs(s, order) || 0), 0)), tone: "yellow" as const },
+            { label: "Saldo local", value: money(rows.filter((order) => order.source !== "wholesale").reduce((sum, order) => sum + balance(s, order), 0)), tone: "yellow" as const },
+          ] : [{ label: "Valor de pedidos", value: money(rows.reduce((sum, order) => sum + total(order), 0)) }] : []),
+          ...(mode === "por-cobrar" && rows.some((order) => order.source === "wholesale" && wholesaleBalanceArs(s, order) == null)
+            ? [{ label: "Pedidos por conciliar", value: rows.filter((order) => order.source === "wholesale" && wholesaleBalanceArs(s, order) == null).length, tone: "yellow" as const }]
+            : []),
         ]}
       />
       <div className={`toolbar${mode === "pedidos" ? " orders-page-toolbar" : ""}`}>
@@ -800,14 +820,18 @@ export function Orders(
               cliente: customer(s, o).name,
               productos: orderCategoryLabels(o, s.products),
               cantidad: o.quantity,
-              ...(showAmounts ? { total: total(o), cobrado: paid(s, o), saldo: balance(s, o) } : {}),
-              produccion: o.source === "local" ? "" : o.production,
-              envio: o.source === "local" ? "" : orderShippingStatus(o),
+              ...(showAmounts ? {
+                moneda: o.source === "wholesale" ? "ARS" : "UYU",
+                total: o.source === "wholesale" ? o.wholesaleTotalArg ?? "Por conciliar" : total(o),
+                cobrado: o.source === "wholesale" ? wholesalePaidArs(s, o) ?? "Por conciliar" : paid(s, o),
+                saldo: o.source === "wholesale" ? wholesaleBalanceArs(s, o) ?? "Por conciliar" : balance(s, o),
+              } : {}),
+              produccion: orderProductionLabel(s.orders.find((entry) => entry.id === o.id) || o, s.products),
+              envio: isInPersonStockSale(o) ? "-" : orderShippingStatus(o),
             }))}
           />
-          {registrationPath && <AddButton onClick={() => go(registrationPath)}>
-            Nuevo pedido
-          </AddButton>}
+          {mode === "por-cobrar" ? <button type="button" className="primary" disabled={!commerceSource || !receivablePaymentOrders.length} onClick={() => setChoosingPayment(true)}><Plus size={18} aria-hidden="true" />Nuevo cobro</button>
+            : registrationPath && <AddButton onClick={() => go(registrationPath)}>Nuevo pedido</AddButton>}
         </div>
       </div>
       {mode === "mayorista" && (
@@ -834,7 +858,7 @@ export function Orders(
         />
       ) : (
         <>
-        {productionError && <p className="error" role="alert">{productionError}</p>}
+        {productionError && <div className="error" role="alert">{productionError}</div>}
         <OrderTable
           s={s}
           orders={rows}
@@ -865,8 +889,11 @@ export function Orders(
         </>
       )}
       {selectedCustomer && <CustomerDetailModal customer={selectedCustomer} s={s} go={go} commerce={props.commerce} onClose={() => setSelectedCustomer(null)} />}
+      {mode === "por-cobrar" && choosingPayment && <ReceivablePaymentChooser orders={receivablePaymentOrders} state={s} onClose={() => setChoosingPayment(false)} onChoose={(order) => { setChoosingPayment(false); setPaymentOrderId(order.id); }} />}
+      {mode === "por-cobrar" && paymentOrder?.source === "local" && <LocalSaleReceiptForm order={paymentOrder} remaining={balance(s, paymentOrder)} onClose={() => setPaymentOrderId(null)} onChanged={async () => { await props.refresh?.(true); props.notify("Cobro registrado en el mismo pedido"); setPaymentOrderId(null); }} />}
+      {mode === "por-cobrar" && paymentOrder?.source === "wholesale" && <WholesaleReceiptForm order={paymentOrder} state={s} exchangeRate={props.commerce?.wholesale?.exchangeRate || 0} onClose={() => setPaymentOrderId(null)} onChanged={async () => { await props.refresh?.(true); props.notify("Cuenta del pedido actualizada"); setPaymentOrderId(null); }} />}
       {mode === "historico" && <WholesaleProduction props={props} history />}
-      {o && (o.source === "local" || o.source === "wholesale" || !props.session) && <UnifiedOrderDetailModal order={o} props={props} showAmounts={showAmounts} onClose={() => setSelected(null)} />}
+      {o && (o.source === "local" || o.source === "wholesale" || !props.session) && <UnifiedOrderDetailModal order={s.orders.find((entry) => entry.id === o.id) || o} props={props} showAmounts={showAmounts} onClose={() => setSelected(null)} />}
       {o && o.source !== "local" && o.source !== "wholesale" && props.session && <div className="commerce-tools order-tools"><CommerceOrderDetails key={o.id} session={props.session} onNotice={props.notify} orderId={o.id} catalogProducts={s.products} paymentProvider={s.payments.find((payment) => payment.orderId === o.id)?.method} onProduct={(productId, variantId) => go(`/productos/catalogo?producto=${encodeURIComponent(productId)}&variante=${encodeURIComponent(variantId)}`)} onCustomer={() => go(`/clientes/base?cliente=${o.customerId}`)} onClose={() => { setSelected(null); void props.refresh?.(); }} /></div>}
     </>
   );
@@ -875,6 +902,9 @@ export function CustomerDetailModal({ customer: c, s, go, commerce, onClose }: {
   const [historyView, setHistoryView] = useState<"products" | "orders">("products");
   const orders = visibleOrders(s);
   const customerOrders = orders.filter((order) => order.customerId === c.id);
+  const customerAccountRows = c.contactId ? customerAccounts(s).filter((entry) => entry.contactId === c.contactId) : [];
+  const wholesaleCustomerOrders = customerOrders.filter((order) => order.source === "wholesale");
+  const uyuCustomerOrders = customerOrders.filter((order) => order.source !== "wholesale");
   const wholesaleHistory = c.wholesaleName ? summarizeWholesaleCustomer(orders, c.id) : undefined;
   const purchaseDates = customerPurchaseDates(c, customerOrders);
   const birthDate = c.birthDate ? /^\d{4}$/.test(c.birthDate) ? c.birthDate : formatDate(c.birthDate) : "";
@@ -896,16 +926,25 @@ export function CustomerDetailModal({ customer: c, s, go, commerce, onClose }: {
       <div><small>Última compra</small><strong>{formatDate(purchaseDates.last, "Sin datos")}</strong></div>
     </div>
     <Stats items={[
-      { label: "Compras", value: money(customerOrders.filter(isSale).reduce((sum, order) => sum + total(order), 0)) },
-      { label: "Saldo", value: money(customerOrders.reduce((sum, order) => sum + balance(s, order), 0)) },
+      ...(wholesaleCustomerOrders.length ? [
+        { label: "Compras mayoristas confirmadas", value: arsMoney(wholesaleCustomerOrders.filter((order) => isSale(order) && order.wholesaleTotalArg != null).reduce((sum, order) => sum + (order.wholesaleTotalArg || 0), 0)) },
+        { label: "Saldo mayorista", value: arsMoney(wholesaleCustomerOrders.reduce((sum, order) => sum + (wholesaleBalanceArs(s, order) || 0), 0)) },
+      ] : []),
+      ...(uyuCustomerOrders.length ? [
+        { label: "Compras UYU", value: money(uyuCustomerOrders.filter(isSale).reduce((sum, order) => sum + total(order), 0)) },
+        { label: "Saldo UYU", value: money(uyuCustomerOrders.reduce((sum, order) => sum + balance(s, order), 0)) },
+      ] : []),
+      ...customerAccountRows.filter((entry) => entry.credit > 0).map((entry) => ({ label: `A favor ${entry.currency}`, value: entry.currency === "ARS" ? arsMoney(entry.credit) : money(entry.credit), tone: "green" as const })),
     ]} />
+    {wholesaleCustomerOrders.some((order) => order.wholesaleTotalArg == null) && <div className="data-note">Hay pedidos antiguos sin precio ARS original registrado. No se incluyen en el total de compras confirmadas.</div>}
+    {customerAccountRows.length > 0 && <div className="form-actions"><button type="button" className="secondary" onClick={() => go(`/finanzas/por-cobrar?cliente=${encodeURIComponent(customerAccountRows[0].contactId)}`)}>Ver cuenta del cliente</button></div>}
     {c.wholesaleName && wholesaleHistory && <div className="tabs inner-tabs customer-history-tabs" role="tablist" aria-label="Vista del histórico mayorista"><button role="tab" aria-selected={historyView === "products"} className={historyView === "products" ? "active" : ""} onClick={() => setHistoryView("products")}>Por tipo de mate</button><button role="tab" aria-selected={historyView === "orders"} className={historyView === "orders" ? "active" : ""} onClick={() => setHistoryView("orders")}>Por pedido</button></div>}
     {c.wholesaleName && wholesaleHistory && historyView === "products" ? <Table title="Histórico por tipo de mate" rows={wholesaleHistory.rows} searchText={(row) => row.model} columns={[
       { label: "Tipo de mate", render: (row) => row.model },
       { label: "Pedidos", render: (row) => row.orders },
       { label: "Unidades", render: (row) => row.units },
     ]} /> : <OrderTable s={s} orders={customerOrders} go={go} title="Historial compartido" />}
-    {c.wholesaleName && commerce?.wholesale && <div className="form-actions"><button className="secondary" onClick={() => void exportWholesalePdf(`Historial · ${c.name}`, commerce.wholesale!.lines.filter((line) => line.customer === c.wholesaleName), commerce.wholesale!)}>PDF historial</button><button className="secondary" onClick={() => void exportWholesalePdf(`Pendientes · ${c.name}`, commerce.wholesale!.lines.filter((line) => line.customer === c.wholesaleName && line.status !== "Completado"), commerce.wholesale!)}>PDF pendientes</button></div>}
+    {c.wholesaleName && commerce?.wholesale && <div className="form-actions"><button className="secondary" onClick={() => void exportWholesalePdf(`Historial, ${c.name}`, commerce.wholesale!.lines.filter((line) => line.customer === c.wholesaleName), commerce.wholesale!, "ARS")}>PDF historial</button><button className="secondary" onClick={() => void exportWholesalePdf(`Pendientes, ${c.name}`, commerce.wholesale!.lines.filter((line) => line.customer === c.wholesaleName && line.status !== "Completado"), commerce.wholesale!, "ARS")}>PDF pendientes</button></div>}
   </Modal>;
 }
 export function Register(props: PageProps & { kind: "minorista" | "mayorista" }) {

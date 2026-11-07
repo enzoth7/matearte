@@ -68,6 +68,39 @@ describe("entrega desde Gestión", () => {
     expect(dispatchCommerceEmails).not.toHaveBeenCalled();
   });
 
+  it("permite entregar en el local un servicio del taller", async () => {
+    const update = adminFor({ id, status: "internal_completed", channel: "Local", shipping_method: "pickup", order_items: [
+      { item_type: "catalog", production_status: "pending", immutable_snapshot: {}, commerce_variants: { commerce_products: { category_code: "servicios" } } },
+    ] });
+    const response = await PATCH(request("deliver"), { params: Promise.resolve({ id }) });
+    expect(response.status).toBe(200);
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "delivered" }));
+  });
+
+  it("permite enviar un pedido local que incluye un servicio y un artículo común", async () => {
+    const update = adminFor({ id, status: "internal_completed", channel: "Local", shipping_method: "pickup", shipping_snapshot: {}, order_items: [
+      { item_type: "catalog", production_status: "pending", immutable_snapshot: {}, commerce_variants: { commerce_products: { category_code: "servicios" } } },
+      { item_type: "catalog", production_status: "pending", immutable_snapshot: {}, commerce_variants: { commerce_products: { category_code: "mates" } } },
+    ] });
+    const response = await PATCH(request("ship", { deliveryMethod: "shipping" }), { params: Promise.resolve({ id }) });
+    expect(response.status).toBe(200);
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "shipped", shipping_method: "national_shipping" }));
+  });
+
+  it.each([
+    { channel: "Local", status: "internal_completed", action: "ship", details: { deliveryMethod: "shipping" } },
+    { channel: "Feria", status: "internal_completed", action: "deliver", details: {} },
+    { channel: "Local", status: "shipped", action: "deliver_in_store", details: {} },
+  ])("impide $action para una venta de catálogo de $channel", async ({ channel, status, action, details }) => {
+    const update = adminFor({ id, status, channel, shipping_method: "pickup", order_items: [
+      { item_type: "catalog", production_status: "completed", immutable_snapshot: {} },
+    ] });
+    const response = await PATCH(request(action, details as Record<string, string>), { params: Promise.resolve({ id }) });
+    expect(response.status).toBe(409);
+    expect(update).not.toHaveBeenCalled();
+    expect(dispatchCommerceEmails).not.toHaveBeenCalled();
+  });
+
   it("marca enviado un retiro y permite entregarlo después", async () => {
     const order = { id, status: "ready_for_production", channel: "Web", shipping_method: "pickup", shipping_snapshot: {}, order_items: [] };
     const update = adminFor(order);

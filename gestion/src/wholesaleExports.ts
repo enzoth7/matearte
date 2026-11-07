@@ -1,10 +1,11 @@
-import { wholesaleLineValue } from "./wholesaleAdapter";
+import { hasWholesaleOriginalArs, wholesaleLineValue } from "./wholesaleAdapter";
 import type { WholesaleLine, WholesaleSnapshot } from "./wholesaleSource";
 import { formatDate } from "./dateFormat";
+import { productionStatusLabel } from "./productionPresentation";
 
 export type WholesaleCurrency = "UYU" | "ARS";
 const normalized = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("es");
-const rowsFor = (lines: WholesaleLine[], snapshot: WholesaleSnapshot, currency?: WholesaleCurrency) => lines.map((line): Record<string, string | number> => {
+export const wholesaleExportRows = (lines: WholesaleLine[], snapshot: WholesaleSnapshot, currency: WholesaleCurrency = "ARS") => lines.map((line): Record<string, string | number> => {
   const product = snapshot.products.find((item) => normalized(item.model) === normalized(line.model) && normalized(item.variant) === normalized(line.variant));
   const value = wholesaleLineValue(line, product, snapshot.exchangeRate);
   return {
@@ -15,11 +16,12 @@ const rowsFor = (lines: WholesaleLine[], snapshot: WholesaleSnapshot, currency?:
     Virola: product?.rim_type || "",
     Cuero: product?.leather_type || "",
     Cantidad: Number(line.quantity),
-    Estado: line.status,
+    Estado: productionStatusLabel(line.status),
     Tipo: line.order_type === "no_cost" ? "Sin costo" : "Normal",
-    ...(currency ? { [`Unitario ${currency}`]: currency === "ARS" ? value.unitArg : value.unitUyu, [`Total ${currency}`]: currency === "ARS" ? value.arg : value.uyu } : { "Unitario ARS": value.unitArg, "Total ARS": value.arg, "Total UYU": value.uyu }),
+    [`Unitario ${currency}`]: currency === "ARS" && !hasWholesaleOriginalArs(line) ? "Por conciliar" : currency === "ARS" ? value.unitArg : value.unitUyu,
+    [`Total ${currency}`]: currency === "ARS" && !hasWholesaleOriginalArs(line) ? "Por conciliar" : currency === "ARS" ? value.arg : value.uyu,
     Creado: formatDate(line.created_at, ""),
-    Completado: formatDate(line.completed_at, ""),
+    "Fecha de término": formatDate(line.completed_at, ""),
   };
 });
 const filename = (kind: string, extension: string) => `matearte-${kind}-${new Date().toISOString().slice(0, 10)}.${extension}`;
@@ -51,12 +53,12 @@ async function writeXlsx(rows: ExportRow[], headings: string[], sheet: string, n
   const blob = await writeXlsxFile(data, { sheet, stickyRowsCount: 1, columns: headings.map((key) => ({ width: Math.max(15, key.length + 4) })) }).toBlob();
   download(blob, name);
 }
-export function exportWholesaleCsv(lines: WholesaleLine[], snapshot: WholesaleSnapshot, currency?: WholesaleCurrency) {
-  const rows = rowsFor(lines, snapshot, currency);
+export function exportWholesaleCsv(lines: WholesaleLine[], snapshot: WholesaleSnapshot, currency: WholesaleCurrency = "ARS") {
+  const rows = wholesaleExportRows(lines, snapshot, currency);
   writeCsv(rows, Object.keys(rows[0] || {}), filename("mayorista", "csv"));
 }
-export async function exportWholesaleXlsx(lines: WholesaleLine[], snapshot: WholesaleSnapshot, currency?: WholesaleCurrency) {
-  const rows = rowsFor(lines, snapshot, currency);
+export async function exportWholesaleXlsx(lines: WholesaleLine[], snapshot: WholesaleSnapshot, currency: WholesaleCurrency = "ARS") {
+  const rows = wholesaleExportRows(lines, snapshot, currency);
   await writeXlsx(rows, Object.keys(rows[0] || {}), "Producción", filename("produccion-mayorista", "xlsx"));
 }
 export function exportWholesaleViewCsv(table: WholesaleViewTable) {
@@ -85,11 +87,11 @@ export async function exportWholesaleViewPdf(table: WholesaleViewTable) {
   });
   pdf.save(filename(`produccion-mayorista-${slugOf(table.slug)}`, "pdf"));
 }
-export async function exportWholesalePdf(title: string, lines: WholesaleLine[], snapshot: WholesaleSnapshot, currency?: WholesaleCurrency) {
+export async function exportWholesalePdf(title: string, lines: WholesaleLine[], snapshot: WholesaleSnapshot, currency: WholesaleCurrency = "ARS") {
   const [{ jsPDF }, { default: autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
   const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-  const rows = rowsFor(lines, snapshot, currency);
-  const currencies: WholesaleCurrency[] = currency ? [currency] : ["ARS", "UYU"];
+  const rows = wholesaleExportRows(lines, snapshot, currency);
+  const currencies: WholesaleCurrency[] = [currency];
   pdf.setFillColor(38, 58, 44); pdf.rect(0, 0, 297, 28, "F");
   pdf.setTextColor(255, 255, 255); pdf.setFontSize(17); pdf.text("MateArte", 14, 12);
   pdf.setFontSize(11); pdf.text(title, 14, 21);
@@ -98,7 +100,7 @@ export async function exportWholesalePdf(title: string, lines: WholesaleLine[], 
   autoTable(pdf, {
     startY: 40,
     head: [["Pedido", "Cliente", "Modelo", "Variante", "Cant.", "Estado", ...currencies]],
-    body: rows.map((row) => [row.Pedido, row.Cliente, row.Modelo, row.Variante, row.Cantidad, row.Estado, ...currencies.map((code) => Number(row[`Total ${code}`]).toLocaleString("es-UY"))]),
+    body: rows.map((row) => [row.Pedido, row.Cliente, row.Modelo, row.Variante, row.Cantidad, row.Estado, ...currencies.map((code) => typeof row[`Total ${code}`] === "number" ? Number(row[`Total ${code}`]).toLocaleString("es-UY") : String(row[`Total ${code}`] || ""))]),
     styles: { fontSize: 8, cellPadding: 2.3, overflow: "linebreak" },
     headStyles: { fillColor: [38, 58, 44] },
     columnStyles: { 0: { cellWidth: 33 }, 1: { cellWidth: 43 }, 2: { cellWidth: 38 }, 3: { cellWidth: 38 }, 4: { halign: "right", cellWidth: 18 }, 6: { halign: "right", cellWidth: 27 }, 7: { halign: "right", cellWidth: 27 } },

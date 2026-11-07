@@ -63,7 +63,7 @@ export function ShipmentModal({ reference, customer, currentDelivery, destinatio
       <form onSubmit={event => { event.preventDefault(); if (deliveryMethod) void onSubmit({ deliveryMethod, shippingCarrier: carrier, trackingCode: trackingCode.trim() }); }}>
         <header className="shipment-modal__header">
           <div>
-            <h2 id={titleId}>{status === 'shipped' ? 'Editar datos de envío' : 'Marcar como enviado'}</h2>
+            <h2 id={titleId}>{deliveryMethod === 'pickup' ? 'Marcar como entregado' : status === 'shipped' ? 'Editar datos de envío' : 'Marcar como enviado'}</h2>
             <div id={descriptionId}>Al confirmar, los artículos quedarán terminados en producción.</div>
           </div>
           <button type="button" className="shipment-modal__close" aria-label="Cerrar" disabled={busy} onClick={onCancel}><X size={22} aria-hidden="true" /></button>

@@ -47,11 +47,31 @@ export function wholesaleSaleType(product: WholesaleProduct): string {
 /** Variante de pedido para ventas mayoristas "entreveradas": no es un SKU, no existe como producto. */
 export const GENERIC_WHOLESALE_VARIANT = "Genérico";
 
+const historicalGenericModel = new Map([
+  ["imperial cuero crudo fleje", "Mate Imperial Cuero Crudo Fleje Liso"],
+  ["mate criollo imperial fleje con posa mate de cuero crudo", "Mate Criollo Imperial Fleje Liso Con Posa Mate de Cuero Crudo"],
+  ["mate imperial fleje", "Mate Imperial Fleje Liso"],
+  ["mate imperial fleje con pelos", "Mate Imperial Fleje Liso Pelos"],
+]);
+
+export function compareWholesaleReferenceVariants(a: WholesaleProduct, b: WholesaleProduct): number {
+  const number = (sku?: string | null) => /^\d+$/.test(sku || "") ? Number(sku) : Number.POSITIVE_INFINITY;
+  return number(a.sku) - number(b.sku)
+    || (a.sku || "").localeCompare(b.sku || "", "es")
+    || a.id.localeCompare(b.id);
+}
+
+export function firstWholesaleReferenceVariant(products: WholesaleProduct[], model: string): WholesaleProduct | undefined {
+  const referenceModel = historicalGenericModel.get(normalized(model)) || model;
+  return products.filter((product) => product.available_wholesale !== false && normalized(product.model) === normalized(referenceModel))
+    .sort(compareWholesaleReferenceVariants)[0];
+}
+
 /** Un representante por nombre de producto que tiene 2 o más variantes (colores) a elegir. */
 export function genericVariantRepresentatives(products: WholesaleProduct[]): WholesaleProduct[] {
   const byModel = new Map<string, WholesaleProduct[]>();
   for (const product of products) byModel.set(product.model, [...(byModel.get(product.model) ?? []), product]);
-  return [...byModel.values()].filter((group) => group.length > 1).map((group) => group[0]);
+  return [...byModel.values()].filter((group) => group.length > 1).map((group) => [...group].sort(compareWholesaleReferenceVariants)[0]);
 }
 
 /** El precio de una línea genérica solo es válido si todos los colores del producto cuestan lo mismo. */

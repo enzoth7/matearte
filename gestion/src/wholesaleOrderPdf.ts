@@ -1,7 +1,7 @@
 import type { Customer, OrderLine } from "./data";
 import { formatDate } from "./dateFormat";
-import { wholesaleLineValue } from "./wholesaleAdapter";
-import { GENERIC_WHOLESALE_VARIANT } from "./wholesaleSaleSelection";
+import { hasWholesaleOriginalArs, wholesaleLineValue } from "./wholesaleAdapter";
+import { GENERIC_WHOLESALE_VARIANT, firstWholesaleReferenceVariant } from "./wholesaleSaleSelection";
 import type { WholesaleLine, WholesaleSnapshot } from "./wholesaleSource";
 import type { WholesaleCurrency } from "./wholesaleExports";
 import { discountSummary, formatPercent, orderDiscountPercent } from "./wholesaleDiscount";
@@ -33,7 +33,7 @@ function lineRows(input: WholesaleOrderPdfInput) {
     const orderItem = input.items?.find((item) => item.wholesaleLineId === line.line_id);
     const exact = input.snapshot.products.find((item) => normalize(item.model) === normalize(line.model) && normalize(item.variant) === normalize(line.variant));
     const product = exact ?? (normalize(line.variant) === normalize(GENERIC_WHOLESALE_VARIANT)
-      ? input.snapshot.products.filter((item) => normalize(item.model) === normalize(line.model)).sort((a, b) => (a.sku || "").localeCompare(b.sku || "", "es", { numeric: true }))[0]
+      ? firstWholesaleReferenceVariant(input.snapshot.products, line.model)
       : undefined);
     const value = wholesaleLineValue(line, product, input.snapshot.exchangeRate);
     return {
@@ -61,6 +61,8 @@ async function brandLogo(): Promise<string> {
 
 export async function createWholesaleOrderPdf(kind: WholesaleOrderPdfKind, input: WholesaleOrderPdfInput, logoDataUrl: string) {
   if (!input.lines.length) throw new Error("Este pedido no tiene artículos para exportar.");
+  if (kind === "customer" && input.currency === "ARS" && input.lines.some((line) => !hasWholesaleOriginalArs(line)))
+    throw new Error("El precio original ARS de este pedido está por conciliar.");
   const [{ jsPDF }, { default: autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const customerSheet = kind === "customer";

@@ -2,7 +2,7 @@ import { Catalog } from "./commerce/Operations";
 import { useState } from "react";
 import { FinanceOverview } from "./FinanceOverview";
 import type { PageProps } from "./pages";
-import { type Product, type Row, money, paymentMoney, balance, orderName } from "./data";
+import { type Product, type Row, type State, money, paymentMoney, orderName } from "./data";
 import { collections } from "./collections";
 import { catalogImageOptions, catalogStatusOptions, matchesCatalogImage, matchesCatalogStatus, type CatalogImageFilter, type CatalogStatusFilter } from "./catalogListFilters";
 import { Card, Stats, Table, Badge, Modal, downloadCsv } from "./ui";
@@ -135,32 +135,52 @@ export function Products({ s, mode, notify, refresh, commerce }: PageProps & { m
 export function Inventory(_props: PageProps & { mode: string }) {
   return <Card title="Inventario"><div>Commerce Admin no registra existencias físicas ni movimientos de stock. Esta sección se completará al conectar el sistema de inventario.</div></Card>;
 }
-export function Finance({ s, go, mode }: PageProps & { mode: string }) {
+export function Finance({ s, mode }: PageProps & { mode: string }) {
   if (mode === "resumen") return <FinanceOverview s={s} />;
   if (mode === "monedas") return <Table rows={s.records.monedas || []} searchText={(row) => String(row.moneda)} columns={[
     { label: "Moneda", render: (row) => String(row.moneda) },
     { label: "Equivalencia en UYU", render: (row) => Number(row.valor).toLocaleString("es-UY", { maximumFractionDigits: 4 }) },
   ]} />;
-  if (mode === "cobros") return <>
-    <Stats items={[
-      { label: "Cobros y señas", value: money(s.payments.reduce((sum, payment) => sum + (payment.amount ?? 0), 0)), tone: "green" },
-      { label: "Pendiente de cobro", value: money(s.orders.reduce((sum, order) => sum + balance(s, order), 0)), go: () => go("/finanzas/por-cobrar") },
-    ]} />
-    {s.payments.some((payment) => payment.reconciliationRequired) && <div className="data-note">Hay cobros pendientes de conciliación. Los importes sin equivalencia histórica se muestran abajo y no se incluyen en el total UYU.</div>}
-    <Table rows={s.payments} action={<button className="secondary" onClick={() => downloadCsv("cobros", s.payments.map((payment) => ({
-      Pedido: orderName(s.orders.find((order) => order.id === payment.orderId)!), Fecha: payment.date, Medio: payment.method,
+  const pending = mode === "por-pagar";
+  const expenses = pending ? s.expenses.filter((expense) => !expense.paid) : s.expenses;
+  return <>{!s.expensesConnected && <div className="data-note">Los egresos todavía no tienen una fuente conectada.</div>}{s.expensesConnected && <div className="data-note">Los importes salen de Compras y Gastos fijos. Para agregar o corregir uno, hacelo allí.</div>}{pending && s.expensesConnected && !expenses.length && <div className="data-note">No hay gastos pendientes de pago registrados.</div>}<Table rows={expenses} title={pending ? "Pendientes de pago" : "Gastos registrados"} searchText={(e) => `${e.name} ${e.category}`} columns={[
+    { label: "Concepto", render: (e) => e.name }, { label: "Categoría", render: (e) => e.category ? <Badge>{e.category}</Badge> : "—" }, { label: "Fecha", render: (e) => formatDate(e.date) },
+    ...(!pending ? [{ label: "Estado", render: (e: (typeof expenses)[number]) => <Badge tone={e.paid ? "green" : "yellow"}>{e.paid ? "Pagado" : "Por pagar"}</Badge> }] : []),
+    { label: "Importe", render: (e) => money(e.amount) },
+  ]} /></>;
+}
+
+export function PaymentHistory({ s, go }: { s: State; go: (path: string) => void }) {
+  const orderById = new Map(s.orders.map((order) => [order.id, order]));
+  const customerById = new Map(s.customers.map((customer) => [customer.id, customer.name]));
+  const customerByContactId = new Map(s.customers.filter((customer) => customer.contactId).map((customer) => [customer.contactId!, customer.name]));
+  const rows = [...s.payments].sort((a, b) => b.date.localeCompare(a.date));
+  const orderFor = (orderId: string) => orderById.get(orderId);
+  const referenceFor = (orderId: string) => {
+    if (!orderId) return "A cuenta del cliente";
+    const order = orderFor(orderId);
+    return order ? orderName(order) : orderId;
+  };
+  const customerFor = (payment: (typeof rows)[number]) => {
+    const order = orderFor(payment.orderId);
+    return order ? customerById.get(order.customerId) || order.customerName || "Cliente sin nombre"
+      : payment.contactId ? customerByContactId.get(payment.contactId) || "Cliente sin nombre" : "Cliente sin nombre";
+  };
+  return <>
+    {rows.some((payment) => payment.reconciliationRequired) && <div className="data-note">Algunos cobros antiguos no tienen equivalencia en UYU confirmada. Se muestra su importe original.</div>}
+    <Table title="Historial de cobros" className="receivables-orders-table receivable-history-table" rows={rows} pageSize={50} action={<button className="secondary" onClick={() => downloadCsv("historial-de-cobros", rows.map((payment) => ({
+      Pedido: referenceFor(payment.orderId),
+      Cliente: customerFor(payment), Fecha: payment.date, Medio: payment.method,
       Moneda: payment.sourceCurrency || "UYU", "Importe original": payment.sourceAmount ?? payment.amount,
-      "Equivalente histórico UYU": payment.amount, Conciliación: payment.reconciliationRequired ? "Pendiente" : "Conciliado",
-    })))}>Exportar cobros</button>} searchText={(payment) => `${payment.orderId} ${payment.method}`} columns={[
-      { label: "Pedido", render: (payment) => <button className="text-button" onClick={() => go(`/comercial/pedidos?pedido=${payment.orderId}`)}>{orderName(s.orders.find((order) => order.id === payment.orderId)!)}</button> },
+      Conciliación: payment.reconciliationRequired ? "Pendiente" : "Conciliado",
+    })))}>Exportar historial</button>} searchText={(payment) => `${referenceFor(payment.orderId)} ${customerFor(payment)} ${payment.method}`} columns={[
+      { label: "Pedido", render: (payment) => orderFor(payment.orderId) ? <button className="text-button" onClick={() => go(`/comercial/pedidos?pedido=${payment.orderId}`)}>{referenceFor(payment.orderId)}</button> : referenceFor(payment.orderId) },
+      { label: "Cliente", render: (payment) => customerFor(payment) },
       { label: "Fecha", render: (payment) => formatDate(payment.date) },
       { label: "Medio", render: (payment) => payment.method },
-      { label: "Importe", render: (payment) => paymentMoney(payment) },
-      { label: "Referencia de pago", render: (payment) => payment.derived ? "Según estado de producción" : payment.id },
+      { label: "Importe", render: (payment) => orderFor(payment.orderId)?.source === "wholesale" || payment.accountReceiptId && payment.sourceCurrency === "ARS"
+        ? payment.sourceCurrency === "ARS" && payment.sourceAmount != null ? `ARS ${payment.sourceAmount.toLocaleString("es-AR", { maximumFractionDigits: 2 })}` : "Por conciliar"
+        : paymentMoney(payment) },
     ]} />
   </>;
-  return <>{!s.expensesConnected && <div className="data-note">Los egresos todavía no tienen una fuente conectada.</div>}{s.expensesConnected && <div className="data-note">Egresos cargados en Inventario y compras → Compras y Gastos fijos. Para agregar o corregir uno, hacelo allá.</div>}<Table rows={s.expenses} searchText={(e) => `${e.name} ${e.category}`} columns={[
-    { label: "Concepto", render: (e) => e.name }, { label: "Categoría", render: (e) => e.category ? <Badge>{e.category}</Badge> : "—" }, { label: "Fecha", render: (e) => formatDate(e.date) },
-    { label: "Estado", render: (e) => <Badge tone={e.paid ? "green" : "yellow"}>{e.paid ? "Pagado" : "Por pagar"}</Badge> }, { label: "Importe", render: (e) => money(e.amount) },
-  ]} /></>;
 }

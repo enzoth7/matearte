@@ -211,6 +211,65 @@ test('seguimiento de pedido se guarda en Entregas y conserva el importe',async({
   await expect(page.getByRole('dialog').getByText('TRACK-9001',{exact:true})).toBeVisible();
 });
 
+test('Entregas incluye personalizados y redes, y excluye catálogo presencial',async({page})=>{
+  const {tables}=await mockCommerce(page,{writable:true});
+  const sale=(id:string,reference_code:string,channel:string,status:string,shipping_method:string,customization:Record<string,string>|null)=>({
+    id,sale_number:80,reference_code,channel,customer_id:null,customer_name:'Cliente de prueba',
+    sold_on:'2026-11-07',created_at:'2026-11-07T15:00:00Z',payment_method:'Efectivo',total_minor:100000,currency:'UYU',
+    status,shipping_method,local_sale_items:[{
+      id:`item-${id}`,variant_id:null,sku:'',product_name:customization?'Mate personalizado':'Termo',variant_name:'Negro',
+      quantity:1,unit_price_minor:100000,line_total_minor:100000,production_status:customization?'in_production':'pending',customization,
+    }],
+  });
+  tables.local_sales.push(
+    sale('stock-local','#L080','Local','internal_completed','pickup',null),
+    sale('stock-fair','#F080','Feria','delivered','pickup',null),
+    sale('custom-local','#L081','Local','internal_completed','pickup',{itemKind:'custom_mate'}),
+    sale('custom-ready','#L082','Local','shipped','pickup',{itemKind:'custom_mate'}),
+    sale('social-pickup','#R080','Instagram','internal_completed','pickup',null),
+    sale('social-shipping','#R081','WhatsApp','shipped','national_shipping',null),
+  );
+  const socialPickup=tables.local_sales.find((entry: {id:string})=>entry.id==='social-pickup');
+  await page.route(/\/api\/admin\/orders\/[^/]+\/fulfillment$/,async route=>{
+    const body=route.request().postDataJSON() as Record<string,string>;
+    if(body.action!=='ship'||!route.request().url().includes('/social-pickup/')) throw Error('Acción de envío inesperada');
+    Object.assign(socialPickup,{status:'shipped',shipping_method:'national_shipping'});
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true})});
+  });
+
+  await page.goto('/entregas/pendientes');
+  await expect(page.getByRole('row').filter({hasText:'#L081'})).toHaveCount(1);
+  await expect(page.getByRole('row').filter({hasText:'#L082'})).toHaveCount(1);
+  await expect(page.getByRole('row').filter({hasText:'#R080'})).toHaveCount(1);
+  await expect(page.getByRole('row').filter({hasText:'#L080'})).toHaveCount(0);
+  await expect(page.getByRole('row').filter({hasText:'#F080'})).toHaveCount(0);
+
+  await page.goto('/entregas/retiros');
+  await expect(page.getByRole('row').filter({hasText:'#L081'})).toHaveCount(1);
+  await expect(page.getByRole('row').filter({hasText:'#L082'})).toHaveCount(1);
+  await expect(page.getByRole('row').filter({hasText:'#R080'})).toHaveCount(1);
+  await expect(page.getByRole('row').filter({hasText:'#L080'})).toHaveCount(0);
+  await expect(page.getByRole('row').filter({hasText:'#F080'})).toHaveCount(0);
+  await page.getByRole('row').filter({hasText:'#L081'}).getByRole('button',{name:'Ver detalle del pedido #L081'}).click();
+  const localDetail=page.getByRole('dialog',{name:'Detalle del pedido'});
+  await expect(localDetail.getByRole('button',{name:'Marcar enviado'})).toBeVisible();
+  await localDetail.locator('.unified-order-actions').getByRole('button',{name:'Cerrar',exact:true}).click();
+  await page.getByRole('row').filter({hasText:'#R080'}).getByRole('button',{name:'Ver detalle del pedido #R080'}).click();
+  await page.getByRole('dialog',{name:'Detalle del pedido'}).getByRole('button',{name:'Marcar enviado'}).click();
+  const shipment=page.getByRole('dialog',{name:'Marcar como enviado'});
+  await shipment.getByLabel('Modalidad de entrega').selectOption('shipping');
+  await shipment.getByRole('button',{name:'Confirmar envío'}).click();
+  await expect(page.getByRole('row').filter({hasText:'#R080'})).toHaveCount(0);
+
+  await page.goto('/entregas/envios');
+  await expect(page.getByRole('row').filter({hasText:'#R081'})).toHaveCount(1);
+  await expect(page.getByRole('row').filter({hasText:'#R080'})).toHaveCount(1);
+  await expect(page.getByRole('row').filter({hasText:'#L080'})).toHaveCount(0);
+  await expect(page.getByRole('row').filter({hasText:'#F080'})).toHaveCount(0);
+  await page.getByRole('row').filter({hasText:'#R081'}).getByRole('button',{name:'Ver detalle del pedido #R081'}).click();
+  await expect(page.getByRole('dialog',{name:'Detalle del pedido'}).getByRole('button',{name:'Editar envío'})).toBeVisible();
+});
+
 test('un retiro se registra desde la única acción de entrega',async({page})=>{
   const {fixture}=await mockCommerce(page,{writable:true});
   fixture.orders[0].shipping_method='pickup';
@@ -558,7 +617,7 @@ test('una bombilla de catálogo no queda pendiente entre los personalizados', as
   const {tables}=await mockCommerce(page,{writable:true});
   const base={customer_id:null,sold_on:'2026-11-03',payment_method:'Efectivo',currency:'UYU',created_at:'2026-11-03T15:00:00Z',status:'internal_completed'};
   tables.local_sales.push(
-    {...base,id:'sale-bombilla',sale_number:60,reference_code:'#L060',channel:'Local',customer_name:'Cliente de bombilla',total_minor:80000,local_sale_items:[
+    {...base,id:'sale-bombilla',sale_number:60,reference_code:'#L060',channel:'Local',status:'delivered',shipping_method:'pickup',customer_name:'Cliente de bombilla',total_minor:80000,local_sale_items:[
       {id:'item-bombilla',variant_id:null,sku:'',product_name:'Bombilla Cincelada',variant_name:'Metálico',quantity:1,unit_price_minor:80000,line_total_minor:80000,production_status:'pending',customization:null},
     ]},
     {...base,id:'sale-custom',sale_number:61,reference_code:'#R061',channel:'Instagram',customer_name:'Cliente personalizado',sold_on:'2026-10-23',created_at:'2026-11-05T14:04:33Z',total_minor:200000,local_sale_items:[
@@ -566,6 +625,16 @@ test('una bombilla de catálogo no queda pendiente entre los personalizados', as
     ]},
   );
   await page.goto('/comercial/pedidos');
+  const stock = page.getByRole('row').filter({hasText:'#L060'});
+  await expect(stock.locator('td').nth(8)).toHaveText('-');
+  await expect(stock.locator('td').nth(9)).toHaveText('-');
+  await stock.getByRole('button',{name:'Ver detalle del pedido #L060'}).click();
+  const stockDetail = page.getByRole('dialog',{name:'Detalle del pedido'});
+  await expect(stockDetail.getByRole('button',{name:'Marcar enviado'})).toHaveCount(0);
+  await expect(stockDetail.getByRole('button',{name:'Editar envío'})).toHaveCount(0);
+  await expect(stockDetail.getByRole('region',{name:'Identificación del pedido'})).toContainText('Envío-');
+  await expect(stockDetail.getByRole('region',{name:'Resumen del pedido'})).toContainText('Producción-');
+  await stockDetail.locator('.unified-order-actions').getByRole('button',{name:'Cerrar',exact:true}).click();
   await expect(page.getByRole('row').filter({hasText:'#R061'})).toContainText('En producción');
   await page.goto('/produccion/minorista');
   await expect(page.getByRole('row').filter({hasText:'#L060'})).toHaveCount(0);

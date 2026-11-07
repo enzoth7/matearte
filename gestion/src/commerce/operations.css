@@ -472,7 +472,7 @@ td small { display: block; }
 .order-detail-item-copy dd { margin: 0; color: #22362b; font-size: .7rem; font-weight: 700; }
 .order-tracking-detail { display: grid; grid-template-columns: 1fr auto; gap: .2rem 1rem; margin-top: 1rem; border-left: 4px solid #39758a; background: #eef7fa; padding: .8rem 1rem; }
 .order-tracking-detail small { grid-column: 1 / -1; }
-.order-tracking-detail span { color: #31566a; overflow-wrap: anywhere; }
+.order-tracking-detail code { color: #31566a; font: inherit; overflow-wrap: anywhere; }
 .shipment-modal label { display: block; margin-top: .9rem; color: #2f3f36; font-size: .78rem; font-weight: 700; }
 .shipment-modal label span { color: var(--danger); }
 .shipment-modal input,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { balance, orderName, paid, seed, total } from "./data";
+import { balance, orderName, paid, seed, total, wholesaleBalanceArs, wholesalePaidArs } from "./data";
 import { adaptWholesale, summarizeWholesale, summarizeWholesaleCustomer, wholesaleLineValue } from "./wholesaleAdapter";
+import { wholesaleExportRows } from "./wholesaleExports";
 import { adaptCommerce } from "./commerceAdapter";
 import { commerceFixture } from "./testing/commerce";
 import type { WholesaleLine, WholesaleSnapshot } from "./wholesaleSource";
@@ -60,6 +61,16 @@ describe("integración mayorista", () => {
     const item = adaptWholesale(seed(), source).orders[0].items![0];
     expect(item).toMatchObject({ sku: "209", variant: "Genérico", family: "Mates", weightGrams: 80 });
   });
+  it("usa el SKU Liso como referencia cuando el nombre histórico omite el diseño", () => {
+    const source = fixture();
+    source.products = [
+      { id: "575", model: "Mate Imperial Fleje Liso Pelos", variant: "Negro", rim_type: null, leather_type: null, price_arg: 43900, price_uyu: 1185, sku: "575" },
+      { id: "348", model: "Mate Imperial Fleje Liso Pelos", variant: "Negro/Blanco", rim_type: null, leather_type: null, price_arg: 43900, price_uyu: 1185, sku: "348" },
+    ];
+    source.lines = [line({ model: "Mate Imperial Fleje con Pelos", variant: "Genérico", quantity: 3, unit_price_arg: 43900, total_arg: 131700 })];
+    const item = adaptWholesale(seed(), source).orders[0].items![0];
+    expect(item).toMatchObject({ sku: "348", variant: "Genérico", quantity: 3 });
+  });
   it("muestra la foto principal y el encuadre de una variante mayorista en el catálogo", () => {
     const source = fixture();
     source.products[0].category_code = "mates";
@@ -72,24 +83,65 @@ describe("integración mayorista", () => {
     const [product] = adaptWholesale(seed(), source, path => `https://example.invalid/${path}`).products;
     expect(product).toMatchObject({ sku: "CRI-NEG", family: "Mates", imageUrl: "https://example.invalid/wholesale/7/first.jpg", imageCrop: { x: 12, y: -4, zoom: 1.2 } });
   });
-  it("agrupa líneas de un pedido y calcula 50/100 por ciento según el estado", () => {
-    const source = fixture(); source.lines = [line({}), line({ line_id: "line-2", status: "Completado", completed_at: "2026-10-10T12:00:00Z", unit_price_arg: 8000, unit_price_uyu: 216, total_arg: 16000, total_uyu: 432 })];
+  it("agrupa líneas sin inventar cobros a partir del estado de producción", () => {
+    const source = fixture(); source.lines = [line({ unit_price_arg: 10000, unit_price_uyu: 270, total_arg: 20000, total_uyu: 540 }), line({ line_id: "line-2", status: "Completado", completed_at: "2026-10-10T12:00:00Z", unit_price_arg: 8000, unit_price_uyu: 216, total_arg: 16000, total_uyu: 432 })];
     const state = adaptWholesale(seed(), source);
     const order = state.orders[0];
     expect(state.orders).toHaveLength(1);
     expect(order.quantity).toBe(4);
     expect(total(order)).toBe(972);
-    expect(paid(state, order)).toBe(702);
-    expect(balance(state, order)).toBe(270);
+    expect(paid(state, order)).toBe(0);
+    expect(balance(state, order)).toBe(972);
     expect(order.production).toBe("Pendiente");
-    expect(state.payments).toHaveLength(3);
-    expect(state.payments.every((payment) => payment.derived)).toBe(true);
+    expect(state.payments).toHaveLength(0);
   });
-  it("muestra un pedido mayorista completado como pagado y enviado", () => {
-    const source = fixture(); source.lines = [line({ status: "Completado", completed_at: "2026-10-10T12:00:00Z" })];
+  it("mantiene un pedido terminado como pendiente de cobro hasta registrar dinero real", () => {
+    const source = fixture(); source.lines = [line({ status: "Completado", completed_at: "2026-10-10T12:00:00Z", unit_price_arg: 10000, total_arg: 20000, total_uyu: 540 })];
     const state = adaptWholesale(seed(), source);
     expect(state.orders[0]).toMatchObject({ production: "Terminado", delivery: "Enviado" });
+    expect(balance(state, state.orders[0])).toBe(540);
+  });
+  it("separa el saldo anterior conciliado de los cobros nuevos y usa el total guardado del pedido", () => {
+    const source = fixture(); source.lines = [line({ unit_price_arg: 10000, total_arg: 20000, total_uyu: 540 })];
+    source.orderRecords = [{ id: "sale-1", reference_code: "#M001", customer_name: "Almacén Sur", total_minor: 52000 }];
+    source.paymentOpenings = [{ sale_id: "sale-1", collected_minor: 13500, collected_arg_minor: 500000 }];
+    source.receipts = [{ id: "receipt-1", sale_id: "sale-1", amount_minor: 15000, source_amount_minor: 500000, currency: "ARS", payment_method: "Transferencia", paid_on: "2026-10-05" }];
+    const state = adaptWholesale(seed(), source);
+    const order = state.orders[0];
+    expect(total(order)).toBe(540);
+    expect(paid(state, order)).toBe(285);
+    expect(wholesalePaidArs(state, order)).toBe(10000);
+    expect(wholesaleBalanceArs(state, order)).toBe(10000);
+    expect(balance(state, order)).toBe(270);
+    expect(state.payments).toMatchObject([{ orderId: order.id, amount: 150, sourceCurrency: "ARS", sourceAmount: 5000 }]);
+  });
+  it("usa el precio ARS descontado y el equivalente UYU neto, no el total UYU de lista", () => {
+    const source = fixture();
+    source.lines = [line({ unit_price_arg: 10000, unit_price_uyu: 270, total_arg: 18000, total_uyu: 486, discount_percent: 10 })];
+    source.orderRecords = [{ id: "sale-1", reference_code: "#M001", customer_name: "Almacén Sur", total_minor: 54000 }];
+    source.paymentOpenings = [{ sale_id: "sale-1", collected_minor: 0, collected_arg_minor: 0 }];
+    const state = adaptWholesale(seed(), source);
+    expect(state.orders[0].wholesaleTotalArg).toBe(18000);
+    expect(total(state.orders[0])).toBe(486);
+    expect(wholesaleBalanceArs(state, state.orders[0])).toBe(18000);
+    expect(balance(state, state.orders[0])).toBe(486);
+    const [exported] = wholesaleExportRows(source.lines, source);
+    expect(exported["Total ARS"]).toBe(18000);
+    expect(exported).not.toHaveProperty("Total UYU");
+    expect(wholesaleExportRows([line({ status: "Completado" })], source)[0].Estado).toBe("Terminado");
+  });
+  it("no convierte en deuda exacta un pedido anterior todavía sin conciliar", () => {
+    const source = fixture(); source.lines = [line({})];
+    source.orderRecords = [{ id: "sale-1", reference_code: "#M001", customer_name: "Almacén Sur", total_minor: 52000 }];
+    source.paymentOpenings = [{ sale_id: "sale-1", collected_minor: null }];
+    const state = adaptWholesale(seed(), source);
+    expect(state.orders[0].wholesaleOpeningPaid).toBeNull();
     expect(balance(state, state.orders[0])).toBe(0);
+    expect(wholesaleExportRows(source.lines, source)[0]["Total ARS"]).toBe("Por conciliar");
+    source.paymentOpenings![0].paid_in_full_without_price = true;
+    const settled = adaptWholesale(seed(), source);
+    expect(wholesaleBalanceArs(settled, settled.orders[0])).toBe(0);
+    expect(settled.orders[0].wholesaleTotalArg).toBeNull();
   });
   it("usa el catálogo para líneas antiguas, cero para las no coincidentes y respeta sin costo", () => {
     const source = fixture(); source.lines = [line({ order_id: null }), line({ line_id: "line-2", order_id: null, model: "Otro", variant: "Sin variante" }), line({ line_id: "line-3", order_id: null, order_type: "no_cost", total_uyu: 100 })];
@@ -107,7 +159,7 @@ describe("integración mayorista", () => {
       line({ line_id: "line-3", status: "Completado", quantity: 9 }),
     ];
     const summary = summarizeWholesale(source);
-    expect(summary).toMatchObject({ activeUnits: 5, pendingUnits: 2, inProductionUnits: 3, activeCustomers: 2, activeValueArg: 47000, activeValueUyu: 1269 });
+    expect(summary).toMatchObject({ activeUnits: 5, pendingUnits: 2, inProductionUnits: 3, activeCustomers: 2, activeValueArg: 27000, activeValueUyu: 1269 });
     expect(summary.clientStats).toEqual([["Bazar Norte", 3], ["Almacén Sur", 2]]);
   });
   it("agrupa el histórico terminado del cliente por tipo de mate", () => {
