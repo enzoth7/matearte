@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { commerceSource } from "./commerceSource";
-import { balance, money, montevideoToday, orderName, type Product, type State } from "./data";
+import { balance, money, montevideoToday, orderName, type Customer, type Product, type State } from "./data";
 import { salePriceMinor } from "./localSalePricing";
 import { Modal } from "./ui";
 import { accountMoney, accountOrderBalance, receiptAvailableMinor, type CustomerAccount } from "./customerAccountModel";
@@ -108,8 +108,8 @@ export function CustomerAccountAllocationForm({ account, receiptId, state, onClo
 }
 
 type FiadoLine = { id: string; product: Product; quantity: number; unitMinor: number };
-export function FiadoSaleForm({ account, state, onClose, onChanged }: {
-  account: CustomerAccount; state: State; onClose: () => void; onChanged: () => Promise<void> | void;
+export function FiadoSaleForm({ customer, state, onClose, onChanged }: {
+  customer: Customer; state: State; onClose: () => void; onChanged: () => Promise<void> | void;
 }) {
   const products = state.products.filter((product) => !product.wholesaleProductId && !product.assembly
     && product.availableChannels?.includes("Local") && product.sku && product.categoryCode !== "servicios");
@@ -131,13 +131,13 @@ export function FiadoSaleForm({ account, state, onClose, onChanged }: {
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!commerceSource || busy) return;
-    if (!account.customer.localCustomerId) { setError("Esta ficha necesita estar en la agenda minorista para registrar fiados."); return; }
+    if (!customer.localCustomerId) { setError("Esta ficha necesita estar en la agenda minorista para registrar fiados."); return; }
     if (!lines.length || !Number.isSafeInteger(totalMinor) || totalMinor <= 0 || lines.some((line) => !Number.isInteger(line.quantity) || line.quantity < 1 || !Number.isSafeInteger(line.unitMinor) || line.unitMinor < 0)) {
       setError("Revisá los artículos, cantidades y precios."); return;
     }
     setBusy(true); setError("");
     const { error: failure } = await commerceSource.rpc("gestion_create_local_sale_with_items", {
-      p_customer_id: account.customer.localCustomerId, p_sold_on: date,
+      p_customer_id: customer.localCustomerId, p_sold_on: date,
       p_payment_method: "Cuenta corriente", p_deposit_minor: 0, p_channel: "Local",
       p_items: lines.map((line) => ({ item_kind: "catalog", variant_id: line.product.id,
         quantity: line.quantity, unit_price_minor: line.unitMinor, customization: null })),
@@ -147,7 +147,7 @@ export function FiadoSaleForm({ account, state, onClose, onChanged }: {
     catch { setError("La venta se registró, pero la vista no se actualizó. Recargá la página."); }
     finally { setBusy(false); }
   }
-  return <Modal title={`Venta fiada de ${account.customer.name}`} className="customer-account-form-modal" onClose={onClose}>
+  return <Modal title={`Venta fiada de ${customer.name}`} className="customer-account-form-modal" onClose={onClose}>
     <form className="customer-account-form" onSubmit={(event) => void save(event)}>
       <div className="data-note">Los artículos se cargan al saldo del cliente. El cobro inicial es cero y se registra cada entrega por separado.</div>
       <label>Buscar mate por nombre o SKU<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
