@@ -1,4 +1,5 @@
-import { arsMoney, balance, money, wholesaleBalanceArs, type Customer, type CustomerAccountAllocation, type CustomerAccountReceipt, type Order, type State } from "./data";
+import { arsMoney, balance, money, wholesaleBalanceArs, type Customer, type CustomerAccountAllocation, type CustomerAccountReceipt, type Order, type State, type WholesaleConsignment, type WholesaleConsignmentAllocation } from "./data";
+import { consignmentSummary } from "./consignmentModel";
 
 export type CustomerAccount = {
   id: string;
@@ -6,8 +7,10 @@ export type CustomerAccount = {
   currency: "ARS" | "UYU";
   customer: Customer;
   orders: Order[];
+  consignments: WholesaleConsignment[];
   receipts: CustomerAccountReceipt[];
   allocations: CustomerAccountAllocation[];
+  consignmentAllocations: WholesaleConsignmentAllocation[];
   pending: number;
   credit: number;
   unknownOrders: number;
@@ -31,7 +34,7 @@ export function customerAccounts(state: State): CustomerAccount[] {
     if (!account) {
       account = { id, contactId, currency, customer: fallback || customerByContact.get(contactId) || {
         id: `contact:${contactId}`, contactId, name: "Cliente sin nombre", email: "", phone: "", city: "", segment: currency === "ARS" ? "Mayorista" : "Minorista",
-      }, orders: [], receipts: [], allocations: [], pending: 0, credit: 0, unknownOrders: 0,
+      }, orders: [], consignments: [], receipts: [], allocations: [], consignmentAllocations: [], pending: 0, credit: 0, unknownOrders: 0,
       wholesalePending: 0, depositPending: 0, creditSalePending: 0, otherPending: 0 };
       byAccount.set(id, account);
     }
@@ -58,6 +61,13 @@ export function customerAccounts(state: State): CustomerAccount[] {
     else if (order.depositAmount != null) account.depositPending += remaining;
     else account.otherPending += remaining;
   }
+  for (const consignment of state.consignments || []) {
+    const account = ensure(consignment.contactId, "ARS");
+    account.consignments.push(consignment);
+    const balance = consignmentSummary(state, consignment).balanceArgMinor / 100;
+    account.pending += balance;
+    account.wholesalePending += balance;
+  }
   for (const receipt of state.accountReceipts || []) {
     ensure(receipt.contactId, receipt.currency).receipts.push(receipt);
   }
@@ -66,9 +76,15 @@ export function customerAccounts(state: State): CustomerAccount[] {
     const account = receipt && byAccount.get(`${receipt.contactId}:${receipt.currency}`);
     if (account) account.allocations.push(allocation);
   }
+  for (const allocation of state.consignmentAllocations || []) {
+    const receipt = (state.accountReceipts || []).find((entry) => entry.id === allocation.receiptId);
+    const account = receipt && byAccount.get(`${receipt.contactId}:${receipt.currency}`);
+    if (account) account.consignmentAllocations.push(allocation);
+  }
   for (const account of byAccount.values()) {
     const received = account.receipts.reduce((sum, receipt) => sum + (account.currency === "ARS" ? receipt.sourceAmountMinor : receipt.amountMinor), 0);
-    const applied = account.allocations.reduce((sum, allocation) => sum + (account.currency === "ARS" ? allocation.sourceAmountMinor || 0 : allocation.amountMinor), 0);
+    const applied = account.allocations.reduce((sum, allocation) => sum + (account.currency === "ARS" ? allocation.sourceAmountMinor || 0 : allocation.amountMinor), 0)
+      + account.consignmentAllocations.reduce((sum, allocation) => sum + allocation.sourceAmountMinor, 0);
     account.credit = Math.max(0, received - applied) / 100;
   }
   return [...byAccount.values()].sort((a, b) =>
@@ -80,5 +96,7 @@ export function receiptAvailableMinor(account: CustomerAccount, receiptId: strin
   const receipt = account.receipts.find((entry) => entry.id === receiptId);
   return receipt ? Math.max(0, (account.currency === "ARS" ? receipt.sourceAmountMinor : receipt.amountMinor) - account.allocations
     .filter((allocation) => allocation.receiptId === receiptId)
-    .reduce((sum, allocation) => sum + (account.currency === "ARS" ? allocation.sourceAmountMinor || 0 : allocation.amountMinor), 0)) : 0;
+    .reduce((sum, allocation) => sum + (account.currency === "ARS" ? allocation.sourceAmountMinor || 0 : allocation.amountMinor), 0)
+    - (account.currency === "ARS" ? (account.consignmentAllocations || []).filter((allocation) => allocation.receiptId === receiptId)
+      .reduce((sum, allocation) => sum + allocation.sourceAmountMinor, 0) : 0)) : 0;
 }

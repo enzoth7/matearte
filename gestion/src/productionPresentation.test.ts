@@ -54,6 +54,12 @@ describe("presentación de producción", () => {
     expect(isPersonalizedMateOrder(localOrder, products)).toBe(true);
   });
 
+  it("no envía un fiado por categoría Servicios al taller", () => {
+    const serviceCredit = { ...order([{ ...line("service-credit", "category", "credit_category"), family: "Servicios" }]), source: "local" as const };
+    expect(workshopOrderRows([serviceCredit], [])).toHaveLength(0);
+    expect(orderProductionLabel(serviceCredit, [])).toBe("-");
+  });
+
   it("muestra guion para stock y mantiene pendiente un pedido mixto hasta completar todos sus artículos", () => {
     const products = [product("regular", "Mate Imperial", "mates"), product("custom", "Mate a medida", "personalizados")];
     const stock = order([line("stock", "regular")]);

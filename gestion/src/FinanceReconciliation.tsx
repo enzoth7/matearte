@@ -3,13 +3,16 @@ import { accessUserId } from "./access";
 import { commerceSource } from "./commerceSource";
 import { money, type State } from "./data";
 import { readExpenseSources, type ExpenseSources } from "./expenseSource";
+import { readFinanceOpenings, type FinanceOpening } from "./financeOpeningSource";
+import { readFinanceIncome, type FinanceManualIncome } from "./financeIncomeSource";
+import { readFinanceMonthlyAdjustments, saveFinanceMonthlyAdjustment } from "./financeMonthlyAdjustmentSource";
 import {
   buildFinanceCashEntries, calculateFinanceClose, firstFinanceCloseMonth, monthEnd, previousMonth,
   sameFinanceEntries, type FinanceAccount, type FinanceAdjustment, type FinanceBalance,
   type FinanceCloseRecord, type FinanceCurrency,
 } from "./financeCloseModel";
 import { montevideoToday } from "./overview";
-import { Badge, Table } from "./ui";
+import { Badge } from "./ui";
 import "./financeReconciliation.css";
 
 const today = montevideoToday();
@@ -18,7 +21,6 @@ const currencyAmount = (minor: number, currency: FinanceCurrency) =>
   new Intl.NumberFormat("es-UY", { style: "currency", currency, currencyDisplay: "code" }).format(minor / 100);
 const monthLabel = (month: string) => new Intl.DateTimeFormat("es-UY", { month: "long", year: "numeric", timeZone: "UTC" })
   .format(new Date(`${month}-01T00:00:00Z`));
-const kindLabel = { bank: "Banco", cash: "Efectivo", wallet: "Billetera" };
 const toMinor = (value: string) => Math.round(Number(value.replace(",", ".")) * 100);
 const monthOf = (row: FinanceCloseRecord) => row.month.slice(0, 7);
 
@@ -44,18 +46,15 @@ export function FinanceReconciliation({ s, notify, refresh }: {
   const [accounts, setAccounts] = useState<FinanceAccount[]>([]);
   const [closes, setCloses] = useState<FinanceCloseRecord[]>([]);
   const [expenseSources, setExpenseSources] = useState<ExpenseSources | null>(null);
+  const [financeOpenings, setFinanceOpenings] = useState<FinanceOpening[]>([]);
+  const [manualIncomes, setManualIncomes] = useState<FinanceManualIncome[]>([]);
+  const [monthlyAdjustments, setMonthlyAdjustments] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [balanceInputs, setBalanceInputs] = useState<Record<string, string>>({});
   const [adjustments, setAdjustments] = useState<FinanceAdjustment[]>([]);
   const [rates, setRates] = useState<Record<string, string>>({ UYU: "1" });
-  const [accountName, setAccountName] = useState("");
-  const [accountKind, setAccountKind] = useState<FinanceAccount["kind"]>("bank");
-  const [accountCurrency, setAccountCurrency] = useState<FinanceCurrency>("UYU");
-  const [adjustmentKind, setAdjustmentKind] = useState<FinanceAdjustment["kind"]>("aporte");
-  const [adjustmentCurrency, setAdjustmentCurrency] = useState<FinanceCurrency>("UYU");
   const [adjustmentAmount, setAdjustmentAmount] = useState("");
-  const [adjustmentNote, setAdjustmentNote] = useState("");
   const [reason, setReason] = useState("");
   const [selectedRevision, setSelectedRevision] = useState<number | null>(null);
   const [revising, setRevising] = useState(false);
@@ -65,16 +64,22 @@ export function FinanceReconciliation({ s, notify, refresh }: {
   const load = useCallback(async () => {
     if (!commerceSource) { setError("El comercio no está conectado."); setLoading(false); return; }
     try {
-      const [accountResult, nextCloses, sources] = await Promise.all([
+      const [accountResult, nextCloses, sources, openings, incomeResult, monthlyRows] = await Promise.all([
         commerceSource.from("finance_accounts").select("id,name,kind,currency").order("created_at"),
         readCloseRecords(),
         readExpenseSources(commerceSource),
+        readFinanceOpenings(),
+        readFinanceIncome(),
+        readFinanceMonthlyAdjustments(),
       ]);
       if (accountResult.error) throw accountResult.error;
       if (!sources) throw new Error("No se pudieron leer los movimientos del mes.");
       setAccounts((accountResult.data || []) as FinanceAccount[]);
       setCloses(nextCloses);
       setExpenseSources(sources);
+      setFinanceOpenings(openings);
+      setManualIncomes(incomeResult.incomes);
+      setMonthlyAdjustments(Object.fromEntries(monthlyRows.map((row) => [row.month, row.amountMinor])));
       setError("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo cargar la conciliación.");
@@ -93,12 +98,16 @@ export function FinanceReconciliation({ s, notify, refresh }: {
     : monthCloses.find((row) => row.status === "closed" && row.revision === selectedRevision) || latestClosed;
   const editing = owner && (!latestClosed || revising || Boolean(draft && selectedRevision === null));
   const reviewing = Boolean(selectedClosed && !editing);
-  const openingBalances: FinanceBalance[] | null = month === firstFinanceCloseMonth ? []
+  const manuallyRecordedOpening = financeOpenings.find((row) => row.month === month);
+  const openingBalances: FinanceBalance[] | null = month === firstFinanceCloseMonth
+    ? manuallyRecordedOpening ? [{ id: `opening:${month}`, name: "Saldo de arranque", kind: "cash", currency: "UYU", amount_minor: manuallyRecordedOpening.amountMinor }] : []
     : previousClosed ? previousClosed.balances : null;
   const { entries, unknownAmounts } = useMemo(
-    () => expenseSources ? buildFinanceCashEntries(month, s.payments, expenseSources) : { entries: [], unknownAmounts: 0 },
-    [month, s.payments, expenseSources],
+    () => expenseSources ? buildFinanceCashEntries(month, s.payments, expenseSources, manualIncomes) : { entries: [], unknownAmounts: 0 },
+    [month, s.payments, expenseSources, manualIncomes],
   );
+  const monthlyAdjustmentMinor = monthlyAdjustments[month] || 0;
+  useEffect(() => { setAdjustmentAmount(String(monthlyAdjustmentMinor / 100)); }, [month, monthlyAdjustmentMinor]);
 
   useEffect(() => {
     const base = draft || latestClosed;
@@ -122,7 +131,7 @@ export function FinanceReconciliation({ s, notify, refresh }: {
   });
   const balancesComplete = accounts.length > 0 && providedBalances.length === accounts.length;
   const numericRates = Object.fromEntries(Object.entries(rates).map(([key, value]) => [key, Number(value.replace(",", "."))]));
-  const liveSummary = calculateFinanceClose(providedBalances, openingBalances, adjustments, entries, numericRates);
+  const liveSummary = calculateFinanceClose(providedBalances, openingBalances, adjustments, entries, numericRates, monthlyAdjustmentMinor);
   const shownRecord = reviewing ? selectedClosed : null;
   const shownBalances = shownRecord?.balances || providedBalances;
   const shownAdjustments = shownRecord?.adjustments || adjustments;
@@ -130,7 +139,8 @@ export function FinanceReconciliation({ s, notify, refresh }: {
   const shownEntries = shownRecord?.entries || entries;
   const summary = shownRecord?.summary || liveSummary;
   const balanceMissing = !reviewing && !balancesComplete;
-  const stale = Boolean(shownRecord && !sameFinanceEntries(shownRecord.entries, entries));
+  const stale = Boolean(shownRecord && (!sameFinanceEntries(shownRecord.entries, entries)
+    || shownRecord.summary.adjustment_uyu_minor !== liveSummary.adjustment_uyu_minor));
   const usedCurrencies = [...new Set<FinanceCurrency>([
     ...accounts.map((row) => row.currency),
     ...shownEntries.map((row) => row.currency),
@@ -138,41 +148,47 @@ export function FinanceReconciliation({ s, notify, refresh }: {
     ...(openingBalances || []).map((row) => row.currency),
   ])].filter((currency) => currency !== "UYU");
 
-  const addAccount = async (event: FormEvent) => {
+  const saveAdjustment = async (event: FormEvent) => {
     event.preventDefault();
-    if (!owner || !commerceSource || !accountName.trim()) return;
-    setSaving(true);
-    const { error: saveError } = await commerceSource.from("finance_accounts")
-      .insert({ name: accountName.trim(), kind: accountKind, currency: accountCurrency });
-    setSaving(false);
-    if (saveError) { setError("No se pudo agregar la cuenta. Revisá si ya existe."); return; }
-    setAccountName(""); await load(); notify("Cuenta agregada.");
-  };
-  const addAdjustment = (event: FormEvent) => {
-    event.preventDefault();
+    if (!owner || saving) return;
     const amount_minor = toMinor(adjustmentAmount);
-    if (!Number.isSafeInteger(amount_minor) || amount_minor <= 0 || !adjustmentNote.trim()) {
-      setError("Ingresá un importe y un motivo para el ajuste."); return;
+    if (!adjustmentAmount.trim() || !Number.isSafeInteger(amount_minor)) {
+      setError("Ingresá un importe válido para el ajuste."); return;
     }
-    setAdjustments((current) => [...current, {
-      id: crypto.randomUUID(), kind: adjustmentKind, currency: adjustmentCurrency, amount_minor, note: adjustmentNote.trim(),
-    }]);
-    setAdjustmentAmount(""); setAdjustmentNote(""); setError("");
+    setSaving(true);
+    try {
+      await saveFinanceMonthlyAdjustment(month, amount_minor);
+      setMonthlyAdjustments((current) => ({ ...current, [month]: amount_minor }));
+      setError("");
+      notify("Ajuste guardado en el resumen financiero.");
+    } catch { setError("No se pudo guardar el ajuste."); }
+    finally { setSaving(false); }
   };
   const saveClose = async (finalize: boolean) => {
     if (!owner || !commerceSource || !expenseSources) return;
+    if (adjustmentAmount.trim() && toMinor(adjustmentAmount) !== monthlyAdjustmentMinor) {
+      setError("Guardá el ajuste antes de guardar la conciliación."); return;
+    }
     if (finalize && montevideoToday() < monthEnd(month)) { setError("El cierre se puede finalizar desde el último día del mes."); return; }
     if (finalize && (!balancesComplete || unknownAmounts || liveSummary.missing_currencies.length || openingBalances === null)) {
       setError("Completá los saldos, cotizaciones y movimientos antes de finalizar."); return;
     }
     if (finalize && latestClosed && !reason.trim()) { setError("Ingresá el motivo de la corrección."); return; }
     if (finalize) {
-      const freshSources = await readExpenseSources(commerceSource);
-      if (!freshSources) { setError("No se pudieron verificar los egresos antes de cerrar."); return; }
-      const freshEntries = buildFinanceCashEntries(month, s.payments, freshSources);
-      if (freshEntries.unknownAmounts !== unknownAmounts || !sameFinanceEntries(freshEntries.entries, entries)) {
+      const [freshSources, freshIncome, freshMonthlyRows] = await Promise.all([
+        readExpenseSources(commerceSource),
+        readFinanceIncome().catch(() => null),
+        readFinanceMonthlyAdjustments().catch(() => null),
+      ]);
+      if (!freshSources || !freshIncome || !freshMonthlyRows) { setError("No se pudieron verificar los movimientos antes de cerrar."); return; }
+      const freshEntries = buildFinanceCashEntries(month, s.payments, freshSources, freshIncome.incomes);
+      const freshMonthlyMinor = freshMonthlyRows.find((row) => row.month === month)?.amountMinor || 0;
+      if (freshEntries.unknownAmounts !== unknownAmounts || !sameFinanceEntries(freshEntries.entries, entries)
+        || freshMonthlyMinor !== monthlyAdjustmentMinor) {
         setExpenseSources(freshSources);
-        setError("Los egresos cambiaron. Revisá los importes actualizados y volvé a finalizar.");
+        setManualIncomes(freshIncome.incomes);
+        setMonthlyAdjustments(Object.fromEntries(freshMonthlyRows.map((row) => [row.month, row.amountMinor])));
+        setError("Los movimientos cambiaron. Revisá los importes actualizados y volvé a finalizar.");
         return;
       }
     }
@@ -200,15 +216,18 @@ export function FinanceReconciliation({ s, notify, refresh }: {
   const refreshAll = async () => { await refresh?.(); await load(); };
   if (loading) return <div role="status">Cargando conciliación…</div>;
   return <section className="finance-close">
-    <div className="finance-close-top">
-      <label>Mes<input type="month" min={firstFinanceCloseMonth} value={month} onChange={(event) => event.target.value && setMonth(event.target.value)} /></label>
-      <button type="button" className="secondary" onClick={() => void refreshAll()}>Actualizar movimientos</button>
-    </div>
+    <header className="finance-close-intro">
+      <div><h2>Conciliá {monthLabel(month)}</h2><div>Compará los movimientos registrados con el dinero que hay en bancos, efectivo y billeteras.</div></div>
+      <div className="finance-close-top">
+        <label>Mes<input type="month" min={firstFinanceCloseMonth} value={month} onChange={(event) => event.target.value && setMonth(event.target.value)} /></label>
+        <button type="button" className="secondary" onClick={() => void refreshAll()}>Actualizar</button>
+      </div>
+    </header>
     {error && <div className="error" role="alert">{error}</div>}
-    {month === firstFinanceCloseMonth && <div className="data-note">Noviembre de 2026 comienza con saldo inicial cero. La diferencia puede incluir dinero que ya existía antes de este mes.</div>}
     {month > firstFinanceCloseMonth && openingBalances === null && <div className="data-note">Para comparar saldos, primero hay que finalizar {monthLabel(previousMonth(month))}.</div>}
+    {month > firstFinanceCloseMonth && manuallyRecordedOpening && previousClosed && summary.opening_uyu_minor !== manuallyRecordedOpening.amountMinor && <div className="data-note">El saldo cargado en Egresos difiere del cierre anterior. La conciliación usa el saldo del cierre.</div>}
     {unknownAmounts > 0 && <div className="error" role="alert">Hay {unknownAmounts} movimientos sin importe o moneda válida. Revisalos antes de cerrar.</div>}
-    {stale && <div className="data-note">Los movimientos registrados cambiaron desde este cierre. La versión guardada sigue intacta; Richard puede preparar una corrección.</div>}
+    {stale && <div className="data-note">Los movimientos o el ajuste cambiaron desde este cierre. La versión guardada sigue intacta; Richard puede preparar una corrección.</div>}
     {reviewing && selectedClosed && <div className="finance-close-status">
       <Badge tone="green">Cerrado, versión {selectedClosed.revision}</Badge>
       <div>Finalizado el {new Date(selectedClosed.closed_at || selectedClosed.created_at).toLocaleString("es-UY", { timeZone: "America/Montevideo" })}</div>
@@ -216,36 +235,39 @@ export function FinanceReconciliation({ s, notify, refresh }: {
       {owner && selectedClosed.revision === latestClosed?.revision && <button type="button" className="secondary" onClick={() => { setRevising(true); setSelectedRevision(null); }}>Preparar corrección</button>}
     </div>}
     <div className="finance-close-kpis">
-      <div><div>Resultado de caja</div><strong className={(summary.result_uyu_minor || 0) < 0 ? "negative" : ""}>{formatMinor(summary.result_uyu_minor)}</strong><small>Cobros efectivos menos egresos pagados</small></div>
-      <div><div>Saldo esperado</div><strong>{formatMinor(summary.expected_uyu_minor)}</strong><small>Saldo inicial, resultado y ajustes</small></div>
-      <div><div>Saldo contado</div><strong>{balanceMissing ? "—" : formatMinor(summary.actual_uyu_minor)}</strong><small>Bancos, efectivo y billeteras</small></div>
-      <div><div>Diferencia de conciliación</div><strong className={(summary.difference_uyu_minor || 0) < 0 ? "negative" : ""}>{balanceMissing ? "—" : formatMinor(summary.difference_uyu_minor)}</strong><small>Contado menos esperado</small></div>
+      <div className="finance-close-kpi finance-close-kpi--income"><div>Resultado de caja</div><strong className={(summary.result_uyu_minor || 0) < 0 ? "negative" : ""}>{formatMinor(summary.result_uyu_minor)}</strong><small>Cobros menos egresos pagados</small></div>
+      <div className="finance-close-kpi finance-close-kpi--expected"><div>Saldo esperado</div><strong>{formatMinor(summary.expected_uyu_minor)}</strong><small>Inicio, resultado y ajustes</small></div>
+      <div className="finance-close-kpi finance-close-kpi--actual"><div>Saldo contado</div><strong>{balanceMissing ? "—" : formatMinor(summary.actual_uyu_minor)}</strong><small>Total de las cuentas cargadas</small></div>
+      <div className={`finance-close-kpi finance-close-kpi--difference${!balanceMissing && summary.difference_uyu_minor === 0 ? " is-balanced" : ""}`}><div>Diferencia</div><strong>{balanceMissing ? "—" : formatMinor(summary.difference_uyu_minor)}</strong><small>Contado menos esperado</small></div>
     </div>
-    <div className="finance-close-breakdown">
-      <div>Cobros registrados <strong>{formatMinor(summary.income_uyu_minor)}</strong></div>
-      <div>Egresos pagados <strong>{formatMinor(summary.expense_uyu_minor)}</strong></div>
-      <div>Aportes y retiros netos <strong>{formatMinor(summary.adjustment_uyu_minor)}</strong></div>
-      <div>Saldo inicial <strong>{formatMinor(summary.opening_uyu_minor)}</strong></div>
-    </div>
-    <section className="finance-close-panel">
-      <header><h2>Saldos por cuenta</h2><small>Se comparan los totales combinados, no cada cuenta por separado.</small></header>
-      {accounts.map((account) => {
-        const savedBalance = shownBalances.find((balance) => balance.id === account.id);
-        return <label className="finance-close-account" key={account.id}>
-          <div><strong>{account.name}</strong><small>{kindLabel[account.kind]}, {account.currency}</small></div>
-          {editing ? <input type="number" inputMode="decimal" step="0.01" min="0" aria-label={`Saldo de ${account.name} en ${account.currency}`} value={balanceInputs[account.id] ?? ""} onChange={(event) => setBalanceInputs((current) => ({ ...current, [account.id]: event.target.value }))} />
-            : <strong>{savedBalance ? currencyAmount(savedBalance.amount_minor, account.currency) : "Sin saldo cargado"}</strong>}
-        </label>;
-      })}
-      {!accounts.length && <div className="data-note">Agregá las cuentas bancarias, el efectivo y las billeteras que se van a contar.</div>}
-      {editing && <form className="finance-close-add-account" onSubmit={(event) => void addAccount(event)}>
-        <input aria-label="Nombre de la cuenta" maxLength={120} placeholder="Nombre de la cuenta" value={accountName} onChange={(event) => setAccountName(event.target.value)} required />
-        <select aria-label="Tipo de cuenta" value={accountKind} onChange={(event) => setAccountKind(event.target.value as FinanceAccount["kind"])}><option value="bank">Banco</option><option value="cash">Efectivo</option><option value="wallet">Billetera</option></select>
-        <select aria-label="Moneda de la cuenta" value={accountCurrency} onChange={(event) => setAccountCurrency(event.target.value as FinanceCurrency)}><option value="UYU">UYU</option><option value="USD">USD</option><option value="ARS">ARS</option></select>
-        <button type="submit" className="secondary" disabled={saving}>Agregar cuenta</button>
-      </form>}
+    <section className="finance-close-panel finance-close-panel--flow">
+      <header><h2>1. Revisá los movimientos</h2><small>Así se forma el saldo que debería haber al final del mes.</small></header>
+      <div className="finance-close-breakdown">
+        <div><div>Saldo inicial</div><strong>{formatMinor(summary.opening_uyu_minor)}</strong></div>
+        <div><div>Cobros registrados</div><strong>{formatMinor(summary.income_uyu_minor)}</strong></div>
+        <div><div>Egresos pagados</div><strong>{formatMinor(summary.expense_uyu_minor)}</strong></div>
+        <div><div>Ajuste</div><strong>{formatMinor(summary.adjustment_uyu_minor)}</strong></div>
+        <div className="finance-close-breakdown-total"><div>Saldo esperado</div><strong>{formatMinor(summary.expected_uyu_minor)}</strong></div>
+      </div>
     </section>
-    {usedCurrencies.length > 0 && <section className="finance-close-panel">
+    <section className="finance-close-panel finance-close-panel--accounts">
+      <header><h2>2. Contá el dinero</h2><small>Cargá el saldo de cada cuenta al cierre de {monthLabel(month)}. La comparación usa la suma de todas.</small></header>
+      <div className="finance-close-account-table-wrap"><table className="finance-close-account-table">
+        <colgroup><col className="finance-close-account-name" /><col className="finance-close-account-currency" /><col className="finance-close-account-money" /></colgroup>
+        <thead><tr><th scope="col">Nombre</th><th scope="col">Moneda</th><th scope="col">Dinero</th></tr></thead>
+        <tbody>{accounts.map((account) => {
+          const savedBalance = shownBalances.find((balance) => balance.id === account.id);
+          return <tr key={account.id}>
+            <th scope="row">{account.name}</th>
+            <td>{account.currency}</td>
+            <td>{editing ? <input type="number" inputMode="decimal" step="0.01" min="0" aria-label={`Dinero en ${account.name}, ${account.currency}`} value={balanceInputs[account.id] ?? ""} onChange={(event) => setBalanceInputs((current) => ({ ...current, [account.id]: event.target.value }))} />
+              : <strong>{savedBalance ? currencyAmount(savedBalance.amount_minor, account.currency) : "Sin saldo cargado"}</strong>}</td>
+          </tr>;
+        })}</tbody>
+      </table></div>
+      {!accounts.length && <div className="data-note">No hay cuentas configuradas para contar.</div>}
+    </section>
+    {usedCurrencies.length > 0 && <section className="finance-close-panel finance-close-panel--rates">
       <h2>Cotizaciones del cierre</h2>
       <div className="finance-close-rates">{usedCurrencies.map((currency) => <label key={currency}>UYU por {currency}
         {editing ? <input type="number" min="0.000001" step="any" value={rates[currency] || ""} onChange={(event) => setRates((current) => ({ ...current, [currency]: event.target.value }))} />
@@ -253,35 +275,27 @@ export function FinanceReconciliation({ s, notify, refresh }: {
       </label>)}</div>
       {!reviewing && liveSummary.missing_currencies.length > 0 && <div className="error">Falta la cotización de: {liveSummary.missing_currencies.join(", ")}.</div>}
     </section>}
-    <section className="finance-close-panel">
-      <h2>Aportes y retiros</h2>
-      <div className="data-note">Ajustan el saldo esperado, pero no el Resultado de caja.</div>
-      {shownAdjustments.map((item) => <div className="finance-close-adjustment" key={item.id}>
-        <div><strong>{item.kind === "aporte" ? "Aporte" : "Retiro"}</strong><small>{item.note}</small></div>
-        <strong>{currencyAmount(item.amount_minor, item.currency)}</strong>
-        {editing && <button type="button" className="secondary" onClick={() => setAdjustments((current) => current.filter((row) => row.id !== item.id))}>Quitar</button>}
-      </div>)}
-      {editing && <form className="finance-close-add-adjustment" onSubmit={addAdjustment}>
-        <select aria-label="Tipo de ajuste" value={adjustmentKind} onChange={(event) => setAdjustmentKind(event.target.value as FinanceAdjustment["kind"])}><option value="aporte">Aporte</option><option value="retiro">Retiro</option></select>
-        <select aria-label="Moneda del ajuste" value={adjustmentCurrency} onChange={(event) => setAdjustmentCurrency(event.target.value as FinanceCurrency)}><option value="UYU">UYU</option><option value="USD">USD</option><option value="ARS">ARS</option></select>
-        <input aria-label="Importe del ajuste" inputMode="decimal" placeholder="Importe" value={adjustmentAmount} onChange={(event) => setAdjustmentAmount(event.target.value)} required />
-        <input aria-label="Motivo del ajuste" maxLength={200} placeholder="Motivo" value={adjustmentNote} onChange={(event) => setAdjustmentNote(event.target.value)} required />
-        <button type="submit" className="secondary">Agregar ajuste</button>
-      </form>}
+    <section className="finance-close-panel finance-close-panel--settings">
+      <h2>Ajuste</h2>
+      {editing ? <form className="finance-close-adjustment-form" onSubmit={(event) => void saveAdjustment(event)}>
+        <input aria-label="Importe del ajuste en UYU" placeholder="Importe, + o -" type="number" inputMode="decimal" step="0.01" value={adjustmentAmount}
+          onChange={(event) => setAdjustmentAmount(event.target.value)} required />
+        <button type="submit" className="secondary" disabled={saving}>Guardar ajuste</button>
+      </form> : <strong>{formatMinor(summary.adjustment_uyu_minor)}</strong>}
     </section>
-    <Table rows={shownEntries} title="Movimientos incluidos" pageSize={50} searchText={(entry) => `${entry.label} ${entry.source} ${entry.currency}`}
-      columns={[
-        { label: "Fecha", render: (entry) => entry.date },
-        { label: "Concepto", render: (entry) => entry.label },
-        { label: "Tipo", render: (entry) => entry.kind === "income" ? "Cobro" : "Egreso" },
-        { label: "Importe original", render: (entry) => currencyAmount(entry.amount_minor, entry.currency) },
-      ]} />
-    {editing && <div className="finance-close-actions">
-      {latestClosed && <label>Motivo de la corrección<input maxLength={400} value={reason} onChange={(event) => setReason(event.target.value)} /></label>}
-      <button type="button" className="secondary" disabled={saving} onClick={() => void saveClose(false)}>Guardar borrador</button>
-      <button type="button" className="primary" disabled={saving || montevideoToday() < monthEnd(month)} onClick={() => void saveClose(true)}>Finalizar mes</button>
-      {montevideoToday() < monthEnd(month) && <small>Podés finalizar desde el último día de {monthLabel(month)}.</small>}
-    </div>}
+    <section className="finance-close-panel finance-close-panel--decision">
+      <h2>3. Compará y cerrá</h2>
+      <div className={`finance-close-decision-state${balanceMissing || summary.difference_uyu_minor === null ? " is-pending" : summary.difference_uyu_minor === 0 ? " is-balanced" : " is-different"}`}>
+        <strong>{balanceMissing ? "Faltan saldos por cargar" : summary.difference_uyu_minor === null ? "Falta información para comparar" : summary.difference_uyu_minor === 0 ? "Las cuentas coinciden" : `Diferencia: ${formatMinor(summary.difference_uyu_minor)}`}</strong>
+        <div>{balanceMissing ? "Completá cada cuenta antes de revisar la diferencia." : summary.difference_uyu_minor === 0 ? "El dinero contado coincide con el saldo esperado." : "Revisá movimientos, cotizaciones y saldos por cuenta."}</div>
+      </div>
+      {editing && <div className="finance-close-actions">
+        {latestClosed && <label>Motivo de la corrección<input maxLength={400} value={reason} onChange={(event) => setReason(event.target.value)} /></label>}
+        <button type="button" className="secondary" disabled={saving} onClick={() => void saveClose(false)}>Guardar borrador</button>
+        <button type="button" className="primary" disabled={saving || montevideoToday() < monthEnd(month)} onClick={() => void saveClose(true)}>Finalizar mes</button>
+        {montevideoToday() < monthEnd(month) && <small>Podés finalizar desde el último día de {monthLabel(month)}.</small>}
+      </div>}
+    </section>
     {monthCloses.filter((row) => row.status === "closed").length > 0 && <section className="finance-close-panel">
       <h2>Versiones del cierre</h2>
       <div className="finance-close-versions">{monthCloses.filter((row) => row.status === "closed").sort((a, b) => b.revision - a.revision).map((row) =>

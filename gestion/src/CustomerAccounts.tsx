@@ -5,6 +5,7 @@ import { CustomerAccountAllocationForm, CustomerAccountReceiptForm, FiadoSaleFor
 import type { PageProps } from "./pages";
 import { Badge, Modal, Stats, Table } from "./ui";
 import { formatDate } from "./dateFormat";
+import { consignmentSummary } from "./consignmentModel";
 
 type AccountFilter = "saldo" | "mayoristas" | "senas" | "fiados" | "favor" | "todos";
 type Movement = {
@@ -36,6 +37,21 @@ function accountMovements(account: CustomerAccount, state: State): Movement[] {
     const order = account.orders.find((entry) => entry.id === allocation.orderId || entry.wholesaleSaleId === allocation.orderId);
     movements.push({ id: `allocation:${allocation.id}`, date: allocation.allocatedAt.slice(0, 10),
       label: "Saldo aplicado a un pedido", detail: accountMoney(account, (account.currency === "ARS" ? allocation.sourceAmountMinor || 0 : allocation.amountMinor) / 100), orderId: order?.id });
+  }
+  for (const consignment of account.consignments) {
+    const order = account.orders.find((entry) => entry.wholesaleSaleId === consignment.orderId);
+    for (const line of (state.consignmentLines || []).filter((entry) => entry.consignmentId === consignment.id)) {
+      for (const movement of (state.consignmentMovements || []).filter((entry) => entry.lineId === line.id && entry.kind === "kept")) {
+        movements.push({ id: `consignment:${movement.id}`, date: movement.occurredOn,
+          label: "Unidades conservadas de consignación", detail: `${line.title}, ${movement.quantity} u.`,
+          orderId: order?.id, charge: movement.quantity * line.unitPriceArgMinor / 100 });
+      }
+    }
+    for (const allocation of account.consignmentAllocations.filter((entry) => entry.consignmentId === consignment.id)) {
+      movements.push({ id: `consignment-allocation:${allocation.id}`, date: allocation.allocatedAt.slice(0, 10),
+        label: "Saldo aplicado a consignación", detail: order ? orderName(order) : "Consignación",
+        orderId: order?.id });
+    }
   }
   return movements.sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
 }
@@ -75,6 +91,15 @@ function AccountDetail({ account, props, onClose }: { account: CustomerAccount; 
       { label: "Cobrado", render: (order) => accountOrderBalance(s, order) == null ? "Por conciliar" : accountMoney(account, order.source === "wholesale" ? wholesalePaidArs(s, order) || 0 : paid(s, order)) },
       { label: "Falta", render: (order) => accountOrderBalance(s, order) == null ? "Por conciliar" : <strong>{accountMoney(account, accountOrderBalance(s, order)!)}</strong> },
     ]} />
+    {account.consignments.length > 0 && <Table title="Consignaciones" className="customer-account-detail-table" rows={account.consignments.map((consignment) => ({ ...consignment, ...consignmentSummary(s, consignment) }))} pageSize={20} searchText={(consignment) => consignment.id} columns={[
+      { label: "Consignación", render: (consignment) => <button type="button" className="text-button" onClick={() => go(`/finanzas/consignaciones?consignacion=${encodeURIComponent(consignment.id)}`)}>Ver detalle</button> },
+      { label: "Enviadas", render: (consignment) => consignment.dispatched },
+      { label: "En poder", render: (consignment) => consignment.held },
+      { label: "Devueltas", render: (consignment) => consignment.returned },
+      { label: "Se queda", render: (consignment) => consignment.kept },
+      { label: "Confirmado", render: (consignment) => arsMoney(consignment.confirmedArgMinor / 100) },
+      { label: "Saldo", render: (consignment) => arsMoney(consignment.balanceArgMinor / 100) },
+    ]} />}
     <Table title="Movimientos de la cuenta" className="customer-account-detail-table" rows={movements} pageSize={30} searchText={(movement) => `${movement.label} ${movement.detail} ${movement.orderId || ""}`} columns={[
       { label: "Fecha", render: (movement) => movement.date ? formatDate(movement.date) : "Anterior" },
       { label: "Movimiento", render: (movement) => <div className="account-movement-label"><strong>{movement.label}</strong><small>{movement.detail}</small></div> },
@@ -85,11 +110,11 @@ function AccountDetail({ account, props, onClose }: { account: CustomerAccount; 
     ]} />
     {receiptOpen && <CustomerAccountReceiptForm account={account} rate={props.commerce?.wholesale?.exchangeRate || 0} onClose={() => setReceiptOpen(false)} onChanged={changed} />}
     {allocationReceiptId && <CustomerAccountAllocationForm account={account} receiptId={allocationReceiptId} state={s} onClose={() => setAllocationReceiptId(null)} onChanged={changed} />}
-    {fiadoOpen && <FiadoSaleForm account={account} state={s} onClose={() => setFiadoOpen(false)} onChanged={changed} />}
+    {fiadoOpen && <FiadoSaleForm customer={account.customer} state={s} onClose={() => setFiadoOpen(false)} onChanged={changed} />}
   </Modal>;
 }
 
-export function CustomerAccounts(props: PageProps) {
+export function CustomerAccounts(props: PageProps & { detailOnly?: boolean }) {
   const { s } = props;
   const accounts = customerAccounts(s);
   const [filter, setFilter] = useState<AccountFilter>("saldo");
@@ -108,6 +133,9 @@ export function CustomerAccounts(props: PageProps) {
   const totalPendingUyu = accounts.filter((account) => account.currency === "UYU").reduce((sum, account) => sum + account.pending, 0);
   const totalCreditArs = accounts.filter((account) => account.currency === "ARS").reduce((sum, account) => sum + account.credit, 0);
   const totalCreditUyu = accounts.filter((account) => account.currency === "UYU").reduce((sum, account) => sum + account.credit, 0);
+  if (props.detailOnly) return selected
+    ? <AccountDetail account={selected} props={props} onClose={() => props.go("/finanzas/por-cobrar")} />
+    : null;
   return <>
     <Stats items={[
       { label: "Saldo mayorista", value: arsMoney(totalPendingArs), tone: "yellow" },

@@ -135,8 +135,8 @@ export function Products({ s, mode, notify, refresh, commerce }: PageProps & { m
 export function Inventory(_props: PageProps & { mode: string }) {
   return <Card title="Inventario"><div>Commerce Admin no registra existencias físicas ni movimientos de stock. Esta sección se completará al conectar el sistema de inventario.</div></Card>;
 }
-export function Finance({ s, mode }: PageProps & { mode: string }) {
-  if (mode === "resumen") return <FinanceOverview s={s} />;
+export function Finance({ s, mode, go, notify }: PageProps & { mode: string }) {
+  if (mode === "resumen") return <FinanceOverview s={s} notify={notify} go={go} />;
   if (mode === "monedas") return <Table rows={s.records.monedas || []} searchText={(row) => String(row.moneda)} columns={[
     { label: "Moneda", render: (row) => String(row.moneda) },
     { label: "Equivalencia en UYU", render: (row) => Number(row.valor).toLocaleString("es-UY", { maximumFractionDigits: 4 }) },

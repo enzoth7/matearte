@@ -25,10 +25,31 @@ describe("adaptExpenses", () => {
     expect(expenses.some((item) => item.id === "purchase:p3")).toBe(false);
     expect(skipped).toBe(1);
   });
+  it("conserva la cotización ARS guardada en un egreso cuando cambia la cotización general", () => {
+    const ars: ExpenseSources = { purchases: [{ id: "ars", purchased_on: "2026-10-15",
+      description: "Compra argentina", category: "Insumos", amount_minor: 1000000,
+      currency: "ARS", exchange_rate_to_uyu: 0.03, status: "pagada", paid_on: "2026-10-15" }],
+      fixed: [], payments: [] };
+    const adapted = adaptExpenses(ars, { ARS: 0.05 }, "2026-10-21");
+    expect(adapted.expenses[0].amount).toBe(300);
+    expect(adapted.skipped).toBe(0);
+  });
   it("registra los meses pagados y proyecta el mes actual y los siguientes como por pagar", () => {
     expect(expenses.find((item) => item.id === "fixed:f1:2026-09")).toMatchObject({ paid: true, amount: 30000, date: "2026-09-02" });
     expect(expenses.find((item) => item.id === "fixed:f1:2026-10")).toMatchObject({ paid: false, date: "2026-10-31" });
     expect(expenses.filter((item) => item.id.startsWith("fixed:f1:") && !item.paid)).toHaveLength(12);
+  });
+  it("conserva la cotización del pago fijo histórico cuando cambia la cotización actual", () => {
+    const historical: ExpenseSources = {
+      purchases: [],
+      fixed: [{ id: "usd-rent", name: "Alquiler", category: "Alquiler", amount_minor: 30000,
+        currency: "USD", due_day: 10, starts_on: "2026-07-01", ends_on: null, active: true }],
+      payments: ["07", "08", "09"].map((number) => ({ id: number, fixed_expense_id: "usd-rent",
+        month: `2026-${number}-01`, amount_minor: 30000, paid_on: `2026-${number}-30`, exchange_rate_to_uyu: 40 })),
+    };
+    const result = adaptExpenses(historical, { USD: 42 }, "2026-11-08").expenses;
+    expect(result.filter((item) => item.paid).map((item) => item.amount)).toEqual([12000, 12000, 12000]);
+    expect(result.find((item) => item.id === "fixed:usd-rent:2026-11")?.amount).toBe(12600);
   });
   it("respeta la fecha de fin y los gastos inactivos, y no inventa meses pasados sin pago", () => {
     expect(expenses.filter((item) => item.id.startsWith("fixed:f2:")).map((item) => item.date.slice(0, 7))).toEqual(["2026-11", "2026-10"]);

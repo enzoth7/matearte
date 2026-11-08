@@ -1,0 +1,33 @@
+.finance-manual-income { display: grid; gap: 22px; }
+.finance-income-dialog { border: 0; }
+.finance-manual-income-toolbar { display: flex; align-items: end; gap: 16px; }
+.finance-manual-income-toolbar label { display: grid; gap: 7px; font-weight: 600; }
+.finance-manual-income-toolbar input { min-width: 180px; }
+.finance-manual-income > .stats, .finance-manual-income > .table-card { margin-bottom: 0; }
+.finance-manual-income-table .table-scroll { overflow-x: clip; }
+.finance-manual-income-table table { width: 100%; min-width: 0; table-layout: fixed; white-space: normal; }
+.finance-manual-income-table th, .finance-manual-income-table td { padding: 12px 9px; overflow-wrap: anywhere; }
+.finance-manual-income-table th:nth-child(1) { width: 17%; }
+.finance-manual-income-table th:nth-child(2) { width: 38%; }
+.finance-manual-income-table th:nth-child(3) { width: 27%; }
+.finance-manual-income-table th:nth-child(4) { width: 18%; text-align: right; }
+.finance-manual-income-table td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.finance-manual-income-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.finance-manual-income-form label, .finance-manual-income-category { display: grid; gap: 7px; font-weight: 600; }
+.finance-manual-income-form .wide, .finance-manual-income-actions { grid-column: 1 / -1; }
+.finance-manual-income-category-row, .finance-manual-income-category-add { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.finance-manual-income-category-row select, .finance-manual-income-category-add input { flex: 1; min-width: 0; }
+.finance-manual-income-category-row button, .finance-manual-income-category-add button { flex: 0 0 auto; white-space: nowrap; }
+.finance-manual-income-category-add { margin-top: 3px; }
+.finance-manual-income-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 8px; }
+@media (max-width: 760px) {
+  .finance-manual-income-toolbar label, .finance-manual-income-toolbar input { width: 100%; }
+  .finance-manual-income-form { grid-template-columns: 1fr; }
+  .finance-manual-income-form .wide, .finance-manual-income-actions { grid-column: auto; }
+  .finance-manual-income-table th, .finance-manual-income-table td { padding: 9px 5px; font-size: 12px; }
+}
+@media (max-width: 480px) {
+  .finance-manual-income-category-row, .finance-manual-income-category-add { flex-wrap: wrap; }
+  .finance-manual-income-category-row > *, .finance-manual-income-category-add > * { width: 100%; flex-basis: 100%; }
+  .finance-manual-income-actions button { flex: 1; }
+}

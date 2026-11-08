@@ -7,15 +7,32 @@
 .finance-expense-tabs button.active { background: var(--black); color: var(--white); }
 .finance-expense-actions, .finance-category-add { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .finance-expense-actions button { white-space: nowrap; }
+.finance-expense-edit { display: inline-flex; align-items: center; justify-content: center; width: 36px; min-width: 36px; height: 36px; padding: 0; }
+.finance-expense-table .table-scroll { overflow-x: clip; }
+.finance-expense-table table { min-width: 0; table-layout: fixed; white-space: normal; }
+.finance-expense-table th, .finance-expense-table td { box-sizing: border-box; min-width: 0; padding: 12px 8px; overflow-wrap: anywhere; line-height: 1.35; vertical-align: middle; }
+.finance-expense-table th:nth-child(1) { width: 10%; }
+.finance-expense-table th:nth-child(2) { width: 27%; }
+.finance-expense-table th:nth-child(3) { width: 18%; }
+.finance-expense-table th:nth-child(4) { width: 13%; }
+.finance-expense-table th:nth-child(5) { width: 14%; }
+.finance-expense-table th:nth-child(6) { width: 18%; }
+.finance-expense-table td:nth-child(2) strong, .finance-expense-table td:nth-child(2) small { display: block; }
+.finance-expense-table .badge { max-width: 100%; white-space: normal; }
+.finance-expense-table .finance-expense-actions { gap: 6px; }
 .finance-category-add { margin-top: 6px; }
 .finance-category-add input { flex: 1; min-width: 130px; }
 .finance-expense-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .finance-expense-form label { display: grid; gap: 7px; font-weight: 600; }
+.finance-category-field { display: grid; gap: 7px; font-weight: 600; }
 .finance-expense-form label.wide { grid-column: 1 / -1; }
 .finance-expense-form textarea { min-height: 88px; }
 .finance-expense-form .finance-expense-check { display: flex; align-items: center; gap: 8px; }
 .finance-expense-form .finance-expense-check input { width: auto; }
 .finance-expense-form-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+.finance-opening-form { display: grid; gap: 18px; }
+.finance-opening-form label { display: grid; gap: 7px; font-weight: 600; }
+.finance-opening-form input { width: 100%; }
 @media (max-width: 760px) {
   .finance-expense-toolbar { align-items: stretch; }
   .finance-expense-toolbar label, .finance-expense-toolbar input { width: 100%; }

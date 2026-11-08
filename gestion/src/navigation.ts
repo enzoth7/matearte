@@ -112,10 +112,13 @@ export const areas = [
     hint: "Claridad para decidir",
     pages: [
       ["resumen", "Resumen financiero"],
+      ["ingresos", "Ingresos"],
       ["egresos", "Egresos"],
       ["gastos-fijos", "Gastos fijos"],
       ["conciliacion", "Conciliación"],
       ["por-cobrar", "Cuentas por cobrar"],
+      ["fiados-local", "Fiados Local"],
+      ["consignaciones", "Consignaciones"],
       ["monedas", "Monedas y cotizaciones"],
     ],
   },

@@ -3,13 +3,14 @@ import type { Expense } from "./data";
 
 export type PurchaseRecord = {
   id: string; purchased_on: string; description: string; category: string; amount_minor: number; currency: string;
+  exchange_rate_to_uyu?: number | null;
   status: string; paid_on: string | null; due_on?: string | null;
 };
 export type FixedExpenseRecord = {
   id: string; name: string; category: string; amount_minor: number; currency: string; due_day: number | null;
   starts_on: string; ends_on: string | null; active: boolean;
 };
-export type FixedPaymentRecord = { id: string; fixed_expense_id: string; month: string; amount_minor: number; paid_on: string };
+export type FixedPaymentRecord = { id: string; fixed_expense_id: string; month: string; amount_minor: number; paid_on: string; exchange_rate_to_uyu?: number | null };
 export type ExpenseSources = { purchases: PurchaseRecord[]; fixed: FixedExpenseRecord[]; payments: FixedPaymentRecord[] };
 
 const pageSize = 1000;
@@ -28,9 +29,9 @@ async function readPages<T>(read: (from: number, to: number) => PromiseLike<{ da
 export async function readExpenseSources(client: SupabaseClient): Promise<ExpenseSources | null> {
   try {
     const [purchases, fixed, payments] = await Promise.all([
-      readPages<PurchaseRecord>((from, to) => client.from("purchases").select("id,purchased_on,description,category,amount_minor,currency,status,paid_on,due_on").order("id").range(from, to)),
+      readPages<PurchaseRecord>((from, to) => client.from("purchases").select("id,purchased_on,description,category,amount_minor,currency,exchange_rate_to_uyu,status,paid_on,due_on").order("id").range(from, to)),
       readPages<FixedExpenseRecord>((from, to) => client.from("fixed_expenses").select("id,name,category,amount_minor,currency,due_day,starts_on,ends_on,active").order("id").range(from, to)),
-      readPages<FixedPaymentRecord>((from, to) => client.from("fixed_expense_payments").select("id,fixed_expense_id,month,amount_minor,paid_on").order("id").range(from, to)),
+      readPages<FixedPaymentRecord>((from, to) => client.from("fixed_expense_payments").select("id,fixed_expense_id,month,amount_minor,paid_on,exchange_rate_to_uyu").order("id").range(from, to)),
     ]);
     return { purchases, fixed, payments };
   } catch {
@@ -59,14 +60,14 @@ const lastDay = (month: string) => { const [year, number] = month.split("-").map
 export function adaptExpenses(sources: ExpenseSources, rates: Record<string, number>, asOf: string): { expenses: Expense[]; skipped: number } {
   const currentMonth = asOf.slice(0, 7);
   let skipped = 0;
-  const toUyu = (minor: number, currency: string) => {
-    const rate = currency === "UYU" ? 1 : rates[currency];
+  const toUyu = (minor: number, currency: string, savedRate?: number | null) => {
+    const rate = currency === "UYU" ? 1 : savedRate || rates[currency];
     if (!rate) { skipped++; return null; }
     return Math.round(minor * rate) / 100;
   };
   const expenses: Expense[] = [];
   for (const purchase of sources.purchases) {
-    const amount = toUyu(Number(purchase.amount_minor), purchase.currency);
+    const amount = toUyu(Number(purchase.amount_minor), purchase.currency, Number(purchase.exchange_rate_to_uyu) || null);
     if (amount === null) continue;
     const paid = purchase.status === "pagada";
     expenses.push({ id: `purchase:${purchase.id}`, name: purchase.description, amount, date: paid ? purchase.paid_on || purchase.purchased_on : purchase.due_on || purchase.purchased_on, paid, category: purchase.category });
@@ -76,7 +77,7 @@ export function adaptExpenses(sources: ExpenseSources, rates: Record<string, num
   for (const payment of sources.payments) {
     const fixed = fixedById.get(payment.fixed_expense_id);
     if (!fixed) continue;
-    const amount = toUyu(Number(payment.amount_minor), fixed.currency);
+    const amount = toUyu(Number(payment.amount_minor), fixed.currency, Number(payment.exchange_rate_to_uyu) || null);
     paidKeys.add(`${fixed.id}:${payment.month.slice(0, 7)}`);
     if (amount === null) continue;
     expenses.push({ id: `fixed:${fixed.id}:${payment.month.slice(0, 7)}`, name: fixed.name, amount, date: payment.paid_on, paid: true, category: fixed.category });

@@ -88,9 +88,11 @@ export type Order = {
   /** null means collections made before the ledger have not been reconciled. */
   wholesaleOpeningPaid?: number | null;
   wholesaleOpeningPaidArg?: number | null;
+  wholesaleHistoricalPaidAtOrder?: boolean;
   wholesalePaidInFullWithoutPrice?: boolean;
   wholesaleTotalArg?: number | null;
   wholesaleTotalUyu?: number | null;
+  consignmentId?: string;
   paymentMethod?: string;
   number?: number;
   referenceCode?: string | null;
@@ -152,6 +154,21 @@ export type CustomerAccountAllocation = {
   sourceAmountMinor?: number;
   allocatedAt: string;
 };
+export type WholesaleConsignment = {
+  id: string; orderId: string; contactId: string; exchangeRate: number; createdAt: string;
+};
+export type WholesaleConsignmentLine = {
+  id: string; consignmentId: string; orderItemId: string; variantId: string;
+  sku: string; title: string; quantity: number; unitPriceArgMinor: number;
+};
+export type WholesaleConsignmentMovement = {
+  id: string; lineId: string; kind: "dispatch" | "return" | "kept";
+  quantity: number; occurredOn: string; carrier: string | null; tracking: string | null;
+  note: string | null; createdAt: string;
+};
+export type WholesaleConsignmentAllocation = {
+  id: string; consignmentId: string; receiptId: string; sourceAmountMinor: number; allocatedAt: string;
+};
 export type Expense = {
   id: string;
   name: string;
@@ -187,6 +204,10 @@ export type State = {
   payments: Payment[];
   accountReceipts?: CustomerAccountReceipt[];
   accountAllocations?: CustomerAccountAllocation[];
+  consignments?: WholesaleConsignment[];
+  consignmentLines?: WholesaleConsignmentLine[];
+  consignmentMovements?: WholesaleConsignmentMovement[];
+  consignmentAllocations?: WholesaleConsignmentAllocation[];
   expenses: Expense[];
   /** true cuando los egresos salen de Compras y Gastos fijos y el usuario tiene permiso para leerlos. */
   expensesConnected?: boolean;
@@ -260,6 +281,7 @@ export function seed(): State {
   return {
     version: 1, source: "commerce", user: "Richard Ortiz", activeUserId: "t1",
     access: defaultAccess(), products: [], customers: [], orders: [], payments: [], accountReceipts: [], accountAllocations: [],
+    consignments: [], consignmentLines: [], consignmentMovements: [], consignmentAllocations: [],
     expenses: [], employees: orgEmployees.map((employee) => ({ ...employee })),
     hours: [], records: {}, draft: {}, published: {}, activity: [],
   };

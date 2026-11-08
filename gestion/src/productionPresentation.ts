@@ -59,6 +59,7 @@ export function workshopOrderRows(orders: Order[], products: Product[]): Order[]
   return orders.filter(isSale).flatMap((order) => {
     if (order.source === "wholesale" || (order.source !== "local" && order.channel !== "Web" && order.channel !== "Local")) return [order];
     const workshopItems = (order.items || []).flatMap((item) => {
+      if (item.orderType === "credit_category") return [];
       if (isPersonalizedMateItem(order, item, products)) return [{ ...item, orderType: item.orderType === "local_design" ? "local_design" : "design" }];
       return isWorkshopServiceItem(item, products) ? [item] : [];
     });

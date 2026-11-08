@@ -10,6 +10,7 @@ import { montevideoToday } from "./overview";
 import { readWholesale } from "./wholesaleSource";
 import { adaptWholesale } from "./wholesaleAdapter";
 import { readCustomerAccounts } from "./customerAccountSource";
+import { readConsignments } from "./consignmentSource";
 
 export async function readAllPages<T>(read: (page: number) => Promise<{ rows: T[]; count: number }>): Promise<T[]> {
   const rows: T[] = [];
@@ -121,7 +122,7 @@ export function useCommerce() {
     busyRef.current = true;
     setLoading(true);
     try {
-      const [products, orders, payments, reference, customerProfiles, localCustomerResult, localSales, localReceipts, ruralRaffleEntries, wholesale, accountLedger, webLeads, membership, expenseSources, contactOrigins, contactFirstSeen] = await Promise.all([
+      const [products, orders, payments, reference, customerProfiles, localCustomerResult, localSales, localReceipts, ruralRaffleEntries, wholesale, accountLedger, consignments, webLeads, membership, expenseSources, contactOrigins, contactFirstSeen] = await Promise.all([
         readAllPages((page) => readCommerceProducts(client, page)),
         readAllPages((page) => readCommerceOrders(client, page)),
         readAllPages<CommercePayment>(async (page) => {
@@ -175,6 +176,7 @@ export function useCommerce() {
         }),
         readWholesale(),
         readCustomerAccounts(),
+        readConsignments(),
         readAllPages<WebLead>(async (page) => {
           const { data, error } = await client.rpc("gestion_web_leads", { p_offset: page * 100, p_limit: 100 });
           if (error) throw error;
@@ -205,6 +207,17 @@ export function useCommerce() {
       const expenseResult = connected && expenseSources ? adaptExpenses(expenseSources, rates, montevideoToday()) : null;
       const adapted: State = {
         ...base,
+        ...consignments,
+        orders: base.orders.map((order) => {
+          const linked = consignments.consignments.find((entry) => entry.orderId === order.wholesaleSaleId);
+          if (!linked) return order;
+          const linkedLines = consignments.consignmentLines.filter((line) => line.consignmentId === linked.id);
+          const dispatched = consignments.consignmentMovements.filter((movement) => movement.kind === "dispatch"
+            && linkedLines.some((line) => line.id === movement.lineId)).reduce((sum, movement) => sum + movement.quantity, 0);
+          const planned = linkedLines.reduce((sum, line) => sum + line.quantity, 0);
+          return { ...order, consignmentId: linked.id, method: "Envío" as const,
+            delivery: planned > 0 && dispatched >= planned ? "Enviado" as const : "Pendiente" as const };
+        }),
         accountReceipts: accountLedger.receipts,
         accountAllocations: accountLedger.allocations,
         payments: [...base.payments, ...accountLedger.receipts.map((receipt) => ({

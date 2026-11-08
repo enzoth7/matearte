@@ -27,5 +27,5 @@ export function isInPersonStockSale(order: Order): boolean {
 }
 
 export function isDeliveryOrder(order: Order): boolean {
-  return isSale(order) && order.source !== "wholesale" && !isInPersonStockSale(order);
+  return isSale(order) && (order.source !== "wholesale" || Boolean(order.consignmentId)) && !isInPersonStockSale(order);
 }

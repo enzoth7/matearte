@@ -46,11 +46,14 @@ export async function mockCommerce(page: Page, options: { userId?: string; denie
     commerce_international_shipping_rates: fixture.reference.shippingRates, commerce_exchange_rates: fixture.reference.exchangeRates,
     commerce_attribute_definitions: [], commerce_attribute_options: [], commerce_category_attributes: [], visualizer_icons: [], visualizer_hidden_builtin_icons: [], commerce_bank_transfer_settings: { account_holder: 'Titular', transfer_account: '111', cash_deposit_account: '222', cash_deposit_label: 'Depósito' },
     commerce_categories: fixture.reference.categories, commerce_settings: fixture.reference.settings, shipping_rates: fixture.nationalRates, purchases: [], fixed_expenses: [], fixed_expense_payments: [], expense_categories: [],
-    finance_accounts: [], finance_monthly_closes: [],
+    finance_accounts: [], finance_monthly_closes: [], finance_monthly_openings: [], finance_monthly_adjustments: [], finance_summary_adjustments: [],
+    finance_income_categories: [
+      { name: 'Ingresos extraordinarios', active: true }, { name: 'Otros', active: true }, { name: 'Devolución impuestos', active: true },
+    ], finance_manual_incomes: [],
     commerce_argentina_settings: { singleton: true, enabled: false, bank_name: "", account_holder: "", cbu: "", alias: "", account_type: "", account_name: "", account_number: "", swift_code: "", branch: "" },
-    local_sales_customers: [], local_sales: [], local_sale_receipts: [], rural_raffle_entries: [],
+    local_sales_customers: [], local_sales: [], local_sale_receipts: [], local_credit_order_ids: [], rural_raffle_entries: [],
     site_announcements: [], ad_reports: [], web_leads: [], contact_first_seen: [],
-    products: [], wholesale_product_images: [], customers: [], contacts: [], order_lines: [], wholesale_order_records: [], wholesale_order_payment_openings: [], wholesale_order_receipts: [], customer_account_receipts: [], customer_account_allocations: [], settings: { id: 1, exchange_rate: 0.027 },
+    products: [], wholesale_product_images: [], customers: [], contacts: [], order_lines: [], wholesale_order_records: [], wholesale_order_payment_openings: [], wholesale_order_receipts: [], customer_account_receipts: [], customer_account_allocations: [], wholesale_consignments: [], wholesale_consignment_lines: [], wholesale_consignment_movements: [], wholesale_consignment_allocations: [], settings: { id: 1, exchange_rate: 0.027 },
   };
   await page.route("https://*.supabase.co/**", async (route) => {
     const url = new URL(route.request().url());
@@ -94,6 +97,7 @@ export async function mockCommerce(page: Page, options: { userId?: string; denie
       'customization:alpaca-applique:fleje_text': 20, 'customization:alpaca-applique:fleje_image': 500,
     } });
     if (url.pathname.startsWith('/storage/v1/object/public/')) return route.fulfill({status:200,contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/X1cAAAAASUVORK5CYII=', 'base64')});
+    if (table === 'finance_summary_adjustments') return respond(tables.finance_summary_adjustments);
     if (url.pathname.endsWith('/functions/v1/marketing-workspace')) {
       const action = String(route.request().postDataJSON()?.action || '');
       if (action === 'registrationTrend') {
@@ -199,6 +203,38 @@ export async function mockCommerce(page: Page, options: { userId?: string; denie
         tables.customer_account_allocations.push(allocation);
         return respond(allocation);
       }
+      if (table === 'gestion_create_local_credit_order' || table === 'gestion_create_local_credit_order_for_customer') {
+        const linked = table === 'gestion_create_local_credit_order_for_customer';
+        const customer = linked
+          ? tables.local_sales_customers.find((entry: any) => entry.linked_customer_id === body.p_linked_customer_id)
+            || { id: `credit-customer-${tables.local_sales_customers.length + 1}`, full_name: body.p_customer_name,
+              phone: body.p_customer_phone, email: body.p_customer_email, linked_customer_id: body.p_linked_customer_id }
+          : body.p_customer_id
+            ? tables.local_sales_customers.find((entry: any) => entry.id === body.p_customer_id)
+            : { id: `credit-customer-${tables.local_sales_customers.length + 1}`, full_name: body.p_new_customer_name,
+              phone: body.p_new_customer_phone, email: null };
+        if (!customer) return respond({ message: 'El cliente no existe' }, 400);
+        if (!tables.local_sales_customers.some((entry: any) => entry.id === customer.id)) tables.local_sales_customers.push(customer);
+        const saleNumber = tables.local_sales.length + 19;
+        const id = `credit-sale-${saleNumber}`;
+        const creditCategoryNames: Record<string, string> = {
+          'mates-personalizados': 'Mates personalizados',
+          'bombillas-personalizadas': 'Bombillas personalizadas',
+          'materas-personalizadas': 'Materas personalizadas',
+        };
+        const items = body.p_categories.map((line: any, index: number) => ({
+          id: `credit-item-${saleNumber}-${index}`, variant_id: null, sku: '',
+          product_name: creditCategoryNames[line.category_code] || fixture.reference.categories.find((entry) => entry.code === line.category_code)?.label_es || line.category_code,
+          variant_name: '', quantity: 1, unit_price_minor: line.amount_minor, line_total_minor: line.amount_minor,
+          customization: null, production_status: 'completed',
+        }));
+        tables.local_sales.push({ id, sale_number: saleNumber, reference_code: `#L${String(saleNumber).padStart(3, '0')}`,
+          channel: 'Local', customer_id: customer.id, customer_name: customer.full_name, sold_on: body.p_sold_on,
+          payment_method: 'Cuenta corriente', total_minor: 0, deposit_minor: 0, currency: 'UYU',
+          created_at: new Date().toISOString(), local_sale_items: items });
+        tables.local_credit_order_ids.push(id);
+        return respond(id);
+      }
       if (table === 'gestion_update_local_sale') {
         const sale = tables.local_sales.find((entry: any) => entry.id === body.p_sale_id);
         if (!sale) return respond({ message: 'La venta no existe' }, 400);
@@ -276,6 +312,7 @@ export async function mockCommerce(page: Page, options: { userId?: string; denie
       return respond(route.request().headers().accept?.includes('object') ? matched[0] : matched);
     }
     let data = table === 'commerce_products' ? [...fixture.products, ...wholesaleAsCatalog(tables.products)]
+      : table === 'orders' && url.searchParams.has('customer_snapshot') ? tables.local_credit_order_ids.map((id: string) => ({ id }))
       : table === 'orders' && url.searchParams.get('channel') === 'eq.Mayorista' ? tables.wholesale_order_records : tables[table];
     if (data === undefined) throw Error(`Lectura no prevista: ${table}`);
     const ids = url.searchParams.get('id')?.match(/^in\.\((.*)\)$/)?.[1].split(',').map((value) => value.replace(/^"|"$/g, ''));

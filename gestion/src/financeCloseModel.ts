@@ -1,5 +1,6 @@
 import type { Payment } from "./data";
 import type { ExpenseSources } from "./expenseSource";
+import type { FinanceManualIncome } from "./financeIncomeSource";
 
 export type FinanceCurrency = "UYU" | "USD" | "ARS";
 export type FinanceAccount = { id: string; name: string; kind: "bank" | "cash" | "wallet"; currency: FinanceCurrency };
@@ -8,8 +9,9 @@ export type FinanceAdjustment = {
   id: string; kind: "aporte" | "retiro"; currency: FinanceCurrency; amount_minor: number; note: string;
 };
 export type FinanceCashEntry = {
-  id: string; source: "web" | "local" | "wholesale" | "customer" | "purchase" | "fixed";
+  id: string; source: "web" | "local" | "wholesale" | "customer" | "purchase" | "fixed" | "manual";
   kind: "income" | "expense"; date: string; label: string; currency: FinanceCurrency; amount_minor: number;
+  exchange_rate_to_uyu?: number | null;
 };
 export type FinanceCloseSummary = {
   opening_uyu_minor: number | null; income_uyu_minor: number | null; expense_uyu_minor: number | null;
@@ -40,7 +42,7 @@ const safeMinor = (amount: number): number | null => {
   return Number.isSafeInteger(minor) && minor >= 0 ? minor : null;
 };
 
-export function buildFinanceCashEntries(month: string, payments: Payment[], sources: ExpenseSources): {
+export function buildFinanceCashEntries(month: string, payments: Payment[], sources: ExpenseSources, manualIncomes: FinanceManualIncome[] = []): {
   entries: FinanceCashEntry[]; unknownAmounts: number;
 } {
   const entries: FinanceCashEntry[] = [];
@@ -62,6 +64,13 @@ export function buildFinanceCashEntries(month: string, payments: Payment[], sour
       currency, amount_minor,
     });
   }
+  for (const income of manualIncomes) {
+    if (!income.receivedOn.startsWith(month)) continue;
+    if (!Number.isSafeInteger(income.amountMinor) || income.amountMinor <= 0) { unknownAmounts++; continue; }
+    entries.push({ id: `manual:${income.id}`, source: "manual", kind: "income", date: income.receivedOn,
+      label: `${income.category}: ${income.description}`, currency: income.currency, amount_minor: income.amountMinor,
+      exchange_rate_to_uyu: income.exchangeRateToUyu });
+  }
   for (const purchase of sources.purchases) {
     if (purchase.status !== "pagada") continue;
     const date = purchase.paid_on || purchase.purchased_on;
@@ -70,6 +79,7 @@ export function buildFinanceCashEntries(month: string, payments: Payment[], sour
     entries.push({
       id: `purchase:${purchase.id}`, source: "purchase", kind: "expense", date,
       label: purchase.description, currency: purchase.currency, amount_minor: Number(purchase.amount_minor),
+      exchange_rate_to_uyu: Number(purchase.exchange_rate_to_uyu) || null,
     });
   }
   const fixedById = new Map(sources.fixed.map((row) => [row.id, row]));
@@ -80,6 +90,7 @@ export function buildFinanceCashEntries(month: string, payments: Payment[], sour
     entries.push({
       id: `fixed:${payment.id}`, source: "fixed", kind: "expense", date: payment.paid_on,
       label: fixed.name, currency: fixed.currency, amount_minor: Number(payment.amount_minor),
+      exchange_rate_to_uyu: Number(payment.exchange_rate_to_uyu) || null,
     });
   }
   entries.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
@@ -92,16 +103,17 @@ export function calculateFinanceClose(
   adjustments: FinanceAdjustment[],
   entries: FinanceCashEntry[],
   rates: Record<string, number>,
+  monthlyAdjustmentMinor = 0,
 ): FinanceCloseSummary {
   const used = new Set<FinanceCurrency>([
     ...balances.map((row) => row.currency),
     ...(openingBalances || []).map((row) => row.currency),
     ...adjustments.map((row) => row.currency),
-    ...entries.map((row) => row.currency),
+    ...entries.filter((row) => row.currency !== "UYU" && !(Number(row.exchange_rate_to_uyu) > 0)).map((row) => row.currency),
   ]);
   const missing_currencies = [...used].filter((currency) => currency !== "UYU" && !(Number(rates[currency]) > 0));
-  const convert = (amount_minor: number, currency: FinanceCurrency) =>
-    Math.round(amount_minor * (currency === "UYU" ? 1 : Number(rates[currency])));
+  const convert = (amount_minor: number, currency: FinanceCurrency, savedRate?: number | null) =>
+    Math.round(amount_minor * (currency === "UYU" ? 1 : Number(savedRate) > 0 ? Number(savedRate) : Number(rates[currency])));
   if (missing_currencies.length) {
     return {
       opening_uyu_minor: null, income_uyu_minor: null, expense_uyu_minor: null, result_uyu_minor: null,
@@ -109,12 +121,12 @@ export function calculateFinanceClose(
       difference_uyu_minor: null, missing_currencies,
     };
   }
-  const sum = (rows: { amount_minor: number; currency: FinanceCurrency }[]) =>
-    rows.reduce((total, row) => total + convert(row.amount_minor, row.currency), 0);
+  const sum = (rows: { amount_minor: number; currency: FinanceCurrency; exchange_rate_to_uyu?: number | null }[]) =>
+    rows.reduce((total, row) => total + convert(row.amount_minor, row.currency, row.exchange_rate_to_uyu), 0);
   const income_uyu_minor = sum(entries.filter((entry) => entry.kind === "income"));
   const expense_uyu_minor = sum(entries.filter((entry) => entry.kind === "expense"));
   const adjustment_uyu_minor = adjustments.reduce((total, row) =>
-    total + (row.kind === "aporte" ? 1 : -1) * convert(row.amount_minor, row.currency), 0);
+    total + (row.kind === "aporte" ? 1 : -1) * convert(row.amount_minor, row.currency), monthlyAdjustmentMinor);
   const opening_uyu_minor = openingBalances === null ? null : sum(openingBalances);
   const actual_uyu_minor = sum(balances);
   const result_uyu_minor = income_uyu_minor - expense_uyu_minor;
@@ -130,6 +142,6 @@ export function calculateFinanceClose(
 export function sameFinanceEntries(left: FinanceCashEntry[], right: FinanceCashEntry[]): boolean {
   const normalized = (rows: FinanceCashEntry[]) => JSON.stringify([...rows]
     .sort((a, b) => a.id.localeCompare(b.id))
-    .map((row) => [row.id, row.date, row.kind, row.currency, row.amount_minor]));
+    .map((row) => [row.id, row.date, row.kind, row.currency, row.amount_minor, row.exchange_rate_to_uyu || null]));
   return normalized(left) === normalized(right);
 }

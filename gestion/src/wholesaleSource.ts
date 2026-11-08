@@ -43,7 +43,7 @@ export type WholesaleSnapshot = {
   categories: { code: string; label_es: string; active: boolean }[];
   exchangeRate: number;
   orderRecords?: { id: string; reference_code: string | null; total_minor: number; customer_name: string | null; contact_id?: string | null }[];
-  paymentOpenings?: { sale_id: string; collected_minor: number | null; collected_arg_minor?: number | null; paid_in_full_without_price?: boolean }[];
+  paymentOpenings?: { sale_id: string; collected_minor: number | null; collected_arg_minor?: number | null; paid_in_full_without_price?: boolean; finance_paid_at_order?: boolean }[];
   receipts?: { id: string; sale_id: string; amount_minor: number; source_amount_minor: number; currency: "UYU" | "ARS"; payment_method: string; paid_on: string }[];
 };
 
@@ -108,7 +108,7 @@ export async function readWholesale(): Promise<WholesaleSnapshot> {
     client().from("commerce_categories").select("code,label_es,active").order("sort_order"),
     client().from("settings").select("exchange_rate").eq("id", 1).single(),
     readWholesaleOrderRecords(),
-    pages<{ sale_id: string; collected_minor: number | null; collected_arg_minor: number | null; paid_in_full_without_price?: boolean }>("wholesale_order_payment_openings", "sale_id"),
+    pages<{ sale_id: string; collected_minor: number | null; collected_arg_minor: number | null; paid_in_full_without_price?: boolean; finance_paid_at_order?: boolean }>("wholesale_order_payment_openings", "sale_id"),
     pages<{ id: string; sale_id: string; amount_minor: number; source_amount_minor: number; currency: "UYU" | "ARS"; payment_method: string; paid_on: string }>("wholesale_order_receipts", "id"),
   ]);
   if (settings.error) throw settings.error;

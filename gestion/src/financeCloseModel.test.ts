@@ -24,6 +24,31 @@ const balance = (id: string, currency: "UYU" | "USD", amount_minor: number): Fin
 });
 
 describe("conciliación mensual", () => {
+  it("incluye ingresos ajenos a ventas en caja una sola vez y en su fecha", () => {
+    const manual = [{ id: "tax-refund", receivedOn: "2026-11-07", category: "Devolución impuestos",
+      description: "DGI", amountMinor: 125000, currency: "UYU" as const, exchangeRateToUyu: null }];
+    const november = buildFinanceCashEntries("2026-11", payments, sources, manual).entries;
+    const october = buildFinanceCashEntries("2026-10", payments, sources, manual).entries;
+    expect(november.filter((entry) => entry.id === "manual:tax-refund")).toHaveLength(1);
+    expect(october.some((entry) => entry.id === "manual:tax-refund")).toBe(false);
+    expect(calculateFinanceClose([], [], [], november, { UYU: 1, USD: 40 }).income_uyu_minor).toBe(165000);
+  });
+  it("convierte ingresos y egresos en moneda extranjera con la cotización guardada", () => {
+    const foreignSources: ExpenseSources = { fixed: [], payments: [], purchases: [{
+      id: "ars", purchased_on: "2026-11-09", paid_on: "2026-11-09", due_on: null,
+      description: "Compra argentina", category: "Insumos", amount_minor: 1000000,
+      currency: "ARS", exchange_rate_to_uyu: 0.03, status: "pagada",
+    }] };
+    const manual = [{ id: "usd", receivedOn: "2026-11-08", category: "Otros",
+      description: "Ingreso en dólares", amountMinor: 10000, currency: "USD" as const, exchangeRateToUyu: 40 }];
+    const entries = buildFinanceCashEntries("2026-11", [], foreignSources, manual).entries;
+    const summary = calculateFinanceClose([], [], [], entries, { UYU: 1, ARS: 0.05, USD: 50 });
+    expect(summary.income_uyu_minor).toBe(400000);
+    expect(summary.expense_uyu_minor).toBe(30000);
+    expect(summary.result_uyu_minor).toBe(370000);
+    expect(sameFinanceEntries(entries, entries.map((row) => row.id === "manual:usd"
+      ? { ...row, exchange_rate_to_uyu: 41 } : row))).toBe(false);
+  });
   it("toma cobros y egresos efectivamente pagados en el mes, sin duplicar pendientes", () => {
     const { entries, unknownAmounts } = buildFinanceCashEntries("2026-11", payments, sources);
     expect(unknownAmounts).toBe(0);
@@ -44,6 +69,18 @@ describe("conciliación mensual", () => {
       opening_uyu_minor: 50000, income_uyu_minor: 40000, expense_uyu_minor: 13000,
       result_uyu_minor: 27000, adjustment_uyu_minor: 1000,
       expected_uyu_minor: 78000, actual_uyu_minor: 78000, difference_uyu_minor: 0,
+    });
+  });
+
+  it("usa el ajuste mensual del resumen una sola vez en el saldo esperado", () => {
+    const summary = calculateFinanceClose(
+      [balance("bank", "UYU", 85000)],
+      [balance("bank", "UYU", 100000)],
+      [], [], { UYU: 1 }, -15000,
+    );
+    expect(summary).toMatchObject({
+      adjustment_uyu_minor: -15000, expected_uyu_minor: 85000,
+      actual_uyu_minor: 85000, difference_uyu_minor: 0,
     });
   });
 

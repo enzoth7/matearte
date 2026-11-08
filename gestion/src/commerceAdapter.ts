@@ -337,15 +337,16 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
     if (source.currency !== "UYU") throw new Error(`La venta local #${source.sale_number} requiere conversión de ${source.currency}.`);
     const items: OrderLine[] = source.local_sale_items.map((item) => {
       const catalog = products.find((product) => product.id === item.variant_id);
+      const categoryOnly = source.payment_method === "Cuenta corriente" && !item.variant_id && !item.sku && !item.customization;
       return {
         id: item.id, productId: item.variant_id || item.id, title: item.product_name,
         productName: item.product_name, options: catalog?.options, personalization: item.customization || undefined, productionNotes: item.production_notes || undefined,
         weightGrams: catalog?.weightGrams,
         sku: item.sku || "", quantity: item.quantity, unitPrice: Number(item.unit_price_minor) / 100,
-        amount: Number(item.line_total_minor) / 100, family: item.customization ? "Personalizados" : catalog?.family || "",
+        amount: Number(item.line_total_minor) / 100, family: categoryOnly ? item.product_name : item.customization ? "Personalizados" : catalog?.family || "",
         variant: item.variant_name, rim: catalog?.rim || "", leather: catalog?.leather || "",
-        productionStatus: source.status === "shipped" || source.status === "delivered" ? "completed" : item.production_status || "pending", reviewStatus: null,
-        orderType: item.customization ? "local_design" : catalog?.categoryCode?.toLowerCase() === "servicios" ? "service" : undefined,
+        productionStatus: categoryOnly || source.status === "shipped" || source.status === "delivered" ? "completed" : item.production_status || "pending", reviewStatus: null,
+        orderType: categoryOnly ? "credit_category" : item.customization ? "local_design" : catalog?.categoryCode?.toLowerCase() === "servicios" ? "service" : undefined,
       };
     });
     const charged = Number(source.total_minor) / 100;

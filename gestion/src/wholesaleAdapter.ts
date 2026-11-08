@@ -205,6 +205,7 @@ export function adaptWholesale(state: State, snapshot: WholesaleSnapshot, imageU
       wholesaleOpeningPaidArg: opening ? opening.collected_arg_minor != null ? Number(opening.collected_arg_minor) / 100
         : opening.collected_minor === 0 ? 0 : null : 0,
       wholesalePaidInFullWithoutPrice: opening?.paid_in_full_without_price === true,
+      wholesaleHistoricalPaidAtOrder: opening?.finance_paid_at_order === true,
       wholesaleTotalArg: totalArg, wholesaleTotalUyu: totalUyu,
       status: "wholesale_sale", customerId: customerIdByWholesaleName.get(first.customer) || `wholesale:${first.customer}`,
       customerName: first.customer, productId: items[0]?.productId || "",

@@ -5,6 +5,7 @@ import { Links } from "./Links";
 import { MarketingSection } from "./MarketingSection";
 import { AnalyticsJourneys, type AnalyticsSection } from "./AnalyticsJourneys";
 import { FinanceExpenses, FinanceFixedExpenses } from "./FinanceExpenses";
+import { FinanceIncome } from "./FinanceIncome";
 import { FinanceReconciliation } from "./FinanceReconciliation";
 import { SorteoView } from "./SorteoView";
 import { CustomerAnalyticsView } from "./CustomerInsights";
@@ -31,11 +32,13 @@ import {
   Leaf,
 } from "@phosphor-icons/react";
 import { areas, resolvePath } from "./navigation";
-import { accessUserIds, canAccess, canManageFinanceExpenses, firstVisiblePath, visibleAreas } from "./access";
+import { accessUserId, accessUserIds, canAccess, canManageFinanceExpenses, firstVisiblePath, visibleAreas } from "./access";
 import { loadState, storageKey, seed, id, type State } from "./data";
 import { collections } from "./collections";
 import { Overview, Orders, Register, Customers, type PageProps } from "./pages";
 import { Receivables } from "./Receivables";
+import { LocalCreditSales } from "./LocalCreditSales";
+import { Consignments } from "./Consignments";
 import {
   CollectionPage,
   Products,
@@ -71,7 +74,7 @@ const retiredRoutes: Record<string, string> = {
   "/comercial/avisos": "/marketing/avisos",
   "/comercial/descuentos": "/marketing/descuentos",
   "/marketing/metricas": "/marketing/contactos",
-  "/finanzas/cobros": "/finanzas/por-cobrar?vista=cobros",
+  "/finanzas/cobros": "/finanzas/por-cobrar",
   "/inventario/compras": "/finanzas/egresos",
   "/finanzas/por-pagar": "/finanzas/egresos?vista=proximos",
 };
@@ -107,9 +110,11 @@ function Content(
   if (key === "marketing/sorteo") return <SorteoView />;
   if (area === "marketing") return <MarketingSection page={page} notify={props.notify} s={s} go={go} commerce={props.commerce} />;
   if (area === "analitica") return <AnalyticsJourneys section={analyticsSections[page]} />;
-  if (key === "finanzas/egresos") return <FinanceExpenses notify={props.notify} editable={canManageFinanceExpenses(s)} />;
+  if (key === "finanzas/egresos") return <FinanceExpenses notify={props.notify} editable={canManageFinanceExpenses(s)} openingEditable={accessUserId(s) === "t1"} />;
+  if (key === "finanzas/ingresos") return <FinanceIncome s={s} notify={props.notify} editable={accessUserId(s) === "t1"} />;
   if (key === "finanzas/gastos-fijos") return <FinanceFixedExpenses notify={props.notify} editable={canManageFinanceExpenses(s)} />;
   if (key === "finanzas/conciliacion") return <FinanceReconciliation s={s} notify={props.notify} refresh={props.refresh} />;
+  if (key === "finanzas/fiados-local") return <LocalCreditSales {...props} />;
   if (collections[key]) return <CollectionPage {...props} path={key} />;
   if (key === "inicio/resumen") return <Overview {...props} />;
   if (key === "inicio/alertas")
@@ -166,7 +171,9 @@ function Content(
       <Orders {...props} mode={page} />
     );
   if (area === "finanzas")
-    return page === "por-cobrar" ? (
+    return page === "consignaciones" ? (
+      <Consignments {...props} />
+    ) : page === "por-cobrar" ? (
       <Receivables {...props} />
     ) : (
       <Finance {...props} mode={page} />
@@ -232,7 +239,7 @@ export default function App() {
     }
   }, [toast]);
   useEffect(() => {
-    document.title = `${title} · Matearte Gestión`;
+    document.title = `${title} - Matearte Gestión`;
   }, [title]);
   useEffect(() => {
     if (!mobile) return;
@@ -302,7 +309,7 @@ export default function App() {
       )}
       <nav id="mobile-navigation" className={`mobile-navigation ${mobile ? "mobile-open" : ""}`} aria-label="Navegación móvil">
         <div className="mobile-navigation-head">
-          <strong>MateArte · Gestión</strong>
+          <strong>MateArte, Gestión</strong>
           <button className="icon-button" aria-label="Cerrar navegación" onClick={() => setMobile(false)}><X size={22} /></button>
         </div>
         <div className="mobile-navigation-list">
@@ -312,8 +319,8 @@ export default function App() {
             return <section key={entry.id} className="mobile-navigation-area">
               <button className="mobile-navigation-area-button" type="button" aria-expanded={expanded} onClick={() => setExpandedMobileArea(expanded ? null : entry.id)}>
                 <Icon size={21} weight={area.id === entry.id ? "fill" : "regular"} />
-                <span>{entry.name}</span>
-                <span aria-hidden="true">{expanded ? "−" : "+"}</span>
+                <strong>{entry.name}</strong>
+                <small aria-hidden="true">{expanded ? "−" : "+"}</small>
               </button>
               {expanded && <div className="mobile-navigation-pages">
                 {entry.pages.filter(([slug]) => canAccess(s, `/${entry.id}/${slug}`)).map(([slug, label]) => {
