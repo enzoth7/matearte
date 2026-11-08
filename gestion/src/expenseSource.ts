@@ -3,7 +3,7 @@ import type { Expense } from "./data";
 
 export type PurchaseRecord = {
   id: string; purchased_on: string; description: string; category: string; amount_minor: number; currency: string;
-  status: string; paid_on: string | null;
+  status: string; paid_on: string | null; due_on?: string | null;
 };
 export type FixedExpenseRecord = {
   id: string; name: string; category: string; amount_minor: number; currency: string; due_day: number | null;
@@ -28,7 +28,7 @@ async function readPages<T>(read: (from: number, to: number) => PromiseLike<{ da
 export async function readExpenseSources(client: SupabaseClient): Promise<ExpenseSources | null> {
   try {
     const [purchases, fixed, payments] = await Promise.all([
-      readPages<PurchaseRecord>((from, to) => client.from("purchases").select("id,purchased_on,description,category,amount_minor,currency,status,paid_on").order("id").range(from, to)),
+      readPages<PurchaseRecord>((from, to) => client.from("purchases").select("id,purchased_on,description,category,amount_minor,currency,status,paid_on,due_on").order("id").range(from, to)),
       readPages<FixedExpenseRecord>((from, to) => client.from("fixed_expenses").select("id,name,category,amount_minor,currency,due_day,starts_on,ends_on,active").order("id").range(from, to)),
       readPages<FixedPaymentRecord>((from, to) => client.from("fixed_expense_payments").select("id,fixed_expense_id,month,amount_minor,paid_on").order("id").range(from, to)),
     ]);
@@ -40,7 +40,7 @@ export async function readExpenseSources(client: SupabaseClient): Promise<Expens
 
 /** Misma regla que las políticas RLS de las tablas de compras. */
 export function canReadExpenses(membership: { access_user_id?: string | null; allowed_paths?: string[] | null } | null | undefined) {
-  return Boolean(membership && (membership.access_user_id === "t1" || !membership.allowed_paths || membership.allowed_paths.includes("/inventario/compras")));
+  return Boolean(membership && (membership.access_user_id === "t1" || !membership.allowed_paths || membership.allowed_paths.some((path) => ["/finanzas/egresos", "/finanzas/gastos-fijos", "/finanzas/conciliacion"].includes(path))));
 }
 
 const addMonths = (month: string, offset: number) => {
@@ -69,7 +69,7 @@ export function adaptExpenses(sources: ExpenseSources, rates: Record<string, num
     const amount = toUyu(Number(purchase.amount_minor), purchase.currency);
     if (amount === null) continue;
     const paid = purchase.status === "pagada";
-    expenses.push({ id: `purchase:${purchase.id}`, name: purchase.description, amount, date: paid ? purchase.paid_on || purchase.purchased_on : purchase.purchased_on, paid, category: purchase.category });
+    expenses.push({ id: `purchase:${purchase.id}`, name: purchase.description, amount, date: paid ? purchase.paid_on || purchase.purchased_on : purchase.due_on || purchase.purchased_on, paid, category: purchase.category });
   }
   const fixedById = new Map(sources.fixed.map((item) => [item.id, item]));
   const paidKeys = new Set<string>();

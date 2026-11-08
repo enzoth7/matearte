@@ -3,7 +3,7 @@ import { CountryFlag, LocationLabel } from "./location";
 import { commerceSource } from "./commerceSource";
 import type { PageProps } from "./pages";
 import { areas } from "./navigation";
-import { accessUserIds, canAccess, defaultAccess, isCustomAccessUserId, accessFor, lockedForRichard, setAreaAccess, setPageAccess, type AccessUserId } from "./access";
+import { accessUserIds, canAccess, defaultAccess, financeExpenseEditPermission, isCustomAccessUserId, accessFor, lockedForRichard, setAreaAccess, setPageAccess, type AccessUserId } from "./access";
 import { id, today, orgEmployees, type Employee, type Row, money } from "./data";
 import { Card, Stats, Table, Modal, Form, AddButton } from "./ui";
 import { formatDate } from "./dateFormat";
@@ -594,6 +594,25 @@ function AccessPermissions({ s, update }: Pick<PageProps, "s" | "update">) {
                       </label>
                     );
                   })}
+                  {area.id === "finanzas" && selectedId !== "t1" && (
+                    <label>
+                      <input
+                        type="checkbox"
+                        aria-label={`Permitir editar egresos y gastos fijos a ${selected.name}`}
+                        checked={selectedAccess?.has(financeExpenseEditPermission) || false}
+                        disabled={status !== "ready" || !selectedAccess?.has("/finanzas/egresos")}
+                        onChange={(event) => {
+                          const userId = selectedId as Exclude<AccessUserId, "t1">;
+                          const nextPaths = new Set(accessFor(s, userId));
+                          if (event.target.checked) nextPaths.add(financeExpenseEditPermission);
+                          else nextPaths.delete(financeExpenseEditPermission);
+                          void savePermissions({ ...s, access: { ...s.access, [userId]: [...nextPaths] } }, userId);
+                        }}
+                      />
+                      <div>Editar egresos y gastos fijos</div>
+                      <small>Permiso para agregar, corregir y registrar pagos</small>
+                    </label>
+                  )}
                 </div>
               </section>
             );

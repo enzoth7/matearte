@@ -13,10 +13,10 @@ function wholesaleAsCatalog(rows: any[]) {
   }));
 }
 
-export async function mockCommerce(page: Page, options: { userId?: string; denied?: boolean; failure?: boolean; authenticated?: boolean; writable?: boolean; failWrite?: string; needsSetup?: boolean; accessUserId?: "t1" | "t2" | "t3"; allowedPaths?: string[] | null } = {}) {
+export async function mockCommerce(page: Page, options: { userId?: string; denied?: boolean; failure?: boolean; authenticated?: boolean; writable?: boolean; failWrite?: string; needsSetup?: boolean; accessUserId?: "t1" | "t2" | "t3"; allowedPaths?: string[] | null; sessionHours?: number } = {}) {
   const fixture = commerceFixture();
   const user = { id: options.userId ?? "admin-test", aud: "authenticated", role: "authenticated", email: "test@example.invalid", app_metadata: {}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z" };
-  const session = { access_token: "header.payload.signature", refresh_token: "test-only", token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user };
+  const session = { access_token: "header.payload.signature", refresh_token: "test-only", token_type: "bearer", expires_in: (options.sessionHours || 1) * 3600, expires_at: Math.floor(Date.now() / 1000) + (options.sessionHours || 1) * 3600, user };
   await page.addInitScript(({ session, authenticated }) => {
     localStorage.setItem("matearte-gestion-demo-v1", JSON.stringify({ orders: [{ id: "MA-FAKE" }] }));
     if (authenticated) localStorage.setItem("matearte-gestion-commerce-auth", JSON.stringify(session));
@@ -46,6 +46,7 @@ export async function mockCommerce(page: Page, options: { userId?: string; denie
     commerce_international_shipping_rates: fixture.reference.shippingRates, commerce_exchange_rates: fixture.reference.exchangeRates,
     commerce_attribute_definitions: [], commerce_attribute_options: [], commerce_category_attributes: [], visualizer_icons: [], visualizer_hidden_builtin_icons: [], commerce_bank_transfer_settings: { account_holder: 'Titular', transfer_account: '111', cash_deposit_account: '222', cash_deposit_label: 'Depósito' },
     commerce_categories: fixture.reference.categories, commerce_settings: fixture.reference.settings, shipping_rates: fixture.nationalRates, purchases: [], fixed_expenses: [], fixed_expense_payments: [], expense_categories: [],
+    finance_accounts: [], finance_monthly_closes: [],
     commerce_argentina_settings: { singleton: true, enabled: false, bank_name: "", account_holder: "", cbu: "", alias: "", account_type: "", account_name: "", account_number: "", swift_code: "", branch: "" },
     local_sales_customers: [], local_sales: [], local_sale_receipts: [], rural_raffle_entries: [],
     site_announcements: [], ad_reports: [], web_leads: [], contact_first_seen: [],

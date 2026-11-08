@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allowedSalesChannels, canAccess, defaultAccess, setAreaAccess, setPageAccess, visibleCustomers, visibleOrders } from "./access";
+import { allowedSalesChannels, canAccess, canManageFinanceExpenses, defaultAccess, setAreaAccess, setPageAccess, visibleCustomers, visibleOrders } from "./access";
 import { seedFixture as seed } from "./testing/fixture";
 
 describe("visibilidad de los tres perfiles", () => {
@@ -33,19 +33,24 @@ describe("visibilidad de los tres perfiles", () => {
     expect(canAccess(withProducts, "/productos/personalizador")).toBe(true);
     expect(canAccess(setPageAccess(s, "t5", "/finanzas/resumen", true), "/finanzas/resumen")).toBe(true);
   });
-  it("reserva Usuarios y permisos para Richard y deja Egresos y Compras a las dos Florencias", () => {
+  it("ubica egresos y gastos fijos en Finanzas y separa el permiso de edición", () => {
     const richard = seed();
     expect(canAccess(richard, "/finanzas/resumen")).toBe(true);
     expect(canAccess(richard, "/administracion/usuarios")).toBe(true);
     for (const id of ["t2", "t3"]) {
       const s = { ...richard, activeUserId: id };
       expect(canAccess(s, "/finanzas/egresos")).toBe(true);
-      expect(canAccess(s, "/inventario/compras")).toBe(true);
+      expect(canAccess(s, "/finanzas/gastos-fijos")).toBe(true);
+      expect(canAccess(s, "/inventario/compras")).toBe(false);
+      expect(canManageFinanceExpenses(s)).toBe(true);
       expect(canAccess(s, "/finanzas/resumen")).toBe(false);
       expect(canAccess(s, "/administracion/usuarios")).toBe(false);
       expect(canAccess(setPageAccess(s, id as "t2" | "t3", "/finanzas/resumen", true), "/finanzas/resumen")).toBe(true);
       expect(setPageAccess(s, id as "t2" | "t3", "/administracion/usuarios", true).access?.[id]).toEqual(defaultAccess()[id]);
     }
+    const readonly = { ...richard, activeUserId: "t5", access: { ...richard.access, t5: ["/finanzas/egresos"] } };
+    expect(canAccess(readonly, "/finanzas/egresos")).toBe(true);
+    expect(canManageFinanceExpenses(readonly)).toBe(false);
   });
 
   it("muestra a Costa todos los pedidos y mantiene sus permisos de registro y clientes", () => {

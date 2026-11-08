@@ -668,20 +668,20 @@ test("cuenta mayorista registra cobros reales desde producción y cuentas por co
   }
 });
 
-test("egresos muestra pagos y pendientes mientras cuentas por pagar muestra solo pendientes", async ({ page }) => {
+test("egresos separa pagos realizados y próximos sin duplicarlos", async ({ page }) => {
   const { tables } = await mockCommerce(page);
   tables.purchases.push(
     { id: "compra-pagada", purchased_on: "2026-11-03", description: "Cuero pagado", category: "Materiales",
-      amount_minor: 12000, currency: "UYU", status: "pagada", paid_on: "2026-11-04" },
+      amount_minor: 12000, currency: "UYU", status: "pagada", paid_on: "2026-11-04", due_on: null },
     { id: "compra-pendiente", purchased_on: "2026-11-05", description: "Alpaca pendiente", category: "Materiales",
-      amount_minor: 25000, currency: "UYU", status: "pendiente", paid_on: null },
+      amount_minor: 25000, currency: "UYU", status: "pendiente", paid_on: null, due_on: "2026-11-20" },
   );
   await page.goto("/finanzas/egresos");
-  await expect(page.getByRole("heading", { name: "Gastos registrados" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Realizados" })).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: "Cuero pagado" })).toContainText("Pagado");
-  await expect(page.getByRole("row").filter({ hasText: "Alpaca pendiente" })).toContainText("Por pagar");
-  await page.goto("/finanzas/por-pagar");
-  await expect(page.getByRole("heading", { name: "Pendientes de pago" })).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "Alpaca pendiente" })).toHaveCount(0);
+  await page.getByRole("tab", { name: "Próximos" }).click();
+  await expect(page.getByRole("heading", { name: "Próximos" })).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: "Cuero pagado" })).toHaveCount(0);
   await expect(page.getByRole("row").filter({ hasText: "Alpaca pendiente" })).toHaveCount(1);
 });

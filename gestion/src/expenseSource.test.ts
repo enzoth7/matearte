@@ -38,7 +38,8 @@ describe("adaptExpenses", () => {
   it("copia la regla de acceso de las políticas RLS", () => {
     expect(canReadExpenses({ access_user_id: "t1", allowed_paths: ["/x"] })).toBe(true);
     expect(canReadExpenses({ access_user_id: "t5", allowed_paths: ["/marketing/campanas"] })).toBe(false);
-    expect(canReadExpenses({ access_user_id: "t2", allowed_paths: ["/inventario/compras"] })).toBe(true);
+    expect(canReadExpenses({ access_user_id: "t2", allowed_paths: ["/finanzas/egresos"] })).toBe(true);
+    expect(canReadExpenses({ access_user_id: "t2", allowed_paths: ["/inventario/compras"] })).toBe(false);
     expect(canReadExpenses(null)).toBe(false);
   });
 });

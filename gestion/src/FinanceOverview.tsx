@@ -139,8 +139,8 @@ export function FinanceOverview({
         </div>
       </div>
 
-      {!incomplete && s.expensesConnected && <div className="data-note">Los egresos salen de Compras y Gastos fijos y solo incluyen lo que esté cargado ahí.{s.expensesSkipped ? ` ${s.expensesSkipped} egreso${s.expensesSkipped === 1 ? "" : "s"} en moneda extranjera no se cuenta${s.expensesSkipped === 1 ? "" : "n"} porque falta la cotización en Monedas y cotizaciones.` : ""}</div>}
-      {incomplete && <div className="data-note">Ingresos y cobros del comercio web. Todavía no hay egresos cargados: agregalos en Inventario y compras → Compras y Gastos fijos. Hasta entonces no se calcula ganancia con información incompleta.</div>}
+      {!incomplete && s.expensesConnected && <div className="data-note">Los egresos registrados y los gastos fijos se administran en Finanzas.{s.expensesSkipped ? ` ${s.expensesSkipped} egreso${s.expensesSkipped === 1 ? "" : "s"} en moneda extranjera no se cuenta${s.expensesSkipped === 1 ? "" : "n"} porque falta la cotización en Monedas y cotizaciones.` : ""}</div>}
+      {incomplete && <div className="data-note">Todavía no hay egresos registrados para completar la proyección. Agregalos en Finanzas, Egresos y Gastos fijos.</div>}
       {s.payments.some((payment) => payment.reconciliationRequired) && <div className="data-note">Hay cobros pendientes de conciliación. Los totales UYU excluyen los importes sin equivalencia histórica; podés ver el importe original en Cuentas por cobrar, Cobros registrados.</div>}
       <section className="finance-flow" aria-label="Proyección mensual de ingresos y egresos">
         <Matrix months={months} incomplete={incomplete} />

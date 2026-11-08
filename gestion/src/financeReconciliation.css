@@ -1,0 +1,40 @@
+.finance-close { display: grid; gap: 24px; }
+.finance-close-top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+.finance-close-top label, .finance-close-actions label { display: grid; gap: 7px; font-weight: 600; }
+.finance-close-top input { min-width: 180px; }
+.finance-close-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.finance-close-kpis > div { display: grid; align-content: space-between; gap: 9px; min-height: 130px; padding: 18px; background: var(--surface-warm); border: 1px solid var(--line); border-radius: 8px; }
+.finance-close-kpis > div > div { color: var(--muted); font-size: 14px; }
+.finance-close-kpis strong { font-size: clamp(23px, 2vw, 34px); line-height: 1.1; overflow-wrap: anywhere; }
+.finance-close-kpis strong.negative { color: var(--red); }
+.finance-close-kpis small { color: var(--muted); }
+.finance-close-breakdown { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.finance-close-breakdown > div { display: grid; gap: 4px; padding: 13px 16px; border-left: 3px solid var(--line); }
+.finance-close-breakdown strong { font-size: 18px; }
+.finance-close-panel { display: grid; gap: 14px; background: var(--white); border: 1px solid var(--line); padding: 24px; border-radius: 8px; }
+.finance-close-panel h2 { margin: 0; }
+.finance-close-panel header { display: grid; gap: 6px; }
+.finance-close-panel small { color: var(--muted); }
+.finance-close-account, .finance-close-adjustment { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; border-top: 1px solid var(--line); padding-top: 14px; }
+.finance-close-account > div, .finance-close-adjustment > div { display: grid; gap: 3px; }
+.finance-close-account input { width: 180px; text-align: right; }
+.finance-close-add-account, .finance-close-add-adjustment { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 15px; border-top: 1px solid var(--line); }
+.finance-close-add-account input, .finance-close-add-adjustment input { flex: 1; min-width: 150px; }
+.finance-close-rates { display: flex; flex-wrap: wrap; gap: 18px; }
+.finance-close-rates label { display: grid; gap: 6px; min-width: 180px; font-weight: 600; }
+.finance-close-status { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.finance-close-actions { display: flex; flex-wrap: wrap; align-items: end; justify-content: flex-end; gap: 10px; padding: 20px 0; border-top: 1px solid var(--line); }
+.finance-close-actions label { flex: 1 1 100%; }
+.finance-close-actions small { flex: 1 1 100%; text-align: right; color: var(--muted); }
+.finance-close-versions { display: flex; flex-wrap: wrap; gap: 8px; }
+.finance-close-versions button { background: var(--white); border: 1px solid var(--line); border-radius: 5px; padding: 10px 14px; cursor: pointer; }
+.finance-close-versions button.active { background: var(--black); color: var(--white); }
+@media (max-width: 1100px) {
+  .finance-close-kpis, .finance-close-breakdown { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 650px) {
+  .finance-close-kpis, .finance-close-breakdown { grid-template-columns: 1fr; }
+  .finance-close-panel { padding: 18px; }
+  .finance-close-account input { width: 100%; }
+  .finance-close-add-account > *, .finance-close-add-adjustment > * { width: 100%; }
+}

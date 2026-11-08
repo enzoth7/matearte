@@ -141,13 +141,7 @@ export function Finance({ s, mode }: PageProps & { mode: string }) {
     { label: "Moneda", render: (row) => String(row.moneda) },
     { label: "Equivalencia en UYU", render: (row) => Number(row.valor).toLocaleString("es-UY", { maximumFractionDigits: 4 }) },
   ]} />;
-  const pending = mode === "por-pagar";
-  const expenses = pending ? s.expenses.filter((expense) => !expense.paid) : s.expenses;
-  return <>{!s.expensesConnected && <div className="data-note">Los egresos todavía no tienen una fuente conectada.</div>}{s.expensesConnected && <div className="data-note">Los importes salen de Compras y Gastos fijos. Para agregar o corregir uno, hacelo allí.</div>}{pending && s.expensesConnected && !expenses.length && <div className="data-note">No hay gastos pendientes de pago registrados.</div>}<Table rows={expenses} title={pending ? "Pendientes de pago" : "Gastos registrados"} searchText={(e) => `${e.name} ${e.category}`} columns={[
-    { label: "Concepto", render: (e) => e.name }, { label: "Categoría", render: (e) => e.category ? <Badge>{e.category}</Badge> : "—" }, { label: "Fecha", render: (e) => formatDate(e.date) },
-    ...(!pending ? [{ label: "Estado", render: (e: (typeof expenses)[number]) => <Badge tone={e.paid ? "green" : "yellow"}>{e.paid ? "Pagado" : "Por pagar"}</Badge> }] : []),
-    { label: "Importe", render: (e) => money(e.amount) },
-  ]} /></>;
+  return <Card title="Finanzas">Elegí una sección del menú de Finanzas.</Card>;
 }
 
 export function PaymentHistory({ s, go }: { s: State; go: (path: string) => void }) {

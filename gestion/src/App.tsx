@@ -4,7 +4,8 @@ import { ChannelOrigin } from "./ChannelOrigin";
 import { Links } from "./Links";
 import { MarketingSection } from "./MarketingSection";
 import { AnalyticsJourneys, type AnalyticsSection } from "./AnalyticsJourneys";
-import { Purchases } from "./Purchases";
+import { FinanceExpenses, FinanceFixedExpenses } from "./FinanceExpenses";
+import { FinanceReconciliation } from "./FinanceReconciliation";
 import { SorteoView } from "./SorteoView";
 import { CustomerAnalyticsView } from "./CustomerInsights";
 import "./commerce/operations.css";
@@ -30,7 +31,7 @@ import {
   Leaf,
 } from "@phosphor-icons/react";
 import { areas, resolvePath } from "./navigation";
-import { accessUserIds, canAccess, firstVisiblePath, visibleAreas } from "./access";
+import { accessUserIds, canAccess, canManageFinanceExpenses, firstVisiblePath, visibleAreas } from "./access";
 import { loadState, storageKey, seed, id, type State } from "./data";
 import { collections } from "./collections";
 import { Overview, Orders, Register, Customers, type PageProps } from "./pages";
@@ -71,6 +72,8 @@ const retiredRoutes: Record<string, string> = {
   "/comercial/descuentos": "/marketing/descuentos",
   "/marketing/metricas": "/marketing/contactos",
   "/finanzas/cobros": "/finanzas/por-cobrar?vista=cobros",
+  "/inventario/compras": "/finanzas/egresos",
+  "/finanzas/por-pagar": "/finanzas/egresos?vista=proximos",
 };
 const analyticsSections: Record<string, AnalyticsSection> = {
   recorridos: "journeys",
@@ -104,7 +107,9 @@ function Content(
   if (key === "marketing/sorteo") return <SorteoView />;
   if (area === "marketing") return <MarketingSection page={page} notify={props.notify} s={s} go={go} commerce={props.commerce} />;
   if (area === "analitica") return <AnalyticsJourneys section={analyticsSections[page]} />;
-  if (key === "inventario/compras") return <Purchases notify={props.notify} />;
+  if (key === "finanzas/egresos") return <FinanceExpenses notify={props.notify} editable={canManageFinanceExpenses(s)} />;
+  if (key === "finanzas/gastos-fijos") return <FinanceFixedExpenses notify={props.notify} editable={canManageFinanceExpenses(s)} />;
+  if (key === "finanzas/conciliacion") return <FinanceReconciliation s={s} notify={props.notify} refresh={props.refresh} />;
   if (collections[key]) return <CollectionPage {...props} path={key} />;
   if (key === "inicio/resumen") return <Overview {...props} />;
   if (key === "inicio/alertas")
@@ -129,7 +134,7 @@ function Content(
           {
             title: "Pagos por realizar",
             text: "Compromisos y vencimientos registrados.",
-            path: "/finanzas/por-pagar",
+            path: "/finanzas/egresos?vista=proximos",
           },
         ].filter((a) => canAccess(s, a.path)).map((a) => (
           <button className="alert-index-row" key={a.path} onClick={() => go(a.path)}>

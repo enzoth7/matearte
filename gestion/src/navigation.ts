@@ -85,10 +85,9 @@ export const areas = [
   },
   {
     id: "inventario",
-    name: "Inventario y compras",
+    name: "Inventario",
     hint: "Todo en su lugar",
     pages: [
-      ["compras", "Compras"],
       ["stock", "Stock de productos"],
       ["insumos", "Insumos"],
       ["movimientos", "Movimientos y reservas"],
@@ -114,8 +113,9 @@ export const areas = [
     pages: [
       ["resumen", "Resumen financiero"],
       ["egresos", "Egresos"],
+      ["gastos-fijos", "Gastos fijos"],
+      ["conciliacion", "Conciliación"],
       ["por-cobrar", "Cuentas por cobrar"],
-      ["por-pagar", "Cuentas por pagar"],
       ["monedas", "Monedas y cotizaciones"],
     ],
   },

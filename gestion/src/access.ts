@@ -3,6 +3,7 @@ import type { Customer, Order, SalesChannel, State } from "./data";
 
 export const accessUserIds = ["t1", "t2", "t3", "t5"] as const;
 export type AccessUserId = string;
+export const financeExpenseEditPermission = "/finanzas/editar-egresos";
 
 export const isCustomAccessUserId = (id: string | undefined): id is string => /^u[0-9a-f]{8}$/.test(id ?? "");
 const newUserAccess = ["/inicio/resumen"];
@@ -18,7 +19,7 @@ export function defaultAccess(): Record<string, string[]> {
       "/inicio/resumen",
       "/comercial/pedidos", "/comercial/registrar-min",
       "/clientes/base",
-      "/inventario/compras", "/finanzas/egresos",
+      "/finanzas/egresos", "/finanzas/gastos-fijos", financeExpenseEditPermission,
     ],
     t3: [
       "/inicio/resumen", "/inicio/alertas",
@@ -26,7 +27,7 @@ export function defaultAccess(): Record<string, string[]> {
       "/clientes/base",
       "/productos/catalogo", "/productos/servicios", "/productos/ajustes", "/productos/personalizador",
       ...withAreas(["produccion", "inventario", "entregas"]),
-      "/finanzas/egresos",
+      "/finanzas/egresos", "/finanzas/gastos-fijos", financeExpenseEditPermission,
     ],
     t5: withAreas(["marketing"]),
   };
@@ -52,6 +53,11 @@ export function canAccess(s: State, path: string): boolean {
   if (userId === "t1") return true;
   if (lockedForRichard(normalized)) return false;
   return accessFor(s, userId).includes(normalized);
+}
+
+export function canManageFinanceExpenses(s: State): boolean {
+  const userId = accessUserId(s);
+  return userId === "t1" || accessFor(s, userId).includes(financeExpenseEditPermission);
 }
 
 export function firstRegistrationPath(s: State): string | null {
@@ -89,6 +95,7 @@ export function setAreaAccess(
     if (enabled) current.add(path);
     else current.delete(path);
   }
+  if (areaId === "finanzas" && !enabled) current.delete(financeExpenseEditPermission);
   return { ...s, access: { ...s.access, [userId]: [...current] } };
 }
 
@@ -102,6 +109,7 @@ export function setPageAccess(
   const current = new Set(accessFor(s, userId));
   if (enabled) current.add(path);
   else current.delete(path);
+  if (path === "/finanzas/egresos" && !enabled) current.delete(financeExpenseEditPermission);
   return { ...s, access: { ...s.access, [userId]: [...current] } };
 }
 
