@@ -4,11 +4,19 @@ El servidor MCP de Gestión está en `supabase/functions/gestion-mcp/`. Su URL e
 
 `https://agdkljuulwjwjasftcce.supabase.co/functions/v1/gestion-mcp`
 
-Ofrece herramientas para identificar la cuenta, enumerar fuentes y consultar registros comerciales, clientes, productos, producción, entregas, finanzas y Marketing. Las listas tienen paginación y límites. Los importes cuyo nombre termina en `_minor` están en centésimos. Las páginas de Gestión que todavía no tienen una fuente conectada tampoco tienen datos reales para consultar en el MCP.
+Ofrece herramientas para identificar la cuenta, enumerar fuentes y consultar registros comerciales, clientes, productos, producción, entregas, finanzas, inventario y Marketing. Las listas tienen paginación y límites. Los importes cuyo nombre termina en `_minor` están en centésimos. Las páginas de Gestión que todavía no tienen una fuente conectada tampoco tienen datos reales para consultar en el MCP.
 
 ## Escritura de gastos para Richard
 
-El servidor anuncia `listar_opciones_gastos` y `registrar_gastos` con una lista estable de herramientas para que ChatGPT pueda descubrirlas. Solo la cuenta de Gestión de Richard puede ejecutarlas: cada llamada comprueba su ID antes de acceder a Finanzas. La segunda herramienta crea entre 1 y 25 gastos por llamada en `purchases`, que alimenta Compras y Finanzas. Usa su token OAuth y las políticas RLS existentes; no se amplían permisos de base de datos para otras cuentas. `quien_soy` informa `puede_registrar_gastos` según la cuenta conectada. El MCP no crea ingresos, ventas, pedidos, categorías ni gastos fijos.
+El servidor anuncia `listar_opciones_gastos` y `registrar_gastos` con una lista estable de herramientas para que ChatGPT pueda descubrirlas. Solo la cuenta de Gestión de Richard puede ejecutarlas: cada llamada comprueba su ID antes de acceder a Finanzas. La segunda herramienta crea entre 1 y 25 gastos por llamada en `purchases`, que alimenta Compras y Finanzas. Usa su token OAuth y las políticas RLS existentes; no se amplían permisos de base de datos para otras cuentas. `quien_soy` informa `puede_registrar_gastos` según la cuenta conectada.
+
+## Finanzas e inventario desde ChatGPT
+
+Desde la versión 20 de `gestion-mcp`, Richard puede consultar las fuentes de ingresos extraordinarios, egresos, gastos fijos, conciliación, cuentas por cobrar, consignaciones, cotizaciones, insumos, productos fabricados y reventa. Las herramientas de escritura permiten agregar categorías financieras, ingresos ajenos a ventas, saldos iniciales y ajustes mensuales, gastos fijos y sus pagos, cobros de pedidos, entregas a cuenta y sus asignaciones, fiados locales, consignaciones y sus movimientos y pagos, cotizaciones y costos de inventario. `listar_fuentes` indica la fuente y los filtros disponibles. Cada escritura exige una confirmación explícita; las operaciones con pagos o pedidos reciben una clave estable para evitar duplicados al reintentar.
+
+Los importes de costos de inventario están restringidos a Richard también en la base. El costeo no genera egresos financieros ni movimientos de stock. Las vistas de Stock de productos, Movimientos y reservas, Reposición y Proveedores todavía no registran operaciones. El resumen financiero calculado y el cierre completo de conciliación no tienen herramientas específicas de escritura; el MCP permite consultar sus fuentes y registrar el ajuste mensual.
+
+Las migraciones `20261109052213_gestion_mcp_finance_inventory.sql`, `20261109052404_gestion_mcp_manufactured_link_retry.sql` y `20261109052515_restrict_inventory_costs_to_richard.sql` se aplicaron en producción el 9 de noviembre de 2026. La función `gestion-mcp` versión 20 está activa. En ChatGPT hay que actualizar las herramientas del complemento y verificar su lista en un chat nuevo después de cambiar el servidor.
 
 Richard puede adjuntar un estado de cuenta a su chat para que ChatGPT extraiga los débitos que sean gastos. El MCP registra los movimientos revisados, pero no recibe ni guarda el PDF. ChatGPT debe mostrar fechas, conceptos, importes, monedas y categorías, y obtener confirmación expresa antes de llamar a `registrar_gastos`. Los créditos y transferencias entre cuentas no se registran como gastos.
 
@@ -58,7 +66,7 @@ Se mantiene el perfil propietario y la sesión individual de Supabase en todas l
 Pruebas recomendadas después de actualizar la conexión en ChatGPT: `quien_soy` debe identificar a Richard; consultar ventas locales con `pagina: 1` y con una página fuera de rango; pedir un resumen de Local y otro de todos los canales; consultar un pedido por referencia, producción por estado y las categorías de un cupón. La llamada observada confirma que la cuenta de Richard ya está conectada; la actualización de herramientas debe verificarse en un chat nuevo.
 
 - Cada petición exige un token de Supabase Auth. El servidor comprueba que corresponda a una cuenta activa de Gestión con perfil propietario (`t1`) y consulta con las políticas RLS de esa misma cuenta.
-- Las consultas no exponen SQL arbitrario ni claves de servicio. Las herramientas de escritura están reservadas a Richard y crean gastos o fichas de productos en borrador. Marketing admite únicamente las lecturas indicadas arriba.
+- Las consultas no exponen SQL arbitrario ni claves de servicio. Las herramientas de escritura están reservadas a Richard y se limitan a las operaciones enumeradas arriba. Marketing admite únicamente las lecturas indicadas arriba.
 - El bloqueo del acceso directo a los datos entra en vigencia al aplicar la segunda migración, después de desplegar el puente y sus controles. Antes de esa migración, la sesión OAuth conserva el alcance anterior fuera del MCP.
 - Un `401` anónimo debe incluir `WWW-Authenticate` con la URL de metadatos OAuth. La ruta `/oauth-protected-resource` debe responder con la URL de Supabase Auth. El servidor no devuelve datos sin iniciar sesión.
 
@@ -75,7 +83,7 @@ Pruebas recomendadas después de actualizar la conexión en ChatGPT: `quien_soy`
 
 ## Mantenimiento
 
-- Al cambiar las fuentes, mantener alineada la lista de herramientas con las rutas autorizadas en Supabase. Mantener la escritura acotada a gastos y altas de productos de Richard, sin SQL libre ni campos de pagos internos como `raw_payload`.
+- Al cambiar las fuentes, mantener alineada la lista de herramientas con las rutas autorizadas en Supabase. Mantener la escritura acotada a las operaciones de Richard descritas arriba, sin SQL libre ni campos de pagos internos como `raw_payload`.
 - Comprobar tipos con `npx deno check --lock supabase/functions/gestion-mcp/deno.lock supabase/functions/gestion-mcp/index.ts` y probar consultas y escritura con `npx deno test --lock supabase/functions/gestion-mcp/deno.lock supabase/functions/gestion-mcp/queries_test.ts supabase/functions/gestion-mcp/financeWrites_test.ts`. Compilar Gestión si cambia su interfaz.
 - La función usa `verify_jwt = false` para que el descubrimiento OAuth anónimo llegue al middleware; `withSupabase({ auth: "user" })` verifica el token antes de cualquier consulta.
 - Si cambia la lista o los esquemas de herramientas, actualizar la conexión en ChatGPT y repetir las pruebas de lectura y autorización.

@@ -4,7 +4,8 @@ export type ExpenseInput = {
   descripcion: string;
   categoria: string;
   importe: string;
-  moneda: "UYU" | "USD";
+  moneda: "UYU" | "USD" | "ARS";
+  cotizacion_uyu?: number;
   estado: "pagada" | "pendiente";
   proveedor?: string;
   medio_pago?: string;
@@ -20,9 +21,20 @@ export function amountMinor(value: string): number {
   return minor;
 }
 
+export function nonNegativeMinor(value: string): number {
+  if (!/^(?:0|[1-9]\d{0,9})(?:[.,]\d{1,2})?$/.test(value))
+    throw new Error("El importe debe ser no negativo, con hasta dos decimales y sin separadores de miles.");
+  const [whole, fraction = ""] = value.replace(",", ".").split(".");
+  const minor = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+  if (!Number.isSafeInteger(minor)) throw new Error("El importe es demasiado grande.");
+  return minor;
+}
+
 export function expenseRow(input: ExpenseInput, id: string) {
   if (input.estado === "pendiente" && input.fecha_pago) throw new Error("Un gasto pendiente no puede tener fecha de pago.");
   if (input.fecha_pago && input.fecha_pago < input.fecha) throw new Error("La fecha de pago no puede ser anterior a la fecha del gasto.");
+  if (input.moneda !== "UYU" && (!Number.isFinite(input.cotizacion_uyu) || !(input.cotizacion_uyu! > 0)))
+    throw new Error("Los egresos en ARS o USD necesitan una cotización UYU positiva.");
   return {
     id,
     purchased_on: input.fecha,
@@ -30,6 +42,7 @@ export function expenseRow(input: ExpenseInput, id: string) {
     category: input.categoria,
     amount_minor: amountMinor(input.importe),
     currency: input.moneda,
+    exchange_rate_to_uyu: input.moneda === "UYU" ? null : input.cotizacion_uyu!,
     status: input.estado,
     paid_on: input.estado === "pagada" ? input.fecha_pago ?? input.fecha : null,
     supplier: input.proveedor?.trim() || null,
@@ -50,6 +63,6 @@ export async function expenseId(userId: string, key: string): Promise<string> {
 export function sameExpense(a: ReturnType<typeof expenseRow>, b: ReturnType<typeof expenseRow>): boolean {
   return a.purchased_on === b.purchased_on && a.description === b.description &&
     a.category === b.category && a.amount_minor === b.amount_minor && a.currency === b.currency &&
-    a.status === b.status && a.paid_on === b.paid_on && a.supplier === b.supplier &&
+    a.exchange_rate_to_uyu === b.exchange_rate_to_uyu && a.status === b.status && a.paid_on === b.paid_on && a.supplier === b.supplier &&
     a.payment_method === b.payment_method && a.notes === b.notes;
 }
