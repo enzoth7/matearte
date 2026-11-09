@@ -38,6 +38,8 @@ import { collections } from "./collections";
 import { Overview, Orders, Register, Customers, type PageProps } from "./pages";
 import { Receivables } from "./Receivables";
 import { LocalCreditSales } from "./LocalCreditSales";
+import { InventoryCosts } from "./InventoryCosts";
+import { ManufacturedProducts } from "./ManufacturedProducts";
 import { Consignments } from "./Consignments";
 import {
   CollectionPage,
@@ -115,6 +117,8 @@ function Content(
   if (key === "finanzas/gastos-fijos") return <FinanceFixedExpenses notify={props.notify} editable={canManageFinanceExpenses(s)} />;
   if (key === "finanzas/conciliacion") return <FinanceReconciliation s={s} notify={props.notify} refresh={props.refresh} />;
   if (key === "finanzas/fiados-local") return <LocalCreditSales {...props} />;
+  if (key === "inventario/insumos" || key === "inventario/reventa") return <InventoryCosts s={s} notify={props.notify} section={page as "insumos" | "reventa"} />;
+  if (key === "inventario/fabricados") return <ManufacturedProducts s={s} notify={props.notify} />;
   if (collections[key]) return <CollectionPage {...props} path={key} />;
   if (key === "inicio/resumen") return <Overview {...props} />;
   if (key === "inicio/alertas")

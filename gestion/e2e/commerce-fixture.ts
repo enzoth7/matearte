@@ -49,7 +49,7 @@ export async function mockCommerce(page: Page, options: { userId?: string; denie
     finance_accounts: [], finance_monthly_closes: [], finance_monthly_openings: [], finance_monthly_adjustments: [], finance_summary_adjustments: [],
     finance_income_categories: [
       { name: 'Ingresos extraordinarios', active: true }, { name: 'Otros', active: true }, { name: 'Devolución impuestos', active: true },
-    ], finance_manual_incomes: [],
+    ], finance_manual_incomes: [], inventory_cost_profiles: [], inventory_cost_lines: [], inventory_manufactured_products: [], inventory_manufactured_supplies: [],
     commerce_argentina_settings: { singleton: true, enabled: false, bank_name: "", account_holder: "", cbu: "", alias: "", account_type: "", account_name: "", account_number: "", swift_code: "", branch: "" },
     local_sales_customers: [], local_sales: [], local_sale_receipts: [], local_credit_order_ids: [], rural_raffle_entries: [],
     site_announcements: [], ad_reports: [], web_leads: [], contact_first_seen: [],

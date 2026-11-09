@@ -35,7 +35,7 @@ export function defaultAccess(): Record<string, string[]> {
 
 // Finanzas ya no es exclusiva: Richard decide quién la ve desde Usuarios y permisos.
 export function lockedForRichard(path: string): boolean {
-  return ["/administracion/usuarios", "/administracion/logs"].includes(path) || path.startsWith("/analitica/");
+  return ["/administracion/usuarios", "/administracion/logs", "/inventario/insumos", "/inventario/fabricados", "/inventario/reventa"].includes(path) || path.startsWith("/analitica/");
 }
 
 export function accessUserId(s: State): AccessUserId {

@@ -90,6 +90,8 @@ export const areas = [
     pages: [
       ["stock", "Stock de productos"],
       ["insumos", "Insumos"],
+      ["fabricados", "Productos fabricados"],
+      ["reventa", "Reventa"],
       ["movimientos", "Movimientos y reservas"],
       ["reposicion", "Reposición"],
       ["proveedores", "Proveedores"],
