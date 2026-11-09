@@ -3,6 +3,7 @@ import {
   calculateRimCharacterKnockoutPadding,
   calculateRimCharacterLayout,
   createCenteredArcPath,
+  defaultRimIconPlacement,
   polarPoint,
   rimTextGeometry,
   RIM_VIEWBOX_SIZE,
@@ -105,7 +106,11 @@ export function RimTextFinishMask({
       height={RIM_VIEWBOX_SIZE}
     >
       <rect width={RIM_VIEWBOX_SIZE} height={RIM_VIEWBOX_SIZE} fill="white" />
-      {activeTexts.map((item) => (
+      {activeTexts.map((item) => item.layout === "free" ? <text key={item.id}
+        x={(item.transform?.x ?? .5) * RIM_VIEWBOX_SIZE} y={(item.transform?.y ?? .85) * RIM_VIEWBOX_SIZE}
+        transform={`rotate(${item.transform?.rotation ?? 0} ${(item.transform?.x ?? .5) * RIM_VIEWBOX_SIZE} ${(item.transform?.y ?? .85) * RIM_VIEWBOX_SIZE})`}
+        textAnchor="middle" dominantBaseline="middle" fill="black" stroke="black" strokeWidth="12"
+        fontFamily="Georgia, 'Times New Roman', serif" fontWeight="700" fontSize={defaultRimIconPlacement.size * 0.78 * (item.transform?.scale ?? 1)}>{item.text}</text> : (
         <g
           key={item.id}
           transform={createElementSvgTransform(item.transform, geometry, item.inverted)}

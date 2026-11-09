@@ -5,6 +5,7 @@ import type { CustomImageAsset, ElementTransform } from "../types/personalizer";
 
 interface RimIconLayerProps {
   selectedImageId: string | null;
+  glyph?: string;
   customImage?: CustomImageAsset | null;
   profile: RimGeometryProfile;
   transform?: ElementTransform;
@@ -17,6 +18,7 @@ interface RimIconLayerProps {
 
 export function RimIconLayer({
   selectedImageId,
+  glyph,
   customImage,
   profile,
   transform,
@@ -28,7 +30,7 @@ export function RimIconLayer({
 }: RimIconLayerProps) {
   const catalogIcon = rimIconCatalog.find((item) => item.id === selectedImageId);
   const src = customImage?.previewUrl || catalogIcon?.src;
-  if (!src) return null;
+  if (!src && !glyph) return null;
 
   const x = (transform?.x ?? 0.5) * RIM_VIEWBOX_SIZE;
   const y = (transform?.y ?? 0.878) * RIM_VIEWBOX_SIZE;
@@ -50,7 +52,7 @@ export function RimIconLayer({
       <circle cx={x} cy={y} r={radiusKnockout} fill="#EAE4DC" />
       <circle cx={x} cy={y} r={hitRadius} fill="transparent" pointerEvents={onPointerDown ? "all" : "none"} />
       <g transform={`rotate(${rotation} ${x} ${y})`}>
-        <image
+        {glyph ? <text x={x} y={y} textAnchor="middle" dominantBaseline="middle" fill="#1f1f1f" fontFamily="Georgia, 'Times New Roman', serif" fontSize={size * 0.78} fontWeight="700" pointerEvents="none">{glyph}</text> : <image
           href={src}
           x={x - halfSize}
           y={y - halfSize}
@@ -58,7 +60,7 @@ export function RimIconLayer({
           height={size}
           preserveAspectRatio="xMidYMid meet"
           pointerEvents="none"
-        />
+        />}
         {selected && (
           <g>
             <circle cx={x} cy={y} r={selectionRadius} fill="none" stroke="#7a4a31" strokeWidth="5" strokeDasharray="18 12" pointerEvents="none" />
@@ -81,7 +83,7 @@ export function RimIconLayer({
                 className="cursor-grab active:cursor-grabbing"
                 role="button"
                 tabIndex={0}
-                aria-label="Girar ícono"
+                aria-label={glyph ? "Girar letra" : "Girar ícono"}
                 onPointerDown={(event) => {
                   event.stopPropagation();
                   onRotateDown(event);

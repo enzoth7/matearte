@@ -177,6 +177,8 @@ export function normalizeRimSelection(variant: MateVariant, current?: Partial<Ri
       inverted: typeof text2Raw?.inverted === "boolean" ? text2Raw.inverted : true,
       transform: normalizeElementTransform(text2Raw?.transform, "rim"),
     },
+    ...rawTexts.filter(item => item.layout === "free" && typeof item.id === "string" && /^letter-/.test(item.id) && typeof item.text === "string" && /^[A-ZÑ]$/u.test(item.text))
+      .map(item => ({ id: item.id, text: item.text, layout: "free" as const, transform: normalizeElementTransform(item.transform, "rim") })),
   ];
 
   return {

@@ -86,6 +86,7 @@ export function LocalMateDesignPreview({ product, draft, surface, update }: { pr
         textMode: enabled && content !== "logo" ? "text" : "none", text: draft.rimText, texts: [
           { id: "text-1", text: draft.rimText, inverted: draft.rimTextInverted, transform: transform("rim-text", "rim") },
           { id: "text-2", text: draft.rimText2, inverted: draft.rimText2Inverted, transform: transform("rim-text-2", "rim") },
+          ...(draft.rimLetters ?? []).map(letter => ({ id: letter.id, text: letter.text, layout: "free" as const, transform: transform(letter.id, "rim") })),
         ], textTransform: transform("rim-text", "rim"), imageMode: rimIcons.length ? "image" : "none", icons: rimIcons,
       }} /> : <FlatFlejePreview editable activeSide={side} onSelectSide={chooseSide} selectedElement={selected} onSelectElement={setSelected} onTransformChange={(s, id, value) => move(id === "text" ? `${s}-text` : id, value)} flejeConfig={{ finishMode: enabled && draft.flejeFinish !== "none" ? "finish" : "none", finishId: draft.flejeFinish, sides: {
         front: { ...createDefaultFlejeSide("front"), textMode: enabled && content !== "logo" ? "text" : "none", text: draft.flejeFrontText, textTransform: transform("front-text", "front"), imageMode: frontIcons.length ? "image" : "none", icons: frontIcons },

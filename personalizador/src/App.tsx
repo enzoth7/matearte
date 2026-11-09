@@ -1615,6 +1615,7 @@ function PersonalizerApp() {
                           ...current,
                           rim: {
                             ...current.rim,
+                            texts: current.rim.texts.map((item) => item.id === element ? { ...item, transform } : item),
                             icons: current.rim.icons.map((icon) => icon.id === element ? { ...icon, transform } : icon),
                           },
                         };

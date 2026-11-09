@@ -16,18 +16,19 @@ const defaultTexts: RimTextElement[] = [
 
 export function RimTextFields({ texts, selectedElement, onSelectElement, onChange }: RimTextFieldsProps) {
   const safeTexts = defaultTexts.map((fallback, index) => texts[index] ?? fallback);
+  const extraTexts = texts.filter(item => item.layout === "free");
   const activeIndex = selectedElement === "text-2" ? 1 : 0;
   const activeScale = safeTexts[activeIndex].transform.scale;
 
   const updateText = (index: number, value: string) => {
     const sanitized = limitEngravingCharacters(sanitizeRimText(value), MAX_RIM_TEXT_LENGTH);
-    onChange(safeTexts.map((item, itemIndex) => itemIndex === index ? { ...item, text: sanitized } : item));
+    onChange([...safeTexts.map((item, itemIndex) => itemIndex === index ? { ...item, text: sanitized } : item), ...extraTexts]);
   };
 
   const updateSize = (scale: number) => {
-    onChange(safeTexts.map((item, index) => index === activeIndex
+    onChange([...safeTexts.map((item, index) => index === activeIndex
       ? { ...item, transform: { ...item.transform, scale } }
-      : item));
+      : item), ...extraTexts]);
   };
 
   return (

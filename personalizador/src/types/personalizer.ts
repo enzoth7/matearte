@@ -37,6 +37,7 @@ export interface IconElement {
 export interface RimTextElement {
   id: string;
   text: string;
+  layout?: "arc" | "free";
   inverted?: boolean;
   transform: ElementTransform;
 }

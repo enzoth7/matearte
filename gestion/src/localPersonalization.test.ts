@@ -176,6 +176,18 @@ describe("personalización de ventas locales", () => {
     expect(snapshot.configuration.rim.texts[1]).toMatchObject({ text: "ABAJO", inverted: true });
   });
 
+  it("guarda una letra independiente con su posición, giro y tamaño como texto", () => {
+    const draft = createPersonalizationDraft("mate");
+    draft.rimLetters = [{ id: "letter-1", text: "Ñ" }];
+    draft.designTransforms = { "letter-1": { x: .8, y: .6, scale: 1.4, rotation: 35, side: "rim" } };
+    expect(validatePersonalization(draft, product())).toBe("");
+    const snapshot = buildLocalPersonalizationSnapshot(draft, product()) as any;
+    expect(snapshot.configuration.rim.texts[2]).toMatchObject({
+      id: "letter-1", text: "Ñ", layout: "free", transform: { x: .8, y: .6, scale: 1.4, rotation: 35 },
+    });
+    expect(snapshot.configuration.rim.icons).toEqual([]);
+  });
+
   it("invierte solo el texto seleccionado", () => {
     const draft = createPersonalizationDraft("mate");
     draft.rimText = "ARRIBA";

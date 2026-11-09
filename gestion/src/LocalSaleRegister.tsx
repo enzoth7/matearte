@@ -77,6 +77,7 @@ const techniqueOptions = [
   ["alpaca-applique", "Aplique de alpaca"],
 ] as const;
 const contentOptions = [["text", "Texto"], ["logo", "Logo o imagen"], ["text-logo", "Texto y logo"]] as const;
+const spanishAlphabet = Array.from("ABCDEFGHIJKLMNÑOPQRSTUVWXYZ");
 const flejeFinishOptions = [["none", "Liso, sin terminación"], ...flejeFinishCatalog.map((finish) => [finish.id, finish.name] as const)] as const;
 const uploadTypes = new Set(["image/png", "image/jpeg", "image/svg+xml", "application/pdf"]);
 
@@ -109,6 +110,7 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
   const previousFlejeFinish = draft.flejeFinish !== "none" && !flejeFinishCatalog.some((finish) => finish.id === draft.flejeFinish)
     ? getFlejeFinish(draft.flejeFinish) : undefined;
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [rimAlphabetOpen, setRimAlphabetOpen] = useState(false);
   const [mateStepIndex, setMateStepIndex] = useState(line.product.assembly ? 0 : 4);
   const mateSteps = [...(line.product.assembly ? [] : ["Modelo", "Textura y color", "Metal", "Tamaño e interior"]), ...(line.product.assembly?.["tipo-virola"] === "sin-virola" ? [] : ["Virola"]), ...(productHasFleje(line.product) ? ["Fleje"] : []), ...(line.product.assembly ? ["Materiales"] : ["Resumen"])];
   useEffect(() => setMateStepIndex(current => Math.max(0, Math.min(current, mateSteps.length - 1))), [mateSteps.length]);
@@ -212,6 +214,19 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
             {contentUsesText(draft.rimContent) && <div className="local-personalization-rim-texts">
               <UnicodeEngravingInput label={`Texto de virola de ${line.product.name}`} value={draft.rimText} onChange={(value) => update({ rimText: value })} maxLength={40} placeholder="Primer texto" />
               <UnicodeEngravingInput label={`Texto 2 para la virola de ${line.product.name}`} value={draft.rimText2} onChange={(value) => update({ rimText2: value, ...(!draft.rimText2 && value && draft.rimTextInverted === draft.rimText2Inverted ? { rimText2Inverted: !draft.rimTextInverted } : {}) })} maxLength={40} placeholder="Segundo texto" />
+              <button type="button" className="local-rim-alphabet-toggle" aria-expanded={rimAlphabetOpen} aria-label="Agregar una letra independiente a la virola" onClick={() => setRimAlphabetOpen(open => !open)}>ABC</button>
+              {rimAlphabetOpen && <div className="local-rim-alphabet" role="group" aria-label="Letras para la virola">
+                {spanishAlphabet.map(letter => <button key={letter} type="button" aria-label={`Agregar letra ${letter}`} onClick={() => {
+                  const id = `letter-${crypto.randomUUID()}`;
+                  const count = draft.rimLetters?.length ?? 0;
+                  const angle = Math.PI / 2 + count * Math.PI / 6;
+                  update({ rimLetters: [...(draft.rimLetters ?? []), { id, text: letter }], rimContent: draft.rimContent === "logo" ? "text-logo" : draft.rimContent,
+                    designTransforms: { ...draft.designTransforms, [id]: { x: .5 + .35 * Math.cos(angle), y: .5 + .35 * Math.sin(angle), scale: 1, rotation: 0, side: "rim" } } });
+                }}>{letter}</button>)}
+              </div>}
+              {!!draft.rimLetters?.length && <div className="local-rim-added-letters" aria-label="Letras agregadas a la virola">
+                {draft.rimLetters.map(letter => <button key={letter.id} type="button" aria-label={`Quitar letra ${letter.text}`} onClick={() => update({ rimLetters: draft.rimLetters?.filter(item => item.id !== letter.id) })}>{letter.text} <b aria-hidden="true">×</b></button>)}
+              </div>}
             </div>}
           </>}
         </div>

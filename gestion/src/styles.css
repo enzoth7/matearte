@@ -3313,6 +3313,11 @@ dialog.local-mate-summary-dialog{width:min(920px,calc(100% - 24px));max-height:9
 .local-sale-customer-status.registered { color: var(--green); border-color: rgb(47 125 85 / .24); background: rgb(47 125 85 / .09); }
 .local-sale-customer-status.pending { color: var(--brown); border-color: rgb(121 76 50 / .25); background: rgb(121 76 50 / .09); }
 .local-sale-customer-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; margin-top: 18px; }
+.local-personalization-rim-texts { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
+.local-rim-alphabet-toggle { align-self: end; min-height: 42px; padding: 9px 13px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); font-weight: 700; }
+.local-rim-alphabet, .local-rim-added-letters { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 7px; }
+.local-rim-alphabet button, .local-rim-added-letters button { min-width: 40px; min-height: 40px; padding: 7px; border: 1px solid var(--line); border-radius: 8px; background: var(--white); font-weight: 700; }
+.local-rim-added-letters button { display: inline-flex; gap: 8px; align-items: center; }
 .local-personalization-fields .unicode-engraving-field,
 .local-personalization-rim-texts .unicode-engraving-field { min-width: 0; display: grid; gap: 6px; }
 .unicode-engraving-control { display: flex; gap: 8px; min-width: 0; }
@@ -3374,7 +3379,8 @@ dialog.local-mate-summary-dialog{width:min(920px,calc(100% - 24px));max-height:9
   .local-personalization-card-heading { grid-template-columns: minmax(0, 1fr); }
   .local-personalization-card-heading > strong { grid-column: 1; }
   .local-personalization-fields { grid-template-columns: 1fr; }
-  .local-personalization-rim-texts { grid-template-columns: 1fr; }
+  .local-personalization-rim-texts { grid-template-columns: minmax(0, 1fr) auto; }
+  .local-personalization-rim-texts > .unicode-engraving-field:first-child { grid-column: 1 / -1; }
   .local-mate-characteristics { grid-template-columns: 1fr; }
   .local-personalization-fields .local-personalization-text { grid-column: auto; }
   .local-personalization-surface-title { align-items: flex-start; flex-direction: column; gap: 2px; }

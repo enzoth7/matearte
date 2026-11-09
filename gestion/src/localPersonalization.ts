@@ -7,6 +7,7 @@ export type PersonalizationKind = "mate" | "matera" | "bombilla";
 export type PersonalizationTechnique = "none" | "laser" | "bronze-applique" | "alpaca-applique";
 export type PersonalizationContent = "text" | "logo" | "text-logo";
 export type LocalDesignIcon = { id: string; selectedImageId: string; side?: "front" | "back" };
+export type LocalRimLetter = { id: string; text: string };
 export type LocalRimLogo = { id: string; file: File; enabled: boolean };
 export type LocalFlejeLogo = { id: string; file: File; sides: ("front" | "back")[] };
 
@@ -15,6 +16,7 @@ export type LocalPersonalizationDraft = {
   rimIconId?: string;
   flejeIconId?: string;
   rimIcons?: LocalDesignIcon[];
+  rimLetters?: LocalRimLetter[];
   flejeIcons?: LocalDesignIcon[];
   designTransforms?: Record<string, ElementTransform>;
   rimTechnique: PersonalizationTechnique;
@@ -211,7 +213,7 @@ export function validatePersonalization(draft: LocalPersonalizationDraft, produc
     return `Elegí qué parte se personaliza en ${product.name}.`;
   }
   if (draft.rimTechnique !== "none") {
-    if (hasText(draft.rimContent) && !draft.rimText.trim() && !draft.rimText2.trim()) return `Ingresá el texto de la virola para ${product.name}.`;
+    if (hasText(draft.rimContent) && !draft.rimText.trim() && !draft.rimText2.trim() && !draft.rimLetters?.length) return `Ingresá el texto de la virola para ${product.name}.`;
     if (hasLogo(draft.rimContent) && !localRimLogos(draft).some(logo => logo.enabled) && !localDesignIcons(draft, "rim").length) return `Adjuntá el logo de la virola para ${product.name}.`;
   }
   if (productHasFleje(product) && draft.flejeTechnique !== "none") {
@@ -369,6 +371,7 @@ export function buildLocalPersonalizationSnapshot(
         texts: draft.rimTechnique !== "none" && hasText(draft.rimContent) ? [
           { id: "text-1", text: draft.rimText.trim(), inverted: draft.rimTextInverted, transform: transform("rim-text", "rim") },
           { id: "text-2", text: draft.rimText2.trim(), inverted: draft.rimText2Inverted, transform: transform("rim-text-2", "rim") },
+          ...(draft.rimLetters ?? []).map(letter => ({ id: letter.id, text: letter.text, layout: "free" as const, transform: transform(letter.id, "rim") })),
         ] : [],
         imageMode: hasRimLogo ? "image" : "none",
         icons: hasRimLogo ? [...designIcons("rim", "rim"), ...rimAssets.map(({ id, asset }) => ({ id, selectedImageId: null, customImage: customImage(asset), transform: transform(id, "rim") }))] : [],

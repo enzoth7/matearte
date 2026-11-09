@@ -101,6 +101,17 @@ describe("compatibilidad de personalizaciones", () => {
     expect(fleje.sides.back.text).toBe("MARÍA");
   });
 
+  it("conserva letras móviles de virola al recuperar el diseño", () => {
+    const variant = getDefaultVariant("imperial");
+    const rim = normalizeRimSelection(variant, { texts: [
+      { id: "text-1", text: "ANA", transform: { x: .5, y: .5, scale: 1, rotation: 0, side: "rim" } },
+      { id: "text-2", text: "", transform: { x: .5, y: .5, scale: 1, rotation: 0, side: "rim" } },
+      { id: "letter-1", text: "Ñ", layout: "free", transform: { x: .8, y: .6, scale: 1.4, rotation: 35, side: "rim" } },
+    ] });
+    expect(rim.texts[2]).toMatchObject({ id: "letter-1", text: "Ñ", layout: "free", transform: { x: .8, y: .6, scale: 1.4, rotation: 35 } });
+    expect(rim.icons).toEqual([]);
+  });
+
   it("descarta íconos repetidos, incompletos y fuera del límite de la virola", () => {
     const validIcon = { id: "1", selectedImageId: "uruguayescudo", customImage: null, transform: { x: 0.5, y: 0.5, scale: 1, rotation: 0, side: "rim" as const } };
     const icons = normalizeRimIcons([

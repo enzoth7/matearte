@@ -133,7 +133,7 @@ export function ConfiguratorPreview({
     if (!drag || !onTransformChange || drag.pointerId !== event.pointerId) return;
     const point = pointFromEvent(event);
     const current = getElementTransform(drag.elementId);
-    const isTextElement = drag.elementId === "text" || drag.elementId.startsWith("text");
+    const isTextElement = (drag.elementId === "text" || drag.elementId.startsWith("text")) && getTextElement(drag.elementId)?.layout !== "free";
 
     if (drag.mode === "rotate") {
       const angle = Math.atan2(point.y - current.y, point.x - current.x) * (180 / Math.PI);
@@ -250,7 +250,7 @@ export function ConfiguratorPreview({
           texts={texts}
           textGeometry={profile.textGeometry}
         />
-        {rim.textMode === "text" && texts.map((t, index) => {
+        {rim.textMode === "text" && texts.filter(t => t.layout !== "free").map((t, index) => {
           const isSelected = editable && (selectedElement === t.id || (selectedElement === "text" && index === 0));
           return (
             <CircularRimText
@@ -267,6 +267,14 @@ export function ConfiguratorPreview({
             />
           );
         })}
+        {rim.textMode === "text" && texts.filter(t => t.layout === "free").map(letter => <RimIconLayer
+          key={letter.id} selectedImageId={null} glyph={letter.text} profile={profile} transform={letter.transform}
+          selected={editable && selectedElement === letter.id}
+          onPointerDown={editable && !placingElementId ? event => beginDrag(letter.id, event) : undefined}
+          onResizeDown={editable && !placingElementId ? event => beginDrag(letter.id, event, "resize") : undefined}
+          onRotateDown={editable && !placingElementId ? event => beginDrag(letter.id, event, "rotate") : undefined}
+          onRotateStep={editable && onTransformChange ? degrees => onTransformChange(letter.id, { ...letter.transform, rotation: (letter.transform.rotation ?? 0) + degrees }) : undefined}
+        />)}
         {rim.imageMode === "image" && rim.icons.map(icon => (
           <RimIconLayer
             key={icon.id}

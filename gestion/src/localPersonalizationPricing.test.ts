@@ -49,6 +49,16 @@ describe("precio de mates personalizados en ventas locales", () => {
     expect(calculateLocalPersonalizationPrice(draft, catalog).items).toMatchObject([{ quantity: 7, totalMinor: 17500 }]);
   });
 
+  it("cobra las letras independientes como texto, sin cargo de imagen", () => {
+    const draft = createPersonalizationDraft("mate");
+    draft.rimTechnique = "bronze-applique";
+    draft.rimText = "ANA";
+    draft.rimLetters = [{ id: "letter-1", text: "Ñ" }, { id: "letter-2", text: "A" }];
+    expect(calculateLocalPersonalizationPrice(draft, catalog).items).toMatchObject([
+      { ruleKey: "customization:bronze-applique:rim_text", quantity: 5, totalMinor: 12500 },
+    ]);
+  });
+
   it("cobra un único grabado láser por texto y logo juntos, o solo por logo", () => {
     const draft = createPersonalizationDraft("mate");
     draft.rimContent = "text-logo";
