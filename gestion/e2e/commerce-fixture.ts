@@ -260,18 +260,20 @@ export async function mockCommerce(page: Page, options: { userId?: string; denie
         const referenceNumber = tables.local_sales.filter((sale: any) => sale.reference_code?.startsWith(`#${prefix}`)).length + 1;
         const customer = tables.local_sales_customers.find((entry: any) => entry.id === body.p_customer_id);
         const items = body.p_items.map((item: any, index: number) => {
-          if (item.item_kind === 'custom_mate') return { id: `sale-item-${saleNumber}-${index}`, variant_id: null, sku: '', product_name: assemblyName(item.customization.assembly.selections), variant_name: assemblySummary(item.customization.assembly.selections), quantity: item.quantity, unit_price_minor: item.unit_price_minor, line_total_minor: item.unit_price_minor * item.quantity, customization: item.customization };
+          const price = item.sale_unit_price_minor ?? item.unit_price_minor;
+          if (item.item_kind === 'custom_mate') return { id: `sale-item-${saleNumber}-${index}`, variant_id: null, sku: '', product_name: assemblyName(item.customization.assembly.selections), variant_name: assemblySummary(item.customization.assembly.selections), quantity: item.quantity, unit_price_minor: price, line_total_minor: price * item.quantity, customization: item.customization };
           const product = fixture.products.find((entry) => entry.commerce_variants.some((variant) => variant.id === item.variant_id))!;
           const variant = product.commerce_variants.find((entry) => entry.id === item.variant_id)!;
           return { id: `sale-item-${saleNumber}-${index}`, variant_id: item.variant_id, sku: variant.sku,
             product_name: product.name, variant_name: variant.name, quantity: item.quantity,
-            unit_price_minor: item.unit_price_minor, line_total_minor: item.unit_price_minor * item.quantity, customization: item.customization || null };
+            unit_price_minor: price, line_total_minor: price * item.quantity, customization: item.customization || null };
         });
         const itemsTotal = items.reduce((sum: number, item: any) => sum + item.line_total_minor, 0);
-        const charged = body.p_deposit_minor == null ? itemsTotal : body.p_deposit_minor;
+        const charged = body.p_deposit_minor ?? itemsTotal + (body.p_shipping_minor ?? 0);
         const row = { id: `sale-${saleNumber}`, sale_number: saleNumber, reference_code: `#${prefix}${String(referenceNumber).padStart(3, '0')}`, channel, customer_id: body.p_customer_id,
           customer_name: customer?.full_name || 'Cliente sin registrar', sold_on: body.p_sold_on,
-          payment_method: body.p_payment_method, total_minor: charged, deposit_minor: body.p_deposit_minor, currency: 'UYU',
+          payment_method: body.p_payment_method, total_minor: charged, deposit_minor: body.p_deposit_minor, currency: body.p_currency ?? 'UYU',
+          retail_shipping_minor: body.p_shipping_minor ?? 0, retail_rate_to_uyu: body.p_rate_to_uyu ?? null,
           created_at: new Date().toISOString(), local_sale_items: items };
         tables.local_sales.push(row);
         if (customer) {

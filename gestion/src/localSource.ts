@@ -55,6 +55,8 @@ export type LocalSale = {
   total_minor: number;
   deposit_minor?: number | null;
   currency: string;
+  retail_shipping_minor?: number;
+  retail_rate_to_uyu?: number | null;
   created_at: string;
   local_sale_items: LocalSaleItem[];
 };

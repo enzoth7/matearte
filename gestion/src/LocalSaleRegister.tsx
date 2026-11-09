@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import { FileArrowUp, MagnifyingGlass, PencilSimple, Plus, Trash, UserPlus } from "@phosphor-icons/react";
 import type { PageProps } from "./pages";
-import { money, today, type Customer, type Product } from "./data";
+import { currencyMoney, money, today, type Customer, type Product } from "./data";
 import { allowedSalesChannels } from "./access";
 import { commerceSource } from "./commerceSource";
 import { salePriceMinor, usesBasePrice } from "./localSalePricing";
@@ -39,8 +39,10 @@ import { catalogValueLabel, defaultCatalogTaxonomy, normalizeCatalogValueMap } f
 import { getRimFinish, getRimFinishCatalogForEngravingType } from "../../personalizador/src/catalog/rimFinishCatalog";
 import { flejeFinishCatalog, getFlejeFinish } from "../../personalizador/src/catalog/flejeFinishCatalog";
 
-type SaleLine = { id: string; product: Product; quantity: number; unitPriceMinor: number; priceEntered?: boolean; priceOverridden?: boolean; personalization?: LocalPersonalizationDraft; notes?: string };
-type LocalSaleDraft = { lines: SaleLine[]; articleTab: "articles" | "custom"; customerId: string; customerSearch: string; newCustomer: boolean; name: string; email: string; phone: string; birthDate: string; date: string; payment: string; hasDeposit: boolean; deposit: string; discountOn: boolean; discountText: string; channel: "Local" | "Feria" | "Instagram" | "Facebook" | "WhatsApp"; city: string; country: string; department: string };
+const saleCurrencies = ["ARS", "UYU", "USD", "BRL"] as const;
+type SaleCurrency = typeof saleCurrencies[number];
+type SaleLine = { id: string; product: Product; quantity: number; unitPriceMinor: number; foreignPrice?: string; priceEntered?: boolean; priceOverridden?: boolean; personalization?: LocalPersonalizationDraft; notes?: string };
+type LocalSaleDraft = { lines: SaleLine[]; articleTab: "articles" | "custom"; customerId: string; customerSearch: string; newCustomer: boolean; name: string; email: string; phone: string; birthDate: string; date: string; payment: string; hasDeposit: boolean; deposit: string; discountOn: boolean; discountText: string; channel: "Local" | "Feria" | "Instagram" | "Facebook" | "WhatsApp"; city: string; country: string; department: string; currency?: SaleCurrency; shipping?: string };
 const cents = (value: string) => Math.round(Number(value.replace(",", ".")) * 100);
 const categoryKey = (product: Product) => product.categoryCode || product.family;
 const isService = (product: Product) => categoryKey(product) === "servicios";
@@ -290,6 +292,13 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
   const [birthDate, setBirthDate] = useState("");
   const [date, setDate] = useState(today);
   const [payment, setPayment] = useState("Efectivo");
+  const [currency, setCurrency] = useState<SaleCurrency>("UYU");
+  const [shipping, setShipping] = useState("");
+  const foreignSale = currency !== "UYU";
+  const rate = foreignSale ? Number(s.records.monedas?.find(row => row.moneda === currency)?.valor) : 1;
+  const validRate = Number.isFinite(rate) && rate > 0;
+  const saleMoney = (amount: number) => currencyMoney(amount, currency);
+  const fromUyuMinor = (minor: number) => Math.round(minor / rate);
   const [hasDeposit, setHasDeposit] = useState(false);
   const [discountOn, setDiscountOn] = useState(false);
   const [discountText, setDiscountText] = useState("10");
@@ -304,8 +313,8 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [draftNotice, setDraftNotice] = useState("");
-  const draftValue: LocalSaleDraft = { lines, articleTab, customerId, customerSearch, newCustomer, name, email, phone, birthDate, date, payment, hasDeposit, deposit, discountOn, discountText, channel, city, country, department };
-  const draftHasContent = lines.length > 0 || Boolean(customerId || customerSearch || newCustomer || name || email || phone || birthDate || deposit) || date !== today || payment !== "Efectivo" || channel !== "Local" || hasDeposit || discountOn || discountText !== "10" || city !== "Paysandú" || country !== "Uruguay" || department !== "Paysandú";
+  const draftValue: LocalSaleDraft = { lines, articleTab, customerId, customerSearch, newCustomer, name, email, phone, birthDate, date, payment, hasDeposit, deposit, discountOn, discountText, channel, city, country, department, currency, shipping };
+  const draftHasContent = lines.length > 0 || Boolean(customerId || customerSearch || newCustomer || name || email || phone || birthDate || deposit || shipping) || foreignSale || date !== today || payment !== "Efectivo" || channel !== "Local" || hasDeposit || discountOn || discountText !== "10" || city !== "Paysandú" || country !== "Uruguay" || department !== "Paysandú";
   const draft = useOrderDraft(`minorista:${session?.user.id || s.activeUserId || s.user}`, draftValue,
     draftHasContent, (saved, isNew) => {
       setLines(saved.lines.map(line => {
@@ -317,6 +326,7 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
       setArticleTab(saved.articleTab); setCustomerId(saved.customerId); setCustomerSearch(saved.customerSearch);
       setNewCustomer(saved.newCustomer); setName(saved.name); setEmail(saved.email); setPhone(saved.phone);
       setBirthDate(saved.birthDate); setDate(saved.date); setPayment(saved.payment); setHasDeposit(saved.hasDeposit);
+      setCurrency(saved.currency ?? "UYU"); setShipping(saved.shipping ?? "");
       setDeposit(saved.deposit); setDiscountOn(saved.discountOn); setDiscountText(saved.discountText);
       setChannel(saved.channel); setCity(saved.city); setCountry(saved.country); setDepartment(saved.department);
       setDraftNotice(isNew ? "Nueva venta iniciada. Podés volver a los otros borradores cuando quieras." : "Borrador retomado. Revisá precios y disponibilidad antes de registrar la venta.");
@@ -378,13 +388,17 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
   // El descuento aplica solo a los artículos personalizados (los demás ya tienen su precio por medio de pago).
   const discountPercent = discountOn && personalizedLines.length ? parseDiscountPercent(discountText) : 0;
   const soldUnitMinor = (line: SaleLine) => line.personalization && discountPercent > 0 ? Math.round(unitPriceMinor(line) * (100 - discountPercent) / 100) : unitPriceMinor(line);
-  const listItemsMinor = lines.reduce((sum, line) => sum + line.quantity * unitPriceMinor(line), 0);
-  const itemsMinor = lines.reduce((sum, line) => sum + line.quantity * soldUnitMinor(line), 0);
+  const saleUnitMinor = (line: SaleLine, withDiscount = true) => foreignSale && !line.personalization && line.foreignPrice !== undefined
+    ? cents(line.foreignPrice) : fromUyuMinor(withDiscount ? soldUnitMinor(line) : unitPriceMinor(line));
+  const listItemsMinor = lines.reduce((sum, line) => sum + line.quantity * saleUnitMinor(line, false), 0);
+  const itemsMinor = lines.reduce((sum, line) => sum + line.quantity * saleUnitMinor(line), 0);
+  const shippingMinor = foreignSale ? cents(shipping) : 0;
+  const totalMinor = itemsMinor + shippingMinor;
   const depositMinor = cents(deposit);
   const linePriceReady = (line: SaleLine) => !line.personalization || (Boolean(pricing) && !pricingLoading && (line.personalization.kind !== "bombilla" || Boolean(line.personalization.bombillaTechnique)) && (!line.product.assembly || priceMateAssembly(line.product.assembly, pricing?.rules).ready) && !calculateLocalPersonalizationPrice(line.personalization, pricing).missingRuleKeys.length);
   const customPricesReady = lines.every(linePriceReady);
   const linePriceAvailable = (line: SaleLine) => !line.personalization || (Boolean(pricing) && !pricingLoading && (!line.product.assembly || (!validateMateAssemblyCore(line.product.assembly) && !priceMateAssembly(line.product.assembly, pricing?.rules).missing.length)) && !calculateLocalPersonalizationPrice(line.personalization, pricing).missingRuleKeys.length);
-  const pricesAvailable = lines.every(linePriceAvailable);
+  const pricesAvailable = validRate && lines.every(linePriceAvailable);
   const missingAssemblyField = personalizedLines.map(line => line.product.assembly && validateMateAssembly(line.product.assembly)).find(Boolean);
   const updatePersonalization = (lineId: string, changes: Partial<LocalPersonalizationDraft>) => setLines((current) => current.map((line) => line.id === lineId && line.personalization
     ? { ...line, personalization: { ...line.personalization, ...changes } }
@@ -435,7 +449,8 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
     const source = commerceSource;
     if (!lines.length) { setError("Agregá al menos un producto."); return; }
     if (channel !== "Local" && lines.some((line) => isService(line.product))) { setError("Los servicios solo se registran como ventas de Local."); return; }
-    if (lines.some((line) => hasVariableServicePrice(line.product) && (!line.priceEntered || line.unitPriceMinor <= 0))) { setError("Ingresá el precio acordado para cada servicio con precio a definir."); return; }
+    if (!validRate) { setError(`Falta configurar la cotización de ${currency}.`); return; }
+    if (lines.some((line) => hasVariableServicePrice(line.product) && (saleUnitMinor(line) <= 0 || (foreignSale ? !line.foreignPrice : !line.priceEntered)))) { setError("Ingresá el precio acordado para cada servicio con precio a definir."); return; }
     if (lines.length > 100 || lines.some((line) => !Number.isInteger(line.quantity) || line.quantity < 1 || line.quantity > 1000 || !Number.isInteger(line.unitPriceMinor) || line.unitPriceMinor < 0 || line.unitPriceMinor > 1000000000)) {
       setError("Revisá cantidades y precios."); return;
     }
@@ -447,8 +462,10 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
       if (!pricing || quote.missingRuleKeys.length) { setArticleTab("custom"); setError("No se puede guardar el artículo personalizado sin sus precios publicados. Revisá Productos → Personalizador y actualizá los precios."); return; }
     }
     if (discountOn && personalizedLines.length && !(discountPercent > 0)) { setError("Ingresá un descuento mayor a 0%, o elegí \"No\"."); return; }
-    if (hasDeposit && (!Number.isInteger(depositMinor) || depositMinor <= 0 || depositMinor > itemsMinor)) {
-      setError("La seña debe ser mayor que cero y no superar el valor de los artículos."); return;
+    if (!Number.isSafeInteger(shippingMinor) || shippingMinor < 0 || shippingMinor > 1_000_000_000) { setError("Revisá el importe del envío."); return; }
+    if (foreignSale && lines.some(line => !Number.isSafeInteger(saleUnitMinor(line)) || saleUnitMinor(line) < 0 || saleUnitMinor(line) > 1_000_000_000)) { setError("Revisá los precios en la moneda de la venta."); return; }
+    if (hasDeposit && (!Number.isInteger(depositMinor) || depositMinor <= 0 || depositMinor > totalMinor)) {
+      setError("La seña debe ser mayor que cero y no superar el total de la venta."); return;
     }
     if (newCustomer && !name.trim()) { setError("Ingresá el nombre del cliente."); return; }
     setBusy(true); setError("");
@@ -526,6 +543,7 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
           ...(isService(line.product) && line.notes?.trim() ? { production_notes: line.notes.trim() } : {}),
           quantity: line.quantity,
           unit_price_minor: soldUnitMinor(line),
+          ...(foreignSale ? { sale_unit_price_minor: saleUnitMinor(line) } : {}),
           ...(line.personalization && discountPercent > 0 ? { discount_percent: discountPercent } : {}),
           customization: line.personalization ? {
             ...snapshot,
@@ -540,6 +558,7 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
         p_items: items,
         p_deposit_minor: hasDeposit ? depositMinor : null,
         p_channel: channel,
+        ...(foreignSale ? { p_currency: currency, p_rate_to_uyu: rate, p_shipping_minor: shippingMinor } : {}),
       });
       if (error) throw new Error(error.code === "22023" ? error.message : "No se pudo guardar la venta. Revisá los datos e intentá nuevamente.");
       await draft.finish().catch(() => undefined);
@@ -556,12 +575,20 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
     {draft.error && <span className="error" role="alert">{draft.error}</span>}
   </div>;
   if (draft.status === "loading" || draft.status === "available") return <div className="order-draft-gate">{draftPanel}</div>;
+  const changeCurrency = (next: SaleCurrency) => {
+    setCurrency(next);
+    setShipping("");
+    setDeposit("");
+    setLines(current => current.map(line => ({ ...line, foreignPrice: undefined })));
+    setError("");
+  };
   const renderLine = (line: SaleLine) => <div className="local-sale-line" key={line.id}>
     <div><strong>{line.product.name}</strong><small>{[line.product.sku, visibleVariant(line.product.variant)].filter(Boolean).join(" · ")}</small>{line.personalization && <button type="button" className="local-sale-edit-personalization" onClick={() => document.getElementById(`local-personalization-${line.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}><PencilSimple size={16} aria-hidden="true" />Editar diseño y materiales</button>}</div>
-    {line.personalization ? <label>Precio unitario<input type="text" value={linePriceAvailable(line) ? money(soldUnitMinor(line) / 100) : ""} placeholder="Tarifa no disponible" readOnly aria-label={`Precio unitario de ${line.product.name}`} /></label>
+    {line.personalization ? <label>Precio unitario<input type="text" value={validRate && linePriceAvailable(line) ? saleMoney(saleUnitMinor(line) / 100) : ""} placeholder="Tarifa no disponible" readOnly aria-label={`Precio unitario de ${line.product.name}`} /></label>
+      : foreignSale ? <label>Precio ({currency})<input type="number" min={hasVariableServicePrice(line.product) ? "0.01" : "0"} max="10000000" step="0.01" required value={line.foreignPrice ?? (validRate && !hasVariableServicePrice(line.product) ? saleUnitMinor(line) / 100 : "")} onChange={event => setLines(current => current.map(item => item.id === line.id ? { ...item, foreignPrice: event.target.value } : item))} /></label>
       : <label>{hasVariableServicePrice(line.product) ? "Precio acordado" : "Precio"}<input type="number" min={hasVariableServicePrice(line.product) ? "0.01" : "0"} max="10000000" step="0.01" required={hasVariableServicePrice(line.product)} placeholder={hasVariableServicePrice(line.product) ? "Ingresar precio" : undefined} value={hasVariableServicePrice(line.product) && !line.priceEntered ? "" : line.unitPriceMinor / 100} onChange={(event) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, unitPriceMinor: cents(event.target.value), priceEntered: event.target.value !== "", priceOverridden: true } : item))} /></label>}
     <label>Cantidad<input type="number" min="1" max="1000" step="1" value={line.quantity} onChange={(event) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity: Number(event.target.value) } : item))} /></label>
-    <strong>{linePriceAvailable(line) ? (line.personalization && discountPercent > 0 ? <><s className="local-sale-struck">{money(line.quantity * unitPriceMinor(line) / 100)}</s> {money(line.quantity * soldUnitMinor(line) / 100)}</> : money(line.quantity * unitPriceMinor(line) / 100)) : "—"}</strong>
+    <strong>{validRate && linePriceAvailable(line) ? (line.personalization && discountPercent > 0 ? <><s className="local-sale-struck">{saleMoney(line.quantity * saleUnitMinor(line, false) / 100)}</s> {saleMoney(line.quantity * saleUnitMinor(line) / 100)}</> : saleMoney(line.quantity * saleUnitMinor(line) / 100)) : "—"}</strong>
     <button type="button" className="local-sale-remove" aria-label={`Quitar ${line.product.name}`} onClick={() => setLines((current) => current.filter((item) => item.id !== line.id))}><Trash size={18} /></button>
     {isService(line.product) && <label className="local-sale-line-notes">Notas para producción<textarea aria-label={`Notas para producción de ${line.product.name}`} maxLength={1000} rows={2} placeholder="Indicaciones para el taller" value={line.notes || ""} onChange={(event) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, notes: event.target.value } : item))} /></label>}
   </div>;
@@ -646,9 +673,12 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
         <label>Fecha de venta<input type="date" max={today} value={date} onChange={(event) => setDate(event.target.value)} required /></label>
         <label>Canal de venta<select value={channel} onChange={(event) => { const next = event.target.value as typeof channel; if(next !== "Local" && lines.some((line) => isService(line.product))) { setError("Quitá los servicios antes de cambiar el canal de venta."); return; } setChannel(next); setCategory(""); setSelectedProductId(""); setError(""); }}>{(["Local", "Feria", "Instagram", "Facebook", "WhatsApp"] as const).filter((option) => option === "Local" || allowedSalesChannels(s).includes(option)).map((option) => <option key={option}>{option}</option>)}</select></label>
         <label>Medio de pago<select value={payment} onChange={(event) => { const next = event.target.value; setPayment(next); setLines((current) => current.map((line) => line.product.assembly || hasVariableServicePrice(line.product) || line.priceOverridden ? line : { ...line, unitPriceMinor: salePriceMinor(line.product, next) })); }}>{["Efectivo", "Débito", "Crédito", "Transferencia"].map((method) => <option key={method}>{method}</option>)}</select></label>
+        <label>Moneda<select value={currency} onChange={event => changeCurrency(event.target.value as SaleCurrency)}>{saleCurrencies.map(option => <option key={option}>{option}</option>)}</select></label>
+        {foreignSale && <label>Envío ({currency})<input type="number" min="0" max="10000000" step="0.01" value={shipping} onChange={event => setShipping(event.target.value)} placeholder="0" /></label>}
         <label className="local-sale-deposit-toggle"><input type="checkbox" checked={hasDeposit} onChange={(event) => setHasDeposit(event.target.checked)} />Con seña</label>
-        {hasDeposit && <label>Seña cobrada<input type="number" min="0.01" max="10000000" step="0.01" value={deposit} onChange={(event) => setDeposit(event.target.value)} required /></label>}
+        {hasDeposit && <label>{foreignSale ? `Seña cobrada (${currency})` : "Seña cobrada"}<input type="number" min="0.01" max="10000000" step="0.01" value={deposit} onChange={(event) => setDeposit(event.target.value)} required /></label>}
       </div>
+      {foreignSale && <small>{validRate ? `Cotización de Gestión: 1 ${currency} = ${rate.toLocaleString("es-UY", { maximumFractionDigits: 8 })} UYU.` : `Falta configurar la cotización de ${currency}.`}</small>}
     </section>
     {personalizedLines.length > 0 && <section className="local-sale-section local-sale-discount-section">
       <h2>Descuentos</h2>
@@ -658,10 +688,11 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
       </div>
     </section>}
     <footer className="local-sale-footer">
-      <div><small>{pricesAvailable && !customPricesReady ? "Total estimado" : "Artículos"}</small>{pricesAvailable && discountPercent > 0 && listItemsMinor > itemsMinor ? <strong className="local-sale-total-discounted"><s>{money(listItemsMinor / 100)}</s><span>{money(itemsMinor / 100)}</span><em>-{formatPercent(discountPercent)} en personalizados</em></strong> : <strong>{pricesAvailable ? money(itemsMinor / 100) : "Tarifa no disponible"}</strong>}{missingAssemblyField && <small className="local-sale-price-help">Completá los materiales antes de guardar la venta.</small>}</div>
-      {hasDeposit && <div><small>Seña cobrada</small><strong>{money(Number.isFinite(depositMinor) ? depositMinor / 100 : 0)}</strong></div>}
+      <div><small>{pricesAvailable && !customPricesReady ? "Total estimado" : "Artículos"}</small>{pricesAvailable && discountPercent > 0 && listItemsMinor > itemsMinor ? <strong className="local-sale-total-discounted"><s>{saleMoney(listItemsMinor / 100)}</s> <b>{saleMoney(itemsMinor / 100)}</b><em>-{formatPercent(discountPercent)} en personalizados</em></strong> : <strong>{pricesAvailable ? saleMoney(itemsMinor / 100) : "Tarifa no disponible"}</strong>}{missingAssemblyField && <small className="local-sale-price-help">Completá los materiales antes de guardar la venta.</small>}</div>
+      {hasDeposit && <div><small>Seña cobrada</small><strong>{saleMoney(Number.isFinite(depositMinor) ? depositMinor / 100 : 0)}</strong></div>}
+      {foreignSale && <div><small>Total con envío</small><strong>{pricesAvailable ? saleMoney(totalMinor / 100) : "Tarifa no disponible"}</strong></div>}
       {error && <div className="error" role="alert">{error}{error.includes("tarifas") && <button type="button" onClick={() => setPricingRefresh(value => value + 1)}>Actualizar precios</button>}</div>}
-      <button className="primary" disabled={busy || !lines.length || !customPricesReady}><Plus size={18} />{busy ? "Guardando…" : "Guardar venta"}</button>
+      <button className="primary" disabled={busy || !lines.length || !customPricesReady || !validRate}><Plus size={18} />{busy ? "Guardando…" : "Guardar venta"}</button>
     </footer>
     </div>
     <aside className="local-sale-photo-panel" aria-label="Fotos de los artículos de la venta">
@@ -670,14 +701,16 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
         <div className="local-sale-photo-frame">{line.product.imageUrl ? <img src={line.product.imageUrl} alt={`Foto de ${line.product.name}`} style={line.product.imageCrop ? { transform: `translate(${line.product.imageCrop.x}%, ${line.product.imageCrop.y}%) scale(${line.product.imageCrop.zoom})` } : undefined} /> : <span>Sin foto</span>}</div>
         <div><strong>{line.product.name}</strong>{visibleVariant(line.product.variant) && <small>{visibleVariant(line.product.variant)}</small>}<small>{line.quantity} {line.quantity === 1 ? "unidad" : "unidades"}{line.personalization ? " · Personalizado" : ""}</small></div>
         <div className="local-sale-cost-detail" aria-label={`Desglose de ${line.product.name}`}>
-          {line.product.assembly ? priceMateAssembly(line.product.assembly, pricing?.rules).items.map(item => <div key={item.ruleKey}><span>{item.label}</span><b>{money(item.totalMinor / 100)}</b></div>) : <div><span>Precio del artículo</span><b>{money(basePriceMinor(line) / 100)}</b></div>}
-          {line.personalization && calculateLocalPersonalizationPrice(line.personalization, pricing).items.map(item => <div key={item.ruleKey}><span>{item.label.replace("Logo", "Íconos / imágenes")}<small>{item.quantity} × {money(item.unitPriceMinor / 100)}</small></span><b>{money(item.totalMinor / 100)}</b></div>)}
-          <div className="local-sale-cost-total"><span>{linePriceReady(line) ? "Total unitario" : "Total unitario estimado"}</span><b>{linePriceAvailable(line) ? money(unitPriceMinor(line) / 100) : "Tarifa no disponible"}</b></div>
-          {line.personalization && discountPercent > 0 && linePriceAvailable(line) && <div><span>Descuento {formatPercent(discountPercent)}</span><b>-{money((unitPriceMinor(line) - soldUnitMinor(line)) / 100)}</b></div>}
-          {line.quantity > 1 && <div><span>{line.quantity} unidades</span><b>{linePriceAvailable(line) ? money(line.quantity * soldUnitMinor(line) / 100) : "Tarifa no disponible"}</b></div>}
+          {validRate && (line.product.assembly ? priceMateAssembly(line.product.assembly, pricing?.rules).items.map(item => <div key={item.ruleKey}><span>{item.label}</span><b>{saleMoney(fromUyuMinor(item.totalMinor) / 100)}</b></div>) : <div><span>Precio del artículo</span><b>{saleMoney((line.personalization ? fromUyuMinor(basePriceMinor(line)) : saleUnitMinor(line)) / 100)}</b></div>)}
+          {validRate && line.personalization && calculateLocalPersonalizationPrice(line.personalization, pricing).items.map(item => <div key={item.ruleKey}><span>{item.label.replace("Logo", "Íconos / imágenes")}<small>{item.quantity} × {saleMoney(fromUyuMinor(item.unitPriceMinor) / 100)}</small></span><b>{saleMoney(fromUyuMinor(item.totalMinor) / 100)}</b></div>)}
+          <div className="local-sale-cost-total"><span>{linePriceReady(line) ? "Total unitario" : "Total unitario estimado"}</span><b>{validRate && linePriceAvailable(line) ? saleMoney(saleUnitMinor(line, false) / 100) : "Tarifa no disponible"}</b></div>
+          {validRate && line.personalization && discountPercent > 0 && linePriceAvailable(line) && <div><span>Descuento {formatPercent(discountPercent)}</span><b>-{saleMoney((saleUnitMinor(line, false) - saleUnitMinor(line)) / 100)}</b></div>}
+          {line.quantity > 1 && <div><span>{line.quantity} unidades</span><b>{validRate && linePriceAvailable(line) ? saleMoney(line.quantity * saleUnitMinor(line) / 100) : "Tarifa no disponible"}</b></div>}
         </div>
       </article>)}</div>}
-      {lines.length > 0 && <div className="local-sale-cost-detail local-sale-cost-grand" aria-live="polite"><div><strong>{customPricesReady ? "Total de la venta" : "Total estimado de la venta"}</strong><strong>{pricesAvailable ? (discountPercent > 0 && listItemsMinor > itemsMinor ? <><s className="local-sale-struck">{money(listItemsMinor / 100)}</s> {money(itemsMinor / 100)}</> : money(itemsMinor / 100)) : "Tarifa no disponible"}</strong></div></div>}
+      {lines.length > 0 && <div className="local-sale-cost-detail local-sale-cost-grand" aria-live="polite">
+        {foreignSale && <div><strong>Envío</strong><b>{saleMoney(shippingMinor / 100)}</b></div>}
+        <div><strong>{customPricesReady ? "Total de la venta" : "Total estimado de la venta"}</strong><strong>{pricesAvailable ? (discountPercent > 0 && listItemsMinor > itemsMinor ? <><s className="local-sale-struck">{saleMoney((listItemsMinor + shippingMinor) / 100)}</s> {saleMoney(totalMinor / 100)}</> : saleMoney(totalMinor / 100)) : "Tarifa no disponible"}</strong></div></div>}
     </aside>
   </form>;
 }

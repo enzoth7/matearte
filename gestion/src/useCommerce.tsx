@@ -134,13 +134,19 @@ export function useCommerce() {
         readCustomerProfiles(),
         readLocalCustomers(client, localCustomerCache.current),
         readAllPages<LocalSale>(async (page) => {
-          let result: { data: unknown[] | null; count: number | null; error: { code?: string; message: string } | null } = await client.from("local_sales")
-            .select("id,sale_number,reference_code,channel,customer_id,customer_name,sold_on,payment_method,total_minor,deposit_minor,currency,created_at,status,shipping_method,shipping_carrier,tracking_code,local_sale_items(id,variant_id,sku,product_name,variant_name,quantity,unit_price_minor,line_total_minor,customization,production_notes,production_status)", { count: "exact" })
+          const fields = "id,sale_number,reference_code,channel,customer_id,customer_name,sold_on,payment_method,total_minor,deposit_minor,currency,created_at,status,shipping_method,shipping_carrier,tracking_code";
+          const itemFields = "id,variant_id,sku,product_name,variant_name,quantity,unit_price_minor,line_total_minor";
+          const readSales = (saleFields: string, lineFields: string) => client.from("local_sales")
+            .select(`${saleFields},local_sale_items(${lineFields})`, { count: "exact" })
             .order("id").range(page * 100, page * 100 + 99);
+          const extendedItems = `${itemFields},customization,production_notes,production_status`;
+          let result: { data: unknown[] | null; count: number | null; error: { code?: string; message: string } | null } =
+            await readSales(`${fields},retail_shipping_minor,retail_rate_to_uyu`, extendedItems);
+          if (result.error?.code === "42703" && /retail_(shipping_minor|rate_to_uyu)/i.test(result.error.message)) {
+            result = await readSales(fields, extendedItems);
+          }
           if (result.error?.code === "42703" && /customization/i.test(result.error.message)) {
-            result = await client.from("local_sales")
-              .select("id,sale_number,reference_code,channel,customer_id,customer_name,sold_on,payment_method,total_minor,deposit_minor,currency,created_at,status,shipping_method,shipping_carrier,tracking_code,local_sale_items(id,variant_id,sku,product_name,variant_name,quantity,unit_price_minor,line_total_minor)", { count: "exact" })
-              .order("id").range(page * 100, page * 100 + 99);
+            result = await readSales(fields, itemFields);
           }
           const { data, count, error } = result;
           if (error) throw error;

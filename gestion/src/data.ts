@@ -72,6 +72,7 @@ export type OrderLine = {
   weightGrams?: number;
   personalization?: Record<string, unknown>;
   productionNotes?: string;
+  originalUnitPrice?: number;
   unitPrice: number; amount: number; family: string; variant: string; rim: string; leather: string;
   productionStatus: string; reviewStatus: string | null;
   wholesaleLineId?: string; orderType?: string; priceArg?: number;
@@ -100,6 +101,9 @@ export type Order = {
   paidAt?: string | null;
   originalCurrency?: string;
   originalTotalAmount?: number;
+  retailRateToUyu?: number;
+  originalShippingAmount?: number;
+  originalDepositAmount?: number;
   totalAmount?: number;
   paymentAmountUsd?: number;
   shippingAmount?: number;
@@ -229,6 +233,8 @@ export const money = (n: number) =>
     maximumFractionDigits: 2,
   }).format(n);
 export const arsMoney = (n: number) => `ARS ${n.toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+export const currencyMoney = (n: number, currency = "UYU") => currency === "UYU" ? money(n) :
+  `${currency} ${n.toLocaleString("es-UY", { maximumFractionDigits: 2 })}`;
 export const usdMoney = (n: number) => `USD ${n.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 export const paymentMoney = (p: Payment) => {
   const original = p.sourceCurrency && p.sourceCurrency !== "UYU" ? `${p.sourceCurrency} ${(p.sourceAmount ?? 0).toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · ` : "";
@@ -272,11 +278,16 @@ export const wholesaleBalanceArs = (s: State, o: Order): number | null => {
   const collected = wholesalePaidArs(s, o);
   return collected == null ? null : Math.max(0, o.wholesaleTotalArg - collected);
 };
-export const balance = (s: State, o: Order) =>
+export const balance = (s: State, o: Order): number =>
   o.paidAt || ["cancelled", "refunded", "payment_failed"].includes(o.status || "") ? 0
     : o.source === "wholesale"
       ? (wholesaleBalanceArs(s, o) ?? 0) * (o.wholesaleTotalArg && o.wholesaleTotalUyu != null ? o.wholesaleTotalUyu / o.wholesaleTotalArg : 0)
-      : Math.max(0, total(o) - paid(s, o));
+      : o.retailRateToUyu ? localOriginalBalance(s, o) * o.retailRateToUyu : Math.max(0, total(o) - paid(s, o));
+export const localOriginalBalance = (s: State, order: Order): number => {
+  if (!order.retailRateToUyu) return balance(s, order);
+  if (order.paidAt || ["cancelled", "refunded", "payment_failed"].includes(order.status || "")) return 0;
+  return Math.max(0, Math.round(((order.originalTotalAmount ?? 0) - paid(s, order) / order.retailRateToUyu) * 100) / 100);
+};
 export function seed(): State {
   return {
     version: 1, source: "commerce", user: "Richard Ortiz", activeUserId: "t1",

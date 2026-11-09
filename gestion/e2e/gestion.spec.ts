@@ -765,14 +765,23 @@ test("Fiados Local permite crear un cliente y un pedido por categoría", async (
   await page.getByRole("button", { name: "Agregar pedido" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "Cliente nuevo" }).click();
-  await dialog.getByLabel("Nombre").fill("Cliente de fiado nuevo");
+  await dialog.getByLabel("Nombre").fill("federico roldan");
   await dialog.getByLabel("Teléfono").fill("099123456");
   await dialog.getByRole("combobox", { name: "Categoría" }).selectOption("mates");
   await dialog.getByLabel("Importe UYU").fill("125");
   await dialog.getByRole("button", { name: "Guardar pedido" }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole("row").filter({ hasText: "Cliente de fiado nuevo" })).toContainText("$ 125");
-  expect(tables.local_sales_customers.some((customer: { full_name: string }) => customer.full_name === "Cliente de fiado nuevo")).toBe(true);
+  const row = page.getByRole("row").filter({ hasText: "Federico Roldan" });
+  await expect(row).toContainText("$ 125");
+  await expect(row.getByRole("button", { name: /Pagos de/ })).toHaveClass("primary");
+  const customerButton = row.getByRole("button", { name: "Ver ficha de Federico Roldan" });
+  await expect(customerButton).toHaveText("Federico Roldan");
+  await customerButton.click();
+  const customerDetail = page.getByRole("dialog", { name: "Federico Roldan" });
+  await expect(customerDetail.getByRole("region", { name: "Datos del cliente" })).toContainText("099123456");
+  await customerDetail.getByRole("button", { name: "Cerrar", exact: true }).click();
+  await expect(page).toHaveURL(/\/finanzas\/fiados-local$/);
+  expect(tables.local_sales_customers.some((customer: { full_name: string }) => customer.full_name === "federico roldan")).toBe(true);
 });
 
 test("Fiados Local registra categorías personalizadas y lleva el cobro a Finanzas una sola vez", async ({ page }) => {

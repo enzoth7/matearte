@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { commerceSource } from "./commerceSource";
-import { money, montevideoToday, orderName, type Order } from "./data";
+import { currencyMoney, montevideoToday, orderName, type Order } from "./data";
 import { Modal } from "./ui";
 
 const paymentMethods = ["Efectivo", "Débito", "Crédito", "Transferencia"];
@@ -20,6 +20,7 @@ export function LocalSaleReceiptForm({ order, remaining, onClose, onChanged }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const remainingMinor = Math.round(remaining * 100);
+  const currency = order.originalCurrency ?? "UYU";
 
   useEffect(() => {
     const refreshDate = () => {
@@ -63,9 +64,9 @@ export function LocalSaleReceiptForm({ order, remaining, onClose, onChanged }: {
 
   return <Modal title={`Registrar cobro de ${orderName(order)}`} className="local-sale-receipt-modal" onClose={onClose}>
     <form className="local-sale-receipt-form" onSubmit={(event) => void save(event)}>
-      <p>Saldo pendiente: <strong>{money(remaining)}</strong></p>
+      <div>Saldo pendiente <strong>{currencyMoney(remaining, currency)}</strong></div>
       <div className="form-grid">
-        <label>Importe cobrado (UYU)<input type="number" min="0.01" max={remaining} step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required /></label>
+        <label>Importe cobrado ({currency})<input type="number" min="0.01" max={remaining} step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required /></label>
         <label>Medio de pago<select value={method} onChange={(event) => setMethod(event.target.value)} required><option value="">Elegir medio de pago</option>{paymentMethods.map((option) => <option key={option}>{option}</option>)}</select></label>
         <label>Fecha del cobro<input type="date" min={order.date} max={currentDate} value={date} onChange={(event) => setDate(event.target.value)} required /></label>
       </div>

@@ -37,7 +37,7 @@ export async function readAll<T>(fetchRange: (start: number, end: number) => Pro
   throw new Error("La consulta quedó incompleta; no se calculará un resumen parcial.");
 }
 
-export type LocalSale = { id: string; channel: string; currency: string; total_minor: number; deposit_minor: number | null; payment_method: string };
+export type LocalSale = { id: string; channel: string; currency: string; total_minor: number; deposit_minor: number | null; payment_method: string; retail_shipping_minor?: number };
 export type LocalItem = { sale_id: string; line_total_minor: number };
 export type LocalReceipt = { sale_id: string; amount_minor: number };
 
@@ -60,7 +60,9 @@ export function summarizeLocalSales(sales: LocalSale[], items: LocalItem[], rece
     const key = `${sale.channel}:${sale.currency}`;
     const group = groups.get(key) ?? { canal: sale.channel, moneda: sale.currency, ventas: 0, vendido_minor: 0, cobro_inicial_minor: 0, cobros_posteriores_minor: 0, cobrado_minor: 0, saldo_pendiente_minor: 0, excedente_cobrado_minor: 0, ventas_con_saldo: 0 };
     const initial = money(sale.total_minor);
-    const sold = sale.deposit_minor != null || sale.payment_method === "Seña" ? Math.max(initial, itemTotals.get(sale.id) ?? 0) : initial;
+    const sold = sale.deposit_minor != null || sale.payment_method === "Seña"
+      ? Math.max(initial, (itemTotals.get(sale.id) ?? 0) + money(sale.retail_shipping_minor ?? 0))
+      : initial;
     const later = receiptTotals.get(sale.id) ?? 0;
     const balance = sold - initial - later;
     group.ventas++;

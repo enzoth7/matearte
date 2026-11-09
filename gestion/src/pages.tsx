@@ -1,4 +1,4 @@
-import { paymentMoney, usdMoney } from "./data";
+import { currencyMoney, localOriginalBalance, paymentMoney, usdMoney } from "./data";
 import { CustomerContactEditor } from "./commerce/CustomerContactEditor";
 import { LocalCustomerEditor } from "./LocalCustomerEditor";
 import { RuralRaffleCustomerEditor } from "./RuralRaffleCustomerEditor";
@@ -99,6 +99,11 @@ const orderAmount = (s: State, order: Order, kind: "total" | "paid" | "balance")
   if (consignment) {
     const summary = consignmentSummary(s, consignment);
     return arsMoney((kind === "total" ? summary.confirmedArgMinor : kind === "paid" ? summary.paidArgMinor : summary.balanceArgMinor) / 100);
+  }
+  if (order.retailRateToUyu) {
+    const remaining = localOriginalBalance(s, order);
+    const original = order.originalTotalAmount ?? 0;
+    return currencyMoney(kind === "total" ? original : kind === "paid" ? paid(s, order) / order.retailRateToUyu : remaining, order.originalCurrency);
   }
   if (order.source !== "wholesale") return money(kind === "total" ? total(order) : kind === "paid" ? paid(s, order) : balance(s, order));
   const value = kind === "total" ? order.wholesaleTotalArg : kind === "paid" ? wholesalePaidArs(s, order) : wholesaleBalanceArs(s, order);
@@ -566,6 +571,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
     } finally { setSaleBusy(false); }
   };
   const localDeposit = order.source === "local" && order.depositAmount != null;
+  const foreignRetail = Boolean(order.retailRateToUyu);
   const orderPayments = s.payments.filter((payment) => payment.orderId === order.id);
   const localPaymentMethods = [...new Set([order.paymentMethod, ...orderPayments.map((payment) => payment.method)]
     .filter((method): method is string => Boolean(method && method !== "Seña")))].join(", ") || "No registrado";
@@ -599,7 +605,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       name: compactOrderItemName(item), sku: item.sku, color: orderItemColor(item) || (wholesaleItem ? item.variant : undefined), size,
       onOpen: catalogProduct ? () => go(`/productos/catalogo?producto=${encodeURIComponent(catalogProduct.sourceProductId || catalogProduct.id)}&variante=${encodeURIComponent(catalogProduct.id)}`) : undefined,
       weight: item.weightGrams && item.weightGrams > 0 ? formatWeight(item.weightGrams) : undefined,
-      quantity: item.quantity, amount: showAmounts ? consignment ? undefined : wholesaleItem ? item.priceArg == null ? "Por conciliar" : arsMoney(item.priceArg) : money(item.amount) : undefined,
+      quantity: item.quantity, amount: showAmounts ? consignment ? undefined : wholesaleItem ? item.priceArg == null ? "Por conciliar" : arsMoney(item.priceArg) : item.originalUnitPrice != null ? currencyMoney(item.originalUnitPrice * item.quantity, order.originalCurrency) : money(item.amount) : undefined,
       extra: wholesaleItem ? "" : extra.map((detail) => `${detail.label}: ${detail.value}`).join(", "), notes: item.productionNotes,
     };
   }) : [{ id: order.id, name: product(s, order).name, quantity: order.quantity, amount: showAmounts ? money(total(order)) : undefined }];
@@ -620,12 +626,12 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       country, pickup: order.method !== "Envío",
     },
     totals: showAmounts ? <>
-      {order.originalCurrency === "ARS" && <div className="line-item"><div>Total original ARS, importes restantes en UYU a cotización del pedido</div><strong>{new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",currencyDisplay:"code"}).format(order.originalTotalAmount || 0)}</strong></div>}
-      {(!!order.discountAmount || !!order.shippingAmount || !!order.feeAmount) && <div className="line-item"><div>Subtotal</div><strong>{money(items.length ? items.reduce((sum, item) => sum + item.amount, 0) : total(order))}</strong></div>}
+      {!foreignRetail && order.originalCurrency === "ARS" && <div className="line-item"><div>Total original ARS, importes restantes en UYU a cotización del pedido</div><strong>{new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",currencyDisplay:"code"}).format(order.originalTotalAmount || 0)}</strong></div>}
+      {(!!order.discountAmount || !!order.shippingAmount || !!order.feeAmount) && <div className="line-item"><div>Subtotal</div><strong>{foreignRetail ? currencyMoney((order.originalTotalAmount ?? 0) - (order.originalShippingAmount ?? 0), order.originalCurrency) : money(items.length ? items.reduce((sum, item) => sum + item.amount, 0) : total(order))}</strong></div>}
       {!!order.discountAmount && <div className="line-item"><div>Descuento</div><strong>{money(-order.discountAmount)}</strong></div>}
-      {!!order.shippingAmount && <div className="line-item"><div>Envío</div><strong>{money(order.shippingAmount)}</strong></div>}
+      {!!order.shippingAmount && <div className="line-item"><div>Envío</div><strong>{foreignRetail ? currencyMoney(order.originalShippingAmount ?? 0, order.originalCurrency) : money(order.shippingAmount)}</strong></div>}
       {!!order.feeAmount && <div className="line-item"><div>Cargo por pago</div><strong>{money(order.feeAmount)}</strong></div>}
-      {order.source === "local" && !localDeposit && items.length > 0 && Math.abs(items.reduce((sum, item) => sum + item.amount, 0) - total(order)) > 0.01 &&
+      {order.source === "local" && !foreignRetail && !localDeposit && items.length > 0 && Math.abs(items.reduce((sum, item) => sum + item.amount, 0) - total(order)) > 0.01 &&
         <div className="line-item"><div>Revisar valor de artículos</div><strong>{money(items.reduce((sum, item) => sum + item.amount, 0))} en artículos, {money(total(order))} cobrados</strong></div>}
       {consignment ? <>
         <div className="line-item"><div>Importe confirmado por unidades conservadas</div><strong>{orderAmount(s, order, "total")}</strong></div>
@@ -639,13 +645,13 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
         {orderPayments.map((payment) => <div className="line-item" key={payment.id}><div>Cobro, {payment.method}, {orderDate(payment.date)}</div><strong>{payment.sourceCurrency === "ARS" && payment.sourceAmount != null ? arsMoney(payment.sourceAmount) : "Por conciliar"}</strong></div>)}
         <div className="line-item"><div>Saldo pendiente</div><strong>{orderAmount(s, order, "balance")}</strong></div>
       </> : localDeposit ? <>
-        <div className="line-item"><div>Valor de artículos</div><strong>{money(total(order))}</strong></div>
-        {orderPayments.map((payment, index) => <div className="line-item" key={payment.id}><div>{index === 0 ? order.depositAmount != null ? "Seña" : "Cobro inicial" : "Cobro"} , {payment.method} , {orderDate(payment.date)}</div><strong>{money(payment.amount || 0)}</strong></div>)}
-        <div className="line-item"><div>Saldo pendiente</div><strong>{money(balance(s, order))}</strong></div>
-        <div className="line-item"><div>Cobrado hasta ahora</div><strong>{money(paid(s, order))}</strong></div>
+        <div className="line-item"><div>{foreignRetail ? "Total de la venta" : "Valor de artículos"}</div><strong>{orderAmount(s, order, "total")}</strong></div>
+        {orderPayments.map((payment, index) => <div className="line-item" key={payment.id}><div>{index === 0 ? order.depositAmount != null ? "Seña" : "Cobro inicial" : "Cobro"} , {payment.method} , {orderDate(payment.date)}</div><strong>{foreignRetail ? currencyMoney(payment.sourceAmount ?? 0, order.originalCurrency) : money(payment.amount || 0)}</strong></div>)}
+        <div className="line-item"><div>Saldo pendiente</div><strong>{orderAmount(s, order, "balance")}</strong></div>
+        <div className="line-item"><div>Cobrado hasta ahora</div><strong>{orderAmount(s, order, "paid")}</strong></div>
       </> : <>
-        <div className="line-item"><div>Total</div><strong>{money(total(order))}</strong></div>
-        {orderPayments.filter((payment) => payment.sourceCurrency === "USD").map((payment) => <div className="line-item" key={payment.id}><div>Cobro PayPal</div><strong>{paymentMoney(payment)}</strong></div>)}
+        <div className="line-item"><div>Total</div><strong>{orderAmount(s, order, "total")}</strong></div>
+        {!foreignRetail && orderPayments.filter((payment) => payment.sourceCurrency === "USD").map((payment) => <div className="line-item" key={payment.id}><div>Cobro PayPal</div><strong>{paymentMoney(payment)}</strong></div>)}
       </>}
     </> : undefined,
     tracking: !inPersonStockSale && order.method === "Envío" && (order.carrier || order.tracking) ? { carrier: order.carrier || "", code: order.tracking || "" } : undefined,
@@ -674,7 +680,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
       {order.source === "wholesale" && <button className="unified-order-action unified-order-action--primary" onClick={() => go("/produccion/mayorista")}>Gestionar producción</button>}
     </div>
     {editingSale && <LocalSaleEditor order={order} customers={s.customers} products={s.products} depositAmount={s.payments.find((payment) => payment.orderId === order.id)?.amount ?? undefined} onClose={() => setEditingSale(false)} onChanged={async (message) => { await props.refresh?.(true); props.notify?.(message); setEditingSale(false); onClose(); }} />}
-    {recordingReceipt && order.source === "local" && <LocalSaleReceiptForm order={order} remaining={balance(s, order)} onClose={() => setRecordingReceipt(false)} onChanged={async () => { await props.refresh?.(true); props.notify?.("Cobro registrado en el mismo pedido"); setRecordingReceipt(false); }} />}
+    {recordingReceipt && order.source === "local" && <LocalSaleReceiptForm order={order} remaining={localOriginalBalance(s, order)} onClose={() => setRecordingReceipt(false)} onChanged={async () => { await props.refresh?.(true); props.notify?.("Cobro registrado en el mismo pedido"); setRecordingReceipt(false); }} />}
     {recordingReceipt && order.source === "wholesale" && <WholesaleReceiptForm order={order} state={s} exchangeRate={props.commerce?.wholesale?.exchangeRate || 0} onClose={() => setRecordingReceipt(false)} onChanged={async () => { await props.refresh?.(true); props.notify?.("Cuenta del pedido actualizada"); setRecordingReceipt(false); }} />}
   </Modal>
     {shipmentOpen && <div className="commerce-tools"><ShipmentModal
@@ -903,7 +909,7 @@ export function Orders(
       )}
       {selectedCustomer && <CustomerDetailModal customer={selectedCustomer} s={s} go={go} commerce={props.commerce} onClose={() => setSelectedCustomer(null)} />}
       {mode === "por-cobrar" && choosingPayment && <ReceivablePaymentChooser orders={receivablePaymentOrders} state={s} onClose={() => setChoosingPayment(false)} onChoose={(order) => { setChoosingPayment(false); setPaymentOrderId(order.id); }} />}
-      {mode === "por-cobrar" && paymentOrder?.source === "local" && <LocalSaleReceiptForm order={paymentOrder} remaining={balance(s, paymentOrder)} onClose={() => setPaymentOrderId(null)} onChanged={async () => { await props.refresh?.(true); props.notify("Cobro registrado en el mismo pedido"); setPaymentOrderId(null); }} />}
+      {mode === "por-cobrar" && paymentOrder?.source === "local" && <LocalSaleReceiptForm order={paymentOrder} remaining={localOriginalBalance(s, paymentOrder)} onClose={() => setPaymentOrderId(null)} onChanged={async () => { await props.refresh?.(true); props.notify("Cobro registrado en el mismo pedido"); setPaymentOrderId(null); }} />}
       {mode === "por-cobrar" && paymentOrder?.source === "wholesale" && <WholesaleReceiptForm order={paymentOrder} state={s} exchangeRate={props.commerce?.wholesale?.exchangeRate || 0} onClose={() => setPaymentOrderId(null)} onChanged={async () => { await props.refresh?.(true); props.notify("Cuenta del pedido actualizada"); setPaymentOrderId(null); }} />}
       {mode === "historico" && <WholesaleProduction props={props} history />}
       {o && (o.source === "local" || o.source === "wholesale" || !props.session) && <UnifiedOrderDetailModal order={s.orders.find((entry) => entry.id === o.id) || o} props={props} showAmounts={showAmounts} onClose={() => setSelected(null)} />}

@@ -333,8 +333,21 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
     if (origin) customer.originChannel = origin;
     customer.createdAt = earliestTimestamp(customer.createdAt, email ? firstSeenByContact.get(`email:${email}`) : undefined, phone ? firstSeenByContact.get(`phone:${phone}`) : undefined);
   }
-  const localOrders: Order[] = (snapshot.localSales || []).map((source) => {
-    if (source.currency !== "UYU") throw new Error(`La venta local #${source.sale_number} requiere conversión de ${source.currency}.`);
+  const localSales = snapshot.localSales || [];
+  const localSalesById = new Map(localSales.map(sale => [sale.id, sale]));
+  const localPaymentAmount = (sale: LocalSale | undefined, minor: number) => {
+    const amount = Number(minor) / 100;
+    return sale && sale.currency !== "UYU" ? {
+      amount: amount * Number(sale.retail_rate_to_uyu),
+      sourceCurrency: sale.currency,
+      sourceAmount: amount,
+    } : { amount };
+  };
+  const localOrders: Order[] = localSales.map((source) => {
+    const foreignSale = source.currency !== "UYU";
+    const rate = foreignSale ? Number(source.retail_rate_to_uyu) : 1;
+    if (!Number.isFinite(rate) || rate <= 0) throw new Error(`La venta local #${source.sale_number} requiere conversión de ${source.currency}.`);
+    const amountUyu = (minor: number) => Number(minor) / 100 * rate;
     const items: OrderLine[] = source.local_sale_items.map((item) => {
       const catalog = products.find((product) => product.id === item.variant_id);
       const categoryOnly = source.payment_method === "Cuenta corriente" && !item.variant_id && !item.sku && !item.customization;
@@ -342,23 +355,32 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
         id: item.id, productId: item.variant_id || item.id, title: item.product_name,
         productName: item.product_name, options: catalog?.options, personalization: item.customization || undefined, productionNotes: item.production_notes || undefined,
         weightGrams: catalog?.weightGrams,
-        sku: item.sku || "", quantity: item.quantity, unitPrice: Number(item.unit_price_minor) / 100,
-        amount: Number(item.line_total_minor) / 100, family: categoryOnly ? item.product_name : item.customization ? "Personalizados" : catalog?.family || "",
+        sku: item.sku || "", quantity: item.quantity, unitPrice: amountUyu(item.unit_price_minor),
+        ...(foreignSale ? { originalUnitPrice: Number(item.unit_price_minor) / 100 } : {}),
+        amount: amountUyu(item.line_total_minor), family: categoryOnly ? item.product_name : item.customization ? "Personalizados" : catalog?.family || "",
         variant: item.variant_name, rim: catalog?.rim || "", leather: catalog?.leather || "",
         productionStatus: categoryOnly || source.status === "shipped" || source.status === "delivered" ? "completed" : item.production_status || "pending", reviewStatus: null,
         orderType: categoryOnly ? "credit_category" : item.customization ? "local_design" : catalog?.categoryCode?.toLowerCase() === "servicios" ? "service" : undefined,
       };
     });
-    const charged = Number(source.total_minor) / 100;
-    const itemsAmount = items.reduce((sum, item) => sum + item.amount, 0);
+    const charged = Number(source.total_minor);
+    const itemsMinor = source.local_sale_items.reduce((sum, item) => sum + Number(item.line_total_minor), 0);
+    const shippingMinor = Number(source.retail_shipping_minor ?? 0);
+    const deposit = source.deposit_minor == null ? (source.payment_method === "Seña" ? charged : undefined) : Number(source.deposit_minor);
+    const totalMinor = deposit != null ? Math.max(charged, itemsMinor + shippingMinor) : charged;
     return {
       id: source.id, number: source.sale_number, referenceCode: source.reference_code, source: "local", status: source.status || "local_sale", createdAt: source.created_at,
       customerId: source.customer_id ? localCustomerIds.get(source.customer_id) || `local:${source.customer_id}` : `local-anon:${source.id}`,
       contactId: source.customer_id || undefined,
       customerName: source.customer_name, productId: items[0]?.productId || source.id,
       quantity: items.reduce((sum, item) => sum + item.quantity, 0), unitPrice: 0,
-      items, totalAmount: source.deposit_minor != null || source.payment_method === "Seña" ? Math.max(charged, itemsAmount) : charged,
-      localItemsAmount: itemsAmount, depositAmount: source.deposit_minor == null ? (source.payment_method === "Seña" ? charged : undefined) : Number(source.deposit_minor) / 100, paymentMethod: source.payment_method,
+      items, totalAmount: amountUyu(totalMinor), localItemsAmount: amountUyu(itemsMinor),
+      shippingAmount: shippingMinor ? amountUyu(shippingMinor) : undefined,
+      depositAmount: deposit == null ? undefined : amountUyu(deposit), paymentMethod: source.payment_method,
+      ...(foreignSale ? {
+        originalCurrency: source.currency, originalTotalAmount: totalMinor / 100, retailRateToUyu: rate,
+        originalShippingAmount: shippingMinor / 100, originalDepositAmount: deposit == null ? undefined : deposit / 100,
+      } : {}),
       channel: source.channel && ["Feria", "Instagram", "Facebook", "WhatsApp"].includes(source.channel) ? source.channel : "Local", date: source.sold_on, due: "", production: "No aplica", delivery: source.status === "delivered" ? "Entregado" : source.status === "shipped" ? "Enviado" : "Pendiente", method: source.shipping_method === "pickup" ? "Retiro" : source.shipping_method ? "Envío" : "No aplica",
       carrier: source.shipping_carrier || "", tracking: source.tracking_code || "",
       design: false, approved: true,
@@ -387,11 +409,11 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
         reconciliationRequired: amount == null || (payment.currency === "USD" && originalMinor !== historicalUsd),
         date: commerceDate(payment.approved_at || payment.created_at), method: payment.provider,
       };
-    }).concat((snapshot.localSales || []).filter((sale) => Number(sale.total_minor) > 0).map((sale) => ({
-      id: `local:${sale.id}`, orderId: sale.id, amount: Number(sale.total_minor) / 100,
+    }).concat(localSales.filter((sale) => Number(sale.total_minor) > 0).map((sale) => ({
+      id: `local:${sale.id}`, orderId: sale.id, ...localPaymentAmount(sale, sale.total_minor),
       date: sale.sold_on, method: sale.payment_method,
     })), (snapshot.localReceipts || []).map((receipt) => ({
-      id: `local-receipt:${receipt.id}`, orderId: receipt.sale_id, amount: Number(receipt.amount_minor) / 100,
+      id: `local-receipt:${receipt.id}`, orderId: receipt.sale_id, ...localPaymentAmount(localSalesById.get(receipt.sale_id), receipt.amount_minor),
       date: receipt.paid_on, method: receipt.payment_method,
     }))),
     records: {

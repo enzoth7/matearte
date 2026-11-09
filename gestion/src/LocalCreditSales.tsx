@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { formatContactName } from "../../shared/contactName";
 import { commerceSource } from "./commerceSource";
-import { balance, money, montevideoToday, orderName, paid } from "./data";
+import { balance, money, montevideoToday, orderName, paid, type Order } from "./data";
 import { LocalSaleReceiptForm } from "./LocalSaleReceiptForm";
-import type { PageProps } from "./pages";
+import { CustomerDetailModal, type PageProps } from "./pages";
 import { Modal, Table } from "./ui";
 
 type Line = { id: string; code: string; amount: string };
@@ -17,6 +18,7 @@ const personalizedCategories = [
 export function LocalCreditSales(props: PageProps) {
   const [ids, setIds] = useState<string[]>([]);
   const [editor, setEditor] = useState(false);
+  const [customerOrderId, setCustomerOrderId] = useState<string | null>(null);
   const [historyId, setHistoryId] = useState<string | null>(null);
   const [payId, setPayId] = useState<string | null>(null);
   const [mode, setMode] = useState<"existing" | "new">("existing");
@@ -54,6 +56,16 @@ export function LocalCreditSales(props: PageProps) {
   useEffect(() => { void load().catch(() => setError("No se pudieron cargar los fiados.")); }, [load]);
 
   const orders = props.s.orders.filter((order) => ids.includes(order.id));
+  const customerOrder = orders.find((order) => order.id === customerOrderId);
+  const customersById = new Map(customers.map((customer) => [customer.id, customer]));
+  const customerName = (order: Order) =>
+    formatContactName(customersById.get(order.customerId)?.name || order.customerName || "") || "Cliente sin nombre";
+  const selectedCustomer = customerOrder ? {
+    ...(customersById.get(customerOrder.customerId) ?? {
+      id: customerOrder.customerId, email: "", phone: "", city: "", segment: "Minorista" as const,
+    }),
+    name: customerName(customerOrder),
+  } : null;
   const history = orders.find((order) => order.id === historyId);
   const payment = orders.find((order) => order.id === payId);
   const reset = () => { setEditor(false); setMode("existing"); setCustomerId(""); setQuery("");
@@ -92,18 +104,20 @@ export function LocalCreditSales(props: PageProps) {
   return <section className="local-credit-sales">
     {error && !editor && <div role="alert" className="error">{error}</div>}
     <Table title="Fiados Local" rows={orders} pageSize={30}
-      searchText={(order) => `${orderName(order)} ${order.customerName} ${order.items?.map((item) => item.title).join(" ") || ""}`}
+      searchText={(order) => `${orderName(order)} ${customerName(order)} ${order.customerName || ""} ${order.items?.map((item) => item.title).join(" ") || ""}`}
       action={<button type="button" className="primary" onClick={() => { setError(""); setEditor(true); }}>Agregar pedido</button>}
       columns={[
         { label: "Pedido", render: (order) => <strong>{orderName(order)}</strong> },
         { label: "Fecha", render: (order) => order.date },
-        { label: "Cliente", render: (order) => order.customerName || "Cliente sin nombre" },
+        { label: "Cliente", render: (order) => <button type="button" className="text-button" aria-label={`Ver ficha de ${customerName(order)}`} onClick={() => setCustomerOrderId(order.id)}>{customerName(order)}</button> },
         { label: "Categorías", render: (order) => order.items?.map((item) => item.title).join(", ") || "—" },
         { label: "Importe", render: (order) => money(order.totalAmount || 0) },
         { label: "Pagado", render: (order) => money(paid(props.s, order)) },
         { label: "Saldo", render: (order) => <strong>{money(balance(props.s, order))}</strong> },
-        { label: "Acciones", render: (order) => <button type="button" className="secondary" aria-label={`Pagos de ${orderName(order)}`} title="Pagos" onClick={() => setHistoryId(order.id)}>$</button> },
+        { label: "Acciones", render: (order) => <button type="button" className="primary" aria-label={`Pagos de ${orderName(order)}`} title="Pagos" onClick={() => setHistoryId(order.id)}>$</button> },
       ]} />
+    {selectedCustomer && <CustomerDetailModal customer={selectedCustomer} s={props.s} go={props.go}
+      commerce={props.commerce} onClose={() => setCustomerOrderId(null)} />}
     {editor && <Modal title="Agregar pedido fiado" onClose={reset}>
       <form className="customer-account-form" onSubmit={(event) => void save(event)}>
         <div className="tabs inner-tabs" role="group" aria-label="Cliente del pedido">

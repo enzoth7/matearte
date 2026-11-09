@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { adaptCommerce, commerceDate } from "./commerceAdapter";
 import { commerceFixture } from "./testing/commerce";
-import { total, balance, orderName } from "./data";
+import { total, balance, localOriginalBalance, orderName } from "./data";
 import { overviewScope } from "./overview";
 import { buildFinanceProjection } from "./financeProjection";
 import { buildRevenueForecast } from "./revenueForecast";
@@ -249,6 +249,29 @@ describe("integración de commerce en el estado compartido", () => {
     expect(balance(state, deposit)).toBe(900);
     expect(state.payments.find(payment => payment.orderId === deposit.id)?.amount).toBe(100);
     expect(overviewScope(state, "14d", "2026-10-13").orders.reduce((sum, order) => sum + order.quantity, 0)).toBe(6);
+  });
+  it.each([["ARS", 0.03], ["USD", 40], ["BRL", 7.5]])("conserva el envío y los cobros de una venta minorista en %s", (currency, rate) => {
+    const fixture = commerceFixture();
+    fixture.localSales = [{
+      id: "social-sale", sale_number: 21, channel: "WhatsApp", customer_id: null, customer_name: "Cliente",
+      sold_on: "2026-10-24", payment_method: "Transferencia", total_minor: 1000, deposit_minor: 1000,
+      currency, retail_rate_to_uyu: rate, retail_shipping_minor: 1500, created_at: "2026-10-24T12:00:00Z",
+      local_sale_items: [{ id: "item", variant_id: "variant-1", sku: "SKU-1", product_name: "Mate",
+        variant_name: "Negro", quantity: 1, unit_price_minor: 5000, line_total_minor: 5000 }],
+    }];
+    fixture.localReceipts = [{ id: "later", sale_id: "social-sale", amount_minor: 2500,
+      payment_method: "Transferencia", paid_on: "2026-10-25", created_at: "2026-10-25T12:00:00Z" }];
+    const state = adaptCommerce(fixture);
+    const order = state.orders.find(entry => entry.id === "social-sale")!;
+    expect(order).toMatchObject({ originalCurrency: currency, originalTotalAmount: 65, originalShippingAmount: 15,
+      originalDepositAmount: 10, totalAmount: 65 * rate, shippingAmount: 15 * rate,
+      items: [{ originalUnitPrice: 50, unitPrice: 50 * rate }] });
+    expect(localOriginalBalance(state, order)).toBe(30);
+    expect(balance(state, order)).toBeCloseTo(30 * rate);
+    expect(state.payments.filter(payment => payment.orderId === order.id)).toMatchObject([
+      { amount: 10 * rate, sourceAmount: 10, sourceCurrency: currency },
+      { amount: 25 * rate, sourceAmount: 25, sourceCurrency: currency },
+    ]);
   });
   it("muestra en Ventas el estado del trabajo local que aparece en Minorista", () => {
     const fixture = commerceFixture();
