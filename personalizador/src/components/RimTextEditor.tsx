@@ -1,5 +1,6 @@
-import { useId, useState } from "react";
+import { useState } from "react";
 import { MAX_RIM_TEXT_LENGTH, sanitizeRimText } from "../catalog/rimCatalog";
+import { UnicodeEngravingInput } from "./UnicodeEngravingInput";
 
 interface RimTextEditorProps {
   value: string;
@@ -21,15 +22,13 @@ export function RimTextEditor({
   compact = false,
 }: RimTextEditorProps) {
   const [limitReached, setLimitReached] = useState(false);
-  const statusId = useId();
   const effectiveMaxLength = maxLength ?? (maxWords ? 25 : MAX_RIM_TEXT_LENGTH);
 
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const rawValue = event.target.value;
+  const handleChange = (rawValue: string) => {
     const sanitized = sanitizeRimText(rawValue);
 
     // 1. Strict Total Character Limit
-    if (sanitized.length > effectiveMaxLength) {
+    if (Array.from(sanitized).length > effectiveMaxLength) {
       setLimitReached(true);
       return;
     }
@@ -47,36 +46,12 @@ export function RimTextEditor({
     onChange(sanitized);
   };
 
-  return (
-    <label className={compact ? "block rim-text-editor--compact" : "block"}>
-      {!compact && (
-        <span className="mb-1.5 block text-[9px] font-bold uppercase tracking-widest text-zinc-500">
-          {label}
-        </span>
-      )}
-      <input
-        type="text"
-        value={value}
-        disabled={disabled}
-        onChange={handleChange}
-        maxLength={effectiveMaxLength}
-        placeholder={disabled ? "Seleccioná Con texto para escribir" : "Escribí tu texto"}
-        aria-label={compact ? label : undefined}
-        aria-describedby={!compact ? statusId : undefined}
-        className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-xs font-medium text-zinc-800 outline-none transition-colors placeholder:text-zinc-400 focus:border-[#7a4a31] disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
-      />
-      {!compact && (
-        <span id={statusId} className={`mt-1 flex justify-between text-[9px] font-medium ${limitReached ? "text-red-600 font-bold" : "text-zinc-400"}`}>
-          <span>
-            {limitReached
-              ? `¡Límite alcanzado! Máximo ${effectiveMaxLength} caracteres.`
-              : "Normalización automática de espacios"}
-          </span>
-          <span>
-            {value.length} / {effectiveMaxLength} caracteres
-          </span>
-        </span>
-      )}
-    </label>
-  );
+  return <div className={compact ? "rim-text-editor--compact" : "rim-text-editor"}>
+    <UnicodeEngravingInput label={label} value={value} disabled={disabled} onChange={handleChange}
+      maxLength={effectiveMaxLength} placeholder={disabled ? "Seleccioná Con texto para escribir" : "Escribí tu texto"} />
+    {!compact && <div className={`mt-1 flex justify-between text-[9px] font-medium ${limitReached ? "text-red-600 font-bold" : "text-zinc-400"}`}>
+      <small>{limitReached ? `¡Límite alcanzado! Máximo ${effectiveMaxLength} caracteres.` : "Normalización automática de espacios"}</small>
+      <small>{Array.from(value).length} / {effectiveMaxLength} caracteres</small>
+    </div>}
+  </div>;
 }

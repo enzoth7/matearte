@@ -1,5 +1,6 @@
 import { MAX_RIM_TEXT_LENGTH, sanitizeRimText } from "../catalog/rimCatalog";
 import { createDefaultElementTransform, type RimTextElement } from "../types/personalizer";
+import { UnicodeEngravingInput, limitEngravingCharacters } from "./UnicodeEngravingInput";
 
 interface RimTextFieldsProps {
   texts: RimTextElement[];
@@ -19,7 +20,7 @@ export function RimTextFields({ texts, selectedElement, onSelectElement, onChang
   const activeScale = safeTexts[activeIndex].transform.scale;
 
   const updateText = (index: number, value: string) => {
-    const sanitized = sanitizeRimText(value).slice(0, MAX_RIM_TEXT_LENGTH);
+    const sanitized = limitEngravingCharacters(sanitizeRimText(value), MAX_RIM_TEXT_LENGTH);
     onChange(safeTexts.map((item, itemIndex) => itemIndex === index ? { ...item, text: sanitized } : item));
   };
 
@@ -32,17 +33,9 @@ export function RimTextFields({ texts, selectedElement, onSelectElement, onChang
   return (
     <div className="rim-text-fields">
       {safeTexts.map((item, index) => (
-        <label key={item.id} className="rim-text-field">
-          <span>Texto {index + 1}</span>
-          <input
-            type="text"
-            value={item.text}
-            maxLength={MAX_RIM_TEXT_LENGTH}
-            onFocus={() => onSelectElement(item.id)}
-            onChange={(event) => updateText(index, event.target.value)}
-            aria-label={`Texto ${index + 1} de virola`}
-          />
-        </label>
+        <UnicodeEngravingInput key={item.id} className="rim-text-field" label={`Texto ${index + 1} de virola`}
+          value={item.text} maxLength={MAX_RIM_TEXT_LENGTH} onFocus={() => onSelectElement(item.id)}
+          onChange={(value) => updateText(index, value)} />
       ))}
 
       <fieldset className="rim-text-size">

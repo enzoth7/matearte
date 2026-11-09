@@ -3313,6 +3313,14 @@ dialog.local-mate-summary-dialog{width:min(920px,calc(100% - 24px));max-height:9
 .local-sale-customer-status.registered { color: var(--green); border-color: rgb(47 125 85 / .24); background: rgb(47 125 85 / .09); }
 .local-sale-customer-status.pending { color: var(--brown); border-color: rgb(121 76 50 / .25); background: rgb(121 76 50 / .09); }
 .local-sale-customer-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; margin-top: 18px; }
+.local-personalization-fields .unicode-engraving-field,
+.local-personalization-rim-texts .unicode-engraving-field { min-width: 0; display: grid; gap: 6px; }
+.unicode-engraving-control { display: flex; gap: 8px; min-width: 0; }
+.unicode-engraving-control input { min-width: 0; flex: 1; }
+.unicode-engraving-control > button,
+.unicode-engraving-characters button { min-width: 42px; min-height: 42px; padding: 6px; border: 1px solid var(--line); border-radius: 9px; background: var(--white); color: var(--brown); }
+.unicode-engraving-characters { display: flex; flex-wrap: wrap; gap: 6px; }
+.unicode-engraving-characters small { width: 100%; color: var(--muted); }
 .local-sale-customer-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; margin: 4px 0 0; }
 .local-sale-customer-details > div { min-width: 0; padding: 13px 0; border-bottom: 1px solid var(--line); }
 .local-sale-customer-details dt { color: var(--muted); font-size: 12px; }

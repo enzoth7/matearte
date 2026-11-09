@@ -1,7 +1,7 @@
 import type { MateVariant } from "./mateCatalog";
 import type { RimFinishId } from "./rimFinishCatalog";
 import { rimIconCatalog } from "./rimIconCatalog";
-import { normalizeEngravingText } from "../utils/engravingText";
+import { limitEngravingCharacters, normalizeEngravingText } from "../utils/engravingText";
 import {
   createDefaultElementTransform,
   normalizeElementTransform,
@@ -155,16 +155,16 @@ export function normalizeRimSelection(variant: MateVariant, current?: Partial<Ri
   const text1Raw = rawTexts.find((t) => t.id === "text-1") ?? rawTexts[0];
   const text2Raw = rawTexts.find((t) => t.id === "text-2") ?? rawTexts[1];
 
-  const primaryText = sanitizeRimText(
+  const primaryText = limitEngravingCharacters(sanitizeRimText(
     typeof safeCurrent.text === "string" ? safeCurrent.text : (text1Raw?.text ?? ""),
-  ).slice(0, MAX_RIM_TEXT_LENGTH);
+  ), MAX_RIM_TEXT_LENGTH);
   const primaryTransform = normalizeElementTransform(safeCurrent.textTransform ?? text1Raw?.transform, "rim");
 
   const texts: RimTextElement[] = [
     {
       id: "text-1",
       text: typeof text1Raw?.text === "string"
-        ? sanitizeRimText(text1Raw.text).slice(0, MAX_RIM_TEXT_LENGTH)
+        ? limitEngravingCharacters(sanitizeRimText(text1Raw.text), MAX_RIM_TEXT_LENGTH)
         : primaryText,
       inverted: typeof text1Raw?.inverted === "boolean" ? text1Raw.inverted : false,
       transform: normalizeElementTransform(text1Raw?.transform ?? primaryTransform, "rim"),
@@ -172,7 +172,7 @@ export function normalizeRimSelection(variant: MateVariant, current?: Partial<Ri
     {
       id: "text-2",
       text: typeof text2Raw?.text === "string"
-        ? sanitizeRimText(text2Raw.text).slice(0, MAX_RIM_TEXT_LENGTH)
+        ? limitEngravingCharacters(sanitizeRimText(text2Raw.text), MAX_RIM_TEXT_LENGTH)
         : "",
       inverted: typeof text2Raw?.inverted === "boolean" ? text2Raw.inverted : true,
       transform: normalizeElementTransform(text2Raw?.transform, "rim"),

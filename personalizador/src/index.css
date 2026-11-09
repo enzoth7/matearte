@@ -1058,6 +1058,15 @@ button,
   font-size: 16px;
 }
 
+.unicode-engraving-field { min-width: 0; display: grid; gap: 8px; }
+.unicode-engraving-field > label { color: #000; font-size: 14px; }
+.unicode-engraving-control { display: flex; gap: 8px; min-width: 0; }
+.unicode-engraving-control input { min-width: 0; flex: 1; }
+.unicode-engraving-control > button,
+.unicode-engraving-characters button { min-width: 44px; min-height: 44px; border: 1px solid var(--arena); border-radius: 9px; background: #fff; color: #5f3826; font-size: 18px; }
+.unicode-engraving-characters { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0; }
+.unicode-engraving-characters small { width: 100%; color: #5f3826; font-size: 12px; }
+
 .rim-text-size {
   margin: 0;
   padding: 0;

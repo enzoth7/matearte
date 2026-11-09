@@ -37,6 +37,7 @@ import { useOrderDraft } from "./orderDraft";
 import { OrderDraftList } from "./OrderDraftList";
 import { catalogValueLabel, defaultCatalogTaxonomy, normalizeCatalogValueMap } from "../../shared/catalog-taxonomy";
 import { getRimFinish, getRimFinishCatalogForEngravingType } from "../../personalizador/src/catalog/rimFinishCatalog";
+import { UnicodeEngravingInput } from "../../personalizador/src/components/UnicodeEngravingInput";
 import { flejeFinishCatalog, getFlejeFinish } from "../../personalizador/src/catalog/flejeFinishCatalog";
 
 const saleCurrencies = ["ARS", "UYU", "USD", "BRL"] as const;
@@ -209,8 +210,8 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
               {previousRimFinish && <option value={previousRimFinish.id}>{previousRimFinish.name}</option>}
             </select></label>
             {contentUsesText(draft.rimContent) && <div className="local-personalization-rim-texts">
-              <label>Texto 1<input aria-label={`Texto de virola de ${line.product.name}`} value={draft.rimText} onChange={(event) => update({ rimText: event.target.value.toLocaleUpperCase("es").slice(0, 40) })} maxLength={40} placeholder="Primer texto" /></label>
-              <label>Texto 2 (opcional)<input aria-label={`Texto 2 para la virola de ${line.product.name}`} value={draft.rimText2} onChange={(event) => update({ rimText2: event.target.value.toLocaleUpperCase("es").slice(0, 40), ...(!draft.rimText2 && event.target.value && draft.rimTextInverted === draft.rimText2Inverted ? { rimText2Inverted: !draft.rimTextInverted } : {}) })} maxLength={40} placeholder="Segundo texto" /></label>
+              <UnicodeEngravingInput label={`Texto de virola de ${line.product.name}`} value={draft.rimText} onChange={(value) => update({ rimText: value })} maxLength={40} placeholder="Primer texto" />
+              <UnicodeEngravingInput label={`Texto 2 para la virola de ${line.product.name}`} value={draft.rimText2} onChange={(value) => update({ rimText2: value, ...(!draft.rimText2 && value && draft.rimTextInverted === draft.rimText2Inverted ? { rimText2Inverted: !draft.rimTextInverted } : {}) })} maxLength={40} placeholder="Segundo texto" />
             </div>}
           </>}
         </div>
@@ -227,8 +228,8 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
               {previousFlejeFinish && <option value={previousFlejeFinish.id}>{previousFlejeFinish.name}</option>}
             </select></label>
             {contentUsesText(draft.flejeContent) && <>
-              <label>Texto del frente<input aria-label={`Texto del frente del fleje de ${line.product.name}`} value={draft.flejeFrontText} onChange={(event) => update({ flejeFrontText: event.target.value.toLocaleUpperCase("es").slice(0, 40) })} maxLength={40} placeholder="Frente" /></label>
-              <label>Texto del dorso<input aria-label={`Texto del dorso del fleje de ${line.product.name}`} value={draft.flejeBackText} onChange={(event) => update({ flejeBackText: event.target.value.toLocaleUpperCase("es").slice(0, 40) })} maxLength={40} placeholder="Dorso" /></label>
+              <UnicodeEngravingInput label={`Texto del frente del fleje de ${line.product.name}`} value={draft.flejeFrontText} onChange={(value) => update({ flejeFrontText: value })} maxLength={40} placeholder="Frente" />
+              <UnicodeEngravingInput label={`Texto del dorso del fleje de ${line.product.name}`} value={draft.flejeBackText} onChange={(value) => update({ flejeBackText: value })} maxLength={40} placeholder="Dorso" />
             </>}
           </>}
         </div>
@@ -246,7 +247,7 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
           <label>Técnica<select aria-label={`Técnica de ${line.product.name}`} value={draft.materaTechnique} onChange={(event) => update({ materaTechnique: event.target.value as LocalPersonalizationDraft["materaTechnique"] })}>{techniqueOptions.slice(1).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <label>Contenido<select aria-label={`Contenido de ${line.product.name}`} value={draft.materaContent} onChange={(event) => update({ materaContent: event.target.value as LocalPersonalizationDraft["materaContent"] })}>{contentOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <label>Ubicación<select aria-label={`Ubicación de ${line.product.name}`} value={draft.materaPlacement} onChange={(event) => update({ materaPlacement: event.target.value as LocalPersonalizationDraft["materaPlacement"] })}><option value="front">Frente</option><option value="lid">Tapa</option><option value="front-lid">Frente y tapa</option></select></label>
-          {contentUsesText(draft.materaContent) && <label className="local-personalization-text">Texto<input aria-label={`Texto de ${line.product.name}`} value={draft.materaText} onChange={(event) => update({ materaText: event.target.value.toLocaleUpperCase("es").slice(0, 60) })} maxLength={60} placeholder="Texto exacto a grabar" required /></label>}
+          {contentUsesText(draft.materaContent) && <UnicodeEngravingInput className="local-personalization-text" label={`Texto de ${line.product.name}`} value={draft.materaText} onChange={(value) => update({ materaText: value })} maxLength={60} placeholder="Texto exacto a grabar" />}
         </div>
       </section>
       {needsMateraLogo && <label className="local-personalization-upload"><span><FileArrowUp size={21} /><span><strong>Logo original</strong><small>PNG, JPG, SVG o PDF · hasta 10 MB</small></span></span><input aria-label={`Logo de ${line.product.name}`} type="file" accept="image/png,image/jpeg,image/svg+xml,application/pdf" onChange={onFile("materaLogoFile")} /><b>{draft.materaLogoFile?.name || "Seleccionar archivo"}</b></label>}
@@ -256,7 +257,7 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
         <div className="local-personalization-fields">
           <label>Técnica<select aria-label={`Técnica de ${line.product.name}`} value={draft.bombillaTechnique} onChange={(event) => update({ bombillaTechnique: event.target.value as LocalPersonalizationDraft["bombillaTechnique"] })} required><option value="">Elegir técnica</option>{techniqueOptions.filter(([value]) => value === "bronze-applique" || value === "alpaca-applique").map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <label>Contenido<select aria-label={`Contenido de ${line.product.name}`} value={draft.bombillaContent} onChange={(event) => update({ bombillaContent: event.target.value as LocalPersonalizationDraft["bombillaContent"] })}>{contentOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          {contentUsesText(draft.bombillaContent) && <label className="local-personalization-text">Texto exacto<input aria-label={`Texto de ${line.product.name}`} value={draft.bombillaText} onChange={(event) => update({ bombillaText: event.target.value.toLocaleUpperCase("es").slice(0, 60) })} maxLength={60} required /></label>}
+          {contentUsesText(draft.bombillaContent) && <UnicodeEngravingInput className="local-personalization-text" label={`Texto de ${line.product.name}`} value={draft.bombillaText} onChange={(value) => update({ bombillaText: value })} maxLength={60} />}
         </div>
       </section>
       {needsBombillaLogo && <label className="local-personalization-upload"><span><FileArrowUp size={21} /><span><strong>Logo o imagen</strong><small>PNG, JPG, SVG o PDF · hasta 10 MB</small></span></span><input aria-label={`Logo de ${line.product.name}`} type="file" accept="image/png,image/jpeg,image/svg+xml,application/pdf" onChange={onFile("bombillaLogoFile")} /><b>{draft.bombillaLogoFile?.name || "Seleccionar archivo"}</b></label>}
