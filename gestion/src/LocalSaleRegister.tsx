@@ -152,6 +152,17 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
     update({ [field]: file });
     reportError("");
   };
+  const onWorkshopReference = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!["image/png", "image/jpeg"].includes(file.type) || file.size > 10 * 1024 * 1024) {
+      reportError("La referencia debe ser PNG o JPG y pesar hasta 10 MB.");
+      return;
+    }
+    update({ workshopReferenceFile: file });
+    reportError("");
+  };
 
   return <><article className="local-personalization-card" id={`local-personalization-${line.id}`} tabIndex={-1}>
     <header className="local-personalization-card-heading">
@@ -284,7 +295,14 @@ function PersonalizationFields({ line, index, update, updateAssembly, replacePro
       <div className="local-personalization-price-total"><span>Total unitario</span><strong>{draft.kind === "bombilla" && !draft.bombillaTechnique ? "Elegí una técnica" : pricing && !quote.missingRuleKeys.length ? money((line.unitPriceMinor + quote.extrasMinor) / 100) : pricingLoading ? "Cargando precios…" : "Precio no disponible"}</strong></div>
       {!!quote.missingRuleKeys.length && !pricingLoading && <small>Falta publicar un precio de personalización en Productos → Personalizador.</small>}
     </div>}
-    <label className="local-personalization-instructions">Indicaciones para el taller<textarea aria-label={`Indicaciones para ${line.product.name}`} value={draft.instructions} onChange={(event) => update({ instructions: event.target.value.slice(0, 1000) })} maxLength={1000} rows={3} placeholder={draft.kind === "bombilla" ? "Tipografía, medidas u otro detalle acordado con el cliente" : "Ubicación precisa, tipografía, medidas u otro detalle acordado con el cliente"} /></label></>}
+    <div className="local-personalization-instructions">
+      <div className="local-personalization-instructions-heading">
+        <label htmlFor={`workshop-instructions-${line.id}`}>Indicaciones para el taller</label>
+        <label className="local-workshop-reference-button"><FileArrowUp size={17} aria-hidden="true" />{draft.workshopReferenceFile ? "Cambiar referencia" : "Subir referencia"}<input type="file" accept="image/png,image/jpeg" aria-label={`Referencia para el taller de ${line.product.name}`} onChange={onWorkshopReference} /></label>
+      </div>
+      <textarea id={`workshop-instructions-${line.id}`} aria-label={`Indicaciones para ${line.product.name}`} value={draft.instructions} onChange={(event) => update({ instructions: event.target.value.slice(0, 1000) })} maxLength={1000} rows={3} placeholder={draft.kind === "bombilla" ? "Tipografía, medidas u otro detalle acordado con el cliente" : "Ubicación precisa, tipografía, medidas u otro detalle acordado con el cliente"} />
+      {draft.workshopReferenceFile && <div className="local-workshop-reference-selected"><small title={draft.workshopReferenceFile.name}>{draft.workshopReferenceFile.name}</small><button type="button" onClick={() => update({ workshopReferenceFile: null })}>Quitar</button></div>}
+    </div></>}
   </article>{summaryOpen && draft.kind === "mate" && <LocalMateCustomerSummary product={line.product} draft={draft} quantity={line.quantity} onClose={() => setSummaryOpen(false)} />}</>;
 }
 
@@ -522,7 +540,7 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
       const items = [];
       for (const line of lines) {
         const assets: StoredLocalPersonalizationAssets = {};
-        const upload = async (file: File, role: "rim" | "fleje" | "matera" | "bombilla"): Promise<StoredPersonalizationAsset> => {
+        const upload = async (file: File, role: "rim" | "fleje" | "matera" | "bombilla" | "workshop-reference"): Promise<StoredPersonalizationAsset> => {
           const safeName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "archivo";
           const path = `local-sales/${authData.user!.id}/${crypto.randomUUID()}/${role}-${safeName}`;
           const { error: uploadError } = await source.storage.from("order-assets").upload(path, file, { contentType: file.type, cacheControl: "3600", upsert: false });
@@ -544,6 +562,7 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
         }
         if (line.personalization?.materaLogoFile) assets.matera = await upload(line.personalization.materaLogoFile, "matera");
         if (line.personalization?.bombillaLogoFile) assets.bombilla = await upload(line.personalization.bombillaLogoFile, "bombilla");
+        if (line.personalization?.workshopReferenceFile) assets.workshopReference = await upload(line.personalization.workshopReferenceFile, "workshop-reference");
         const snapshot = line.personalization ? buildLocalPersonalizationSnapshot(line.personalization, line.product, assets) : null;
         const previews = [];
         if (snapshot) for (const {role,blob} of await captureLocalDesign(snapshot)) {

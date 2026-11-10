@@ -9,6 +9,17 @@ const product = (changes: Partial<Product> = {}): Product => ({
 });
 
 describe("personalización de ventas locales", () => {
+  it("guarda la referencia del taller como archivo separado del diseño y sin alterar el precio", () => {
+    const draft = createPersonalizationDraft("mate");
+    draft.rimText = "Ana";
+    draft.workshopReferenceFile = { name: "cincelado.jpg" } as File;
+    const reference = { bucket_id: "order-assets" as const, object_path: "test/workshop-reference-cincelado.jpg", original_name: "cincelado.jpg", mime_type: "image/jpeg", byte_size: 300 };
+    const snapshot = buildLocalPersonalizationSnapshot(draft, product(), { workshopReference: reference }) as any;
+    expect(validatePersonalization(draft, product())).toBe("");
+    expect(snapshot.assets).toEqual([{ ...reference, role: "workshop_reference" }]);
+    expect(snapshot.configuration.rim.icons).toEqual([]);
+    expect(snapshot.localPersonalization.instructions).toBe("");
+  });
   it("conserva muchos logos independientes en virola y excluye los que se quitaron del diseño", () => {
     const draft = createPersonalizationDraft("mate");
     draft.rimContent = "logo";

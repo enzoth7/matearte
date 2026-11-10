@@ -3214,6 +3214,15 @@ details.org-node {
 .local-personalization-price > small.local-personalization-price-note { color: var(--muted); }
 .local-sale-price-help { display: block; margin-top: 5px; color: var(--muted); font-weight: 450; }
 .local-personalization-instructions { display: grid; gap: 7px; margin: 0; padding: 17px 19px 19px; border-top: 1px solid var(--line); }
+.local-personalization-instructions-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; }
+.local-personalization-instructions-heading > label:first-child { font-weight: 600; }
+.local-workshop-reference-button { position: relative; display: inline-flex; flex-direction: row; align-items: center; gap: 6px; width: fit-content; min-height: 34px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--white); color: var(--brown); font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.local-workshop-reference-button:hover { background: var(--surface-warm); }
+.local-workshop-reference-button:focus-within { outline: 2px solid var(--brown); outline-offset: 2px; }
+.local-workshop-reference-button input { position: absolute; width: 1px; height: 1px; padding: 0; opacity: 0; }
+.local-workshop-reference-selected { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; color: var(--muted); }
+.local-workshop-reference-selected small { max-width: min(100%, 330px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.local-workshop-reference-selected button { min-height: 0; padding: 0; border: 0; background: transparent; color: var(--brown); font-size: 12px; font-weight: 600; cursor: pointer; }
 .local-personalization-instructions textarea { min-height: 82px; resize: vertical; }
 .local-sale-tab-panel .local-personalization-list { margin-top: 20px; }
 .local-sale-photo-panel { position: sticky; top: 20px; min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--white); }

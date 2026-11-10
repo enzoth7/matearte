@@ -140,7 +140,7 @@ export type PrivateAsset = {
   mimeType: string;
   byteSize: number | null;
   kind: 'preview' | 'upload';
-  role?: 'mate' | 'virola' | 'fleje_front' | 'fleje_back';
+  role?: 'mate' | 'virola' | 'fleje_front' | 'fleje_back' | 'workshop_reference';
 };
 
 export type SurfaceSideSummary = {
@@ -332,6 +332,7 @@ export function collectPrivateAssets(snapshotValue: unknown): PrivateAsset[] {
       mimeType: asString(asset.mime_type) || 'application/octet-stream',
       byteSize: typeof asset.byte_size === 'number' ? asset.byte_size : null,
       kind: bucket === 'design-previews' ? 'preview' : 'upload',
+      ...(asset.role === 'workshop_reference' ? { role: 'workshop_reference' as const } : {}),
     }];
   });
 
@@ -373,8 +374,9 @@ export function collectPrivateAssets(snapshotValue: unknown): PrivateAsset[] {
   } satisfies PrivateAsset] : [];
 
   const activeUploads = [...collectCustomImageAssets(snapshot.configuration), ...collectCustomImageAssets(snapshot.flejeConfiguration)];
-  const fallbackUploads = activeUploads.length ? [] : metadataAssets.filter((asset) => asset.kind === 'upload');
-  const found = [...manifestPreviews, ...legacyPreview, ...activeUploads, ...fallbackUploads];
+  const referenceUploads = metadataAssets.filter((asset) => asset.role === 'workshop_reference');
+  const fallbackUploads = activeUploads.length ? [] : metadataAssets.filter((asset) => asset.kind === 'upload' && asset.role !== 'workshop_reference');
+  const found = [...manifestPreviews, ...legacyPreview, ...activeUploads, ...fallbackUploads, ...referenceUploads];
   return [...new Map(found.map((asset) => [asset.key, asset])).values()];
 }
 

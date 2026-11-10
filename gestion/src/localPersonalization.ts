@@ -39,6 +39,7 @@ export type LocalPersonalizationDraft = {
   bombillaContent: PersonalizationContent;
   bombillaText: string;
   instructions: string;
+  workshopReferenceFile?: File | null;
   selectedOptions: Record<string, string>;
   rimLogoFile: File | null;
   rimLogos?: LocalRimLogo[];
@@ -55,6 +56,7 @@ export type StoredPersonalizationAsset = {
   original_name: string;
   mime_type: string;
   byte_size: number;
+  role?: "workshop_reference";
 };
 
 export type StoredLocalPersonalizationAssets = {
@@ -64,6 +66,7 @@ export type StoredLocalPersonalizationAssets = {
   flejeLogos?: { id: string; asset: StoredPersonalizationAsset }[];
   matera?: StoredPersonalizationAsset;
   bombilla?: StoredPersonalizationAsset;
+  workshopReference?: StoredPersonalizationAsset;
 };
 
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
@@ -175,6 +178,7 @@ export function createPersonalizationDraft(kind: PersonalizationKind, product?: 
     bombillaContent: "text",
     bombillaText: "",
     instructions: "",
+    workshopReferenceFile: null,
     selectedOptions,
     rimLogoFile: null,
     flejeLogoFile: null,
@@ -278,6 +282,7 @@ export function buildLocalPersonalizationSnapshot(
   const flejeAssets = (stored.flejeLogos ?? (stored.fleje ? [{ id: "fleje-upload", asset: stored.fleje }] : []))
     .filter(item => !draft.flejeLogos && item.id === "fleje-upload" || localFlejeLogos(draft).some(logo => logo.id === item.id && logo.sides.length));
   const assets = [...rimAssets.map(item => item.asset), ...flejeAssets.map(item => item.asset), stored.matera, stored.bombilla].filter((asset): asset is StoredPersonalizationAsset => Boolean(asset));
+  if (stored.workshopReference) assets.push({ ...stored.workshopReference, role: "workshop_reference" });
   if (draft.kind === "bombilla") {
     return {
       schemaVersion: 1,

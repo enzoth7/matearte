@@ -224,6 +224,7 @@ function useMatePreviewWithoutFrame(source: string | undefined, enabled: boolean
 function AssetCard({ asset, link }: { asset: PrivateAsset; link?: AssetLink }) {
   const isImage = asset.mimeType.startsWith('image/');
   const isMatePreview = asset.kind === 'preview' && asset.role === 'mate';
+  const isWorkshopReference = asset.role === 'workshop_reference';
   const imageUrl = useMatePreviewWithoutFrame(link?.viewUrl, isMatePreview);
   return (
     <article className="customer-asset" data-preview-role={asset.role}>
@@ -233,8 +234,8 @@ function AssetCard({ asset, link }: { asset: PrivateAsset; link?: AssetLink }) {
           : <div className="asset-placeholder">{isImage ? 'Cargando imagen…' : 'Archivo adjunto'}</div>}
       </div>
       <div className="asset-caption">
-        <strong title={asset.name}>{asset.name}</strong>
-        <small>{[asset.mimeType.replace('image/', '').toUpperCase(), formatFileSize(asset.byteSize)].filter(Boolean).join(', ')}</small>
+        <strong title={isWorkshopReference ? `Referencia para el taller: ${asset.name}` : asset.name}>{isWorkshopReference ? 'Referencia para el taller' : asset.name}</strong>
+        <small>{[isWorkshopReference ? asset.name : asset.mimeType.replace('image/', '').toUpperCase(), formatFileSize(asset.byteSize)].filter(Boolean).join(', ')}</small>
         {link?.downloadUrl && <a href={link.downloadUrl} target="_blank" rel="noreferrer">{asset.kind === 'preview' ? 'Descargar PNG' : 'Descargar original'}</a>}
       </div>
     </article>
@@ -279,6 +280,8 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
   const selectedTotals = selected ? personalizedOrderTotals(selected) : null;
   const selectedItems = useMemo(() => selected ? getPersonalizedItems(selected) : [], [selected]);
   const itemSummaries = useMemo(() => selectedItems.map((item) => ({ item, summary: summarizePersonalization(item) })), [selectedItems]);
+  const printGalleryItems = itemSummaries.filter(({ item, summary }) => summary.previews.length > 0 || summary.uploads.length > 0
+    || (summary.kind === 'mate' && Boolean(asRecord(item.immutable_snapshot).configuration)));
   const files = useMemo(() => [...new Map(itemSummaries.flatMap(({ summary }) => summary.files).map((asset) => [asset.key, asset])).values()], [itemSummaries]);
   const previewCount = itemSummaries.reduce((total, { item, summary }) => { if (summary.kind !== 'mate') return total + summary.previews.length; const c = asRecord(asRecord(item.immutable_snapshot).configuration); const caps = asRecord(c.capabilities); return total + (summary.previews.length || (c.rim ? (caps.hasRim === false ? 0 : 1) + (caps.hasFleje ? 2 : 0) : 0)); }, 0);
 
@@ -427,6 +430,18 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
               {assetWarning && <div className="asset-warning" role="alert">{assetWarning}</div>}
             </div>
             <div className="production-brief"><div><small>Cliente</small><strong>{customerName(selected.customer_snapshot)}</strong></div><div><small>Fecha del pedido</small><strong>{readableOrderDate(selected)}</strong></div><div><small>Estado</small><strong>{personalizedProductionStatus(selected)}</strong></div><div><small>Contacto</small><strong>{phone || email || 'Sin contacto guardado'}</strong></div></div>
+
+            {printGalleryItems.length > 0 && <section className="production-print-gallery" aria-label="Imágenes y archivos del pedido">
+              {printGalleryItems.map(({ item, summary }) => <section className="production-print-gallery-item" key={item.id}>
+                <h3>{itemTitle(item)}</h3>
+                <div className="customer-assets production-print-gallery-assets">
+                  {summary.previews.map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}
+                  {!summary.previews.length && summary.kind === 'mate' && Boolean(asRecord(item.immutable_snapshot).configuration) && <RecoveredDesignViews snapshot={item.immutable_snapshot} uniformGrid />}
+                  {summary.uploads.filter((asset) => asset.role === 'workshop_reference').map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}
+                  {summary.uploads.filter((asset) => asset.role !== 'workshop_reference').map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}
+                </div>
+              </section>)}
+            </section>}
 
             {itemSummaries.map(({ item, summary }) => (
               <section className="personalized-item" key={item.id}>

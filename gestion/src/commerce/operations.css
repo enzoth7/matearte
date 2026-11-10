@@ -1679,6 +1679,7 @@ td small { display: block; }
 .personalized-order-totals strong { white-space: nowrap; }
 .personalized-order-totals .personalized-order-grand-total { padding-top: .8rem; border-top: 1px solid #d8cec5; color: #171412; font-size: 1rem; font-weight: 700; }
 .personalized-dialog .personalization-images { padding: 1.4rem 1.25rem .8rem; border: 0; background: #fff; }
+.production-print-gallery { display: none; }
 .personalized-dialog .section-heading { align-items: baseline; margin-bottom: .25rem; }
 .personalized-dialog .section-heading > strong { background: #f5f1ec; color: #794c32; }
 .production-brief { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 1rem; margin: .4rem 1.25rem 0; padding: .85rem 0; border-top: 1px solid #e6e0d9; border-bottom: 1px solid #e6e0d9; }
@@ -1738,6 +1739,12 @@ td small { display: block; }
   .personalized-dialog .personalization-images { padding: 6mm 0 3mm; }
   .personalized-dialog .section-heading > strong { display: none; }
   .personalized-dialog .production-brief { grid-template-columns: repeat(4,minmax(0,1fr)); margin: 0 0 5mm; }
+  .personalized-dialog .production-print-gallery { display: block; margin: 0 1.25rem 4mm; }
+  .personalized-dialog .production-print-gallery-item h3 { margin: 0; font-size: 13pt; }
+  .personalized-dialog .production-print-gallery-assets { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 3mm; margin-top: 3mm; }
+  .personalized-dialog .production-print-gallery-assets > .recovered-production-views { grid-column: 1 / -1; }
+  .personalized-dialog .production-print-gallery-assets .asset-preview { height: 45mm; }
+  .personalized-dialog .production-print-gallery + .personalized-item { break-before: page; page-break-before: always; }
   .personalized-dialog .personalized-item { padding: 5mm 0; }
   .personalized-dialog .personalized-item-head { break-after: avoid-page; page-break-after: avoid; }
   .personalized-dialog .mate-specs { grid-template-columns: repeat(5,minmax(0,1fr)); }
@@ -1746,6 +1753,7 @@ td small { display: block; }
   .personalized-dialog .personalized-item-head, .personalized-dialog .customer-asset, .personalized-dialog .personalization-card, .personalized-dialog .mate-specs, .personalized-dialog .compact-specs > div { break-inside: avoid; }
   .personalized-dialog .asset-preview { height: 48mm; }
   .personalized-dialog .customer-assets { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .personalized-dialog .personalized-item .design-artifact-group { display: none; }
   .personalized-dialog .asset-caption { padding: 2mm 3mm; }
   .personalized-dialog .asset-caption small { display: none; }
 }

@@ -174,6 +174,19 @@ describe('summarizePersonalization', () => {
 });
 
 describe('archivos privados', () => {
+  it('muestra la referencia del taller junto al logo original aunque el diseño tenga imágenes activas', () => {
+    const summary = summarizePersonalization(item({
+      assets: [
+        { bucket_id: 'order-assets', object_path: 'local/reference.jpg', original_name: 'cincelado.jpg', mime_type: 'image/jpeg', byte_size: 300, role: 'workshop_reference' },
+        { bucket_id: 'order-assets', object_path: 'local/logo.png', original_name: 'logo.png', mime_type: 'image/png', byte_size: 400 },
+      ],
+      configuration: { rim: { icons: [{ customImage: { name: 'logo.png', mimeType: 'image/png', size: 400, storageRef: 'storage:order-assets:local/logo.png' } }] } },
+    }));
+
+    expect(summary.uploads).toHaveLength(2);
+    expect(summary.uploads).toContainEqual(expect.objectContaining({ path: 'local/logo.png', kind: 'upload' }));
+    expect(summary.uploads).toContainEqual(expect.objectContaining({ path: 'local/reference.jpg', role: 'workshop_reference', kind: 'upload' }));
+  });
   it('recupera los metadatos del pedido y evita duplicar el mismo logo', () => {
     const files = collectPrivateAssets({
       assets: [{ bucket_id: 'design-assets', object_path: 'user/design/logo.png', original_name: 'logo.png', mime_type: 'image/png', byte_size: 2048 }],
