@@ -83,14 +83,17 @@ Deno.serve(async (request) => {
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   if (!url || !key) return response({ error: "Servicio no configurado." }, 503, origin);
   const token = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1] || "";
-  const catalogKeyValid = request.headers.get("apikey") === key && !origin;
-  if (!token && !catalogKeyValid) return response({ error: "Falta la sesión." }, 401, origin);
+  const catalogKey = request.headers.get("apikey") || "";
+  if (!token && !catalogKey) return response({ error: "Falta la sesión." }, 401, origin);
   let admin = createClient(url, key, { auth: { persistSession: false } });
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return response({ error: "Solicitud inválida." }, 400, origin); }
   const action = clean(body.action, 30);
   if (action === "catalogPopularity") {
-    if (!catalogKeyValid) return response({ error: "Sin acceso." }, 403, origin);
+    if (origin || catalogKey.length < 40 || catalogKey.length > 1000) return response({ error: "Sin acceso." }, 403, origin);
+    const caller = createClient(url, catalogKey, { auth: { persistSession: false } });
+    const { error: keyError } = await caller.auth.admin.listUsers({ page: 1, perPage: 1 });
+    if (keyError) return response({ error: "Sin acceso." }, 403, origin);
     const vercelToken = Deno.env.get("VERCEL_ANALYTICS_TOKEN")?.trim() || "";
     const teamId = Deno.env.get("VERCEL_TEAM_ID")?.trim() || "team_nvrETovmDRtUay05tg8OkZb0";
     const sites = (Deno.env.get("VERCEL_ANALYTICS_SITES") || "tienda:Tienda web:prj_wACNXNMkoQymJhRi01L4mJQ5E2a1,personalizador:Personalizador:prj_Slv0SnaWTPUZdYZ6qAzbrIHMsd49")
