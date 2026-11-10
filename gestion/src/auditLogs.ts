@@ -1,3 +1,5 @@
+import { formatDate, formatDateTime } from './dateFormat';
+
 export type AuditUser = { id: string; name: string; accessId: string | null };
 export type AuditContext = { canViewLogs: boolean; activatedAt?: string; users?: AuditUser[] };
 // Presentation fallback while the migration is pending. This never grants data
@@ -25,6 +27,9 @@ export const auditFields: Record<string, string> = {
  channel: 'Canal', phone: 'Teléfono', email: 'Correo', notes: 'Notas', rate_to_uyu: 'Cotización en UYU', exchange_rate: 'Cotización',
  order_id: 'Pedido', sale_id: 'Venta', version_id: 'Versión', rule_key: 'Regla', version: 'Versión', note: 'Nota',
  shipping_method: 'Modalidad de entrega', shipping_carrier: 'Transportista', tracking_code: 'Seguimiento',
+ created_at: 'Fecha de creación', updated_at: 'Última actualización', paid_at: 'Fecha de pago', shipped_at: 'Fecha de envío',
+ delivered_at: 'Fecha de entrega', completed_at: 'Fecha de finalización', cancelled_at: 'Fecha de cancelación',
+ review_status: 'Revisión de pago',
  before: 'Antes', after: 'Después', recipient_count: 'Destinatarios', headline: 'Título', description: 'Descripción',
  category: 'Categoría', category_code: 'Categoría', supplier: 'Proveedor', purchased_on: 'Fecha de compra', due_day: 'Día de vencimiento',
  valid_from: 'Vigente desde', valid_until: 'Vigente hasta', discount_type: 'Tipo de descuento',
@@ -46,6 +51,27 @@ function numericUnit(key: string, event: AuditEvent): { divisor: number; currenc
 export function auditValue(value: unknown, key: string, event: AuditEvent): string {
  if (value == null) return 'Sin valor';
  if (typeof value === 'boolean') return value ? 'Sí' : 'No';
+ if (typeof value === 'string') {
+   if (['status', 'production_status', 'review_status'].includes(key)) {
+     const states: Record<string, string> = {
+       internal_open: 'Abierto', internal_completed: 'Pendiente de entrega', pending: 'Pendiente',
+       in_production: 'En producción', completed: 'Terminado', shipped: 'Enviado', delivered: 'Entregado',
+       ready_for_production: 'Listo para producción', ready_for_fulfillment: 'Listo para preparar',
+       paid_pending_review: 'Pago pendiente de revisión', payment_verification_pending: 'Pago pendiente de verificación',
+       manual_review: 'Requiere revisión', approved: 'Aprobado', rejected: 'Rechazado',
+       cancelled: 'Cancelado', refunded: 'Reembolsado', paid: 'Pagado',
+     };
+     return states[value] || value;
+   }
+   if (key === 'shipping_method') {
+     const methods: Record<string, string> = { pickup: 'Retiro en el local', national_shipping: 'Envío nacional', international_coordination: 'Envío internacional' };
+     return methods[value] || value;
+   }
+   if (['sold_on', 'paid_on', 'purchased_on', 'created_at', 'updated_at', 'paid_at', 'shipped_at', 'delivered_at', 'completed_at', 'cancelled_at'].includes(key)) {
+     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return formatDate(value);
+     if (/^\d{4}-\d{2}-\d{2}T/.test(value) && !Number.isNaN(Date.parse(value))) return formatDateTime(value);
+   }
+ }
  if (typeof value === 'number') {
    const unit = numericUnit(key, event);
    const number = new Intl.NumberFormat('es-UY', { maximumFractionDigits: 4 }).format(value / unit.divisor);

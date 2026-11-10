@@ -1,8 +1,9 @@
-import { assemblyLabels, assemblyName, assemblySummary, priceMateAssembly, type MateAssembly } from "../../shared/mate-assembly";
+import { assemblyLabels, assemblyName, assemblySummary, priceMateAssembly, withoutAssemblyFlejeDesign, type MateAssembly } from "../../shared/mate-assembly";
 import type { Product } from "./data";
 
 /** Presentation adapter for the existing design editor; never a catalog row or SKU. */
 export function mateAssemblyPresentation(assembly: MateAssembly, rules?: Record<string, number>): Product {
+  assembly = withoutAssemblyFlejeDesign(assembly);
   const labels = assemblyLabels(assembly);
   const price = priceMateAssembly(assembly, rules).totalMinor / 100;
   return { id: "", sku: "", name: assemblyName(assembly), variant: assemblySummary(assembly), family: "Personalizados", categoryCode: "mates", personalizationType: "mate", assembly,

@@ -42,7 +42,7 @@ export type WholesaleSnapshot = {
   lines: WholesaleLine[]; images: WholesaleProductImage[];
   categories: { code: string; label_es: string; active: boolean }[];
   exchangeRate: number;
-  orderRecords?: { id: string; reference_code: string | null; total_minor: number; customer_name: string | null; contact_id?: string | null }[];
+  orderRecords?: { id: string; reference_code: string | null; total_minor: number; customer_name: string | null; contact_id?: string | null; status?: string; paid_at?: string | null; shipped_at?: string | null; delivered_at?: string | null }[];
   paymentOpenings?: { sale_id: string; collected_minor: number | null; collected_arg_minor?: number | null; paid_in_full_without_price?: boolean; finance_paid_at_order?: boolean }[];
   receipts?: { id: string; sale_id: string; amount_minor: number; source_amount_minor: number; currency: "UYU" | "ARS"; payment_method: string; paid_on: string }[];
 };
@@ -135,7 +135,7 @@ async function readWholesaleOrderRecords(): Promise<NonNullable<WholesaleSnapsho
   const result: NonNullable<WholesaleSnapshot["orderRecords"]> = [];
   for (let start = 0; ; start += 100) {
     const { data, count, error } = await client().from("orders")
-      .select("id,reference_code,total_minor,customer_name,contact_id", { count: "exact" })
+      .select("id,reference_code,total_minor,customer_name,contact_id,status,paid_at,shipped_at,delivered_at", { count: "exact" })
       .eq("channel", "Mayorista").order("id").range(start, start + 99);
     if (error) throw error;
     result.push(...(data || []) as typeof result);

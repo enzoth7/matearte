@@ -41,8 +41,9 @@ test('ventas del local comparten pedidos, clientes y cobros con Gestión', async
   await page.getByRole('button', { name: 'Guardar cambios' }).click();
   await expect.poll(() => tables.local_sales_customers[0].phone).toBe('+59899777888');
   await page.goto('/finanzas/cobros');
-  await expect(page.getByRole('tab', { name: 'Cobros registrados' })).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByRole('row').filter({ hasText: 'Local #00018' })).toContainText('Comprador del local');
+  await expect(page.getByRole('navigation', { name: 'Subáreas de Finanzas' }).getByRole('link', { name: 'Cuentas por cobrar' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('navigation', { name: 'Subáreas de Finanzas' }).getByRole('link', { name: 'Fiados Local' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Cobros registrados' })).toHaveCount(0);
   await page.goto('/produccion/resumen');
   await expect(page.getByRole('button', { name: 'Local #00018' })).toHaveCount(0);
 });
@@ -368,7 +369,7 @@ test('personalizados combina un mate armado, matera y bombilla y guarda los dise
   await expect(page.getByRole('navigation', { name: 'Pasos del diseño de Mate Imperial personalizado' }).getByRole('button', { name: /Virola/ })).toBeVisible();
   await page.getByRole('navigation', { name: 'Pasos del diseño de Mate Imperial personalizado' }).getByRole('button', { name: /Materiales/ }).click();
   const materials = page.locator('.local-personalization-card').first();
-  for (const [label,value] of [['Color','natural'],['Interior','calabaza'],['Tamaño','grande'],['Virola','imperial'],['Diseño del fleje','liso'],['Posamate','sin-posamate'],['Pie','comun']]) await materials.getByLabel(label,{exact:true}).selectOption(value);
+  for (const [label,value] of [['Color','natural'],['Interior','calabaza'],['Tamaño','grande'],['Virola','imperial'],['Posamate','sin-posamate'],['Pie','comun']]) await materials.getByLabel(label,{exact:true}).selectOption(value);
   await expect(page.locator('.local-sale-photo-panel')).not.toContainText('Todos los tamaños');
   await page.getByRole('navigation', { name: 'Pasos del diseño de Mate Imperial personalizado' }).getByRole('button', { name: /Virola/ }).click();
   await page.getByLabel('Texto de virola de Mate Imperial personalizado').fill('ENZO');

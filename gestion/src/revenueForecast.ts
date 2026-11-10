@@ -31,7 +31,7 @@ function buildMonthlyForecast(
   const history = Array.from({ length: 12 }, (_, index) => {
     const key = shiftMonth(currentMonth, index - 12);
     const records = kind === "revenue"
-      ? state.orders.filter((order) => isSale(order) && order.date.startsWith(key)).map(total)
+      ? state.orders.filter((order) => isSale(order) && !order.consignmentId && order.date.startsWith(key)).map(total)
       : state.expenses.filter((expense) => expense.date.startsWith(key)).map((expense) => expense.amount);
     return { key, label: label(key), amount: records.reduce((sum, amount) => sum + amount, 0), hasRecords: records.length > 0 };
   });

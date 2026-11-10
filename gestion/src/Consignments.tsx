@@ -1,69 +1,68 @@
 import { useState, type FormEvent } from "react";
-import { arsMoney, montevideoToday, orderName, type WholesaleConsignment, type WholesaleConsignmentMovement } from "./data";
+import { arsMoney, montevideoToday, orderName, type Order, type WholesaleConsignment, type WholesaleConsignmentMovement } from "./data";
 import { consignmentLineBalances, consignmentReceiptAvailableMinor, consignmentSummary, type ConsignmentLineBalance } from "./consignmentModel";
 import { allocateConsignmentReceipt, createConsignment, recordConsignmentMovement, recordConsignmentPayment } from "./consignmentSource";
 import { formatDate } from "./dateFormat";
 import type { PageProps } from "./pages";
-import type { WholesaleProduct } from "./wholesaleSource";
 import { Badge, Modal, Stats, Table } from "./ui";
 
 const methods = ["Efectivo", "Débito", "Crédito", "Transferencia"];
 const toMinor = (value: string) => Math.round(Number(value.replace(",", ".")) * 100);
 const errorText = (value: unknown) => value instanceof Error ? value.message : "No se pudo guardar el movimiento.";
 
-type DraftLine = { product: WholesaleProduct; quantity: string; price: string };
-
 function NewConsignment({ props, onClose, onCreated }: {
   props: PageProps; onClose: () => void; onCreated: (id: string) => Promise<void>;
 }) {
   const wholesale = props.commerce?.wholesale;
   const [id] = useState(() => crypto.randomUUID());
-  const [contactId, setContactId] = useState("");
   const [search, setSearch] = useState("");
-  const [lines, setLines] = useState<DraftLine[]>([]);
+  const [selected, setSelected] = useState<Order | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const products = (wholesale?.products || []).filter((product) => product.sku && product.price_arg > 0);
-  const matches = search.trim() ? products.filter((product) => !lines.some((line) => line.product.id === product.id)
-    && `${product.sku} ${product.model} ${product.variant}`.toLocaleLowerCase("es").includes(search.trim().toLocaleLowerCase("es"))).slice(0, 12) : [];
-  const contacts = (wholesale?.contacts || []).filter((entry) =>
-    wholesale?.customers.some((customer) => customer.full_name === entry.wholesale_name));
-  const add = (product: WholesaleProduct) => {
-    setLines((current) => [...current, { product, quantity: "1", price: String(product.price_arg) }]);
-    setSearch("");
+  const records = new Map((wholesale?.orderRecords || []).map((record) => [record.id, record]));
+  const openings = new Map((wholesale?.paymentOpenings || []).map((opening) => [opening.sale_id, opening]));
+  const eligible = (order: Order) => {
+    const saleId = order.wholesaleSaleId || "";
+    const record = records.get(saleId);
+    const opening = openings.get(saleId);
+    return order.source === "wholesale" && !!record?.contact_id && !order.consignmentId
+      && !record.paid_at && !record.shipped_at && !record.delivered_at
+      && !["cancelled", "refunded", "payment_failed"].includes(record.status || "")
+      && !opening?.paid_in_full_without_price && !opening?.finance_paid_at_order
+      && !(opening?.collected_arg_minor || opening?.collected_minor)
+      && !(wholesale?.receipts || []).some((receipt) => receipt.sale_id === saleId)
+      && !(props.s.accountAllocations || []).some((allocation) => allocation.orderId === saleId)
+      && order.wholesaleTotalArg != null && !!order.items?.length
+      && order.items.every((line) => !!line.sku && !!line.wholesaleLineId && line.priceArg != null && Number.isInteger(Math.round(line.priceArg * 100) / line.quantity));
   };
+  const matches = props.s.orders.filter((order) => eligible(order)
+    && `${orderName(order)} ${order.customerName || ""}`.toLocaleLowerCase("es").includes(search.trim().toLocaleLowerCase("es")))
+    .sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12);
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
-    const items = lines.map((line) => ({ variantId: line.product.id,
-      quantity: Number(line.quantity), unitPriceArgMinor: toMinor(line.price) }));
-    if (!contactId || !items.length || items.some((item) => !Number.isSafeInteger(item.quantity) || item.quantity < 1
-      || !Number.isSafeInteger(item.unitPriceArgMinor) || item.unitPriceArgMinor <= 0)) {
-      setError("Seleccioná cliente, productos, cantidades y precios ARS válidos."); return;
-    }
+    if (!selected?.wholesaleSaleId || !eligible(selected)) { setError("Elegí un pedido mayorista disponible."); return; }
     setBusy(true); setError("");
     try {
-      await createConsignment(id, contactId, items);
+      await createConsignment(id, selected.wholesaleSaleId);
       await onCreated(id);
     } catch (failure) { setError(errorText(failure)); setBusy(false); }
   }
   return <Modal title="Nueva consignación" className="consignment-modal" onClose={onClose}>
     <form className="consignment-form" onSubmit={(event) => void save(event)}>
-      <label>Cliente mayorista<select value={contactId} onChange={(event) => setContactId(event.target.value)} required>
-        <option value="">Elegir cliente</option>{contacts.map((entry) => <option key={entry.id} value={entry.id}>{entry.wholesale_name}</option>)}
-      </select></label>
-      <label>Buscar producto existente<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre o SKU" /></label>
-      {matches.length > 0 && <div className="consignment-product-results">{matches.map((product) =>
-        <button type="button" key={product.id} onClick={() => add(product)}><strong>{product.model}, {product.variant}</strong><small>SKU {product.sku}, {arsMoney(product.price_arg)}</small></button>)}</div>}
-      {lines.map((line) => <div className="consignment-draft-line" key={line.product.id}>
-        <strong>{line.product.model}, {line.product.variant}<small>SKU {line.product.sku}</small></strong>
-        <label>Unidades<input type="number" min="1" step="1" value={line.quantity} onChange={(event) => setLines((current) => current.map((item) => item.product.id === line.product.id ? { ...item, quantity: event.target.value } : item))} required /></label>
-        <label>Precio pactado ARS<input type="number" min="0.01" step="0.01" value={line.price} onChange={(event) => setLines((current) => current.map((item) => item.product.id === line.product.id ? { ...item, price: event.target.value } : item))} required /></label>
-        <button type="button" className="secondary" onClick={() => setLines((current) => current.filter((item) => item.product.id !== line.product.id))}>Quitar</button>
-      </div>)}
-      <div className="data-note">El precio ARS pactado queda fijo para esta consignación. El pedido entra a Producción y el envío todavía no genera saldo por cobrar.</div>
+      <label>Buscar pedido mayorista<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Número o cliente" /></label>
+      <div className="consignment-order-results" role="group" aria-label="Pedidos mayoristas disponibles">{matches.map((order) =>
+        <button type="button" key={order.id} aria-pressed={selected?.id === order.id} onClick={() => setSelected(order)}>
+          <strong className="consignment-order-number">{orderName(order)}</strong>
+          <strong className="consignment-order-customer">{order.customerName}</strong>
+          <strong className="consignment-order-amount">{arsMoney(order.wholesaleTotalArg || 0)}</strong>
+          <small className="consignment-order-units">{order.items?.reduce((sum, line) => sum + line.quantity, 0)} unidades</small>
+        </button>)}</div>
+      {selected && <section className="consignment-order-summary"><h3>{orderName(selected)}, {selected.customerName}</h3>
+        {(selected.items || []).map((line) => <div key={line.id}><strong>{line.title}</strong><small>{line.quantity} unidades, {arsMoney(line.priceArg || 0)}</small></div>)}
+      </section>}
       {error && <div className="error" role="alert">{error}</div>}
-      <div className="form-actions"><button type="button" className="secondary" onClick={onClose} disabled={busy}>Cancelar</button><button className="primary" disabled={busy || !lines.length}>{busy ? "Guardando…" : "Crear consignación"}</button></div>
+      <div className="form-actions"><button type="button" className="secondary" onClick={onClose} disabled={busy}>Cancelar</button><button className="primary" disabled={busy || !selected}>{busy ? "Guardando…" : "Crear consignación"}</button></div>
     </form>
   </Modal>;
 }

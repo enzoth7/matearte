@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { seed, type State } from "./data";
+import { seed, wholesaleBalanceArs, type State } from "./data";
 import { consignmentReceiptAvailableMinor, consignmentSummary } from "./consignmentModel";
 import { customerAccounts } from "./customerAccountModel";
 import { buildFinanceProjection } from "./financeProjection";
@@ -24,6 +24,11 @@ describe("consignaciones mayoristas", () => {
 
   it("cobra solo las unidades conservadas, acepta cuotas y convierte una vez en finanzas", () => {
     const state = fixture();
+    state.orders = [{ id: "order-1", wholesaleSaleId: "order-1", consignmentId: "consignment-1",
+      source: "wholesale", contactId: "contact-1", customerId: "customer-1", productId: "mate-1",
+      quantity: 100, unitPrice: 0, totalAmount: 3000, wholesaleTotalArg: 100_000,
+      wholesaleTotalUyu: 3000, channel: "Mayorista", date: "2026-11-01", due: "",
+      production: "Terminado", delivery: "Pendiente", method: "No aplica", design: false, approved: true }];
     state.consignmentMovements!.push(
       { id: "return-1", lineId: "line-1", kind: "return", quantity: 20, occurredOn: "2026-11-08", carrier: null, tracking: null, note: null, createdAt: "2026-11-08T12:00:00Z" },
       { id: "kept-1", lineId: "line-1", kind: "kept", quantity: 80, occurredOn: "2026-11-08", carrier: null, tracking: null, note: null, createdAt: "2026-11-08T12:01:00Z" },
@@ -42,6 +47,7 @@ describe("consignaciones mayoristas", () => {
     const summary = consignmentSummary(state, state.consignments![0]);
     expect(summary).toMatchObject({ dispatched: 100, held: 0, returned: 20, kept: 80,
       confirmedArgMinor: 8_000_000, paidArgMinor: 5_000_000, balanceArgMinor: 3_000_000 });
+    expect(wholesaleBalanceArs(state, state.orders[0])).toBe(30_000);
     expect(customerAccounts(state).find((account) => account.id === "contact-1:ARS")).toMatchObject({ pending: 30_000, credit: 0 });
     expect(consignmentReceiptAvailableMinor(state, "receipt-1")).toBe(0);
     const current = buildFinanceProjection(state, { asOf: "2026-11-08" })[0];

@@ -947,7 +947,7 @@ export function CustomerDetailModal({ customer: c, s, go, commerce, onClose }: {
     </div>
     <Stats items={[
       ...(wholesaleCustomerOrders.length || customerAccountRows.some((entry) => entry.currency === "ARS" && entry.pending > 0) ? [
-        { label: "Compras mayoristas confirmadas", value: arsMoney(wholesaleCustomerOrders.filter((order) => isSale(order) && order.wholesaleTotalArg != null).reduce((sum, order) => sum + (order.wholesaleTotalArg || 0), 0)) },
+        { label: "Compras mayoristas confirmadas", value: arsMoney(wholesaleCustomerOrders.filter((order) => isSale(order) && !order.consignmentId && order.wholesaleTotalArg != null).reduce((sum, order) => sum + (order.wholesaleTotalArg || 0), 0) + (s.consignments || []).filter((entry) => wholesaleCustomerOrders.some((order) => order.wholesaleSaleId === entry.orderId)).reduce((sum, entry) => sum + consignmentSummary(s, entry).confirmedArgMinor / 100, 0)) },
         { label: "Saldo mayorista", value: arsMoney(customerAccountRows.find((entry) => entry.currency === "ARS")?.pending ?? wholesaleCustomerOrders.reduce((sum, order) => sum + (wholesaleBalanceArs(s, order) || 0), 0)) },
       ] : []),
       ...(uyuCustomerOrders.length || customerAccountRows.some((entry) => entry.currency === "UYU" && entry.pending > 0) ? [

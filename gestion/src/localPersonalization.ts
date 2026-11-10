@@ -1,6 +1,6 @@
 import type { ElementTransform } from "../../personalizador/src/types/personalizer";
 import type { Product } from "./data";
-import { assemblyFieldsFor, assemblyLabels, assemblyHasFleje, validateMateAssembly } from "../../shared/mate-assembly";
+import { assemblyFieldsFor, assemblyLabels, assemblyHasFleje, validateMateAssembly, withoutAssemblyFlejeDesign } from "../../shared/mate-assembly";
 import { catalogAttributeDetails, catalogPurchaseAxes, catalogValueLabel, defaultCatalogTaxonomy, normalizeCatalogValueMap } from "../../shared/catalog-taxonomy";
 
 export type PersonalizationKind = "mate" | "matera" | "bombilla";
@@ -327,7 +327,8 @@ export function buildLocalPersonalizationSnapshot(
   const hasFlejeLogo = draft.flejeTechnique !== "none" && hasLogo(draft.flejeContent);
   const flejeAvailable = productHasFleje(product);
   const selectedOptions = Object.fromEntries(matePurchaseAxes(product).map(axis => [axis.code, draft.selectedOptions[axis.code]]));
-  const attributes = normalizeCatalogValueMap(product.attributes);
+  const assembly = product.assembly && withoutAssemblyFlejeDesign(product.assembly);
+  const attributes = assembly || normalizeCatalogValueMap(product.attributes);
   const detailLabels = Object.fromEntries(mateCharacteristicDetails(product).map(detail => [detail.code, detail.values.join(", ")]));
   const color = typeof product.options?.color === "string" ? catalogValueLabel(defaultCatalogTaxonomy, "color", product.options.color) : product.variant;
   const transform = (key: string, side: "rim" | "front" | "back") => localDesignTransform(draft, key, side);
@@ -345,7 +346,7 @@ export function buildLocalPersonalizationSnapshot(
     source: "local",
     assets,
     localPersonalization: { kind: "mate", instructions: draft.instructions.trim(), selectedOptions },
-    ...(product.assembly ? { assembly: { schemaVersion: 1, selections: product.assembly, labels: assemblyLabels(product.assembly) } } : {}),
+    ...(assembly ? { assembly: { schemaVersion: 1, selections: assembly, labels: assemblyLabels(assembly) } } : {}),
     configuration: {
       selectedOptions,
       productAttributes: attributes,

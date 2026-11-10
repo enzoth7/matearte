@@ -1,21 +1,29 @@
 import { test, expect } from "@playwright/test";
 import { mockCommerce } from "./commerce-fixture";
 
-test("Finanzas muestra consignaciones y propone el precio mayorista del catálogo", async ({ page }) => {
+test("Finanzas vincula un pedido mayorista existente sin elegir productos", async ({ page }) => {
   const { tables } = await mockCommerce(page);
   tables.commerce_products[0].commerce_variants[0].available_wholesale = true;
   tables.commerce_products[0].commerce_variants[0].wholesale_price_arg = 12500;
   tables.contacts.push({ id: "contact-wholesale", wholesale_name: "Cliente mayorista" });
   tables.customers.push({ full_name: "Cliente mayorista" });
+  tables.order_lines.push({ line_id: "line-existing", order_id: "#M200", created_at: "2026-11-03T12:00:00Z",
+    customer: "Cliente mayorista", model: "Mate de catálogo", variant: "Cuero negro", quantity: 2,
+    status: "Pendiente", order_type: "normal", unit_price_arg: 12500, unit_price_uyu: 375,
+    exchange_rate: 0.03, total_arg: 25000, total_uyu: 750 });
+  tables.wholesale_order_records.push({ id: "order-wholesale", reference_code: "#M200", customer_name: "Cliente mayorista",
+    contact_id: "contact-wholesale", total_minor: 75000, status: "internal_open", paid_at: null, shipped_at: null, delivered_at: null });
 
   await page.goto("/finanzas/consignaciones");
   await expect(page.getByRole("heading", { name: "Consignaciones", level: 1 })).toBeVisible();
   await page.getByRole("button", { name: "Nueva consignación" }).click();
-  await page.getByLabel("Cliente mayorista").selectOption("contact-wholesale");
-  await page.getByLabel("Buscar producto existente").fill("SKU-1");
-  await page.getByRole("button", { name: /Mate de catálogo, Cuero negro/ }).click();
-  await expect(page.getByLabel("Precio pactado ARS")).toHaveValue("12500");
-  await expect(page.getByText("SKU SKU-1").last()).toBeVisible();
+  await page.getByLabel("Buscar pedido mayorista").fill("M200");
+  const orderOption = page.getByRole("button", { name: /#M200 Cliente mayorista ARS 25\.000 2 unidades/ });
+  await orderOption.click();
+  await expect(page.getByRole("dialog")).toContainText("Mate de catálogo");
+  await expect(page.getByRole("dialog")).toContainText("ARS 25.000");
+  await expect(page.getByLabel("Buscar producto existente")).toHaveCount(0);
+  await expect(page.getByText("El precio ARS pactado queda fijo")).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

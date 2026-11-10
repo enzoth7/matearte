@@ -7,18 +7,39 @@ async function assemble(page: Page, changes: Record<string, string> = {}) {
   await page.getByRole('tab', { name: 'Personalizados' }).click();
   await page.getByLabel('Categoría de artículo').selectOption('mate');
   const builder = page.locator('#local-panel-custom > .local-custom-builder');
-  const values: Record<string,string> = { 'tipo-mate':'imperial', interior:'ceramica', 'tipo-cuero':'croco', color:'mostaza-chocolate', 'tipo-virola':'alpaca-y-bronce', 'diseno-fleje':'laureles', posamate:'con-posamate', pie:'alpaca', tamano:'grande', ...changes };
+  const values: Record<string,string> = { 'tipo-mate':'imperial', interior:'ceramica', 'tipo-cuero':'croco', color:'mostaza-chocolate', 'tipo-virola':'alpaca-y-bronce', posamate:'con-posamate', pie:'alpaca', tamano:'grande', ...changes };
   for (const field of mateAssemblyFields.filter(field => ['tipo-mate', 'forma-criollo', 'tipo-cuero'].includes(field.code))) if (values[field.code]) await builder.getByLabel(field.label, { exact:true }).selectOption(values[field.code]);
   return builder;
 }
 
 async function completeMaterials(page: Page, changes: Record<string, string> = {}) {
-  const values: Record<string,string> = { interior:'ceramica', color:'mostaza-chocolate', 'tipo-virola':'alpaca-y-bronce', 'diseno-fleje':'laureles', posamate:'con-posamate', pie:'alpaca', tamano:'grande', ...changes };
+  const values: Record<string,string> = { interior:'ceramica', color:'mostaza-chocolate', 'tipo-virola':'alpaca-y-bronce', posamate:'con-posamate', pie:'alpaca', tamano:'grande', ...changes };
   const card = page.locator('.local-personalization-card').first();
   await card.getByRole('navigation', { name: /Pasos del diseño/ }).getByRole('button', { name: /Materiales/ }).click();
   for (const field of mateAssemblyFields) if (values[field.code]) await card.getByLabel(field.label, { exact:true }).selectOption(values[field.code]);
   return card;
 }
+
+test('registra el fleje una sola vez desde el paso de diseño', async ({ page }) => {
+  const { writes } = await mockCommerce(page, { writable: true });
+  const builder = await assemble(page);
+  await builder.getByRole('button', { name: /Agregar personalizado/ }).click();
+  const card = await completeMaterials(page);
+  await expect(card.getByLabel('Diseño del fleje', { exact: true })).toHaveCount(0);
+  await card.getByRole('navigation', { name: /Pasos del diseño/ }).getByRole('button', { name: /Virola/ }).click();
+  await card.getByLabel('Texto de virola de Mate Imperial personalizado').fill('ENZO');
+  await card.getByRole('navigation', { name: /Pasos del diseño/ }).getByRole('button', { name: /Fleje/ }).click();
+  await card.getByLabel('Técnica de fleje de Mate Imperial personalizado').selectOption('bronze-applique');
+  await card.getByLabel('Terminación de fleje de Mate Imperial personalizado').selectOption('1');
+  await card.getByLabel('Texto del frente del fleje de Mate Imperial personalizado').fill('MATE');
+  await page.getByRole('button', { name: 'Guardar venta' }).click();
+  await expect.poll(() => writes.some(write => write.table === 'gestion_create_local_sale_with_items')).toBe(true);
+  const item = writes.find(write => write.table === 'gestion_create_local_sale_with_items')!.body.p_items[0];
+  expect(item.customization.assembly.selections).not.toHaveProperty('diseno-fleje');
+  expect(item.customization.configuration.selectionLabels.characteristics).not.toHaveProperty('diseno-fleje');
+  expect(item.customization.flejeConfiguration.finishId).toBe('1');
+  expect(item.customization.flejeConfiguration.sides.front.text).toBe('MATE');
+});
 
 test('bombillones se eligen por nombre y conservan el precio de su artículo', async ({ page }) => {
   const { fixture, writes, tables } = await mockCommerce(page, { writable: true });
@@ -81,6 +102,7 @@ test('arma por piezas sin catálogo y conserva diseño y precio en venta y produ
   await expect(builder.getByLabel('Precio rápido del mate')).toContainText('3.200');
   await builder.getByRole('button',{name:/Agregar personalizado/}).click();
   const card = await completeMaterials(page);
+  await expect(card.getByLabel('Diseño del fleje', { exact: true })).toHaveCount(0);
   for (const code of ['tipo-cuero','color','tipo-virola','pie']) {
     const field=mateAssemblyFields.find(f=>f.code===code)!;
     await expect(card.getByLabel(field.label,{exact:true}).locator('option')).toHaveCount(field.options.length+1);
@@ -117,6 +139,8 @@ test('arma por piezas sin catálogo y conserva diseño y precio en venta y produ
   expect(item.item_kind).toBe('custom_mate'); expect(item.variant_id).toBeNull();
   expect(item.unit_price_minor).toBe(468000);
   expect(item.customization.assembly.selections).toMatchObject({'tipo-cuero':'croco',color:'mostaza-chocolate',pie:'alpaca'});
+  expect(item.customization.assembly.selections).not.toHaveProperty('diseno-fleje');
+  expect(item.customization.configuration.selectionLabels.characteristics).not.toHaveProperty('diseno-fleje');
   expect(item.customization.configuration.rim.texts[0].text).toBe('ENZO');
   expect(item.customization.configuration.rim.texts).toMatchObject([{ text: 'ENZO', inverted: true }, { text: 'MATE', inverted: false }]);
   expect(item.customization.previews.map((preview: {role:string}) => preview.role)).toEqual(['virola','fleje_front','fleje_back']);
@@ -124,6 +148,7 @@ test('arma por piezas sin catálogo y conserva diseño y precio en venta y produ
   expect(item.customization.configuration.rim.icons).toHaveLength(2);
   expect(new Set(item.customization.configuration.rim.icons.map((icon: {id:string}) => icon.id)).size).toBe(2);
   expect(item.customization.flejeConfiguration.sides.front.text).toBe('MATE');
+  expect(item.customization.flejeConfiguration.finishId).toBe('1');
   await expect(page.getByRole('dialog')).toContainText('Mate Imperial personalizado');
   tables.local_sales[0].local_sale_items[0].customization.previews = [];
   await page.setViewportSize({width:1440,height:1100});
@@ -182,7 +207,7 @@ test('cambiar piezas conserva elecciones y sin virola permite guardar sin grabad
   const {writes}=await mockCommerce(page,{writable:true});
   const builder=await assemble(page,{'tipo-cuero':'pelos'});
   await builder.getByRole('button',{name:/Agregar personalizado/}).click();
-  const card = await completeMaterials(page,{'tipo-virola':'sin-virola','diseno-fleje':'sin-fleje'});
+  const card = await completeMaterials(page,{'tipo-virola':'sin-virola'});
   await expect(card.getByLabel('Cuero o textura')).toHaveValue('pelos');
   await expect(card.getByLabel('Color',{exact:true})).toHaveValue('mostaza-chocolate');
   await expect(card.getByLabel('Pie',{exact:true})).toHaveValue('alpaca');

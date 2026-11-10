@@ -21,7 +21,10 @@ export type CustomerAccount = {
 };
 export const accountMoney = (account: CustomerAccount, amount: number) => account.currency === "ARS" ? arsMoney(amount) : money(amount);
 export const accountOrderBalance = (state: State, order: Order) => order.source === "wholesale" ? wholesaleBalanceArs(state, order) : balance(state, order);
-export const accountOrderTotal = (order: Order) => order.source === "wholesale" ? order.wholesaleTotalArg : order.totalAmount ?? order.quantity * order.unitPrice;
+export const accountOrderTotal = (state: State, order: Order) => order.consignmentId
+  ? (state.consignments || []).filter((entry) => entry.id === order.consignmentId)
+    .reduce((sum, entry) => sum + consignmentSummary(state, entry).confirmedArgMinor / 100, 0)
+  : order.source === "wholesale" ? order.wholesaleTotalArg : order.totalAmount ?? order.quantity * order.unitPrice;
 
 export function customerAccounts(state: State): CustomerAccount[] {
   const byAccount = new Map<string, CustomerAccount>();
@@ -52,6 +55,7 @@ export function customerAccounts(state: State): CustomerAccount[] {
     const account = ensure(contactId, order.source === "wholesale" ? "ARS" : "UYU", known ? { ...known, contactId }
       : { id: `contact:${contactId}`, contactId, name: order.customerName || "Cliente sin nombre", email: "", phone: "", city: "", segment: order.source === "wholesale" ? "Mayorista" : "Minorista" });
     account.orders.push(order);
+    if (order.consignmentId) continue;
     const remaining = accountOrderBalance(state, order);
     if (remaining == null) { account.unknownOrders++; continue; }
     account.pending += remaining;

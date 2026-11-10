@@ -42,3 +42,34 @@ test("un pendiente pagado pasa a Realizados en el mes de pago", async ({ page })
   await expect(page.getByRole("row").filter({ hasText: "Insumos pendientes" })).toBeVisible();
   expect(writes.some((write) => write.table === "purchases" && write.method === "PATCH" && write.body.status === "pagada")).toBe(true);
 });
+
+test("la tabla de egresos cabe sin scroll horizontal y usa un lápiz para editar", async ({ page }) => {
+  const { tables } = await mockCommerce(page);
+  tables.purchases.push({
+    id: "gasto-ancho", purchased_on: "2026-11-03", paid_on: "2026-11-04", due_on: null,
+    supplier: "Proveedor con nombre extenso", description: "Compra de insumos para producción y terminaciones especiales",
+    category: "Producción tercerizada", amount_minor: 123456789, currency: "UYU", status: "pagada",
+  }, {
+    id: "gasto-pendiente-ancho", purchased_on: "2026-11-03", paid_on: null, due_on: "2026-11-20",
+    supplier: "Proveedor con nombre extenso", description: "Pago pendiente de producción y terminaciones especiales",
+    category: "Producción tercerizada", amount_minor: 123456789, currency: "UYU", status: "pendiente",
+  });
+  await page.goto("/finanzas/egresos");
+  const row = page.getByRole("row").filter({ hasText: "Compra de insumos para producción" });
+  const edit = row.getByRole("button", { name: "Editar Compra de insumos para producción y terminaciones especiales" });
+  await expect(edit).toBeVisible();
+  await expect(row.getByText("Editar", { exact: true })).toHaveCount(0);
+  for (const width of [1440, 1024, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect.poll(() => page.locator(".finance-expense-table .table-scroll").evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  }
+  await edit.click();
+  await expect(page.getByRole("heading", { name: "Editar egreso" })).toBeVisible();
+  await page.getByRole("button", { name: "Cerrar" }).click();
+  await page.getByRole("tab", { name: "Próximos" }).click();
+  for (const width of [1440, 1024, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect.poll(() => page.locator(".finance-expense-table .table-scroll").evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+  }
+});

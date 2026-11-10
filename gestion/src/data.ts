@@ -1,5 +1,6 @@
 import { defaultAccess } from "./access";
 import { paths } from "./navigation";
+import { consignmentSummary } from "./consignmentModel";
 
 export type Channel = "Local" | "Web" | "Mayorista";
 export type SalesChannel = "Local" | "Web" | "Feria" | "Instagram" | "Facebook" | "WhatsApp";
@@ -262,6 +263,10 @@ export const paid = (s: State, o: Order) =>
     + (s.accountAllocations || []).filter((allocation) => allocation.orderId === (o.wholesaleSaleId || o.id))
       .reduce((sum, allocation) => sum + allocation.amountMinor / 100, 0);
 export const wholesalePaidArs = (s: State, o: Order): number | null => {
+  if (o.consignmentId) {
+    const consignment = (s.consignments || []).find((entry) => entry.id === o.consignmentId);
+    return consignment ? consignmentSummary(s, consignment).paidArgMinor / 100 : null;
+  }
   if (o.source !== "wholesale" || o.wholesaleOpeningPaidArg == null) return null;
   const receipts = s.payments.filter((payment) => payment.orderId === o.id);
   if (receipts.some((payment) => payment.sourceCurrency !== "ARS" || payment.sourceAmount == null)) return null;
@@ -272,6 +277,10 @@ export const wholesalePaidArs = (s: State, o: Order): number | null => {
 };
 export const wholesaleBalanceArs = (s: State, o: Order): number | null => {
   if (o.source !== "wholesale") return null;
+  if (o.consignmentId) {
+    const consignment = (s.consignments || []).find((entry) => entry.id === o.consignmentId);
+    return consignment ? consignmentSummary(s, consignment).balanceArgMinor / 100 : null;
+  }
   if (o.paidAt || ["cancelled", "refunded", "payment_failed"].includes(o.status || "")) return 0;
   if (o.wholesaleTotalArg == null && o.wholesalePaidInFullWithoutPrice) return 0;
   if (o.wholesaleTotalArg == null) return null;
@@ -281,7 +290,9 @@ export const wholesaleBalanceArs = (s: State, o: Order): number | null => {
 export const balance = (s: State, o: Order): number =>
   o.paidAt || ["cancelled", "refunded", "payment_failed"].includes(o.status || "") ? 0
     : o.source === "wholesale"
-      ? (wholesaleBalanceArs(s, o) ?? 0) * (o.wholesaleTotalArg && o.wholesaleTotalUyu != null ? o.wholesaleTotalUyu / o.wholesaleTotalArg : 0)
+      ? (wholesaleBalanceArs(s, o) ?? 0) * (o.consignmentId
+        ? (s.consignments || []).find((entry) => entry.id === o.consignmentId)?.exchangeRate || 0
+        : o.wholesaleTotalArg && o.wholesaleTotalUyu != null ? o.wholesaleTotalUyu / o.wholesaleTotalArg : 0)
       : o.retailRateToUyu ? localOriginalBalance(s, o) * o.retailRateToUyu : Math.max(0, total(o) - paid(s, o));
 export const localOriginalBalance = (s: State, order: Order): number => {
   if (!order.retailRateToUyu) return balance(s, order);

@@ -46,10 +46,9 @@ export async function readConsignments(): Promise<{
   };
 }
 
-export async function createConsignment(id: string, contactId: string, items: { variantId: string; quantity: number; unitPriceArgMinor: number }[]) {
-  const { data, error } = await client().rpc("gestion_create_wholesale_consignment", {
-    p_id: id, p_contact_id: contactId, p_items: items.map((item) => ({ variant_id: item.variantId,
-      quantity: item.quantity, unit_price_arg_minor: item.unitPriceArgMinor })),
+export async function createConsignment(id: string, orderId: string) {
+  const { data, error } = await client().rpc("gestion_link_wholesale_consignment", {
+    p_id: id, p_order_id: orderId,
   });
   if (error) throw error;
   return data as { id: string; order_id: string; reference_code: string };

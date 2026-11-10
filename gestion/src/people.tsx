@@ -3,10 +3,10 @@ import { CountryFlag, LocationLabel } from "./location";
 import { commerceSource } from "./commerceSource";
 import type { PageProps } from "./pages";
 import { areas } from "./navigation";
-import { accessUserIds, canAccess, defaultAccess, financeExpenseEditPermission, isCustomAccessUserId, accessFor, lockedForRichard, setAreaAccess, setPageAccess, type AccessUserId } from "./access";
-import { id, today, orgEmployees, type Employee, type Row, money } from "./data";
-import { Card, Stats, Table, Modal, Form, AddButton } from "./ui";
-import { formatDate } from "./dateFormat";
+import { accessUserIds, canAccess, defaultAccess, isCustomAccessUserId, accessFor, setAreaAccess, setPageAccess, type AccessUserId } from "./access";
+import { id, orgEmployees, type Employee } from "./data";
+import { Table, Modal, Form, AddButton } from "./ui";
+import { PersonnelHours } from "./PersonnelHours";
 
 const departments = [
   {
@@ -149,71 +149,7 @@ export function People({
       return () => observer.disconnect();
     }
   }, [mode]);
-  if (mode === "horas")
-    return (
-      <>
-        <Stats
-          items={[
-            {
-              label: "Horas registradas",
-              value: s.source === "commerce" ? "—" : s.hours.reduce((a, h) => a + Number(h.horas), 0),
-            },
-            {
-              label: "Personas con registros",
-              value: s.source === "commerce" ? "—" : new Set(s.hours.map((h) => h.persona)).size,
-            },
-          ]}
-        />
-        <Table
-          rows={s.hours}
-          searchText={(h) => Object.values(h).join(" ")}
-          action={
-            s.source !== "commerce" && <AddButton onClick={() => setAdd(true)}>Registrar horas</AddButton>
-          }
-          columns={[
-            { label: "Persona", render: (h) => String(h.persona) },
-            { label: "Fecha", render: (h) => formatDate(String(h.fecha)) },
-            { label: "Horas", render: (h) => String(h.horas) },
-            { label: "Trabajo", render: (h) => String(h.tarea) },
-          ]}
-        />
-        {add && (
-          <Modal title="Registrar horas" onClose={() => setAdd(false)}>
-            <Form
-              fields={[
-                {
-                  key: "persona",
-                  label: "Persona",
-                  options: s.employees.map((e) => e.name),
-                },
-                { key: "fecha", label: "Fecha", type: "date" },
-                { key: "horas", label: "Horas trabajadas", type: "number" },
-                { key: "tarea", label: "Tarea realizada" },
-              ]}
-              initial={{ fecha: today }}
-              onSave={(v) => {
-                const hours = Number(v.horas);
-                const existing = s.hours
-                  .filter((h) => h.persona === v.persona && h.fecha === v.fecha)
-                  .reduce((a, h) => a + Number(h.horas), 0);
-                if (hours <= 0 || hours + existing > 24)
-                  throw Error(
-                    "El total diario debe ser mayor a cero y no superar 24 horas.",
-                  );
-                update(
-                  (s) => ({
-                    ...s,
-                    hours: [{ id: id(), ...v, horas: hours }, ...s.hours],
-                  }),
-                  "Horas registradas",
-                );
-                setAdd(false);
-              }}
-            />
-          </Modal>
-        )}
-      </>
-    );
+  if (mode === "horas") return <PersonnelHours canManage={canAccess(s, "/personal/horas")} />;
   return (
     <>
       <div className="toolbar">
@@ -554,7 +490,7 @@ function AccessPermissions({ s, update }: Pick<PageProps, "s" | "update">) {
         {message && <div className={message.startsWith("Permisos guardados") ? "success" : "error"} role="status">{message}</div>}
         <div className="access-areas">
           {areas.map((area) => {
-            const eligible = area.pages.filter(([slug]) => selectedId === "t1" || !lockedForRichard(`/${area.id}/${slug}`));
+            const eligible = area.pages;
             const granted = eligible.filter(([slug]) => selectedId === "t1" || selectedAccess?.has(`/${area.id}/${slug}`));
             const allGranted = eligible.length > 0 && granted.length === eligible.length;
             return (
@@ -564,55 +500,34 @@ function AccessPermissions({ s, update }: Pick<PageProps, "s" | "update">) {
                     type="checkbox"
                     aria-label={`Mostrar toda el área ${area.name} a ${selected.name}`}
                     checked={allGranted}
-                    disabled={selectedId === "t1" || eligible.length === 0 || status !== "ready"}
+                    disabled={selectedId === "t1" || status !== "ready"}
                     onChange={(event) => void savePermissions(
                       setAreaAccess(s, selectedId as Exclude<AccessUserId, "t1">, area.id, event.target.checked),
                       selectedId as Exclude<AccessUserId, "t1">,
                     )}
                   />
                   <strong>{area.name}</strong>
-                  <small>{eligible.length ? `${granted.length}/${eligible.length}` : "Solo Richard"}</small>
+                  <small>{`${granted.length}/${eligible.length}`}</small>
                 </label>
                 <div className="access-pages">
                   {area.pages.map(([slug, title]) => {
                     const path = `/${area.id}/${slug}`;
-                    const locked = selectedId !== "t1" && lockedForRichard(path);
                     return (
-                      <label key={path} className={locked ? "access-locked" : ""}>
+                      <label key={path}>
                         <input
                           type="checkbox"
                           aria-label={`Mostrar ${title} a ${selected.name}`}
-                          checked={selectedId === "t1" || (!locked && canAccess({ ...s, user: selected.name, activeUserId: selectedId }, path))}
-                          disabled={selectedId === "t1" || locked || status !== "ready"}
+                          checked={selectedId === "t1" || canAccess({ ...s, user: selected.name, activeUserId: selectedId }, path)}
+                          disabled={selectedId === "t1" || status !== "ready"}
                           onChange={(event) => void savePermissions(
                             setPageAccess(s, selectedId as Exclude<AccessUserId, "t1">, path, event.target.checked),
                             selectedId as Exclude<AccessUserId, "t1">,
                           )}
                         />
                         <div>{title}</div>
-                        {path === "/administracion/logs" || path.startsWith("/analitica/") ? <small>Solo Enzo y Richard</small> : locked && <small>Solo Richard</small>}
                       </label>
                     );
                   })}
-                  {area.id === "finanzas" && selectedId !== "t1" && (
-                    <label>
-                      <input
-                        type="checkbox"
-                        aria-label={`Permitir editar egresos y gastos fijos a ${selected.name}`}
-                        checked={selectedAccess?.has(financeExpenseEditPermission) || false}
-                        disabled={status !== "ready" || !selectedAccess?.has("/finanzas/egresos")}
-                        onChange={(event) => {
-                          const userId = selectedId as Exclude<AccessUserId, "t1">;
-                          const nextPaths = new Set(accessFor(s, userId));
-                          if (event.target.checked) nextPaths.add(financeExpenseEditPermission);
-                          else nextPaths.delete(financeExpenseEditPermission);
-                          void savePermissions({ ...s, access: { ...s.access, [userId]: [...nextPaths] } }, userId);
-                        }}
-                      />
-                      <div>Editar egresos y gastos fijos</div>
-                      <small>Permiso para agregar, corregir y registrar pagos</small>
-                    </label>
-                  )}
                 </div>
               </section>
             );

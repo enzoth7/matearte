@@ -18,13 +18,12 @@ const extras: Record<string, Array<[string, string]>> = {
   "tipo-cuero": [["vaqueta", "Vaqueta"]], color: [["animal-print", "Animal print"]],
   interior: [["madera", "Madera"], ["acero-inoxidable", "Acero inoxidable"]],
   "tipo-virola": [["alpaca-grande-lacre", "Alpaca grande cincelado Premium"]],
-  "diseno-fleje": [["sin-fleje", "Sin fleje"]],
   "forma-criollo": [["imperial", "Imperial"], ["torpedo", "Torpedo"], ["camionero", "Camionero"]],
 };
 const bases: Record<string, number> = { imperial: 2600, torpedo: 1800, camionero: 1800, criollo: 0 };
 export const mateAssemblyFields: AssemblyField[] = [
   ["tipo-mate", "Modelo"], ["forma-criollo", "Forma del criollo"], ["interior", "Interior"], ["tipo-cuero", "Cuero o textura"],
-  ["color", "Color"], ["tipo-virola", "Virola"], ["diseno-fleje", "Diseño del fleje"], ["posamate", "Posamate"], ["pie", "Pie"], ["tamano", "Tamaño"],
+  ["color", "Color"], ["tipo-virola", "Virola"], ["posamate", "Posamate"], ["pie", "Pie"], ["tamano", "Tamaño"],
 ].map(([code, label]) => ({ code, label, options: [
   ...taxonomyOptionsFor(defaultCatalogTaxonomy, code).filter(o => o.code !== "todos").map(o => [o.code, o.label_es]), ...(extras[code] || []),
 ].map(([value, optionLabel]) => {
@@ -35,7 +34,11 @@ export const mateAssemblyFields: AssemblyField[] = [
 }) }));
 
 export const assemblyHasFleje = (assembly: MateAssembly) => ["imperial", "criollo"].includes(assembly["tipo-mate"]) && assembly["diseno-fleje"] !== "sin-fleje";
-export const assemblyFieldsFor = (assembly: MateAssembly) => mateAssemblyFields.filter(field => (field.code !== "forma-criollo" || assembly["tipo-mate"] === "criollo") && (field.code !== "diseno-fleje" || ["imperial", "criollo"].includes(assembly["tipo-mate"])));
+export const assemblyFieldsFor = (assembly: MateAssembly) => mateAssemblyFields.filter(field => field.code !== "forma-criollo" || assembly["tipo-mate"] === "criollo");
+export const withoutAssemblyFlejeDesign = (assembly: MateAssembly): MateAssembly => {
+  const { ["diseno-fleje"]: _legacyDesign, ...materials } = assembly;
+  return materials;
+};
 export const coreAssemblyFieldsFor = (assembly: MateAssembly) => assemblyFieldsFor(assembly).filter(field => field.code === "tipo-mate" || field.code === "forma-criollo" || field.code === "tipo-cuero");
 export const validateMateAssemblyCore = (assembly: MateAssembly) => coreAssemblyFieldsFor(assembly).find(field => !field.options.some(option => option.value === assembly[field.code]))?.label;
 export const assemblyLabels = (assembly: MateAssembly) => Object.fromEntries(assemblyFieldsFor(assembly).map(field => [field.code, field.options.find(o => o.value === assembly[field.code])?.label || "Pendiente"]));

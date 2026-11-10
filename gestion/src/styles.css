@@ -690,6 +690,53 @@ main {
 .stat.solid.tone-green > strong, .stat.solid.tone-red > strong { color: var(--white); }
 .signal-green { color: var(--green); }
 .signal-red { color: var(--red); }
+html:has(.personnel-hours) { scrollbar-width: none; }
+html:has(.personnel-hours)::-webkit-scrollbar { display: none; }
+.personnel-hours .stats.hero { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.personnel-hours-head { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 22px; }
+.personnel-hours-head > div { display: grid; gap: 6px; }
+.personnel-hours-head > div > div { color: var(--muted); font-size: 14px; }
+.personnel-month-navigation { display: flex; align-items: center; gap: 10px; flex: none; }
+.personnel-month-navigation strong { min-width: 170px; text-align: center; }
+.personnel-month-navigation button { display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 9px; background: var(--white); }
+.personnel-month-navigation button:hover { background: #e9e0d5; }
+.personnel-hours-note { margin: 0 0 15px; color: var(--muted); font-size: 13px; }
+.personnel-hours-table-scroll { border: 1px solid var(--line); border-radius: 12px; background: var(--white); }
+.personnel-hours-table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.personnel-hours-table th, .personnel-hours-table td { min-width: 0; padding: 9px 10px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.personnel-hours-table tr > :last-child { border-right: 0; }
+.personnel-hours-table thead th { padding: 13px 10px; background: #eee5da; font-weight: 600; }
+.personnel-hours-table tr > :first-child { width: 72px; background: var(--white); }
+.personnel-hours-table thead tr > :first-child { background: #eee5da; }
+.personnel-hours-table tbody th { font-variant-numeric: tabular-nums; }
+.personnel-hours-table tbody th strong { display: block; font-size: 15px; }
+.personnel-hours-table tbody th small { padding: 0; min-height: 0; }
+.personnel-hours-table .personnel-hours-weekend > :first-child { background: #f2ede6; }
+.personnel-hours-table .personnel-hours-weekend td { background: #faf8f5; }
+.personnel-hours-table .personnel-hours-filled { background: #f4f8f4; }
+.personnel-hours-cell { display: flex; align-items: start; justify-content: space-between; gap: 8px; min-height: 36px; }
+.personnel-hours-times { display: grid; gap: 2px; font-variant-numeric: tabular-nums; line-height: 1.35; }
+.personnel-hours-times abbr { color: var(--muted); font-size: 11px; text-decoration: none; }
+.personnel-hours-review { padding: 0; min-height: 0; color: var(--yellow); font-weight: 600; }
+.personnel-hours-plus { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border: 1px solid #d4c4b5; border-radius: 8px; color: var(--brown); background: var(--white); }
+.personnel-hours-plus:hover { background: #eee5da; }
+.personnel-hours-table tfoot th, .personnel-hours-table tfoot td { background: #eee5da; font-weight: 600; font-variant-numeric: tabular-nums; }
+.personnel-hours-table tfoot tr > :first-child { background: #eee5da; }
+.personnel-hours-modal-date { margin-bottom: 14px; font-weight: 550; }
+.personnel-hours-now-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+.personnel-hours-now-actions button { color: var(--brown); font-size: 13px; font-weight: 550; }
+.personnel-hours-register > .success, .personnel-hours-register > .error { margin-bottom: 16px; }
+@media (max-width: 760px) {
+  .personnel-hours .stats.hero { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .personnel-hours-head { align-items: start; flex-direction: column; }
+  .personnel-hours-register { padding: 16px; }
+  .personnel-hours-table { font-size: 10px; }
+  .personnel-hours-table th, .personnel-hours-table td { padding: 6px 3px; }
+  .personnel-hours-table tr > :first-child { width: 38px; }
+  .personnel-hours-cell { display: grid; justify-items: start; gap: 4px; }
+  .personnel-hours-plus { width: 24px; height: 24px; }
+  .personnel-hours-times { font-size: 10px; }
+}
 .card {
   border: 0;
   border-radius: 14px;
@@ -3159,7 +3206,7 @@ details.org-node {
 .local-sale-custom-empty button { color: var(--brown); font-weight: 700; text-decoration: underline; }
 .local-personalization-price { display: grid; gap: 9px; padding: 18px 19px; border-top: 1px solid var(--line); background: rgb(255 255 255 / .55); font-size: 13px; }
 .local-personalization-price > div { display: flex; justify-content: space-between; gap: 18px; }
-.local-personalization-price > div span { color: var(--muted); }
+.local-personalization-price > div .local-personalization-price-label { color: var(--muted); }
 .local-personalization-price > div strong { white-space: nowrap; }
 .local-personalization-price .local-personalization-price-total { padding-top: 11px; border-top: 1px solid var(--line); font-size: 15px; }
 .local-personalization-price .local-personalization-price-total span { color: var(--black); font-weight: 700; }
@@ -3266,6 +3313,19 @@ dialog.local-mate-summary-dialog{width:min(920px,calc(100% - 24px));max-height:9
 .local-personalization-fields .local-personalization-text { grid-column: span 2; }
 .local-personalization-rim-texts { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
 .local-personalization-rim-texts label { min-width: 0; }
+.local-personalization-rim-texts { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
+.local-rim-alphabet-toggle { align-self: end; min-height: 42px; padding: 9px 13px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); font-weight: 700; }
+.local-rim-alphabet, .local-rim-added-letters { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 7px; }
+.local-rim-alphabet button, .local-rim-added-letters button { min-width: 40px; min-height: 40px; padding: 7px; border: 1px solid var(--line); border-radius: 8px; background: var(--white); font-weight: 700; }
+.local-rim-added-letters button { display: inline-flex; gap: 8px; align-items: center; }
+.local-personalization-fields .unicode-engraving-field,
+.local-personalization-rim-texts .unicode-engraving-field { min-width: 0; display: grid; gap: 6px; }
+.unicode-engraving-control { display: flex; gap: 8px; min-width: 0; }
+.unicode-engraving-control input { min-width: 0; flex: 1; }
+.unicode-engraving-control > button,
+.unicode-engraving-characters button { min-width: 42px; min-height: 42px; padding: 6px; border: 1px solid var(--line); border-radius: 9px; background: var(--white); color: var(--brown); }
+.unicode-engraving-characters { display: flex; flex-wrap: wrap; gap: 6px; }
+.unicode-engraving-characters small { width: 100%; color: var(--muted); }
 .local-personalization-uploads { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 16px 19px; }
 .local-personalization-uploads .local-personalization-upload { margin: 0; }
 .local-personalization-upload { position: relative; display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 18px; min-height: 70px; margin: 16px 19px; padding: 12px 14px; border: 1px dashed rgb(47 125 85 / .36); border-radius: 12px; background: rgb(47 125 85 / .055); cursor: pointer; }
@@ -3313,19 +3373,6 @@ dialog.local-mate-summary-dialog{width:min(920px,calc(100% - 24px));max-height:9
 .local-sale-customer-status.registered { color: var(--green); border-color: rgb(47 125 85 / .24); background: rgb(47 125 85 / .09); }
 .local-sale-customer-status.pending { color: var(--brown); border-color: rgb(121 76 50 / .25); background: rgb(121 76 50 / .09); }
 .local-sale-customer-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; margin-top: 18px; }
-.local-personalization-rim-texts { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
-.local-rim-alphabet-toggle { align-self: end; min-height: 42px; padding: 9px 13px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); font-weight: 700; }
-.local-rim-alphabet, .local-rim-added-letters { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 7px; }
-.local-rim-alphabet button, .local-rim-added-letters button { min-width: 40px; min-height: 40px; padding: 7px; border: 1px solid var(--line); border-radius: 8px; background: var(--white); font-weight: 700; }
-.local-rim-added-letters button { display: inline-flex; gap: 8px; align-items: center; }
-.local-personalization-fields .unicode-engraving-field,
-.local-personalization-rim-texts .unicode-engraving-field { min-width: 0; display: grid; gap: 6px; }
-.unicode-engraving-control { display: flex; gap: 8px; min-width: 0; }
-.unicode-engraving-control input { min-width: 0; flex: 1; }
-.unicode-engraving-control > button,
-.unicode-engraving-characters button { min-width: 42px; min-height: 42px; padding: 6px; border: 1px solid var(--line); border-radius: 9px; background: var(--white); color: var(--brown); }
-.unicode-engraving-characters { display: flex; flex-wrap: wrap; gap: 6px; }
-.unicode-engraving-characters small { width: 100%; color: var(--muted); }
 .local-sale-customer-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; margin: 4px 0 0; }
 .local-sale-customer-details > div { min-width: 0; padding: 13px 0; border-bottom: 1px solid var(--line); }
 .local-sale-customer-details dt { color: var(--muted); font-size: 12px; }
@@ -4287,8 +4334,16 @@ dialog.consignment-action-modal { width: min(660px, calc(100% - 24px)); }
 .consignment-form { display: grid; gap: 16px; }
 .consignment-form > label, .consignment-form details label { display: grid; gap: 6px; }
 .consignment-form small, .consignment-detail-modal td small { display: block; color: var(--muted); }
-.consignment-product-results { display: grid; gap: 6px; max-height: 240px; overflow-y: auto; }
-.consignment-product-results button { display: grid; gap: 3px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; text-align: left; }
+.consignment-order-results { display: grid; gap: 8px; max-height: 240px; overflow: auto; }
+.consignment-order-results button { display: grid; grid-template-columns: 92px minmax(0, 1fr) max-content 94px; align-items: center; gap: 18px; min-width: 0; min-height: 58px; padding: 11px 16px; border: 1px solid #d8cdc3; border-radius: 10px; background: #fff; text-align: left; }
+.consignment-order-results button[aria-pressed="true"] { background: #fff; border-color: #795039; box-shadow: inset 0 0 0 1px #795039; }
+.consignment-order-customer { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.consignment-order-amount, .consignment-order-units { text-align: right; white-space: nowrap; }
+.consignment-order-units { color: var(--muted); }
+@media (max-width: 700px) { .consignment-order-results button { grid-template-columns: 60px minmax(0, 1fr) max-content 63px; gap: 7px; min-height: 52px; padding: 9px; font-size: 12px; } .consignment-order-units { font-size: 11px; } }
+.consignment-order-summary { display: grid; gap: 8px; padding: 16px; border-radius: 12px; background: var(--surface-warm, #f5f0ea); }
+.consignment-order-summary h3 { margin: 0; }
+.consignment-order-summary > div { display: flex; justify-content: space-between; gap: 12px; }
 .consignment-draft-line { display: grid; grid-template-columns: minmax(0, 1fr) 100px 150px auto; align-items: end; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
 .consignment-draft-line label { display: grid; gap: 5px; }
 .consignment-detail-head, .consignment-line-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }

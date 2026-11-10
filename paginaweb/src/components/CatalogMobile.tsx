@@ -96,7 +96,7 @@ function CatalogMobileCard({
         </div>
         <div className="catalog-mobile-product-copy">
           <h2>{product.name}</h2>
-          <p>{priceIsFrom ? `${locale==='en'?'From':locale==='pt'?'A partir de':'Desde'} ` : ''}{formatCatalogPrice(displayedPrice, consultLabel, locale, rates, currency)}</p>
+          <div className="catalog-mobile-product-price">{priceIsFrom ? `${locale==='en'?'From':locale==='pt'?'A partir de':'Desde'} ` : ''}{formatCatalogPrice(displayedPrice, consultLabel, locale, rates, currency)}</div>
           <ProductCardSwatches
             variants={swatchesToShow}
             highlightedVariantId={highlightedVariantId}
@@ -109,7 +109,7 @@ function CatalogMobileCard({
   );
 }
 
-export function CatalogMobile({ products, exchangeRates, pageCategory, heading, intro }: { products: Product[]; exchangeRates?: Record<string, number>; pageCategory?: CatalogFilters["category"]; heading?: string; intro?: string }) {
+export function CatalogMobile({ products, exchangeRates, popularity, pageCategory, heading, intro }: { products: Product[]; exchangeRates?: Record<string, number>; popularity?: Record<string, number>; pageCategory?: CatalogFilters["category"]; heading?: string; intro?: string }) {
   const locale = useLocale();
   const t = useTranslations("catalog");
   const common = useTranslations("common");
@@ -127,7 +127,7 @@ export function CatalogMobile({ products, exchangeRates, pageCategory, heading, 
     product,
     presentation: productPresentation[product.id],
   })), [products]);
-  const cards = useMemo(() => filterAndSortCatalog(entries, filters, locale), [entries, filters, locale]);
+  const cards = useMemo(() => filterAndSortCatalog(entries, filters, locale, popularity), [entries, filters, locale, popularity]);
   const draftCount = useMemo(() => filterAndSortCatalog(entries, draftFilters, locale).length, [entries, draftFilters, locale]);
 
   useEffect(() => {
@@ -170,16 +170,16 @@ export function CatalogMobile({ products, exchangeRates, pageCategory, heading, 
         <div className="catalog-mobile-hero-overlay" aria-hidden="true" />
         <div className="catalog-mobile-hero-content">
           <h1>{heading ?? t("heroTitle")}</h1>
-          <p>{intro ?? t("heroBody")}</p>
+          <div className="catalog-mobile-hero-description">{intro ?? t("heroBody")}</div>
         </div>
       </section>
 
       <section className="catalog-mobile-controls" aria-label={t("filtersLabel")}>
         <div className="catalog-mobile-controls-inner">
-          <button ref={filterTriggerRef} type="button" className="catalog-mobile-filter-trigger" aria-label={hasActiveFilters ? `${t("filters")} · ${t("filtersActive")}` : t("filters")} aria-haspopup="dialog" aria-expanded={filterOpen} onClick={openFilters}>
+          <button ref={filterTriggerRef} type="button" className="catalog-mobile-filter-trigger" aria-label={hasActiveFilters ? `${t("filters")}, ${t("filtersActive")}` : t("filters")} aria-haspopup="dialog" aria-expanded={filterOpen} onClick={openFilters}>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M7 12h10m-7 5h4" /></svg>
-            <span>{t("filters")}</span>
-            {hasActiveFilters && <span className="catalog-mobile-filter-active" aria-hidden="true" />}
+            <strong>{t("filters")}</strong>
+            {hasActiveFilters && <i className="catalog-mobile-filter-active" aria-hidden="true" />}
           </button>
         </div>
       </section>
@@ -198,6 +198,7 @@ export function CatalogMobile({ products, exchangeRates, pageCategory, heading, 
             <label className="catalog-mobile-filter-select-label" htmlFor="mfs-sort">{t("sortBy")}</label>
             <div className="catalog-mobile-filter-select-wrap">
               <select id="mfs-sort" aria-label={t("sortLabel")} value={draftFilters.sort} onChange={(event) => setDraftFilters((current) => ({ ...current, sort: event.target.value as CatalogSort }))}>
+                <option value="relevancia">{t("relevance")}</option>
                 <option value="nuevo">{t("newest")}</option>
                 <option value="precio-asc">{t("priceAsc")}</option>
                 <option value="precio-desc">{t("priceDesc")}</option>
@@ -250,7 +251,7 @@ export function CatalogMobile({ products, exchangeRates, pageCategory, heading, 
           </>
         ) : (
           <div className="catalog-mobile-empty">
-            <p>{t("emptyMobile")}</p>
+            <div className="catalog-mobile-empty-message">{t("emptyMobile")}</div>
             <button type="button" onClick={() => {
               catalogFilters.clearFilters();
             }}>{t("viewAll")}</button>
@@ -264,7 +265,7 @@ export function CatalogMobile({ products, exchangeRates, pageCategory, heading, 
             <Image src={`${assetRoot}/cta.webp`} alt={t("customAlt")} fill sizes="310px" />
           </div>
           <h2>{t("customTitle")}</h2>
-          <p>{t("customBody")}</p>
+          <div className="catalog-mobile-personalize-description">{t("customBody")}</div>
           <Link href="/personalizados">{t("customAction")}</Link>
         </div>
       </section>

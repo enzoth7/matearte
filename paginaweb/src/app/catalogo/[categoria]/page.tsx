@@ -11,7 +11,7 @@ import { localizedPageMetadata } from "@/i18n/metadata";
 import { Link } from "@/i18n/navigation";
 import { isCategoryPageSlug, productInCategory } from "@/lib/catalog-filters";
 import { buildCategoryStructuredData } from "@/lib/seo";
-import { getStorefrontProducts, getExchangeRates } from "@/lib/storefront-catalog";
+import { getStorefrontProducts, getExchangeRates, getStorefrontProductPopularity } from "@/lib/storefront-catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -30,11 +30,12 @@ export default async function CategoryPage({ params }: Params) {
   if (!isCategoryPageSlug(categoria)) notFound();
   const locale = await getLocale();
   const t = await getTranslations("catalog");
-  const products = await getStorefrontProducts(locale);
+  const [products, exchangeRates, popularity] = await Promise.all([
+    getStorefrontProducts(locale), getExchangeRates(), getStorefrontProductPopularity(),
+  ]);
   const categoryProducts = products.filter((product) => productInCategory(product, categoria));
   // Una categoría sin productos publicados no tiene página: sería una página vacía para Google.
   if (categoryProducts.length === 0) notFound();
-  const exchangeRates = await getExchangeRates();
   const copy = categorySeo[categoria][locale];
 
   return (
@@ -46,24 +47,24 @@ export default async function CategoryPage({ params }: Params) {
           <div className="catalog-hero-overlay" />
           <div className="catalog-hero-content">
             <h1>{copy.heading}</h1>
-            <p>{copy.intro}</p>
+            <div className="catalog-hero-description">{copy.intro}</div>
           </div>
         </section>
         <Suspense fallback={<div className="catalog-desktop-loading">{t("loading")}</div>}>
-          <CatalogDesktop products={products} exchangeRates={exchangeRates} pageCategory={categoria} />
+          <CatalogDesktop products={products} exchangeRates={exchangeRates} popularity={popularity} pageCategory={categoria} />
         </Suspense>
       </div>
 
       <div className="catalog-mobile-view">
         <Suspense fallback={<div className="catalog-mobile-loading">{t("loading")}</div>}>
-          <CatalogMobile products={products} exchangeRates={exchangeRates} pageCategory={categoria} heading={copy.heading} intro={copy.intro} />
+          <CatalogMobile products={products} exchangeRates={exchangeRates} popularity={popularity} pageCategory={categoria} heading={copy.heading} intro={copy.intro} />
         </Suspense>
       </div>
       {copy.guide && (
         <section className="catalog-category-guide" aria-labelledby="catalog-category-guide-title">
           <div className="catalog-category-guide-inner">
             <h2 id="catalog-category-guide-title">{copy.guide.title}</h2>
-            {copy.guide.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+            {copy.guide.paragraphs.map((paragraph) => <div className="catalog-category-guide-paragraph" key={paragraph}>{paragraph}</div>)}
             <Link href={copy.guide.linkHref}>{copy.guide.linkLabel}</Link>
           </div>
         </section>

@@ -33,7 +33,7 @@ function product(id: string, priceUYU: number, overrides: Partial<Product["filte
   };
 }
 
-const defaults: CatalogFilters = { search: "", category: "todas", collections: [], prices: [], materials: [], closures: [], productTypes: [], colors: [], sort: "nuevo" };
+const defaults: CatalogFilters = { search: "", category: "todas", collections: [], prices: [], materials: [], closures: [], productTypes: [], colors: [], sort: "relevancia" };
 
 describe("filtros del catálogo", () => {
   it("respeta los límites sin superponer rangos", () => {
@@ -133,7 +133,7 @@ describe("filtros del catálogo", () => {
   it("redirige el filtro histórico a la categoría única", () => {
     const parsed = parseCatalogFilters(new URLSearchParams("categoria=mates-personalizados"));
     expect(parsed.category).toBe("personalizados");
-    expect(parsed.sort).toBe("nuevo");
+    expect(parsed.sort).toBe("relevancia");
   });
 
   it("permite filtrar zuecos como categoría propia", () => {
@@ -175,6 +175,20 @@ describe("filtros del catálogo", () => {
     ]);
   });
 
+  it("prioriza visitas reales y luego ordena los productos sin datos por última modificación", () => {
+    const entries = [
+      { product: { ...product("sin-visitas-nuevo", 1000).product, lastModifiedAt: 500 } },
+      { product: { ...product("popular", 1000).product, lastModifiedAt: 100 } },
+      { product: { ...product("sin-visitas-viejo", 1000).product, lastModifiedAt: 200 } },
+      { product: { ...product("menos-popular", 1000).product, lastModifiedAt: 400 } },
+    ];
+    const sorted = filterAndSortCatalog(entries, defaults, "es", { popular: 37, "menos-popular": 10 });
+    expect(sorted.map(({ product }) => product.id)).toEqual([
+      "popular", "menos-popular", "sin-visitas-nuevo", "sin-visitas-viejo",
+    ]);
+    expect(filterAndSortCatalog(entries, { ...defaults, sort: "nuevo" }, "es", { popular: 37 }).map(({ product }) => product.id)[0]).toBe("sin-visitas-nuevo");
+  });
+
   it("ordena precio y nombre en ambos sentidos", () => {
     const entries = [product("Zeta", 5000), product("Alfa", 3000), product("Beta", 4000)];
     expect(filterAndSortCatalog(entries, { ...defaults, sort: "precio-asc" }).map(({ product }) => product.id)).toEqual(["Alfa", "Beta", "Zeta"]);
@@ -183,9 +197,11 @@ describe("filtros del catálogo", () => {
     expect(filterAndSortCatalog(entries, { ...defaults, sort: "nombre-desc" }).map(({ product }) => product.id)).toEqual(["Zeta", "Beta", "Alfa"]);
   });
 
-  it("usa Nuevo por defecto y descarta enlaces antiguos de Destacados", () => {
-    expect(parseCatalogFilters(new URLSearchParams()).sort).toBe("nuevo");
-    expect(parseCatalogFilters(new URLSearchParams("orden=editorial")).sort).toBe("nuevo");
+  it("usa Más relevantes por defecto y conserva Nuevo como opción explícita", () => {
+    expect(parseCatalogFilters(new URLSearchParams()).sort).toBe("relevancia");
+    expect(parseCatalogFilters(new URLSearchParams("orden=editorial")).sort).toBe("relevancia");
+    expect(parseCatalogFilters(new URLSearchParams("orden=nuevo")).sort).toBe("nuevo");
+    expect(writeCatalogFilters({ ...defaults, sort: "nuevo" }).get("orden")).toBe("nuevo");
     expect(writeCatalogFilters(defaults).has("orden")).toBe(false);
   });
 

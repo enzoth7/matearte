@@ -79,15 +79,49 @@ Deno.serve(async (request) => {
   const origin = request.headers.get("origin") || "";
   if (request.method === "OPTIONS") return origins.has(origin) ? response({}, 204, origin) : response({ error: "Origen no permitido." }, 403, origin);
   if (request.method !== "POST" || (origin && !origins.has(origin))) return response({ error: "Solicitud no permitida." }, 403, origin);
-  const token = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1] || "";
-  if (!token) return response({ error: "Falta la sesión." }, 401, origin);
   const url = Deno.env.get("SUPABASE_URL") || "";
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   if (!url || !key) return response({ error: "Servicio no configurado." }, 503, origin);
+  const token = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1] || "";
+  const catalogKeyValid = request.headers.get("apikey") === key && !origin;
+  if (!token && !catalogKeyValid) return response({ error: "Falta la sesión." }, 401, origin);
   let admin = createClient(url, key, { auth: { persistSession: false } });
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return response({ error: "Solicitud inválida." }, 400, origin); }
   const action = clean(body.action, 30);
+  if (action === "catalogPopularity") {
+    if (!catalogKeyValid) return response({ error: "Sin acceso." }, 403, origin);
+    const vercelToken = Deno.env.get("VERCEL_ANALYTICS_TOKEN")?.trim() || "";
+    const teamId = Deno.env.get("VERCEL_TEAM_ID")?.trim() || "team_nvrETovmDRtUay05tg8OkZb0";
+    const sites = (Deno.env.get("VERCEL_ANALYTICS_SITES") || "tienda:Tienda web:prj_wACNXNMkoQymJhRi01L4mJQ5E2a1,personalizador:Personalizador:prj_Slv0SnaWTPUZdYZ6qAzbrIHMsd49")
+      .split(",").map((entry) => entry.trim().split(":"));
+    const projectId = sites.find(([id]) => id === "tienda")?.[2];
+    if (!vercelToken || !projectId) return response({ error: "Analytics no está configurado." }, 503, origin);
+    const until = new Date();
+    const since = new Date(until.getTime() - 29 * 86400000);
+    since.setUTCHours(0, 0, 0, 0);
+    const params = new URLSearchParams({
+      projectId, teamId, since: since.toISOString(), until: until.toISOString(),
+      by: "requestPath", limit: "100",
+      filter: "route in ('/producto/[slug]','/[locale]/product/[slug]','/[locale]/produto/[slug]')",
+    });
+    try {
+      const result = await fetch(`https://api.vercel.com/v1/query/web-analytics/visits/aggregate?${params}`, { headers: { Authorization: `Bearer ${vercelToken}` } });
+      if (!result.ok) throw new Error(String(result.status));
+      const data = await result.json() as { data?: { requestPath?: string; visitors?: number }[] };
+      const counts = new Map<string, number>();
+      for (const row of data.data || []) {
+        let slug = "";
+        try { slug = decodeURIComponent((row.requestPath || "").split("?")[0].split("/").filter(Boolean).pop() || ""); } catch { continue; }
+        const visitors = Number(row.visitors) || 0;
+        if (slug && visitors > 0) counts.set(slug, (counts.get(slug) || 0) + visitors);
+      }
+      return response({ products: [...counts].map(([slug, visitors]) => ({ slug, visitors })) }, 200, origin);
+    } catch {
+      return response({ error: "No se pudo consultar la popularidad del catálogo." }, 502, origin);
+    }
+  }
+  if (!token) return response({ error: "Falta la sesión." }, 401, origin);
   let actorId: string;
   if (hasOAuthClient(token)) {
     const proof = request.headers.get(mcpProofHeader);

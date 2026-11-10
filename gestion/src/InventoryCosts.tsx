@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { MagnifyingGlass, PencilSimple, Plus } from "@phosphor-icons/react";
-import { accessUserId } from "./access";
+import { canAccess } from "./access";
 import { money, type State } from "./data";
 import { financeAmountLabel, readCurrentFinanceRate } from "./financeCurrency";
 import { lineCostUyuMinor, type CostCurrency, type CostLine, type CostProfile } from "./inventoryCostModel";
@@ -26,7 +26,7 @@ export function InventoryCosts({ s, notify, section }: { s: State; notify: (mess
   const [error, setError] = useState("");
   const [formError, setFormError] = useState("");
   const [search, setSearch] = useState("");
-  const allowed = accessUserId(s) === "t1";
+  const allowed = canAccess(s, `/inventario/${section}`);
 
   const load = async () => {
     const result = await readInventoryCosts();
@@ -46,7 +46,7 @@ export function InventoryCosts({ s, notify, section }: { s: State; notify: (mess
     return () => { active = false; };
   }, [allowed]);
 
-  if (!allowed) return <section className="inventory-costs"><div role="alert">Esta sección está disponible solo para Richard.</div></section>;
+  if (!allowed) return <section className="inventory-costs"><div role="alert">No tenés acceso a esta sección.</div></section>;
   const profileFor = (line: CostLine) => profiles.find((item) => item.id === line.profile_id);
   const articleFor = (line: CostLine) => articles.find((article) => article.variant_id === line.catalog_variant_id);
   const categoryName = (code: string) => categories.find((item) => item.code === code)?.label_es || profiles.find((item) => item.category_code === code)?.name || code;

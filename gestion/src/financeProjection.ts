@@ -62,7 +62,7 @@ export function buildFinanceProjection(
   const [projectionYear, projectionNumber] = projectionStart.split("-").map(Number);
   const offset = (firstYear - projectionYear) * 12 + firstNumber - projectionNumber;
   const baselineIncome = state.orders
-    .filter((order) => isSale(order) && order.date.startsWith(currentMonth)
+    .filter((order) => isSale(order) && !order.consignmentId && order.date.startsWith(currentMonth)
       && !order.items?.some((item) => item.orderType === "credit_category"))
     .reduce((sum, order) => sum + total(order), 0);
   const baselineExpense = state.expenses
@@ -88,6 +88,7 @@ export function buildFinanceProjection(
   }
   const collectibleByOrder = new Map<string, number>();
   for (const order of [...state.orders].sort((a, b) => (a.due || a.date).localeCompare(b.due || b.date))) {
+    if (order.consignmentId) continue;
     const remainingMinor = Math.round(balance(state, order) * 100);
     const currency = order.source === "wholesale" ? "ARS" : "UYU";
     const key = `${order.contactId || ""}:${currency}`;

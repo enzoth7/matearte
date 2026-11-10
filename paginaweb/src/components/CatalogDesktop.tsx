@@ -114,7 +114,7 @@ function CatalogDesktopCard({
         </div>
         <div className="catalog-product-meta">
           <h2>{product.name}</h2>
-          <p>{priceIsFrom ? `${locale==='en'?'From':locale==='pt'?'A partir de':'Desde'} ` : ''}{formatCatalogPrice(displayedPrice, consultLabel, locale, rates, currency)}</p>
+          <div className="catalog-product-price">{priceIsFrom ? `${locale==='en'?'From':locale==='pt'?'A partir de':'Desde'} ` : ''}{formatCatalogPrice(displayedPrice, consultLabel, locale, rates, currency)}</div>
           <ProductCardSwatches
             variants={swatchesToShow}
             highlightedVariantId={highlightedVariantId}
@@ -127,7 +127,7 @@ function CatalogDesktopCard({
   );
 }
 
-export function CatalogDesktop({ products, exchangeRates, pageCategory }: { products: Product[]; exchangeRates?: Record<string, number>; pageCategory?: CatalogFilters["category"] }) {
+export function CatalogDesktop({ products, exchangeRates, popularity, pageCategory }: { products: Product[]; exchangeRates?: Record<string, number>; popularity?: Record<string, number>; pageCategory?: CatalogFilters["category"] }) {
   const locale = useLocale();
   const t = useTranslations("catalog");
   const common = useTranslations("common");
@@ -142,8 +142,8 @@ export function CatalogDesktop({ products, exchangeRates, pageCategory }: { prod
       product,
       presentation: productPresentation[product.id],
     }));
-    return filterAndSortCatalog(entries, filters, locale);
-  }, [filters, locale, products]);
+    return filterAndSortCatalog(entries, filters, locale, popularity);
+  }, [filters, locale, popularity, products]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -189,10 +189,11 @@ export function CatalogDesktop({ products, exchangeRates, pageCategory }: { prod
       </aside>
 
       <section className="catalog-results" aria-label={t("productsLabel")}>
-        <label className="catalog-sort">
-          <span>{t("sortBy")}</span>
-          <span className="catalog-sort-control">
-            <select aria-label={t("sortLabel")} value={filters.sort} onChange={(event) => catalogFilters.setSort(event.target.value as CatalogSort)}>
+        <div className="catalog-sort">
+          <label htmlFor="catalog-desktop-sort">{t("sortBy")}</label>
+          <div className="catalog-sort-control">
+            <select id="catalog-desktop-sort" aria-label={t("sortLabel")} value={filters.sort} onChange={(event) => catalogFilters.setSort(event.target.value as CatalogSort)}>
+              <option value="relevancia">{t("relevance")}</option>
               <option value="nuevo">{t("newest")}</option>
               <option value="precio-asc">{t("priceAsc")}</option>
               <option value="precio-desc">{t("priceDesc")}</option>
@@ -200,8 +201,8 @@ export function CatalogDesktop({ products, exchangeRates, pageCategory }: { prod
               <option value="nombre-desc">{t("nameDesc")}</option>
             </select>
             <CaretDown size={10} weight="bold" aria-hidden="true" />
-          </span>
-        </label>
+          </div>
+        </div>
 
         {cards.length > 0 ? (
           <>
@@ -229,7 +230,7 @@ export function CatalogDesktop({ products, exchangeRates, pageCategory }: { prod
           </>
         ) : (
           <div className="catalog-empty">
-            <p>{t("empty")}</p>
+            <div className="catalog-empty-message">{t("empty")}</div>
             <button type="button" onClick={() => {
               catalogFilters.clearFilters();
             }}>{t("clear")}</button>
@@ -240,7 +241,7 @@ export function CatalogDesktop({ products, exchangeRates, pageCategory }: { prod
       <aside className="catalog-personalize-cta">
         <div className="catalog-personalize-copy">
           <h2>{t("customTitle")}</h2>
-          <p>{t("customBody")}</p>
+          <div className="catalog-personalize-description">{t("customBody")}</div>
           <Link href="/personalizados">{t("customAction")}</Link>
         </div>
         <div className="catalog-personalize-image">

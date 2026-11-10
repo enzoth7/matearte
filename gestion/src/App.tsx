@@ -32,7 +32,7 @@ import {
   Leaf,
 } from "@phosphor-icons/react";
 import { areas, resolvePath } from "./navigation";
-import { accessUserId, accessUserIds, canAccess, canManageFinanceExpenses, firstVisiblePath, visibleAreas } from "./access";
+import { accessUserId, accessUserIds, canAccess, firstVisiblePath, visibleAreas } from "./access";
 import { loadState, storageKey, seed, id, type State } from "./data";
 import { collections } from "./collections";
 import { Overview, Orders, Register, Customers, type PageProps } from "./pages";
@@ -112,9 +112,9 @@ function Content(
   if (key === "marketing/sorteo") return <SorteoView />;
   if (area === "marketing") return <MarketingSection page={page} notify={props.notify} s={s} go={go} commerce={props.commerce} />;
   if (area === "analitica") return <AnalyticsJourneys section={analyticsSections[page]} />;
-  if (key === "finanzas/egresos") return <FinanceExpenses notify={props.notify} editable={canManageFinanceExpenses(s)} openingEditable={accessUserId(s) === "t1"} />;
-  if (key === "finanzas/ingresos") return <FinanceIncome s={s} notify={props.notify} editable={accessUserId(s) === "t1"} />;
-  if (key === "finanzas/gastos-fijos") return <FinanceFixedExpenses notify={props.notify} editable={canManageFinanceExpenses(s)} />;
+  if (key === "finanzas/egresos") return <FinanceExpenses notify={props.notify} editable={canAccess(s, "/finanzas/egresos")} openingEditable={canAccess(s, "/finanzas/egresos")} />;
+  if (key === "finanzas/ingresos") return <FinanceIncome s={s} notify={props.notify} editable={canAccess(s, "/finanzas/ingresos")} />;
+  if (key === "finanzas/gastos-fijos") return <FinanceFixedExpenses notify={props.notify} editable={canAccess(s, "/finanzas/gastos-fijos")} />;
   if (key === "finanzas/conciliacion") return <FinanceReconciliation s={s} notify={props.notify} refresh={props.refresh} />;
   if (key === "finanzas/fiados-local") return <LocalCreditSales {...props} />;
   if (key === "inventario/insumos" || key === "inventario/reventa") return <InventoryCosts s={s} notify={props.notify} section={page as "insumos" | "reventa"} />;

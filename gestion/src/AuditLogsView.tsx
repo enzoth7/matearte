@@ -21,7 +21,6 @@ function AuditDetail({ group }: { group: string }) {
  return <div className="audit-details">{events.map(event => <section key={event.id}>
    <h3>{auditActions[event.operation]}: {event.entity_type}</h3>
    <div className="audit-event-reference">{event.reference}</div><small>{auditTime(event.occurred_at)}, {event.actor_name}</small>
-   {event.entity_type === 'Pedido' && <aside className="audit-hint">En ventas con seña, el importe registrado del pedido corresponde al cobro inicial. Los precios de los artículos y los cobros posteriores se muestran por separado.</aside>}
    {event.changed_fields.length > 0 && <div className="audit-table-wrap"><table><thead><tr><th>Campo</th><th>Antes</th><th>Después</th><th>Diferencia</th></tr></thead><tbody>{event.changed_fields.map(key => <tr key={key}>
      <th>{auditFieldLabel(key, event)}</th><td><pre>{auditValue(event.before_values[key], key, event)}</pre></td><td><pre>{auditValue(event.after_values[key], key, event)}</pre></td><td>{auditDifference(event, key) || '—'}</td>
    </tr>)}</tbody></table></div>}

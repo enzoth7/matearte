@@ -6437,7 +6437,7 @@ img {
   line-height: 54px;
 }
 
-.catalog-mobile-hero-content p {
+.catalog-mobile-hero-description {
   margin: 0;
   color: #fffdf8;
   font-size: 16px;
@@ -6670,7 +6670,7 @@ img {
   line-height: 22px;
 }
 
-.catalog-mobile-product-copy p {
+.catalog-mobile-product-price {
   margin: 0;
   color: #705c53;
   font-size: 13px;
@@ -6688,7 +6688,7 @@ img {
   text-align: center;
 }
 
-.catalog-mobile-empty p {
+.catalog-mobile-empty-message {
   margin: 0;
   font-family: var(--font-newsreader), Georgia, serif;
   font-size: 28px;
@@ -6751,7 +6751,7 @@ img {
   line-height: 38px;
 }
 
-.catalog-mobile-personalize-card p {
+.catalog-mobile-personalize-description {
   margin: 0;
   color: #e2e8e4;
   font-size: 15px;
@@ -6826,7 +6826,7 @@ img {
     letter-spacing: -1.2px;
   }
 
-  .catalog-hero-content p {
+  .catalog-hero-description {
     position: absolute;
     top: 308px;
     left: 11px;
@@ -7093,7 +7093,7 @@ img {
     line-height: 30px;
   }
 
-  .catalog-product-meta p {
+  .catalog-product-price {
     margin: 0;
     color: #705c53;
     font-size: 20px;
@@ -7109,7 +7109,7 @@ img {
     text-align: center;
   }
 
-  .catalog-empty p { font-family: var(--font-newsreader), Georgia, serif; font-size: 32px; }
+  .catalog-empty-message { font-family: var(--font-newsreader), Georgia, serif; font-size: 32px; }
   .catalog-empty button { margin-top: 16px; text-decoration: underline; }
 
   .catalog-personalize-cta {
@@ -7143,7 +7143,7 @@ img {
     line-height: 50px;
   }
 
-  .catalog-personalize-copy p {
+  .catalog-personalize-description {
     margin: 0;
     color: #e2e8e4;
     font-size: 15px;
@@ -8392,7 +8392,7 @@ input:checked + .catalog-mobile-checkbox::after {
 .catalog-category-guide { padding: clamp(3rem, 6vw, 5rem) 24px; background: #f5f0e8; color: #311c12; }
 .catalog-category-guide-inner { max-width: 960px; margin: 0 auto; }
 .catalog-category-guide h2 { margin: 0 0 1.25rem; font-family: var(--font-newsreader), Georgia, serif; font-size: clamp(2rem, 3.5vw, 3rem); line-height: 1.1; }
-.catalog-category-guide p { max-width: 72ch; margin: 0 0 1rem; font-size: clamp(1rem, 1.3vw, 1.1rem); line-height: 1.65; }
+.catalog-category-guide-paragraph { max-width: 72ch; margin: 0 0 1rem; font-size: clamp(1rem, 1.3vw, 1.1rem); line-height: 1.65; }
 .catalog-category-guide a { display: inline-flex; min-height: 44px; align-items: center; margin-top: .5rem; font-weight: 650; color: #311c12; text-decoration: underline; text-underline-offset: .25em; }
 @media (max-width: 700px) {
   .personalizados-steps { padding: 3.5rem 24px 4.5rem; }

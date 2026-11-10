@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.112.4";
 import { hasOAuthClient } from "../../../shared/supabase-oauth-session.ts";
+import { paths } from "../../../gestion/src/navigation.ts";
 
 const allowedOrigins = new Set([
   "https://matearte-gestion.vercel.app",
@@ -47,8 +48,9 @@ Deno.serve(async (request) => {
   const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: `Bearer ${bearer}` } }, auth: { persistSession: false } });
   const { data: { user } } = await userClient.auth.getUser(bearer);
   if (!user) return json({ error: "Sesión inválida." }, 401, origin);
-  const { data: caller } = await service.from("commerce_admin_users").select("access_user_id,active").eq("user_id", user.id).maybeSingle();
-  if (!caller?.active || caller.access_user_id !== "t1") return json({ error: "Solo Richard puede administrar usuarios." }, 403, origin);
+  const { data: caller } = await service.from("commerce_admin_users").select("access_user_id,allowed_paths,active").eq("user_id", user.id).maybeSingle();
+  const canManageUsers = caller?.active && (caller.access_user_id === "t1" || caller.allowed_paths?.includes("/administracion/usuarios"));
+  if (!canManageUsers) return json({ error: "No tenés acceso a Usuarios y permisos." }, 403, origin);
 
   service = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false }, global: { headers: { "x-gestion-actor-id": user.id, "x-gestion-operation-id": crypto.randomUUID() } } });
 
@@ -91,8 +93,8 @@ Deno.serve(async (request) => {
     if (!isManagedId(accessUserId) || !allowedPaths || allowedPaths.length > 100) {
       return json({ error: "Revisá los permisos seleccionados." }, 400, origin);
     }
-    if (allowedPaths.some((path) => !path.startsWith("/") || ["/administracion/usuarios", "/administracion/logs", "/administracion/actividad"].includes(path))) {
-      return json({ error: "Usuarios y permisos, y Logs, son accesos reservados para dirección." }, 400, origin);
+    if (allowedPaths.some((path) => path !== "/finanzas/editar-egresos" && !paths.some((validPath) => validPath === path))) {
+      return json({ error: "Hay una subpestaña no reconocida." }, 400, origin);
     }
     const { data, error } = await service.from("commerce_admin_users")
       .update({ allowed_paths: allowedPaths })
@@ -124,6 +126,7 @@ Deno.serve(async (request) => {
   const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
   const password = typeof body.password === "string" ? body.password : "";
   const displayName = typeof body.displayName === "string" ? body.displayName.trim().slice(0, 120) : "";
+  if (accessUserId === "t1" && caller.access_user_id !== "t1") return json({ error: "No tenés acceso a esta cuenta." }, 403, origin);
   if (!(accessUserId === "t1" || isManagedId(accessUserId)) || !/^[a-z0-9._-]{3,64}$/.test(username) || !displayName) return json({ error: "Revisá los datos del usuario." }, 400, origin);
   if (password && password.length < 8) return json({ error: "La contraseña debe tener al menos 8 caracteres." }, 400, origin);
 

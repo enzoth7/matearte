@@ -3,7 +3,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { getLocalizedProduct, getLocalizedProducts } from "@/content/catalog-localization";
 import { createPublicSupabase } from "@/lib/supabase/server";
-import { supabaseUrl } from "@/lib/supabase/config";
+import { supabaseServiceRoleKey, supabaseUrl } from "@/lib/supabase/config";
 import {
   mergeStorefrontProducts,
   storefrontProductFromRow,
@@ -122,6 +122,32 @@ export async function getStorefrontProduct(slug: string, locale: Locale) {
   } catch (reason) {
     console.error(`[storefront-catalog] No se pudo cargar el producto ${slug}.`, reason);
     return null;
+  }
+}
+
+const loadProductPopularity = unstable_cache(async () => {
+  const result = await fetch(`${supabaseUrl()}/functions/v1/marketing-workspace`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: supabaseServiceRoleKey() },
+    body: JSON.stringify({ action: "catalogPopularity" }),
+  });
+  if (!result.ok) throw new Error(`Analytics respondió ${result.status}`);
+  const data = await result.json() as { products?: { slug: string; visitors: number }[] };
+  const counts = new Map<string, number>();
+  for (const row of data.products || []) {
+    if (typeof row.slug === "string" && Number.isFinite(row.visitors) && row.visitors > 0) {
+      counts.set(row.slug, (counts.get(row.slug) || 0) + row.visitors);
+    }
+  }
+  return Object.fromEntries(counts);
+}, ["storefront-product-popularity-v1"], { revalidate: 3600 });
+
+export async function getStorefrontProductPopularity(): Promise<Record<string, number>> {
+  try {
+    return await loadProductPopularity();
+  } catch (reason) {
+    console.error("[storefront-catalog] No se pudo cargar la popularidad; se ordenará por última modificación.", reason);
+    return {};
   }
 }
 

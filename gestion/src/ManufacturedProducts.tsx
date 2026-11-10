@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { MagnifyingGlass, PencilSimple, Plus } from "@phosphor-icons/react";
-import { accessUserId } from "./access";
+import { canAccess } from "./access";
 import { money, type State } from "./data";
 import { lineCostUyuMinor } from "./inventoryCostModel";
 import { readManufacturedProducts, saveManufacturedProduct, type ManufacturedData, type ManufacturedProduct, type ManufacturedSupply } from "./inventoryManufacturedSource";
@@ -10,7 +10,7 @@ import "./manufacturedProducts.css";
 const uyu = (minor: number | null) => minor === null ? "Sin cargar" : `UYU ${money(minor / 100)}`;
 
 export function ManufacturedProducts({ s, notify }: { s: State; notify: (message: string) => void }) {
-  const allowed = accessUserId(s) === "t1";
+  const allowed = canAccess(s, "/inventario/fabricados");
   const [data, setData] = useState<ManufacturedData | null>(null);
   const [editing, setEditing] = useState<ManufacturedProduct | null>(null);
   const [selected, setSelected] = useState<Record<string, number>>({});
@@ -28,7 +28,7 @@ export function ManufacturedProducts({ s, notify }: { s: State; notify: (message
     return () => { active = false; };
   }, [allowed]);
 
-  if (!allowed) return <section className="manufactured-products"><div role="alert">Esta sección está disponible solo para Richard.</div></section>;
+  if (!allowed) return <section className="manufactured-products"><div role="alert">No tenés acceso a esta sección.</div></section>;
   const articles = data?.articles || [];
   const productArticles = (productId: string | null) => articles.filter((article) => article.product_id === productId);
   const catalogProducts = [...new Map(articles.map((article) => [article.product_id, article])).values()];

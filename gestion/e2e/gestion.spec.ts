@@ -72,6 +72,21 @@ test("los permisos se guardan en el backend", async ({ page }) => {
   expect(body.allowedPaths).not.toContain("/inicio/resumen");
   await expect(page.getByText("Permisos guardados en la base de datos.")).toBeVisible();
 });
+test("todas las subpestañas se pueden marcar sin permisos de función", async ({ page }) => {
+  await page.goto("/administracion/usuarios");
+  await page.getByRole("tab", { name: "Permisos" }).click();
+  await expect(page.getByText("Solo Richard", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Solo Enzo y Richard", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Editar egresos y gastos fijos", { exact: true })).toHaveCount(0);
+  for (const title of ["Insumos", "Productos fabricados", "Reventa", "Recorridos", "Logs", "Usuarios y permisos"]) {
+    await expect(page.getByRole("checkbox", { name: `Mostrar ${title} a Florencia Costa` })).toBeEnabled();
+  }
+  const checkbox = page.getByRole("checkbox", { name: "Mostrar Insumos a Florencia Costa" });
+  await checkbox.check();
+  await expect(checkbox).toBeChecked();
+  await checkbox.uncheck();
+  await expect(checkbox).not.toBeChecked();
+});
 test("canales y columnas de clientes tienen identidad y datos separados", async ({ page }) => {
   await page.goto("/comercial/pedidos");
   await expect(page.locator(".badge.channel-web").first()).toHaveText("Web");

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { accessUserId } from "./access";
+import { canAccess } from "./access";
 import { commerceSource } from "./commerceSource";
 import { money, type State } from "./data";
 import { readExpenseSources, type ExpenseSources } from "./expenseSource";
@@ -41,7 +41,7 @@ async function readCloseRecords(): Promise<FinanceCloseRecord[]> {
 export function FinanceReconciliation({ s, notify, refresh }: {
   s: State; notify: (message: string) => void; refresh?: () => Promise<void>;
 }) {
-  const owner = accessUserId(s) === "t1";
+  const owner = canAccess(s, "/finanzas/conciliacion");
   const [month, setMonth] = useState(() => today.slice(0, 7) < firstFinanceCloseMonth ? firstFinanceCloseMonth : today.slice(0, 7));
   const [accounts, setAccounts] = useState<FinanceAccount[]>([]);
   const [closes, setCloses] = useState<FinanceCloseRecord[]>([]);

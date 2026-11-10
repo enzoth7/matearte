@@ -89,12 +89,12 @@ export function AnalyticsJourneys({ section }: { section: AnalyticsSection }) {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    void callAnalytics<Report>('report', { start, end, device: device || null, journey: null })
+    void callAnalytics<Report>('report', { start, end, device: device || null, journey: null, section })
       .then((value) => { if (active) { setReport(value); setError(''); } })
       .catch((reason) => { if (active) { setReport(null); setError(reason.message); } })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [start, end, device, refresh]);
+  }, [start, end, device, section, refresh]);
 
   const vercel = useMemo(() => {
     const rows = report?.vercel.filter((row) => row.status === 'complete') || [];

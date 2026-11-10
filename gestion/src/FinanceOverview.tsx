@@ -8,7 +8,7 @@ import { buildRevenueForecast } from "./revenueForecast";
 import { montevideoToday } from "./overview";
 import { readFinanceOpenings, type FinanceOpening } from "./financeOpeningSource";
 import { commerceSource } from "./commerceSource";
-import { accessUserId } from "./access";
+import { canAccess } from "./access";
 import { readFinanceMonthlyAdjustments, saveFinanceMonthlyAdjustment } from "./financeMonthlyAdjustmentSource";
 import { readFinanceIncome, type FinanceManualIncome } from "./financeIncomeSource";
 import { Card, ChartTooltip, Modal } from "./ui";
@@ -249,7 +249,7 @@ export function FinanceOverview({ s, notify, go }: { s: State; notify: (message:
       <section className="finance-flow" aria-label="Proyección mensual de ingresos y egresos">
         <Matrix months={months} incomplete={incomplete} configuredExpenses={configuredExpenses} configuredIncomes={configuredIncomes}
           onOpenRow={(kind, month, category) => go(`/finanzas/${kind === "income" ? "ingresos" : "egresos"}?mes=${month}&detalle=1${category ? `&categoria=${encodeURIComponent(category)}` : ""}`)}
-          onEditAdjustment={accessUserId(s) === "t1" ? (month) => { setEditingAdjustment(month); setAdjustmentAmount(String(month.manualAdjustment)); } : undefined} />
+          onEditAdjustment={canAccess(s, "/finanzas/resumen") ? (month) => { setEditingAdjustment(month); setAdjustmentAmount(String(month.manualAdjustment)); } : undefined} />
       </section>
       {editingAdjustment && <Modal title={`Ajuste de ${editingAdjustment.label}`} onClose={() => setEditingAdjustment(null)}>
         <form className="finance-adjustment-form" onSubmit={(event) => void saveAdjustment(event)}>

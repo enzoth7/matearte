@@ -3,7 +3,13 @@ import { createClient } from "npm:@supabase/supabase-js@2.112.4";
 import { hasOAuthClient } from "../../../shared/supabase-oauth-session.ts";
 
 const origins = new Set(['https://matearte-gestion.vercel.app', 'http://localhost:5180', 'http://127.0.0.1:5180', 'http://localhost:5181', 'http://127.0.0.1:5181']);
-const readers = new Set(['deeec8ea-ace6-4f0a-a578-17751a83f707', '5afbc94d-aecf-44e8-b12e-e136f49abb62']);
+const sections = {
+  journeys: '/analitica/recorridos',
+  ga4: '/analitica/google-analytics',
+  clarity: '/analitica/clarity',
+  vercel: '/analitica/vercel',
+  changes: '/analitica/cambios',
+} as const;
 const reply = (body: unknown, status: number, origin: string) => new Response(status === 204 ? null : JSON.stringify(body), { status, headers: {
   'Content-Type': 'application/json', 'Cache-Control': 'no-store',
   ...(origins.has(origin) ? { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', Vary: 'Origin' } : {}),
@@ -48,10 +54,15 @@ Deno.serve(async (request) => {
   const admin = createClient(url, key, { auth: { persistSession: false } });
   const { data: { user }, error: authError } = await admin.auth.getUser(token);
   if (authError || !user) return reply({ error: 'Sesión inválida.' }, 401, origin);
-  const { data: member } = await admin.from('commerce_admin_users').select('active,access_user_id').eq('user_id', user.id).maybeSingle();
-  if (!readers.has(user.id) || !member?.active) return reply({ error: 'Sin acceso a Analítica.' }, 403, origin);
+  const { data: member } = await admin.from('commerce_admin_users').select('active,access_user_id,allowed_paths').eq('user_id', user.id).maybeSingle();
+  if (!member?.active) return reply({ error: 'Sin acceso a Analítica.' }, 403, origin);
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return reply({ error: 'Solicitud inválida.' }, 400, origin); }
+  const legacyReport = body.action === 'report' && body.section === undefined && member.access_user_id === 't1';
+  const section = body.action === 'markChange' ? 'changes' : legacyReport ? 'journeys' : String(body.section || '');
+  if (!(section in sections) || (member.access_user_id !== 't1' && !member.allowed_paths?.includes(sections[section as keyof typeof sections]))) {
+    return reply({ error: 'Sin acceso a esta subpestaña de Analítica.' }, 403, origin);
+  }
   if (body.action === 'markChange') {
     const description = typeof body.description === 'string' ? body.description.trim() : '';
     if (!validDate(body.changedOn) || !['catalog', 'custom', 'both'].includes(String(body.journey)) || description.length < 3 || description.length > 300) return reply({ error: 'Completá la fecha, la parte afectada y una descripción breve.' }, 400, origin);
@@ -61,6 +72,15 @@ Deno.serve(async (request) => {
   if (body.action !== 'report' || !validDate(body.start) || !validDate(body.end) || String(body.end) < String(body.start) || (Date.parse(`${body.end}T00:00:00Z`) - Date.parse(`${body.start}T00:00:00Z`)) / 86400000 > 179 || ![null, 'desktop', 'mobile', 'tablet'].includes((body.device || null) as string | null) || ![null, 'catalog', 'custom'].includes((body.journey || null) as string | null)) return reply({ error: 'Filtros inválidos.' }, 400, origin);
   const { data, error } = await admin.rpc('analytics_report', { p_start: body.start, p_end: body.end, p_device: body.device || null, p_journey: body.journey || null });
   if (error) return reply({ error: 'No se pudo cargar Analítica. La base puede estar pendiente de activación.' }, 503, origin);
-  const ga4 = await googleSummary(String(body.start), String(body.end));
-  return reply({ ...data, ga4, clarityUrl: Deno.env.get('CLARITY_PROJECT_URL') || '' }, 200, origin);
+  if (legacyReport) return reply({ ...data, ga4: await googleSummary(String(body.start), String(body.end)), clarityUrl: Deno.env.get('CLARITY_PROJECT_URL') || '' }, 200, origin);
+  const ga4 = section === 'ga4' ? await googleSummary(String(body.start), String(body.end)) : { status: 'unconfigured' };
+  return reply({
+    steps: section === 'journeys' ? data.steps : [],
+    daily: section === 'journeys' || section === 'changes' ? data.daily : [],
+    vercel: section === 'vercel' ? data.vercel : [],
+    changes: section === 'changes' ? data.changes : [],
+    activated_on: section === 'changes' ? data.activated_on : null,
+    ga4,
+    clarityUrl: section === 'clarity' ? Deno.env.get('CLARITY_PROJECT_URL') || '' : '',
+  }, 200, origin);
 });

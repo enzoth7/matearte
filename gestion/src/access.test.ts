@@ -1,16 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { allowedSalesChannels, canAccess, canManageFinanceExpenses, defaultAccess, setAreaAccess, setPageAccess, visibleCustomers, visibleOrders } from "./access";
+import { allowedSalesChannels, canAccess, setAreaAccess, setPageAccess, visibleCustomers, visibleOrders } from "./access";
 import { seedFixture as seed } from "./testing/fixture";
 
 describe("visibilidad de los tres perfiles", () => {
-  it("reserva Analítica a las dos cuentas autorizadas incluso si otro perfil intenta habilitarla", () => {
-    const owner = { ...seed(), canViewAnalytics: true };
-    const other = { ...owner, activeUserId: 't5', canViewAnalytics: false };
+  it("permite habilitar y deshabilitar cada subpestaña de Analítica", () => {
+    const owner = seed();
+    const other = { ...owner, activeUserId: 't5' };
     for (const page of ['recorridos', 'google-analytics', 'clarity', 'vercel', 'cambios']) {
       const path = '/analitica/' + page;
       expect(canAccess(owner, path)).toBe(true);
-      expect(canAccess({ ...owner, canViewAnalytics: false }, path)).toBe(false);
-      expect(canAccess(setPageAccess(other, 't5', path, true), path)).toBe(false);
+      expect(canAccess(other, path)).toBe(false);
+      expect(canAccess(setPageAccess(other, 't5', path, true), path)).toBe(true);
+      expect(canAccess(setPageAccess(setPageAccess(other, 't5', path, true), 't5', path, false), path)).toBe(false);
     }
   });
   it("mantiene Marketing como acceso inicial de Betiana y permite configurarle otras secciones", () => {
@@ -33,7 +34,7 @@ describe("visibilidad de los tres perfiles", () => {
     expect(canAccess(withProducts, "/productos/personalizador")).toBe(true);
     expect(canAccess(setPageAccess(s, "t5", "/finanzas/resumen", true), "/finanzas/resumen")).toBe(true);
   });
-  it("ubica egresos y gastos fijos en Finanzas y separa el permiso de edición", () => {
+  it("ubica egresos y gastos fijos en Finanzas y usa solo permisos de subpestaña", () => {
     const richard = seed();
     expect(canAccess(richard, "/finanzas/resumen")).toBe(true);
     expect(canAccess(richard, "/administracion/usuarios")).toBe(true);
@@ -42,15 +43,16 @@ describe("visibilidad de los tres perfiles", () => {
       expect(canAccess(s, "/finanzas/egresos")).toBe(true);
       expect(canAccess(s, "/finanzas/gastos-fijos")).toBe(true);
       expect(canAccess(s, "/inventario/compras")).toBe(false);
-      expect(canManageFinanceExpenses(s)).toBe(true);
       expect(canAccess(s, "/finanzas/resumen")).toBe(false);
       expect(canAccess(s, "/administracion/usuarios")).toBe(false);
       expect(canAccess(setPageAccess(s, id as "t2" | "t3", "/finanzas/resumen", true), "/finanzas/resumen")).toBe(true);
-      expect(setPageAccess(s, id as "t2" | "t3", "/administracion/usuarios", true).access?.[id]).toEqual(defaultAccess()[id]);
+      expect(canAccess(setPageAccess(s, id as "t2" | "t3", "/administracion/usuarios", true), "/administracion/usuarios")).toBe(true);
     }
     const readonly = { ...richard, activeUserId: "t5", access: { ...richard.access, t5: ["/finanzas/egresos"] } };
     expect(canAccess(readonly, "/finanzas/egresos")).toBe(true);
-    expect(canManageFinanceExpenses(readonly)).toBe(false);
+    expect(canAccess(readonly, "/finanzas/gastos-fijos")).toBe(false);
+    const legacy = { ...richard, activeUserId: "t5", access: { ...richard.access, t5: ["/finanzas/egresos", "/finanzas/editar-egresos"] } };
+    expect(setPageAccess(legacy, "t5", "/finanzas/gastos-fijos", true).access?.t5).toEqual(["/finanzas/egresos", "/finanzas/gastos-fijos"]);
   });
 
   it("muestra a Costa todos los pedidos y mantiene sus permisos de registro y clientes", () => {
@@ -78,7 +80,7 @@ describe("visibilidad de los tres perfiles", () => {
     expect(visibleOrders(s, true)).toHaveLength(s.orders.length);
   });
 
-  it("permite ajustar visibilidad de subáreas sin otorgar las reservadas", () => {
+  it("permite ajustar visibilidad de todas las subpestañas", () => {
     const s = { ...seed(), activeUserId: "t2", user: "Florencia Costa" };
     const next = setPageAccess(s, "t2", "/productos/catalogo", true);
     expect(canAccess(next, "/productos/catalogo")).toBe(true);
@@ -86,7 +88,10 @@ describe("visibilidad de los tres perfiles", () => {
     const withWholesaleRegister = setPageAccess(next, "t2", "/comercial/registrar-may", true);
     expect(canAccess(withWholesaleRegister, "/comercial/registrar-min")).toBe(true);
     expect(canAccess(withWholesaleRegister, "/comercial/registrar-may")).toBe(true);
-    expect(canAccess(setPageAccess(next, "t2", "/administracion/usuarios", true), "/administracion/usuarios")).toBe(false);
+    expect(canAccess(setPageAccess(next, "t2", "/administracion/usuarios", true), "/administracion/usuarios")).toBe(true);
+    const inventory = setAreaAccess(next, "t2", "inventario", true);
+    expect(canAccess(inventory, "/inventario/insumos")).toBe(true);
+    expect(canAccess(setPageAccess(inventory, "t2", "/inventario/reventa", false), "/inventario/reventa")).toBe(false);
   });
 
   it("separa los permisos de pedidos personalizados y del configurador", () => {

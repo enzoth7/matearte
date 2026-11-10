@@ -18,15 +18,24 @@ describe('Logs', () => {
    expect(auditFieldLabel('total_minor', { ...event, entity_type: 'Pedido' })).toContain('cobro inicial');
    expect(auditValue(15, 'value', { ...event, value_unit: 'percent' })).toBe('15%');
  });
+ it('traduce fechas y estados del detalle de un pedido', () => {
+   expect(auditFieldLabel('delivered_at', event)).toBe('Fecha de entrega');
+   expect(auditValue('2026-11-06T16:57:02.158+00:00', 'delivered_at', event)).toBe('06/11/2026 13:57');
+   expect(auditValue('2026-10-23', 'sold_on', event)).toBe('23/10/2026');
+   expect(auditValue('internal_completed', 'status', event)).toBe('Pendiente de entrega');
+   expect(auditValue('delivered', 'status', event)).toBe('Entregado');
+   expect(auditValue('pending', 'production_status', event)).toBe('Pendiente');
+   expect(auditValue('completed', 'production_status', event)).toBe('Terminado');
+ });
  it('uses inclusive Uruguay calendar dates with an exclusive end', () => {
    expect(auditDateBoundary('2026-11-05')).toBe('2026-11-05T03:00:00.000Z');
    expect(auditDateBoundary('2026-11-05', true)).toBe('2026-11-06T03:00:00.000Z');
  });
- it('requires the server capability even for directors and cannot grant Logs in the permissions editor', () => {
+ it('uses the Logs subtab permission for each person', () => {
    const state = seed();
-   expect(canAccess(state, '/administracion/logs')).toBe(false);
-   expect(canAccess({ ...state, canViewLogs: true }, '/administracion/logs')).toBe(true);
+   expect(canAccess(state, '/administracion/logs')).toBe(true);
    const staff = { ...state, activeUserId: 't2', canViewLogs: false };
-   expect(canAccess(setPageAccess(staff, 't2', '/administracion/logs', true), '/administracion/logs')).toBe(false);
+   expect(canAccess(staff, '/administracion/logs')).toBe(false);
+   expect(canAccess(setPageAccess(staff, 't2', '/administracion/logs', true), '/administracion/logs')).toBe(true);
  });
 });

@@ -66,7 +66,7 @@ for (const [model, shape] of [["imperial", ""], ["torpedo", ""], ["camionero", "
       await card.locator(".local-design-editor").screenshot({ path: "artifacts/virola-varios-logos-mobile.png" });
       await page.setViewportSize({ width: 1440, height: 1100 });
       await card.getByRole("navigation").getByRole("button", { name: /Materiales/ }).click();
-      for (const [label, value] of [["Color", "natural"], ["Interior", "calabaza"], ["Tamaño", "grande"], ["Virola", "imperial"], ["Diseño del fleje", "liso"], ["Posamate", "sin-posamate"], ["Pie", "comun"]]) await card.getByLabel(label, { exact: true }).selectOption(value);
+      for (const [label, value] of [["Color", "natural"], ["Interior", "calabaza"], ["Tamaño", "grande"], ["Virola", "imperial"], ["Posamate", "sin-posamate"], ["Pie", "comun"]]) await card.getByLabel(label, { exact: true }).selectOption(value);
       await card.getByRole("navigation").getByRole("button", { name: /Virola/ }).click();
       await card.getByLabel(/^Técnica de virola/).selectOption("bronze-applique");
       await page.getByRole("button", { name: "Guardar venta", exact: true }).click();

@@ -15,9 +15,9 @@ type Movement = {
 
 function accountMovements(account: CustomerAccount, state: State): Movement[] {
   const orderIds = new Set(account.orders.map((order) => order.id));
-  const movements: Movement[] = account.orders.map((order) => ({
+  const movements: Movement[] = account.orders.filter((order) => !order.consignmentId).map((order) => ({
     id: `order:${order.id}`, date: order.date, label: order.source === "wholesale" ? "Pedido mayorista" : order.paymentMethod === "Cuenta corriente" ? "Venta fiada" : order.depositAmount != null ? "Pedido con seña" : "Venta local",
-    detail: orderName(order), orderId: order.id, charge: accountOrderTotal(order) ?? undefined,
+    detail: orderName(order), orderId: order.id, charge: accountOrderTotal(state, order) ?? undefined,
   }));
   for (const payment of state.payments.filter((entry) => orderIds.has(entry.orderId))) {
     movements.push({ id: `payment:${payment.id}`, date: payment.date, label: "Cobro del pedido",
@@ -67,7 +67,7 @@ function AccountDetail({ account, props, onClose }: { account: CustomerAccount; 
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [allocationReceiptId, setAllocationReceiptId] = useState<string | null>(null);
   const [fiadoOpen, setFiadoOpen] = useState(false);
-  const openOrders = account.orders.filter((order) => (accountOrderBalance(s, order) ?? 1) > 0);
+  const openOrders = account.orders.filter((order) => !order.consignmentId && (accountOrderBalance(s, order) ?? 1) > 0);
   const movements = accountMovements(account, s);
   const net = account.pending - account.credit;
   const changed = async () => { await props.refresh?.(true); setReceiptOpen(false); setAllocationReceiptId(null); setFiadoOpen(false); };
@@ -87,7 +87,7 @@ function AccountDetail({ account, props, onClose }: { account: CustomerAccount; 
       { label: "Pedido", render: (order) => <button type="button" className="text-button" onClick={() => go(`/comercial/pedidos?pedido=${encodeURIComponent(order.id)}`)}>{orderName(order)}</button> },
       { label: "Fecha", render: (order) => formatDate(order.date) },
       { label: "Tipo", render: (order) => order.source === "wholesale" ? "Mayorista" : order.paymentMethod === "Cuenta corriente" ? "Fiado" : order.depositAmount != null ? "Con seña" : "Minorista" },
-      { label: "Importe", render: (order) => accountOrderTotal(order) == null ? "Por conciliar" : accountMoney(account, accountOrderTotal(order)!) },
+      { label: "Importe", render: (order) => accountOrderTotal(s, order) == null ? "Por conciliar" : accountMoney(account, accountOrderTotal(s, order)!) },
       { label: "Cobrado", render: (order) => accountOrderBalance(s, order) == null ? "Por conciliar" : accountMoney(account, order.source === "wholesale" ? wholesalePaidArs(s, order) || 0 : paid(s, order)) },
       { label: "Falta", render: (order) => accountOrderBalance(s, order) == null ? "Por conciliar" : <strong>{accountMoney(account, accountOrderBalance(s, order)!)}</strong> },
     ]} />

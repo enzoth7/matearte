@@ -92,7 +92,7 @@ export function useCommerce() {
             ...current,
             user: data.display_name || current.user,
             activeUserId: data.access_user_id || current.activeUserId,
-            canViewAnalytics: ['deeec8ea-ace6-4f0a-a578-17751a83f707', '5afbc94d-aecf-44e8-b12e-e136f49abb62'].includes(data.user_id),
+            canViewAnalytics: data.access_user_id === "t1" || (data.allowed_paths || []).some((path: string) => path.startsWith("/analitica/")),
             ...auditAvailability(data.user_id, logs),
             access: Array.isArray(data.allowed_paths) && data.access_user_id
               ? { ...current.access, [data.access_user_id]: data.allowed_paths }
@@ -241,7 +241,7 @@ export function useCommerce() {
           : current.access,
         user: membership.data?.display_name || current.user,
         activeUserId: membership.data?.access_user_id || current.activeUserId,
-        canViewAnalytics: Boolean(membership.data) && ['deeec8ea-ace6-4f0a-a578-17751a83f707', '5afbc94d-aecf-44e8-b12e-e136f49abb62'].includes(session!.user.id),
+        canViewAnalytics: membership.data?.access_user_id === "t1" || (membership.data?.allowed_paths || []).some((path: string) => path.startsWith("/analitica/")),
         ...auditAvailability(membership.data ? session!.user.id : undefined, logs),
       }));
       setSnapshot(next); setLoadedAt(new Date()); setError("");

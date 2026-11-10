@@ -3,7 +3,6 @@ import type { Customer, Order, SalesChannel, State } from "./data";
 
 export const accessUserIds = ["t1", "t2", "t3", "t5"] as const;
 export type AccessUserId = string;
-export const financeExpenseEditPermission = "/finanzas/editar-egresos";
 
 export const isCustomAccessUserId = (id: string | undefined): id is string => /^u[0-9a-f]{8}$/.test(id ?? "");
 const newUserAccess = ["/inicio/resumen"];
@@ -19,7 +18,7 @@ export function defaultAccess(): Record<string, string[]> {
       "/inicio/resumen",
       "/comercial/pedidos", "/comercial/registrar-min",
       "/clientes/base",
-      "/finanzas/egresos", "/finanzas/gastos-fijos", financeExpenseEditPermission,
+      "/finanzas/egresos", "/finanzas/gastos-fijos",
     ],
     t3: [
       "/inicio/resumen", "/inicio/alertas",
@@ -27,15 +26,10 @@ export function defaultAccess(): Record<string, string[]> {
       "/clientes/base",
       "/productos/catalogo", "/productos/servicios", "/productos/ajustes", "/productos/personalizador",
       ...withAreas(["produccion", "inventario", "entregas"]),
-      "/finanzas/egresos", "/finanzas/gastos-fijos", financeExpenseEditPermission,
+      "/finanzas/egresos", "/finanzas/gastos-fijos",
     ],
     t5: withAreas(["marketing"]),
   };
-}
-
-// Finanzas ya no es exclusiva: Richard decide quién la ve desde Usuarios y permisos.
-export function lockedForRichard(path: string): boolean {
-  return ["/administracion/usuarios", "/administracion/logs", "/inventario/insumos", "/inventario/fabricados", "/inventario/reventa"].includes(path) || path.startsWith("/analitica/");
 }
 
 export function accessUserId(s: State): AccessUserId {
@@ -48,16 +42,8 @@ export function canAccess(s: State, path: string): boolean {
   const normalized = path.split("?")[0];
   if (!resolvePath(normalized)) return false;
   const userId = accessUserId(s);
-  if (normalized === "/administracion/logs") return userId === "t1" && (s.canViewLogs === true || s.logsPendingActivation === true);
-  if (normalized.startsWith("/analitica/")) return s.canViewAnalytics === true;
   if (userId === "t1") return true;
-  if (lockedForRichard(normalized)) return false;
   return accessFor(s, userId).includes(normalized);
-}
-
-export function canManageFinanceExpenses(s: State): boolean {
-  const userId = accessUserId(s);
-  return userId === "t1" || accessFor(s, userId).includes(financeExpenseEditPermission);
 }
 
 export function firstRegistrationPath(s: State): string | null {
@@ -88,14 +74,12 @@ export function setAreaAccess(
 ): State {
   const area = areas.find((entry) => entry.id === areaId);
   if (!area) return s;
-  const current = new Set(accessFor(s, userId));
+  const current = new Set(accessFor(s, userId).filter((path) => resolvePath(path)));
   for (const [slug] of area.pages) {
     const path = `/${area.id}/${slug}`;
-    if (lockedForRichard(path)) continue;
     if (enabled) current.add(path);
     else current.delete(path);
   }
-  if (areaId === "finanzas" && !enabled) current.delete(financeExpenseEditPermission);
   return { ...s, access: { ...s.access, [userId]: [...current] } };
 }
 
@@ -105,11 +89,10 @@ export function setPageAccess(
   path: string,
   enabled: boolean,
 ): State {
-  if (!resolvePath(path) || lockedForRichard(path)) return s;
-  const current = new Set(accessFor(s, userId));
+  if (!resolvePath(path)) return s;
+  const current = new Set(accessFor(s, userId).filter((entry) => resolvePath(entry)));
   if (enabled) current.add(path);
   else current.delete(path);
-  if (path === "/finanzas/egresos" && !enabled) current.delete(financeExpenseEditPermission);
   return { ...s, access: { ...s.access, [userId]: [...current] } };
 }
 

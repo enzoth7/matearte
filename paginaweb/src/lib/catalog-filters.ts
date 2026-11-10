@@ -132,7 +132,7 @@ export const collectionOptions: ReadonlyArray<{ value: CatalogCollectionId; labe
 ];
 
 export type PriceRangeId = (typeof priceRangeOptions)[number]["value"];
-export type CatalogSort = "nuevo" | "precio-asc" | "precio-desc" | "nombre-asc" | "nombre-desc";
+export type CatalogSort = "relevancia" | "nuevo" | "precio-asc" | "precio-desc" | "nombre-asc" | "nombre-desc";
 
 export type CatalogFilters = {
   search: string;
@@ -153,7 +153,7 @@ const closureIds: ReadonlySet<string> = new Set(catalogFootwearClosureIds);
 const productTypeIds: ReadonlySet<string> = new Set(productTypeOptions.map((option) => option.value));
 const colorIds: ReadonlySet<string> = new Set(colorOptions.map((option) => option.value));
 const collectionIds: ReadonlySet<string> = new Set(collectionOptions.map((option) => option.value));
-const sortIds = new Set<CatalogSort>(["nuevo", "precio-asc", "precio-desc", "nombre-asc", "nombre-desc"]);
+const sortIds = new Set<CatalogSort>(["relevancia", "nuevo", "precio-asc", "precio-desc", "nombre-asc", "nombre-desc"]);
 
 function validValues<T extends string>(params: URLSearchParams, key: string, allowed: ReadonlySet<string>) {
   return [...new Set(params.getAll(key).filter((value): value is T => allowed.has(value)))];
@@ -162,7 +162,7 @@ function validValues<T extends string>(params: URLSearchParams, key: string, all
 export function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
   const rawCategory = params.get("categoria") ?? "todas";
   const categoryValue = rawCategory === "kit-matero" ? "kits-materos" : rawCategory === "cuchillo" ? "cuchillos" : rawCategory === "tarjetero" ? "tarjeteros" : rawCategory === "mates-personalizados" || rawCategory === "materas-personalizadas" ? "personalizados" : rawCategory;
-  const requestedSort = params.get("orden") ?? "nuevo";
+  const requestedSort = params.get("orden") ?? "relevancia";
   const sortValue = requestedSort === "precio" ? "precio-asc" : requestedSort === "nombre" ? "nombre-asc" : requestedSort;
   return {
     search: (params.get("filter") ?? "").trim(),
@@ -173,7 +173,7 @@ export function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
     closures: validValues<CatalogFootwearClosureId>(params, "cierre", closureIds),
     productTypes: validValues<CatalogProductTypeId>(params, "tipo", productTypeIds),
     colors: validValues<CatalogColorId>(params, "color", colorIds),
-    sort: sortIds.has(sortValue as CatalogSort) ? sortValue as CatalogSort : "nuevo",
+    sort: sortIds.has(sortValue as CatalogSort) ? sortValue as CatalogSort : "relevancia",
   };
 }
 
@@ -182,7 +182,7 @@ export function writeCatalogFilters(filters: CatalogFilters) {
   if (filters.search) params.set("filter", filters.search.trim());
   if (filters.category !== "todas") params.set("categoria", filters.category);
   filters.collections.forEach((value) => params.append("coleccion", value));
-  if (filters.sort !== "nuevo") params.set("orden", filters.sort);
+  if (filters.sort !== "relevancia") params.set("orden", filters.sort);
   filters.prices.forEach((value) => params.append("precio", value));
   filters.materials.forEach((value) => params.append("material", value));
   filters.closures.forEach((value) => params.append("cierre", value));
@@ -373,7 +373,7 @@ export function getProductColors(product: Product): CatalogColorId[] {
   return [...new Set(product.filterData.colors ?? [])];
 }
 
-export function filterAndSortCatalog<T extends { product: Product }>(entries: T[], filters: CatalogFilters, locale = "es") {
+export function filterAndSortCatalog<T extends { product: Product }>(entries: T[], filters: CatalogFilters, locale = "es", popularity: Record<string, number> = {}) {
   const searchTerms = normalizeSearchText(filters.search).split(/\s+/).filter(Boolean);
   const filtered = entries.filter(({ product }) => {
     const data = product.filterData;
@@ -421,8 +421,16 @@ export function filterAndSortCatalog<T extends { product: Product }>(entries: T[
   });
 
   const byName = (a: T, b: T) => a.product.name.localeCompare(b.product.name, locale);
+  const byLastModified = (a: T, b: T) => (b.product.lastModifiedAt ?? 0) - (a.product.lastModifiedAt ?? 0) || byName(a, b);
+  if (filters.sort === "relevancia") {
+    return [...filtered].sort((a, b) => {
+      const first = Object.hasOwn(popularity, a.product.slug) ? popularity[a.product.slug] : 0;
+      const second = Object.hasOwn(popularity, b.product.slug) ? popularity[b.product.slug] : 0;
+      return second - first || byLastModified(a, b);
+    });
+  }
   if (filters.sort === "nuevo") {
-    return [...filtered].sort((a, b) => (b.product.lastModifiedAt ?? 0) - (a.product.lastModifiedAt ?? 0) || byName(a, b));
+    return [...filtered].sort(byLastModified);
   }
   if (filters.sort === "nombre-asc") return [...filtered].sort(byName);
   if (filters.sort === "nombre-desc") return [...filtered].sort((a, b) => -byName(a, b));

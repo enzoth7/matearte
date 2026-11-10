@@ -448,34 +448,19 @@ Deno.serve(pipeline(
 
       server.registerTool("crear_consignacion", {
         title: "Crear consignación mayorista",
-        description: "Solo Richard. Crea un acuerdo vinculado a un pedido de producción. Elegir cliente mayorista y variantes del catálogo con cantidades y precio ARS pactado. Enviar productos no crea deuda. Mostrar el acuerdo completo y pedir confirmación. Reutilizar clave_consignacion al reintentar.",
-        inputSchema: z.object({ clave_consignacion: z.string().trim().min(8).max(120), cliente_id: z.uuid(),
-          productos: z.array(z.object({ variante_id: z.uuid(), cantidad: z.number().int().min(1).max(10000),
-            precio_unitario_ars: moneySchema })).min(1).max(100), confirmado: z.literal(true) }), annotations: writeTool,
-      }, async ({ clave_consignacion, cliente_id, productos }) => {
+        description: "Solo Richard. Vincula una consignación a un pedido mayorista existente. Usa sus productos, cantidades, precios ARS y cotización guardados. El pedido no debe tener cobros ni entregas previas. Mostrar el pedido completo y pedir confirmación. Reutilizar clave_consignacion al reintentar.",
+        inputSchema: z.object({ clave_consignacion: z.string().trim().min(8).max(120), pedido_id: z.uuid(),
+          confirmado: z.literal(true) }), annotations: writeTool,
+      }, async ({ clave_consignacion, pedido_id }) => {
         if (!canWrite) return failure({ error: "Solo Richard puede crear consignaciones." });
-        if (new Set(productos.map((item) => item.variante_id)).size !== productos.length)
-          return failure({ error: "La consignación no puede repetir una variante." });
-        let items: { variant_id: string; quantity: number; unit_price_arg_minor: number }[];
-        try { items = productos.map((item) => ({ variant_id: item.variante_id,
-          quantity: item.cantidad, unit_price_arg_minor: amountMinor(item.precio_unitario_ars) })); }
-        catch (error) { return failure({ error: (error as Error).message }); }
         const id = await expenseId(identity.sub, `consignment:${clave_consignacion}`);
         const { data: previous, error: previousError } = await supabase.from("wholesale_consignments")
-          .select("id,contact_id").eq("id", id).maybeSingle();
+          .select("id,order_id").eq("id", id).maybeSingle();
         if (previousError) return failure({ error: "No se pudo comprobar el reintento." });
-        if (previous && previous.contact_id !== cliente_id) return failure({ error: "La clave ya corresponde a otro cliente." });
-        if (previous) {
-          const { data: lines, error: linesError } = await supabase.from("wholesale_consignment_lines")
-            .select("variant_id,quantity,unit_price_arg_minor").eq("consignment_id", id);
-          if (linesError || lines?.length !== items.length || items.some((item) => !lines?.some((line) =>
-            line.variant_id === item.variant_id && Number(line.quantity) === item.quantity
-            && Number(line.unit_price_arg_minor) === item.unit_price_arg_minor)))
-            return failure({ error: "La clave ya corresponde a otra consignación." });
-          return result({ estado: "ya_registrada", id });
-        }
-        const { data, error } = await supabase.rpc("gestion_create_wholesale_consignment", {
-          p_id: id, p_contact_id: cliente_id, p_items: items,
+        if (previous && previous.order_id !== pedido_id) return failure({ error: "La clave ya corresponde a otro pedido." });
+        if (previous) return result({ estado: "ya_registrada", id, pedido_id });
+        const { data, error } = await supabase.rpc("gestion_link_wholesale_consignment", {
+          p_id: id, p_order_id: pedido_id,
         });
         return error ? failure({ error: error.message }) : result({ estado: "registrada", datos: data,
           pagina: "https://matearte-gestion.vercel.app/finanzas/consignaciones" });
