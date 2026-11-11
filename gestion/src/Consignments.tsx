@@ -250,7 +250,7 @@ function ConsignmentDetail({ props, consignment, onClose }: {
       </nav>
       {tab === "products" && <section id="consignment-panel-products" role="tabpanel" aria-labelledby="consignment-tab-products"><Table title="Productos y unidades" className="consignment-products-table" rows={summary.lines} pageSize={30} searchText={(line) => `${line.title} ${line.sku}`} columns={[
         { label: "Producto", render: (line) => <div><strong>{line.title}</strong><small>SKU {line.sku}</small></div> },
-        { label: "Pactado", render: (line) => currencyMoney(line.unitPriceMinor / 100, consignment.currency) },
+        { label: "Pactado por unidad", render: (line) => currencyMoney(line.unitPriceMinor / 100, consignment.currency) },
         { label: "Pedido", render: (line) => line.quantity },
         { label: "Enviadas", render: (line) => line.dispatched },
         { label: "Devueltas", render: (line) => line.returned },
