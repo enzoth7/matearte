@@ -30,6 +30,16 @@ test("dos consignatarios ven sus paneles sin cargar datos internos por una URL a
   await expect(page.getByText("Mate de Local B")).toHaveCount(0);
   await expect(other.getByText("Mate de Local A")).toHaveCount(0);
   await expect(page.getByText(/UYU\s*1\.000,00 por pagar/)).toBeVisible();
+  const card = page.locator(".consignee-card");
+  await expect(card.getByText("En su poder", { exact: true })).toHaveCount(0);
+  await expect(card.getByText("Mercadería en su poder", { exact: true })).toHaveCount(0);
+  await expect(card.getByText("Desde 01/11/2026, moneda pactada UYU")).toHaveCount(0);
+  await expect(card.getByRole("columnheader")).toHaveText(["Producto", "Pactado por unidad", "Enviadas", "Conservadas", "Devueltas"]);
+  for (const width of [390, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    expect(await card.locator(".consignee-table-wrap").evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+  }
   await expect(page.getByRole("button", { name: "Ver historial" })).toBeVisible();
   expect(new Set(firstRequests)).toEqual(new Set(["/rest/v1/commerce_admin_users"]));
   expect(new Set(secondRequests)).toEqual(new Set(["/rest/v1/commerce_admin_users"]));
