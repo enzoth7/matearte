@@ -244,6 +244,7 @@ function AssetCard({ asset, link }: { asset: PrivateAsset; link?: AssetLink }) {
 
 export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: string) => void; state?: State }) {
   const [webOrders, setWebOrders] = useState<PersonalizedOrder[]>([]);
+  const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const [activeTab, setActiveTab] = useState<'detail' | 'production'>('detail');
   const [loading, setLoading] = useState(true);
@@ -276,12 +277,32 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
 
   const orders = useMemo(() => [...webOrders, ...localPersonalizedOrders(state)]
     .sort((a, b) => orderDate(b).localeCompare(orderDate(a)) || b.id.localeCompare(a.id)), [state, webOrders]);
+  const filteredOrders = useMemo(() => {
+    const query = search.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es').trim().replace(/^#/, '');
+    if (!query) return orders;
+    const terms = query.split(/\s+/);
+    return orders.filter((order) => {
+      const customer = asRecord(order.customer_snapshot);
+      const itemDetails = order.order_items.flatMap((item) => {
+        const summary = summarizePersonalization(item);
+        return [item.title, summary.kind, summary.instructions, summary.mate.model, summary.mate.size,
+          summary.mate.color, summary.mate.texture, summary.mate.metal, summary.mate.interior,
+          ...Object.values(summary.mate.characteristics), ...summary.rim.texts, ...summary.rim.images,
+          summary.fleje.front.text, summary.fleje.back.text, ...summary.fleje.front.images,
+          ...summary.fleje.back.images, summary.matera.text, summary.matera.logo];
+      });
+      const haystack = [order.order_number, reference(order), order.id, customerName(order.customer_snapshot),
+        customer.email, customer.phone, customerPhone(order.customer_snapshot), productTypes(order),
+        order.source === 'local' ? 'Local' : 'Web', order.status, paymentStatusLabel(order),
+        personalizedProductionStatus(order), ...itemDetails]
+        .join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es');
+      return terms.every((term) => haystack.includes(term));
+    });
+  }, [orders, search]);
   const selected = orders.find((order) => order.id === selectedId) || null;
   const selectedTotals = selected ? personalizedOrderTotals(selected) : null;
   const selectedItems = useMemo(() => selected ? getPersonalizedItems(selected) : [], [selected]);
   const itemSummaries = useMemo(() => selectedItems.map((item) => ({ item, summary: summarizePersonalization(item) })), [selectedItems]);
-  const printGalleryItems = itemSummaries.filter(({ item, summary }) => summary.previews.length > 0 || summary.uploads.length > 0
-    || (summary.kind === 'mate' && Boolean(asRecord(item.immutable_snapshot).configuration)));
   const files = useMemo(() => [...new Map(itemSummaries.flatMap(({ summary }) => summary.files).map((asset) => [asset.key, asset])).values()], [itemSummaries]);
   const previewCount = itemSummaries.reduce((total, { item, summary }) => { if (summary.kind !== 'mate') return total + summary.previews.length; const c = asRecord(asRecord(item.immutable_snapshot).configuration); const caps = asRecord(c.capabilities); return total + (summary.previews.length || (c.rim ? (caps.hasRim === false ? 0 : 1) + (caps.hasFleje ? 2 : 0) : 0)); }, 0);
 
@@ -340,11 +361,15 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
   return (
     <>
       <section className="data-panel personalized-orders-panel" aria-label="Pedidos personalizados">
+        <div className="orders-toolbar personalized-orders-toolbar">
+          <div className="table-summary"><strong>{filteredOrders.length} {filteredOrders.length === 1 ? 'pedido' : 'pedidos'}</strong><small>{search ? `Filtrado por "${search}"` : 'Pedidos personalizados'}</small></div>
+          <input type="search" aria-label="Buscar pedidos personalizados" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por #, cliente, producto o detalle…" />
+        </div>
         <div className="table-scroll">
           <table className="data-table personalized-table">
             <thead><tr><th>Pedido</th><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Canal</th><th>Total</th><th>Pago</th><th>Producción</th><th className="action-column">Detalles</th></tr></thead>
             <tbody>
-              {orders.map((order) => {
+              {filteredOrders.map((order) => {
                 return <tr key={order.id}>
                   <td><strong>{reference(order)}</strong></td>
                   <td>{shortDate(orderDate(order))}</td>
@@ -359,7 +384,7 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
                   <td className="action-column"><button className="secondary order-details-button personalized-details-button" type="button" onClick={() => { setActiveTab('detail'); setSelectedId(order.id); }} aria-label={`Ver detalle del pedido ${reference(order)}`} title="Ver detalle"><Plus size={18} weight="bold" aria-hidden="true" /></button></td>
                 </tr>;
               })}
-              {!orders.length && <tr><td className="empty-table" colSpan={9}>Todavía no hay pedidos personalizados.</td></tr>}
+              {!filteredOrders.length && <tr><td className="empty-table" colSpan={9}>{search ? `No se encontraron pedidos con "${search}".` : 'Todavía no hay pedidos personalizados.'}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -431,20 +456,18 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
             </div>
             <div className="production-brief"><div><small>Cliente</small><strong>{customerName(selected.customer_snapshot)}</strong></div><div><small>Fecha del pedido</small><strong>{readableOrderDate(selected)}</strong></div><div><small>Estado</small><strong>{personalizedProductionStatus(selected)}</strong></div><div><small>Contacto</small><strong>{phone || email || 'Sin contacto guardado'}</strong></div></div>
 
-            {printGalleryItems.length > 0 && <section className="production-print-gallery" aria-label="Imágenes y archivos del pedido">
-              {printGalleryItems.map(({ item, summary }) => <section className="production-print-gallery-item" key={item.id}>
-                <h3>{itemTitle(item)}</h3>
-                <div className="customer-assets production-print-gallery-assets">
-                  {summary.previews.map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}
-                  {!summary.previews.length && summary.kind === 'mate' && Boolean(asRecord(item.immutable_snapshot).configuration) && <RecoveredDesignViews snapshot={item.immutable_snapshot} uniformGrid />}
-                  {summary.uploads.filter((asset) => asset.role === 'workshop_reference').map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}
-                  {summary.uploads.filter((asset) => asset.role !== 'workshop_reference').map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}
-                </div>
-              </section>)}
-            </section>}
-
             {itemSummaries.map(({ item, summary }) => (
               <section className="personalized-item" key={item.id}>
+                {(summary.previews.length > 0 || summary.uploads.length > 0 || (summary.kind === 'mate' && Boolean(asRecord(item.immutable_snapshot).configuration))) &&
+                  <section className="production-print-gallery" aria-label={`Imágenes y archivos de ${itemTitle(item)}`}>
+                    <h3>{itemTitle(item)}</h3>
+                    <div className="customer-assets production-print-gallery-assets">
+                      {summary.previews.map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}
+                      {!summary.previews.length && summary.kind === 'mate' && Boolean(asRecord(item.immutable_snapshot).configuration) && <RecoveredDesignViews snapshot={item.immutable_snapshot} uniformGrid />}
+                      {summary.uploads.filter((asset) => asset.role === 'workshop_reference').map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}
+                      {summary.uploads.filter((asset) => asset.role !== 'workshop_reference').map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}
+                    </div>
+                  </section>}
                 <div className="personalized-item-head"><h3>{itemTitle(item)}</h3><strong>{item.quantity} {item.quantity === 1 ? 'unidad' : 'unidades'}</strong></div>
                 {summary.instructions && <section className="personalization-card workshop-instructions" aria-label={`Indicaciones de ${itemTitle(item)}`}>
                   <h4>Indicaciones para el taller</h4>

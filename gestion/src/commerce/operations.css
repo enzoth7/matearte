@@ -1180,6 +1180,8 @@ td small { display: block; }
 }
 
 .personalized-orders-panel { overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.personalized-orders-toolbar input[type="search"] { width: min(100%, 340px); min-width: 220px; height: 38px; padding: .4rem .75rem; border: 1px solid #b7c0b9; border-radius: .25rem; font-size: .85rem; }
+.personalized-orders-toolbar .table-summary { border: 0; background: transparent; padding: 0; }
 .personalized-orders-panel .table-scroll { overflow-x: auto; }
 .personalized-table { min-width: 76rem; table-layout: fixed; border-collapse: separate; border-spacing: 0; }
 .personalized-table th { border: 0; background: #f6f2ec; color: #625b55; padding: 1rem .85rem; font-size: .8rem; font-weight: 500; letter-spacing: 0; text-transform: none; }
@@ -1739,12 +1741,12 @@ td small { display: block; }
   .personalized-dialog .personalization-images { padding: 6mm 0 3mm; }
   .personalized-dialog .section-heading > strong { display: none; }
   .personalized-dialog .production-brief { grid-template-columns: repeat(4,minmax(0,1fr)); margin: 0 0 5mm; }
-  .personalized-dialog .production-print-gallery { display: block; margin: 0 1.25rem 4mm; }
-  .personalized-dialog .production-print-gallery-item h3 { margin: 0; font-size: 13pt; }
+  .personalized-dialog .production-print-gallery { display: block; margin: 0 0 4mm; break-after: page; page-break-after: always; }
+  .personalized-dialog .production-print-gallery h3 { margin: 0; font-size: 13pt; }
   .personalized-dialog .production-print-gallery-assets { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 3mm; margin-top: 3mm; }
   .personalized-dialog .production-print-gallery-assets > .recovered-production-views { grid-column: 1 / -1; }
   .personalized-dialog .production-print-gallery-assets .asset-preview { height: 45mm; }
-  .personalized-dialog .production-print-gallery + .personalized-item { break-before: page; page-break-before: always; }
+  .personalized-dialog .personalized-item + .personalized-item { break-before: page; page-break-before: always; }
   .personalized-dialog .personalized-item { padding: 5mm 0; }
   .personalized-dialog .personalized-item-head { break-after: avoid-page; page-break-after: avoid; }
   .personalized-dialog .mate-specs { grid-template-columns: repeat(5,minmax(0,1fr)); }
