@@ -522,7 +522,8 @@ test("pedido real integrado en ventas, cliente, producción y cobros", async ({ 
   await expect(page.getByRole("dialog").getByRole("heading", { name: "Cliente de prueba" })).toBeVisible();
   await expect(page.getByRole("dialog").getByRole("row").filter({ hasText: "#9001" })).toBeVisible();
   await page.goto("/produccion/resumen");
-  await expect(page.getByRole("row").filter({ hasText: "#9001" })).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "#9001" })).toHaveCount(0);
+  await expect(page.getByText("No hay registros.")).toBeVisible();
   await page.goto("/finanzas/cobros");
   await expect(page).toHaveURL(/\/finanzas\/por-cobrar$/);
   await expect(page.getByRole("navigation", { name: "Subáreas de Finanzas" }).getByRole("link", { name: "Fiados Local" })).toBeVisible();
@@ -892,7 +893,7 @@ test("catálogo y tarifas muestran datos del origen sin precios inventados", asy
   await expect(page.getByText("Categorías con descuento al alcanzar el mínimo de artículos", { exact: true })).toBeVisible();
   await expect(page.getByText("Categorías con descuento al alcanzar el mínimo de mates", { exact: true })).toHaveCount(0);
   for (const label of ["Aplicar ajuste", "Aplicar descuento"]) {
-    const row = page.getByText(label, { exact: true }).locator("..");
+    const row = page.locator("label.adjustment-toggle").filter({ hasText: label });
     const checkbox = await row.locator('input[type="checkbox"]').boundingBox();
     const text = await row.locator("strong").boundingBox();
     expect(checkbox && text && Math.abs((checkbox.y + checkbox.height / 2) - (text.y + text.height / 2))).toBeLessThan(3);
