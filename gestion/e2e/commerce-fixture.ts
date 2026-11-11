@@ -55,7 +55,7 @@ export async function mockCommerce(page: Page, options: { userId?: string; denie
       { name: 'Ingresos extraordinarios', active: true }, { name: 'Otros', active: true }, { name: 'Devolución impuestos', active: true },
     ], finance_manual_incomes: [], inventory_cost_profiles: [], inventory_cost_lines: [], inventory_manufactured_products: [], inventory_manufactured_supplies: [],
     commerce_argentina_settings: { singleton: true, enabled: false, bank_name: "", account_holder: "", cbu: "", alias: "", account_type: "", account_name: "", account_number: "", swift_code: "", branch: "" },
-    local_sales_customers: [], local_sales: [], local_sale_receipts: [], local_credit_order_ids: [], rural_raffle_entries: [],
+    local_sales_customers: [], local_sales: [], local_sale_receipts: [], local_credit_order_ids: [], rural_raffle_entries: [], personnel_time_entries: [],
     site_announcements: [], ad_reports: [], web_leads: [], contact_first_seen: [],
     products: [], wholesale_product_images: [], customers: [], contacts: [], order_lines: [], wholesale_order_records: [], wholesale_order_payment_openings: [], wholesale_order_receipts: [], customer_account_receipts: [], customer_account_allocations: [], wholesale_consignments: [], wholesale_consignment_lines: [], wholesale_consignment_movements: [], wholesale_consignment_allocations: [], settings: { id: 1, exchange_rate: 0.027 },
   };

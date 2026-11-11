@@ -920,7 +920,7 @@ test("todas las rutas existentes cargan con datos compartidos y sin errores", as
   await mockCommerce(page, { writable: true });
   const errors: string[] = []; page.on("pageerror", (error) => errors.push(error.message));
   for (const path of paths) {
-    await page.goto(path);
+    await page.goto(path, { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("button", { name: "Actualizar", exact: true }), `${path}: ${errors.join("; ")}`).toBeVisible();
     await expect(page.locator("main"), `${path}: ${errors.join("; ")}`).not.toContainText("Cargando datos…");
     await expect(page.locator("body")).not.toContainText("NaN");
