@@ -1,4 +1,4 @@
-import { arsMoney, balance, money, wholesaleBalanceArs, type Customer, type CustomerAccountAllocation, type CustomerAccountReceipt, type Order, type State, type WholesaleConsignment, type WholesaleConsignmentAllocation } from "./data";
+import { arsMoney, balance, money, wholesaleBalanceOriginal, wholesaleTotalOriginal, type Customer, type CustomerAccountAllocation, type CustomerAccountReceipt, type Order, type State, type WholesaleConsignment, type WholesaleConsignmentAllocation } from "./data";
 import { consignmentSummary } from "./consignmentModel";
 
 export type CustomerAccount = {
@@ -23,11 +23,11 @@ export const accountMoney = (account: CustomerAccount, amount: number) => accoun
 export const accountOrderBalance = (state: State, order: Order) => order.consignmentId
   ? (state.consignments || []).filter((entry) => entry.id === order.consignmentId)
     .reduce((sum, entry) => sum + consignmentSummary(state, entry).balanceMinor / 100, 0)
-  : order.source === "wholesale" ? wholesaleBalanceArs(state, order) : balance(state, order);
+  : order.source === "wholesale" ? wholesaleBalanceOriginal(state, order) : balance(state, order);
 export const accountOrderTotal = (state: State, order: Order) => order.consignmentId
   ? (state.consignments || []).filter((entry) => entry.id === order.consignmentId)
     .reduce((sum, entry) => sum + consignmentSummary(state, entry).confirmedMinor / 100, 0)
-  : order.source === "wholesale" ? order.wholesaleTotalArg : order.totalAmount ?? order.quantity * order.unitPrice;
+  : order.source === "wholesale" ? wholesaleTotalOriginal(order) : order.totalAmount ?? order.quantity * order.unitPrice;
 
 export function customerAccounts(state: State): CustomerAccount[] {
   const byAccount = new Map<string, CustomerAccount>();
@@ -56,7 +56,7 @@ export function customerAccounts(state: State): CustomerAccount[] {
     if (!contactId) continue;
     const known = customerById.get(order.customerId);
     const linkedConsignment = order.consignmentId && (state.consignments || []).find((entry) => entry.id === order.consignmentId);
-    const account = ensure(contactId, linkedConsignment ? linkedConsignment.currency : order.source === "wholesale" ? "ARS" : "UYU", known ? { ...known, contactId }
+    const account = ensure(contactId, linkedConsignment ? linkedConsignment.currency : order.source === "wholesale" ? order.wholesaleCurrency || "ARS" : "UYU", known ? { ...known, contactId }
       : { id: `contact:${contactId}`, contactId, name: order.customerName || "Cliente sin nombre", email: "", phone: "", city: "", segment: order.source === "wholesale" ? "Mayorista" : "Minorista" });
     account.orders.push(order);
     if (order.consignmentId) continue;

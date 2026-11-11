@@ -59,7 +59,9 @@ import {
   paid,
   balance,
   wholesaleBalanceArs,
-  wholesalePaidArs,
+  wholesaleBalanceOriginal,
+  wholesalePaidOriginal,
+  wholesaleTotalOriginal,
   id,
   addOrder,
   publishPrices,
@@ -111,8 +113,8 @@ const orderAmount = (s: State, order: Order, kind: "total" | "paid" | "balance")
     return currencyMoney(kind === "total" ? original : kind === "paid" ? paid(s, order) / order.retailRateToUyu : remaining, order.originalCurrency);
   }
   if (order.source !== "wholesale") return money(kind === "total" ? total(order) : kind === "paid" ? paid(s, order) : balance(s, order));
-  const value = kind === "total" ? order.wholesaleTotalArg : kind === "paid" ? wholesalePaidArs(s, order) : wholesaleBalanceArs(s, order);
-  return value == null ? "Por conciliar" : arsMoney(value);
+  const value = kind === "total" ? wholesaleTotalOriginal(order) : kind === "paid" ? wholesalePaidOriginal(s, order) : wholesaleBalanceOriginal(s, order);
+  return value == null ? "Por conciliar" : currencyMoney(value, order.wholesaleCurrency || "ARS");
 };
 const customerSearchText = (customer: Customer) => `${customer.name} ${customer.companyName || ""} ${customer.email} ${customer.phone} ${(customer.agendaAdditionalPhones || []).join(" ")} ${customer.birthDate || ""} ${customer.city} ${customer.country || countryForCity(customer.city)}`;
 const phoneSearchVariants = (value: string, country: string) => {
@@ -129,9 +131,9 @@ const matchesCustomerPhone = (customer: Customer, query: string) => {
   });
 };
 const paymentStatus = (s: State, o: Order) =>
-  o.status === "cancelled" ? "Cancelado" : o.status === "refunded" ? "Reembolsado" : o.status === "payment_failed" ? "Pago fallido" : o.status === "payment_verification_pending" ? "Comprobante por verificar" : o.consignmentId ? (() => { const consignment = (s.consignments || []).find((entry) => entry.id === o.consignmentId); if (!consignment) return "Consignación"; const summary = consignmentSummary(s, consignment); return summary.confirmedMinor === 0 || summary.held > 0 ? "Consignación" : summary.balanceMinor > 0 ? "Pendiente" : "Pagado"; })() : o.source === "wholesale" && wholesaleBalanceArs(s, o) == null ? "Por conciliar" : (o.source === "wholesale" ? wholesaleBalanceArs(s, o) === 0 : balance(s, o) === 0)
+  o.status === "cancelled" ? "Cancelado" : o.status === "refunded" ? "Reembolsado" : o.status === "payment_failed" ? "Pago fallido" : o.status === "payment_verification_pending" ? "Comprobante por verificar" : o.consignmentId ? (() => { const consignment = (s.consignments || []).find((entry) => entry.id === o.consignmentId); if (!consignment) return "Consignación"; const summary = consignmentSummary(s, consignment); return summary.confirmedMinor === 0 || summary.held > 0 ? "Consignación" : summary.balanceMinor > 0 ? "Pendiente" : "Pagado"; })() : o.source === "wholesale" && wholesaleBalanceOriginal(s, o) == null ? "Por conciliar" : (o.source === "wholesale" ? wholesaleBalanceOriginal(s, o) === 0 : balance(s, o) === 0)
     ? "Pagado"
-    : (o.source === "wholesale" ? (wholesalePaidArs(s, o) || 0) > 0 : paid(s, o) > 0)
+    : (o.source === "wholesale" ? (wholesalePaidOriginal(s, o) || 0) > 0 : paid(s, o) > 0)
       ? "Pago parcial"
       : "Pendiente";
 function OverviewRanking({ rows, empty }: { rows: RankingItem[]; empty: string }) {
@@ -621,7 +623,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
     reference: orderName(order), date: orderDate(order.date), channel: order.channel, shipping,
     customer: naturalCaseName(customer(s, order).name), products: orderCategoryLabels(order, s.products),
     payment: showAmounts ? paymentStatus(s, order) : undefined,
-    paymentNote: showAmounts ? consignment ? `Unidades conservadas: ${consignmentTotals?.kept || 0}. Saldo confirmado: ${orderAmount(s, order, "balance")}` : order.source === "wholesale" && wholesaleBalanceArs(s, order) == null ? "Precio o cobros anteriores pendientes de conciliar" : `${order.paymentMethod === "Cuenta corriente" ? "Saldo fiado" : order.source === "local" && order.depositAmount != null ? "Saldo de la seña" : "Saldo pendiente"}: ${orderAmount(s, order, "balance")}` : undefined,
+    paymentNote: showAmounts ? consignment ? `Unidades conservadas: ${consignmentTotals?.kept || 0}. Saldo confirmado: ${orderAmount(s, order, "balance")}` : order.source === "wholesale" && wholesaleBalanceOriginal(s, order) == null ? "Precio o cobros anteriores pendientes de conciliar" : `${order.paymentMethod === "Cuenta corriente" ? "Saldo fiado" : order.source === "local" && order.depositAmount != null ? "Saldo de la seña" : "Saldo pendiente"}: ${orderAmount(s, order, "balance")}` : undefined,
     production: orderProductionLabel(s.orders.find((entry) => entry.id === order.id) || order, s.products), rows: detailRows,
     delivery: {
       method: inPersonStockSale ? order.channel === "Feria" ? "Venta en feria" : "Venta en el local" : order.method === "Envío" ? "Envío" : order.method === "Retiro" ? "Retiro en el local" : "Venta en el local",
@@ -679,7 +681,7 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
         })()}><Trash size={20} aria-hidden="true" /></button>
       </div>}
       {canEditLocalSale(order) && balance(s, order) > 0 && <button type="button" className="unified-order-action unified-order-action--primary" onClick={() => setRecordingReceipt(true)}>Registrar cobro</button>}
-      {order.source === "wholesale" && !consignment && order.wholesaleSaleId && isSale(order) && (wholesaleBalanceArs(s, order) == null || wholesaleBalanceArs(s, order)! > 0) && showAmounts && <button type="button" className="unified-order-action unified-order-action--primary" onClick={() => setRecordingReceipt(true)}>Registrar cobro</button>}
+      {order.source === "wholesale" && !consignment && order.wholesaleSaleId && isSale(order) && (wholesaleBalanceOriginal(s, order) == null || wholesaleBalanceOriginal(s, order)! > 0) && showAmounts && <button type="button" className="unified-order-action unified-order-action--primary" onClick={() => setRecordingReceipt(true)}>Registrar cobro</button>}
       {consignment && <button type="button" className="unified-order-action unified-order-action--primary" onClick={() => go(`/consignaciones/resumen?consignacion=${encodeURIComponent(consignment.id)}`)}>Ver consignación</button>}
       {canShipLocal && props.session && <button type="button" className="unified-order-action unified-order-action--primary" disabled={saleBusy} onClick={() => setShipmentOpen(true)}>{order.method === "Retiro" ? "Marcar entregado" : order.status === "shipped" ? "Editar envío" : "Marcar enviado"}</button>}
       <button className="unified-order-action" onClick={onClose}>Cerrar</button>
@@ -752,7 +754,7 @@ export function Orders(
   const visible = visibleOrders(s, productionView);
   const receivablePaymentOrders = visible.filter((order) =>
     order.source === "local" && balance(s, order) > 0
-    || order.source === "wholesale" && Boolean(order.wholesaleSaleId) && isSale(order) && (wholesaleBalanceArs(s, order) == null || wholesaleBalanceArs(s, order)! > 0),
+    || order.source === "wholesale" && Boolean(order.wholesaleSaleId) && isSale(order) && (wholesaleBalanceOriginal(s, order) == null || wholesaleBalanceOriginal(s, order)! > 0),
   );
   const paymentOrder = s.orders.find((order) => order.id === paymentOrderId);
   const salesFilterChannels: OrderChannel[] = (() => {
@@ -784,7 +786,7 @@ export function Orders(
     rows = rows.filter((o) => isDeliveryOrder(o) && (o.delivery === "Pendiente" || o.method === "Retiro" && o.status === "shipped"));
   if (mode === "retiros") rows = rows.filter((o) => isDeliveryOrder(o) && o.method === "Retiro");
   if (mode === "envios") rows = rows.filter((o) => isDeliveryOrder(o) && o.method === "Env\u00EDo");
-  if (mode === "por-cobrar") rows = rows.filter((o) => o.source === "wholesale" ? isSale(o) && (wholesaleBalanceArs(s, o) == null || wholesaleBalanceArs(s, o)! > 0) : balance(s, o) > 0);
+  if (mode === "por-cobrar") rows = rows.filter((o) => o.source === "wholesale" ? isSale(o) && (wholesaleBalanceOriginal(s, o) == null || wholesaleBalanceOriginal(s, o)! > 0) : balance(s, o) > 0);
   const groupedItems = rows.flatMap<Order & { item: OrderLine | null }>((order) => order.items?.map((item) => ({ ...order, productId: item.productId, quantity: item.quantity, item })) || [{ ...order, item: null }]);
   const groups = Object.entries(
     groupedItems.reduce(
@@ -815,11 +817,12 @@ export function Orders(
             value: rows.reduce((a, o) => a + o.quantity, 0),
           },
           ...(showAmounts ? mode === "por-cobrar" ? [
-            { label: "Saldo mayorista", value: arsMoney(rows.filter((order) => order.source === "wholesale").reduce((sum, order) => sum + (wholesaleBalanceArs(s, order) || 0), 0)), tone: "yellow" as const },
+            { label: "Saldo mayorista ARS", value: arsMoney(rows.filter((order) => order.source === "wholesale" && order.wholesaleCurrency !== "UYU").reduce((sum, order) => sum + (wholesaleBalanceOriginal(s, order) || 0), 0)), tone: "yellow" as const },
+            { label: "Saldo mayorista UYU", value: money(rows.filter((order) => order.source === "wholesale" && order.wholesaleCurrency === "UYU").reduce((sum, order) => sum + (wholesaleBalanceOriginal(s, order) || 0), 0)), tone: "yellow" as const },
             { label: "Saldo local", value: money(rows.filter((order) => order.source !== "wholesale").reduce((sum, order) => sum + balance(s, order), 0)), tone: "yellow" as const },
           ] : [{ label: "Valor de pedidos", value: money(rows.reduce((sum, order) => sum + total(order), 0)) }] : []),
-          ...(mode === "por-cobrar" && rows.some((order) => order.source === "wholesale" && wholesaleBalanceArs(s, order) == null)
-            ? [{ label: "Pedidos por conciliar", value: rows.filter((order) => order.source === "wholesale" && wholesaleBalanceArs(s, order) == null).length, tone: "yellow" as const }]
+          ...(mode === "por-cobrar" && rows.some((order) => order.source === "wholesale" && wholesaleBalanceOriginal(s, order) == null)
+            ? [{ label: "Pedidos por conciliar", value: rows.filter((order) => order.source === "wholesale" && wholesaleBalanceOriginal(s, order) == null).length, tone: "yellow" as const }]
             : []),
         ]}
       />
@@ -848,10 +851,10 @@ export function Orders(
               productos: orderCategoryLabels(o, s.products),
               cantidad: o.quantity,
               ...(showAmounts ? {
-                moneda: o.consignmentId ? s.consignments?.find((entry) => entry.id === o.consignmentId)?.currency || "ARS" : o.source === "wholesale" ? "ARS" : "UYU",
-                total: o.consignmentId ? consignmentSummary(s, s.consignments!.find((entry) => entry.id === o.consignmentId)!).confirmedMinor / 100 : o.source === "wholesale" ? o.wholesaleTotalArg ?? "Por conciliar" : total(o),
-                cobrado: o.consignmentId ? consignmentSummary(s, s.consignments!.find((entry) => entry.id === o.consignmentId)!).paidMinor / 100 : o.source === "wholesale" ? wholesalePaidArs(s, o) ?? "Por conciliar" : paid(s, o),
-                saldo: o.consignmentId ? consignmentSummary(s, s.consignments!.find((entry) => entry.id === o.consignmentId)!).balanceMinor / 100 : o.source === "wholesale" ? wholesaleBalanceArs(s, o) ?? "Por conciliar" : balance(s, o),
+                moneda: o.consignmentId ? s.consignments?.find((entry) => entry.id === o.consignmentId)?.currency || "ARS" : o.source === "wholesale" ? o.wholesaleCurrency || "ARS" : "UYU",
+                total: o.consignmentId ? consignmentSummary(s, s.consignments!.find((entry) => entry.id === o.consignmentId)!).confirmedMinor / 100 : o.source === "wholesale" ? wholesaleTotalOriginal(o) ?? "Por conciliar" : total(o),
+                cobrado: o.consignmentId ? consignmentSummary(s, s.consignments!.find((entry) => entry.id === o.consignmentId)!).paidMinor / 100 : o.source === "wholesale" ? wholesalePaidOriginal(s, o) ?? "Por conciliar" : paid(s, o),
+                saldo: o.consignmentId ? consignmentSummary(s, s.consignments!.find((entry) => entry.id === o.consignmentId)!).balanceMinor / 100 : o.source === "wholesale" ? wholesaleBalanceOriginal(s, o) ?? "Por conciliar" : balance(s, o),
               } : {}),
               produccion: orderProductionLabel(s.orders.find((entry) => entry.id === o.id) || o, s.products),
               envio: isInPersonStockSale(o) ? "-" : orderShippingStatus(o),
@@ -932,6 +935,8 @@ export function CustomerDetailModal({ customer: c, s, go, commerce, onClose }: {
     Boolean(c.contactId && (order.contactId === c.contactId || s.customers.find((entry) => entry.id === order.customerId)?.contactId === c.contactId)));
   const customerAccountRows = c.contactId ? customerAccounts(s).filter((entry) => entry.contactId === c.contactId) : [];
   const wholesaleCustomerOrders = customerOrders.filter((order) => order.source === "wholesale");
+  const arsWholesaleOrders = wholesaleCustomerOrders.filter((order) => order.wholesaleCurrency !== "UYU");
+  const uyuWholesaleOrders = wholesaleCustomerOrders.filter((order) => order.wholesaleCurrency === "UYU");
   const uyuCustomerOrders = customerOrders.filter((order) => order.source !== "wholesale");
   const wholesaleHistory = c.wholesaleName ? summarizeWholesaleCustomer(orders, c.id) : undefined;
   const purchaseDates = customerPurchaseDates(c, customerOrders);
@@ -954,17 +959,19 @@ export function CustomerDetailModal({ customer: c, s, go, commerce, onClose }: {
       <div><small>Última compra</small><strong>{formatDate(purchaseDates.last, "Sin datos")}</strong></div>
     </div>
     <Stats items={[
-      ...(wholesaleCustomerOrders.length || customerAccountRows.some((entry) => entry.currency === "ARS" && entry.pending > 0) ? [
-        { label: "Compras mayoristas confirmadas", value: arsMoney(wholesaleCustomerOrders.filter((order) => isSale(order) && !order.consignmentId && order.wholesaleTotalArg != null).reduce((sum, order) => sum + (order.wholesaleTotalArg || 0), 0) + (s.consignments || []).filter((entry) => entry.currency === "ARS" && wholesaleCustomerOrders.some((order) => order.wholesaleSaleId === entry.orderId)).reduce((sum, entry) => sum + consignmentSummary(s, entry).confirmedMinor / 100, 0)) },
-        { label: "Saldo mayorista", value: arsMoney(customerAccountRows.find((entry) => entry.currency === "ARS")?.pending ?? wholesaleCustomerOrders.reduce((sum, order) => sum + (wholesaleBalanceArs(s, order) || 0), 0)) },
+      ...(arsWholesaleOrders.length || customerAccountRows.some((entry) => entry.currency === "ARS" && entry.pending > 0) ? [
+        { label: "Compras mayoristas confirmadas ARS", value: arsMoney(arsWholesaleOrders.filter((order) => isSale(order) && !order.consignmentId && order.wholesaleTotalArg != null).reduce((sum, order) => sum + (order.wholesaleTotalArg || 0), 0) + (s.consignments || []).filter((entry) => entry.currency === "ARS" && arsWholesaleOrders.some((order) => order.wholesaleSaleId === entry.orderId)).reduce((sum, entry) => sum + consignmentSummary(s, entry).confirmedMinor / 100, 0)) },
+        { label: "Saldo mayorista ARS", value: arsMoney(customerAccountRows.find((entry) => entry.currency === "ARS")?.pending ?? arsWholesaleOrders.reduce((sum, order) => sum + (wholesaleBalanceArs(s, order) || 0), 0)) },
       ] : []),
-      ...(uyuCustomerOrders.length || customerAccountRows.some((entry) => entry.currency === "UYU" && entry.pending > 0) ? [
-        { label: "Compras UYU", value: money(uyuCustomerOrders.filter(isSale).reduce((sum, order) => sum + total(order), 0)) },
-        { label: "Saldo UYU", value: money(customerAccountRows.find((entry) => entry.currency === "UYU")?.pending ?? uyuCustomerOrders.reduce((sum, order) => sum + balance(s, order), 0)) },
+      ...(uyuCustomerOrders.length || uyuWholesaleOrders.length || customerAccountRows.some((entry) => entry.currency === "UYU" && entry.pending > 0) ? [
+        { label: "Compras UYU", value: money(uyuCustomerOrders.filter(isSale).reduce((sum, order) => sum + total(order), 0)
+          + uyuWholesaleOrders.filter((order) => isSale(order) && !order.consignmentId).reduce((sum, order) => sum + (order.wholesaleTotalUyu || 0), 0)
+          + (s.consignments || []).filter((entry) => entry.currency === "UYU" && uyuWholesaleOrders.some((order) => order.wholesaleSaleId === entry.orderId)).reduce((sum, entry) => sum + consignmentSummary(s, entry).confirmedMinor / 100, 0)) },
+        { label: "Saldo UYU", value: money(customerAccountRows.find((entry) => entry.currency === "UYU")?.pending ?? uyuCustomerOrders.reduce((sum, order) => sum + balance(s, order), 0) + uyuWholesaleOrders.reduce((sum, order) => sum + (wholesaleBalanceOriginal(s, order) || 0), 0)) },
       ] : []),
       ...customerAccountRows.filter((entry) => entry.credit > 0).map((entry) => ({ label: `A favor ${entry.currency}`, value: entry.currency === "ARS" ? arsMoney(entry.credit) : money(entry.credit), tone: "green" as const })),
     ]} />
-    {wholesaleCustomerOrders.some((order) => order.wholesaleTotalArg == null) && <div className="data-note">Hay pedidos antiguos sin precio ARS original registrado. No se incluyen en el total de compras confirmadas.</div>}
+    {arsWholesaleOrders.some((order) => order.wholesaleTotalArg == null) && <div className="data-note">Hay pedidos antiguos sin precio ARS original registrado. No se incluyen en el total de compras confirmadas.</div>}
     {customerAccountRows.length > 0 && <div className="form-actions"><button type="button" className="secondary" onClick={() => go(`/finanzas/por-cobrar?cliente=${encodeURIComponent(customerAccountRows[0].contactId)}`)}>Ver cuenta del cliente</button></div>}
     {c.wholesaleName && wholesaleHistory && <div className="tabs inner-tabs customer-history-tabs" role="tablist" aria-label="Vista del histórico mayorista"><button role="tab" aria-selected={historyView === "products"} className={historyView === "products" ? "active" : ""} onClick={() => setHistoryView("products")}>Por tipo de mate</button><button role="tab" aria-selected={historyView === "orders"} className={historyView === "orders" ? "active" : ""} onClick={() => setHistoryView("orders")}>Por pedido</button></div>}
     {c.wholesaleName && wholesaleHistory && historyView === "products" ? <Table title="Histórico por tipo de mate" rows={wholesaleHistory.rows} searchText={(row) => row.model} columns={[

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { arsMoney, balance, money, orderName, paid, total, wholesaleBalanceArs, wholesalePaidArs, type Order, type State } from "./data";
+import { balance, currencyMoney, money, orderName, paid, total, wholesaleBalanceOriginal, wholesalePaidOriginal, wholesaleTotalOriginal, type Order, type State } from "./data";
 import { Modal } from "./ui";
 
 export function ReceivablePaymentChooser({ orders, state, onChoose, onClose }: {
@@ -21,9 +21,12 @@ export function ReceivablePaymentChooser({ orders, state, onChoose, onClose }: {
     <div className="receivable-payment-options">
       {shown.map((order) => {
         const customer = state.customers.find((entry) => entry.id === order.customerId)?.name || order.customerName || "Cliente sin nombre";
+        const wholesaleMoney = (value: number) => currencyMoney(value, order.wholesaleCurrency || "ARS");
+        const wholesaleTotal = wholesaleTotalOriginal(order);
+        const wholesaleBalance = wholesaleBalanceOriginal(state, order);
         return <button type="button" className="receivable-payment-option" key={order.id} onClick={() => onChoose(order)}>
           <strong>{orderName(order)}: {customer}</strong>
-          <small>{order.channel}, total {order.source === "wholesale" ? order.wholesaleTotalArg == null ? "por conciliar" : arsMoney(order.wholesaleTotalArg) : money(total(order))}, {order.source === "wholesale" ? wholesaleBalanceArs(state, order) == null ? "saldo por conciliar" : `cobrado ${arsMoney(wholesalePaidArs(state, order) || 0)}, falta ${arsMoney(wholesaleBalanceArs(state, order) || 0)}` : `cobrado ${money(paid(state, order))}, falta ${money(balance(state, order))}`}</small>
+          <small>{order.channel}, total {order.source === "wholesale" ? wholesaleTotal == null ? "por conciliar" : wholesaleMoney(wholesaleTotal) : money(total(order))}, {order.source === "wholesale" ? wholesaleBalance == null ? "saldo por conciliar" : `cobrado ${wholesaleMoney(wholesalePaidOriginal(state, order) || 0)}, falta ${wholesaleMoney(wholesaleBalance)}` : `cobrado ${money(paid(state, order))}, falta ${money(balance(state, order))}`}</small>
         </button>;
       })}
       {!shown.length && <div className="data-note">No hay pedidos pendientes que coincidan con la búsqueda.</div>}

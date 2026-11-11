@@ -7,16 +7,25 @@ test("un pedido mayorista nuevo se carga con categoría, tipo, nombre y variante
   tables.products.push({ id: "7", model: "Torpedo", variant: "Negro", rim_type: "Acero", leather_type: "Negro", price_arg: 10000, price_uyu: 270 });
   tables.customers.push({ full_name: "Almacén Sur", first_name: "Almacén", last_name: "Sur", phone: "", email: "", address: "", notes: "" });
   await page.goto("/comercial/registrar-may");
+  const orderCurrency = page.getByRole("combobox", { name: "Moneda del pedido" });
+  await expect(orderCurrency).toHaveValue("ARS");
   await page.getByRole("combobox", { name: "Cliente", exact: true }).selectOption("Almacén Sur");
   await expect(page.getByLabel("Canal de venta")).toHaveValue("Mayorista");
   await page.getByRole("combobox", { name: "Categoría 1" }).selectOption("mates");
   await page.getByRole("combobox", { name: "Tipo 1" }).selectOption("Torpedo");
   await page.getByRole("combobox", { name: "Nombre 1" }).selectOption("Torpedo");
   await expect(page.getByRole("combobox", { name: "Variante 1" })).toHaveValue("7");
+  await orderCurrency.selectOption("UYU");
+  await expect(page.locator(".wholesale-sale-footer")).toContainText("$ 270");
+  let reservedCurrency = "";
+  page.on("request", (request) => {
+    if (request.url().includes("/rpc/gestion_next_wholesale_order_code")) reservedCurrency = request.postDataJSON()?.p_currency || "";
+  });
   await page.getByRole("button", { name: "Crear pedido mayorista" }).click();
   await expect.poll(() => tables.order_lines[0]?.total_arg).toBe(10000);
   expect(tables.order_lines[0].total_arg).toBe(10000);
   expect(tables.order_lines[0].total_uyu).toBe(270);
+  expect(reservedCurrency).toBe("UYU");
 });
 
 test("el formulario mayorista busca y alinea los artículos con importes en ARS", async ({ page }) => {
@@ -144,9 +153,9 @@ test("mayorista ordena en encabezados, filtra cliente y modelo y cambia importes
   await expect(table.locator("tbody tr").first()).toContainText("PED-100002");
   await expect(table.locator("tbody tr").filter({ hasText: "PED-100001" }).locator(".badge.blue")).toHaveText("En producción");
   await expect(table.locator("thead .wholesale-column-filter select")).toHaveCount(2);
-  await expect(table.locator("thead .wholesale-column-filter span").first()).toHaveText("Cliente");
+  await expect(table.locator("thead .wholesale-column-filter strong").first()).toHaveText("Cliente");
   await expect(table.locator("thead .wholesale-column-filter select").first()).toHaveCSS("opacity", "0");
-  const labelBox = await table.locator("thead .wholesale-column-filter span").first().boundingBox();
+  const labelBox = await table.locator("thead .wholesale-column-filter strong").first().boundingBox();
   const arrowBox = await table.locator("thead .wholesale-column-filter svg").first().boundingBox();
   expect(arrowBox!.x).toBeGreaterThan(labelBox!.x + labelBox!.width);
   expect(Math.abs(arrowBox!.y + arrowBox!.height / 2 - labelBox!.y - labelBox!.height / 2)).toBeLessThan(8);

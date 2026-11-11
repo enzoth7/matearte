@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { seed, wholesaleBalanceArs, type Order } from "./data";
+import { seed, wholesaleBalanceArs, wholesaleBalanceOriginal, type Order } from "./data";
 import { customerAccounts, receiptAvailableMinor } from "./customerAccountModel";
 import { buildFinanceProjection } from "./financeProjection";
 
@@ -13,6 +13,21 @@ const order = (id: string, source: "wholesale" | "local"): Order => ({
 });
 
 describe("cuentas por moneda", () => {
+  it("mantiene un pedido mayorista UYU y sus cobros en la cuenta UYU", () => {
+    const state = seed();
+    state.customers = [{ id: "customer", contactId: "contact", name: "Cliente", email: "", phone: "", city: "", segment: "Mayorista" }];
+    state.orders = [{ ...order("wholesale", "wholesale"), wholesaleCurrency: "UYU" }];
+    state.payments = [{ id: "direct", orderId: "wholesale", amount: 50, sourceCurrency: "UYU", sourceAmount: 50, date: "2026-11-03", method: "Efectivo" }];
+    state.accountReceipts = [{ id: "credit", contactId: "contact", amountMinor: 2000, sourceAmountMinor: 2000,
+      currency: "UYU", paymentMethod: "Efectivo", paidOn: "2026-11-04", note: null }];
+    state.accountAllocations = [{ id: "applied", receiptId: "credit", orderId: "sale-wholesale",
+      amountMinor: 2000, sourceAmountMinor: 2000, allocatedAt: "2026-11-05T12:00:00Z" }];
+    expect(wholesaleBalanceOriginal(state, state.orders[0])).toBe(200);
+    expect(customerAccounts(state).find((account) => account.currency === "UYU"))
+      .toMatchObject({ pending: 200, credit: 0, wholesalePending: 200 });
+    expect(buildFinanceProjection(state, { asOf: "2026-11-07" })[0].receivable).toBe(200);
+  });
+
   it("separa una ficha mixta, descuenta ARS reales y no vuelve a proyectar créditos recibidos", () => {
     const state = seed();
     state.customers = [{ id: "customer", contactId: "contact", name: "Cliente", email: "", phone: "", city: "", segment: "Mayorista" }];

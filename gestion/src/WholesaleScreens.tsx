@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "
 import { ArrowDown, ArrowUp, CaretDown, Check, Eye, Funnel, FunnelX, MagnifyingGlass, PencilSimple, Plus, Trash, X } from "@phosphor-icons/react";
 import type { PageProps } from "./pages";
 import type { Customer, Order, Product } from "./data";
-import { currencyMoney, orderName, wholesaleBalanceArs, wholesalePaidArs } from "./data";
+import { currencyMoney, orderName, wholesaleBalanceOriginal, wholesalePaidOriginal, wholesaleTotalOriginal } from "./data";
 import { Badge, Modal, Stats, Table, type Column } from "./ui";
 import { discountSummary, formatPercent, orderDiscountPercent, parseDiscountPercent } from "./wholesaleDiscount";
 import { createWholesaleOrder, setWholesaleOrderDiscount, deleteWholesaleCustomer, countWholesaleCustomerLines, deleteWholesaleLine, completeWholesaleLine, saveWholesaleCustomer, updateWholesaleLine, wholesaleProductImageUrl, type WholesaleCustomer, type WholesaleLine, type WholesaleProduct, type WholesaleProductImage, type WholesaleSnapshot } from "./wholesaleSource";
@@ -39,7 +39,7 @@ const mateModelCode = (model: string, category: string | null | undefined) => ca
 const saleGroup = (product: WholesaleProduct) => { const category = wholesaleSaleCategory(product); return category === "bombillones" ? "bombillas" : category; };
 const customerLabel = (entry: WholesaleCustomer) => [formatContactName(entry.full_name), entry.company_name?.trim()].filter(Boolean).join(", ");
 const NEW_ITEM = () => ({ key: crypto.randomUUID(), category: "", model: "", name: "", productId: "", quantity: 1, noCost: false, generic: false });
-type WholesaleSaleDraft = { customer: string; items: ReturnType<typeof NEW_ITEM>[]; applyDiscount: boolean; discountText: string };
+type WholesaleSaleDraft = { customer: string; currency?: "ARS" | "UYU"; items: ReturnType<typeof NEW_ITEM>[]; applyDiscount: boolean; discountText: string };
 
 export function WholesaleSummary({ props }: { props: PageProps }) {
   const snapshot = snapshotOf(props);
@@ -57,6 +57,7 @@ export function WholesaleSummary({ props }: { props: PageProps }) {
       <div><h2 id="wholesale-summary-title">Resumen mayorista</h2><div>Estado actual de los pedidos y la producción mayorista.</div></div>
       <div className="wholesale-summary-values" aria-label="Valores activos mayoristas">
         <div><small>Valor activo ARS</small><strong>{wholesaleMoney(summary.activeValueArg)}</strong></div>
+        <div><small>Valor activo UYU</small><strong>{currencyMoney(summary.activeValueUyu, "UYU")}</strong></div>
       </div>
     </div>
     <Stats items={[
@@ -89,6 +90,7 @@ export function WholesaleSummary({ props }: { props: PageProps }) {
 export function WholesaleRegister(props: PageProps) {
   const snapshot = snapshotOf(props);
   const [customer, setCustomer] = useState("");
+  const [currency, setCurrency] = useState<"ARS" | "UYU">("ARS");
   const [customerSearch, setCustomerSearch] = useState("");
   const [productSearch, setProductSearch] = useState("");
   const saleChannel: NonNullable<WholesaleLine["sale_channel"]> = "WhatsApp";
@@ -99,22 +101,24 @@ export function WholesaleRegister(props: PageProps) {
   const [applyDiscount, setApplyDiscount] = useState(false);
   const [discountText, setDiscountText] = useState("10");
   const [draftNotice, setDraftNotice] = useState("");
-  const draftHasContent = Boolean(customer || items.some(item => item.productId || item.category || item.model || item.name || item.noCost || item.quantity !== 1) || applyDiscount || discountText !== "10");
+  const draftHasContent = Boolean(customer || currency !== "ARS" || items.some(item => item.productId || item.category || item.model || item.name || item.noCost || item.quantity !== 1) || applyDiscount || discountText !== "10");
   const draft = useOrderDraft(`mayorista:${props.session?.user.id || props.s.activeUserId || props.s.user}`,
-    { customer, items, applyDiscount, discountText } satisfies WholesaleSaleDraft,
+    { customer, currency, items, applyDiscount, discountText } satisfies WholesaleSaleDraft,
     draftHasContent,
-    (saved, isNew) => { setCustomer(saved.customer); setItems(saved.items); setApplyDiscount(saved.applyDiscount); setDiscountText(saved.discountText); setDraftNotice(isNew ? "Nuevo pedido iniciado. Podés volver a los otros borradores cuando quieras." : "Borrador retomado. Revisá precios y disponibilidad antes de crear el pedido."); });
+    (saved, isNew) => { setCustomer(saved.customer); setCurrency(saved.currency || "ARS"); setItems(saved.items); setApplyDiscount(saved.applyDiscount); setDiscountText(saved.discountText); setDraftNotice(isNew ? "Nuevo pedido iniciado. Podés volver a los otros borradores cuando quieras." : "Borrador retomado. Revisá precios y disponibilidad antes de crear el pedido."); });
   if (!snapshot) return <div className="empty">Cargando producción mayorista…</div>;
   const sortedProducts = snapshot.products.filter(product => product.available_wholesale !== false && saleGroup(product)).sort((a, b) => productLabel(a).localeCompare(productLabel(b), "es"));
+  const productPrice = (product: WholesaleProduct) => Number(currency === "ARS" ? product.price_arg : product.price_uyu) || 0;
+  const saleMoney = (value: number) => currencyMoney(value, currency);
   const productMatches = productSearch.trim() ? sortedProducts.filter((product) => matchesSaleProductSearch({
     name: product.model, sku: product.sku, variant: product.variant, category: wholesaleSaleCategoryLabel(wholesaleSaleCategory(product)!),
     description: product.description, material: product.leather_type, rim: product.rim_type,
-    attributes: product.catalog_attributes, price: Number(product.price_arg) || 0,
+    attributes: product.catalog_attributes, price: productPrice(product),
   }, productSearch)).slice(0, 50) : [];
   const sortedCustomers = [...snapshot.customers].sort((a, b) => a.full_name.localeCompare(b.full_name, "es"));
   const customerMatches = sortedCustomers.filter((entry) => `${entry.full_name} ${entry.company_name || ""}`.toLocaleLowerCase("es").includes(customerSearch.trim().toLocaleLowerCase("es")));
   const visibleCustomers = sortedCustomers.filter((entry) => !customerSearch.trim() || customerMatches.includes(entry) || entry.full_name === customer);
-  const estimated = items.reduce((sum, item) => sum + (item.noCost ? 0 : Number(snapshot.products.find((product) => String(product.id) === item.productId)?.price_arg || 0) * item.quantity), 0);
+  const estimated = items.reduce((sum, item) => { const product = snapshot.products.find((entry) => String(entry.id) === item.productId); return sum + (item.noCost || !product ? 0 : productPrice(product) * item.quantity); }, 0);
   const discountPercent = applyDiscount ? Math.min(100, Math.max(0, Number(discountText) || 0)) : 0;
   const discounted = Math.round(estimated * (1 - discountPercent / 100) * 100) / 100;
   function chooseProduct(product: WholesaleProduct) {
@@ -133,7 +137,7 @@ export function WholesaleRegister(props: PageProps) {
     try {
       if (!items.length || !items.every((item) => item.productId && Number.isInteger(item.quantity) && item.quantity > 0)) throw new Error("Revisá productos y cantidades.");
       if (applyDiscount && !(discountPercent > 0)) throw new Error("Ingresá un descuento mayor a 0%, o elegí \"No\".");
-      const orderId = await createWholesaleOrder(customer, items, saleChannel, discountPercent);
+      const orderId = await createWholesaleOrder(customer, items, saleChannel, discountPercent, currency);
       await draft.finish().catch(() => undefined);
       await props.refresh?.(); props.notify(`Pedido ${orderId} creado.`);
       props.go(`/comercial/pedidos?pedido=${encodeURIComponent(`wholesale:${orderId}`)}`);
@@ -156,11 +160,11 @@ export function WholesaleRegister(props: PageProps) {
         <button type="button" className="primary" onClick={() => setItems((current) => [...current, NEW_ITEM()])}><Plus size={18} aria-hidden="true" />Agregar artículo</button>
       </div>
       <div className="wholesale-sale-product-search"><label>Buscar producto<small><MagnifyingGlass size={18} aria-hidden="true" /><input type="search" value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Nombre, código, precio o material" /></small></label>
-        {productSearch.trim() && <div className="wholesale-sale-search-results" aria-label="Resultados de productos">{productMatches.map((product) => <button type="button" key={product.id} onClick={() => chooseProduct(product)}><small>{wholesaleSaleVariantLabel(product)}<small>{wholesaleSaleCategoryLabel(wholesaleSaleCategory(product)!)}{product.sku ? `, SKU ${product.sku}` : ""}</small></small><strong>{saleArg(Number(product.price_arg) || 0)}</strong></button>)}{!productMatches.length && <div className="wholesale-sale-no-results">No hay productos mayoristas con esa búsqueda.</div>}</div>}
+        {productSearch.trim() && <div className="wholesale-sale-search-results" aria-label="Resultados de productos">{productMatches.map((product) => <button type="button" key={product.id} onClick={() => chooseProduct(product)}><small>{wholesaleSaleVariantLabel(product)}<small>{wholesaleSaleCategoryLabel(wholesaleSaleCategory(product)!)}{product.sku ? `, SKU ${product.sku}` : ""}</small></small><strong>{saleMoney(productPrice(product))}</strong></button>)}{!productMatches.length && <div className="wholesale-sale-no-results">No hay productos mayoristas con esa búsqueda.</div>}</div>}
       </div>
-      {items.length ? <div className="wholesale-sale-lines"><div className="wholesale-sale-line-head" aria-hidden="true"><small>Categoría</small><small>Tipo</small><small>Nombre</small><small>Variante</small><small>Cantidad</small><small>Importe ARS</small><small>Sin costo</small><small></small></div>{items.map((item, index) => {
+      {items.length ? <div className="wholesale-sale-lines"><div className="wholesale-sale-line-head" aria-hidden="true"><small>Categoría</small><small>Tipo</small><small>Nombre</small><small>Variante</small><small>Cantidad</small><small>Importe {currency}</small><small>Sin costo</small><small></small></div>{items.map((item, index) => {
         const selectedProduct = snapshot.products.find((product) => String(product.id) === item.productId);
-        const lineTotal = item.noCost ? 0 : Number(selectedProduct?.price_arg || 0) * item.quantity;
+        const lineTotal = item.noCost || !selectedProduct ? 0 : productPrice(selectedProduct) * item.quantity;
         const inCategory = sortedProducts.filter((product) => saleGroup(product) === item.category);
         const models = [...new Set(inCategory.map(wholesaleSaleType))].sort((a, b) => a.localeCompare(b, "es"));
         const inType = inCategory.filter((product) => wholesaleSaleType(product) === item.model);
@@ -174,7 +178,7 @@ export function WholesaleRegister(props: PageProps) {
           <label className="wholesale-sale-cell"><small>Nombre</small><select required aria-label={`Nombre ${index + 1}`} value={item.name} disabled={!item.model} onChange={(event) => { const name = event.target.value; const matches = inType.filter((product) => product.model.trim() === name); patchItem(item.key, { name, productId: matches.length === 1 ? String(matches[0].id) : "", generic: false }); }}><option value="">Elegir</option>{names.map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
           <label className="wholesale-sale-cell"><small>Variante</small><select required aria-label={`Variante ${index + 1}`} value={item.generic ? "generic" : item.productId} disabled={!item.name} onChange={(event) => { const value = event.target.value; if (value === "generic") patchItem(item.key, { productId: String(variants[0]?.id ?? ""), generic: true }); else patchItem(item.key, { productId: value, generic: false }); }}><option value="">Elegir</option>{variants.map((product) => <option key={product.id} value={product.id}>{product.variant.trim() || "Única"}</option>)}{genericOk && <option value="generic">{GENERIC_WHOLESALE_VARIANT}</option>}</select></label>
           <label className="wholesale-sale-cell"><small>Cantidad</small><input type="number" min="1" step="1" required aria-label={`Cantidad ${index + 1}`} value={item.quantity} onChange={(event) => patchItem(item.key, { quantity: Number(event.target.value) })} /></label>
-          <div className="wholesale-sale-value wholesale-sale-amount" data-label="Importe ARS"><strong>{selectedProduct ? saleArg(lineTotal) : "—"}</strong>{selectedProduct && item.quantity > 1 && !item.noCost && <small>{saleArg(Number(selectedProduct.price_arg) || 0)} c/u</small>}</div>
+          <div className="wholesale-sale-value wholesale-sale-amount" data-label={`Importe ${currency}`}><strong>{selectedProduct ? saleMoney(lineTotal) : "—"}</strong>{selectedProduct && item.quantity > 1 && !item.noCost && <small>{saleMoney(productPrice(selectedProduct))} c/u</small>}</div>
           <label className="wholesale-sale-checkbox"><input type="checkbox" aria-label={`Sin costo ${index + 1}`} checked={item.noCost} onChange={(event) => patchItem(item.key, { noCost: event.target.checked })} /><small>Sin costo</small></label>
           <button type="button" className="wholesale-sale-remove" aria-label={`Eliminar ${selectedProduct ? productLabel(selectedProduct) : `artículo ${index + 1}`}`} title="Eliminar artículo" onClick={() => setItems((current) => current.filter((row) => row.key !== item.key))}><Trash size={19} aria-hidden="true" /></button>
         </div>;
@@ -193,6 +197,7 @@ export function WholesaleRegister(props: PageProps) {
     <section className="local-sale-section wholesale-sale-section">
       <h2>Datos de la venta</h2>
       <div className="wholesale-sale-single-field"><label>Canal de venta<input value="Mayorista" readOnly /></label></div>
+      <div className="wholesale-sale-single-field"><label>Moneda del pedido<select value={currency} onChange={(event) => setCurrency(event.target.value as "ARS" | "UYU")}><option value="ARS">Pesos argentinos, ARS</option><option value="UYU">Pesos uruguayos, UYU</option></select></label></div>
       <small className="wholesale-sale-note">El pedido se guardará en el tablero de producción mayorista con su número #M.</small>
     </section>
 
@@ -205,7 +210,7 @@ export function WholesaleRegister(props: PageProps) {
     </section>
 
     <footer className="wholesale-sale-footer">
-      <div><small>Total estimado</small>{discountPercent > 0 && estimated > 0 ? <strong className="wholesale-sale-total-discounted"><s>{saleArg(estimated)}</s><small>{saleArg(discounted)}</small><em>-{discountPercent}%</em></strong> : <strong>{saleArg(estimated)}</strong>}</div>
+      <div><small>Total estimado</small>{discountPercent > 0 && estimated > 0 ? <strong className="wholesale-sale-total-discounted"><s>{saleMoney(estimated)}</s><small>{saleMoney(discounted)}</small><em>-{discountPercent}%</em></strong> : <strong>{saleMoney(estimated)}</strong>}</div>
       {error && <div className="error" role="alert">{error}</div>}
       <button className="primary" type="submit" disabled={busy || !items.length}><Plus size={18} aria-hidden="true" />{busy ? "Guardando…" : "Crear pedido mayorista"}</button>
     </footer>
@@ -267,7 +272,7 @@ export function WholesaleCustomerEditor({ customer, onSaved, onDeleted }: { cust
   </form>;
 }
 
-function WholesaleLineEditor({ line, snapshot, displayModel, displayVariant, catalogProduct, openProduct, refresh, notify, initialEditing = false }: { line: WholesaleLine; snapshot: WholesaleSnapshot; displayModel: string; displayVariant: string; catalogProduct?: Product; openProduct: (product: Product) => void; refresh?: () => Promise<void>; notify: (message: string) => void; initialEditing?: boolean }) {
+function WholesaleLineEditor({ line, snapshot, currency, displayModel, displayVariant, catalogProduct, openProduct, refresh, notify, initialEditing = false }: { line: WholesaleLine; snapshot: WholesaleSnapshot; currency: "ARS" | "UYU"; displayModel: string; displayVariant: string; catalogProduct?: Product; openProduct: (product: Product) => void; refresh?: () => Promise<void>; notify: (message: string) => void; initialEditing?: boolean }) {
   const [editing, setEditing] = useState(initialEditing);
   const [model, setModel] = useState(line.model);
   const [variant, setVariant] = useState(line.variant);
@@ -305,7 +310,7 @@ function WholesaleLineEditor({ line, snapshot, displayModel, displayVariant, cat
       <strong className="wholesale-line-name">{displayModel}</strong>
       <small className="wholesale-line-variant">{displayVariant}</small>
       <small className="wholesale-line-units">{line.quantity} u.</small>
-      <strong className="wholesale-line-price">{line.unit_price_arg == null ? "Por conciliar" : saleArg(Number(line.unit_price_arg))}</strong>
+      <strong className="wholesale-line-price">{(currency === "ARS" ? line.unit_price_arg : line.unit_price_uyu) == null ? "Por conciliar" : currencyMoney(Number(currency === "ARS" ? line.unit_price_arg : line.unit_price_uyu), currency)}</strong>
       <Badge tone={wholesaleStatusTone(line.status)}>{productionStatusLabel(line.status)}</Badge>
       <div className="table-actions">{line.status !== "Completado" && <><button className="secondary compact" onClick={() => setEditing(true)}>Editar</button><button className="secondary compact" disabled={busy} onClick={() => void act("complete")}>Completar</button></>}<button className="secondary compact" disabled={busy} onClick={() => void act("delete")}>Eliminar</button></div></div>}
     {error && <div className="error" role="alert">{error}</div>}
@@ -313,7 +318,7 @@ function WholesaleLineEditor({ line, snapshot, displayModel, displayVariant, cat
 }
 
 /** Descuento del pedido completo (no por artículo): útil para cargar descuentos de pedidos viejos. */
-function WholesaleOrderDiscount({ lines, snapshot, refresh, notify }: { lines: WholesaleLine[]; snapshot: WholesaleSnapshot; refresh?: () => Promise<void> | void; notify: (message: string) => void }) {
+function WholesaleOrderDiscount({ lines, snapshot, currency, refresh, notify }: { lines: WholesaleLine[]; snapshot: WholesaleSnapshot; currency: "ARS" | "UYU"; refresh?: () => Promise<void> | void; notify: (message: string) => void }) {
   const current = orderDiscountPercent(lines);
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(String(current || ""));
@@ -321,7 +326,7 @@ function WholesaleOrderDiscount({ lines, snapshot, refresh, notify }: { lines: W
   const [error, setError] = useState("");
   const productOf = (line: WholesaleLine) => snapshot.products.find((product) => wholesaleProductKey(product.model, product.variant) === wholesaleProductKey(line.model, line.variant));
   const values = lines.map((line) => wholesaleLineValue(line, productOf(line), snapshot.exchangeRate));
-  const summary = discountSummary(values.map((value) => ({ gross: value.grossArg, net: value.arg })));
+  const summary = discountSummary(values.map((value) => ({ gross: currency === "ARS" ? value.grossArg : value.grossUyu, net: currency === "ARS" ? value.arg : value.uyu })));
   async function save() {
     const percent = parseDiscountPercent(text);
     setBusy(true); setError("");
@@ -342,7 +347,7 @@ function WholesaleOrderDiscount({ lines, snapshot, refresh, notify }: { lines: W
       <button type="button" className="primary compact" disabled={busy} onClick={() => void save()}>{busy ? "Guardando…" : "Guardar"}</button>
       <button type="button" className="secondary compact" disabled={busy} onClick={() => { setEditing(false); setText(String(current || "")); setError(""); }}>Cancelar</button>
     </> : <>
-      <div><small>Descuento</small>{current > 0 && summary.discount > 0 ? <strong>{formatPercent(current)}, −{wholesaleMoney(summary.discount)}<small> sobre {wholesaleMoney(summary.subtotal)}</small></strong> : <strong className="is-none">Sin descuento</strong>}</div>
+      <div><small>Descuento</small>{current > 0 && summary.discount > 0 ? <strong>{formatPercent(current)}, −{currencyMoney(summary.discount, currency)}<small> sobre {currencyMoney(summary.subtotal, currency)}</small></strong> : <strong className="is-none">Sin descuento</strong>}</div>
       <button type="button" className="secondary compact" onClick={() => setEditing(true)}>{current > 0 ? "Editar descuento" : "Aplicar descuento"}</button>
     </>}
     {error && <div className="error" role="alert">{error}</div>}
@@ -354,15 +359,16 @@ export function WholesaleOrderModal({ order, props, onClose, editingLineId = nul
   if (!snapshot) return null;
   const customer = props.s.customers.find((item) => item.id === order.customerId);
   const lines = snapshot.lines.filter((line) => order.items?.some((item) => item.wholesaleLineId === line.line_id));
-  const shownTotal = order.wholesaleTotalArg;
-  const shownPaid = wholesalePaidArs(props.s, order);
-  const shownBalance = wholesaleBalanceArs(props.s, order);
-  const shownMoney = (value: number | null | undefined) => value == null ? "Por conciliar" : wholesaleMoney(value);
+  const currency = order.wholesaleCurrency || "ARS";
+  const shownTotal = wholesaleTotalOriginal(order);
+  const shownPaid = wholesalePaidOriginal(props.s, order);
+  const shownBalance = wholesaleBalanceOriginal(props.s, order);
+  const shownMoney = (value: number | null | undefined) => value == null ? "Por conciliar" : currencyMoney(value, currency);
   const downloadPdf = (kind: WholesaleOrderPdfKind) => {
     void exportWholesaleOrderPdf(kind, {
       reference: orderName(order), date: order.date,
       customerName: customer?.name || order.customerName || lines[0]?.customer || "Cliente sin nombre",
-      customer, items: order.items, lines, snapshot, currency: "ARS",
+      customer, items: order.items, lines, snapshot, currency,
     }).catch((failure) => props.notify(errorText(failure)));
   };
   const consignment = order.consignmentId && (props.s.consignments || []).find((entry) => entry.id === order.consignmentId);
@@ -391,8 +397,8 @@ export function WholesaleOrderModal({ order, props, onClose, editingLineId = nul
   return <Modal title={orderName(order)} onClose={onClose} className="wholesale-order-dialog">
     <div className="detail-banner"><div><small>{formatDate(order.date)}, Mayorista</small><h3>{naturalCaseName(customer?.name || order.customerName || "Cliente sin nombre")}</h3></div><strong>{shownMoney(shownTotal)}</strong></div>
     <Stats items={[{ label: "Unidades", value: order.quantity }, { label: "Cobrado", value: shownTotal == null ? "Por conciliar" : shownMoney(shownPaid) }, { label: "Por cobrar", value: shownMoney(shownBalance) }]} />
-    {lines.length > 0 && lines.every(hasWholesaleOriginalArs) && <WholesaleOrderDiscount lines={lines} snapshot={snapshot} refresh={props.refresh} notify={props.notify} />}
-    <div className="wholesale-line-list"><div className="wholesale-line-row wholesale-line-head" aria-hidden="true"><div>Foto</div><div>SKU</div><div>Nombre</div><div>Variante</div><div>Unidades</div><div>Precio ARS c/u</div><div>Estado</div><div></div></div>{lines.map((line) => {
+    {lines.length > 0 && lines.every((line) => currency === "ARS" ? hasWholesaleOriginalArs(line) : line.total_uyu != null) && <WholesaleOrderDiscount lines={lines} snapshot={snapshot} currency={currency} refresh={props.refresh} notify={props.notify} />}
+    <div className="wholesale-line-list"><div className="wholesale-line-row wholesale-line-head" aria-hidden="true"><div>Foto</div><div>SKU</div><div>Nombre</div><div>Variante</div><div>Unidades</div><div>Precio {currency} c/u</div><div>Estado</div><div></div></div>{lines.map((line) => {
       const orderItem = order.items?.find((item) => item.wholesaleLineId === line.line_id);
       const isGeneric = normalizeWholesaleText(line.variant) === normalizeWholesaleText(GENERIC_WHOLESALE_VARIANT);
       const exact = props.s.products.find((product) => product.id === orderItem?.productId);
@@ -400,7 +406,7 @@ export function WholesaleOrderModal({ order, props, onClose, editingLineId = nul
       const siblings = isGeneric ? props.s.products.filter((product) => !product.wholesaleProductId && normalizeWholesaleText(product.name) === normalizeWholesaleText(referenceModel || line.model)).sort((x, y) => x.sku.localeCompare(y.sku, "es", { numeric: true })) : [];
       const photoReference = siblings.find((product) => product.imageUrl);
       const catalogProduct = exact || (siblings[0] ? { ...siblings[0], imageUrl: photoReference?.imageUrl, imageCrop: photoReference?.imageCrop } : undefined);
-      return <WholesaleLineEditor key={line.line_id} line={line} snapshot={snapshot} displayModel={catalogProduct?.name || naturalCaseName(line.model)} displayVariant={isGeneric ? GENERIC_WHOLESALE_VARIANT : catalogProduct?.variant || naturalCaseName(line.variant)} catalogProduct={catalogProduct} openProduct={(entry) => props.go(`/productos/catalogo?producto=${encodeURIComponent(entry.sourceProductId || entry.id)}&variante=${encodeURIComponent(entry.id)}`)} refresh={props.refresh} notify={props.notify} initialEditing={editingLineId === line.line_id} />;
+      return <WholesaleLineEditor key={line.line_id} line={line} snapshot={snapshot} currency={currency} displayModel={catalogProduct?.name || naturalCaseName(line.model)} displayVariant={isGeneric ? GENERIC_WHOLESALE_VARIANT : catalogProduct?.variant || naturalCaseName(line.variant)} catalogProduct={catalogProduct} openProduct={(entry) => props.go(`/productos/catalogo?producto=${encodeURIComponent(entry.sourceProductId || entry.id)}&variante=${encodeURIComponent(entry.id)}`)} refresh={props.refresh} notify={props.notify} initialEditing={editingLineId === line.line_id} />;
     })}</div>
     <div className="form-actions"><button className="secondary" disabled={!lines.length} onClick={() => downloadPdf("workshop")}>Descargar PDF Taller</button><button className="secondary" disabled={!lines.length} onClick={() => downloadPdf("customer")}>Descargar PDF Cliente</button><button className="text-button" onClick={() => props.go(`/clientes/base?cliente=${encodeURIComponent(order.customerId)}`)}>Ver cliente</button><button className="secondary" onClick={() => void removeOrder()}>Eliminar pedido</button></div>
   </Modal>;
@@ -431,6 +437,8 @@ export function WholesaleProduction({ props, history = false }: { props: PagePro
   ])), [props.s.products]);
   if (!snapshot) return <div className="empty">Cargando producción mayorista…</div>;
   const baseLines = snapshot.lines.filter((line) => history ? line.status === "Completado" : line.status !== "Completado");
+  const currenciesByCode = new Map((snapshot.orderRecords || []).filter((record) => record.reference_code).map((record) => [record.reference_code!, record.wholesale_currency || "ARS"]));
+  const currencyForLine = (line: WholesaleLine): "ARS" | "UYU" => currenciesByCode.get(line.order_id || "") || "ARS";
   const productFor = (line: WholesaleLine) => products.get(wholesaleProductKey(line.model, line.variant));
   const displayNames = (line: WholesaleLine) => {
     const wholesaleProduct = productFor(line);
@@ -443,9 +451,14 @@ export function WholesaleProduction({ props, history = false }: { props: PagePro
   const companyOf = (value: string) => props.s.customers.find((customer) => customer.wholesaleName === value)?.companyName?.trim() || "";
   const displayCustomer = (value: string) => naturalCaseName(props.s.customers.find((customer) => customer.wholesaleName === value)?.name || formatContactName(value));
   const valueFor = (line: WholesaleLine) => {
-    if (!hasWholesaleOriginalArs(line)) return 0;
     const value = wholesaleLineValue(line, productFor(line), snapshot.exchangeRate);
-    return value.arg;
+    return value.uyu;
+  };
+  const originalValueFor = (line: WholesaleLine) => {
+    const currency = currencyForLine(line);
+    if (currency === "ARS" && !hasWholesaleOriginalArs(line)) return null;
+    const value = wholesaleLineValue(line, productFor(line), snapshot.exchangeRate);
+    return currency === "ARS" ? value.arg : value.uyu;
   };
   const lines = baseLines.filter((line) => (!customerFilter || line.customer === customerFilter) && (!modelFilter || line.model === modelFilter))
     .sort((a, b) => {
@@ -542,6 +555,8 @@ export function WholesaleProduction({ props, history = false }: { props: PagePro
           : { Modelo: row.name, Pendientes: row.pending, "En producción": row.inProduction, Cantidad: row.quantity }),
   };
   const nothingToExport = viewTable ? !viewTable.rows.length : !lines.length;
+  const lineCurrencies = new Set(lines.map(currencyForLine));
+  const exportCurrency = lineCurrencies.size > 1 ? "mixed" as const : lineCurrencies.has("UYU") ? "UYU" as const : "ARS" as const;
   const selectedOrder = props.s.orders.find((order) => order.source === "wholesale" && order.items?.some((item) => item.wholesaleLineId === selected));
   const consignmentForLine = (line: WholesaleLine) => props.s.orders.find((order) => order.consignmentId
     && order.items?.some((item) => item.wholesaleLineId === line.line_id))?.consignmentId;
@@ -550,7 +565,7 @@ export function WholesaleProduction({ props, history = false }: { props: PagePro
   const historyFilters = history ? <details className="wholesale-compact-filters is-orders wholesale-history-filters"><summary aria-label="Filtros y orden" title="Filtros y orden"><Funnel size={19} aria-hidden="true" /></summary><div className="wholesale-compact-filters-panel"><label>Cliente<select aria-label="Filtrar cliente en histórico mayorista" value={customerFilter} onChange={(event) => setCustomerFilter(event.target.value)}><option value="">Todos</option>{customers.map((option) => <option key={option} value={option}>{displayCustomer(option)}</option>)}</select></label><label>Modelo<select aria-label="Filtrar modelo en histórico mayorista" value={modelFilter} onChange={(event) => setModelFilter(event.target.value)}><option value="">Todos</option>{models.map((option) => <option key={option} value={option}>{displayNames(baseLines.find((line) => line.model === option)!).model}</option>)}</select></label><label>Ordenar<select aria-label="Ordenar histórico mayorista" value={`${sort.key}:${sort.direction}`} onChange={(event) => { const [key, direction] = event.target.value.split(":") as [typeof sort.key, typeof sort.direction]; setSort({ key, direction }); }}><option value="fecha:desc">Fecha: más recientes</option><option value="fecha:asc">Fecha: más antiguos</option><option value="cantidad:desc">Cantidad: mayor a menor</option><option value="cantidad:asc">Cantidad: menor a mayor</option><option value="total:desc">Total: mayor a menor</option><option value="total:asc">Total: menor a mayor</option></select></label></div></details> : undefined;
   return <section className="wholesale-production">
     <Stats items={[{ label: history ? "Líneas terminadas" : "Líneas activas", value: summaryLines.length }, { label: "Unidades", value: summaryLines.reduce((sum, line) => sum + Number(line.quantity), 0) }, { label: "Pedidos", value: new Set(summaryLines.map((line) => line.order_id || line.line_id)).size }]} />
-    <div className="wholesale-production-actions"><div className="table-actions"><button className="secondary wholesale-export-button" disabled={nothingToExport} onClick={() => viewTable ? void exportWholesaleViewXlsx(viewTable) : exportWholesaleXlsx(lines, snapshot, "ARS", consignmentLineIds)}>Excel</button><button className="secondary wholesale-export-button" disabled={nothingToExport} onClick={() => viewTable ? void exportWholesaleViewPdf(viewTable) : exportWholesalePdf(history ? "Histórico mayorista" : "Producción mayorista", lines, snapshot, "ARS", consignmentLineIds)}>PDF</button><button className="secondary wholesale-export-button" disabled={nothingToExport} onClick={() => viewTable ? exportWholesaleViewCsv(viewTable) : exportWholesaleCsv(lines, snapshot, "ARS", consignmentLineIds)}>CSV</button></div></div>
+    <div className="wholesale-production-actions"><div className="table-actions"><button className="secondary wholesale-export-button" disabled={nothingToExport} onClick={() => viewTable ? void exportWholesaleViewXlsx(viewTable) : exportWholesaleXlsx(lines, snapshot, exportCurrency, consignmentLineIds)}>Excel</button><button className="secondary wholesale-export-button" disabled={nothingToExport} onClick={() => viewTable ? void exportWholesaleViewPdf(viewTable) : exportWholesalePdf(history ? "Histórico mayorista" : "Producción mayorista", lines, snapshot, exportCurrency, consignmentLineIds)}>PDF</button><button className="secondary wholesale-export-button" disabled={nothingToExport} onClick={() => viewTable ? exportWholesaleViewCsv(viewTable) : exportWholesaleCsv(lines, snapshot, exportCurrency, consignmentLineIds)}>CSV</button></div></div>
     {!history && <div className="wholesale-production-viewbar"><div className="tabs inner-tabs">{["Pedidos", "Modelo", "Variante", "Virolas", "Cuero Torpedo"].map((value) => <button key={value} className={group === value ? "active" : ""} onClick={() => { setGroup(value); setSort({ key: "fecha", direction: "desc" }); }}>{value}</button>)}</div><div className="wholesale-production-view-actions"><button type="button" className="wholesale-icon-button wholesale-clear-filters" aria-label="Quitar filtros" title="Quitar filtros" disabled={!hasFilters} onClick={clearFilters}><FunnelX size={19} aria-hidden="true" /></button><details className={`wholesale-compact-filters${group === "Pedidos" ? " is-orders" : ""}`}><summary aria-label="Filtros y orden" title="Filtros y orden"><Funnel size={19} aria-hidden="true" /></summary><div className="wholesale-compact-filters-panel"><label>Cliente<select aria-label="Filtrar cliente en vista compacta" value={customerFilter} onChange={(event) => setCustomerFilter(event.target.value)}><option value="">Todos</option>{customers.map((option) => <option key={option} value={option}>{displayCustomer(option)}</option>)}</select></label><label>Modelo<select aria-label="Filtrar modelo en vista compacta" value={modelFilter} onChange={(event) => setModelFilter(event.target.value)}><option value="">Todos</option>{models.map((option) => <option key={option} value={option}>{displayNames(baseLines.find((line) => line.model === option)!).model}</option>)}</select></label><label>Ordenar<select aria-label="Ordenar en vista compacta" value={`${sort.key}:${sort.direction}`} onChange={(event) => { const [key, direction] = event.target.value.split(":") as [typeof sort.key, typeof sort.direction]; setSort({ key, direction }); }}><option value="fecha:desc">Fecha: más recientes</option><option value="fecha:asc">Fecha: más antiguos</option><option value="cantidad:desc">Cantidad: mayor a menor</option><option value="cantidad:asc">Cantidad: menor a mayor</option><option value="total:desc">Total: mayor a menor</option><option value="total:asc">Total: menor a mayor</option></select></label></div></details><label className="search"><MagnifyingGlass size={18} aria-hidden="true" /><input aria-label="Buscar en producción mayorista" placeholder="Buscar…" value={search} onChange={(event) => setSearch(event.target.value)} /></label></div></div>}
     {actionError && <div className="error" role="alert">{actionError}</div>}
     {group === "Pedidos" || history ? <Table rows={lines.map((line) => ({ ...line, id: line.line_id }))} showSearch={history} action={historyFilters} className={`wholesale-production-table wholesale-production-orders-table${history ? " wholesale-production-history-table" : ""}`} searchQuery={history ? undefined : search} onSearchQueryChange={history ? undefined : setSearch} searchText={(line) => { const names = displayNames(line); return `${line.order_id || line.line_id} ${displayCustomer(line.customer)} ${names.model} ${names.variant}`; }} columns={[
@@ -562,7 +577,7 @@ export function WholesaleProduction({ props, history = false }: { props: PagePro
       { label: "Cantidad", header: sortHeader("Cantidad", "cantidad"), sortDirection: sort.key === "cantidad" ? sort.direction === "desc" ? "descending" : "ascending" : "none", render: (line) => line.quantity },
       { label: "Estado", render: (line) => <Badge tone={wholesaleStatusTone(line.status)}>{productionStatusLabel(line.status)}</Badge> },
       { label: history ? "Fecha de término" : "Fecha", header: sortHeader("Fecha", "fecha"), sortDirection: sort.key === "fecha" ? sort.direction === "desc" ? "descending" : "ascending" : "none", render: (line) => formatDate(history ? line.completed_at : line.created_at) },
-      { label: "Total", header: sortHeader("Total ARS", "total"), sortDirection: sort.key === "total" ? sort.direction === "desc" ? "descending" : "ascending" : "none", render: (line) => <strong className="wholesale-amount">{consignmentForLine(line) ? "Consignación" : hasWholesaleOriginalArs(line) ? wholesaleMoney(valueFor(line)) : "Por conciliar"}</strong> },
+      { label: "Total", header: sortHeader("Total", "total"), sortDirection: sort.key === "total" ? sort.direction === "desc" ? "descending" : "ascending" : "none", render: (line) => <strong className="wholesale-amount">{consignmentForLine(line) ? "Consignación" : originalValueFor(line) == null ? "Por conciliar" : currencyMoney(originalValueFor(line)!, currencyForLine(line))}</strong> },
       { label: "Acciones", render: (line) => <div className="wholesale-row-actions">
         {!history && <button type="button" className="wholesale-icon-button wholesale-complete-action" aria-label={`Completar ${line.order_id || line.line_id}`} title="Completar" disabled={Boolean(busyLineId) || line.status === "Completado"} onClick={() => void completeLine(line)}><Check size={20} weight="bold" aria-hidden="true" /></button>}
         <button type="button" className="wholesale-icon-button" aria-label={`Ver ${line.order_id || line.line_id}`} title="Ver detalle" onClick={() => openLine(line.line_id)}><Eye size={19} aria-hidden="true" /></button>

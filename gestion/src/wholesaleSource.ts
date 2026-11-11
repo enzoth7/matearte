@@ -38,11 +38,11 @@ export type WholesaleLine = {
 };
 export type WholesaleSnapshot = {
   products: WholesaleProduct[]; customers: WholesaleCustomer[];
-  contacts?: { id: string; wholesale_name: string }[];
+  contacts?: { id: string; wholesale_name: string; country: string | null }[];
   lines: WholesaleLine[]; images: WholesaleProductImage[];
   categories: { code: string; label_es: string; active: boolean }[];
   exchangeRate: number;
-  orderRecords?: { id: string; reference_code: string | null; total_minor: number; customer_name: string | null; contact_id?: string | null; status?: string; paid_at?: string | null; shipped_at?: string | null; delivered_at?: string | null }[];
+  orderRecords?: { id: string; reference_code: string | null; total_minor: number; customer_name: string | null; contact_id?: string | null; wholesale_currency?: "ARS" | "UYU" | null; status?: string; paid_at?: string | null; shipped_at?: string | null; delivered_at?: string | null }[];
   paymentOpenings?: { sale_id: string; collected_minor: number | null; collected_arg_minor?: number | null; paid_in_full_without_price?: boolean; finance_paid_at_order?: boolean }[];
   receipts?: { id: string; sale_id: string; amount_minor: number; source_amount_minor: number; currency: "UYU" | "ARS"; payment_method: string; paid_on: string }[];
 };
@@ -122,7 +122,7 @@ async function readWholesaleContacts(): Promise<NonNullable<WholesaleSnapshot["c
   const result: NonNullable<WholesaleSnapshot["contacts"]> = [];
   for (let start = 0; ; start += 100) {
     const { data, count, error } = await client().from("contacts")
-      .select("id,wholesale_name", { count: "exact" })
+      .select("id,wholesale_name,country", { count: "exact" })
       .not("wholesale_name", "is", null).order("id").range(start, start + 99);
     if (error) throw error;
     result.push(...(data || []) as typeof result);
@@ -135,7 +135,7 @@ async function readWholesaleOrderRecords(): Promise<NonNullable<WholesaleSnapsho
   const result: NonNullable<WholesaleSnapshot["orderRecords"]> = [];
   for (let start = 0; ; start += 100) {
     const { data, count, error } = await client().from("orders")
-      .select("id,reference_code,total_minor,customer_name,contact_id,status,paid_at,shipped_at,delivered_at", { count: "exact" })
+      .select("id,reference_code,total_minor,customer_name,contact_id,wholesale_currency,status,paid_at,shipped_at,delivered_at", { count: "exact" })
       .eq("channel", "Mayorista").order("id").range(start, start + 99);
     if (error) throw error;
     result.push(...(data || []) as typeof result);
@@ -174,7 +174,7 @@ export async function deleteWholesaleCustomer(fullName: string): Promise<void> {
 const imageBucket = () => client().storage.from("product-images");
 export const wholesaleProductImageUrl = (path: string) => imageBucket().getPublicUrl(path).data.publicUrl;
 
-export async function createWholesaleOrder(customer: string, items: { productId: string; quantity: number; noCost: boolean; generic?: boolean }[], saleChannel: WholesaleLine["sale_channel"] = "WhatsApp", discountPercent = 0) {
+export async function createWholesaleOrder(customer: string, items: { productId: string; quantity: number; noCost: boolean; generic?: boolean }[], saleChannel: WholesaleLine["sale_channel"] = "WhatsApp", discountPercent = 0, currency: "ARS" | "UYU" = "ARS") {
   if (!clean(customer) || !items.length) throw new Error("Seleccioná cliente y al menos un artículo.");
   if (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100) throw new Error("El descuento tiene que estar entre 0% y 100%.");
   const { data: settings, error: rateError } = await client().from("settings").select("exchange_rate").eq("id", 1).single();
@@ -186,7 +186,7 @@ export async function createWholesaleOrder(customer: string, items: { productId:
     if (genericVariantPriceConflict(catalog.filter((item) => item.model === model))) throw new Error(`Los colores de "${model}" tienen precios distintos: elegí una variante concreta.`);
   }
   // El número del pedido (#M001…) lo asigna la base con la misma secuencia de los pedidos mayoristas de la web.
-  const { data: orderId, error: codeError } = await client().rpc("gestion_next_wholesale_order_code");
+  const { data: orderId, error: codeError } = await client().rpc("gestion_next_wholesale_order_code", { p_currency: currency });
   if (codeError || typeof orderId !== "string" || !orderId) throw new Error("No se pudo asignar un número de pedido. Reintentá.");
   const now = new Date().toISOString();
   const lines = items.map((item) => {

@@ -1,4 +1,4 @@
-import { balance, total, isSale, wholesaleBalanceArs, type State } from "./data";
+import { balance, total, isSale, wholesaleBalanceOriginal, type State } from "./data";
 import { montevideoToday } from "./overview";
 import { buildExpenseForecast, buildRevenueForecast, type RevenueModel } from "./revenueForecast";
 import { consignmentSummary } from "./consignmentModel";
@@ -97,12 +97,12 @@ export function buildFinanceProjection(
   for (const order of [...state.orders].sort((a, b) => (a.due || a.date).localeCompare(b.due || b.date))) {
     if (order.consignmentId) continue;
     const remainingMinor = Math.round(balance(state, order) * 100);
-    const currency = order.source === "wholesale" ? "ARS" : "UYU";
+    const currency = order.source === "wholesale" ? order.wholesaleCurrency || "ARS" : "UYU";
     const key = `${order.contactId || ""}:${currency}`;
     const availableMinor = order.contactId ? freeCreditByContact.get(key) || 0 : 0;
-    const remainingSourceMinor = order.source === "wholesale" ? Math.round((wholesaleBalanceArs(state, order) || 0) * 100) : remainingMinor;
+    const remainingSourceMinor = order.source === "wholesale" ? Math.round((wholesaleBalanceOriginal(state, order) || 0) * 100) : remainingMinor;
     const creditUsed = Math.min(remainingSourceMinor, availableMinor);
-    const rate = order.source === "wholesale" && order.wholesaleTotalArg ? (order.wholesaleTotalUyu || 0) / order.wholesaleTotalArg : 1;
+    const rate = order.source === "wholesale" && currency === "ARS" && order.wholesaleTotalArg ? (order.wholesaleTotalUyu || 0) / order.wholesaleTotalArg : 1;
     collectibleByOrder.set(order.id, Math.max(0, remainingMinor - Math.round(creditUsed * rate)) / 100);
     if (order.contactId && creditUsed) freeCreditByContact.set(key, availableMinor - creditUsed);
   }

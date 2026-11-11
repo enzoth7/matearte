@@ -17,7 +17,7 @@ function fixture(): State {
 describe("consignaciones mayoristas", () => {
   it("no genera saldo por enviar y conserva el control de unidades devueltas", () => {
     const state = fixture();
-    expect(consignmentSummary(state, state.consignments![0])).toMatchObject({ dispatched: 100, held: 100, kept: 0, balanceMinor: 0 });
+    expect(consignmentSummary(state, state.consignments![0])).toMatchObject({ dispatched: 100, held: 100, kept: 0, balanceMinor: 0, status: "Enviado" });
     state.consignmentMovements!.push({ id: "return-1", lineId: "line-1", kind: "return", quantity: 20, occurredOn: "2026-11-08", carrier: null, tracking: null, note: null, createdAt: "2026-11-08T12:00:00Z" });
     expect(consignmentSummary(state, state.consignments![0])).toMatchObject({ held: 80, returned: 20, kept: 0, balanceMinor: 0 });
   });

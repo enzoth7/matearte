@@ -94,6 +94,7 @@ export type Order = {
   wholesalePaidInFullWithoutPrice?: boolean;
   wholesaleTotalArg?: number | null;
   wholesaleTotalUyu?: number | null;
+  wholesaleCurrency?: "ARS" | "UYU";
   consignmentId?: string;
   paymentMethod?: string;
   number?: number;
@@ -288,6 +289,24 @@ export const wholesaleBalanceArs = (s: State, o: Order): number | null => {
   const collected = wholesalePaidArs(s, o);
   return collected == null ? null : Math.max(0, o.wholesaleTotalArg - collected);
 };
+export const wholesalePaidOriginal = (s: State, o: Order): number | null => o.wholesaleCurrency === "UYU"
+  ? o.consignmentId ? (s.consignments || []).find((entry) => entry.id === o.consignmentId)?.currency === "UYU"
+    ? consignmentSummary(s, (s.consignments || []).find((entry) => entry.id === o.consignmentId)!).paidMinor / 100 : null
+    : o.wholesaleOpeningPaid == null ? null : paid(s, o)
+  : wholesalePaidArs(s, o);
+export const wholesaleBalanceOriginal = (s: State, o: Order): number | null => {
+  if (o.wholesaleCurrency !== "UYU") return wholesaleBalanceArs(s, o);
+  if (o.consignmentId) {
+    const consignment = (s.consignments || []).find((entry) => entry.id === o.consignmentId);
+    return consignment?.currency === "UYU" ? consignmentSummary(s, consignment).balanceMinor / 100 : null;
+  }
+  if (o.paidAt || ["cancelled", "refunded", "payment_failed"].includes(o.status || "")) return 0;
+  if (o.wholesaleTotalUyu == null) return null;
+  const collected = wholesalePaidOriginal(s, o);
+  return collected == null ? null : Math.max(0, o.wholesaleTotalUyu - collected);
+};
+export const wholesaleTotalOriginal = (o: Order): number | null => o.wholesaleCurrency === "UYU"
+  ? o.wholesaleTotalUyu ?? null : o.wholesaleTotalArg ?? null;
 export const balance = (s: State, o: Order): number =>
   o.paidAt || ["cancelled", "refunded", "payment_failed"].includes(o.status || "") ? 0
     : o.consignmentId ? (() => {
@@ -296,7 +315,8 @@ export const balance = (s: State, o: Order): number =>
         * (consignment.currency === "ARS" ? consignment.exchangeRate : 1) : 0;
     })()
     : o.source === "wholesale"
-      ? (wholesaleBalanceArs(s, o) ?? 0) * (o.wholesaleTotalArg && o.wholesaleTotalUyu != null ? o.wholesaleTotalUyu / o.wholesaleTotalArg : 0)
+      ? (wholesaleBalanceOriginal(s, o) ?? 0) * (o.wholesaleCurrency === "UYU" ? 1
+        : o.wholesaleTotalArg && o.wholesaleTotalUyu != null ? o.wholesaleTotalUyu / o.wholesaleTotalArg : 0)
       : o.retailRateToUyu ? localOriginalBalance(s, o) * o.retailRateToUyu : Math.max(0, total(o) - paid(s, o));
 export const localOriginalBalance = (s: State, order: Order): number => {
   if (!order.retailRateToUyu) return balance(s, order);

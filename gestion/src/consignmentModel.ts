@@ -33,7 +33,8 @@ export function consignmentSummary(state: State, consignment: WholesaleConsignme
   const kept = sum((line) => line.kept);
   return { lines, planned, dispatched, held, returned, kept, heldValueMinor: sum((line) => line.heldValueMinor),
     confirmedMinor, paidMinor, balanceMinor: Math.max(0, confirmedMinor - paidMinor),
-    status: held > 0 || dispatched < planned ? "En curso" : confirmedMinor > paidMinor ? "Por cobrar" : "Cerrada" };
+    status: held > 0 && dispatched === planned ? "Enviado"
+      : held > 0 || dispatched < planned ? "En curso" : confirmedMinor > paidMinor ? "Por cobrar" : "Cerrada" };
 }
 
 export function consignmentReceiptAvailableMinor(state: State, receiptId: string, currency?: "UYU" | "ARS"): number {

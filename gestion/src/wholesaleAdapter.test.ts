@@ -159,7 +159,7 @@ describe("integración mayorista", () => {
       line({ line_id: "line-3", status: "Completado", quantity: 9 }),
     ];
     const summary = summarizeWholesale(source);
-    expect(summary).toMatchObject({ activeUnits: 5, pendingUnits: 2, inProductionUnits: 3, activeCustomers: 2, activeValueArg: 27000, activeValueUyu: 1269 });
+    expect(summary).toMatchObject({ activeUnits: 5, pendingUnits: 2, inProductionUnits: 3, activeCustomers: 2, activeValueArg: 27000, activeValueUyu: 0 });
     expect(summary.clientStats).toEqual([["Bazar Norte", 3], ["Almacén Sur", 2]]);
   });
   it("agrupa el histórico terminado del cliente por tipo de mate", () => {

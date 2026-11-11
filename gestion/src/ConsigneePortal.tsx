@@ -3,7 +3,7 @@ import { formatDate } from "./dateFormat";
 import type { ConsigneeDashboard, ConsigneePortalConsignment, ConsigneePortalEvent } from "./consigneePortalSource";
 
 const eventLabel: Record<ConsigneePortalEvent["kind"], string> = {
-  dispatch: "Envío", return: "Devolución", kept: "Vendidas o conservadas",
+  dispatch: "Envío", return: "Devolución", kept: "Conservadas",
   receipt: "Pago recibido", allocation: "Pago aplicado",
 };
 const amount = (value: number, currency: "UYU" | "ARS") => new Intl.NumberFormat("es-UY", {
@@ -20,7 +20,7 @@ function ConsignmentCard({ item }: { item: ConsigneePortalConsignment }) {
     <dl className="consignee-stats">
       <div><dt>Enviadas</dt><dd>{item.totals.dispatched}</dd></div>
       <div><dt>En su poder</dt><dd>{item.totals.held}</dd></div>
-      <div><dt>Vendidas o conservadas</dt><dd>{item.totals.kept}</dd></div>
+      <div><dt>Conservadas</dt><dd>{item.totals.kept}</dd></div>
       <div><dt>Devueltas</dt><dd>{item.totals.returned}</dd></div>
       <div><dt>Mercadería en su poder</dt><dd>{amount(item.totals.heldValueMinor, item.currency)}</dd></div>
       <div><dt>Importe confirmado</dt><dd>{amount(item.totals.confirmedMinor, item.currency)}</dd></div>
@@ -29,7 +29,7 @@ function ConsignmentCard({ item }: { item: ConsigneePortalConsignment }) {
     </dl>
     <div className="consignee-table-wrap"><table><caption>Productos de {item.reference}</caption><thead><tr>
       <th scope="col">Producto</th><th scope="col">Precio pactado</th><th scope="col">Enviadas</th>
-      <th scope="col">En su poder</th><th scope="col">Vendidas o conservadas</th><th scope="col">Devueltas</th>
+      <th scope="col">En su poder</th><th scope="col">Conservadas</th><th scope="col">Devueltas</th>
     </tr></thead><tbody>{item.lines.map((line) => <tr key={line.id}>
       <th scope="row">{line.title}<small>SKU {line.sku}</small></th>
       <td>{amount(line.unitPriceMinor, item.currency)}</td><td>{line.dispatched}</td>

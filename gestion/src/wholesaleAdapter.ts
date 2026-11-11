@@ -33,6 +33,8 @@ export const hasWholesaleOriginalArs = (line: WholesaleLine) => line.order_type 
 
 export function summarizeWholesale(snapshot: WholesaleSnapshot) {
   const byProduct = new Map(snapshot.products.map((product) => [productKey(product.model, product.variant), product]));
+  const currencyByCode = new Map((snapshot.orderRecords || []).filter((record) => record.reference_code)
+    .map((record) => [record.reference_code!, record.wholesale_currency || "ARS"]));
   const activeLines = snapshot.lines.filter((line) => line.status !== "Completado");
   const pendingUnits = activeLines
     .filter((line) => line.status === "Pendiente")
@@ -42,8 +44,8 @@ export function summarizeWholesale(snapshot: WholesaleSnapshot) {
     .reduce((sum, line) => sum + Number(line.quantity), 0);
   const activeValue = activeLines.reduce((totals, line) => {
     const value = wholesaleLineValue(line, byProduct.get(productKey(line.model, line.variant)), snapshot.exchangeRate);
-    if (hasWholesaleOriginalArs(line)) totals.arg += value.arg;
-    totals.uyu += value.uyu;
+    if (currencyByCode.get(line.order_id || "") === "UYU") totals.uyu += value.uyu;
+    else if (hasWholesaleOriginalArs(line)) totals.arg += value.arg;
     return totals;
   }, { arg: 0, uyu: 0 });
   const clientStats = [...activeLines.reduce((groups, line) => {
@@ -207,6 +209,7 @@ export function adaptWholesale(state: State, snapshot: WholesaleSnapshot, imageU
       wholesalePaidInFullWithoutPrice: opening?.paid_in_full_without_price === true,
       wholesaleHistoricalPaidAtOrder: opening?.finance_paid_at_order === true,
       wholesaleTotalArg: totalArg, wholesaleTotalUyu: totalUyu,
+      wholesaleCurrency: recorded?.wholesale_currency || "ARS",
       status: "wholesale_sale", customerId: customerIdByWholesaleName.get(first.customer) || `wholesale:${first.customer}`,
       customerName: first.customer, productId: items[0]?.productId || "",
       quantity: items.reduce((sum, item) => sum + item.quantity, 0), unitPrice: 0,

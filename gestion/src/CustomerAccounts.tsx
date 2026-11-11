@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { arsMoney, currencyMoney, money, orderName, paid, wholesalePaidArs, type State } from "./data";
+import { arsMoney, currencyMoney, money, orderName, paid, wholesalePaidOriginal, type State } from "./data";
 import { accountMoney, accountOrderBalance, accountOrderTotal, customerAccounts, receiptAvailableMinor, type CustomerAccount } from "./customerAccountModel";
 import { CustomerAccountAllocationForm, CustomerAccountReceiptForm, FiadoSaleForm } from "./CustomerAccountForms";
 import type { PageProps } from "./pages";
@@ -88,7 +88,7 @@ function AccountDetail({ account, props, onClose }: { account: CustomerAccount; 
       { label: "Fecha", render: (order) => formatDate(order.date) },
       { label: "Tipo", render: (order) => order.source === "wholesale" ? "Mayorista" : order.paymentMethod === "Cuenta corriente" ? "Fiado" : order.depositAmount != null ? "Con seña" : "Minorista" },
       { label: "Importe", render: (order) => accountOrderTotal(s, order) == null ? "Por conciliar" : accountMoney(account, accountOrderTotal(s, order)!) },
-      { label: "Cobrado", render: (order) => accountOrderBalance(s, order) == null ? "Por conciliar" : accountMoney(account, order.source === "wholesale" ? wholesalePaidArs(s, order) || 0 : paid(s, order)) },
+      { label: "Cobrado", render: (order) => accountOrderBalance(s, order) == null ? "Por conciliar" : accountMoney(account, order.source === "wholesale" ? wholesalePaidOriginal(s, order) || 0 : paid(s, order)) },
       { label: "Falta", render: (order) => accountOrderBalance(s, order) == null ? "Por conciliar" : <strong>{accountMoney(account, accountOrderBalance(s, order)!)}</strong> },
     ]} />
     {account.consignments.length > 0 && <Table title="Consignaciones" className="customer-account-detail-table" rows={account.consignments.map((consignment) => ({ ...consignment, ...consignmentSummary(s, consignment) }))} pageSize={20} searchText={(consignment) => consignment.id} columns={[

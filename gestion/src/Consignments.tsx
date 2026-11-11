@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Plus } from "@phosphor-icons/react";
 import { currencyMoney, montevideoToday, orderName, type Order, type WholesaleConsignment, type WholesaleConsignmentMovement } from "./data";
 import { consignmentLineBalances, consignmentReceiptAvailableMinor, consignmentSummary, type ConsignmentLineBalance } from "./consignmentModel";
 import { allocateConsignmentReceipt, createConsignment, recordConsignmentMovement, recordConsignmentPayment } from "./consignmentSource";
@@ -16,16 +17,17 @@ function NewConsignment({ props, onClose, onCreated }: {
   const wholesale = props.commerce?.wholesale;
   const [id] = useState(() => crypto.randomUUID());
   const [search, setSearch] = useState("");
-  const [currency, setCurrency] = useState<"UYU" | "ARS">("UYU");
   const [selected, setSelected] = useState<Order | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const records = new Map((wholesale?.orderRecords || []).map((record) => [record.id, record]));
   const openings = new Map((wholesale?.paymentOpenings || []).map((opening) => [opening.sale_id, opening]));
+  const orderCurrency = (order: Order): "ARS" | "UYU" => records.get(order.wholesaleSaleId || "")?.wholesale_currency || order.wholesaleCurrency || "ARS";
   const eligible = (order: Order) => {
     const saleId = order.wholesaleSaleId || "";
     const record = records.get(saleId);
     const opening = openings.get(saleId);
+    const currency = orderCurrency(order);
     return order.source === "wholesale" && !!record?.contact_id && !order.consignmentId
       && !record.paid_at && !record.shipped_at && !record.delivered_at
       && !["cancelled", "refunded", "payment_failed"].includes(record.status || "")
@@ -47,23 +49,23 @@ function NewConsignment({ props, onClose, onCreated }: {
     if (!selected?.wholesaleSaleId || !eligible(selected)) { setError("Elegí un pedido mayorista disponible."); return; }
     setBusy(true); setError("");
     try {
-      await createConsignment(id, selected.wholesaleSaleId, currency);
+      await createConsignment(id, selected.wholesaleSaleId, orderCurrency(selected));
       await onCreated(id);
     } catch (failure) { setError(errorText(failure)); setBusy(false); }
   }
   return <Modal title="Nueva consignación" className="consignment-modal" onClose={onClose}>
     <form className="consignment-form" onSubmit={(event) => void save(event)}>
-      <label>Moneda pactada<select value={currency} onChange={(event) => { setCurrency(event.target.value as "UYU" | "ARS"); setSelected(null); }}><option value="UYU">UYU</option><option value="ARS">ARS</option></select></label>
       <label>Buscar pedido mayorista<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Número o cliente" /></label>
       <div className="consignment-order-results" role="group" aria-label="Pedidos mayoristas disponibles">{matches.map((order) =>
         <button type="button" key={order.id} aria-pressed={selected?.id === order.id} onClick={() => setSelected(order)}>
           <strong className="consignment-order-number">{orderName(order)}</strong>
           <strong className="consignment-order-customer">{order.customerName}</strong>
-          <strong className="consignment-order-amount">{currencyMoney((currency === "ARS" ? order.wholesaleTotalArg : order.wholesaleTotalUyu) || 0, currency)}</strong>
+          <strong className="consignment-order-amount">{currencyMoney((orderCurrency(order) === "ARS" ? order.wholesaleTotalArg : order.wholesaleTotalUyu) || 0, orderCurrency(order))}</strong>
           <small className="consignment-order-units">{order.items?.reduce((sum, line) => sum + line.quantity, 0)} unidades</small>
         </button>)}</div>
       {selected && <section className="consignment-order-summary"><h3>{orderName(selected)}, {selected.customerName}</h3>
-        {(selected.items || []).map((line) => <div key={line.id}><strong>{line.title}</strong><small>{line.quantity} unidades, {currencyMoney(currency === "ARS" ? line.priceArg || 0 : line.amount, currency)} en el pedido</small></div>)}
+        <div><strong>Moneda pactada</strong><strong>{orderCurrency(selected)}</strong></div>
+        {(selected.items || []).map((line) => <div key={line.id}><strong>{line.title}</strong><small>{line.quantity} unidades, {currencyMoney(orderCurrency(selected) === "ARS" ? line.priceArg || 0 : line.amount, orderCurrency(selected))} en el pedido</small></div>)}
         <div className="data-note">La moneda y los precios del pedido quedarán guardados en la consignación.</div>
       </section>}
       {error && <div className="error" role="alert">{error}</div>}
@@ -191,10 +193,17 @@ function CreditForm({ props, consignment, onClose, onSaved }: {
 function ConsignmentDetail({ props, consignment, onClose }: {
   props: PageProps; consignment: WholesaleConsignment; onClose: () => void;
 }) {
+  const [tab, setTab] = useState<"products" | "movements" | "receipts">("products");
   const [action, setAction] = useState<{ line: ConsignmentLineBalance; kind: WholesaleConsignmentMovement["kind"] } | null>(null);
+  const [linePickerKind, setLinePickerKind] = useState<"return" | "kept" | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [creditOpen, setCreditOpen] = useState(false);
   const summary = consignmentSummary(props.s, consignment);
+  const availableLines = summary.lines.filter((line) => line.held > 0);
+  const openLineAction = (kind: "return" | "kept") => {
+    if (availableLines.length === 1) setAction({ line: availableLines[0], kind });
+    else if (availableLines.length > 1) setLinePickerKind(kind);
+  };
   const order = props.s.orders.find((entry) => entry.wholesaleSaleId === consignment.orderId);
   const customer = props.s.customers.find((entry) => entry.contactId === consignment.contactId)?.name
     || props.commerce?.wholesale?.contacts?.find((entry) => entry.id === consignment.contactId)?.wholesale_name || "Cliente mayorista";
@@ -220,41 +229,36 @@ function ConsignmentDetail({ props, consignment, onClose }: {
   const changed = async () => { await props.refresh?.(true); setAction(null); setPaymentOpen(false); setCreditOpen(false); };
   return <>
     <Modal title={`Consignación ${order ? orderName(order) : ""}`} className="consignment-detail-modal" onClose={onClose}>
-      <div className="consignment-detail-head"><h2>{customer}</h2><Badge>{summary.status}</Badge></div>
+      <div className="consignment-detail-head"><h2>{customer}</h2><Badge tone={summary.status === "Cerrada" || summary.status === "Enviado" ? "green" : summary.status === "Por cobrar" ? "red" : "yellow"}>{summary.status}</Badge></div>
       <Stats items={[
-        { label: "Enviadas", value: summary.dispatched }, { label: "En poder del cliente", value: summary.held },
-        { label: "Devueltas", value: summary.returned }, { label: "Vendidas o conservadas", value: summary.kept },
-        { label: "Mercadería en su poder", value: currencyMoney(summary.heldValueMinor / 100, consignment.currency) },
+        { label: "Enviadas", value: summary.dispatched },
+        { label: "Devueltas", value: summary.returned }, { label: "Conservadas", value: summary.kept },
         { label: "Importe confirmado", value: currencyMoney(summary.confirmedMinor / 100, consignment.currency) },
         { label: "Pagos aplicados", value: currencyMoney(summary.paidMinor / 100, consignment.currency), tone: "green" },
         { label: "Saldo", value: currencyMoney(summary.balanceMinor / 100, consignment.currency), tone: summary.balanceMinor > 0 ? "yellow" : undefined },
       ]} />
-      <div className="form-actions"><button className="primary" type="button" onClick={() => setPaymentOpen(true)}>Registrar entrega de dinero</button>
-        {summary.balanceMinor > 0 && availableCreditMinor > 0 && <button className="secondary" type="button" onClick={() => setCreditOpen(true)}>Aplicar dinero a favor</button>}
-        <button className="secondary" type="button" onClick={() => props.go("/produccion/mayorista")}>Ver producción</button></div>
       {availableCreditMinor > 0 && <div className="data-note">Dinero {consignment.currency} a favor del cliente sin asignar: {currencyMoney(availableCreditMinor / 100, consignment.currency)}.</div>}
-      <Table title="Productos y unidades" rows={summary.lines} pageSize={30} searchText={(line) => `${line.title} ${line.sku}`} columns={[
+      <nav className="tabs inner-tabs consignment-detail-tabs" role="tablist" aria-label="Detalle de la consignación">
+        <button type="button" role="tab" id="consignment-tab-products" className={tab === "products" ? "active" : ""} aria-controls="consignment-panel-products" aria-selected={tab === "products"} onClick={() => setTab("products")}>Productos y unidades</button>
+        <button type="button" role="tab" id="consignment-tab-movements" className={tab === "movements" ? "active" : ""} aria-controls="consignment-panel-movements" aria-selected={tab === "movements"} onClick={() => setTab("movements")}>Movimientos</button>
+        <button type="button" role="tab" id="consignment-tab-receipts" className={tab === "receipts" ? "active" : ""} aria-controls="consignment-panel-receipts" aria-selected={tab === "receipts"} onClick={() => setTab("receipts")}>Entregas</button>
+      </nav>
+      {tab === "products" && <section id="consignment-panel-products" role="tabpanel" aria-labelledby="consignment-tab-products"><Table title="Productos y unidades" className="consignment-products-table" rows={summary.lines} pageSize={30} searchText={(line) => `${line.title} ${line.sku}`} columns={[
         { label: "Producto", render: (line) => <div><strong>{line.title}</strong><small>SKU {line.sku}</small></div> },
         { label: "Pactado", render: (line) => currencyMoney(line.unitPriceMinor / 100, consignment.currency) },
         { label: "Pedido", render: (line) => line.quantity },
         { label: "Enviadas", render: (line) => line.dispatched },
-        { label: "En poder", render: (line) => line.held },
         { label: "Devueltas", render: (line) => line.returned },
-        { label: "Vendidas o conservadas", render: (line) => line.kept },
-        { label: "Acciones", render: (line) => <div className="consignment-line-actions">
-          <button type="button" className="secondary" disabled={line.availableToDispatch <= 0 || order?.items?.find((item) => item.sku === line.sku)?.productionStatus !== "Completado"} onClick={() => setAction({ line, kind: "dispatch" })}>Enviar</button>
-          <button type="button" className="secondary" disabled={line.held <= 0} onClick={() => setAction({ line, kind: "return" })}>Devolución</button>
-          <button type="button" className="secondary" disabled={line.held <= 0} onClick={() => setAction({ line, kind: "kept" })}>Se queda</button>
-        </div> },
-      ]} />
-      <Table title="Movimientos" rows={events} pageSize={30} searchText={(event) => `${event.label} ${event.detail} ${event.note}`} columns={[
+        { label: "Conservadas", render: (line) => line.kept },
+      ]} /></section>}
+      {tab === "movements" && <section id="consignment-panel-movements" role="tabpanel" aria-labelledby="consignment-tab-movements"><Table title="Movimientos" rows={events} pageSize={30} searchText={(event) => `${event.label} ${event.detail} ${event.note}`} columns={[
         { label: "Fecha", render: (event) => formatDate(event.date) },
         { label: "Movimiento", render: (event) => event.label },
         { label: "Detalle", render: (event) => <div>{event.detail}{event.note && <small>{event.note}</small>}</div> },
         { label: "Unidades", render: (event) => event.quantity || "—" },
         { label: consignment.currency, render: (event) => event.amount ? currencyMoney(event.amount / 100, consignment.currency) : "—" },
-      ]} />
-      <Table title={`Entregas ${consignment.currency} del cliente`} rows={customerReceipts} pageSize={20} searchText={(receipt) => `${receipt.paidOn} ${receipt.paymentMethod} ${receipt.note || ""}`} columns={[
+      ]} /></section>}
+      {tab === "receipts" && <section id="consignment-panel-receipts" role="tabpanel" aria-labelledby="consignment-tab-receipts"><Table title={`Entregas ${consignment.currency} del cliente`} rows={customerReceipts} pageSize={20} searchText={(receipt) => `${receipt.paidOn} ${receipt.paymentMethod} ${receipt.note || ""}`} columns={[
         { label: "Fecha", render: (receipt) => formatDate(receipt.paidOn) },
         { label: "Medio", render: (receipt) => receipt.paymentMethod },
         { label: "Recibido", render: (receipt) => currencyMoney(receipt.sourceAmountMinor / 100, consignment.currency) },
@@ -263,8 +267,18 @@ function ConsignmentDetail({ props, consignment, onClose }: {
           .reduce((sum, allocation) => sum + allocation.sourceAmountMinor, 0) / 100, consignment.currency) },
         { label: "A favor", render: (receipt) => currencyMoney(consignmentReceiptAvailableMinor(props.s, receipt.id) / 100, consignment.currency) },
         { label: "Nota", render: (receipt) => receipt.note || "—" },
-      ]} />
+      ]} /></section>}
+      <footer className="consignment-detail-actions">
+        <button className="secondary" type="button" disabled={!availableLines.length} onClick={() => openLineAction("kept")}>Registrar conservadas</button>
+        <button className="secondary" type="button" disabled={!availableLines.length} onClick={() => openLineAction("return")}>Registrar devolución</button>
+        <button className="primary" type="button" onClick={() => setPaymentOpen(true)}>Registrar entrega de dinero</button>
+        {summary.balanceMinor > 0 && availableCreditMinor > 0 && <button className="secondary" type="button" onClick={() => setCreditOpen(true)}>Aplicar dinero a favor</button>}
+        <button className="secondary" type="button" onClick={() => props.go("/produccion/mayorista")}>Ver producción</button>
+      </footer>
     </Modal>
+    {linePickerKind && <Modal title={`Elegir producto para ${linePickerKind === "return" ? "la devolución" : "registrar conservadas"}`} className="consignment-action-modal" onClose={() => setLinePickerKind(null)}>
+      <div className="consignment-line-picker">{availableLines.map((line) => <button type="button" className="secondary" key={line.id} onClick={() => { setAction({ line, kind: linePickerKind }); setLinePickerKind(null); }}>{line.title}, SKU {line.sku}, {line.held} unidades disponibles</button>)}</div>
+    </Modal>}
     {action && <MovementForm key={action.line.id + action.kind} line={action.line} kind={action.kind} onClose={() => setAction(null)} onSaved={changed} />}
     {paymentOpen && <PaymentForm props={props} consignment={consignment} onClose={() => setPaymentOpen(false)} onSaved={changed} />}
     {creditOpen && <CreditForm props={props} consignment={consignment} onClose={() => setCreditOpen(false)} onSaved={changed} />}
@@ -288,22 +302,22 @@ export function Consignments(props: PageProps) {
   return <section className="consignments-page">
     <Stats items={[
       { label: "Consignaciones activas", value: rows.filter((row) => row.status !== "Cerrada").length },
-      { label: "En poder de clientes", value: rows.reduce((sum, row) => sum + row.held, 0) },
+      { label: "Unidades enviadas", value: rows.reduce((sum, row) => sum + row.dispatched, 0) },
       { label: "Unidades devueltas", value: rows.reduce((sum, row) => sum + row.returned, 0) },
       { label: "Saldo UYU", value: currencyMoney(balanceFor("UYU") / 100, "UYU"), tone: "yellow" },
       { label: "Saldo ARS", value: currencyMoney(balanceFor("ARS") / 100, "ARS"), tone: "yellow" },
     ]} />
-    <Table title="Consignaciones" rows={rows} pageSize={30} searchText={(row) => `${row.customer} ${row.reference} ${row.status}`} action={<button type="button" className="primary" onClick={() => setCreating(true)}>Nueva consignación</button>} columns={[
+    <Table title="Consignaciones" className="consignments-list" rows={rows} pageSize={30} searchText={(row) => `${row.customer} ${row.reference} ${row.status}`} action={<button type="button" className="primary" onClick={() => setCreating(true)}>Nueva consignación</button>} columns={[
       { label: "Pedido", render: (row) => row.reference }, { label: "Cliente", render: (row) => <strong>{row.customer}</strong> },
       { label: "Fecha", render: (row) => formatDate(row.createdAt) },
-      { label: "Enviadas", render: (row) => row.dispatched }, { label: "En poder", render: (row) => row.held },
-      { label: "Devueltas", render: (row) => row.returned }, { label: "Vendidas o conservadas", render: (row) => row.kept },
+      { label: "Enviadas", render: (row) => row.dispatched },
+      { label: "Devueltas", render: (row) => row.returned }, { label: "Conservadas", render: (row) => row.kept },
       { label: "Moneda", render: (row) => row.currency },
       { label: "Confirmado", render: (row) => currencyMoney(row.confirmedMinor / 100, row.currency) },
       { label: "Pagos aplicados", render: (row) => currencyMoney(row.paidMinor / 100, row.currency) },
       { label: "Saldo", render: (row) => currencyMoney(row.balanceMinor / 100, row.currency) },
-      { label: "Estado", render: (row) => <Badge>{row.status}</Badge> },
-      { label: "Acciones", render: (row) => <button type="button" className="secondary" onClick={() => setSelectedId(row.id)}>Ver detalle</button> },
+      { label: "Estado", render: (row) => <Badge tone={row.status === "Cerrada" || row.status === "Enviado" ? "green" : row.status === "Por cobrar" ? "red" : "yellow"}>{row.status}</Badge> },
+      { label: "Acciones", render: (row) => <button type="button" className="secondary order-details-button" aria-label={`Ver detalle de ${row.reference}`} title="Ver detalle" onClick={() => setSelectedId(row.id)}><Plus size={18} weight="bold" aria-hidden="true" /></button> },
     ]} />
     {creating && <NewConsignment props={props} onClose={() => setCreating(false)} onCreated={async (id) => { await props.refresh?.(true); setCreating(false); setSelectedId(id); }} />}
     {selected && <ConsignmentDetail props={props} consignment={selected} onClose={() => setSelectedId(null)} />}
