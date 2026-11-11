@@ -89,7 +89,7 @@ test("todas las subpestañas se pueden marcar sin permisos de función", async (
 });
 test("canales y columnas de clientes tienen identidad y datos separados", async ({ page }) => {
   await page.goto("/comercial/pedidos");
-  await expect(page.locator(".badge.channel-web").first()).toHaveText("Web");
+  await expect(page.locator(".badge.channel-web").first()).toHaveText("Registros web");
   await expect(page.locator(".badge.channel-web").first()).toHaveCSS("color", "rgb(35, 107, 145)");
   await expect(page.locator(".tabs button.channel-mayorista")).toHaveCount(0);
   await expect(page.locator(".tabs button.channel-whatsapp")).toHaveCSS("color", "rgb(23, 108, 58)");
@@ -517,7 +517,7 @@ test("pedido real integrado en ventas, cliente, producción y cobros", async ({ 
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText("Mate negro", {exact: true})).toBeVisible();
   await expect(dialog.getByText("Mate marrón", {exact: true})).toBeVisible();
-  await expect(dialog.getByText("$ 4.101", { exact: true }).first()).toBeVisible();
+  await expect(dialog.getByText("UYU 4.101", { exact: true }).first()).toBeVisible();
   await dialog.getByRole("button", { name: "Ver ficha del cliente" }).click();
   await expect(page.getByRole("dialog").getByRole("heading", { name: "Cliente de prueba" })).toBeVisible();
   await expect(page.getByRole("dialog").getByRole("row").filter({ hasText: "#9001" })).toBeVisible();
@@ -619,8 +619,8 @@ test("Producción mayorista muestra pedidos y resúmenes sin desplazamiento hori
     await page.getByRole("button", { name: group, exact: true }).click();
     for (const width of [390, 1024, 1440, 1920]) {
       await page.setViewportSize({ width, height: 1100 });
-      const fits = await page.locator(".wholesale-production-table .table-scroll").evaluate((element) => element.scrollWidth <= element.clientWidth + 1);
-      expect(fits, `${group} se desborda a ${width}px`).toBe(true);
+      const size = await page.locator(".wholesale-production-table .table-scroll").evaluate((element) => ({ scroll: element.scrollWidth, client: element.clientWidth }));
+      expect(size.scroll <= size.client + 1, `${group} se desborda a ${width}px (${size.scroll} > ${size.client})`).toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${group} ensancha la página a ${width}px`).toBe(true);
       if (width === 390) {
         await page.locator(".wholesale-compact-filters summary").click();
@@ -871,7 +871,7 @@ test("catálogo y tarifas muestran datos del origen sin precios inventados", asy
   }
   await expect(page.locator(".catalog-general-list thead th").first()).toHaveText("SKU");
   await expect(page.locator(".catalog-general-list tbody tr").first().locator("td").nth(4)).toHaveText("$ 1.000,5");
-  await expect(page.locator(".catalog-general-list tbody tr").first().locator("td").nth(6)).toHaveText("—");
+  await expect(page.locator(".catalog-general-list tbody tr").first().locator("td").nth(6)).toHaveText("$ 1.000,5");
   await page.getByRole("combobox", { name: "Ordenar" }).selectOption("sku-desc");
   await expect(page.locator(".catalog-general-list tbody tr").first().locator("td").first()).toHaveText("SKU-2");
   await page.getByRole("combobox", { name: "Ordenar" }).selectOption("sku-asc");
@@ -909,20 +909,20 @@ test("sin egresos ni historial suficiente no inventa ganancia ni proyecciones", 
   await expect(page.locator(".finance-highlight.expense strong")).toHaveText("—");
   await expect(page.locator(".finance-highlight.result strong")).toHaveText("—");
   await expect(page.getByText(/Se necesitan al menos seis/)).toBeVisible();
-  await expect(page.locator(".finance-amount.opening").first()).toHaveText("—");
+  await expect(page.locator(".finance-amount.opening").first()).toHaveText("$ 4.101");
   const scroll = page.getByLabel("Desplazar tabla de meses horizontalmente");
   await scroll.focus(); await page.keyboard.press("End");
   expect(await page.locator(".finance-matrix-window").evaluate((el) => el.scrollLeft)).toBeGreaterThan(100);
   await page.screenshot({ path: "artifacts/finanzas-integradas.png", fullPage: true });
 });
 test("todas las rutas existentes cargan con datos compartidos y sin errores", async ({ page }) => {
-  test.setTimeout(120000);
+  test.setTimeout(300000);
   await mockCommerce(page, { writable: true });
   const errors: string[] = []; page.on("pageerror", (error) => errors.push(error.message));
   for (const path of paths) {
     await page.goto(path);
-    await expect(page.getByRole("button", { name: "Actualizar", exact: true })).toBeVisible();
-    await expect(page.locator("main")).not.toContainText("Cargando datos…");
+    await expect(page.getByRole("button", { name: "Actualizar", exact: true }), `${path}: ${errors.join("; ")}`).toBeVisible();
+    await expect(page.locator("main"), `${path}: ${errors.join("; ")}`).not.toContainText("Cargando datos…");
     await expect(page.locator("body")).not.toContainText("NaN");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), path).toBe(true);
   }

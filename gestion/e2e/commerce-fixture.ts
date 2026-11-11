@@ -18,8 +18,12 @@ export async function mockCommerce(page: Page, options: { userId?: string; denie
   const user = { id: options.userId ?? "admin-test", aud: "authenticated", role: "authenticated", email: "test@example.invalid", app_metadata: {}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z" };
   const session = { access_token: "header.payload.signature", refresh_token: "test-only", token_type: "bearer", expires_in: (options.sessionHours || 1) * 3600, expires_at: Math.floor(Date.now() / 1000) + (options.sessionHours || 1) * 3600, user };
   await page.addInitScript(({ session, authenticated }) => {
-    localStorage.setItem("matearte-gestion-demo-v1", JSON.stringify({ orders: [{ id: "MA-FAKE" }] }));
-    if (authenticated) localStorage.setItem("matearte-gestion-commerce-auth", JSON.stringify(session));
+    try {
+      localStorage.setItem("matearte-gestion-demo-v1", JSON.stringify({ orders: [{ id: "MA-FAKE" }] }));
+      if (authenticated) localStorage.setItem("matearte-gestion-commerce-auth", JSON.stringify(session));
+    } catch {
+      // Los iframes externos sin origen propio no tienen acceso a localStorage.
+    }
   }, { session, authenticated: options.authenticated !== false });
   const writes: { table: string; method: string; body: any }[] = [];
   Object.assign(fixture.products[0], { description: "Cuero y alpaca", category_code: "mates", attributes: { "material-mate": "calabaza", "tipo-virola": "acero", "tipo-cuero": "liso", posamate: "sin-posamate" }, catalog_filters: {}, sale_mode: "standard" });
@@ -116,6 +120,10 @@ export async function mockCommerce(page: Page, options: { userId?: string; denie
         analytics: { site: { id: 'tienda', name: 'Tienda web' }, sites: [{ id: 'tienda', name: 'Tienda web' }], days: 30, timeline: [], countries: [], devices: [], referrers: [], pages: [], products: [] },
       };
       return respond(marketing[action] ?? {});
+    }
+    if (url.pathname.endsWith('/functions/v1/analytics-admin')) {
+      return respond({ steps: [], daily: [], vercel: [], changes: [], activated_on: null,
+        ga4: { status: 'not_configured' }, clarityUrl: '' });
     }
     if (method !== 'GET' && method !== 'HEAD') {
       if (!options.writable) throw Error(`No se permiten escrituras en esta prueba: ${method} ${table}`);

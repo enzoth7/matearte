@@ -5,7 +5,7 @@ test("una venta por WhatsApp guarda el envío y la seña en la moneda elegida", 
   const { writes } = await mockCommerce(page, { writable: true });
   await page.goto("/comercial/registrar-min");
 
-  const currency = page.getByLabel("Moneda", { exact: true });
+  const currency = page.getByRole("combobox", { name: "Moneda", exact: true });
   await expect(currency).toHaveValue("UYU");
   await expect(currency.getByRole("option")).toHaveText(["ARS", "UYU", "USD", "BRL"]);
   await expect(page.getByLabel(/^Envío/)).toHaveCount(0);
