@@ -73,7 +73,7 @@ function localWorkshopKind(item: OrderLine, product: Product | undefined): Perso
 export function localPersonalizedOrders(state: State | undefined): PersonalizedOrder[] {
   if (!state) return [];
   const products = new Map(state.products.map((product) => [product.id, product]));
-  return state.orders.filter((order) => order.source === 'local').flatMap((order) => {
+  return state.orders.filter((order) => order.source === 'local' && order.paymentMethod !== 'Cuenta corriente').flatMap((order) => {
     const allItems = order.items || [];
     const kinds = new Map(allItems.map((item) => [item.id, localWorkshopKind(item, products.get(item.productId))]));
     if (![...kinds.values()].some(Boolean)) return [];

@@ -60,6 +60,13 @@ describe("presentación de producción", () => {
     expect(orderProductionLabel(serviceCredit, [])).toBe("-");
   });
 
+  it("excluye todos los fiados locales de producción aunque un renglón parezca un servicio", () => {
+    const products = [product("service", "Grabado", "servicios")];
+    const credit = { ...order([line("service-line", "service", "service")]), source: "local" as const, paymentMethod: "Cuenta corriente" };
+    expect(workshopOrderRows([credit], products)).toHaveLength(0);
+    expect(orderProductionLabel(credit, products)).toBe("-");
+  });
+
   it("muestra guion para stock y mantiene pendiente un pedido mixto hasta completar todos sus artículos", () => {
     const products = [product("regular", "Mate Imperial", "mates"), product("custom", "Mate a medida", "personalizados")];
     const stock = order([line("stock", "regular")]);

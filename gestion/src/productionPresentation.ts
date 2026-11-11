@@ -57,6 +57,7 @@ export function orderProductionLabel(order: Order, products: Product[]): "Pendie
 
 export function workshopOrderRows(orders: Order[], products: Product[]): Order[] {
   return orders.filter(isSale).flatMap((order) => {
+    if (order.source === "local" && order.paymentMethod === "Cuenta corriente") return [];
     if (order.source === "wholesale" || (order.source !== "local" && order.channel !== "Web" && order.channel !== "Local")) return [order];
     const workshopItems = (order.items || []).flatMap((item) => {
       if (item.orderType === "credit_category") return [];
