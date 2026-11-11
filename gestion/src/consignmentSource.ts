@@ -17,8 +17,8 @@ async function pages<T>(table: string, columns: string): Promise<T[]> {
   }
 }
 
-type ConsignmentRow = { id: string; order_id: string; contact_id: string; exchange_rate: number; created_at: string };
-type LineRow = { id: string; consignment_id: string; order_item_id: string; variant_id: string; sku: string; title: string; quantity: number; unit_price_arg_minor: number };
+type ConsignmentRow = { id: string; order_id: string; contact_id: string; currency: "UYU" | "ARS"; exchange_rate: number; created_at: string };
+type LineRow = { id: string; consignment_id: string; order_item_id: string; variant_id: string; sku: string; title: string; quantity: number; unit_price_minor: number };
 type MovementRow = { id: string; line_id: string; kind: WholesaleConsignmentMovement["kind"]; quantity: number; occurred_on: string; carrier: string | null; tracking: string | null; note: string | null; created_at: string };
 type AllocationRow = { id: string; consignment_id: string; receipt_id: string; source_amount_minor: number; allocated_at: string };
 
@@ -27,17 +27,17 @@ export async function readConsignments(): Promise<{
   consignmentMovements: WholesaleConsignmentMovement[]; consignmentAllocations: WholesaleConsignmentAllocation[];
 }> {
   const [headers, lines, movements, allocations] = await Promise.all([
-    pages<ConsignmentRow>("wholesale_consignments", "id,order_id,contact_id,exchange_rate,created_at"),
-    pages<LineRow>("wholesale_consignment_lines", "id,consignment_id,order_item_id,variant_id,sku,title,quantity,unit_price_arg_minor"),
+    pages<ConsignmentRow>("wholesale_consignments", "id,order_id,contact_id,currency,exchange_rate,created_at"),
+    pages<LineRow>("wholesale_consignment_lines", "id,consignment_id,order_item_id,variant_id,sku,title,quantity,unit_price_minor"),
     pages<MovementRow>("wholesale_consignment_movements", "id,line_id,kind,quantity,occurred_on,carrier,tracking,note,created_at"),
     pages<AllocationRow>("wholesale_consignment_allocations", "id,consignment_id,receipt_id,source_amount_minor,allocated_at"),
   ]);
   return {
-    consignments: headers.map((row) => ({ id: row.id, orderId: row.order_id, contactId: row.contact_id,
+    consignments: headers.map((row) => ({ id: row.id, orderId: row.order_id, contactId: row.contact_id, currency: row.currency,
       exchangeRate: Number(row.exchange_rate), createdAt: row.created_at })),
     consignmentLines: lines.map((row) => ({ id: row.id, consignmentId: row.consignment_id,
       orderItemId: row.order_item_id, variantId: row.variant_id, sku: row.sku, title: row.title,
-      quantity: Number(row.quantity), unitPriceArgMinor: Number(row.unit_price_arg_minor) })),
+      quantity: Number(row.quantity), unitPriceMinor: Number(row.unit_price_minor) })),
     consignmentMovements: movements.map((row) => ({ id: row.id, lineId: row.line_id, kind: row.kind,
       quantity: Number(row.quantity), occurredOn: row.occurred_on, carrier: row.carrier,
       tracking: row.tracking, note: row.note, createdAt: row.created_at })),
@@ -46,9 +46,9 @@ export async function readConsignments(): Promise<{
   };
 }
 
-export async function createConsignment(id: string, orderId: string) {
+export async function createConsignment(id: string, orderId: string, currency: "UYU" | "ARS") {
   const { data, error } = await client().rpc("gestion_link_wholesale_consignment", {
-    p_id: id, p_order_id: orderId,
+    p_id: id, p_order_id: orderId, p_currency: currency,
   });
   if (error) throw error;
   return data as { id: string; order_id: string; reference_code: string };
@@ -68,7 +68,7 @@ export async function recordConsignmentMovement(input: {
 
 export async function recordConsignmentPayment(input: {
   receiptId: string; allocationId: string; consignmentId: string; amountMinor: number;
-  exchangeRate: number; method: string; paidOn: string; note?: string;
+  exchangeRate: number | null; method: string; paidOn: string; note?: string;
 }) {
   const { error } = await client().rpc("gestion_record_wholesale_consignment_payment", {
     p_receipt_id: input.receiptId, p_allocation_id: input.allocationId,

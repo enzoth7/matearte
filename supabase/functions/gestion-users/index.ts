@@ -49,10 +49,73 @@ Deno.serve(async (request) => {
   const { data: { user } } = await userClient.auth.getUser(bearer);
   if (!user) return json({ error: "Sesión inválida." }, 401, origin);
   const { data: caller } = await service.from("commerce_admin_users").select("access_user_id,allowed_paths,active").eq("user_id", user.id).maybeSingle();
-  const canManageUsers = caller?.active && (caller.access_user_id === "t1" || caller.allowed_paths?.includes("/administracion/usuarios"));
-  if (!canManageUsers) return json({ error: "No tenés acceso a Usuarios y permisos." }, 403, origin);
+  if (!caller?.active) return json({ error: "No tenés acceso a esta gestión de usuarios." }, 403, origin);
+  const canManageUsers = caller.access_user_id === "t1" || caller.allowed_paths?.includes("/administracion/usuarios");
+  const consignmentActions = ["listConsignees", "createConsignee", "setConsigneeActive", "resetConsigneePassword"];
+  const isConsignmentAction = consignmentActions.includes(String(body.action));
+  const canManageConsignees = caller.access_user_id === "t1" || caller.allowed_paths?.includes("/consignaciones/usuarios");
+  if (isConsignmentAction ? !canManageConsignees : !canManageUsers) {
+    return json({ error: "No tenés acceso a esta gestión de usuarios." }, 403, origin);
+  }
 
   service = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false }, global: { headers: { "x-gestion-actor-id": user.id, "x-gestion-operation-id": crypto.randomUUID() } } });
+
+  if (isConsignmentAction) {
+    if (body.action === "listConsignees") {
+      const { data: memberships, error } = await service.from("consignment_portal_users")
+        .select("user_id,contact_id,display_name,active,created_at").order("created_at");
+      if (error) return json({ error: "No se pudieron leer los consignatarios." }, 500, origin);
+      const users = await Promise.all((memberships || []).map(async (membership) => {
+        const { data } = await service.auth.admin.getUserById(membership.user_id);
+        const email = data.user?.email || "";
+        return { userId: membership.user_id, contactId: membership.contact_id,
+          displayName: membership.display_name, active: membership.active,
+          username: email.endsWith("@matearte.uy") ? email.slice(0, -"@matearte.uy".length) : email };
+      }));
+      return json({ users }, 200, origin);
+    }
+    if (body.action === "createConsignee") {
+      const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
+      const password = typeof body.password === "string" ? body.password : "";
+      const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
+      const contactId = typeof body.contactId === "string" ? body.contactId : "";
+      if (!/^[a-z0-9._-]{3,64}$/.test(username) || password.length < 8
+        || !displayName || displayName.length > 120
+        || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(contactId)) {
+        return json({ error: "Revisá usuario, contraseña, nombre y cliente." }, 400, origin);
+      }
+      const { data: contact } = await service.from("contacts").select("id,wholesale_name").eq("id", contactId).maybeSingle();
+      const { count } = await service.from("wholesale_consignments").select("id", { count: "exact", head: true }).eq("contact_id", contactId);
+      if (!contact?.wholesale_name || !count) return json({ error: "El cliente necesita una consignación registrada." }, 400, origin);
+      const { data: created, error: createError } = await service.auth.admin.createUser({ email: `${username}@matearte.uy`, password, email_confirm: true });
+      if (createError || !created.user) return json({ error: "No se pudo crear el usuario. Revisá que el nombre no esté en uso." }, 400, origin);
+      const { error: insertError } = await service.from("consignment_portal_users")
+        .insert({ user_id: created.user.id, contact_id: contactId, display_name: displayName, active: false, created_by: user.id });
+      if (insertError) {
+        await service.auth.admin.deleteUser(created.user.id);
+        return json({ error: "No se pudo vincular el usuario al cliente." }, 500, origin);
+      }
+      return json({ user: { userId: created.user.id, contactId, displayName, username, active: false } }, 201, origin);
+    }
+    const userId = typeof body.userId === "string" ? body.userId : "";
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+      return json({ error: "Usuario inválido." }, 400, origin);
+    }
+    if (body.action === "setConsigneeActive") {
+      if (typeof body.active !== "boolean") return json({ error: "Estado inválido." }, 400, origin);
+      const { data, error } = await service.from("consignment_portal_users")
+        .update({ active: body.active }).eq("user_id", userId).select("user_id,active").maybeSingle();
+      if (error || !data) return json({ error: "No se pudo cambiar el acceso." }, error ? 500 : 404, origin);
+      return json({ userId: data.user_id, active: data.active }, 200, origin);
+    }
+    const password = typeof body.password === "string" ? body.password : "";
+    if (password.length < 8) return json({ error: "La contraseña debe tener al menos 8 caracteres." }, 400, origin);
+    const { data: membership } = await service.from("consignment_portal_users").select("user_id").eq("user_id", userId).maybeSingle();
+    if (!membership) return json({ error: "Usuario no encontrado." }, 404, origin);
+    const { error } = await service.auth.admin.updateUserById(userId, { password });
+    return error ? json({ error: "No se pudo cambiar la contraseña." }, 500, origin)
+      : json({ userId }, 200, origin);
+  }
 
   if (body.action === "list") {
     const { data: memberships, error } = await service.from("commerce_admin_users").select("user_id,access_user_id,display_name,allowed_paths,active").or(`access_user_id.in.(${fixedAccessUserIds.join(",")}),access_user_id.like.u*`).order("created_at");

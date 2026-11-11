@@ -372,7 +372,12 @@ test('personalizados combina un mate armado, matera y bombilla y guarda los dise
   for (const [label,value] of [['Color','natural'],['Interior','calabaza'],['Tamaño','grande'],['Virola','imperial'],['Posamate','sin-posamate'],['Pie','comun']]) await materials.getByLabel(label,{exact:true}).selectOption(value);
   await expect(page.locator('.local-sale-photo-panel')).not.toContainText('Todos los tamaños');
   await page.getByRole('navigation', { name: 'Pasos del diseño de Mate Imperial personalizado' }).getByRole('button', { name: /Virola/ }).click();
-  await page.getByLabel('Texto de virola de Mate Imperial personalizado').fill('ENZO');
+  await page.getByRole('textbox', { name: 'Texto de virola de Mate Imperial personalizado' }).fill('ENZO');
+  await page.getByLabel('Referencia para el taller de Mate Imperial personalizado').setInputFiles({
+    name: 'cincelado.png', mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/eeUAAAAASUVORK5CYII=', 'base64'),
+  });
+  await expect(materials.getByText('cincelado.png')).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Pasos del diseño de Mate Imperial personalizado' }).getByRole('button', { name: /Resumen/ })).toHaveCount(0);
   await expect(page.getByLabel('Precio unitario de Mate Imperial personalizado')).toHaveValue(/2\.720/);
   await expect(page.getByLabel('Desglose de Mate Imperial personalizado')).toContainText('Grabado láser en virola');
@@ -398,7 +403,7 @@ test('personalizados combina un mate armado, matera y bombilla y guarda los dise
   await expect(page.getByLabel('Técnica de Bombilla de alpaca').locator('option')).toHaveText(['Elegir técnica', 'Aplique de bronce', 'Aplique de alpaca']);
   await expect(page.getByLabel('Ubicación de Bombilla de alpaca')).toHaveCount(0);
   await page.getByLabel('Técnica de Bombilla de alpaca').selectOption('bronze-applique');
-  await page.getByLabel('Texto de Bombilla de alpaca').fill('ANA');
+  await page.getByRole('textbox', { name: 'Texto de Bombilla de alpaca' }).fill('ANA');
   await expect(page.getByLabel('Precio unitario de Bombilla de alpaca')).toHaveValue(/1\.075,5/);
   await expect(page.getByLabel('Precio de Bombilla de alpaca')).toContainText('Texto en bombilla');
   await page.getByLabel('Indicaciones para Bombilla de alpaca').fill('Letra cursiva');
@@ -412,6 +417,7 @@ test('personalizados combina un mate armado, matera y bombilla y guarda los dise
   expect(write?.body.p_items[0].customization.localPricing).toMatchObject({ source: 'published-personalizer', versionId: 'pricing-test', extrasUnitPriceMinor: 12000 });
   expect(write?.body.p_items[0].customization.configuration.rim.texts[0].text).toBe('ENZO');
   expect(write?.body.p_items[0].customization.configuration.selectedOptions).toEqual({ tamano: 'grande', interior: 'calabaza' });
+  expect(write?.body.p_items[0].customization.assets).toContainEqual(expect.objectContaining({ original_name: 'cincelado.png', role: 'workshop_reference' }));
   expect(write?.body.p_items[1].unit_price_minor).toBe(124050);
   expect(write?.body.p_items[1].customization.localPricing).toMatchObject({ source: 'published-personalizer', versionId: 'pricing-test', extrasUnitPriceMinor: 24000 });
   expect(write?.body.p_items[1].customization.localPersonalization).toMatchObject({ kind: 'matera', placement: 'front-lid', logoName: 'logo-cliente.svg' });
@@ -428,6 +434,7 @@ test('personalizados combina un mate armado, matera y bombilla y guarda los dise
   await expect(dialog.getByRole('heading', { name: 'Matera de catálogo' })).toBeVisible();
   await expect(dialog.getByRole('heading', { name: 'Bombilla de alpaca' })).toBeVisible();
   await dialog.getByRole('tab', { name: 'Producción' }).click();
+  await expect(dialog.locator('.customer-assets--uploads .customer-asset').filter({ hasText: 'Referencia para el taller' })).toBeVisible();
   await expect(dialog.getByText('Calabaza', { exact: true })).toBeVisible();
   await expect(dialog.getByText('Frente y tapa')).toBeVisible();
   await expect(dialog.getByText('logo-cliente.svg').first()).toBeVisible();

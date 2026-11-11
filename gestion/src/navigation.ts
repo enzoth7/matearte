@@ -20,6 +20,15 @@ export const areas = [
     ],
   },
   {
+    id: "consignaciones",
+    name: "Consignaciones",
+    hint: "Mercadería y cuenta de consignatarios",
+    pages: [
+      ["resumen", "Consignaciones"],
+      ["usuarios", "Usuarios consignatarios"],
+    ],
+  },
+  {
     id: "marketing",
     name: "Marketing",
     hint: "Suscriptores, campañas y promociones",
@@ -120,7 +129,6 @@ export const areas = [
       ["conciliacion", "Conciliación"],
       ["por-cobrar", "Cuentas por cobrar"],
       ["fiados-local", "Fiados Local"],
-      ["consignaciones", "Consignaciones"],
       ["monedas", "Monedas y cotizaciones"],
     ],
   },

@@ -2,7 +2,7 @@ import type { State, WholesaleConsignment, WholesaleConsignmentLine } from "./da
 
 export type ConsignmentLineBalance = WholesaleConsignmentLine & {
   dispatched: number; returned: number; kept: number; held: number;
-  availableToDispatch: number; confirmedArgMinor: number;
+  availableToDispatch: number; confirmedMinor: number; heldValueMinor: number;
 };
 
 export function consignmentLineBalances(state: State, consignmentId: string): ConsignmentLineBalance[] {
@@ -14,15 +14,16 @@ export function consignmentLineBalances(state: State, consignmentId: string): Co
     const returned = sum("return");
     const kept = sum("kept");
     return { ...line, dispatched, returned, kept, held: dispatched - returned - kept,
-      availableToDispatch: line.quantity - dispatched, confirmedArgMinor: kept * line.unitPriceArgMinor };
+      availableToDispatch: line.quantity - dispatched, confirmedMinor: kept * line.unitPriceMinor,
+      heldValueMinor: (dispatched - returned - kept) * line.unitPriceMinor };
   });
 }
 
 export function consignmentSummary(state: State, consignment: WholesaleConsignment) {
   const lines = consignmentLineBalances(state, consignment.id);
   const sum = (value: (line: ConsignmentLineBalance) => number) => lines.reduce((total, line) => total + value(line), 0);
-  const confirmedArgMinor = sum((line) => line.confirmedArgMinor);
-  const paidArgMinor = (state.consignmentAllocations || [])
+  const confirmedMinor = sum((line) => line.confirmedMinor);
+  const paidMinor = (state.consignmentAllocations || [])
     .filter((allocation) => allocation.consignmentId === consignment.id)
     .reduce((total, allocation) => total + allocation.sourceAmountMinor, 0);
   const planned = sum((line) => line.quantity);
@@ -30,16 +31,16 @@ export function consignmentSummary(state: State, consignment: WholesaleConsignme
   const held = sum((line) => line.held);
   const returned = sum((line) => line.returned);
   const kept = sum((line) => line.kept);
-  return { lines, planned, dispatched, held, returned, kept, confirmedArgMinor, paidArgMinor,
-    balanceArgMinor: Math.max(0, confirmedArgMinor - paidArgMinor),
-    status: held > 0 || dispatched < planned ? "En curso" : confirmedArgMinor > paidArgMinor ? "Por cobrar" : "Cerrada" };
+  return { lines, planned, dispatched, held, returned, kept, heldValueMinor: sum((line) => line.heldValueMinor),
+    confirmedMinor, paidMinor, balanceMinor: Math.max(0, confirmedMinor - paidMinor),
+    status: held > 0 || dispatched < planned ? "En curso" : confirmedMinor > paidMinor ? "Por cobrar" : "Cerrada" };
 }
 
-export function consignmentReceiptAvailableMinor(state: State, receiptId: string): number {
+export function consignmentReceiptAvailableMinor(state: State, receiptId: string, currency?: "UYU" | "ARS"): number {
   const receipt = (state.accountReceipts || []).find((row) => row.id === receiptId);
-  if (!receipt || receipt.currency !== "ARS") return 0;
+  if (!receipt || (currency && receipt.currency !== currency)) return 0;
   const ordinary = (state.accountAllocations || []).filter((row) => row.receiptId === receiptId)
-    .reduce((total, row) => total + (row.sourceAmountMinor || 0), 0);
+    .reduce((total, row) => total + (receipt.currency === "ARS" ? row.sourceAmountMinor || 0 : row.amountMinor), 0);
   const consigned = (state.consignmentAllocations || []).filter((row) => row.receiptId === receiptId)
     .reduce((total, row) => total + row.sourceAmountMinor, 0);
   return Math.max(0, receipt.sourceAmountMinor - ordinary - consigned);

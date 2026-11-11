@@ -13,7 +13,7 @@ function wholesaleAsCatalog(rows: any[]) {
   }));
 }
 
-export async function mockCommerce(page: Page, options: { userId?: string; denied?: boolean; failure?: boolean; authenticated?: boolean; writable?: boolean; failWrite?: string; needsSetup?: boolean; accessUserId?: "t1" | "t2" | "t3"; allowedPaths?: string[] | null; sessionHours?: number } = {}) {
+export async function mockCommerce(page: Page, options: { userId?: string; denied?: boolean; failure?: boolean; authenticated?: boolean; writable?: boolean; failWrite?: string; needsSetup?: boolean; accessUserId?: "t1" | "t2" | "t3"; allowedPaths?: string[] | null; sessionHours?: number; portalDashboard?: unknown; portalStatus?: number } = {}) {
   const fixture = commerceFixture();
   const user = { id: options.userId ?? "admin-test", aud: "authenticated", role: "authenticated", email: "test@example.invalid", app_metadata: {}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z" };
   const session = { access_token: "header.payload.signature", refresh_token: "test-only", token_type: "bearer", expires_in: (options.sessionHours || 1) * 3600, expires_at: Math.floor(Date.now() / 1000) + (options.sessionHours || 1) * 3600, user };
@@ -63,6 +63,9 @@ export async function mockCommerce(page: Page, options: { userId?: string; denie
     if (options.failure && table === "orders") return route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Lectura interrumpida" }) });
     const method = route.request().method();
     const respond = (data: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
+    if (url.pathname.endsWith('/functions/v1/gestion-consignatario')) {
+      return respond(options.portalDashboard ?? { error: 'La cuenta no está habilitada.' }, options.portalStatus ?? (options.portalDashboard ? 200 : 403));
+    }
     if (url.pathname.endsWith('/functions/v1/gestion-users')) {
       const body = route.request().postDataJSON() || {};
       writes.push({ table: 'gestion-users', method, body });

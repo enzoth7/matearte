@@ -3,7 +3,7 @@ import type { CustomerAccountAllocation, CustomerAccountReceipt } from "./data";
 
 type ReceiptRow = {
   id: string; contact_id: string; amount_minor: number; source_amount_minor: number;
-  currency: "UYU" | "ARS"; payment_method: string; paid_on: string; note: string | null;
+  currency: "UYU" | "ARS"; payment_method: string; paid_on: string; note: string | null; consignment_id: string | null;
 };
 type AllocationRow = {
   id: string; receipt_id: string; order_id: string; amount_minor: number; source_amount_minor: number | null; allocated_at: string;
@@ -27,11 +27,11 @@ export async function readCustomerAccounts(): Promise<{
   allocations: CustomerAccountAllocation[];
 }> {
   const [receipts, allocations] = await Promise.all([
-    readPages<ReceiptRow>("customer_account_receipts", "id,contact_id,amount_minor,source_amount_minor,currency,payment_method,paid_on,note"),
+    readPages<ReceiptRow>("customer_account_receipts", "id,contact_id,amount_minor,source_amount_minor,currency,payment_method,paid_on,note,consignment_id"),
     readPages<AllocationRow>("customer_account_allocations", "id,receipt_id,order_id,amount_minor,source_amount_minor,allocated_at"),
   ]);
   return {
-    receipts: receipts.map((row) => ({ id: row.id, contactId: row.contact_id, amountMinor: Number(row.amount_minor),
+    receipts: receipts.map((row) => ({ id: row.id, contactId: row.contact_id, consignmentId: row.consignment_id, amountMinor: Number(row.amount_minor),
       sourceAmountMinor: Number(row.source_amount_minor), currency: row.currency, paymentMethod: row.payment_method,
       paidOn: row.paid_on, note: row.note })),
     allocations: allocations.map((row) => ({ id: row.id, receiptId: row.receipt_id, orderId: row.order_id,

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { arsMoney, montevideoToday, orderName, type Order, type WholesaleConsignment, type WholesaleConsignmentMovement } from "./data";
+import { currencyMoney, montevideoToday, orderName, type Order, type WholesaleConsignment, type WholesaleConsignmentMovement } from "./data";
 import { consignmentLineBalances, consignmentReceiptAvailableMinor, consignmentSummary, type ConsignmentLineBalance } from "./consignmentModel";
 import { allocateConsignmentReceipt, createConsignment, recordConsignmentMovement, recordConsignmentPayment } from "./consignmentSource";
 import { formatDate } from "./dateFormat";
@@ -16,6 +16,7 @@ function NewConsignment({ props, onClose, onCreated }: {
   const wholesale = props.commerce?.wholesale;
   const [id] = useState(() => crypto.randomUUID());
   const [search, setSearch] = useState("");
+  const [currency, setCurrency] = useState<"UYU" | "ARS">("UYU");
   const [selected, setSelected] = useState<Order | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -32,8 +33,10 @@ function NewConsignment({ props, onClose, onCreated }: {
       && !(opening?.collected_arg_minor || opening?.collected_minor)
       && !(wholesale?.receipts || []).some((receipt) => receipt.sale_id === saleId)
       && !(props.s.accountAllocations || []).some((allocation) => allocation.orderId === saleId)
-      && order.wholesaleTotalArg != null && !!order.items?.length
-      && order.items.every((line) => !!line.sku && !!line.wholesaleLineId && line.priceArg != null && Number.isInteger(Math.round(line.priceArg * 100) / line.quantity));
+      && (currency === "ARS" ? order.wholesaleTotalArg != null : order.wholesaleTotalUyu != null)
+      && !!order.items?.length
+      && order.items.every((line) => !!line.sku && !!line.wholesaleLineId
+        && (currency === "UYU" || line.priceArg != null));
   };
   const matches = props.s.orders.filter((order) => eligible(order)
     && `${orderName(order)} ${order.customerName || ""}`.toLocaleLowerCase("es").includes(search.trim().toLocaleLowerCase("es")))
@@ -44,22 +47,24 @@ function NewConsignment({ props, onClose, onCreated }: {
     if (!selected?.wholesaleSaleId || !eligible(selected)) { setError("Elegí un pedido mayorista disponible."); return; }
     setBusy(true); setError("");
     try {
-      await createConsignment(id, selected.wholesaleSaleId);
+      await createConsignment(id, selected.wholesaleSaleId, currency);
       await onCreated(id);
     } catch (failure) { setError(errorText(failure)); setBusy(false); }
   }
   return <Modal title="Nueva consignación" className="consignment-modal" onClose={onClose}>
     <form className="consignment-form" onSubmit={(event) => void save(event)}>
+      <label>Moneda pactada<select value={currency} onChange={(event) => { setCurrency(event.target.value as "UYU" | "ARS"); setSelected(null); }}><option value="UYU">UYU</option><option value="ARS">ARS</option></select></label>
       <label>Buscar pedido mayorista<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Número o cliente" /></label>
       <div className="consignment-order-results" role="group" aria-label="Pedidos mayoristas disponibles">{matches.map((order) =>
         <button type="button" key={order.id} aria-pressed={selected?.id === order.id} onClick={() => setSelected(order)}>
           <strong className="consignment-order-number">{orderName(order)}</strong>
           <strong className="consignment-order-customer">{order.customerName}</strong>
-          <strong className="consignment-order-amount">{arsMoney(order.wholesaleTotalArg || 0)}</strong>
+          <strong className="consignment-order-amount">{currencyMoney((currency === "ARS" ? order.wholesaleTotalArg : order.wholesaleTotalUyu) || 0, currency)}</strong>
           <small className="consignment-order-units">{order.items?.reduce((sum, line) => sum + line.quantity, 0)} unidades</small>
         </button>)}</div>
       {selected && <section className="consignment-order-summary"><h3>{orderName(selected)}, {selected.customerName}</h3>
-        {(selected.items || []).map((line) => <div key={line.id}><strong>{line.title}</strong><small>{line.quantity} unidades, {arsMoney(line.priceArg || 0)}</small></div>)}
+        {(selected.items || []).map((line) => <div key={line.id}><strong>{line.title}</strong><small>{line.quantity} unidades, {currencyMoney(currency === "ARS" ? line.priceArg || 0 : line.amount, currency)} en el pedido</small></div>)}
+        <div className="data-note">La moneda y los precios del pedido quedarán guardados en la consignación.</div>
       </section>}
       {error && <div className="error" role="alert">{error}</div>}
       <div className="form-actions"><button type="button" className="secondary" onClick={onClose} disabled={busy}>Cancelar</button><button className="primary" disabled={busy || !selected}>{busy ? "Guardando…" : "Crear consignación"}</button></div>
@@ -124,25 +129,25 @@ function PaymentForm({ props, consignment, onClose, onSaved }: {
     event.preventDefault();
     const amountMinor = toMinor(amount);
     const exchangeRate = Number(rate.replace(",", "."));
-    if (!Number.isSafeInteger(amountMinor) || amountMinor <= 0 || !Number.isFinite(exchangeRate)
-      || exchangeRate <= 0 || !method || !date || date > montevideoToday()) {
+    if (!Number.isSafeInteger(amountMinor) || amountMinor <= 0 || (consignment.currency === "ARS" && (!Number.isFinite(exchangeRate)
+      || exchangeRate <= 0)) || !method || !date || date > montevideoToday()) {
       setError("Revisá importe, cotización, medio y fecha del cobro."); return;
     }
     setBusy(true); setError("");
     try {
       await recordConsignmentPayment({ receiptId, allocationId, consignmentId: consignment.id,
-        amountMinor, exchangeRate, method, paidOn: date, note });
+        amountMinor, exchangeRate: consignment.currency === "ARS" ? exchangeRate : null, method, paidOn: date, note });
       await onSaved();
     } catch (failure) { setError(errorText(failure)); setBusy(false); }
   }
   return <Modal title="Registrar entrega de dinero" className="consignment-action-modal" onClose={onClose}>
     <form className="consignment-form" onSubmit={(event) => void save(event)}>
-      <label>Importe recibido ARS<input type="number" min="0.01" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required /></label>
+      <label>Importe recibido {consignment.currency}<input type="number" min="0.01" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required /></label>
       <label>Medio de pago<select value={method} onChange={(event) => setMethod(event.target.value)} required><option value="">Elegir medio</option>{methods.map((entry) => <option key={entry}>{entry}</option>)}</select></label>
       <label>Fecha<input type="date" max={montevideoToday()} value={date} onChange={(event) => setDate(event.target.value)} required /></label>
-      <details><summary>Cotización para el resumen financiero</summary><label>UYU por ARS<input type="number" min="0.0001" step="any" value={rate} onChange={(event) => setRate(event.target.value)} required /></label></details>
+      {consignment.currency === "ARS" && <details><summary>Cotización para el resumen financiero</summary><label>UYU por ARS<input type="number" min="0.0001" step="any" value={rate} onChange={(event) => setRate(event.target.value)} required /></label></details>}
       <label>Nota opcional<textarea maxLength={500} value={note} onChange={(event) => setNote(event.target.value)} /></label>
-      <div className="data-note">El importe se aplica al saldo confirmado. Si sobra, queda a favor del cliente en ARS.</div>
+      <div className="data-note">El importe se aplica al saldo confirmado. Si sobra, queda a favor del cliente en {consignment.currency}.</div>
       {error && <div className="error" role="alert">{error}</div>}
       <div className="form-actions"><button type="button" className="secondary" onClick={onClose} disabled={busy}>Cancelar</button><button className="primary" disabled={busy}>{busy ? "Guardando…" : "Registrar entrega"}</button></div>
     </form>
@@ -153,9 +158,9 @@ function CreditForm({ props, consignment, onClose, onSaved }: {
   props: PageProps; consignment: WholesaleConsignment; onClose: () => void; onSaved: () => Promise<void>;
 }) {
   const [id] = useState(() => crypto.randomUUID());
-  const balanceMinor = consignmentSummary(props.s, consignment).balanceArgMinor;
+  const balanceMinor = consignmentSummary(props.s, consignment).balanceMinor;
   const receipts = (props.s.accountReceipts || []).filter((receipt) => receipt.contactId === consignment.contactId
-    && receipt.currency === "ARS" && consignmentReceiptAvailableMinor(props.s, receipt.id) > 0);
+    && receipt.currency === consignment.currency && consignmentReceiptAvailableMinor(props.s, receipt.id, consignment.currency) > 0);
   const [receiptId, setReceiptId] = useState(receipts[0]?.id || "");
   const availableMinor = Math.min(balanceMinor, consignmentReceiptAvailableMinor(props.s, receiptId));
   const [amount, setAmount] = useState(String(availableMinor / 100));
@@ -173,10 +178,10 @@ function CreditForm({ props, consignment, onClose, onSaved }: {
   }
   return <Modal title="Aplicar dinero a favor" className="consignment-action-modal" onClose={onClose}>
     <form className="consignment-form" onSubmit={(event) => void save(event)}>
-      {receipts.length ? <><label>Entrega ARS<select value={receiptId} onChange={(event) => { setReceiptId(event.target.value); setAmount(String(Math.min(balanceMinor, consignmentReceiptAvailableMinor(props.s, event.target.value)) / 100)); }}>
-        {receipts.map((receipt) => <option value={receipt.id} key={receipt.id}>{formatDate(receipt.paidOn)}, disponible {arsMoney(consignmentReceiptAvailableMinor(props.s, receipt.id) / 100)}</option>)}
-      </select></label><label>Importe a aplicar ARS<input type="number" min="0.01" max={availableMinor / 100} step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required /></label></>
-        : <div className="data-note">Este cliente no tiene entregas ARS sin asignar.</div>}
+      {receipts.length ? <><label>Entrega {consignment.currency}<select value={receiptId} onChange={(event) => { setReceiptId(event.target.value); setAmount(String(Math.min(balanceMinor, consignmentReceiptAvailableMinor(props.s, event.target.value)) / 100)); }}>
+        {receipts.map((receipt) => <option value={receipt.id} key={receipt.id}>{formatDate(receipt.paidOn)}, disponible {currencyMoney(consignmentReceiptAvailableMinor(props.s, receipt.id) / 100, consignment.currency)}</option>)}
+      </select></label><label>Importe a aplicar {consignment.currency}<input type="number" min="0.01" max={availableMinor / 100} step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required /></label></>
+        : <div className="data-note">Este cliente no tiene entregas {consignment.currency} sin asignar.</div>}
       {error && <div className="error" role="alert">{error}</div>}
       <div className="form-actions"><button type="button" className="secondary" onClick={onClose} disabled={busy}>Cerrar</button>{receipts.length > 0 && <button className="primary" disabled={busy}>{busy ? "Guardando…" : "Aplicar saldo"}</button>}</div>
     </form>
@@ -195,7 +200,7 @@ function ConsignmentDetail({ props, consignment, onClose }: {
     || props.commerce?.wholesale?.contacts?.find((entry) => entry.id === consignment.contactId)?.wholesale_name || "Cliente mayorista";
   const receipts = new Map((props.s.accountReceipts || []).map((receipt) => [receipt.id, receipt]));
   const customerReceipts = (props.s.accountReceipts || []).filter((receipt) =>
-    receipt.contactId === consignment.contactId && receipt.currency === "ARS")
+    receipt.contactId === consignment.contactId && receipt.currency === consignment.currency)
     .sort((a, b) => b.paidOn.localeCompare(a.paidOn) || b.id.localeCompare(a.id));
   const events = [
     ...(props.s.consignmentMovements || []).filter((movement) => summary.lines.some((line) => line.id === movement.lineId))
@@ -203,14 +208,14 @@ function ConsignmentDetail({ props, consignment, onClose }: {
         label: movement.kind === "dispatch" ? "Envío" : movement.kind === "return" ? "Devolución" : "Se queda",
         detail: summary.lines.find((line) => line.id === movement.lineId)?.title || "Producto",
         quantity: movement.quantity, amount: movement.kind === "kept"
-          ? movement.quantity * (summary.lines.find((line) => line.id === movement.lineId)?.unitPriceArgMinor || 0) : 0,
+          ? movement.quantity * (summary.lines.find((line) => line.id === movement.lineId)?.unitPriceMinor || 0) : 0,
         note: [movement.carrier, movement.tracking, movement.note].filter(Boolean).join(", ") })),
     ...(props.s.consignmentAllocations || []).filter((allocation) => allocation.consignmentId === consignment.id)
       .map((allocation) => ({ id: allocation.id, date: receipts.get(allocation.receiptId)?.paidOn || allocation.allocatedAt.slice(0, 10),
-        label: "Pago aplicado", detail: receipts.get(allocation.receiptId)?.paymentMethod || "Entrega ARS",
+        label: "Pago aplicado", detail: receipts.get(allocation.receiptId)?.paymentMethod || `Entrega ${consignment.currency}`,
         quantity: 0, amount: -allocation.sourceAmountMinor, note: "" })),
   ].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-  const availableCreditMinor = (props.s.accountReceipts || []).filter((receipt) => receipt.contactId === consignment.contactId)
+  const availableCreditMinor = (props.s.accountReceipts || []).filter((receipt) => receipt.contactId === consignment.contactId && receipt.currency === consignment.currency)
     .reduce((sum, receipt) => sum + consignmentReceiptAvailableMinor(props.s, receipt.id), 0);
   const changed = async () => { await props.refresh?.(true); setAction(null); setPaymentOpen(false); setCreditOpen(false); };
   return <>
@@ -218,23 +223,24 @@ function ConsignmentDetail({ props, consignment, onClose }: {
       <div className="consignment-detail-head"><h2>{customer}</h2><Badge>{summary.status}</Badge></div>
       <Stats items={[
         { label: "Enviadas", value: summary.dispatched }, { label: "En poder del cliente", value: summary.held },
-        { label: "Devueltas", value: summary.returned }, { label: "Se queda", value: summary.kept },
-        { label: "Importe confirmado", value: arsMoney(summary.confirmedArgMinor / 100) },
-        { label: "Pagado", value: arsMoney(summary.paidArgMinor / 100), tone: "green" },
-        { label: "Saldo", value: arsMoney(summary.balanceArgMinor / 100), tone: summary.balanceArgMinor > 0 ? "yellow" : undefined },
+        { label: "Devueltas", value: summary.returned }, { label: "Vendidas o conservadas", value: summary.kept },
+        { label: "Mercadería en su poder", value: currencyMoney(summary.heldValueMinor / 100, consignment.currency) },
+        { label: "Importe confirmado", value: currencyMoney(summary.confirmedMinor / 100, consignment.currency) },
+        { label: "Pagos aplicados", value: currencyMoney(summary.paidMinor / 100, consignment.currency), tone: "green" },
+        { label: "Saldo", value: currencyMoney(summary.balanceMinor / 100, consignment.currency), tone: summary.balanceMinor > 0 ? "yellow" : undefined },
       ]} />
       <div className="form-actions"><button className="primary" type="button" onClick={() => setPaymentOpen(true)}>Registrar entrega de dinero</button>
-        {summary.balanceArgMinor > 0 && availableCreditMinor > 0 && <button className="secondary" type="button" onClick={() => setCreditOpen(true)}>Aplicar dinero a favor</button>}
+        {summary.balanceMinor > 0 && availableCreditMinor > 0 && <button className="secondary" type="button" onClick={() => setCreditOpen(true)}>Aplicar dinero a favor</button>}
         <button className="secondary" type="button" onClick={() => props.go("/produccion/mayorista")}>Ver producción</button></div>
-      {availableCreditMinor > 0 && <div className="data-note">Dinero ARS a favor del cliente sin asignar: {arsMoney(availableCreditMinor / 100)}.</div>}
+      {availableCreditMinor > 0 && <div className="data-note">Dinero {consignment.currency} a favor del cliente sin asignar: {currencyMoney(availableCreditMinor / 100, consignment.currency)}.</div>}
       <Table title="Productos y unidades" rows={summary.lines} pageSize={30} searchText={(line) => `${line.title} ${line.sku}`} columns={[
         { label: "Producto", render: (line) => <div><strong>{line.title}</strong><small>SKU {line.sku}</small></div> },
-        { label: "Pactado", render: (line) => arsMoney(line.unitPriceArgMinor / 100) },
+        { label: "Pactado", render: (line) => currencyMoney(line.unitPriceMinor / 100, consignment.currency) },
         { label: "Pedido", render: (line) => line.quantity },
         { label: "Enviadas", render: (line) => line.dispatched },
         { label: "En poder", render: (line) => line.held },
         { label: "Devueltas", render: (line) => line.returned },
-        { label: "Se queda", render: (line) => line.kept },
+        { label: "Vendidas o conservadas", render: (line) => line.kept },
         { label: "Acciones", render: (line) => <div className="consignment-line-actions">
           <button type="button" className="secondary" disabled={line.availableToDispatch <= 0 || order?.items?.find((item) => item.sku === line.sku)?.productionStatus !== "Completado"} onClick={() => setAction({ line, kind: "dispatch" })}>Enviar</button>
           <button type="button" className="secondary" disabled={line.held <= 0} onClick={() => setAction({ line, kind: "return" })}>Devolución</button>
@@ -246,16 +252,16 @@ function ConsignmentDetail({ props, consignment, onClose }: {
         { label: "Movimiento", render: (event) => event.label },
         { label: "Detalle", render: (event) => <div>{event.detail}{event.note && <small>{event.note}</small>}</div> },
         { label: "Unidades", render: (event) => event.quantity || "—" },
-        { label: "ARS", render: (event) => event.amount ? arsMoney(event.amount / 100) : "—" },
+        { label: consignment.currency, render: (event) => event.amount ? currencyMoney(event.amount / 100, consignment.currency) : "—" },
       ]} />
-      <Table title="Entregas ARS del cliente" rows={customerReceipts} pageSize={20} searchText={(receipt) => `${receipt.paidOn} ${receipt.paymentMethod} ${receipt.note || ""}`} columns={[
+      <Table title={`Entregas ${consignment.currency} del cliente`} rows={customerReceipts} pageSize={20} searchText={(receipt) => `${receipt.paidOn} ${receipt.paymentMethod} ${receipt.note || ""}`} columns={[
         { label: "Fecha", render: (receipt) => formatDate(receipt.paidOn) },
         { label: "Medio", render: (receipt) => receipt.paymentMethod },
-        { label: "Recibido", render: (receipt) => arsMoney(receipt.sourceAmountMinor / 100) },
-        { label: "Aplicado aquí", render: (receipt) => arsMoney((props.s.consignmentAllocations || [])
+        { label: "Recibido", render: (receipt) => currencyMoney(receipt.sourceAmountMinor / 100, consignment.currency) },
+        { label: "Aplicado aquí", render: (receipt) => currencyMoney((props.s.consignmentAllocations || [])
           .filter((allocation) => allocation.receiptId === receipt.id && allocation.consignmentId === consignment.id)
-          .reduce((sum, allocation) => sum + allocation.sourceAmountMinor, 0) / 100) },
-        { label: "A favor", render: (receipt) => arsMoney(consignmentReceiptAvailableMinor(props.s, receipt.id) / 100) },
+          .reduce((sum, allocation) => sum + allocation.sourceAmountMinor, 0) / 100, consignment.currency) },
+        { label: "A favor", render: (receipt) => currencyMoney(consignmentReceiptAvailableMinor(props.s, receipt.id) / 100, consignment.currency) },
         { label: "Nota", render: (receipt) => receipt.note || "—" },
       ]} />
     </Modal>
@@ -277,21 +283,25 @@ export function Consignments(props: PageProps) {
       || props.commerce?.wholesale?.contacts?.find((entry) => entry.id === consignment.contactId)?.wholesale_name || "Cliente mayorista";
     return { ...consignment, ...summary, customer, reference: order ? orderName(order) : "Pedido mayorista" };
   });
+  const balanceFor = (currency: "UYU" | "ARS") => rows.filter((row) => row.currency === currency)
+    .reduce((sum, row) => sum + row.balanceMinor, 0);
   return <section className="consignments-page">
     <Stats items={[
       { label: "Consignaciones activas", value: rows.filter((row) => row.status !== "Cerrada").length },
       { label: "En poder de clientes", value: rows.reduce((sum, row) => sum + row.held, 0) },
       { label: "Unidades devueltas", value: rows.reduce((sum, row) => sum + row.returned, 0) },
-      { label: "Saldo confirmado ARS", value: arsMoney(rows.reduce((sum, row) => sum + row.balanceArgMinor, 0) / 100), tone: "yellow" },
+      { label: "Saldo UYU", value: currencyMoney(balanceFor("UYU") / 100, "UYU"), tone: "yellow" },
+      { label: "Saldo ARS", value: currencyMoney(balanceFor("ARS") / 100, "ARS"), tone: "yellow" },
     ]} />
     <Table title="Consignaciones" rows={rows} pageSize={30} searchText={(row) => `${row.customer} ${row.reference} ${row.status}`} action={<button type="button" className="primary" onClick={() => setCreating(true)}>Nueva consignación</button>} columns={[
       { label: "Pedido", render: (row) => row.reference }, { label: "Cliente", render: (row) => <strong>{row.customer}</strong> },
       { label: "Fecha", render: (row) => formatDate(row.createdAt) },
       { label: "Enviadas", render: (row) => row.dispatched }, { label: "En poder", render: (row) => row.held },
-      { label: "Devueltas", render: (row) => row.returned }, { label: "Se queda", render: (row) => row.kept },
-      { label: "Confirmado ARS", render: (row) => arsMoney(row.confirmedArgMinor / 100) },
-      { label: "Cobrado ARS", render: (row) => arsMoney(row.paidArgMinor / 100) },
-      { label: "Saldo ARS", render: (row) => arsMoney(row.balanceArgMinor / 100) },
+      { label: "Devueltas", render: (row) => row.returned }, { label: "Vendidas o conservadas", render: (row) => row.kept },
+      { label: "Moneda", render: (row) => row.currency },
+      { label: "Confirmado", render: (row) => currencyMoney(row.confirmedMinor / 100, row.currency) },
+      { label: "Pagos aplicados", render: (row) => currencyMoney(row.paidMinor / 100, row.currency) },
+      { label: "Saldo", render: (row) => currencyMoney(row.balanceMinor / 100, row.currency) },
       { label: "Estado", render: (row) => <Badge>{row.status}</Badge> },
       { label: "Acciones", render: (row) => <button type="button" className="secondary" onClick={() => setSelectedId(row.id)}>Ver detalle</button> },
     ]} />

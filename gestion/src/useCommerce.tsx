@@ -11,6 +11,7 @@ import { readWholesale } from "./wholesaleSource";
 import { adaptWholesale } from "./wholesaleAdapter";
 import { readCustomerAccounts } from "./customerAccountSource";
 import { readConsignments } from "./consignmentSource";
+import { readConsigneeDashboard, type ConsigneeDashboard } from "./consigneePortalSource";
 
 export async function readAllPages<T>(read: (page: number) => Promise<{ rows: T[]; count: number }>): Promise<T[]> {
   const rows: T[] = [];
@@ -59,7 +60,8 @@ export function useCommerce() {
   const [session, setSession] = useState<Session | null>(null);
   const [state, setState] = useState<State>(loadState);
   const [snapshot, setSnapshot] = useState<CommerceSnapshot | null>(null);
-  const [access, setAccess] = useState<"loading" | "login" | "denied" | "ready">("loading");
+  const [portal, setPortal] = useState<ConsigneeDashboard | null>(null);
+  const [access, setAccess] = useState<"loading" | "login" | "denied" | "ready" | "portal">("loading");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadedAt, setLoadedAt] = useState<Date | null>(null);
@@ -79,7 +81,7 @@ export function useCommerce() {
     let cancelled = false;
     epoch.current++; busyRef.current = false; localCustomerCache.current = null;
     pendingRefresh.current = false; pendingFullRefresh.current = false;
-    setSnapshot(null); setLoadedAt(null); setState(loadState());
+    setSnapshot(null); setPortal(null); setLoadedAt(null); setState(loadState());
     if (!session || !commerceSource) { setAccess("login"); return; }
     setAccess("loading");
     void commerceSource.from("commerce_admin_users").select("user_id,display_name,access_user_id,allowed_paths").eq("user_id", session.user.id).eq("active", true).maybeSingle()
@@ -99,10 +101,21 @@ export function useCommerce() {
               : current.access,
           }));
           setAccess("ready");
+          setError("");
         } else {
-          setAccess("denied");
+          try {
+            const dashboard = await readConsigneeDashboard();
+            if (cancelled) return;
+            setPortal(dashboard);
+            setLoadedAt(new Date());
+            setError("");
+            setAccess("portal");
+          } catch {
+            if (cancelled) return;
+            setAccess("denied");
+            setError("Esta cuenta no tiene acceso a Gestión.");
+          }
         }
-        setError(error?.message || "");
       });
     return () => { cancelled = true; };
   }, [session?.user.id]);
@@ -110,7 +123,19 @@ export function useCommerce() {
   const betianaHasOperationalAccess = (state.access?.t5 ?? []).some((path) => !path.startsWith("/marketing/"));
   const refresh = useCallback(async (forceFullCustomers = false) => {
     const client = commerceSource;
-    if (!client || access !== "ready") return;
+    if (!client || (access !== "ready" && access !== "portal")) return;
+    if (access === "portal") {
+      setLoading(true);
+      try {
+        const dashboard = await readConsigneeDashboard();
+        setPortal(dashboard); setLoadedAt(new Date()); setError("");
+      } catch (failure) {
+        setPortal(null);
+        setAccess("denied");
+        setError(failure instanceof Error ? failure.message : "No se pudo actualizar la cuenta.");
+      } finally { setLoading(false); }
+      return;
+    }
     if (state.activeUserId === "t5" && !betianaHasOperationalAccess) return;
     if (busyRef.current) {
       pendingRefresh.current = true;
@@ -262,7 +287,7 @@ export function useCommerce() {
   }, [access, session?.user.id, state.activeUserId, betianaHasOperationalAccess]);
 
   useEffect(() => {
-    if (access !== "ready") return;
+    if (access !== "ready" && access !== "portal") return;
     if (document.visibilityState === "visible") void refresh();
     // Returning to a tab can emit both focus and visibilitychange. Coalesce
     // them, and never download the commerce snapshot while the tab is hidden.
@@ -286,10 +311,10 @@ export function useCommerce() {
   const signOut = async () => {
     epoch.current++; busyRef.current = false; localCustomerCache.current = null;
     pendingRefresh.current = false; pendingFullRefresh.current = false;
-    setState(loadState()); setSnapshot(null); setLoadedAt(null); setAccess("login");
+    setState(loadState()); setSnapshot(null); setPortal(null); setLoadedAt(null); setAccess("login");
     await commerceSource?.auth.signOut({ scope: "local" });
   };
-  return { session, state, setState, snapshot, access, error, loading, loadedAt, refresh, signOut };
+  return { session, state, setState, snapshot, portal, access, error, loading, loadedAt, refresh, signOut };
 }
 
 export function CommerceLogin({ access, error, signOut }: { access: string; error: string; signOut: () => Promise<void> }) {
@@ -342,7 +367,7 @@ export function CommerceLogin({ access, error, signOut }: { access: string; erro
         : access === "loading" ? <div role="status">Comprobando acceso…</div>
           : access === "denied" ? <><div>Esta cuenta no tiene acceso a Gestión.</div><button className="secondary" onClick={() => void signOut()}>Usar otra cuenta</button></>
             : setup ? <form onSubmit={(event) => void configure(event)}>
-              <div className="commerce-auth-intro"><strong>Configurar acceso inicial</strong><span>Elegí el usuario y la contraseña del administrador.</span></div>
+              <div className="commerce-auth-intro"><strong>Configurar acceso inicial</strong><small>Elegí el usuario y la contraseña del administrador.</small></div>
               <label>Usuario de ingreso<input name="username" autoComplete="username" required /></label>
               <label>Contraseña<input name="password" type="password" autoComplete="new-password" minLength={8} required /></label>
               <label>Confirmar contraseña<input name="confirmation" type="password" autoComplete="new-password" minLength={8} required /></label>

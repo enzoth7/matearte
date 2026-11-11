@@ -78,7 +78,7 @@ test("todas las subpestañas se pueden marcar sin permisos de función", async (
   await expect(page.getByText("Solo Richard", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Solo Enzo y Richard", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Editar egresos y gastos fijos", { exact: true })).toHaveCount(0);
-  for (const title of ["Insumos", "Productos fabricados", "Reventa", "Recorridos", "Logs", "Usuarios y permisos"]) {
+  for (const title of ["Insumos", "Productos fabricados", "Reventa", "Recorridos", "Logs", "Usuarios y permisos", "Usuarios consignatarios"]) {
     await expect(page.getByRole("checkbox", { name: `Mostrar ${title} a Florencia Costa` })).toBeEnabled();
   }
   const checkbox = page.getByRole("checkbox", { name: "Mostrar Insumos a Florencia Costa" });

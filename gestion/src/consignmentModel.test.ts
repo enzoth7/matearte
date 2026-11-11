@@ -8,8 +8,8 @@ function fixture(): State {
   return {
     ...seed(),
     customers: [{ id: "customer-1", contactId: "contact-1", name: "Cliente mayorista", email: "", phone: "", city: "", segment: "Mayorista" }],
-    consignments: [{ id: "consignment-1", orderId: "order-1", contactId: "contact-1", exchangeRate: 0.03, createdAt: "2026-11-01T12:00:00Z" }],
-    consignmentLines: [{ id: "line-1", consignmentId: "consignment-1", orderItemId: "item-1", variantId: "variant-1", sku: "123", title: "Mate Imperial", quantity: 100, unitPriceArgMinor: 100_000 }],
+    consignments: [{ id: "consignment-1", orderId: "order-1", contactId: "contact-1", currency: "ARS", exchangeRate: 0.03, createdAt: "2026-11-01T12:00:00Z" }],
+    consignmentLines: [{ id: "line-1", consignmentId: "consignment-1", orderItemId: "item-1", variantId: "variant-1", sku: "123", title: "Mate Imperial", quantity: 100, unitPriceMinor: 100_000 }],
     consignmentMovements: [{ id: "sent-1", lineId: "line-1", kind: "dispatch", quantity: 100, occurredOn: "2026-11-01", carrier: null, tracking: null, note: null, createdAt: "2026-11-01T12:00:00Z" }],
   };
 }
@@ -17,9 +17,9 @@ function fixture(): State {
 describe("consignaciones mayoristas", () => {
   it("no genera saldo por enviar y conserva el control de unidades devueltas", () => {
     const state = fixture();
-    expect(consignmentSummary(state, state.consignments![0])).toMatchObject({ dispatched: 100, held: 100, kept: 0, balanceArgMinor: 0 });
+    expect(consignmentSummary(state, state.consignments![0])).toMatchObject({ dispatched: 100, held: 100, kept: 0, balanceMinor: 0 });
     state.consignmentMovements!.push({ id: "return-1", lineId: "line-1", kind: "return", quantity: 20, occurredOn: "2026-11-08", carrier: null, tracking: null, note: null, createdAt: "2026-11-08T12:00:00Z" });
-    expect(consignmentSummary(state, state.consignments![0])).toMatchObject({ held: 80, returned: 20, kept: 0, balanceArgMinor: 0 });
+    expect(consignmentSummary(state, state.consignments![0])).toMatchObject({ held: 80, returned: 20, kept: 0, balanceMinor: 0 });
   });
 
   it("cobra solo las unidades conservadas, acepta cuotas y convierte una vez en finanzas", () => {
@@ -46,7 +46,7 @@ describe("consignaciones mayoristas", () => {
       amount: receipt.amountMinor / 100, date: receipt.paidOn, method: receipt.paymentMethod }));
     const summary = consignmentSummary(state, state.consignments![0]);
     expect(summary).toMatchObject({ dispatched: 100, held: 0, returned: 20, kept: 80,
-      confirmedArgMinor: 8_000_000, paidArgMinor: 5_000_000, balanceArgMinor: 3_000_000 });
+      confirmedMinor: 8_000_000, paidMinor: 5_000_000, balanceMinor: 3_000_000 });
     expect(wholesaleBalanceArs(state, state.orders[0])).toBe(30_000);
     expect(customerAccounts(state).find((account) => account.id === "contact-1:ARS")).toMatchObject({ pending: 30_000, credit: 0 });
     expect(consignmentReceiptAvailableMinor(state, "receipt-1")).toBe(0);
@@ -63,10 +63,27 @@ describe("consignaciones mayoristas", () => {
     expect(consignmentReceiptAvailableMinor(state, "advance")).toBe(1_000_000);
   });
 
+  it("no usa el adelanto reservado de una consignación para proyectar otra", () => {
+    const state = fixture();
+    state.orders = [];
+    state.payments = [];
+    state.expenses = [];
+    state.consignments!.push({ id: "consignment-2", orderId: "order-2", contactId: "contact-1",
+      currency: "ARS", exchangeRate: 0.03, createdAt: "2026-11-01T12:00:00Z" });
+    state.consignmentLines!.push({ id: "line-2", consignmentId: "consignment-2", orderItemId: "item-2",
+      variantId: "variant-2", sku: "456", title: "Mate Torpedo", quantity: 10, unitPriceMinor: 100_000 });
+    state.consignmentMovements!.push({ id: "kept-2", lineId: "line-2", kind: "kept", quantity: 10,
+      occurredOn: "2026-11-03", carrier: null, tracking: null, note: null, createdAt: "2026-11-03T12:00:00Z" });
+    state.accountReceipts = [{ id: "reserved", contactId: "contact-1", consignmentId: "consignment-1",
+      amountMinor: 30_000, sourceAmountMinor: 1_000_000, currency: "ARS",
+      paymentMethod: "Transferencia", paidOn: "2026-11-02", note: null }];
+    expect(buildFinanceProjection(state, { asOf: "2026-11-08" })[0].receivable).toBe(300);
+  });
+
   it("separa entregas parciales de dos productos y cobra sus precios pactados", () => {
     const state = fixture();
     state.consignmentLines!.push({ id: "line-2", consignmentId: "consignment-1", orderItemId: "item-2",
-      variantId: "variant-2", sku: "456", title: "Mate Torpedo", quantity: 50, unitPriceArgMinor: 200_000 });
+      variantId: "variant-2", sku: "456", title: "Mate Torpedo", quantity: 50, unitPriceMinor: 200_000 });
     state.consignmentMovements = [
       { id: "sent-1", lineId: "line-1", kind: "dispatch", quantity: 30, occurredOn: "2026-11-01", carrier: null, tracking: null, note: null, createdAt: "2026-11-01T12:00:00Z" },
       { id: "sent-2", lineId: "line-2", kind: "dispatch", quantity: 20, occurredOn: "2026-11-02", carrier: null, tracking: null, note: null, createdAt: "2026-11-02T12:00:00Z" },
@@ -75,6 +92,45 @@ describe("consignaciones mayoristas", () => {
       { id: "kept-2", lineId: "line-2", kind: "kept", quantity: 10, occurredOn: "2026-11-04", carrier: null, tracking: null, note: null, createdAt: "2026-11-04T12:00:00Z" },
     ];
     expect(consignmentSummary(state, state.consignments![0])).toMatchObject({ planned: 150, dispatched: 50,
-      held: 20, returned: 5, kept: 25, confirmedArgMinor: 3_500_000, balanceArgMinor: 3_500_000 });
+      held: 20, returned: 5, kept: 25, confirmedMinor: 3_500_000, balanceMinor: 3_500_000 });
+  });
+
+  it("concilia UYU con envíos parciales, devolución, pago aplicado y adelanto separado", () => {
+    const state = fixture();
+    state.consignments![0] = { ...state.consignments![0], currency: "UYU", exchangeRate: 1 };
+    state.orders = [{ id: "order-1", wholesaleSaleId: "order-1", consignmentId: "consignment-1",
+      source: "wholesale", contactId: "contact-1", customerId: "customer-1", productId: "mate-1",
+      quantity: 100, unitPrice: 0, totalAmount: 40_000, wholesaleTotalArg: 1_000_000,
+      wholesaleTotalUyu: 40_000, channel: "Mayorista", date: "2026-11-01", due: "",
+      production: "Terminado", delivery: "Pendiente", method: "No aplica", design: false, approved: true }];
+    state.consignmentLines![0] = { ...state.consignmentLines![0], unitPriceMinor: 40_000 };
+    state.consignmentMovements = [
+      { id: "sent-1", lineId: "line-1", kind: "dispatch", quantity: 40, occurredOn: "2026-11-01", carrier: null, tracking: null, note: null, createdAt: "2026-11-01T12:00:00Z" },
+      { id: "sent-2", lineId: "line-1", kind: "dispatch", quantity: 20, occurredOn: "2026-11-03", carrier: null, tracking: null, note: null, createdAt: "2026-11-03T12:00:00Z" },
+      { id: "kept", lineId: "line-1", kind: "kept", quantity: 30, occurredOn: "2026-11-05", carrier: null, tracking: null, note: null, createdAt: "2026-11-05T12:00:00Z" },
+      { id: "returned", lineId: "line-1", kind: "return", quantity: 10, occurredOn: "2026-11-06", carrier: null, tracking: null, note: null, createdAt: "2026-11-06T12:00:00Z" },
+    ];
+    state.accountReceipts = [{ id: "advance", contactId: "contact-1", consignmentId: "consignment-1",
+      amountMinor: 1_000_000, sourceAmountMinor: 1_000_000, currency: "UYU", paymentMethod: "Transferencia",
+      paidOn: "2026-11-04", note: null }];
+    state.consignmentAllocations = [{ id: "applied", consignmentId: "consignment-1", receiptId: "advance",
+      sourceAmountMinor: 300_000, allocatedAt: "2026-11-06T12:00:00Z" }];
+    const summary = consignmentSummary(state, state.consignments![0]);
+    expect(summary).toMatchObject({ dispatched: 60, held: 20, returned: 10, kept: 30,
+      heldValueMinor: 800_000, confirmedMinor: 1_200_000, paidMinor: 300_000, balanceMinor: 900_000 });
+    expect(consignmentReceiptAvailableMinor(state, "advance", "UYU")).toBe(700_000);
+    expect(customerAccounts(state).find((account) => account.id === "contact-1:UYU"))
+      .toMatchObject({ pending: 9_000, credit: 7_000 });
+    expect(customerAccounts(state).find((account) => account.id === "contact-1:UYU")?.orders.map((order) => order.id))
+      .toContain(state.orders[0].id);
+  });
+
+  it("mantiene el saldo ARS original aunque cambie la cotización del informe", () => {
+    const state = fixture();
+    state.consignmentMovements!.push({ id: "kept", lineId: "line-1", kind: "kept", quantity: 10,
+      occurredOn: "2026-11-03", carrier: null, tracking: null, note: null, createdAt: "2026-11-03T12:00:00Z" });
+    const original = consignmentSummary(state, state.consignments![0]).balanceMinor;
+    state.consignments![0].exchangeRate = 0.05;
+    expect(consignmentSummary(state, state.consignments![0]).balanceMinor).toBe(original);
   });
 });

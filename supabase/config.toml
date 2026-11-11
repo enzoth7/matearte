@@ -8,6 +8,11 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/gestion-users/index.ts"
 
+[functions.gestion-consignatario]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/gestion-consignatario/index.ts"
+
 [functions.gestion-mcp]
 enabled = true
 verify_jwt = false

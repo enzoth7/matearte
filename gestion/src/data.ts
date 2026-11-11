@@ -144,6 +144,7 @@ export type Payment = {
 export type CustomerAccountReceipt = {
   id: string;
   contactId: string;
+  consignmentId?: string | null;
   amountMinor: number;
   sourceAmountMinor: number;
   currency: "UYU" | "ARS";
@@ -160,11 +161,11 @@ export type CustomerAccountAllocation = {
   allocatedAt: string;
 };
 export type WholesaleConsignment = {
-  id: string; orderId: string; contactId: string; exchangeRate: number; createdAt: string;
+  id: string; orderId: string; contactId: string; currency: "UYU" | "ARS"; exchangeRate: number; createdAt: string;
 };
 export type WholesaleConsignmentLine = {
   id: string; consignmentId: string; orderItemId: string; variantId: string;
-  sku: string; title: string; quantity: number; unitPriceArgMinor: number;
+  sku: string; title: string; quantity: number; unitPriceMinor: number;
 };
 export type WholesaleConsignmentMovement = {
   id: string; lineId: string; kind: "dispatch" | "return" | "kept";
@@ -265,7 +266,7 @@ export const paid = (s: State, o: Order) =>
 export const wholesalePaidArs = (s: State, o: Order): number | null => {
   if (o.consignmentId) {
     const consignment = (s.consignments || []).find((entry) => entry.id === o.consignmentId);
-    return consignment ? consignmentSummary(s, consignment).paidArgMinor / 100 : null;
+    return consignment?.currency === "ARS" ? consignmentSummary(s, consignment).paidMinor / 100 : null;
   }
   if (o.source !== "wholesale" || o.wholesaleOpeningPaidArg == null) return null;
   const receipts = s.payments.filter((payment) => payment.orderId === o.id);
@@ -279,7 +280,7 @@ export const wholesaleBalanceArs = (s: State, o: Order): number | null => {
   if (o.source !== "wholesale") return null;
   if (o.consignmentId) {
     const consignment = (s.consignments || []).find((entry) => entry.id === o.consignmentId);
-    return consignment ? consignmentSummary(s, consignment).balanceArgMinor / 100 : null;
+    return consignment?.currency === "ARS" ? consignmentSummary(s, consignment).balanceMinor / 100 : null;
   }
   if (o.paidAt || ["cancelled", "refunded", "payment_failed"].includes(o.status || "")) return 0;
   if (o.wholesaleTotalArg == null && o.wholesalePaidInFullWithoutPrice) return 0;
@@ -289,10 +290,13 @@ export const wholesaleBalanceArs = (s: State, o: Order): number | null => {
 };
 export const balance = (s: State, o: Order): number =>
   o.paidAt || ["cancelled", "refunded", "payment_failed"].includes(o.status || "") ? 0
+    : o.consignmentId ? (() => {
+      const consignment = (s.consignments || []).find((entry) => entry.id === o.consignmentId);
+      return consignment ? consignmentSummary(s, consignment).balanceMinor / 100
+        * (consignment.currency === "ARS" ? consignment.exchangeRate : 1) : 0;
+    })()
     : o.source === "wholesale"
-      ? (wholesaleBalanceArs(s, o) ?? 0) * (o.consignmentId
-        ? (s.consignments || []).find((entry) => entry.id === o.consignmentId)?.exchangeRate || 0
-        : o.wholesaleTotalArg && o.wholesaleTotalUyu != null ? o.wholesaleTotalUyu / o.wholesaleTotalArg : 0)
+      ? (wholesaleBalanceArs(s, o) ?? 0) * (o.wholesaleTotalArg && o.wholesaleTotalUyu != null ? o.wholesaleTotalUyu / o.wholesaleTotalArg : 0)
       : o.retailRateToUyu ? localOriginalBalance(s, o) * o.retailRateToUyu : Math.max(0, total(o) - paid(s, o));
 export const localOriginalBalance = (s: State, order: Order): number => {
   if (!order.retailRateToUyu) return balance(s, order);

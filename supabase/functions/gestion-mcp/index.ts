@@ -54,14 +54,14 @@ const datasets = {
   cuentas_conciliacion: { table: "finance_accounts", columns: "id,name,kind,currency,created_at", key: "id", order: "name", search: "name", path: "/finanzas/conciliacion", description: "Cuentas que se cuentan al cierre." },
   cierres_mensuales: { table: "finance_monthly_closes", columns: "id,month,revision,status,reason,balances,adjustments,rates,opening_balances,summary,created_at,closed_at", key: "id", order: "month", date: "month", path: "/finanzas/conciliacion", description: "Cierres y borradores de conciliación. No sumar revisiones de un mismo mes." },
   contactos_cuentas: { table: "contacts", columns: "id,full_name,wholesale_name,company_name,phone,customer_type", key: "id", order: "full_name", search: "full_name", path: "/finanzas/por-cobrar", description: "Contactos y sus identificadores para asignar cobros a clientes." },
-  cobros_cuenta: { table: "customer_account_receipts", columns: "id,contact_id,source_amount_minor,amount_minor,currency,uyu_per_ars,payment_method,paid_on,note,created_at", key: "id", order: "paid_on", date: "paid_on", path: "/finanzas/por-cobrar", description: "Entregas a cuenta: importe original y equivalente UYU; asignarlas no crea un ingreso nuevo." },
+  cobros_cuenta: { table: "customer_account_receipts", columns: "id,contact_id,consignment_id,source_amount_minor,amount_minor,currency,uyu_per_ars,payment_method,paid_on,note,created_at", key: "id", order: "paid_on", date: "paid_on", path: "/finanzas/por-cobrar", description: "Entregas a cuenta: importe original y equivalente UYU; consignment_id identifica los adelantos reservados para una consignación." },
   asignaciones_cuenta: { table: "customer_account_allocations", columns: "id,receipt_id,order_id,source_amount_minor,amount_minor,allocated_at", key: "id", order: "allocated_at", path: "/finanzas/por-cobrar", description: "Asignación de cobros ya registrados a pedidos; no volver a contarla como ingreso." },
   cobros_mayoristas: { table: "wholesale_order_receipts", columns: "id,sale_id,source_amount_minor,amount_minor,currency,uyu_per_ars,payment_method,paid_on,created_at", key: "id", order: "paid_on", date: "paid_on", path: "/finanzas/por-cobrar", description: "Cobros directos mayoristas en ARS, con equivalencia UYU guardada." },
   saldos_historicos_mayoristas: { table: "wholesale_order_payment_openings", columns: "sale_id,collected_arg_minor,confirmed_at,paid_in_full_without_price,finance_paid_at_order", key: "sale_id", order: "sale_id", path: "/finanzas/por-cobrar", description: "Conciliación de pagos mayoristas anteriores al registro de cobros." },
-  consignaciones: { table: "wholesale_consignments", columns: "id,order_id,contact_id,exchange_rate,created_at", key: "id", order: "created_at", date: "created_at", path: "/finanzas/consignaciones", description: "Acuerdos de consignación vinculados a producción." },
-  lineas_consignacion: { table: "wholesale_consignment_lines", columns: "id,consignment_id,order_item_id,variant_id,sku,title,quantity,unit_price_arg_minor", key: "id", order: "id", search: "title", path: "/finanzas/consignaciones", description: "Productos y precios ARS pactados de cada consignación." },
-  movimientos_consignacion: { table: "wholesale_consignment_movements", columns: "id,line_id,kind,quantity,occurred_on,carrier,tracking,note,created_at", key: "id", order: "occurred_on", date: "occurred_on", path: "/finanzas/consignaciones", description: "Entregas, devoluciones y unidades conservadas; las conservadas generan deuda." },
-  asignaciones_consignacion: { table: "wholesale_consignment_allocations", columns: "id,consignment_id,receipt_id,source_amount_minor,allocated_at", key: "id", order: "allocated_at", path: "/finanzas/consignaciones", description: "Cobros asignados a consignaciones. Ya existen en cobros_cuenta." },
+  consignaciones: { table: "wholesale_consignments", columns: "id,order_id,contact_id,currency,exchange_rate,created_at", key: "id", order: "created_at", date: "created_at", path: "/consignaciones/resumen", description: "Acuerdos de consignación vinculados a producción." },
+  lineas_consignacion: { table: "wholesale_consignment_lines", columns: "id,consignment_id,order_item_id,variant_id,sku,title,quantity,unit_price_minor", key: "id", order: "id", search: "title", path: "/consignaciones/resumen", description: "Productos y precios pactados en la moneda de la consignación." },
+  movimientos_consignacion: { table: "wholesale_consignment_movements", columns: "id,line_id,kind,quantity,occurred_on,carrier,tracking,note,created_at", key: "id", order: "occurred_on", date: "occurred_on", path: "/consignaciones/resumen", description: "Envíos, devoluciones y unidades conservadas; las conservadas generan deuda." },
+  asignaciones_consignacion: { table: "wholesale_consignment_allocations", columns: "id,consignment_id,receipt_id,source_amount_minor,allocated_at", key: "id", order: "allocated_at", path: "/consignaciones/resumen", description: "Cobros asignados a consignaciones. Ya existen en cobros_cuenta." },
   perfiles_costos: { table: "inventory_cost_profiles", columns: "id,category_code,name,method,benchmark_material_minor", key: "id", order: "category_code", path: "/inventario/insumos", description: "Perfiles de costo por categoría. Solo Richard puede leer importes.", richardOnly: true },
   insumos: { table: "inventory_cost_lines", columns: "id,profile_id,name,group_name,kind,mode,amount_minor,currency,exchange_rate_to_uyu,purchase_quantity,consumption_quantity,unit,sort_order,catalog_variant_id", key: "id", order: "sort_order", search: "name", path: "/inventario/insumos", description: "Insumos y componentes de costo de fabricación. Solo Richard.", richardOnly: true },
   articulos_reventa: { table: "inventory_cost_lines", columns: "id,profile_id,name,kind,amount_minor,currency,exchange_rate_to_uyu,catalog_variant_id", key: "id", order: "name", search: "name", path: "/inventario/reventa", description: "Costos de compra de artículos de reventa. Solo Richard.", requiredKind: "purchase", richardOnly: true },
@@ -448,22 +448,23 @@ Deno.serve(pipeline(
 
       server.registerTool("crear_consignacion", {
         title: "Crear consignación mayorista",
-        description: "Solo Richard. Vincula una consignación a un pedido mayorista existente. Usa sus productos, cantidades, precios ARS y cotización guardados. El pedido no debe tener cobros ni entregas previas. Mostrar el pedido completo y pedir confirmación. Reutilizar clave_consignacion al reintentar.",
+        description: "Solo Richard. Vincula una consignación a un pedido mayorista existente y copia sus precios en la moneda elegida. El pedido no debe tener cobros ni entregas previas. Mostrar pedido y moneda y pedir confirmación. Reutilizar clave_consignacion al reintentar.",
         inputSchema: z.object({ clave_consignacion: z.string().trim().min(8).max(120), pedido_id: z.uuid(),
+          moneda: z.enum(["UYU", "ARS"]).default("ARS"),
           confirmado: z.literal(true) }), annotations: writeTool,
-      }, async ({ clave_consignacion, pedido_id }) => {
+      }, async ({ clave_consignacion, pedido_id, moneda }) => {
         if (!canWrite) return failure({ error: "Solo Richard puede crear consignaciones." });
         const id = await expenseId(identity.sub, `consignment:${clave_consignacion}`);
         const { data: previous, error: previousError } = await supabase.from("wholesale_consignments")
-          .select("id,order_id").eq("id", id).maybeSingle();
+          .select("id,order_id,currency").eq("id", id).maybeSingle();
         if (previousError) return failure({ error: "No se pudo comprobar el reintento." });
-        if (previous && previous.order_id !== pedido_id) return failure({ error: "La clave ya corresponde a otro pedido." });
+        if (previous && (previous.order_id !== pedido_id || previous.currency !== moneda)) return failure({ error: "La clave ya corresponde a otro pedido o moneda." });
         if (previous) return result({ estado: "ya_registrada", id, pedido_id });
         const { data, error } = await supabase.rpc("gestion_link_wholesale_consignment", {
-          p_id: id, p_order_id: pedido_id,
+          p_id: id, p_order_id: pedido_id, p_currency: moneda,
         });
         return error ? failure({ error: error.message }) : result({ estado: "registrada", datos: data,
-          pagina: "https://matearte-gestion.vercel.app/finanzas/consignaciones" });
+          pagina: "https://matearte-gestion.vercel.app/consignaciones/resumen" });
       });
 
       server.registerTool("registrar_movimiento_consignacion", {
@@ -488,46 +489,51 @@ Deno.serve(pipeline(
           p_occurred_on: fecha, p_carrier: transporte || null, p_tracking: seguimiento || null, p_note: nota || null,
         });
         return error ? failure({ error: error.message }) : result({ estado: "registrado_o_ya_existia", datos: data,
-          pagina: "https://matearte-gestion.vercel.app/finanzas/consignaciones" });
+          pagina: "https://matearte-gestion.vercel.app/consignaciones/resumen" });
       });
 
       server.registerTool("registrar_pago_consignacion", {
         title: "Registrar pago de una consignación",
-        description: "Solo Richard. Cobro ARS que se aplica a unidades conservadas; si excede el cargo confirmado queda a favor. Mostrar importe, cotización, medio, fecha y consignación, y pedir confirmación. Reutilizar clave_pago al reintentar.",
+        description: "Solo Richard. Registra un cobro en la moneda pactada de la consignación; si excede el cargo confirmado queda a favor. Para ARS indicar cotización UYU por ARS. Mostrar importe, moneda, medio y fecha y pedir confirmación. Reutilizar clave_pago al reintentar.",
         inputSchema: z.object({ clave_pago: z.string().trim().min(8).max(120), consignacion_id: z.uuid(),
-          importe_ars: moneySchema, cotizacion_uyu_por_ars: z.number().positive(), fecha: z.iso.date(),
+          importe: moneySchema.optional(), importe_ars: moneySchema.optional(), cotizacion_uyu_por_ars: z.number().positive().optional(), fecha: z.iso.date(),
           medio: z.enum(["Efectivo", "Débito", "Crédito", "Transferencia"]), nota: z.string().trim().max(500).optional(),
           confirmado: z.literal(true) }), annotations: writeTool,
-      }, async ({ clave_pago, consignacion_id, importe_ars, cotizacion_uyu_por_ars, fecha, medio, nota }) => {
+      }, async ({ clave_pago, consignacion_id, importe, importe_ars, cotizacion_uyu_por_ars, fecha, medio, nota }) => {
         if (!canWrite) return failure({ error: "Solo Richard puede registrar pagos de consignación." });
+        const { data: consignment } = await supabase.from("wholesale_consignments").select("currency").eq("id", consignacion_id).maybeSingle();
+        if (!consignment || (consignment.currency === "ARS" && !cotizacion_uyu_por_ars)
+          || (consignment.currency === "UYU" && importe == null)
+          || (importe != null && importe_ars != null && importe !== importe_ars)) return failure({ error: "Revisá moneda, importe y cotización." });
         let minor: number;
-        try { minor = amountMinor(importe_ars); } catch (error) { return failure({ error: (error as Error).message }); }
+        try { minor = amountMinor(importe ?? importe_ars!); } catch (error) { return failure({ error: (error as Error).message }); }
         const receiptId = await expenseId(identity.sub, `consignment-receipt:${consignacion_id}:${clave_pago}`);
         const allocationId = await expenseId(identity.sub, `consignment-allocation:${consignacion_id}:${clave_pago}`);
         const { data, error } = await supabase.rpc("gestion_record_wholesale_consignment_payment", {
           p_receipt_id: receiptId, p_allocation_id: allocationId, p_consignment_id: consignacion_id,
-          p_source_amount_minor: minor, p_uyu_per_ars: cotizacion_uyu_por_ars,
+          p_source_amount_minor: minor, p_uyu_per_ars: consignment.currency === "ARS" ? cotizacion_uyu_por_ars : null,
           p_payment_method: medio, p_paid_on: fecha, p_note: nota || null,
         });
         return error ? failure({ error: error.message }) : result({ estado: "registrado_o_ya_existia", datos: data,
-          pagina: "https://matearte-gestion.vercel.app/finanzas/consignaciones" });
+          pagina: "https://matearte-gestion.vercel.app/consignaciones/resumen" });
       });
 
       server.registerTool("asignar_pago_consignacion", {
         title: "Asignar un pago anticipado a consignación",
-        description: "Solo Richard. Asigna un cobro ARS ya registrado al cargo confirmado de la consignación. No registra dinero nuevo. Confirmar cobro, consignación e importe; reutilizar clave_asignacion al reintentar.",
+        description: "Solo Richard. Asigna un cobro de la misma moneda al cargo confirmado de la consignación. No registra dinero nuevo. Confirmar cobro, consignación e importe; reutilizar clave_asignacion al reintentar.",
         inputSchema: z.object({ clave_asignacion: z.string().trim().min(8).max(120), consignacion_id: z.uuid(),
-          cobro_id: z.uuid(), importe_ars: moneySchema, confirmado: z.literal(true) }), annotations: writeTool,
-      }, async ({ clave_asignacion, consignacion_id, cobro_id, importe_ars }) => {
+          cobro_id: z.uuid(), importe: moneySchema.optional(), importe_ars: moneySchema.optional(), confirmado: z.literal(true) }), annotations: writeTool,
+      }, async ({ clave_asignacion, consignacion_id, cobro_id, importe, importe_ars }) => {
         if (!canWrite) return failure({ error: "Solo Richard puede asignar cobros a consignaciones." });
+        if (importe == null && importe_ars == null) return failure({ error: "Falta el importe." });
         let minor: number;
-        try { minor = amountMinor(importe_ars); } catch (error) { return failure({ error: (error as Error).message }); }
+        try { minor = amountMinor(importe ?? importe_ars!); } catch (error) { return failure({ error: (error as Error).message }); }
         const id = await expenseId(identity.sub, `consignment-reallocate:${clave_asignacion}`);
         const { data, error } = await supabase.rpc("gestion_allocate_wholesale_consignment_receipt", {
           p_id: id, p_receipt_id: cobro_id, p_consignment_id: consignacion_id, p_source_amount_minor: minor,
         });
         return error ? failure({ error: error.message }) : result({ estado: "asignado_o_ya_existia", datos: data,
-          pagina: "https://matearte-gestion.vercel.app/finanzas/consignaciones" });
+          pagina: "https://matearte-gestion.vercel.app/consignaciones/resumen" });
       });
 
       server.registerTool("guardar_costo_inventario", {

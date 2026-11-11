@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   House,
   Handshake,
+  Storefront,
   Megaphone,
   UsersThree,
   Package,
@@ -41,6 +42,9 @@ import { LocalCreditSales } from "./LocalCreditSales";
 import { InventoryCosts } from "./InventoryCosts";
 import { ManufacturedProducts } from "./ManufacturedProducts";
 import { Consignments } from "./Consignments";
+import { ConsigneeUsers } from "./ConsigneeUsers";
+import { ConsigneePortal } from "./ConsigneePortal";
+import "./consigneePortal.css";
 import {
   CollectionPage,
   Products,
@@ -55,6 +59,7 @@ import { Card, Badge, Modal } from "./ui";
 const icons = [
   House,
   Handshake,
+  Storefront,
   Megaphone,
   ChartBar,
   UsersThree,
@@ -87,7 +92,9 @@ const analyticsSections: Record<string, AnalyticsSection> = {
   vercel: "vercel",
   cambios: "changes",
 };
-const currentRoute = () => retiredRoutes[location.pathname] || (location.pathname === "/" ? "/inicio/resumen" : location.pathname + location.search);
+const currentRoute = () => location.pathname === "/finanzas/consignaciones"
+  ? `/consignaciones/resumen${location.search}`
+  : retiredRoutes[location.pathname] || (location.pathname === "/" ? "/inicio/resumen" : location.pathname + location.search);
 function Content(
   props: PageProps & {
     path: string;
@@ -110,6 +117,8 @@ function Content(
   const key = `${area}/${page}`;
   if (["marketing/descuentos", "marketing/avisos", "productos/categorias", "productos/ajustes", "administracion/canales", "finanzas/monedas", "entregas/tarifas"].includes(key)) return <CommerceSection {...props} path={key} />;
   if (key === "marketing/sorteo") return <SorteoView />;
+  if (key === "consignaciones/resumen") return <Consignments {...props} />;
+  if (key === "consignaciones/usuarios") return <ConsigneeUsers s={s} commerce={props.commerce} go={go} />;
   if (area === "marketing") return <MarketingSection page={page} notify={props.notify} s={s} go={go} commerce={props.commerce} />;
   if (area === "analitica") return <AnalyticsJourneys section={analyticsSections[page]} />;
   if (key === "finanzas/egresos") return <FinanceExpenses notify={props.notify} editable={canAccess(s, "/finanzas/egresos")} openingEditable={canAccess(s, "/finanzas/egresos")} />;
@@ -175,9 +184,7 @@ function Content(
       <Orders {...props} mode={page} />
     );
   if (area === "finanzas")
-    return page === "consignaciones" ? (
-      <Consignments {...props} />
-    ) : page === "por-cobrar" ? (
+    return page === "por-cobrar" ? (
       <Receivables {...props} />
     ) : (
       <Finance {...props} mode={page} />
@@ -246,6 +253,11 @@ export default function App() {
     document.title = `${title} - Matearte Gestión`;
   }, [title]);
   useEffect(() => {
+    if (live.access !== "portal") return;
+    if (location.pathname !== "/consignaciones/resumen") history.replaceState(null, "", "/consignaciones/resumen");
+    setPath("/consignaciones/resumen");
+  }, [live.access, path]);
+  useEffect(() => {
     if (!mobile) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -298,6 +310,8 @@ export default function App() {
     .filter((p) =>
       `${p.label} ${p.area}`.toLowerCase().includes(search.toLowerCase()),
     );
+  if (live.access === "portal" && live.portal) return <ConsigneePortal dashboard={live.portal} loading={live.loading}
+    error={live.error} refresh={() => live.refresh()} signOut={live.signOut} />;
   if (live.access !== "ready") return <CommerceLogin access={live.access} error={live.error} signOut={live.signOut} />;
   return (
     <>

@@ -20,10 +20,13 @@ export type CustomerAccount = {
   otherPending: number;
 };
 export const accountMoney = (account: CustomerAccount, amount: number) => account.currency === "ARS" ? arsMoney(amount) : money(amount);
-export const accountOrderBalance = (state: State, order: Order) => order.source === "wholesale" ? wholesaleBalanceArs(state, order) : balance(state, order);
+export const accountOrderBalance = (state: State, order: Order) => order.consignmentId
+  ? (state.consignments || []).filter((entry) => entry.id === order.consignmentId)
+    .reduce((sum, entry) => sum + consignmentSummary(state, entry).balanceMinor / 100, 0)
+  : order.source === "wholesale" ? wholesaleBalanceArs(state, order) : balance(state, order);
 export const accountOrderTotal = (state: State, order: Order) => order.consignmentId
   ? (state.consignments || []).filter((entry) => entry.id === order.consignmentId)
-    .reduce((sum, entry) => sum + consignmentSummary(state, entry).confirmedArgMinor / 100, 0)
+    .reduce((sum, entry) => sum + consignmentSummary(state, entry).confirmedMinor / 100, 0)
   : order.source === "wholesale" ? order.wholesaleTotalArg : order.totalAmount ?? order.quantity * order.unitPrice;
 
 export function customerAccounts(state: State): CustomerAccount[] {
@@ -52,7 +55,8 @@ export function customerAccounts(state: State): CustomerAccount[] {
     const contactId = order.contactId || contactByCustomer.get(order.customerId) || "";
     if (!contactId) continue;
     const known = customerById.get(order.customerId);
-    const account = ensure(contactId, order.source === "wholesale" ? "ARS" : "UYU", known ? { ...known, contactId }
+    const linkedConsignment = order.consignmentId && (state.consignments || []).find((entry) => entry.id === order.consignmentId);
+    const account = ensure(contactId, linkedConsignment ? linkedConsignment.currency : order.source === "wholesale" ? "ARS" : "UYU", known ? { ...known, contactId }
       : { id: `contact:${contactId}`, contactId, name: order.customerName || "Cliente sin nombre", email: "", phone: "", city: "", segment: order.source === "wholesale" ? "Mayorista" : "Minorista" });
     account.orders.push(order);
     if (order.consignmentId) continue;
@@ -66,9 +70,9 @@ export function customerAccounts(state: State): CustomerAccount[] {
     else account.otherPending += remaining;
   }
   for (const consignment of state.consignments || []) {
-    const account = ensure(consignment.contactId, "ARS");
+    const account = ensure(consignment.contactId, consignment.currency);
     account.consignments.push(consignment);
-    const balance = consignmentSummary(state, consignment).balanceArgMinor / 100;
+    const balance = consignmentSummary(state, consignment).balanceMinor / 100;
     account.pending += balance;
     account.wholesalePending += balance;
   }
@@ -101,6 +105,6 @@ export function receiptAvailableMinor(account: CustomerAccount, receiptId: strin
   return receipt ? Math.max(0, (account.currency === "ARS" ? receipt.sourceAmountMinor : receipt.amountMinor) - account.allocations
     .filter((allocation) => allocation.receiptId === receiptId)
     .reduce((sum, allocation) => sum + (account.currency === "ARS" ? allocation.sourceAmountMinor || 0 : allocation.amountMinor), 0)
-    - (account.currency === "ARS" ? (account.consignmentAllocations || []).filter((allocation) => allocation.receiptId === receiptId)
-      .reduce((sum, allocation) => sum + allocation.sourceAmountMinor, 0) : 0)) : 0;
+    - (account.consignmentAllocations || []).filter((allocation) => allocation.receiptId === receiptId)
+      .reduce((sum, allocation) => sum + allocation.sourceAmountMinor, 0)) : 0;
 }

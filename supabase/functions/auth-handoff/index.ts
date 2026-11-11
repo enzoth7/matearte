@@ -29,6 +29,8 @@ Deno.serve(async (request) => {
     const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: `Bearer ${bearer}` } }, auth: { persistSession: false } });
     const { data: { user } } = await userClient.auth.getUser(bearer);
     if (!user) return json({ error: "Sesión inválida." }, 401, origin);
+    const { data: portalUser } = await service.from("consignment_portal_users").select("user_id").eq("user_id", user.id).maybeSingle();
+    if (portalUser) return json({ error: "Esta cuenta solo accede a Consignaciones." }, 403, origin);
     const targetPath = typeof body.targetPath === "string" ? body.targetPath : "/";
     const action = typeof body.action === "string" ? body.action : "continue";
     const payload = body.payload && typeof body.payload === "object" && !Array.isArray(body.payload) ? body.payload : {};
@@ -46,6 +48,8 @@ Deno.serve(async (request) => {
     const now = new Date().toISOString();
     const { data: handoff } = await service.from("auth_handoffs").update({ consumed_at: now }).eq("token_hash", await hash(code)).is("consumed_at", null).gt("expires_at", now).select("user_id,target_path,action,payload").maybeSingle();
     if (!handoff) return json({ error: "Código usado o vencido." }, 410, origin);
+    const { data: portalUser } = await service.from("consignment_portal_users").select("user_id").eq("user_id", handoff.user_id).maybeSingle();
+    if (portalUser) return json({ error: "Esta cuenta solo accede a Consignaciones." }, 403, origin);
     const { data: userData } = await service.auth.admin.getUserById(handoff.user_id);
     if (!userData.user?.email) return json({ error: "Usuario inválido." }, 400, origin);
     const { data: linkData, error } = await service.auth.admin.generateLink({ type: "magiclink", email: userData.user.email });

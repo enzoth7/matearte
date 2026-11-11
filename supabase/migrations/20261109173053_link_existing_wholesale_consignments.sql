@@ -147,4 +147,3 @@ begin
 end;
 $$;
 notify pgrst, 'reload config';
-

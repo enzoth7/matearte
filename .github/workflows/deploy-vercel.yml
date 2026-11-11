@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       project:
-        description: Proyecto a desplegar en producci�n
+        description: Proyecto a desplegar en producción
         required: true
         type: choice
         options:

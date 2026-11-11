@@ -80,11 +80,18 @@ export function buildFinanceProjection(
     appliedByReceipt.set(allocation.receiptId, (appliedByReceipt.get(allocation.receiptId) || 0) + allocation.sourceAmountMinor);
   }
   const freeCreditByContact = new Map<string, number>();
+  const reservedCreditByConsignment = new Map<string, number>();
   for (const receipt of state.accountReceipts || []) {
     const key = `${receipt.contactId}:${receipt.currency}`;
     const amount = receipt.currency === "ARS" ? receipt.sourceAmountMinor : receipt.amountMinor;
+    const available = Math.max(0, amount - (appliedByReceipt.get(receipt.id) || 0));
+    if (receipt.consignmentId) {
+      reservedCreditByConsignment.set(receipt.consignmentId,
+        (reservedCreditByConsignment.get(receipt.consignmentId) || 0) + available);
+      continue;
+    }
     freeCreditByContact.set(key, (freeCreditByContact.get(key) || 0)
-      + Math.max(0, amount - (appliedByReceipt.get(receipt.id) || 0)));
+      + available);
   }
   const collectibleByOrder = new Map<string, number>();
   for (const order of [...state.orders].sort((a, b) => (a.due || a.date).localeCompare(b.due || b.date))) {
@@ -101,11 +108,12 @@ export function buildFinanceProjection(
   }
   let consignmentReceivableUyu = 0;
   for (const consignment of state.consignments || []) {
-    const due = consignmentSummary(state, consignment).balanceArgMinor;
-    const key = `${consignment.contactId}:ARS`;
-    const credit = Math.min(due, freeCreditByContact.get(key) || 0);
-    freeCreditByContact.set(key, (freeCreditByContact.get(key) || 0) - credit);
-    consignmentReceivableUyu += Math.round((due - credit) * consignment.exchangeRate) / 100;
+    const due = consignmentSummary(state, consignment).balanceMinor;
+    const key = `${consignment.contactId}:${consignment.currency}`;
+    const reservedUsed = Math.min(due, reservedCreditByConsignment.get(consignment.id) || 0);
+    const genericUsed = Math.min(due - reservedUsed, freeCreditByContact.get(key) || 0);
+    freeCreditByContact.set(key, (freeCreditByContact.get(key) || 0) - genericUsed);
+    consignmentReceivableUyu += Math.round((due - reservedUsed - genericUsed) * (consignment.currency === "ARS" ? consignment.exchangeRate : 1)) / 100;
   }
   let cumulative = Number.isFinite(openingBalance) ? openingBalance : 0;
   let balanceKnown = true;

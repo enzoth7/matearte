@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { mockCommerce } from "./commerce-fixture";
 
-test("Finanzas vincula un pedido mayorista existente sin elegir productos", async ({ page }) => {
+test("Consignaciones vincula un pedido mayorista existente sin elegir productos", async ({ page }) => {
   const { tables } = await mockCommerce(page);
   tables.commerce_products[0].commerce_variants[0].available_wholesale = true;
   tables.commerce_products[0].commerce_variants[0].wholesale_price_arg = 12500;
@@ -17,6 +17,7 @@ test("Finanzas vincula un pedido mayorista existente sin elegir productos", asyn
   await page.goto("/finanzas/consignaciones");
   await expect(page.getByRole("heading", { name: "Consignaciones", level: 1 })).toBeVisible();
   await page.getByRole("button", { name: "Nueva consignación" }).click();
+  await page.getByLabel("Moneda pactada").selectOption("ARS");
   await page.getByLabel("Buscar pedido mayorista").fill("M200");
   const orderOption = page.getByRole("button", { name: /#M200 Cliente mayorista ARS 25\.000 2 unidades/ });
   await orderOption.click();
@@ -32,8 +33,8 @@ test("el detalle separa enviadas, devueltas, conservadas y pagos ARS", async ({ 
   const { tables } = await mockCommerce(page);
   tables.contacts.push({ id: "contact-wholesale", wholesale_name: "Cliente mayorista" });
   tables.customers.push({ full_name: "Cliente mayorista" });
-  tables.wholesale_consignments.push({ id: "consignment-1", order_id: "order-wholesale", contact_id: "contact-wholesale", exchange_rate: 0.03, created_at: "2026-11-01T12:00:00Z" });
-  tables.wholesale_consignment_lines.push({ id: "consignment-line-1", consignment_id: "consignment-1", order_item_id: "item-wholesale", variant_id: "variant-1", sku: "SKU-1", title: "Mate de catálogo", quantity: 100, unit_price_arg_minor: 100000 });
+  tables.wholesale_consignments.push({ id: "consignment-1", order_id: "order-wholesale", contact_id: "contact-wholesale", currency: "ARS", exchange_rate: 0.03, created_at: "2026-11-01T12:00:00Z" });
+  tables.wholesale_consignment_lines.push({ id: "consignment-line-1", consignment_id: "consignment-1", order_item_id: "item-wholesale", variant_id: "variant-1", sku: "SKU-1", title: "Mate de catálogo", quantity: 100, unit_price_minor: 100000 });
   for (const [id, kind, quantity] of [["sent", "dispatch", 100], ["returned", "return", 20], ["kept", "kept", 80]] as const) {
     tables.wholesale_consignment_movements.push({ id, line_id: "consignment-line-1", kind, quantity, occurred_on: "2026-11-03", carrier: null, tracking: null, note: null, created_at: "2026-11-03T12:00:00Z" });
   }

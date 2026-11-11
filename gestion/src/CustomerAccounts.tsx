@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { arsMoney, money, orderName, paid, wholesalePaidArs, type State } from "./data";
+import { arsMoney, currencyMoney, money, orderName, paid, wholesalePaidArs, type State } from "./data";
 import { accountMoney, accountOrderBalance, accountOrderTotal, customerAccounts, receiptAvailableMinor, type CustomerAccount } from "./customerAccountModel";
 import { CustomerAccountAllocationForm, CustomerAccountReceiptForm, FiadoSaleForm } from "./CustomerAccountForms";
 import type { PageProps } from "./pages";
@@ -44,7 +44,7 @@ function accountMovements(account: CustomerAccount, state: State): Movement[] {
       for (const movement of (state.consignmentMovements || []).filter((entry) => entry.lineId === line.id && entry.kind === "kept")) {
         movements.push({ id: `consignment:${movement.id}`, date: movement.occurredOn,
           label: "Unidades conservadas de consignación", detail: `${line.title}, ${movement.quantity} u.`,
-          orderId: order?.id, charge: movement.quantity * line.unitPriceArgMinor / 100 });
+          orderId: order?.id, charge: movement.quantity * line.unitPriceMinor / 100 });
       }
     }
     for (const allocation of account.consignmentAllocations.filter((entry) => entry.consignmentId === consignment.id)) {
@@ -92,13 +92,13 @@ function AccountDetail({ account, props, onClose }: { account: CustomerAccount; 
       { label: "Falta", render: (order) => accountOrderBalance(s, order) == null ? "Por conciliar" : <strong>{accountMoney(account, accountOrderBalance(s, order)!)}</strong> },
     ]} />
     {account.consignments.length > 0 && <Table title="Consignaciones" className="customer-account-detail-table" rows={account.consignments.map((consignment) => ({ ...consignment, ...consignmentSummary(s, consignment) }))} pageSize={20} searchText={(consignment) => consignment.id} columns={[
-      { label: "Consignación", render: (consignment) => <button type="button" className="text-button" onClick={() => go(`/finanzas/consignaciones?consignacion=${encodeURIComponent(consignment.id)}`)}>Ver detalle</button> },
+      { label: "Consignación", render: (consignment) => <button type="button" className="text-button" onClick={() => go(`/consignaciones/resumen?consignacion=${encodeURIComponent(consignment.id)}`)}>Ver detalle</button> },
       { label: "Enviadas", render: (consignment) => consignment.dispatched },
       { label: "En poder", render: (consignment) => consignment.held },
       { label: "Devueltas", render: (consignment) => consignment.returned },
       { label: "Se queda", render: (consignment) => consignment.kept },
-      { label: "Confirmado", render: (consignment) => arsMoney(consignment.confirmedArgMinor / 100) },
-      { label: "Saldo", render: (consignment) => arsMoney(consignment.balanceArgMinor / 100) },
+      { label: "Confirmado", render: (consignment) => currencyMoney(consignment.confirmedMinor / 100, consignment.currency) },
+      { label: "Saldo", render: (consignment) => currencyMoney(consignment.balanceMinor / 100, consignment.currency) },
     ]} />}
     <Table title="Movimientos de la cuenta" className="customer-account-detail-table" rows={movements} pageSize={30} searchText={(movement) => `${movement.label} ${movement.detail} ${movement.orderId || ""}`} columns={[
       { label: "Fecha", render: (movement) => movement.date ? formatDate(movement.date) : "Anterior" },

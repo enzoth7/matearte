@@ -1,6 +1,6 @@
 -- Compare acquisition and retail transactions by their own Uruguay calendar dates.
 -- Local, fair and social sales are already represented in orders, so count each order once.
-create view public.marketing_daily_registrations_retail_sales as
+create or replace view public.marketing_daily_registrations_retail_sales as
 with bounds as (
   select (now() at time zone 'America/Montevideo')::date - 29 as first_day
 ), registrations as (

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "
 import { ArrowDown, ArrowUp, CaretDown, Check, Eye, Funnel, FunnelX, MagnifyingGlass, PencilSimple, Plus, Trash, X } from "@phosphor-icons/react";
 import type { PageProps } from "./pages";
 import type { Customer, Order, Product } from "./data";
-import { orderName, wholesaleBalanceArs, wholesalePaidArs } from "./data";
+import { currencyMoney, orderName, wholesaleBalanceArs, wholesalePaidArs } from "./data";
 import { Badge, Modal, Stats, Table, type Column } from "./ui";
 import { discountSummary, formatPercent, orderDiscountPercent, parseDiscountPercent } from "./wholesaleDiscount";
 import { createWholesaleOrder, setWholesaleOrderDiscount, deleteWholesaleCustomer, countWholesaleCustomerLines, deleteWholesaleLine, completeWholesaleLine, saveWholesaleCustomer, updateWholesaleLine, wholesaleProductImageUrl, type WholesaleCustomer, type WholesaleLine, type WholesaleProduct, type WholesaleProductImage, type WholesaleSnapshot } from "./wholesaleSource";
@@ -369,16 +369,16 @@ export function WholesaleOrderModal({ order, props, onClose, editingLineId = nul
   if (consignment) {
     const summary = consignmentSummary(props.s, consignment);
     return <Modal title={orderName(order)} onClose={onClose} className="wholesale-order-dialog">
-      <div className="detail-banner"><div><small>Producción de consignación</small><h3>{naturalCaseName(customer?.name || order.customerName || "Cliente mayorista")}</h3></div><strong>{wholesaleMoney(summary.confirmedArgMinor / 100)} confirmados</strong></div>
+      <div className="detail-banner"><div><small>Producción de consignación</small><h3>{naturalCaseName(customer?.name || order.customerName || "Cliente mayorista")}</h3></div><strong>{currencyMoney(summary.confirmedMinor / 100, consignment.currency)} confirmados</strong></div>
       <Stats items={[{ label: "Unidades", value: order.quantity }, { label: "Enviadas", value: summary.dispatched },
         { label: "En poder del cliente", value: summary.held }, { label: "Se queda", value: summary.kept },
-        { label: "Saldo confirmado", value: wholesaleMoney(summary.balanceArgMinor / 100), tone: "yellow" }]} />
+        { label: "Saldo confirmado", value: currencyMoney(summary.balanceMinor / 100, consignment.currency), tone: "yellow" }]} />
       <Table title="Líneas de producción" rows={lines.map((line) => ({ ...line, id: line.line_id }))} searchText={(line) => `${line.model} ${line.variant}`} columns={[
         { label: "Producto", render: (line) => `${naturalCaseName(line.model)}, ${naturalCaseName(line.variant)}` },
         { label: "Unidades", render: (line) => line.quantity },
         { label: "Producción", render: (line) => productionStatusLabel(line.status) },
       ]} />
-      <div className="form-actions"><button type="button" className="primary" onClick={() => props.go(`/finanzas/consignaciones?consignacion=${encodeURIComponent(consignment.id)}`)}>Ver consignación</button><button type="button" className="secondary" onClick={onClose}>Cerrar</button></div>
+      <div className="form-actions"><button type="button" className="primary" onClick={() => props.go(`/consignaciones/resumen?consignacion=${encodeURIComponent(consignment.id)}`)}>Ver consignación</button><button type="button" className="secondary" onClick={onClose}>Cerrar</button></div>
     </Modal>;
   }
   async function removeOrder() {
