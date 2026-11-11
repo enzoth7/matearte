@@ -211,18 +211,23 @@ function ConsignmentDetail({ props, consignment, onClose }: {
   const customerReceipts = (props.s.accountReceipts || []).filter((receipt) =>
     receipt.contactId === consignment.contactId && receipt.currency === consignment.currency)
     .sort((a, b) => b.paidOn.localeCompare(a.paidOn) || b.id.localeCompare(a.id));
+  const linesById = new Map(summary.lines.map((line) => [line.id, line]));
   const events = [
     ...(props.s.consignmentMovements || []).filter((movement) => summary.lines.some((line) => line.id === movement.lineId))
-      .map((movement) => ({ id: movement.id, date: movement.occurredOn,
-        label: movement.kind === "dispatch" ? "Envío" : movement.kind === "return" ? "Devolución" : "Se queda",
-        detail: summary.lines.find((line) => line.id === movement.lineId)?.title || "Producto",
-        quantity: movement.quantity, amount: movement.kind === "kept"
-          ? movement.quantity * (summary.lines.find((line) => line.id === movement.lineId)?.unitPriceMinor || 0) : 0,
-        note: [movement.carrier, movement.tracking, movement.note].filter(Boolean).join(", ") })),
+      .map((movement) => {
+        const line = linesById.get(movement.lineId);
+        const valueMinor = movement.quantity * (line?.unitPriceMinor || 0);
+        return { id: movement.id, date: movement.occurredOn,
+          label: movement.kind === "dispatch" ? "Envío" : movement.kind === "return" ? "Devolución" : "Se queda",
+          detail: line?.title || "Producto", quantity: movement.quantity,
+          amount: movement.kind === "return" ? -valueMinor : valueMinor,
+          amountLabel: movement.kind === "dispatch" ? "Valor enviado" : movement.kind === "return" ? "Valor devuelto" : "Cargo confirmado",
+          note: [movement.carrier, movement.tracking, movement.note].filter(Boolean).join(", ") };
+      }),
     ...(props.s.consignmentAllocations || []).filter((allocation) => allocation.consignmentId === consignment.id)
       .map((allocation) => ({ id: allocation.id, date: receipts.get(allocation.receiptId)?.paidOn || allocation.allocatedAt.slice(0, 10),
         label: "Pago aplicado", detail: receipts.get(allocation.receiptId)?.paymentMethod || `Entrega ${consignment.currency}`,
-        quantity: 0, amount: -allocation.sourceAmountMinor, note: "" })),
+        quantity: 0, amount: -allocation.sourceAmountMinor, amountLabel: "", note: "" })),
   ].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
   const availableCreditMinor = (props.s.accountReceipts || []).filter((receipt) => receipt.contactId === consignment.contactId && receipt.currency === consignment.currency)
     .reduce((sum, receipt) => sum + consignmentReceiptAvailableMinor(props.s, receipt.id), 0);
@@ -256,7 +261,10 @@ function ConsignmentDetail({ props, consignment, onClose }: {
         { label: "Movimiento", render: (event) => event.label },
         { label: "Detalle", render: (event) => <div>{event.detail}{event.note && <small>{event.note}</small>}</div> },
         { label: "Unidades", render: (event) => event.quantity || "—" },
-        { label: consignment.currency, render: (event) => event.amount ? currencyMoney(event.amount / 100, consignment.currency) : "—" },
+        { label: consignment.currency, render: (event) => <div className="consignment-event-amount">
+          <strong>{event.amount < 0 ? "−" : ""}{currencyMoney(Math.abs(event.amount) / 100, consignment.currency)}</strong>
+          {event.amountLabel && <small>{event.amountLabel}</small>}
+        </div> },
       ]} /></section>}
       {tab === "receipts" && <section id="consignment-panel-receipts" role="tabpanel" aria-labelledby="consignment-tab-receipts"><Table title={`Entregas ${consignment.currency} del cliente`} rows={customerReceipts} pageSize={20} searchText={(receipt) => `${receipt.paidOn} ${receipt.paymentMethod} ${receipt.note || ""}`} columns={[
         { label: "Fecha", render: (receipt) => formatDate(receipt.paidOn) },

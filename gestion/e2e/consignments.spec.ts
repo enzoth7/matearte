@@ -94,7 +94,14 @@ test("el detalle separa enviadas, devueltas, conservadas y pagos ARS", async ({ 
   await expect(detail.getByRole("tab", { name: "Productos y unidades" })).toHaveAttribute("aria-selected", "true");
   await expect(detail.getByRole("button", { name: "Registrar devolución" })).toBeDisabled();
   await detail.getByRole("tab", { name: "Movimientos" }).click();
-  await expect(detail.getByRole("tabpanel", { name: "Movimientos" })).toContainText("Pago aplicado");
+  const movements = detail.getByRole("tabpanel", { name: "Movimientos" });
+  await expect(movements.getByRole("row").filter({ hasText: "Envío" })).toContainText("ARS 100.000");
+  await expect(movements.getByRole("row").filter({ hasText: "Envío" })).toContainText("Valor enviado");
+  await expect(movements.getByRole("row").filter({ hasText: "Devolución" })).toContainText("−ARS 20.000");
+  await expect(movements.getByRole("row").filter({ hasText: "Devolución" })).toContainText("Valor devuelto");
+  await expect(movements.getByRole("row").filter({ hasText: "Se queda" })).toContainText("ARS 80.000");
+  await expect(movements.getByRole("row").filter({ hasText: "Se queda" })).toContainText("Cargo confirmado");
+  await expect(movements.getByRole("row").filter({ hasText: "Pago aplicado" })).toContainText("−ARS 50.000");
   await expect(detail.getByText("Productos y unidades", { exact: true })).toHaveCount(1);
   await detail.getByRole("tab", { name: "Entregas" }).click();
   await expect(detail.getByRole("tabpanel", { name: "Entregas" })).toContainText("Pago semanal");
