@@ -3487,7 +3487,10 @@ dialog.local-mate-summary-dialog{width:min(920px,calc(100% - 24px));max-height:9
 .wholesale-sale-empty{display:grid;min-height:96px;place-items:center;border:1px dashed var(--line);border-radius:12px;background:rgb(255 255 255/.55);color:var(--muted);font-size:14px}
 .wholesale-sale-single-field{max-width:620px}
 .wholesale-sale-single-field{display:grid;gap:14px}
-.wholesale-sale-note{margin-top:14px}
+.wholesale-sale-details-row{display:grid;grid-template-columns:minmax(0,620px) 140px;align-items:end;gap:16px;max-width:776px}
+.wholesale-sale-details-row label{display:grid;gap:8px;min-width:0}
+.wholesale-sale-details-row input,.wholesale-sale-details-row select{width:100%;min-width:0}
+@media(max-width:480px){.wholesale-sale-details-row{grid-template-columns:minmax(0,1fr) 110px;gap:12px}}
 .wholesale-sale-discount-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px}
 .wholesale-sale-discount-row label{display:grid;gap:6px;width:auto}
 .wholesale-sale-discount-toggle select{width:110px}

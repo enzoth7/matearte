@@ -196,9 +196,10 @@ export function WholesaleRegister(props: PageProps) {
 
     <section className="local-sale-section wholesale-sale-section">
       <h2>Datos de la venta</h2>
-      <div className="wholesale-sale-single-field"><label>Canal de venta<input value="Mayorista" readOnly /></label></div>
-      <div className="wholesale-sale-single-field"><label>Moneda del pedido<select value={currency} onChange={(event) => setCurrency(event.target.value as "ARS" | "UYU")}><option value="ARS">Pesos argentinos, ARS</option><option value="UYU">Pesos uruguayos, UYU</option></select></label></div>
-      <small className="wholesale-sale-note">El pedido se guardará en el tablero de producción mayorista con su número #M.</small>
+      <div className="wholesale-sale-details-row">
+        <label>Canal de venta<input value="Mayorista" readOnly /></label>
+        <label>Moneda del pedido<select value={currency} onChange={(event) => setCurrency(event.target.value as "ARS" | "UYU")}><option value="ARS">ARS</option><option value="UYU">UYU</option></select></label>
+      </div>
     </section>
 
     <section className="local-sale-section wholesale-sale-section">
