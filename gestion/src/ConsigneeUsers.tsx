@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ArrowClockwise, WarningCircle } from "@phosphor-icons/react";
+import { ArrowClockwise, PencilSimple, WarningCircle } from "@phosphor-icons/react";
 import { commerceSource } from "./commerceSource";
 import type { PageProps } from "./pages";
 import { Modal } from "./ui";
@@ -107,7 +107,7 @@ export function ConsigneeUsers({ s, commerce, go }: Pick<PageProps, "s" | "comme
         <tbody>{accessRows.map((row) => <tr key={row.id}>
           <th scope="row">{row.client}</th>
           <td>{row.user ? <strong>{row.user.username}</strong> : <button type="button" className="text-button" onClick={() => openCreate(row.contactId)}>Crear usuario</button>}</td>
-          <td>{row.user ? <button type="button" className="secondary" onClick={() => openReset(row.user!.userId)}>Cambiar contraseña</button> : "—"}</td>
+          <td>{row.user ? <button type="button" className="consignee-users-edit-button" aria-label={`Cambiar contraseña de ${row.user.username}`} title="Cambiar contraseña" onClick={() => openReset(row.user!.userId)}><PencilSimple size={19} aria-hidden="true" /></button> : "—"}</td>
           <td>{row.user ? <div className="consignee-users-status">
             <strong className={row.user.active ? "consignee-users-badge active" : "consignee-users-badge"}>{row.user.active ? "Activo" : "Inactivo"}</strong>
             <button type="button" className="text-button" disabled={busy} onClick={() => void toggleActive(row.user!)}>{row.user.active ? "Desactivar" : "Activar"}</button>

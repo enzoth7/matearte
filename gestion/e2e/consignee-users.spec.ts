@@ -50,7 +50,7 @@ test("los accesos consignatarios se administran desde Consignaciones y nacen pau
   expect(actions.find((action) => action.action === "setConsigneeActive")).toMatchObject({
     userId: "portal-1", active: true,
   });
-  await row.getByRole("button", { name: "Cambiar contraseña" }).click();
+  await row.getByRole("button", { name: "Cambiar contraseña de local.paysandu" }).click();
   const resetDialog = page.getByRole("dialog", { name: "Cambiar contraseña de local.paysandu" });
   await resetDialog.getByRole("textbox", { name: "Nueva contraseña" }).fill("otra-clave-2026");
   await resetDialog.getByRole("textbox", { name: "Confirmar contraseña" }).fill("otra-clave-2026");
