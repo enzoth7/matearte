@@ -1,4 +1,4 @@
-import { RecoveredDesignViews } from "../localDesignPreviews";
+import { FlejePrintReferences, RecoveredDesignViews } from "../localDesignPreviews";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus } from '@phosphor-icons/react';
@@ -40,6 +40,9 @@ const money = (minor: number, currency = "UYU") => new Intl.NumberFormat('es-UY'
 
 const readableDate = (value: string) => formatDateTime(value);
 const shortDate = (value: string) => formatDate(value);
+const printTechnique = (value: string) => value === 'Láser' ? 'GRABADO LÁSER'
+  : value === 'Sin definir' ? 'SIN DEFINIR, CONFIRMAR'
+    : value.toLocaleUpperCase('es-UY');
 const orderDate = (order: PersonalizedOrder) => order.sold_on || order.created_at;
 const readableOrderDate = (order: PersonalizedOrder) => order.sold_on ? shortDate(order.sold_on) : readableDate(order.created_at);
 const reference = (order: PersonalizedOrder) => order.reference_code || `#${order.order_number}`;
@@ -242,6 +245,12 @@ function AssetCard({ asset, link }: { asset: PrivateAsset; link?: AssetLink }) {
   );
 }
 
+function FlejePrintFallback({ previews, links }: { previews: PrivateAsset[]; links: Record<string, AssetLink> }) {
+  return <div className="customer-assets production-print-fleje-fallback">
+    {previews.filter(asset => asset.role === 'fleje_front' || asset.role === 'fleje_back').map(asset => <AssetCard key={asset.key} asset={asset} link={links[asset.key]} />)}
+  </div>;
+}
+
 export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: string) => void; state?: State }) {
   const [webOrders, setWebOrders] = useState<PersonalizedOrder[]>([]);
   const [search, setSearch] = useState('');
@@ -341,9 +350,37 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
     setSelectedId('');
   };
 
-  const printForProduction = () => {
+  const printForProduction = async () => {
     setActiveTab('production');
-    window.requestAnimationFrame(() => window.requestAnimationFrame(() => window.print()));
+    await new Promise<void>(resolve => window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve())));
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const referencesReady = await new Promise<boolean>(resolve => {
+      if (!dialog.querySelector('[data-fleje-print-pending]')) return resolve(true);
+      const observer = new MutationObserver(() => {
+        if (!dialog.querySelector('[data-fleje-print-pending]')) {
+          window.clearTimeout(timeout);
+          observer.disconnect();
+          resolve(true);
+        }
+      });
+      const timeout = window.setTimeout(() => { observer.disconnect(); resolve(false); }, 12000);
+      observer.observe(dialog, { childList: true, subtree: true });
+    });
+    if (!referencesReady) {
+      onNotice('Las imágenes del fleje todavía se están cargando. Probá imprimir de nuevo.');
+      return;
+    }
+    const flejeImages = Array.from(dialog.querySelectorAll<HTMLImageElement>('.production-print-fleje-label img'));
+    const imagesReady = await Promise.race([
+      Promise.all(flejeImages.map(image => image.decode().catch(() => undefined))).then(() => true),
+      new Promise<false>(resolve => window.setTimeout(() => resolve(false), 12000)),
+    ]);
+    if (!imagesReady) {
+      onNotice('Las imágenes del fleje todavía se están cargando. Probá imprimir de nuevo.');
+      return;
+    }
+    window.print();
   };
 
   const customer = selected ? asRecord(selected.customer_snapshot) : {};
@@ -458,16 +495,26 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
 
             {itemSummaries.map(({ item, summary }) => (
               <section className="personalized-item" key={item.id}>
-                {(summary.previews.length > 0 || summary.uploads.length > 0 || (summary.kind === 'mate' && Boolean(asRecord(item.immutable_snapshot).configuration))) &&
+                {(summary.previews.length > 0 || (summary.kind === 'mate' && Boolean(asRecord(item.immutable_snapshot).configuration))) &&
                   <section className="production-print-gallery" aria-label={`Imágenes y archivos de ${itemTitle(item)}`}>
                     <h3>{itemTitle(item)}</h3>
                     <div className="customer-assets production-print-gallery-assets">
                       {summary.previews.map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}
                       {!summary.previews.length && summary.kind === 'mate' && Boolean(asRecord(item.immutable_snapshot).configuration) && <RecoveredDesignViews snapshot={item.immutable_snapshot} uniformGrid />}
-                      {summary.uploads.filter((asset) => asset.role === 'workshop_reference').map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}
-                      {summary.uploads.filter((asset) => asset.role !== 'workshop_reference').map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}
                     </div>
+                    {summary.kind === 'mate' && summary.rim.available && <div className="production-print-technique" data-print-part="virola"><strong>TÉCNICA DE VIROLA: {printTechnique(summary.rim.technique)}</strong></div>}
+                    {summary.kind === 'mate' && summary.fleje.available && <div className="production-print-fleje-label">
+                      <strong>FLEJE: {summary.mate.characteristics['diseno-fleje'] || summary.fleje.finish}</strong>
+                      {asRecord(item.immutable_snapshot).flejeConfiguration
+                        ? <FlejePrintReferences snapshot={item.immutable_snapshot} fallback={<FlejePrintFallback previews={summary.previews} links={assetLinks} />} />
+                        : <FlejePrintFallback previews={summary.previews} links={assetLinks} />}
+                      <div className="production-print-technique" data-print-part="fleje"><strong>TÉCNICA DE FLEJE: {printTechnique(summary.fleje.technique)}</strong></div>
+                    </div>}
                   </section>}
+                {summary.uploads.length > 0 && <div className="customer-assets production-print-uploads">
+                  {summary.uploads.filter((asset) => asset.role === 'workshop_reference').map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}
+                  {summary.uploads.filter((asset) => asset.role !== 'workshop_reference').map((asset) => <AssetCard key={asset.key} asset={asset} link={assetLinks[asset.key]} />)}
+                </div>}
                 <div className="personalized-item-head"><h3>{itemTitle(item)}</h3><strong>{item.quantity} {item.quantity === 1 ? 'unidad' : 'unidades'}</strong></div>
                 {summary.instructions && <section className="personalization-card workshop-instructions" aria-label={`Indicaciones de ${itemTitle(item)}`}>
                   <h4>Indicaciones para el taller</h4>

@@ -112,6 +112,25 @@ describe('summarizePersonalization', () => {
     });
   });
 
+  it('no atribuye al fleje la técnica de la virola cuando no tiene aplique', () => {
+    const summary = summarizePersonalization(item({
+      configuration: {
+        engravingTypeId: 'laser',
+        flejeEngravingTypeId: null,
+        capabilities: { hasRim: true, hasFleje: true },
+        selectionLabels: { engraving: 'Láser' },
+      },
+    }));
+    expect(summary.rim.technique).toBe('Láser');
+    expect(summary.fleje.technique).toBe('Sin aplique');
+
+    const contradictory = summarizePersonalization(item({
+      configuration: { engravingTypeId: 'laser', flejeEngravingTypeId: null, capabilities: { hasFleje: true } },
+      flejeConfiguration: { sides: { front: { textMode: 'text', text: 'SR' }, back: {} } },
+    }));
+    expect(contradictory.fleje.technique).toBe('Sin definir');
+  });
+
   it('muestra por separado logos del fleje aunque tengan el mismo nombre de archivo', () => {
     const logos = ['uno', 'dos'].map(id => ({ id, customImage: { name: 'escudo.png', storageRef: `storage:order-assets:${id}`, mimeType: 'image/png' } }));
     const summary = summarizePersonalization(item({

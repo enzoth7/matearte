@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { domToBlob } from 'modern-screenshot';
 import { ConfiguratorPreview } from '../../personalizador/src/components/ConfiguratorPreview';
 import { FlatFlejePreview } from '../../personalizador/src/components/FlatFlejePreview';
+import { rimIconCatalog } from '../../personalizador/src/catalog/rimIconCatalog';
+import { normalizeFlejeCustomization, type FlejeSideCustomization } from '../../personalizador/src/types/personalizer';
 import { commerceSource } from './commerceSource';
 
 type Snapshot = any;
@@ -37,6 +39,49 @@ export function RecoveredDesignViews({snapshot, uniformGrid = false}:{snapshot:S
   const [error,setError]=useState('');
   useEffect(()=>{let active=true; resolveImages(snapshot).then(value=>{if(active)setResolved(value)}).catch(()=>{if(active)setError('No se pudieron cargar las imágenes del diseño.')});return()=>{active=false}},[snapshot]);
   return resolved ? <SavedDesignViews snapshot={resolved} uniformGrid={uniformGrid}/> : <p>{error || 'Cargando diseño guardado…'}</p>;
+}
+
+function flejePrintImages(config: FlejeSideCustomization) {
+  const icons = config.imageMode === 'image'
+    ? config.icons.length ? config.icons : [{ id: 'image', selectedImageId: config.selectedImageId, customImage: config.customImage }]
+    : [];
+  return icons.map(icon => {
+    const catalogItem = rimIconCatalog.find(item => item.id === icon.selectedImageId);
+    return { id: icon.id, name: icon.customImage?.name || catalogItem?.name || 'Imagen del fleje', src: icon.customImage?.previewUrl || catalogItem?.src };
+  });
+}
+
+function FlejePrintSide({ title, config, onImageError }: { title: string; config: FlejeSideCustomization; onImageError: () => void }) {
+  const images = flejePrintImages(config).filter((icon): icon is { id: string; name: string; src: string } => Boolean(icon.src));
+  const text = config.textMode === 'text' ? config.text.trim() : '';
+
+  return <section className="production-print-fleje-side" aria-label={`Fleje ${title.toLowerCase()}`}>
+    <h4>{title}</h4>
+    <div className="production-print-fleje-content">
+      {images.map(icon => <figure key={icon.id}><img src={icon.src} alt={icon.name} onError={onImageError} /></figure>)}
+      {text && <strong className="production-print-fleje-text">{text}</strong>}
+    </div>
+  </section>;
+}
+
+export function FlejePrintReferences({ snapshot, fallback }: { snapshot: Snapshot; fallback: ReactNode }) {
+  const [resolved, setResolved] = useState<Snapshot>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    resolveImages({ flejeConfiguration: snapshot.flejeConfiguration })
+      .then(value => { if (active) setResolved(value); })
+      .catch(() => { if (active) setFailed(true); });
+    return () => { active = false; };
+  }, [snapshot]);
+  if (failed) return <>{fallback}</>;
+  if (!resolved?.flejeConfiguration) return <div data-fleje-print-pending="true" />;
+  const fleje = normalizeFlejeCustomization(resolved.flejeConfiguration);
+  if ([fleje.sides.front, fleje.sides.back].some(side => flejePrintImages(side).some(icon => !icon.src))) return <>{fallback}</>;
+  return <div className="production-print-fleje-references" data-print-ready="true">
+    <FlejePrintSide title="Frente" config={fleje.sides.front} onImageError={() => setFailed(true)} />
+    <FlejePrintSide title="Reverso" config={fleje.sides.back} onImageError={() => setFailed(true)} />
+  </div>;
 }
 export async function captureLocalDesign(snapshot: Snapshot) {
   if (snapshot.localPersonalization?.kind && snapshot.localPersonalization.kind !== 'mate') return [];

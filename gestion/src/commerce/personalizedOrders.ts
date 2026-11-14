@@ -161,6 +161,7 @@ export type PersonalizationSummary = {
     characteristics: Record<string, string>;
   };
   rim: {
+    available: boolean;
     technique: string;
     finish: string;
     texts: string[];
@@ -207,6 +208,8 @@ function asBoolean(value: unknown): boolean {
 
 const friendlyIds: Record<string, string> = {
   laser: 'Láser',
+  'bronze-applique': 'Aplique de bronce',
+  'alpaca-applique': 'Aplique de alpaca',
   aplique_bronce: 'Aplique de bronce',
   'aplique-bronce': 'Aplique de bronce',
   aplique_alpaca: 'Aplique de alpaca',
@@ -402,8 +405,13 @@ export function summarizePersonalization(item: PersonalizedOrderItem): Personali
   const rimFinishActive = asString(rim.finishMode) === 'finish';
   const flejeFinishActive = asString(fleje.finishMode) === 'finish';
   const flejeAvailable = asBoolean(capabilities.hasFleje);
-  const rimTechnique = asString(labels.engraving) || humanizeId(configuration.engravingTypeId);
-  const flejeTechnique = humanizeId(configuration.flejeEngravingTypeId || configuration.engravingTypeId);
+  const flejeHasPersonalization = flejeFinishActive || Boolean(front.text) || front.images.length > 0 || Boolean(back.text) || back.images.length > 0;
+  const rimTechnique = asString(configuration.engravingTypeId)
+    ? humanizeId(configuration.engravingTypeId)
+    : asString(labels.engraving) || 'Sin definir';
+  const flejeTechnique = asString(configuration.flejeEngravingTypeId)
+    ? humanizeId(configuration.flejeEngravingTypeId)
+    : Object.hasOwn(configuration, 'flejeEngravingTypeId') && !flejeHasPersonalization ? 'Sin aplique' : 'Sin definir';
 
   const files = collectPrivateAssets(snapshot).filter((file) => kind === 'mate' || file.kind === 'upload');
   return {
@@ -419,6 +427,7 @@ export function summarizePersonalization(item: PersonalizedOrderItem): Personali
       characteristics: Object.fromEntries(Object.entries(asRecord(labels.characteristics)).filter((entry): entry is [string, string] => typeof entry[1] === 'string')),
     },
     rim: {
+      available: capabilities.hasRim !== false,
       technique: rimTechnique,
       finish: rimFinishActive ? humanizeId(rim.finishId, 'Terminación seleccionada') : 'Lisa (sin personalizar)',
       texts: rimTexts,
@@ -431,7 +440,7 @@ export function summarizePersonalization(item: PersonalizedOrderItem): Personali
       finish: flejeFinishActive ? humanizeId(fleje.finishId, 'Terminación seleccionada') : 'Liso (sin personalizar)',
       front,
       back,
-      personalized: flejeAvailable && (flejeFinishActive || Boolean(front.text) || front.images.length > 0 || Boolean(back.text) || back.images.length > 0),
+      personalized: flejeAvailable && flejeHasPersonalization,
     },
     matera: {
       technique: asString(localPersonalization.techniqueLabel) || humanizeId(localPersonalization.technique),
