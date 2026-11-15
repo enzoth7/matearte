@@ -1,4 +1,4 @@
-import type { Product, ProductVariant } from "@/types/catalog";
+import type { Locale, Product, ProductVariant } from "@/types/catalog";
 import { merchantMaterial } from "@/lib/merchant-material";
 
 const BRAND = "MateArte";
@@ -86,10 +86,11 @@ function formatPrice(amountMinor: number, currency: string) {
   return `${(amountMinor / 100).toFixed(2)} ${currency}`;
 }
 
-function preferredVariant(product: Product): ProductVariant | undefined {
-  return product.variants
+function preferredVariant(product: Product, referencePriceMinor?: number): ProductVariant | undefined {
+  const variants = product.variants
     .filter((variant) => variant.available !== false && variant.price && variant.price.amountMinor > 0)
-    .sort((left, right) => left.price!.amountMinor - right.price!.amountMinor || left.value.localeCompare(right.value))[0];
+    .sort((left, right) => left.price!.amountMinor - right.price!.amountMinor || left.value.localeCompare(right.value));
+  return variants.find((variant) => variant.price?.currency === "UYU" && variant.price.amountMinor === referencePriceMinor) ?? variants[0];
 }
 
 function productImages(product: Product, siteUrl: string) {
@@ -110,15 +111,16 @@ function shippingWeightGrams(product: Product, variant: ProductVariant) {
   return fallbackShippingWeightGrams[product.category] ?? DEFAULT_FALLBACK_SHIPPING_WEIGHT_GRAMS;
 }
 
-function itemXml(product: Product, siteUrl: string) {
-  const variant = preferredVariant(product);
+function itemXml(product: Product, siteUrl: string, offerId = product.id, locale: Locale = "es", referencePriceMinor?: number) {
+  const variant = preferredVariant(product, referencePriceMinor);
   const images = productImages(product, siteUrl);
   const title = cleanText(product.name, 150);
   const description = cleanText(product.description || product.summary, 5000);
   if (!variant?.price || !title || !description || images.length === 0) return null;
 
-  const link = absoluteUrl(siteUrl, `/producto/${encodeURIComponent(product.slug)}`);
-  const id = cleanText(product.id, 50);
+  const path = locale === "en" ? "/en/product" : locale === "pt" ? "/pt/produto" : "/producto";
+  const link = absoluteUrl(siteUrl, `${path}/${encodeURIComponent(product.slug)}`);
+  const id = cleanText(offerId, 50);
   if (!id) return null;
 
   const weightGrams = shippingWeightGrams(product, variant);
@@ -152,16 +154,11 @@ export type GoogleMerchantFeed = {
   excludedCount: number;
 };
 
-/**
- * Builds one Merchant Center item per public product, using its lowest-priced web variant.
- * Variant SKUs are still sent as MPNs, while the stable product ID prevents churn when prices change.
- */
-export function buildGoogleMerchantFeed(
-  products: Product[],
-  siteUrl: string,
-): GoogleMerchantFeed {
-  const items = products
-    .map((product) => itemXml(product, siteUrl))
+type FeedOffer = { id: string; product: Product; referencePriceMinor?: number };
+
+function buildFeed(offers: FeedOffer[], siteUrl: string, locale: Locale): GoogleMerchantFeed {
+  const items = offers
+    .map(({ id, product, referencePriceMinor }) => itemXml(product, siteUrl, id, locale, referencePriceMinor))
     .filter((item): item is string => Boolean(item));
   const baseUrl = siteUrl.replace(/\/$/, "");
   return {
@@ -178,6 +175,25 @@ export function buildGoogleMerchantFeed(
       "",
     ].join("\n"),
     itemCount: items.length,
-    excludedCount: products.length - items.length,
+    excludedCount: offers.length - items.length,
   };
+}
+
+export function buildGoogleMerchantFeedForOffers(
+  offers: FeedOffer[],
+  siteUrl: string,
+  locale: Locale,
+): GoogleMerchantFeed {
+  return buildFeed(offers, siteUrl, locale);
+}
+
+/**
+ * Builds one Merchant Center item per public product, using its lowest-priced web variant.
+ * Variant SKUs are still sent as MPNs, while the stable product ID prevents churn when prices change.
+ */
+export function buildGoogleMerchantFeed(
+  products: Product[],
+  siteUrl: string,
+): GoogleMerchantFeed {
+  return buildFeed(products.map((product) => ({ id: product.id, product })), siteUrl, "es");
 }

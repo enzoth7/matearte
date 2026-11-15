@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Product } from "@/types/catalog";
-import { buildGoogleMerchantFeed } from "./google-merchant-feed";
+import { buildGoogleMerchantFeed, buildGoogleMerchantFeedForOffers } from "./google-merchant-feed";
+import { discoveredSources } from "./google-merchant-discovered";
 
 function product(overrides: Partial<Product> = {}): Product {
   return {
@@ -104,5 +105,28 @@ describe("feed de Google Merchant Center", () => {
     const feed = buildGoogleMerchantFeed([product({ category: "botas" })], "https://www.matearteuruguay.com");
 
     expect(feed.xml).toContain("<g:shipping_weight>3000 g</g:shipping_weight>");
+  });
+
+  it("conserva ID, idioma, precio de variante y enlace de las fichas descubiertas", () => {
+    const offer = { id: "42d5", product: product(), referencePriceMinor: 550000 };
+    const feed = buildGoogleMerchantFeedForOffers([offer], "https://www.matearteuruguay.com", "en");
+
+    expect(feed.xml).toContain("<g:id>42d5</g:id>");
+    expect(feed.xml).toContain("<g:link>https://www.matearteuruguay.com/en/product/mate-imperial</g:link>");
+    expect(feed.xml).toContain("<g:price>5500.00 UYU</g:price>");
+    expect(feed.xml).toContain("<g:mpn>MAT-NEGRO</g:mpn>");
+    expect(buildGoogleMerchantFeedForOffers([offer], "https://www.matearteuruguay.com", "pt").xml)
+      .toContain("<g:link>https://www.matearteuruguay.com/pt/produto/mate-imperial</g:link>");
+  });
+
+  it("mantiene la misma cantidad de IDs y precios de referencia en cada fuente", () => {
+    expect(discoveredSources["en-us"].offerIds).toHaveLength(54);
+    expect(discoveredSources["en-uy"].offerIds).toHaveLength(50);
+    expect(discoveredSources["pt-uy"].offerIds).toHaveLength(115);
+    for (const source of Object.values(discoveredSources)) {
+      expect(source.pricesUYU).toHaveLength(source.offerIds.length);
+      expect(new Set(source.offerIds).size).toBe(source.offerIds.length);
+      expect(source.pricesUYU.every((price) => Number.isFinite(price) && price > 0)).toBe(true);
+    }
   });
 });
