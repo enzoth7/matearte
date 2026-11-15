@@ -1,4 +1,5 @@
 import type { Product, ProductVariant } from "@/types/catalog";
+import { merchantMaterial } from "@/lib/merchant-material";
 
 const BRAND = "MateArte";
 const FALLBACK_PRODUCT_IMAGE = "/assets/matearte/01-marca/LogoOriginal-4k.webp";
@@ -121,6 +122,7 @@ function itemXml(product: Product, siteUrl: string) {
   if (!id) return null;
 
   const weightGrams = shippingWeightGrams(product, variant);
+  const material = merchantMaterial(product);
 
   const fields = [
     `    <g:id>${xml(id)}</g:id>`,
@@ -134,6 +136,7 @@ function itemXml(product: Product, siteUrl: string) {
     `    <g:price>${xml(formatPrice(variant.price.amountMinor, variant.price.currency))}</g:price>`,
     `    <g:brand>${BRAND}</g:brand>`,
     `    <g:product_type>${xml(readableCategory(product.category))}</g:product_type>`,
+    ...(material ? [`    <g:material>${xml(material)}</g:material>`] : []),
     `    <g:shipping_weight>${weightGrams} g</g:shipping_weight>`,
   ];
 

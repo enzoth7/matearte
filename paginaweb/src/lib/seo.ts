@@ -6,6 +6,7 @@ import type { CategorySlug, Product } from "@/types/catalog";
 import { absoluteUrl } from "@/lib/metadata";
 import { isMadeByMateArte, truncateForMeta } from "@/lib/product-description";
 import { specLabel, specValue } from "@/lib/product-spec-labels";
+import { merchantMaterial } from "@/lib/merchant-material";
 
 type StructuredPageType = "AboutPage" | "CollectionPage" | "ContactPage" | "WebPage";
 
@@ -287,20 +288,29 @@ function formatPrice(amountMinor: number) {
 }
 
 /** Ofertas con precio y moneda reales de las variantes publicadas en la web; sin variantes con precio no hay oferta. */
-function productOffers(product: Product, url: string) {
+function productOffers(product: Product, url: string, locale: AppLocale) {
   const priced = product.variants.filter((variant) => variant.price && variant.price.amountMinor > 0);
   if (priced.length === 0) return undefined;
-  const offer = (variant: (typeof priced)[number]) => ({
-    "@type": "Offer",
-    url,
-    sku: variant.value,
-    name: variant.label,
-    price: formatPrice(variant.price!.amountMinor),
-    priceCurrency: variant.price!.currency,
-    availability: "https://schema.org/InStock",
-    itemCondition: "https://schema.org/NewCondition",
-    seller: { "@id": organizationId },
-  });
+  const offer = (variant: (typeof priced)[number]) => {
+    const label = specValue(variant.label.trim(), locale);
+    const normalizedName = product.name.toLocaleLowerCase(locale);
+    const normalizedLabel = label.toLocaleLowerCase(locale);
+    const labelIsInTitle = normalizedName === normalizedLabel || normalizedName.endsWith(` ${normalizedLabel}`);
+    const name = label && !labelIsInTitle
+      ? `${product.name} - ${label}`
+      : product.name;
+    return {
+      "@type": "Offer",
+      url,
+      sku: variant.value,
+      name,
+      price: formatPrice(variant.price!.amountMinor),
+      priceCurrency: variant.price!.currency,
+      availability: "https://schema.org/InStock",
+      itemCondition: "https://schema.org/NewCondition",
+      seller: { "@id": organizationId },
+    };
+  };
   if (priced.length === 1) return offer(priced[0]);
   const amounts = priced.map((variant) => variant.price!.amountMinor);
   return {
@@ -333,8 +343,9 @@ export function buildProductStructuredData(
 ) {
   const href = { pathname: "/producto/[slug]" as const, params: { slug: product.slug } };
   const url = localizedAbsoluteUrl(locale, href);
-  const offers = productOffers(product, url);
+  const offers = productOffers(product, url, locale);
   const properties = productProperties(product, locale);
+  const material = merchantMaterial(product);
   return {
     "@context": "https://schema.org",
     "@graph": [
@@ -346,7 +357,7 @@ export function buildProductStructuredData(
         description: product.description,
         image: product.images.map((image) => absoluteUrl(image.src)),
         category: product.category,
-        ...(product.materials.length ? { material: product.materials } : {}),
+        ...(material ? { material } : {}),
         ...(properties.length ? { additionalProperty: properties } : {}),
         url,
         brand: { "@type": "Brand", name: es.brand.shortName },

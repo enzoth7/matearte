@@ -55,6 +55,7 @@ describe("feed de Google Merchant Center", () => {
     expect(feed.xml).toContain("<g:price>4500.00 UYU</g:price>");
     expect(feed.xml).toContain("<g:mpn>MAT-NATURAL</g:mpn>");
     expect(feed.xml).toContain("<g:brand>MateArte</g:brand>");
+    expect(feed.xml).toContain("<g:material>Cuero / Alpaca</g:material>");
     expect(feed.xml).toContain("<g:availability>in_stock</g:availability>");
     expect(feed.xml).toContain("<g:shipping_weight>500 g</g:shipping_weight>");
     expect(feed.xml).not.toContain("<g:shipping>");

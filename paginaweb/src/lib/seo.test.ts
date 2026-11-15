@@ -111,6 +111,7 @@ describe("SEO técnico", () => {
 
     expect(offerOf([variant("A", 450000)])).toMatchObject({
       "@type": "Offer",
+      name: `${base.name} - A`,
       price: "4500.00",
       priceCurrency: "UYU",
       availability: "https://schema.org/InStock",
@@ -123,6 +124,19 @@ describe("SEO técnico", () => {
       offerCount: 2,
     });
     expect(offerOf([{ ...variant("A", 0) }])).toBeUndefined();
+  });
+
+  it("publica material como un valor y conserva el nombre del producto en cada oferta", () => {
+    const base = getLocalizedProduct("mate-imperial-pie-de-alpaca-fleje-pampa", "es")!;
+    const product = {
+      ...base,
+      materials: ["Cuero", "Alpaca", "Cuero"],
+      variants: [{ id: "negro", label: "Negro", value: "134", price: { amountMinor: 375000, currency: "UYU" as const } }],
+    };
+    const schema = buildProductStructuredData("es", product, "Catálogo", "MateArte");
+    const node = schema["@graph"].find((entry) => entry["@type"] === "Product") as Record<string, unknown>;
+    expect(node.material).toBe("Cuero / Alpaca");
+    expect(node.offers).toMatchObject({ name: `${product.name} - Negro` });
   });
 
   it("informa lastmod solo donde existe una fecha real de modificación", () => {
