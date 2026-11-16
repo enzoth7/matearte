@@ -39,7 +39,7 @@ export function CustomImageUpload({
   };
 
   return (
-    <div className="rounded-xl border border-dashed border-[#cdb79d] bg-[#fbf3de]/60 p-3">
+    <div className="rounded-xl border border-dashed border-brand-line bg-brand-white/60 p-3">
       <input
         ref={inputRef}
         type="file"
@@ -53,22 +53,22 @@ export function CustomImageUpload({
       />
       <div className="custom-image-upload__layout">
         {value ? (
-          <img src={value.previewUrl} alt="Vista previa del archivo cargado" className="h-12 w-12 rounded-lg border border-[#e7d7c1] bg-white object-contain p-1" />
+          <img src={value.previewUrl} alt="Vista previa del archivo cargado" className="h-12 w-12 rounded-lg border border-brand-line bg-brand-white object-contain p-1" />
         ) : (
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-[#e7d7c1] bg-white text-[#7a4a31]" aria-hidden="true">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-brand-line bg-brand-white text-brand-brown" aria-hidden="true">
             <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 16V4m0 0L8 8m4-4 4 4M5 14v5h14v-5" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-bold text-[#2d1d14]">{value?.name ?? "Cargá tu imagen"}</p>
-          <p className="text-[10px] text-[#5f3826]/70">PNG, JPG o SVG · máximo 10 MB</p>
+          <div data-copy className="truncate text-xs font-bold text-brand-black">{value?.name ?? "Cargá tu imagen"}</div>
+          <div data-copy className="text-[10px] text-brand-brown/70">PNG, JPG o SVG, máximo 10 MB</div>
         </div>
         <div className="custom-image-upload__actions">
           <button
             type="button"
             disabled={disabled || status === "loading"}
             onClick={() => inputRef.current?.click()}
-            className="min-h-11 rounded-lg border border-[#7a4a31] bg-white px-3 text-xs font-bold text-[#7a4a31] transition-colors hover:bg-[#fbf3de] disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-11 rounded-lg border border-brand-brown bg-brand-white px-3 text-xs font-bold text-brand-brown transition-colors hover:bg-brand-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             {status === "loading" ? "Procesando…" : value ? "Cambiar" : "Elegir"}
           </button>
@@ -92,9 +92,9 @@ export function CustomImageUpload({
         </div>
       </div>
       {disabled && disabledMessage && (
-        <p className="mt-2 text-[10px] font-medium text-[#5f3826]/80">{disabledMessage}</p>
+        <div data-copy className="mt-2 text-[10px] font-medium text-brand-brown/80">{disabledMessage}</div>
       )}
-      {message && <p role={status === "error" ? "alert" : "status"} className={`mt-2 text-[10px] font-medium ${status === "error" ? "text-red-700" : "text-[#5f3826]/80"}`}>{message}</p>}
+      {message && <div data-copy role={status === "error" ? "alert" : "status"} className={`mt-2 text-[10px] font-medium ${status === "error" ? "text-brand-black" : "text-brand-brown/80"}`}>{message}</div>}
     </div>
   );
 }

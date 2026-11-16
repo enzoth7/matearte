@@ -31,21 +31,20 @@ export function CheckoutStep({ subtotalUYU, pricingReady, onBack, onContinue }: 
         aria-describedby="checkout-description"
         aria-busy={submitting}
       >
-        <p className="transaction-checkout__eyebrow">Último paso</p>
         <h1 id="checkout-title">Continuá en el carrito</h1>
-        <p className="transaction-checkout__price">
+        <div data-copy className="transaction-checkout__price">
           {pricingReady ? `$ ${subtotalUYU.toLocaleString('es-UY')} UYU` : 'Precio pendiente'}
-        </p>
-        <p id="checkout-description" className="transaction-checkout__copy">
+        </div>
+        <div data-copy id="checkout-description" className="transaction-checkout__copy">
           En el carrito podés elegir la entrega, sumar otros productos y pagar.
-        </p>
+        </div>
 
         {!pricingReady && (
-          <p role="alert" className="transaction-checkout__error">
+          <div data-copy role="alert" className="transaction-checkout__error">
             Falta completar el precio de este diseño. Volvé al resumen para revisarlo.
-          </p>
+          </div>
         )}
-        {error && <p role="alert" className="transaction-checkout__error">{error}</p>}
+        {error && <div data-copy role="alert" className="transaction-checkout__error">{error}</div>}
 
         <div className="transaction-checkout__actions">
           <button type="button" className="brand-button" disabled={!pricingReady || submitting} onClick={() => void continueToStore()}>
@@ -53,7 +52,7 @@ export function CheckoutStep({ subtotalUYU, pricingReady, onBack, onContinue }: 
           </button>
           <button type="button" className="brand-button brand-button--secondary" disabled={submitting} onClick={onBack}>Volver al resumen</button>
         </div>
-        {submitting && <span className="transaction-checkout__status" role="status" aria-live="polite">Guardando el diseño y conectando con la tienda.</span>}
+        {submitting && <strong data-inline className="transaction-checkout__status" role="status" aria-live="polite">Guardando el diseño y conectando con la tienda.</strong>}
       </section>
     </main>
   );

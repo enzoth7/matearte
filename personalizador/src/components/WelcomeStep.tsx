@@ -27,7 +27,7 @@ export function WelcomeStep({ onBack }: { onBack?: () => void }) {
           <div className="access-story__overlay" />
           <div className="access-story__copy">
             <h1 id="access-story-title">Todo lo tuyo,<br />siempre a mano.</h1>
-            <p>Tus pedidos, tus diseños y tus datos listos para la próxima historia.</p>
+            <div data-copy>Tus pedidos, tus diseños y tus datos listos para la próxima historia.</div>
           </div>
         </section>
 
@@ -35,10 +35,10 @@ export function WelcomeStep({ onBack }: { onBack?: () => void }) {
           <section className="access-card access-card--google" aria-labelledby="access-title">
             <div>
               <h2 id="access-title">Ingresá a tu cuenta</h2>
-              <p>Entrá con Google sin sumar otra contraseña.</p>
+              <div data-copy>Entrá con Google sin sumar otra contraseña.</div>
             </div>
 
-            {error && <p role="alert" className="access-error">{error}</p>}
+            {error && <div data-copy role="alert" className="access-error">{error}</div>}
 
             <button
               type="button"
@@ -47,7 +47,7 @@ export function WelcomeStep({ onBack }: { onBack?: () => void }) {
               className="google-signin-button"
             >
               <img src="/google-logo.png" alt="" aria-hidden="true" width="35" height="35" />
-              <span>{loading ? 'Conectando…' : 'Continuar con Google'}</span>
+              <strong data-inline>{loading ? 'Conectando…' : 'Continuar con Google'}</strong>
             </button>
             {onBack && <button type="button" className="access-back-button" onClick={onBack}>Volver al personalizador</button>}
             <small>Tu cuenta se crea automáticamente si todavía no existe.</small>

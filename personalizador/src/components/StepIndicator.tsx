@@ -46,8 +46,7 @@ export function StepIndicator({ currentStep, hasFleje = false, customizationPhas
                 aria-current={current ? "step" : undefined}
                 className={current ? "is-current" : completed ? "is-complete" : ""}
               >
-                <strong>{String(index + 1).padStart(2, "0")} · </strong>
-                <span>{step.label}</span>
+                <strong data-inline>{step.label}</strong>
               </button>
             </li>
           );
@@ -55,7 +54,7 @@ export function StepIndicator({ currentStep, hasFleje = false, customizationPhas
       </ol>
       <div className="brand-progress__segments" aria-hidden="true">
         {steps.map((step, index) => (
-          <span
+          <strong data-inline
             key={step.key}
             className={index === currentIndex ? "is-current" : index < currentIndex ? "is-complete" : ""}
           />

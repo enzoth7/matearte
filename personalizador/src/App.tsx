@@ -65,7 +65,6 @@ interface BaseImageProps {
 }
 
 interface PhaseAccordionProps {
-  number: number;
   title: string;
   isOpen: boolean;
   onToggle: () => void;
@@ -129,28 +128,27 @@ function FlejePreview({ mate, text, image }: { mate: MateVariant; text: string; 
   );
 }
 
-function PhaseAccordion({ number, title, isOpen, onToggle, children }: PhaseAccordionProps) {
+function PhaseAccordion({ title, isOpen, onToggle, children }: PhaseAccordionProps) {
   const panelId = `personalizer-phase-${title.toLowerCase()}`;
   return (
-    <section className="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white">
+    <section className="overflow-hidden rounded-2xl border border-brand-black/80 bg-brand-white">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={isOpen}
         aria-controls={panelId}
-        className="flex min-h-11 w-full items-center justify-between p-4 text-left transition-colors hover:bg-zinc-50/50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#7a4a31]"
+        className="flex min-h-11 w-full items-center justify-between p-4 text-left transition-colors hover:bg-brand-black/3 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-brown"
       >
         <div className="flex items-center gap-3">
-          <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-mono font-bold ${isOpen ? "bg-[#7a4a31] text-white" : "bg-zinc-100 text-zinc-500"}`}>{number}</span>
-          <span className="text-xs font-bold uppercase tracking-wider text-zinc-800">{title}</span>
+          <strong data-inline className="text-xs font-bold uppercase tracking-wider text-brand-black">{title}</strong>
         </div>
-        <span className="text-[10px] text-zinc-400">{isOpen ? "−" : "＋"}</span>
+        <strong data-inline className="text-[10px] text-brand-black/70">{isOpen ? "−" : "＋"}</strong>
       </button>
       <div
         id={panelId}
         aria-hidden={!isOpen}
         inert={!isOpen}
-        className={`grid transition-all duration-300 ${isOpen ? "grid-rows-[1fr] border-t border-zinc-100 opacity-100" : "grid-rows-[0fr] pointer-events-none opacity-0"}`}
+        className={`grid transition-all duration-300 ${isOpen ? "grid-rows-[1fr] border-t border-brand-black/18 opacity-100" : "grid-rows-[0fr] pointer-events-none opacity-0"}`}
       >
         <div className="overflow-hidden p-4">{children}</div>
       </div>
@@ -1162,7 +1160,7 @@ function PersonalizerApp() {
 
         {wizardStep === "access" && (
           <>
-            {handoffError && <p role="alert" className="mx-auto mt-6 max-w-xl border border-red-300 bg-red-50 px-5 py-4 text-sm font-semibold text-red-800">{handoffError} Podés continuar con Google o volver al personalizador.</p>}
+            {handoffError && <div data-copy role="alert" className="mx-auto mt-6 max-w-xl border border-brand-black/18 bg-brand-black/5 px-5 py-4 text-sm font-semibold text-brand-black">{handoffError} Podés continuar con Google o volver al personalizador.</div>}
             <WelcomeStep onBack={() => {
               sessionStorage.removeItem("matearte_pending_auth_action");
               setPendingAuthAction(null);
@@ -1190,10 +1188,10 @@ function PersonalizerApp() {
           <main id="main-content" className="brand-personalizer" data-phase={activePhase ?? "virola"}>
             <div className="brand-personalizer__topbar">
               <aside className="personalizer-disclaimer" aria-label="Cómo activar una personalización">
-                <span className="personalizer-disclaimer__switch" aria-hidden="true"><span /></span>
-                <p>
-                  <strong>Virola y fleje:</strong> activá las pastillas verdes para personalizar. Todo lo que dejes desactivado queda liso, sin personalización y sin costo adicional.
-                </p>
+                <strong data-inline className="personalizer-disclaimer__switch" aria-hidden="true"><strong data-inline /></strong>
+                <div data-copy>
+                  <strong>Virola y fleje:</strong> activá los controles para personalizar. Todo lo que dejes desactivado queda liso, sin personalización y sin costo adicional.
+                </div>
               </aside>
               <div className="brand-personalizer__actions">
                 <button type="button" onClick={handlePersonalizerBack} className="brand-button">Atrás</button>
@@ -1206,30 +1204,30 @@ function PersonalizerApp() {
               
               {/* PANEL 1: IZQUIERDA (Acordeón de Personalización) */}
               <aside className="personalizer-controls order-2 flex flex-col gap-3 lg:order-1 lg:col-span-4">
-                <PhaseAccordion number={1} title="Mate" isOpen={activePhase === "mate"} onToggle={() => activatePhase("mate")}>
+                <PhaseAccordion title="Mate" isOpen={activePhase === "mate"} onToggle={() => activatePhase("mate")}>
                   <div className="space-y-3 text-xs">
-                    <dl className="space-y-2 rounded-xl border border-[#e7d7c1] bg-[#fdf7e9] p-3">
-                      <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Familia</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.family}</dd></div>
-                      <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Textura</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.texture}</dd></div>
-                      <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Color</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.color}</dd></div>
-                      <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Metal</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.metal}</dd></div>
-                      <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Tamaño</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.size}</dd></div>
-                      <div className="flex justify-between gap-3"><dt className="text-[#5f3826]/70">Grabado</dt><dd className="text-right font-bold text-[#2d1d14]">{configuration.selectionLabels.engraving}</dd></div>
+                    <dl className="space-y-2 rounded-xl border border-brand-line bg-brand-white p-3">
+                      <div className="flex justify-between gap-3"><dt className="text-brand-brown/70">Familia</dt><dd className="text-right font-bold text-brand-black">{configuration.selectionLabels.family}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-brand-brown/70">Textura</dt><dd className="text-right font-bold text-brand-black">{configuration.selectionLabels.texture}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-brand-brown/70">Color</dt><dd className="text-right font-bold text-brand-black">{configuration.selectionLabels.color}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-brand-brown/70">Metal</dt><dd className="text-right font-bold text-brand-black">{configuration.selectionLabels.metal}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-brand-brown/70">Tamaño</dt><dd className="text-right font-bold text-brand-black">{configuration.selectionLabels.size}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-brand-brown/70">Grabado</dt><dd className="text-right font-bold text-brand-black">{configuration.selectionLabels.engraving}</dd></div>
                     </dl>
-                    <button type="button" onClick={editMateSelection} className="min-h-11 w-full rounded-xl border border-[#7a4a31] bg-white px-3 font-bold text-[#7a4a31] transition-colors hover:bg-[#fbf3de] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7a4a31]">
+                    <button type="button" onClick={editMateSelection} className="min-h-11 w-full rounded-xl border border-brand-brown bg-brand-white px-3 font-bold text-brand-brown transition-colors hover:bg-brand-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-brown">
                       Cambiar mate
                     </button>
                   </div>
                 </PhaseAccordion>
 
-                <PhaseAccordion number={2} title="Virola" isOpen={activePhase === "virola"} onToggle={() => activatePhase("virola")}>
+                <PhaseAccordion title="Virola" isOpen={activePhase === "virola"} onToggle={() => activatePhase("virola")}>
                   <div className="personalizer-card-grid">
                     {configuration.engravingTypeId === "laser" && (() => {
                       const price = getCustomizationPrice(pricingCatalog, "laser", "rim_text");
                       const hasText = configuration.rim.textMode === "text" && countChargeableCharacters((configuration.rim.texts ?? []).map((item) => item.text).join("") || configuration.rim.text) > 0;
                       const hasIcon = configuration.rim.imageMode === "image" && configuration.rim.icons.some((icon) => icon.selectedImageId || icon.customImage);
-                      if (price === null) return <p className="personalizer-inline-price">Precio no disponible</p>;
-                      return <div className="personalizer-laser-price"><p>Grabado láser en virola, con cualquier combinación de texto e íconos: <strong>$ {price.toLocaleString("es-UY")} en total</strong></p>{(hasText || hasIcon) && <span className="personalizer-laser-price__total">$ {price.toLocaleString("es-UY")}</span>}</div>;
+                      if (price === null) return <div data-copy className="personalizer-inline-price">Precio no disponible</div>;
+                      return <div className="personalizer-laser-price"><div data-copy>Grabado láser en virola, con cualquier combinación de texto e íconos: <strong>$ {price.toLocaleString("es-UY")} en total</strong></div>{(hasText || hasIcon) && <strong data-inline className="personalizer-laser-price__total">$ {price.toLocaleString("es-UY")}</strong>}</div>;
                     })()}
                     <section className="personalizer-control-card">
                       <h3>Texto</h3>
@@ -1259,16 +1257,16 @@ function PersonalizerApp() {
                         const allText = (configuration.rim.texts ?? []).map((t) => t.text).join("") || configuration.rim.text;
                         const charCount = countChargeableCharacters(allText);
                         const textPrice = getCustomizationPrice(pricingCatalog, engravingType, "rim_text");
-                        if (textPrice === null) return <p className="personalizer-inline-price">Precio no disponible</p>;
+                        if (textPrice === null) return <div data-copy className="personalizer-inline-price">Precio no disponible</div>;
                         const total = charCount * textPrice;
                         return (
                           <div className="personalizer-price-bar">
-                            <p className="personalizer-price-bar__label">
+                            <div data-copy className="personalizer-price-bar__label">
                               El precio por cada letra en apliques es de {" "}
                               <strong>$ {textPrice.toLocaleString("es-UY")}</strong>
-                            </p>
+                            </div>
                             {charCount > 0 && (
-                              <span className="personalizer-price-bar__total">$ {total.toLocaleString("es-UY")}</span>
+                              <strong data-inline className="personalizer-price-bar__total">$ {total.toLocaleString("es-UY")}</strong>
                             )}
                           </div>
                         );
@@ -1316,15 +1314,15 @@ function PersonalizerApp() {
                         if (!engravingType) return null;
                         const iconCount = configuration.rim.icons.filter((icon) => icon.selectedImageId || icon.customImage).length;
                         const pricePerIcon = getCustomizationPrice(pricingCatalog, engravingType, "rim_image");
-                        if (pricePerIcon === null) return <p className="personalizer-inline-price">Precio no disponible</p>;
+                        if (pricePerIcon === null) return <div data-copy className="personalizer-inline-price">Precio no disponible</div>;
                         const total = iconCount * pricePerIcon;
                         return (
                           <div className="personalizer-price-bar">
-                            <p className="personalizer-price-bar__label">
+                            <div data-copy className="personalizer-price-bar__label">
                               El precio por cada ícono o escudo en apliques es de <strong>$ {pricePerIcon.toLocaleString("es-UY")}</strong>
-                            </p>
+                            </div>
                             {iconCount > 0 && (
-                              <span className="personalizer-price-bar__total">$ {total.toLocaleString("es-UY")}</span>
+                              <strong data-inline className="personalizer-price-bar__total">$ {total.toLocaleString("es-UY")}</strong>
                             )}
                           </div>
                         );
@@ -1348,7 +1346,7 @@ function PersonalizerApp() {
                 </PhaseAccordion>
 
                 {selectedModelDefinition.hasFleje && (
-                <PhaseAccordion number={3} title="Fleje" isOpen={activePhase === "fleje"} onToggle={() => activatePhase("fleje")}>
+                <PhaseAccordion title="Fleje" isOpen={activePhase === "fleje"} onToggle={() => activatePhase("fleje")}>
                   {selectedModelDefinition.hasFleje ? (
                     <div className="personalizer-card-grid">
                       <section className="personalizer-control-card">
@@ -1362,7 +1360,7 @@ function PersonalizerApp() {
                                 type="button"
                                 onClick={() => setConfiguration((current) => ({ ...current, flejeEngravingTypeId: option.id }))}
                                 aria-pressed={configuration.flejeEngravingTypeId === option.id}
-                                className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${configuration.flejeEngravingTypeId === option.id ? "border-[#5f3826] bg-[#5f3826] text-white" : "border-zinc-200 bg-white hover:border-zinc-300"}`}
+                                className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${configuration.flejeEngravingTypeId === option.id ? "border-brand-brown bg-brand-brown text-brand-white" : "border-brand-black/18 bg-brand-white hover:border-brand-black/18"}`}
                               >
                                 <img
                                   src={option.flejeImage ?? option.image}
@@ -1371,7 +1369,7 @@ function PersonalizerApp() {
                                   loading="lazy"
                                   draggable={false}
                                 />
-                                <span className="font-medium">{option.label}</span>
+                                <strong data-inline className="font-medium">{option.label}</strong>
                               </button>
                             ))}
                         </div>
@@ -1422,15 +1420,15 @@ function PersonalizerApp() {
                             .join("");
                           const charCount = countChargeableCharacters(allText);
                           const pricePerChar = getCustomizationPrice(pricingCatalog, engravingType, "fleje_text");
-                          if (pricePerChar === null) return <p className="personalizer-inline-price">Precio no disponible</p>;
+                          if (pricePerChar === null) return <div data-copy className="personalizer-inline-price">Precio no disponible</div>;
                           const total = charCount * pricePerChar;
                           return (
                             <div className="personalizer-price-bar">
-                              <p className="personalizer-price-bar__label">
+                              <div data-copy className="personalizer-price-bar__label">
                                 El precio por cada letra en apliques es de <strong>$ {pricePerChar.toLocaleString("es-UY")}</strong>
-                              </p>
+                              </div>
                               {charCount > 0 && (
-                                <span className="personalizer-price-bar__total">$ {total.toLocaleString("es-UY")}</span>
+                                <strong data-inline className="personalizer-price-bar__total">$ {total.toLocaleString("es-UY")}</strong>
                               )}
                             </div>
                           );
@@ -1506,15 +1504,15 @@ function PersonalizerApp() {
                               return total + (icons > 0 ? icons : side.selectedImageId || side.customImage ? 1 : 0);
                             }, 0);
                           const pricePerIcon = getCustomizationPrice(pricingCatalog, engravingType, "fleje_image");
-                          if (pricePerIcon === null) return <p className="personalizer-inline-price">Precio no disponible</p>;
+                          if (pricePerIcon === null) return <div data-copy className="personalizer-inline-price">Precio no disponible</div>;
                           const total = iconCount * pricePerIcon;
                           return (
                             <div className="personalizer-price-bar">
-                              <p className="personalizer-price-bar__label">
+                              <div data-copy className="personalizer-price-bar__label">
                                 El precio por cada ícono o escudo en apliques es de <strong>$ {pricePerIcon.toLocaleString("es-UY")}</strong>
-                              </p>
+                              </div>
                               {iconCount > 0 && (
-                                <span className="personalizer-price-bar__total">$ {total.toLocaleString("es-UY")}</span>
+                                <strong data-inline className="personalizer-price-bar__total">$ {total.toLocaleString("es-UY")}</strong>
                               )}
                             </div>
                           );
@@ -1528,26 +1526,26 @@ function PersonalizerApp() {
                       </section>
                     </div>
                   ) : (
-                    <p className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-[10px] leading-relaxed text-zinc-500">El mate Camionero no tiene fleje metálico para grabado.</p>
+                    <div data-copy className="rounded-xl border border-brand-black/18 bg-brand-black/5 px-3 py-3 text-[10px] leading-relaxed text-brand-black/70">El mate Camionero no tiene fleje metálico para grabado.</div>
                   )}
                 </PhaseAccordion>
                 )}
 
-                <div className="mt-2 pt-4 border-t border-zinc-200/80">
+                <div className="mt-2 pt-4 border-t border-brand-black/80">
                   <button
                     type="button"
                     onClick={() => requireAuthentication("save-personalizer")}
                     disabled={saveStatus !== "idle"}
-                    className={`flex w-full items-center justify-center gap-2 rounded-xl py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg transition-all active:scale-[0.98] cursor-pointer ${
+                    className={`flex w-full items-center justify-center gap-2 rounded-xl py-4 text-sm font-bold uppercase tracking-widest text-brand-white shadow-lg transition-all active:scale-[0.98] cursor-pointer ${
                       saveStatus === "saved"
-                        ? "bg-emerald-600 hover:bg-emerald-700"
+                        ? "bg-brand-black hover:bg-brand-black"
                         : saveStatus === "saving"
-                        ? "bg-zinc-400 cursor-not-allowed"
-                        : "bg-[#7a4a31] hover:bg-[#5f3826]"
+                        ? "bg-brand-black cursor-not-allowed"
+                        : "bg-brand-brown hover:bg-brand-brown"
                     }`}
                   >
                     {saveStatus === "saving" && (
-                      <svg className="h-5 w-5 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                      <svg className="h-5 w-5 animate-spin text-brand-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                     )}
                     {saveStatus === "saved" && (
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
@@ -1561,7 +1559,7 @@ function PersonalizerApp() {
 
               {/* PANEL 2: CENTRO (Personalizador 3D / Preview) */}
               <section className="personalizer-preview order-1 flex min-h-[540px] w-full flex-col lg:order-2 lg:col-span-5">
-                <div ref={previewContainerRef} className="flex min-h-[500px] max-h-[540px] flex-1 items-center justify-center rounded-3xl border border-[#e7d7c1] bg-white/60 p-6 shadow-xs" aria-label="Vista previa del mate">
+                <div ref={previewContainerRef} className="flex min-h-[500px] max-h-[540px] flex-1 items-center justify-center rounded-3xl border border-brand-line bg-brand-white/60 p-6 shadow-xs" aria-label="Vista previa del mate">
                   {previewView === "mate" ? (
                     <FlejePreview mate={selectedMate} text="" image={getSelectionPreviewImage(configuration.selection)} />
                   ) : previewView === "virola" ? (
@@ -1636,21 +1634,21 @@ function PersonalizerApp() {
                       })}
                     />
                   ) : (
-                    <p className="text-sm font-medium text-zinc-500">Este modelo no tiene fleje para visualizar.</p>
+                    <div data-copy className="text-sm font-medium text-brand-black/70">Este modelo no tiene fleje para visualizar.</div>
                   )}
                 </div>
 
                 {/* Minimalist Product Specification Bar */}
                 {(() => {
                   return (
-                    <div className="mt-3 flex flex-col items-center justify-center gap-2 rounded-2xl border border-[#e7d7c1]/90 bg-white/95 px-6 py-3.5 text-center shadow-xs">
-                      <span className="text-base md:text-lg font-black tracking-tight text-[#2d1d14] font-serif">
+                    <div className="mt-3 flex flex-col items-center justify-center gap-2 rounded-2xl border border-brand-line/90 bg-brand-white/95 px-6 py-3.5 text-center shadow-xs">
+                      <strong data-inline className="text-base md:text-lg font-black tracking-tight text-brand-black font-serif">
                         {configuration.selectionLabels.texture}
-                      </span>
+                      </strong>
                       <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-xs md:text-sm">
-                        <span><strong className="font-black uppercase tracking-wider text-[#7a4a31]">Metal:</strong> <span className="font-semibold text-zinc-800">{configuration.selectionLabels.metal}</span></span>
-                        <span className="font-bold text-[#a48e78]">•</span>
-                        <span><strong className="font-black uppercase tracking-wider text-[#7a4a31]">Cuero:</strong> <span className="font-semibold text-zinc-800">{configuration.selectionLabels.color}</span></span>
+                        <strong data-inline><strong className="font-black uppercase tracking-wider text-brand-brown">Metal:</strong> <strong data-inline className="font-semibold text-brand-black">{configuration.selectionLabels.metal}</strong></strong>
+                        <strong data-inline className="font-bold text-brand-black">•</strong>
+                        <strong data-inline><strong className="font-black uppercase tracking-wider text-brand-brown">Cuero:</strong> <strong data-inline className="font-semibold text-brand-black">{configuration.selectionLabels.color}</strong></strong>
                       </div>
                     </div>
                   );
@@ -1671,86 +1669,86 @@ function PersonalizerApp() {
                   const totalUYU = pricing.totalUYU;
 
                   return (
-                    <div className="rounded-3xl border border-[#e7d7c1] bg-white/95 p-5 shadow-xl shadow-[#7a4a31]/5 space-y-5 sticky top-20">
-                      <div className="flex items-center justify-between border-b border-[#e7d7c1]/60 pb-3">
-                        <h3 className="text-base font-black text-[#2d1d14] font-serif uppercase tracking-tight flex items-center gap-2">
-                          <span>Resumen del pedido</span>
+                    <div className="personalizer-price-summary rounded-3xl p-5 space-y-5 sticky top-20">
+                      <div className="flex items-center justify-between border-b border-brand-line/60 pb-3">
+                        <h3 className="text-base font-black text-brand-black font-serif uppercase tracking-tight flex items-center gap-2">
+                          <strong data-inline>Resumen del pedido</strong>
                         </h3>
                       </div>
 
                       {/* Desglose de Items */}
                       <div className="space-y-3 text-xs">
                         {/* Mate Base */}
-                        <div className="space-y-1 border-b border-[#e7d7c1]/50 pb-2.5">
-                          <div className="flex justify-between items-baseline font-bold text-[#2d1d14]">
-                            <span>Mate ({configuration.selectionLabels.family}):</span>
-                            <span className="text-[#7a4a31] text-sm">{pricing.isPriceReady ? `$ ${pricing.basePriceUYU.toLocaleString('es-UY')} UYU` : "Precio pendiente"}</span>
+                        <div className="space-y-1 border-b border-brand-line/50 pb-2.5">
+                          <div className="flex justify-between items-baseline font-bold text-brand-black">
+                            <strong data-inline>Mate ({configuration.selectionLabels.family}):</strong>
+                            <strong data-inline className="text-brand-brown text-sm">{pricing.isPriceReady ? `$ ${pricing.basePriceUYU.toLocaleString('es-UY')} UYU` : "Precio pendiente"}</strong>
                           </div>
-                          <p className="text-[11px] text-[#5f3826]/70 font-medium">
+                          <div data-copy className="text-[11px] text-brand-brown/70 font-medium">
                             {configuration.selectionLabels.texture}, {configuration.selectionLabels.color}
-                          </p>
+                          </div>
                         </div>
 
                         {/* Virola Desglose */}
-                        <div className="space-y-1 border-b border-[#e7d7c1]/50 pb-2.5">
-                          <div className="flex justify-between items-baseline font-bold text-[#2d1d14]">
-                            <span>Virola:</span>
-                            <span className="text-[#7a4a31]">
+                        <div className="space-y-1 border-b border-brand-line/50 pb-2.5">
+                          <div className="flex justify-between items-baseline font-bold text-brand-black">
+                            <strong data-inline>Virola:</strong>
+                            <strong data-inline className="text-brand-brown">
                               {totalExtraVirolaUYU > 0 ? `+ $ ${totalExtraVirolaUYU} UYU` : "Incluida ($0)"}
-                            </span>
+                            </strong>
                           </div>
                           
-                          <div className="space-y-0.5 text-[11px] text-zinc-600 font-medium">
-                            <p>
+                          <div className="space-y-0.5 text-[11px] text-brand-black font-medium">
+                            <div data-copy>
                                 Terminación: {configuration.rim.finishMode === "finish" ? (rimFin?.name || 'Cincelado') : "Sin terminación"}
-                            </p>
-                            <p>
+                            </div>
+                            <div data-copy>
                               • Grabado de texto: {configuration.rim.textMode === "text" ? (() => {
                                 const activeTexts = configuration.rim.texts?.filter(t => t.text.trim()) ?? (configuration.rim.text ? [{ id: "text-1", text: configuration.rim.text }] : []);
                                 if (activeTexts.length === 0) return "Sin texto";
                                 return activeTexts.map((t, idx) => `T${idx + 1}: "${t.text}"`).join(" + ") + (configuration.engravingTypeId === "laser" ? "" : ` (+${customizationPriceLabel("rim_text")})`);
                               })() : "Sin texto"}
-                            </p>
-                            <p>
+                            </div>
+                            <div data-copy>
                               • Grabado de imagen: {configuration.rim.imageMode === "image" ? configuration.engravingTypeId === "laser" ? "Con imagen" : `Con imagen (+${customizationPriceLabel("rim_image")})` : "Sin imagen"}
-                            </p>
-                            {configuration.engravingTypeId === "laser" && totalExtraVirolaUYU > 0 && <p>• Grabado láser en virola: +{formatUYU(totalExtraVirolaUYU)} en total</p>}
+                            </div>
+                            {configuration.engravingTypeId === "laser" && totalExtraVirolaUYU > 0 && <div data-copy>• Grabado láser en virola: +{formatUYU(totalExtraVirolaUYU)} en total</div>}
                           </div>
                         </div>
 
                         {/* Fleje Desglose */}
                         {selectedModelDefinition.hasFleje && (
-                          <div className="space-y-1 border-b border-[#e7d7c1]/50 pb-2.5">
-                            <div className="flex justify-between items-baseline font-bold text-[#2d1d14]">
-                              <span>Fleje:</span>
-                              <span className="text-[#7a4a31]">
+                          <div className="space-y-1 border-b border-brand-line/50 pb-2.5">
+                            <div className="flex justify-between items-baseline font-bold text-brand-black">
+                              <strong data-inline>Fleje:</strong>
+                              <strong data-inline className="text-brand-brown">
                                 {totalExtraFlejeUYU > 0 ? `+ $ ${totalExtraFlejeUYU} UYU` : "Incluido ($0)"}
-                              </span>
+                              </strong>
                             </div>
-                            <div className="space-y-0.5 text-[11px] text-zinc-600 font-medium">
-                              <p>
+                            <div className="space-y-0.5 text-[11px] text-brand-black font-medium">
+                              <div data-copy>
                                 • Terminación: {flejeConfig.finishMode === "finish" ? (flejeFin?.name || 'Cincelado') : "Sin terminación (Liso)"}
-                              </p>
-                              <p>
+                              </div>
+                              <div data-copy>
                                 • Textos configurados: {(["front", "back"] as FlejeSide[]).filter((side) => flejeConfig.sides[side].textMode === "text" && flejeConfig.sides[side].text.trim()).length}
-                              </p>
-                              <p>
+                              </div>
+                              <div data-copy>
                                 • Imágenes configuradas: {(["front", "back"] as FlejeSide[]).filter((side) => flejeConfig.sides[side].imageMode === "image" && flejeConfig.sides[side].selectedImageId).length}
-                              </p>
+                              </div>
                             </div>
                           </div>
                         )}
                       </div>
 
                       {/* Caja de Total Pedido */}
-                      <div className="rounded-2xl bg-[#fbf3de] border-2 border-[#7a4a31]/30 p-4 space-y-1 shadow-xs">
+                      <div className="personalizer-price-summary__total rounded-2xl p-4 space-y-1">
                         <div className="flex justify-between items-baseline">
-                          <span className="text-xs font-black uppercase tracking-wider text-[#7a4a31]">
+                          <strong data-inline className="text-xs font-black uppercase tracking-wider text-brand-brown">
                             Total Pedido
-                          </span>
-                          <span className="text-right text-2xl font-black text-[#2d1d14] font-serif leading-none">
+                          </strong>
+                          <strong data-inline className="text-right text-2xl font-black text-brand-black font-serif leading-none">
                             {pricing.isPriceReady ? `$ ${totalUYU.toLocaleString('es-UY')} UYU` : "Pendiente"}
-                          </span>
+                          </strong>
                         </div>
                       </div>
                     </div>
@@ -1810,13 +1808,13 @@ function PersonalizerApp() {
 
       {/* Save Success Toast */}
       {saveStatus === "saved" && (
-        <div className="fixed bottom-6 right-6 z-50 flex animate-bounce items-center gap-4 rounded-2xl bg-white p-4 shadow-xl shadow-zinc-200/50 ring-1 ring-zinc-100 transition-all duration-300">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100">
-            <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+        <div className="fixed bottom-6 right-6 z-50 flex animate-bounce items-center gap-4 rounded-2xl bg-brand-white p-4 shadow-xl shadow-brand-black/50 ring-1 ring-brand-black/18 transition-all duration-300">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-black/5">
+            <svg className="h-6 w-6 text-brand-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
           </div>
           <div>
-            <p className="text-sm font-bold text-zinc-800">¡Guardado con éxito!</p>
-            <p className="text-xs font-medium text-zinc-500">Avanzando al resumen de producción...</p>
+            <div data-copy className="text-sm font-bold text-brand-black">¡Guardado con éxito!</div>
+            <div data-copy className="text-xs font-medium text-brand-black/70">Avanzando al resumen de producción...</div>
           </div>
         </div>
       )}

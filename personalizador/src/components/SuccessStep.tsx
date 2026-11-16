@@ -14,21 +14,21 @@ export function SuccessStep({ userData, onReset, mockPayment = false }: SuccessS
         </div>
 
         <div className="success-card__copy">
-          <p className="success-card__badge">
-            {mockPayment ? "Simulación completada" : "Diseño recibido con éxito"}
-          </p>
           <h1 id="success-title">¡Muchas gracias, {userData.name}!</h1>
-          <p id="success-description">
+          <div data-copy role="status">
+            {mockPayment ? "Simulación completada" : "Diseño recibido con éxito"}
+          </div>
+          <div data-copy id="success-description">
             {mockPayment
               ? "Recorriste el checkout visual. No se procesó ningún cobro ni se envió el diseño a producción."
               : "Registramos las especificaciones de tu diseño de mate. Un orfebre y asesor de ventas revisará tu diseño."}
-          </p>
+          </div>
         </div>
 
         {!mockPayment && (
           <div className="success-card__details">
-            <p>Confirmación enviada a: <strong>{userData.email}</strong></p>
-            {userData.phone && <p>Te contactaremos al: <strong>{userData.phone}</strong></p>}
+            <div data-copy>Confirmación enviada a: <strong>{userData.email}</strong></div>
+            {userData.phone && <div data-copy>Te contactaremos al: <strong>{userData.phone}</strong></div>}
           </div>
         )}
 

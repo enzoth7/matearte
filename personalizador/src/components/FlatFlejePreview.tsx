@@ -206,7 +206,7 @@ function FlejeSurface({
   return (
     <div
       className={`relative w-full aspect-[999/239] transition-all cursor-pointer select-none ${
-        editable && isActive ? "ring-2 ring-[#7a4a31] ring-offset-2" : ""
+        editable && isActive ? "ring-2 ring-brand-brown ring-offset-2" : ""
       }`}
       onPointerDown={() => {
         onSelectSide?.(side);
@@ -298,7 +298,7 @@ function FlejeSurface({
                     rx={22}
                     ry={22}
                     fill="none"
-                    stroke="#7a4a31"
+                    stroke="var(--brand-brown)"
                     strokeWidth="3"
                     strokeDasharray="10 8"
                     pointerEvents="none"
@@ -312,23 +312,12 @@ function FlejeSurface({
                   >
                     <circle
                       r="16"
-                      fill="#ffffff"
-                      stroke="#7a4a31"
+                      fill="var(--brand-white)"
+                      stroke="var(--brand-brown)"
                       strokeWidth="3.5"
                       className="filter drop-shadow-md"
                     />
-                    <text
-                      x="0"
-                      y="1"
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      fill="#7a4a31"
-                      fontSize="13"
-                      fontWeight="bold"
-                      pointerEvents="none"
-                    >
-                      ⤢
-                    </text>
+                    <path d="M-6 0H6M0-6V6" fill="none" stroke="var(--brand-brown)" strokeWidth="2" pointerEvents="none" />
                   </g>
                 </g>
               )}
@@ -359,11 +348,11 @@ function FlejeSurface({
               <image href={iconSrc} x={-iSize / 2} y={-iSize / 2} width={iSize} height={iSize} preserveAspectRatio="xMidYMid meet" />
               {editable && isActive && selectedElement === icon.id && (
                 <g>
-                  <circle cx="0" cy="0" r={iSize * 0.68} fill="none" stroke="#7a4a31" strokeWidth="3" strokeDasharray="10 8" pointerEvents="none" />
+                  <circle cx="0" cy="0" r={iSize * 0.68} fill="none" stroke="var(--brand-brown)" strokeWidth="3" strokeDasharray="10 8" pointerEvents="none" />
                   {/* Resize Button Handle for Icon */}
                   <g transform={`translate(${iSize * 0.52}, ${iSize * 0.52})`} pointerEvents="all" className="cursor-nwse-resize" onPointerDown={(e) => beginResize(icon.id, e)}>
-                    <circle r="16" fill="#ffffff" stroke="#7a4a31" strokeWidth="3.5" className="filter drop-shadow-md" />
-                    <text x="0" y="1" textAnchor="middle" dominantBaseline="middle" fill="#7a4a31" fontSize="13" fontWeight="bold" pointerEvents="none">⤢</text>
+                    <circle r="16" fill="var(--brand-white)" stroke="var(--brand-brown)" strokeWidth="3.5" className="filter drop-shadow-md" />
+                    <path d="M-6 0H6M0-6V6" fill="none" stroke="var(--brand-brown)" strokeWidth="2" pointerEvents="none" />
                   </g>
                   <g
                     transform={`translate(${-iSize * 0.52}, ${-iSize * 0.52})`}
@@ -383,8 +372,8 @@ function FlejeSurface({
                     }}
                   >
                     <circle r="25" fill="transparent" />
-                    <circle r="17" fill="#fff" stroke="#7a4a31" strokeWidth="3.5" />
-                    <text x="0" y="1" textAnchor="middle" dominantBaseline="middle" fill="#7a4a31" fontSize="20" pointerEvents="none">↻</text>
+                    <circle r="17" fill="var(--brand-white)" stroke="var(--brand-brown)" strokeWidth="3.5" />
+                    <path d="M6-5A8 8 0 1 0 7 4M6-10V-4H0" fill="none" stroke="var(--brand-brown)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />
                   </g>
                 </g>
               )}
@@ -412,7 +401,7 @@ export function FlatFlejePreview({
   return (
     <div className="fleje-preview-stack" aria-label="Vista del fleje metálico">
       {visibleSides.includes("front") && <div className="fleje-preview-side">
-        {showLabels && <span>Frente</span>}
+        {showLabels && <strong data-inline>Frente</strong>}
         <FlejeSurface
           side="front"
           config={flejeConfig.sides.front}
@@ -426,7 +415,7 @@ export function FlatFlejePreview({
         />
       </div>}
       {visibleSides.includes("back") && <div className="fleje-preview-side">
-        {showLabels && <span>Dorso</span>}
+        {showLabels && <strong data-inline>Dorso</strong>}
         <FlejeSurface
           side="back"
           config={flejeConfig.sides.back}

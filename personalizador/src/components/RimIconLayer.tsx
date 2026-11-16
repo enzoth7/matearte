@@ -63,11 +63,11 @@ export function RimIconLayer({
         />}
         {selected && (
           <g>
-            <circle cx={x} cy={y} r={selectionRadius} fill="none" stroke="#7a4a31" strokeWidth="5" strokeDasharray="18 12" pointerEvents="none" />
+            <circle cx={x} cy={y} r={selectionRadius} fill="none" stroke="var(--brand-brown)" strokeWidth="5" strokeDasharray="18 12" pointerEvents="none" />
             {onResizeDown && (
               <circle
                 cx={x + handleOffset} cy={y + handleOffset} r={16}
-                fill="#fff" stroke="#7a4a31" strokeWidth="4"
+                fill="var(--brand-white)" stroke="var(--brand-brown)" strokeWidth="4"
                 pointerEvents="all"
                 onPointerDown={(e) => {
                   e.stopPropagation();
@@ -97,8 +97,8 @@ export function RimIconLayer({
                 }}
               >
                 <circle r="25" fill="transparent" />
-                <circle r="17" fill="#fff" stroke="#7a4a31" strokeWidth="4" />
-                <text x="0" y="1" textAnchor="middle" dominantBaseline="middle" fill="#7a4a31" fontSize="20" pointerEvents="none">↻</text>
+                <circle r="17" fill="var(--brand-white)" stroke="var(--brand-brown)" strokeWidth="4" />
+                <path d="M6-5A8 8 0 1 0 7 4M6-10V-4H0" fill="none" stroke="var(--brand-brown)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />
               </g>
             )}
           </g>

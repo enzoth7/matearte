@@ -195,7 +195,7 @@ export function CircularRimText({
           <path
             d={arcPath}
             fill="none"
-            stroke="#7a4a31"
+            stroke="var(--brand-brown)"
             strokeWidth="5"
             strokeDasharray="18 12"
             pointerEvents="none"
@@ -214,8 +214,8 @@ export function CircularRimText({
             >
               <circle
                 r="20"
-                fill="#7a4a31"
-                stroke="#ffffff"
+                fill="var(--brand-brown)"
+                stroke="var(--brand-white)"
                 strokeWidth="3.5"
                 className="filter drop-shadow-md"
               />
@@ -224,7 +224,7 @@ export function CircularRimText({
                 y="1"
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fill="#ffffff"
+                fill="var(--brand-white)"
                 fontSize="14"
                 fontWeight="bold"
                 pointerEvents="none"
@@ -247,23 +247,12 @@ export function CircularRimText({
             >
               <circle
                 r="20"
-                fill="#ffffff"
-                stroke="#7a4a31"
+                fill="var(--brand-white)"
+                stroke="var(--brand-brown)"
                 strokeWidth="4"
                 className="filter drop-shadow-md"
               />
-              <text
-                x="0"
-                y="1"
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fill="#7a4a31"
-                fontSize="14"
-                fontWeight="bold"
-                pointerEvents="none"
-              >
-                ⤢
-              </text>
+              <path d="M-6 0H6M0-6V6" fill="none" stroke="var(--brand-brown)" strokeWidth="2" pointerEvents="none" />
             </g>
           )}
 
@@ -294,8 +283,8 @@ export function CircularRimText({
                 width="72"
                 height="30"
                 rx="15"
-                fill="#7a4a31"
-                stroke="#ffffff"
+                fill="var(--brand-brown)"
+                stroke="var(--brand-white)"
                 strokeWidth="2.5"
                 className="filter drop-shadow-md transition-transform hover:scale-105"
               />
@@ -304,7 +293,7 @@ export function CircularRimText({
                 y="1"
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fill="#ffffff"
+                fill="var(--brand-white)"
                 fontSize="12"
                 fontWeight="bold"
                 fontFamily="system-ui, sans-serif"

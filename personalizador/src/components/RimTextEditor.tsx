@@ -49,7 +49,7 @@ export function RimTextEditor({
   return <div className={compact ? "rim-text-editor--compact" : "rim-text-editor"}>
     <UnicodeEngravingInput label={label} value={value} disabled={disabled} onChange={handleChange}
       maxLength={effectiveMaxLength} placeholder={disabled ? "Seleccioná Con texto para escribir" : "Escribí tu texto"} />
-    {!compact && <div className={`mt-1 flex justify-between text-[9px] font-medium ${limitReached ? "text-red-600 font-bold" : "text-zinc-400"}`}>
+    {!compact && <div className={`mt-1 flex justify-between text-[9px] font-medium ${limitReached ? "text-brand-black font-bold" : "text-brand-black/70"}`}>
       <small>{limitReached ? `¡Límite alcanzado! Máximo ${effectiveMaxLength} caracteres.` : "Normalización automática de espacios"}</small>
       <small>{Array.from(value).length} / {effectiveMaxLength} caracteres</small>
     </div>}

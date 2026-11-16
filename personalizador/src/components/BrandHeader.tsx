@@ -19,10 +19,10 @@ export function BrandHeader({ currentStep, hasFleje = false, customizationPhase,
     <header className="brand-header">
       <a className="brand-header__home" href={mainSiteUrl} aria-label="Volver al sitio de MateArte">
         <img src="/assets/marca/LogoOriginal.jpg" alt="" width="48" height="48" />
-        <span className="brand-header__wordmark">
+        <strong data-inline className="brand-header__wordmark">
           <strong>MateArte</strong>
           <small>Arte &amp; Tradición</small>
-        </span>
+        </strong>
       </a>
 
       <StepIndicator

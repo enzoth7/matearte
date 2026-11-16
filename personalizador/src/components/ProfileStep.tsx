@@ -81,13 +81,13 @@ function DesignTile({ design, draft = false, onLoad, onCheckout, onDelete, onDup
     return (
       <article className="profile-design-tile">
         <button type="button" className="profile-design-tile__open" onClick={onLoad} aria-label={`Ver detalle de ${design.title || "pedido"}`}>
-          <span className="profile-design-tile__preview">
-            {imagePending ? <span>Imagen pendiente</span> : <img className="mate-product-photo" src={variant.image} alt="" loading="lazy" />}
-          </span>
+          <strong data-inline className="profile-design-tile__preview">
+            {imagePending ? <strong data-inline>Imagen pendiente</strong> : <img className="mate-product-photo" src={variant.image} alt="" loading="lazy" />}
+          </strong>
           <strong>{price !== null && price > 0 ? formatUYU(price) : "Precio no disponible"}</strong>
-          <span className="profile-design-tile__type">{design.title}</span>
+          <strong data-inline className="profile-design-tile__type">{design.title}</strong>
           <time dateTime={design.updated_at}>Última modificación: {new Date(design.updated_at).toLocaleDateString("es-UY")}</time>
-          <span className="profile-design-tile__hint">Ver detalle</span>
+          <strong data-inline className="profile-design-tile__hint">Ver detalle</strong>
         </button>
       </article>
     );
@@ -114,10 +114,10 @@ function DesignTile({ design, draft = false, onLoad, onCheckout, onDelete, onDup
         className="profile-design-tile__preview"
         aria-label={draft ? `Continuar ${design.title || "borrador"}` : `Usar ${design.title || "diseño"} como base`}
       >
-        {imagePending ? <span>Imagen pendiente</span> : <img className="mate-product-photo" src={variant.image} alt="" loading="lazy" />}
+        {imagePending ? <strong data-inline>Imagen pendiente</strong> : <img className="mate-product-photo" src={variant.image} alt="" loading="lazy" />}
       </button>
       <strong>{price !== null && price > 0 ? formatUYU(price) : "Precio no disponible"}</strong>
-      <span className="profile-design-tile__type">{design.title}</span>
+      <strong data-inline className="profile-design-tile__type">{design.title}</strong>
       <time dateTime={design.updated_at}>Última modificación: {new Date(design.updated_at).toLocaleDateString("es-UY")}</time>
       {draft && (
         <div className="profile-design-tile__actions">
@@ -267,18 +267,18 @@ export function ProfileStep({
           <div className="profile-client__headline">
             <button type="button" className="profile-client__avatar" onClick={() => setIsEditModalOpen(true)} aria-label="Cambiar foto de perfil">
               <img src={userData.avatarUrl || "/assets/marca/LogoOriginal.jpg"} alt={`Foto de ${userData.name}`} />
-              <span>Cambiar foto</span>
+              <strong data-inline>Cambiar foto</strong>
             </button>
             <div className="profile-client__name">
               <h1 id="profile-name">{userData.name}</h1>
-              <span className={`flag:${profileCountryCode} profile-country-flag`} role="img" aria-label={`Bandera de ${profileCountryName}`} />
+              <strong data-inline className={`flag:${profileCountryCode} profile-country-flag`} role="img" aria-label={`Bandera de ${profileCountryName}`} />
             </div>
           </div>
 
           <div className="profile-client__meta">
-            <p><ProfileIcon name="email" /><span>{userData.email}</span></p>
-            <p><ProfileIcon name="location" /><span>{locationLabel}</span></p>
-            {birthdayLabel && <p><ProfileIcon name="birthday" /><span>{birthdayLabel}</span></p>}
+            <div data-copy><ProfileIcon name="email" /><strong data-inline>{userData.email}</strong></div>
+            <div data-copy><ProfileIcon name="location" /><strong data-inline>{locationLabel}</strong></div>
+            {birthdayLabel && <div data-copy><ProfileIcon name="birthday" /><strong data-inline>{birthdayLabel}</strong></div>}
           </div>
 
           <div className="profile-client__actions">
@@ -319,7 +319,7 @@ export function ProfileStep({
 
           {activeTab === "drafts" ? (
             <div id="profile-panel-drafts" className="profile-tab-panel" role="tabpanel" aria-labelledby="profile-tab-drafts">
-              {loading ? <p className="profile-empty" role="status">Cargando tus diseños…</p> : (
+              {loading ? <div data-copy className="profile-empty" role="status">Cargando tus diseños…</div> : (
                 <div className="profile-grid">
                   {drafts.map((design) => (
                     <DesignTile
@@ -333,7 +333,7 @@ export function ProfileStep({
                     />
                   ))}
                   <button type="button" className="profile-new-design" onClick={onNewDesign}>
-                    <span aria-hidden="true">+</span>
+                    <strong data-inline aria-hidden="true">+</strong>
                     <strong>Nuevo diseño</strong>
                   </button>
                 </div>
@@ -341,8 +341,8 @@ export function ProfileStep({
             </div>
           ) : (
             <div id="profile-panel-orders" className="profile-tab-panel" role="tabpanel" aria-labelledby="profile-tab-orders">
-              {loading ? <p className="profile-empty" role="status">Cargando tus pedidos…</p> : savedDesigns.length === 0 ? (
-                <p className="profile-empty">Todavía no tenés pedidos.</p>
+              {loading ? <div data-copy className="profile-empty" role="status">Cargando tus pedidos…</div> : savedDesigns.length === 0 ? (
+                <div data-copy className="profile-empty">Todavía no tenés pedidos.</div>
               ) : (
                 <div className="profile-grid">
                   {savedDesigns.map((design) => <DesignTile key={design.id} design={design} onLoad={() => setSelectedSavedDesign(design)} />)}
@@ -361,7 +361,7 @@ export function ProfileStep({
         <div className="brand-modal" role="dialog" aria-modal="true" aria-labelledby="draft-title">
           <div>
             <h2 id="draft-title">Continuar con el borrador</h2>
-            <p>El diseño se agregará al carrito principal. El servidor verificará precio, archivos y sesión antes de permitir la compra.</p>
+            <div data-copy>El diseño se agregará al carrito principal. El servidor verificará precio, archivos y sesión antes de permitir la compra.</div>
             <div className="brand-modal__actions">
               <button type="button" className="brand-button brand-button--secondary" onClick={() => setSelectedDraft(null)}>Cancelar</button>
               <button type="button" className="brand-button" disabled={isSubmittingDraft} onClick={() => void handleDraftCheckout()}>{isSubmittingDraft ? "Cargando…" : "Continuar"}</button>
@@ -383,7 +383,7 @@ export function ProfileStep({
         <div className="brand-modal" role="dialog" aria-modal="true" aria-labelledby="profile-edit-title" aria-describedby="profile-edit-description">
           <form className="profile-form" onSubmit={(event) => void handleSaveProfile(event)}>
             <h2 id="profile-edit-title">{userData.profileComplete ? "Editar mis datos" : "Completá tus datos"}</h2>
-            <p id="profile-edit-description">Registrá tu cumpleaños y dirección para que podamos preparar tus compras y saber dónde enviar tus mates.</p>
+            <div data-copy id="profile-edit-description">Registrá tu cumpleaños y dirección para que podamos preparar tus compras y saber dónde enviar tus mates.</div>
             <div className="profile-form__grid">
               <label className="profile-form__wide">Nombre completo<input autoFocus required value={editName} onChange={(event) => setEditName(event.target.value)} /></label>
               <label>Fecha de cumpleaños<input type="date" required max={new Date().toISOString().slice(0, 10)} value={editBirthDate} onChange={(event) => setEditBirthDate(event.target.value)} /></label>
@@ -400,7 +400,7 @@ export function ProfileStep({
               <label>Empresa / marca<input value={editCompany} onChange={(event) => setEditCompany(event.target.value)} /></label>
               <label className="profile-form__wide">Foto de perfil<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setAvatarFile(event.target.files?.[0] || null)} /><small>PNG, JPEG o WebP. Máximo 2 MB.</small></label>
             </div>
-            {formError && <p className="profile-form__error" role="alert">{formError}</p>}
+            {formError && <div data-copy className="profile-form__error" role="alert">{formError}</div>}
             <div className="brand-modal__actions">
               {userData.profileComplete && <button type="button" className="brand-button brand-button--secondary" onClick={() => setIsEditModalOpen(false)}>Cancelar</button>}
               <button type="submit" className="brand-button" disabled={isSavingProfile}>{isSavingProfile ? "Guardando…" : "Guardar datos"}</button>

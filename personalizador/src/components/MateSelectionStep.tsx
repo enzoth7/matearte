@@ -53,7 +53,7 @@ const mateSizeDisplayLabels: Record<MateSize, string> = {
 };
 
 function PendingLabel({ copy = "Precio pendiente" }: { copy?: string }) {
-  return <span className="selection-pending">{copy}</span>;
+  return <strong data-inline className="selection-pending">{copy}</strong>;
 }
 
 function SelectionPrice({ value, pendingCopy = "Precio no disponible", from = false, isDelta = false }: { value: number | null; pendingCopy?: string; from?: boolean; isDelta?: boolean }) {
@@ -83,25 +83,25 @@ function ColorPreview({ texture, colorId, label }: { texture: DecisionTextureOpt
 
   if (!directImage && !variant) {
     return (
-      <span className="selection-color-card__media selection-image--pending" role="img" aria-label={`${label}. Imagen pendiente`}>
+      <strong data-inline className="selection-color-card__media selection-image--pending" role="img" aria-label={`${label}. Imagen pendiente`}>
         Imagen pendiente
-      </span>
+      </strong>
     );
   }
 
   return (
-    <span className="selection-color-card__media">
+    <strong data-inline className="selection-color-card__media">
       <img src={directImage ?? variant?.image} alt={`${texture.label} en color ${label}`} className="selection-color-card__image mate-product-photo" style={catalogImageCropStyle(texture.colorPreviewCrops?.[colorId])} loading="lazy" draggable={false} />
-    </span>
+    </strong>
   );
 }
 
 function MetalPreview({ image, label, metalId, crop }: { image?: string; label: string; metalId: string; crop?: CatalogImageCrop }) {
   if (!image) {
     return (
-      <span className="selection-image selection-image--pending" role="img" aria-label={`${label}. Imagen de alpaca pendiente`}>
+      <strong data-inline className="selection-image selection-image--pending" role="img" aria-label={`${label}. Imagen de alpaca pendiente`}>
         Imagen de alpaca pendiente
-      </span>
+      </strong>
     );
   }
 
@@ -196,11 +196,11 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
           <legend className="sr-only">Tipo de mate</legend>
           {mateDecisionCatalog.filter((item) => item.enabled !== false).map((item) => (
             <button key={item.id} type="button" onClick={() => chooseFamily(item.id)} aria-pressed={item.id === selection.familyId} className="selection-product-card">
-              <span className={`selection-model-card__image selection-model-card__image--${item.id}`}>
+              <strong data-inline className={`selection-model-card__image selection-model-card__image--${item.id}`}>
                 <ProductImage variantId={item.representativeVariantId} alt={`Mate ${item.label}`} image={item.previewImage} crop={item.previewCrop} />
-              </span>
-              <span className="selection-product-card__title">{item.label}</span>
-              <span className="sr-only">{item.description}</span>
+              </strong>
+              <strong data-inline className="selection-product-card__title">{item.label}</strong>
+              <strong data-inline className="sr-only">{item.description}</strong>
               <SelectionPrice value={getFamilyStartingPrice(pricingCatalog, item.id)} pendingCopy={pendingPriceCopy} from />
             </button>
           ))}
@@ -213,11 +213,11 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
             <legend className="sr-only">Textura o construcción</legend>
             {family.textures.filter((item) => item.enabled !== false).map((item) => (
               <button key={item.id} type="button" onClick={() => chooseTexture(item)} aria-pressed={item.id === selection.textureId} className={`selection-product-card selection-product-card--texture selection-product-card--${item.id}`}>
-                <span className={`selection-texture-card__image selection-texture-card__image--${item.id}`}>
+                <strong data-inline className={`selection-texture-card__image selection-texture-card__image--${item.id}`}>
                   <ProductImage variantId={item.representativeVariantId} alt={item.label} pending={item.status === "pending"} image={item.previewImage} crop={item.previewCrop} />
-                </span>
-                <span className="selection-product-card__title">{item.label}</span>
-                <span className="sr-only">{item.description}</span>
+                </strong>
+                <strong data-inline className="selection-product-card__title">{item.label}</strong>
+                <strong data-inline className="sr-only">{item.description}</strong>
                 {item.status === "pending"
                   ? <PendingLabel copy="Datos pendientes" />
                   : <SelectionPrice value={getTextureStartingPrice(pricingCatalog, family.id, item.id)} pendingCopy={pendingPriceCopy} from={family.id !== "estribo"} />}
@@ -248,9 +248,9 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
                     className={`selection-color-card selection-color-card--${item.id}`}
                   >
                     <ColorPreview texture={selectedTexture} colorId={item.id} label={item.label} />
-                    <span className="selection-color-card__title">
+                    <strong data-inline className="selection-color-card__title">
                       {item.label}
-                    </span>
+                    </strong>
                     {hasPurchasableSku({ familyId: family.id, textureId: selectedTexture.id, colorId: item.id })
                       ? <SelectionPrice value={getColorStartingPrice(pricingCatalog, { ...selection, colorId: item.id })} pendingCopy={pendingPriceCopy} from />
                       : <PendingLabel copy="No disponible para comprar" />}
@@ -268,8 +268,8 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
           {selectedTexture.metals.filter((item) => item.enabled !== false).map((item) => (
             <button key={item.id} type="button" onClick={() => onChange({ ...selection, metalId: item.id, sizeId: null, engravingTypeId: null, flejeEngravingTypeId: null })} aria-pressed={item.id === selection.metalId} className="selection-product-card">
               <MetalPreview image={item.previewImage} label={item.label} metalId={item.id} crop={item.previewCrop} />
-              <span className="selection-product-card__title">{item.label}</span>
-              <span className="sr-only">Muestra del material de {item.label.toLowerCase()}</span>
+              <strong data-inline className="selection-product-card__title">{item.label}</strong>
+              <strong data-inline className="sr-only">Muestra del material de {item.label.toLowerCase()}</strong>
               {hasPurchasableSku({ familyId: selection.familyId ?? undefined, textureId: selectedTexture.id, colorId: selection.colorId ?? undefined, metalId: item.id })
                 ? <SelectionPrice value={getMetalStartingPrice(pricingCatalog, { ...selection, metalId: item.id })} pendingCopy={pendingPriceCopy} from />
                 : <PendingLabel copy="No disponible para comprar" />}
@@ -286,7 +286,7 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
             const pricing = getSelectionPricing(pricingCatalog, { ...selection, sizeId: size });
             return (
               <button key={size} type="button" onClick={() => onChange({ ...selection, sizeId: size, engravingTypeId: null, flejeEngravingTypeId: null })} aria-pressed={size === selection.sizeId}>
-                <span className="selection-size-list__media">
+                <strong data-inline className="selection-size-list__media">
                   <img
                     className={`selection-size-list__image ${usesTorpedoVirolaEngravingAssets(selection) ? `selection-size-list__image--torpedo-${size}` : ""}`}
                     src={preview.src}
@@ -297,12 +297,12 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
                     loading="lazy"
                     draggable={false}
                   />
-                </span>
+                </strong>
                 <strong>{mateSizeDisplayLabels[size]}</strong>
                 {showSizeDiameters && (
-                  <span className="selection-size-list__diameter">
+                  <strong data-inline className="selection-size-list__diameter">
                     Diámetro: {mateSizeDiameters[size]}
-                  </span>
+                  </strong>
                 )}
                 <SelectionPrice
                   value={pricing?.isPriceReady ? pricing.breakdown.sizeDeltaUYU : null}
@@ -338,8 +338,8 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
                 loading="lazy"
                 draggable={false}
               />
-              <span className="selection-product-card__title">{option.label}</span>
-              <span className="selection-product-card__description sr-only">{option.description}</span>
+              <strong data-inline className="selection-product-card__title">{option.label}</strong>
+              <strong data-inline className="selection-product-card__description sr-only">{option.description}</strong>
               <EngravingPrice
                 value={getCustomizationPrice(pricingCatalog, option.id, "rim_text")}
                 isFlatFee={option.id === "laser"}
@@ -366,8 +366,8 @@ export function MateSelectionStep({ stage, selection, onChange, onBack, onContin
               className="selection-product-card selection-product-card--engraving"
             >
               <img className="selection-image" src={option.flejeImage ?? option.image} style={catalogImageCropStyle(option.flejeImageCrop ?? option.imageCrop)} alt={`Referencia de ${option.label} en el fleje`} loading="lazy" draggable={false} />
-              <span className="selection-product-card__title">{option.label}</span>
-              <span className="selection-product-card__description sr-only">{option.description}</span>
+              <strong data-inline className="selection-product-card__title">{option.label}</strong>
+              <strong data-inline className="selection-product-card__description sr-only">{option.description}</strong>
               <EngravingPrice
                 value={getCustomizationPrice(pricingCatalog, option.id, "fleje_text")}
                 isFlatFee={false}

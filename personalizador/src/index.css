@@ -2,24 +2,35 @@
 
 @theme {
   --font-serif: "Newsreader", Georgia, serif;
+  --color-brand-white: var(--brand-white);
+  --color-brand-black: var(--brand-black);
+  --color-brand-brown: var(--brand-brown);
+  --color-brand-line: var(--line);
 }
 
 :root {
-  --ink: #17130f;
-  --walnut: #2d1d16;
-  --cacao: #311c12;
-  --cuero: #79452d;
-  --bronce: #826132;
-  --crudo: #d9ccaa;
-  --arena: #bfab8c;
-  --salvia: #908c76;
-  --cream: #f5efe3;
-  --paper: #fffdf8;
-  --success: #008f05;
-  --error: #8f251b;
-  --error-surface: #fff1ef;
-  --progress: #667044;
-  --focus-ring: #826132;
+  --brand-white: #FDFDFC;
+  --brand-black: #111111;
+  --brand-brown: #1E120C;
+  /* Excepción de interfaz: verde solicitado para los interruptores activos. */
+  --switch-active: #008F05;
+  --surface-muted: color-mix(in srgb, var(--brand-black) 5%, var(--brand-white));
+  --line: color-mix(in srgb, var(--brand-black) 18%, var(--brand-white));
+  --ink: var(--brand-black);
+  --walnut: var(--brand-brown);
+  --cacao: var(--brand-black);
+  --cuero: var(--brand-brown);
+  --bronce: var(--brand-brown);
+  --crudo: var(--surface-muted);
+  --arena: var(--line);
+  --salvia: color-mix(in srgb, var(--brand-black) 70%, var(--brand-white));
+  --cream: var(--brand-white);
+  --paper: var(--brand-white);
+  --success: var(--brand-black);
+  --error: var(--brand-black);
+  --error-surface: var(--surface-muted);
+  --progress: var(--brand-brown);
+  --focus-ring: var(--brand-black);
 }
 
 html,
@@ -145,7 +156,7 @@ button,
 .brand-panel-title {
   margin: 0;
   background: var(--arena);
-  color: #000;
+  color: var(--brand-black);
   padding: 13px 20px;
   text-align: center;
   font-size: 20px;
@@ -207,7 +218,7 @@ button,
   cursor: pointer;
 }
 
-.brand-progress span {
+.brand-progress [data-inline] {
   color: var(--paper);
   font-size: 30px;
   font-weight: 300;
@@ -229,7 +240,7 @@ button,
 
 .brand-intro h1 {
   margin: 0 0 27px;
-  color: #000;
+  color: var(--brand-black);
   font-size: 40px;
   font-weight: 400;
   line-height: 1.1;
@@ -248,7 +259,7 @@ button,
 
 .selection-heading h1 {
   margin: 0;
-  color: #000;
+  color: var(--brand-black);
   font-size: 36px;
   font-weight: 400;
   line-height: 1.1;
@@ -259,16 +270,16 @@ button,
   height: 10px;
   margin: 18px auto 36px;
   overflow: hidden;
-  background: #d9d9d9;
+  background: var(--surface-muted);
 }
 
-.selection-progress span {
+.selection-progress [data-inline] {
   display: block;
   height: 100%;
   background: var(--progress);
 }
 
-.selection-heading p {
+.selection-heading [data-copy] {
   margin: 10px 0 0;
   color: var(--cacao);
   font-size: 17px;
@@ -294,7 +305,7 @@ button,
 
 .selection-product-card--engraving .selection-image {
   height: 260px;
-  background: #fff;
+  background: var(--brand-white);
 }
 
 .selection-metal-grid {
@@ -357,7 +368,7 @@ button,
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: #fff;
+  background: var(--brand-white);
 }
 
 .selection-model-card__image .selection-image {
@@ -421,7 +432,7 @@ button,
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: #fff;
+  background: var(--brand-white);
 }
 
 .selection-texture-card__image .selection-image {
@@ -454,7 +465,7 @@ button,
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: #000;
+  color: var(--brand-black);
   text-align: center;
   cursor: pointer;
 }
@@ -481,7 +492,7 @@ button,
   justify-content: center;
   border: 0;
   border-radius: 0;
-  background: #fff;
+  background: var(--brand-white);
   object-fit: contain;
 }
 
@@ -591,7 +602,7 @@ button,
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: #fff;
+  background: var(--brand-white);
 }
 
 .selection-color-card__image {
@@ -632,7 +643,7 @@ button,
   grid-template-rows: 74px auto auto;
   min-width: 0;
   border: 1px solid transparent;
-  background: #fff;
+  background: var(--brand-white);
   color: var(--cacao);
   padding: 0;
   text-align: center;
@@ -677,7 +688,7 @@ button,
   aspect-ratio: 1;
   height: auto;
   display: block;
-  background: #fff;
+  background: var(--brand-white);
   object-fit: cover;
   object-position: center;
   transform: translateY(var(--size-preview-offset-y)) scale(var(--size-preview-scale));
@@ -689,7 +700,7 @@ button,
   width: 100%;
   height: 239px;
   overflow: hidden;
-  background: #f4f4f2;
+  background: var(--brand-white);
 }
 
 .selection-size-list__image--torpedo-chico {
@@ -753,7 +764,7 @@ button,
 
 .brand-style-transition h1 {
   margin: 0 0 29px;
-  color: #000;
+  color: var(--brand-black);
   font-size: 40px;
   font-weight: 400;
   line-height: 1.1;
@@ -808,7 +819,7 @@ button,
   color: var(--cacao);
 }
 
-.personalizer-disclaimer p {
+.personalizer-disclaimer [data-copy] {
   margin: 0;
   font-size: 14px;
   line-height: 1.45;
@@ -820,10 +831,10 @@ button,
   height: 20px;
   flex: 0 0 auto;
   border-radius: 999px;
-  background: var(--progress);
+  background: var(--switch-active);
 }
 
-.personalizer-disclaimer__switch > span {
+.personalizer-disclaimer__switch > [data-inline] {
   position: absolute;
   top: 2px;
   right: 2px;
@@ -935,7 +946,7 @@ button,
   display: grid;
   place-items: center;
   background: var(--arena);
-  color: #000;
+  color: var(--brand-black);
   font-size: 17px;
   font-weight: 400;
   text-transform: uppercase;
@@ -957,6 +968,13 @@ button,
   border-color: var(--cuero) !important;
   background: var(--cuero) !important;
   color: var(--paper) !important;
+}
+
+.personalizer-control-card .rim-finish-grid button[aria-pressed="true"],
+.personalizer-control-card .fleje-finish-grid button[aria-pressed="true"] {
+  border: 2px solid var(--brand-brown) !important;
+  background: var(--brand-white) !important;
+  color: var(--brand-black) !important;
 }
 
 .brand-mode-toggle {
@@ -1004,7 +1022,7 @@ button,
   background: var(--salvia);
 }
 
-.brand-switch > span {
+.brand-switch > [data-inline] {
   position: absolute;
   top: 2px;
   left: 2px;
@@ -1016,10 +1034,10 @@ button,
 }
 
 .brand-mode-toggle[aria-pressed="true"] .brand-switch {
-  background: var(--progress);
+  background: var(--switch-active);
 }
 
-.brand-mode-toggle[aria-pressed="true"] .brand-switch > span {
+.brand-mode-toggle[aria-pressed="true"] .brand-switch > [data-inline] {
   transform: translateX(33px);
 }
 
@@ -1042,9 +1060,9 @@ button,
   gap: 8px;
 }
 
-.rim-text-field > span,
+.rim-text-field > [data-inline],
 .rim-text-size legend {
-  color: #000;
+  color: var(--brand-black);
   font-size: 14px;
   font-weight: 400;
   text-transform: uppercase;
@@ -1059,13 +1077,20 @@ button,
 }
 
 .unicode-engraving-field { min-width: 0; display: grid; gap: 8px; }
-.unicode-engraving-field > label { color: #000; font-size: 14px; }
+.unicode-engraving-field > label { color: var(--brand-black); font-size: 14px; }
 .unicode-engraving-control { display: flex; gap: 8px; min-width: 0; }
-.unicode-engraving-control input { min-width: 0; flex: 1; }
+.unicode-engraving-control input {
+  min-width: 0;
+  flex: 1;
+  min-height: 48px;
+  padding: 8px 12px;
+  border: 1px solid var(--arena) !important;
+  border-radius: 8px;
+}
 .unicode-engraving-control > button,
-.unicode-engraving-characters button { min-width: 44px; min-height: 44px; border: 1px solid var(--arena); border-radius: 9px; background: #fff; color: #5f3826; font-size: 18px; }
+.unicode-engraving-characters button { min-width: 44px; min-height: 44px; border: 1px solid var(--arena); border-radius: 9px; background: var(--brand-white); color: var(--brand-brown); font-size: 18px; }
 .unicode-engraving-characters { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0; }
-.unicode-engraving-characters small { width: 100%; color: #5f3826; font-size: 12px; }
+.unicode-engraving-characters small { width: 100%; color: var(--brand-brown); font-size: 12px; }
 
 .rim-text-size {
   margin: 0;
@@ -1096,9 +1121,9 @@ button,
   padding-top: 20px;
 }
 
-.personalizer-card-body > p {
+.personalizer-card-body > [data-copy] {
   margin: 0 0 12px;
-  color: #000;
+  color: var(--brand-black);
   font-size: 14px;
 }
 
@@ -1192,7 +1217,7 @@ button,
   gap: 8px;
 }
 
-.fleje-preview-side > span {
+.fleje-preview-side > [data-inline] {
   color: var(--cacao);
   font-size: 14px;
   font-weight: 500;
@@ -1312,8 +1337,8 @@ button,
 }
 
 .custom-image-upload__remove {
-  border-color: #a5362f !important;
-  color: #8f2722 !important;
+  border-color: var(--brand-black) !important;
+  color: var(--brand-black) !important;
 }
 
 .personalizer-control-card .custom-image-upload__place[aria-pressed="true"] {
@@ -1370,12 +1395,12 @@ button,
   align-items: center;
   font-size: 12px;
   line-height: 1.4;
-  color: #5f3826cc;
+  color: color-mix(in srgb, var(--brand-brown) 80%, transparent);
   padding: 8px 24px;
 }
 .personalizer-price-bar__label strong {
   font-weight: 700;
-  color: #5f3826;
+  color: var(--brand-brown);
   margin-left: 4px;
 }
 .personalizer-price-bar__total {
@@ -1383,7 +1408,7 @@ button,
   display: grid;
   place-items: center;
   background: var(--arena);
-  color: white;
+  color: var(--brand-white);
   font-size: 20px;
   font-weight: 700;
   padding: 0 16px;
@@ -1397,7 +1422,7 @@ button,
   justify-content: space-between;
   gap: 12px;
   padding: 14px 16px;
-  border: 1px solid #e7d7c1;
+  border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--paper);
   color: var(--cacao);
@@ -1405,7 +1430,7 @@ button,
   line-height: 1.45;
 }
 
-.personalizer-laser-price p {
+.personalizer-laser-price [data-copy] {
   margin: 0;
 }
 
@@ -1467,9 +1492,9 @@ button,
   font-size: 14px;
 }
 
-.summary-mate p {
+.summary-mate [data-copy] {
   margin: 18px 0 0;
-  color: #000;
+  color: var(--brand-black);
   font-size: 18px;
 }
 
@@ -1497,7 +1522,7 @@ button,
   display: grid;
   align-content: start;
   gap: 3px;
-  color: #000;
+  color: var(--brand-black);
 }
 
 .summary-specs > div {
@@ -1545,7 +1570,7 @@ button,
   display: flex;
   justify-content: space-between;
   gap: 32px;
-  color: #000;
+  color: var(--brand-black);
   font-size: 19px;
   line-height: 1.35;
 }
@@ -1596,7 +1621,7 @@ button,
   margin: 0 auto;
   padding: 32px clamp(20px, 3vw, 40px) 72px;
   background: var(--paper);
-  color: #000;
+  color: var(--brand-black);
 }
 
 .profile-client {
@@ -1626,13 +1651,13 @@ button,
   object-fit: cover;
 }
 
-.profile-client__avatar span {
+.profile-client__avatar [data-inline] {
   position: absolute;
   inset: auto 0 0;
   min-height: 38px;
   display: grid;
   place-items: center;
-  background: rgb(49 28 18 / 82%);
+  background: rgb(17 17 17 / 82%);
   color: var(--paper);
   font-size: 12px;
   font-weight: 700;
@@ -1642,8 +1667,8 @@ button,
   transition: opacity 160ms ease, transform 160ms ease;
 }
 
-.profile-client__avatar:hover span,
-.profile-client__avatar:focus-visible span {
+.profile-client__avatar:hover [data-inline],
+.profile-client__avatar:focus-visible [data-inline] {
   opacity: 1;
   transform: translateY(0);
 }
@@ -1671,7 +1696,7 @@ button,
   width: 36px;
   height: 24px;
   flex: 0 0 auto;
-  border: 1px solid rgb(49 28 18 / 18%);
+  border: 1px solid rgb(17 17 17 / 18%);
   border-radius: 3px;
 }
 
@@ -1680,7 +1705,7 @@ button,
   gap: 8px;
 }
 
-.profile-client__meta p {
+.profile-client__meta [data-copy] {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1722,7 +1747,7 @@ button,
 }
 
 .profile-logout {
-  background: #d94b4b;
+  background: var(--brand-black);
   color: var(--paper);
   cursor: pointer;
 }
@@ -1743,7 +1768,7 @@ button,
   line-height: 1.15;
 }
 
-.profile-list__heading p {
+.profile-list__heading [data-copy] {
   margin: 0;
   color: color-mix(in srgb, var(--cacao) 72%, var(--paper));
   font-size: 15px;
@@ -1882,18 +1907,18 @@ button,
   display: grid;
   place-items: center;
   padding: 0;
-  border: 1px solid rgb(49 28 18 / 18%);
-  background: rgb(255 253 248 / 94%);
-  color: #a52626;
+  border: 1px solid rgb(17 17 17 / 18%);
+  background: rgb(253 253 252 / 94%);
+  color: var(--brand-black);
   cursor: pointer;
   transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
 }
 
 .profile-design-tile__delete:hover,
 .profile-design-tile__delete:focus-visible {
-  border-color: #a52626;
-  background: #a52626;
-  color: #fff;
+  border-color: var(--brand-black);
+  background: var(--brand-black);
+  color: var(--brand-white);
 }
 
 .profile-design-tile__delete svg {
@@ -1912,7 +1937,7 @@ button,
   height: auto;
   padding: 0;
   border: 1px solid transparent;
-  background: #fff;
+  background: var(--brand-white);
   cursor: pointer;
   transition: border-color 180ms ease;
 }
@@ -1989,7 +2014,7 @@ button,
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgb(49 28 18 / 68%);
+  background: rgb(17 17 17 / 68%);
 }
 
 .brand-modal > div,
@@ -2039,7 +2064,7 @@ button,
   color: var(--cacao);
 }
 
-.profile-form > p {
+.profile-form > [data-copy] {
   margin: -12px 0 20px;
   line-height: 1.5;
 }
@@ -2071,10 +2096,9 @@ button,
 
 .profile-form__error {
   margin: 18px 0 0 !important;
-  border-left: 3px solid #b5312c;
-  background: #fff0ed;
+  background: var(--brand-white);
   padding: 10px 12px;
-  color: #8b211d;
+  color: var(--brand-black);
   font-size: 14px;
 }
 
@@ -2121,7 +2145,7 @@ button,
   font-weight: 400 !important;
 }
 
-.access-card p,
+.access-card [data-copy],
 .access-card label {
   color: var(--cacao) !important;
 }
@@ -2167,7 +2191,7 @@ button,
 
 .access-card--google .google-signin-button:hover:not(:disabled) {
   border-color: var(--cacao) !important;
-  background: #fff !important;
+  background: var(--brand-white) !important;
 }
 
 .access-card--google .google-signin-button:focus-visible {
@@ -2189,10 +2213,10 @@ button,
 
 .access-card--google .access-error {
   margin: 0;
-  border: 1px solid #dcaca5;
-  background: #fff1ef;
+  border: 1px solid var(--line);
+  background: var(--brand-white);
   padding: 12px 14px;
-  color: #8f251b !important;
+  color: var(--brand-black) !important;
   font-size: 14px;
   line-height: 1.5;
 }
@@ -2230,7 +2254,7 @@ button,
     font-size: 18px;
   }
 
-  .brand-progress span {
+  .brand-progress [data-inline] {
     font-size: 24px;
   }
 
@@ -2312,7 +2336,7 @@ button,
     font-size: 14px;
   }
 
-  .brand-progress span {
+  .brand-progress [data-inline] {
     display: none;
   }
 
@@ -2396,7 +2420,7 @@ button,
     bottom: var(--selection-footer-overlap, 0px);
     justify-content: flex-end;
     padding: 12px 20px;
-    background: rgb(255 253 248 / 94%);
+    background: rgb(253 253 252 / 94%);
     border-top: 1px solid var(--arena);
   }
 
@@ -2571,7 +2595,7 @@ button,
     height: 88px;
   }
 
-  .profile-client__avatar span {
+  .profile-client__avatar [data-inline] {
     min-height: 30px;
     font-size: 10px;
   }
@@ -2580,7 +2604,7 @@ button,
     font-size: 24px;
   }
 
-  .profile-client__data p {
+  .profile-client__data [data-copy] {
     font-size: 14px;
     overflow-wrap: anywhere;
   }
@@ -2673,7 +2697,7 @@ button,
 .access-story__overlay {
   position: absolute;
   inset: 0;
-  background: rgb(49 28 18 / 62%);
+  background: rgb(17 17 17 / 62%);
 }
 
 .access-story__copy {
@@ -2691,7 +2715,7 @@ button,
   line-height: 1.04;
 }
 
-.access-story__copy p {
+.access-story__copy [data-copy] {
   max-width: 540px;
   margin: 18px 0 0;
   color: var(--paper);
@@ -2729,7 +2753,7 @@ button,
   line-height: 40px;
 }
 
-.access-card--google h2 + p {
+.access-card--google h2 + [data-copy] {
   margin: 10px 0 0;
   color: var(--cuero) !important;
   font-size: 15px;
@@ -2744,7 +2768,7 @@ button,
   justify-content: center;
   gap: 10px;
   margin-top: 34px;
-  border: 1px solid #000 !important;
+  border: 1px solid var(--brand-black) !important;
   border-radius: 8px !important;
   background: var(--paper) !important;
   color: var(--cacao) !important;
@@ -2934,7 +2958,7 @@ button,
   margin-top: 1px;
 }
 
-.profile-client__meta p {
+.profile-client__meta [data-copy] {
   min-width: 0;
   display: flex;
   align-items: center;
@@ -2945,7 +2969,7 @@ button,
   line-height: 20px;
 }
 
-.profile-client__meta p > span {
+.profile-client__meta [data-copy] > [data-inline] {
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -3046,7 +3070,7 @@ button,
 
 .profile-tabs button[aria-selected="true"] {
   border-color: var(--cuero);
-  background: #fff;
+  background: var(--brand-white);
 }
 
 .profile-tab-panel {
@@ -3079,7 +3103,7 @@ button,
   border: 2px solid transparent;
   border-radius: 28px;
   background: var(--paper);
-  color: #000;
+  color: var(--brand-black);
   text-align: center;
 }
 
@@ -3095,7 +3119,7 @@ button,
   overflow: hidden;
   border: 0;
   border-radius: 20px 20px 0 0;
-  background: #fff;
+  background: var(--brand-white);
 }
 
 .profile-design-tile__preview img.mate-product-photo {
@@ -3108,7 +3132,7 @@ button,
 
 .profile-design-tile > strong {
   margin-top: 14px;
-  color: #000;
+  color: var(--brand-black);
   font-size: 17px;
   line-height: 1.25;
 }
@@ -3116,7 +3140,7 @@ button,
 .profile-design-tile__type {
   min-height: 22px;
   margin-top: 5px;
-  color: #000;
+  color: var(--brand-black);
   font-size: 15px;
   line-height: 1.25;
   overflow-wrap: anywhere;
@@ -3124,7 +3148,7 @@ button,
 
 .profile-design-tile time {
   margin-top: 2px;
-  color: #000;
+  color: var(--brand-black);
   font-size: 13px;
   line-height: 1.35;
 }
@@ -3163,7 +3187,7 @@ button,
   cursor: pointer;
 }
 
-.profile-new-design > span {
+.profile-new-design > [data-inline] {
   font-size: 64px;
   font-weight: 400;
   line-height: .7;
@@ -3274,7 +3298,7 @@ button,
     line-height: 1.04;
   }
 
-  .access-story__copy p {
+  .access-story__copy [data-copy] {
     margin-top: 10px;
     font-size: 12px;
     line-height: 1.45;
@@ -3295,7 +3319,7 @@ button,
     line-height: 29px;
   }
 
-  .access-card--google h2 + p {
+  .access-card--google h2 + [data-copy] {
     margin-top: 7px;
     font-size: 12px;
     line-height: 17px;
@@ -3390,7 +3414,7 @@ button,
     gap: 13px;
   }
 
-  .profile-client__meta p {
+  .profile-client__meta [data-copy] {
     gap: 8px;
     font-size: 15px;
     line-height: 22px;
@@ -3503,7 +3527,7 @@ button,
     gap: 8px;
   }
 
-  .profile-new-design > span {
+  .profile-new-design > [data-inline] {
     font-size: 42px;
   }
 
@@ -3555,7 +3579,7 @@ button,
   display: block;
   object-fit: cover;
   object-position: center 56%;
-  background: #f4f4f2;
+  background: var(--brand-white);
 }
 
 .selection-model-card__image .mate-product-photo,
@@ -3613,7 +3637,7 @@ button,
   object-position: center 56%;
 }
 
-/* Personalizador V2 · Tanda 1
+/* Personalizador V2 , Tanda 1
    Carcasa compartida, bienvenida y selección de modelo según Figma. */
 .brand-app {
   background: var(--cream);
@@ -3735,7 +3759,7 @@ button,
   font-weight: 700;
 }
 
-.brand-progress .brand-progress__labels button span {
+.brand-progress .brand-progress__labels button [data-inline] {
   color: inherit;
   font-size: inherit;
   font-weight: inherit;
@@ -3754,7 +3778,7 @@ button,
   gap: 4px;
 }
 
-.brand-progress .brand-progress__segments span {
+.brand-progress .brand-progress__segments [data-inline] {
   width: 100%;
   height: 6px;
   display: block;
@@ -3764,8 +3788,8 @@ button,
   font-size: 0;
 }
 
-.brand-progress .brand-progress__segments span.is-current,
-.brand-progress .brand-progress__segments span.is-complete {
+.brand-progress .brand-progress__segments [data-inline].is-current,
+.brand-progress .brand-progress__segments [data-inline].is-complete {
   background: var(--progress);
 }
 
@@ -3870,7 +3894,7 @@ button,
   margin: 0;
   overflow: hidden;
   border-radius: 24px;
-  background: #ddd5c8;
+  background: var(--surface-muted);
 }
 
 .brand-intro__media img {
@@ -3937,7 +3961,7 @@ button,
   height: 232px;
   aspect-ratio: auto;
   overflow: hidden;
-  background: #e8e9ea;
+  background: var(--surface-muted);
 }
 
 .selection-page[data-stage="model"] .selection-model-card__image .mate-product-photo {
@@ -4107,7 +4131,7 @@ button,
     text-align: left;
   }
 
-  .brand-progress .brand-progress__labels button span {
+  .brand-progress .brand-progress__labels button [data-inline] {
     display: inline;
   }
 
@@ -4259,7 +4283,7 @@ button,
   }
 }
 
-/* Personalizador V2 · Tanda 2
+/* Personalizador V2 , Tanda 2
    Texturas, selector visual de color y selección condicional de metal. */
 html:has(.selection-page[data-stage="texture"]),
 html:has(.selection-page[data-stage="metal"]) {
@@ -4362,7 +4386,7 @@ html:has(.selection-page[data-stage="metal"])::-webkit-scrollbar {
   overflow: hidden;
   border: 0;
   border-radius: 0;
-  background: #f4f4f2;
+  background: var(--brand-white);
 }
 
 .selection-page[data-stage="texture"] .selection-texture-card__image .selection-image {
@@ -4432,7 +4456,7 @@ html:has(.selection-page[data-stage="metal"])::-webkit-scrollbar {
   place-items: center;
   padding: 0 24px;
   border-radius: 4px;
-  background: #e9decb;
+  background: var(--surface-muted);
   color: var(--cacao);
   font-size: 16px;
   font-weight: 400;
@@ -4482,7 +4506,7 @@ html:has(.selection-page[data-stage="metal"])::-webkit-scrollbar {
   transform: none;
   object-fit: cover;
   object-position: center var(--color-image-position-y, 56%);
-  background: #f4f4f2;
+  background: var(--brand-white);
 }
 
 .selection-page[data-stage="texture"] .selection-color-card__title {
@@ -4723,7 +4747,7 @@ html:has(.selection-page[data-stage="metal"])::-webkit-scrollbar {
   }
 }
 
-/* Personalizador V2 · Tanda 3
+/* Personalizador V2 , Tanda 3
    Tamaño, grabado de virola y grabado de fleje según Figma. */
 html:has(.selection-page[data-stage="size"]),
 html:has(.selection-page[data-stage="engraving"]),
@@ -4840,7 +4864,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   padding: 0;
   border: 0;
   border-radius: 0;
-  background: #f4f4f2;
+  background: var(--brand-white);
   object-fit: cover;
   object-position: center;
   transform: none;
@@ -5044,7 +5068,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   }
 }
 
-/* Personalizador V2 · Tanda 4
+/* Personalizador V2 , Tanda 4
    Transición y editor de virola, con estados cerrado y activo. */
 .brand-style-transition {
   min-height: calc(100dvh - 128px);
@@ -5126,7 +5150,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   background: color-mix(in srgb, var(--progress) 7%, var(--paper));
 }
 
-.brand-personalizer[data-phase="virola"] .personalizer-disclaimer p {
+.brand-personalizer[data-phase="virola"] .personalizer-disclaimer [data-copy] {
   font-size: 10px;
   line-height: 1.35;
 }
@@ -5136,7 +5160,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   height: 16px;
 }
 
-.brand-personalizer[data-phase="virola"] .personalizer-disclaimer__switch > span {
+.brand-personalizer[data-phase="virola"] .personalizer-disclaimer__switch > [data-inline] {
   width: 12px;
   height: 12px;
 }
@@ -5307,7 +5331,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
     gap: 6px;
   }
 
-  .brand-personalizer[data-phase="virola"] .personalizer-disclaimer p {
+  .brand-personalizer[data-phase="virola"] .personalizer-disclaimer [data-copy] {
     font-size: 9px;
     line-height: 1.3;
   }
@@ -5394,7 +5418,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   }
 }
 
-/* Personalizador V2 · Tanda 5
+/* Personalizador V2 , Tanda 5
    Editor de fleje: frente/dorso, controles y vista plana. */
 .brand-personalizer[data-phase="fleje"] {
   min-height: calc(100dvh - 128px);
@@ -5423,7 +5447,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   background: color-mix(in srgb, var(--progress) 7%, var(--paper));
 }
 
-.brand-personalizer[data-phase="fleje"] .personalizer-disclaimer p {
+.brand-personalizer[data-phase="fleje"] .personalizer-disclaimer [data-copy] {
   font-size: 10px;
   line-height: 1.35;
 }
@@ -5433,7 +5457,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   height: 16px;
 }
 
-.brand-personalizer[data-phase="fleje"] .personalizer-disclaimer__switch > span {
+.brand-personalizer[data-phase="fleje"] .personalizer-disclaimer__switch > [data-inline] {
   width: 12px;
   height: 12px;
 }
@@ -5518,7 +5542,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   gap: 8px;
 }
 
-.brand-personalizer[data-phase="fleje"] .fleje-preview-side > span {
+.brand-personalizer[data-phase="fleje"] .fleje-preview-side > [data-inline] {
   font-size: 14px;
   line-height: 21px;
 }
@@ -5630,7 +5654,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
     gap: 6px;
   }
 
-  .brand-personalizer[data-phase="fleje"] .personalizer-disclaimer p {
+  .brand-personalizer[data-phase="fleje"] .personalizer-disclaimer [data-copy] {
     font-size: 9px;
     line-height: 1.3;
   }
@@ -5686,7 +5710,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
     gap: 5px;
   }
 
-  .brand-personalizer[data-phase="fleje"] .fleje-preview-side > span {
+  .brand-personalizer[data-phase="fleje"] .fleje-preview-side > [data-inline] {
     font-size: 9px;
     line-height: 13px;
   }
@@ -5831,7 +5855,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   gap: 7px;
 }
 
-.summary-gallery__fleje .fleje-preview-side > span {
+.summary-gallery__fleje .fleje-preview-side > [data-inline] {
   font-size: 12px;
   font-weight: 600;
   line-height: 1.2;
@@ -5857,7 +5881,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   overflow: hidden;
   padding: 24px 28px;
   border-radius: 20px;
-  background: #fff;
+  background: var(--brand-white);
   color: var(--ink);
 }
 
@@ -5942,15 +5966,14 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   font-size: 14px;
 }
 
-.summary-checkout__pending p {
+.summary-checkout__pending [data-copy] {
   margin: 3px 0 0;
 }
 
 .summary-checkout__note {
   margin: 12px 0 0;
   padding: 12px 14px;
-  border-left: 3px solid var(--salvia);
-  background: color-mix(in srgb, var(--arena) 22%, #fff);
+  background: color-mix(in srgb, var(--arena) 22%, var(--brand-white));
   color: var(--cacao);
   font-size: 12px;
   line-height: 1.45;
@@ -5985,7 +6008,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   margin-top: 12px;
   border-color: var(--cacao);
   border-radius: 4px;
-  background: #fff;
+  background: var(--brand-white);
   color: var(--cacao);
   font-size: 14px;
   font-weight: 650;
@@ -6008,7 +6031,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   width: 100%;
   margin-top: 23px;
   border-color: var(--cacao);
-  background: #fff;
+  background: var(--brand-white);
   color: var(--cacao);
 }
 
@@ -6023,7 +6046,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
 }
 
 .summary-checkout .summary-edit:hover {
-  background: color-mix(in srgb, var(--arena) 18%, #fff);
+  background: color-mix(in srgb, var(--arena) 18%, var(--brand-white));
   color: var(--cacao);
 }
 
@@ -6120,7 +6143,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
     gap: 4px;
   }
 
-  .summary-gallery__fleje .fleje-preview-side > span {
+  .summary-gallery__fleje .fleje-preview-side > [data-inline] {
     font-size: 9px;
   }
 
@@ -6128,17 +6151,18 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
     min-height: 0;
     overflow: visible;
     padding: 0;
-    border-radius: 0;
-    background: transparent;
+    border-radius: 14px;
+    background: var(--brand-black);
+    padding: 16px;
   }
 
   .summary-checkout__content {
     min-height: 250px;
     box-sizing: border-box;
     display: block;
-    padding: 16px 20px;
-    border-radius: 14px;
-    background: #fff;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
   }
 
   .summary-checkout__card h1 {
@@ -6251,16 +6275,6 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   padding: 48px;
 }
 
-.transaction-checkout__eyebrow {
-  margin: 0 0 12px;
-  color: var(--progress);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .12em;
-  line-height: 1.25;
-  text-transform: uppercase;
-}
-
 .transaction-checkout h1,
 .success-card h1 {
   margin: 0;
@@ -6300,7 +6314,6 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   margin: 20px 0 0;
   padding: 12px 14px;
   border: 1px solid color-mix(in srgb, var(--error) 34%, var(--paper));
-  border-left: 4px solid var(--error);
   border-radius: 4px;
   background: var(--error-surface);
   color: var(--error);
@@ -6388,28 +6401,12 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   gap: 10px;
 }
 
-.success-card__badge {
-  width: max-content;
-  max-width: 100%;
-  margin: 0;
-  padding: 6px 12px;
-  border: 1px solid color-mix(in srgb, var(--progress) 32%, var(--paper));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--progress) 9%, var(--paper));
-  color: var(--progress);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .1em;
-  line-height: 1.25;
-  text-transform: uppercase;
-}
-
 .success-card h1 {
   font-size: clamp(32px, 4vw, 42px);
   line-height: 1.05;
 }
 
-.success-card__copy > p:last-child {
+.success-card__copy > [data-copy]:last-child {
   max-width: 430px;
   margin: 0;
   color: var(--cuero);
@@ -6432,7 +6429,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   text-align: left;
 }
 
-.success-card__details p {
+.success-card__details [data-copy] {
   margin: 0;
   overflow-wrap: anywhere;
 }
@@ -6444,7 +6441,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
 .success-card .success-card__action {
   width: min(100%, 260px);
   min-height: 48px;
-  border-radius: 4px !important;
+  border-radius: 8px !important;
   background: var(--cacao) !important;
   color: var(--paper) !important;
   box-shadow: none !important;
@@ -6482,7 +6479,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   }
 
   .transaction-checkout__copy,
-  .success-card__copy > p:last-child {
+  .success-card__copy > [data-copy]:last-child {
     font-size: 14px;
   }
 
@@ -6527,12 +6524,12 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   }
 }
 
-/* Ajuste visual · editores de virola y fleje
+/* Ajuste visual , editores de virola y fleje
    Radios consistentes con la referencia de Figma: controles compactos,
    bloques internos suaves y tarjetas principales más redondeadas. */
 .brand-personalizer[data-phase="virola"],
 .brand-personalizer[data-phase="fleje"] {
-  --editor-control-radius: 6px;
+  --editor-control-radius: 8px;
   --editor-inner-radius: 8px;
   --editor-panel-radius: 12px;
 }
@@ -6566,7 +6563,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
 
 .brand-personalizer[data-phase="virola"] .personalizer-control-card > .brand-mode-toggle,
 .brand-personalizer[data-phase="fleje"] .personalizer-control-card > .brand-mode-toggle {
-  border-radius: 999px !important;
+  border-radius: 8px !important;
 }
 
 .brand-personalizer[data-phase="virola"] .personalizer-control-card .virola-icon-option,
@@ -6588,7 +6585,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   border-radius: var(--editor-inner-radius) !important;
 }
 
-/* Selector de tamaños · los diámetros corresponden a Camionero, Imperial
+/* Selector de tamaños , los diámetros corresponden a Camionero, Imperial
    y Criollo no Torpedo. Las variantes Torpedo no muestran esta referencia. */
 .selection-page[data-stage="size"] .selection-size-list--with-diameters button {
   height: 376px;
@@ -6621,7 +6618,7 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
   }
 }
 
-/* Totales de virola y fleje · separados del borde como en la referencia. */
+/* Totales de virola y fleje , separados del borde como en la referencia. */
 .brand-personalizer[data-phase="virola"] .personalizer-control-card:has(.personalizer-price-bar),
 .brand-personalizer[data-phase="fleje"] .personalizer-control-card:has(.personalizer-price-bar) {
   padding-bottom: 88px;
@@ -6657,4 +6654,95 @@ html:has(.selection-page[data-stage="fleje-engraving"])::-webkit-scrollbar {
 .selection-page[data-stage="size"] .selection-size-list__image--torpedo-chico {
   transform: scale(.92);
   transform-origin: center bottom;
+}
+
+/* Shared storefront palette and accessible action states. */
+@layer base {
+  strong[data-inline] { font-weight: inherit; }
+  [data-copy] { margin: 0; }
+}
+.brand-app button {
+  min-height: 48px;
+  border-radius: 8px;
+}
+.brand-app .brand-button,
+.brand-personalizer .personalizer-control-card button,
+.brand-personalizer .personalizer-control-card > .brand-mode-toggle {
+  border-radius: 8px !important;
+}
+.brand-app .brand-button--secondary {
+  background: var(--brand-white);
+  border-color: var(--line);
+  color: var(--brand-black);
+}
+.brand-app .brand-button--secondary:hover:not(:disabled) {
+  background: var(--surface-muted);
+  color: var(--brand-black);
+}
+.brand-app button:disabled {
+  cursor: not-allowed;
+}
+.brand-app .brand-button:disabled {
+  background: var(--surface-muted);
+  border-color: var(--line);
+  color: color-mix(in srgb, var(--brand-black) 65%, var(--brand-white));
+}
+.brand-app :focus-visible {
+  outline: 2px solid var(--brand-black) !important;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px var(--brand-white);
+}
+.summary-checkout__card,
+.personalizer-price-summary {
+  background: var(--brand-black);
+  color: var(--brand-white);
+}
+.summary-checkout__card :is(h1, dt, dd, strong, .summary-checkout__total) {
+  color: var(--brand-white);
+}
+.personalizer-price-summary :is(h3, strong, [data-copy], [data-inline]) {
+  color: var(--brand-white);
+}
+.personalizer-price-summary__total {
+  background: rgb(253 253 252 / 10%);
+}
+.summary-checkout__card .summary-checkout__total {
+  border-color: rgb(253 253 252 / 25%);
+}
+.summary-checkout__card .summary-checkout__pending {
+  background: rgb(253 253 252 / 10%);
+  color: var(--brand-white);
+}
+.summary-checkout__card .brand-button,
+.summary-checkout__card .brand-button:hover:not(:disabled) {
+  background: var(--brand-white);
+  border-color: var(--brand-white);
+  color: var(--brand-black);
+}
+.summary-checkout__card .brand-button:disabled {
+  background: color-mix(in srgb, var(--brand-white) 70%, var(--brand-black));
+  border-color: transparent;
+  color: var(--brand-black);
+  opacity: .65;
+}
+
+.brand-footer { background: var(--brand-black); }
+.brand-progress .brand-progress__segments [data-inline] { background: rgb(253 253 252 / 25%); }
+.brand-progress .brand-progress__segments [data-inline].is-current,
+.brand-progress .brand-progress__segments [data-inline].is-complete { background: var(--brand-white); }
+.brand-progress .brand-progress__labels button { color: rgb(253 253 252 / 75%); }
+.brand-progress .brand-progress__labels button.is-current { color: var(--brand-white); font-weight: 700; }
+
+/* Estado visible sin depender de colores de alerta. */
+.brand-app [role="alert"]::before {
+  content: "!";
+  display: inline-grid;
+  place-items: center;
+  width: 1.25em;
+  height: 1.25em;
+  margin-inline-end: .5em;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-weight: 700;
+  line-height: 1;
 }

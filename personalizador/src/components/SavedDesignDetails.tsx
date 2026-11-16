@@ -40,7 +40,7 @@ export function SavedDesignDetails({ design, catalog, onClose, onUseAsBase }: {
     <div className="brand-modal" role="dialog" aria-modal="true" aria-labelledby="saved-design-title" onKeyDown={(event) => { if (event.key === "Escape") onClose(); }}>
       <div className="saved-design-details">
         <h2 id="saved-design-title">Detalle de {design.title}</h2>
-        <p className="saved-design-details__code">Diseño {design.design_code} · Enviado al carrito, pendiente de pago</p>
+        <div data-copy className="saved-design-details__code">Diseño {design.design_code} , Enviado al carrito, pendiente de pago</div>
 
         <h3>Tu mate</h3>
         <dl className="saved-design-details__specs">
@@ -59,8 +59,8 @@ export function SavedDesignDetails({ design, catalog, onClose, onUseAsBase }: {
         <h3>Diseño de virola</h3>
         <dl className="saved-design-details__specs">
           <div><dt>Terminación</dt><dd>{rim.finishMode === "finish" ? getRimFinish(rim.finishId)?.name || rim.finishId : "Sin terminación"}</dd></div>
-          <div><dt>Palabras</dt><dd>{rimTexts.length ? rimTexts.join(" · ") : "Sin palabras"}</dd></div>
-          <div><dt>Iconos</dt><dd>{rimIcons.length ? rimIcons.join(" · ") : "Sin iconos"}</dd></div>
+          <div><dt>Palabras</dt><dd>{rimTexts.length ? rimTexts.join(" , ") : "Sin palabras"}</dd></div>
+          <div><dt>Iconos</dt><dd>{rimIcons.length ? rimIcons.join(" , ") : "Sin iconos"}</dd></div>
         </dl>
 
         {configuration.capabilities.hasFleje && (
@@ -70,7 +70,7 @@ export function SavedDesignDetails({ design, catalog, onClose, onUseAsBase }: {
               <div><dt>Terminación</dt><dd>{fleje.finishMode === "finish" ? getFlejeFinish(fleje.finishId)?.name || fleje.finishId : "Sin terminación"}</dd></div>
               {flejeSides.map(({ side, value }) => {
                 const icons = iconNames(value.icons?.length ? value.icons : (value.selectedImageId || value.customImage) ? [{ selectedImageId: value.selectedImageId, customImage: value.customImage }] : []);
-                return <div key={side}><dt>{side === "front" ? "Frente" : "Dorso"}</dt><dd>{[value.textMode === "text" && value.text ? `“${value.text}”` : "", ...icons].filter(Boolean).join(" · ") || "Sin personalización"}</dd></div>;
+                return <div key={side}><dt>{side === "front" ? "Frente" : "Dorso"}</dt><dd>{[value.textMode === "text" && value.text ? `“${value.text}”` : "", ...icons].filter(Boolean).join(" , ") || "Sin personalización"}</dd></div>;
               })}
             </dl>
           </>
@@ -82,7 +82,7 @@ export function SavedDesignDetails({ design, catalog, onClose, onUseAsBase }: {
           {items.map((item) => <div key={item.id}><dt>{item.label || item.id}{item.quantity > 1 ? ` (${item.quantity} × ${formatUYU(item.unitPriceUYU)})` : ""}</dt><dd>{formatUYU(item.totalUYU)}</dd></div>)}
           <div className="saved-design-details__total"><dt>Total del diseño</dt><dd>{formatUYU(price)}</dd></div>
         </dl>
-        {saved && current.isPriceReady && current.totalUYU !== price && <p className="saved-design-details__notice">El precio vigente es {formatUYU(current.totalUYU)}. Revisá el importe en el carrito antes de pagar.</p>}
+        {saved && current.isPriceReady && current.totalUYU !== price && <div data-copy className="saved-design-details__notice">El precio vigente es {formatUYU(current.totalUYU)}. Revisá el importe en el carrito antes de pagar.</div>}
         <div className="brand-modal__actions">
           <button type="button" className="brand-button brand-button--secondary" onClick={onClose}>Cerrar</button>
           <button type="button" className="brand-button" onClick={onUseAsBase}>Usar como base para otro mate</button>

@@ -10,7 +10,7 @@ interface MateVariantSelectorProps {
 export function MateVariantSelector({ variants, selectedVariantId, onSelect }: MateVariantSelectorProps) {
   return (
     <div>
-      <span className="mb-2 block text-[9px] font-bold uppercase tracking-widest text-zinc-400">Variante base</span>
+      <strong data-inline className="mb-2 block text-[9px] font-bold uppercase tracking-widest text-brand-black/70">Variante base</strong>
       <div className="grid max-h-[370px] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
         {variants.map((variant) => {
           const isSelected = variant.id === selectedVariantId;
@@ -24,14 +24,14 @@ export function MateVariantSelector({ variants, selectedVariantId, onSelect }: M
               aria-pressed={isSelected}
               className={`rounded-xl border p-2 text-center transition-all cursor-pointer ${
                 isSelected
-                  ? "border-[#7a4a31] bg-[#7a4a31]/5 ring-1 ring-[#7a4a31]/25"
-                  : "border-zinc-200 bg-white hover:border-[#7a4a31]"
+                  ? "border-brand-brown bg-brand-brown/5 ring-1 ring-brand-brown/25"
+                  : "border-brand-black/18 bg-brand-white hover:border-brand-brown"
               }`}
             >
               <img src={variant.image} alt={displayName} className="mate-product-photo mx-auto aspect-square w-full rounded-lg" loading="lazy" draggable={false} />
-              <span className={`mt-1 block text-[10px] font-bold leading-tight ${isSelected ? "text-[#7a4a31]" : "text-zinc-700"}`}>
+              <strong data-inline className={`mt-1 block text-[10px] font-bold leading-tight ${isSelected ? "text-brand-brown" : "text-brand-black"}`}>
                 {displayName}
-              </span>
+              </strong>
             </button>
           );
         })}

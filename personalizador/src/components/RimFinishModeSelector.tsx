@@ -9,7 +9,7 @@ export function RimFinishModeSelector({ mode, onSelect }: RimFinishModeSelectorP
   const active = mode === "finish";
   return (
     <button type="button" className="brand-mode-toggle" aria-label={active ? "Desactivar terminación" : "Activar terminación"} aria-pressed={active} aria-expanded={active} onClick={() => onSelect(active ? "none" : "finish")}>
-      <span className="brand-switch" aria-hidden="true"><span /></span>
+      <strong data-inline className="brand-switch" aria-hidden="true"><strong data-inline /></strong>
     </button>
   );
 }

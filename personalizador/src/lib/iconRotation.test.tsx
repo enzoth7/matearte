@@ -27,7 +27,7 @@ describe("giro de íconos", () => {
     const unselected = renderToStaticMarkup(<svg><RimIconLayer {...props} /></svg>);
     expect(selected).toContain('aria-label="Girar ícono"');
     expect(selected).toContain('transform="rotate(35 ');
-    expect(selected).toContain('fill="#fff"');
+    expect(selected).toContain('fill="var(--brand-white)"');
     expect(unselected).not.toContain('aria-label="Girar ícono"');
   });
 
@@ -48,7 +48,7 @@ describe("giro de íconos", () => {
     );
     expect(selected).toContain('aria-label="Girar ícono"');
     expect(selected).toContain('rotate(35)');
-    expect(selected).toContain('fill="#fff"');
+    expect(selected).toContain('fill="var(--brand-white)"');
     expect(unselected).not.toContain('aria-label="Girar ícono"');
   });
 });

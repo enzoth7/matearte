@@ -26,7 +26,7 @@ export function VirolaIconSelector({ icons, onChange, selectedElementId, onSelec
     if (hasAdditionalSelection) setShowAllIcons(true);
   }, [hasAdditionalSelection]);
 
-  if (rimIconCatalog.length === 0) return <p className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-[10px] text-zinc-500">No hay imágenes disponibles en la biblioteca.</p>;
+  if (rimIconCatalog.length === 0) return <div data-copy className="rounded-xl border border-brand-black/18 bg-brand-black/5 px-3 py-3 text-[10px] text-brand-black/70">No hay imágenes disponibles en la biblioteca.</div>;
 
   const getInitialPosition = (count: number) => {
     const angles = [90, 45, 135];
@@ -75,7 +75,7 @@ export function VirolaIconSelector({ icons, onChange, selectedElementId, onSelec
         className="virola-icon-option"
       >
         <img src={icon.src} alt="" draggable={false} />
-        {isSelected && <span className="virola-icon-option__check" aria-hidden="true">✓</span>}
+        {isSelected && <strong data-inline className="virola-icon-option__check" aria-hidden="true">✓</strong>}
       </button>
     );
   };

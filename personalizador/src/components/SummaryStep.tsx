@@ -68,7 +68,7 @@ export function SummaryStep({
             </div>
           )}
           {!configuration.capabilities.hasFleje && (
-            <p className="summary-gallery__design-label">Diseño de virola</p>
+            <div data-copy className="summary-gallery__design-label">Diseño de virola</div>
           )}
         </div>
       </section>
@@ -93,14 +93,14 @@ export function SummaryStep({
                     </div>
                   ))}
                 </dl>
-                <div className="summary-checkout__total"><span>Total</span><strong>$ {pricing.totalUYU.toLocaleString("es-UY")}</strong></div>
-                {!pricing.isPriceReady && <div className="summary-checkout__pending" role="alert"><strong>Faltan precios</strong><p>{pricing.missingRuleKeys.map((key) => key === "selection:engraving" ? "Tipo de grabado" : key.split(":").at(-1)?.replaceAll("_", " ")).join(", ")}.</p></div>}
-                {!pricing.hasSku && <div className="summary-checkout__pending" role="alert"><strong>SKU pendiente</strong><p>El precio está completo, pero esta combinación todavía no puede comprarse.</p></div>}
+                <div className="summary-checkout__total"><strong data-inline>Total</strong><strong>$ {pricing.totalUYU.toLocaleString("es-UY")}</strong></div>
+                {!pricing.isPriceReady && <div className="summary-checkout__pending" role="alert"><strong>Faltan precios</strong><div data-copy>{pricing.missingRuleKeys.map((key) => key === "selection:engraving" ? "Tipo de grabado" : key.split(":").at(-1)?.replaceAll("_", " ")).join(", ")}.</div></div>}
+                {!pricing.hasSku && <div className="summary-checkout__pending" role="alert"><strong>SKU pendiente</strong><div data-copy>El precio está completo, pero esta combinación todavía no puede comprarse.</div></div>}
               </>
             ) : (
               <div className="summary-checkout__pending" role="alert">
                 <strong>Precio no disponible</strong>
-                <p>Podés guardar esta configuración, pero el checkout permanecerá bloqueado hasta recuperar un catálogo publicado completo.</p>
+                <div data-copy>Podés guardar esta configuración, pero el checkout permanecerá bloqueado hasta recuperar un catálogo publicado completo.</div>
               </div>
             )}
           </div>
@@ -113,9 +113,9 @@ export function SummaryStep({
 
         <button type="button" onClick={onEditDesign} className="brand-button brand-button--secondary summary-edit">Editar pedido</button>
         <button type="button" onClick={onGoToProfile} className="brand-button brand-button--secondary summary-profile">Ir a perfil</button>
-        <p className="summary-checkout__note">
+        <div data-copy className="summary-checkout__note">
           Cada mate se termina a mano. Para que tu diseño se adapte mejor a su forma y luzca en armonía, podemos realizar pequeños ajustes de composición sin alterar la esencia de lo que elegiste.
-        </p>
+        </div>
         <button type="button" onClick={onEditContact} className="sr-only">Editar datos de {userData?.name ?? "cliente"}</button>
       </aside>
     </main>
