@@ -5,6 +5,7 @@ import {
   countryRegions,
   internationalPhoneNumber,
   localPhoneNumber,
+  normalizedProfilePhone,
   parsePhoneNumber,
 } from "./countries";
 
@@ -24,6 +25,12 @@ describe("country profile helpers", () => {
     expect(internationalPhoneNumber("UY", "098 633 186")).toBe("+598 098 633 186");
     expect(internationalPhoneNumber("UY", "+598 098 633 186")).toBe("+598 098 633 186");
     expect(localPhoneNumber("+598 098 633 186", "UY")).toBe("098 633 186");
+  });
+
+  it("normalizes a legacy profile phone before resubmitting account changes", () => {
+    expect(normalizedProfilePhone("+59899123456", "UY")).toBe("+598 99123456");
+    expect(normalizedProfilePhone("099 123 456", "UY")).toBe("+598 099 123 456");
+    expect(normalizedProfilePhone("+39 340 1234567", "UY")).toBe("+39 340 1234567");
   });
 
   it("returns sorted country phone options with calling code", () => {

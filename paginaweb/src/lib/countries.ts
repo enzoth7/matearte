@@ -154,3 +154,8 @@ export function parsePhoneNumber(
   };
 }
 
+export function normalizedProfilePhone(phone: string, fallbackCountryCode: string) {
+  const parsed = parsePhoneNumber(phone, fallbackCountryCode);
+  return internationalPhoneNumber(parsed.phoneCountryCode, parsed.localNumber);
+}
+

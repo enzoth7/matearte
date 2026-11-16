@@ -4,7 +4,7 @@ import { CheckCircle } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
-import { countryCallingCode, countryOptionsForLocale, countryPhoneOptionsForLocale, countryRegions, internationalPhoneNumber, localPhoneNumber, parsePhoneNumber } from "@/lib/countries";
+import { countryCallingCode, countryOptionsForLocale, countryPhoneOptionsForLocale, countryRegions, internationalPhoneNumber, localPhoneNumber, normalizedProfilePhone, parsePhoneNumber } from "@/lib/countries";
 import type { Locale } from "@/types/catalog";
 import { isOrderRedirect, type StoreRedirect } from "@/lib/auth-redirect";
 import { localizeCanonicalPath } from "@/i18n/paths";
@@ -34,7 +34,10 @@ export function ProfileEditor({ initial, welcome, postSaveRedirect, countryChoic
   const countryOptions = countryChoices ?? countryOptionsForLocale(locale);
   const phoneCountryOptions = phoneCountryChoices ?? countryPhoneOptionsForLocale(locale);
   const firstInvalid = useRef<HTMLInputElement>(null);
-  const [form, setForm] = useState(initial);
+  const [form, setForm] = useState(() => ({
+    ...initial,
+    phone: normalizedProfilePhone(initial.phone, initial.countryCode || "UY"),
+  }));
   const [parsedPhone] = useState(() => parsePhoneNumber(initial.phone, initial.countryCode || "UY"));
   const [phoneCountry, setPhoneCountry] = useState(parsedPhone.phoneCountryCode);
   const [phoneNumber, setPhoneNumber] = useState(parsedPhone.localNumber);
@@ -97,8 +100,8 @@ export function ProfileEditor({ initial, welcome, postSaveRedirect, countryChoic
       Object.entries(form).forEach(([key, value]) => body.set(key, value));
       if (avatar) body.set("avatar", avatar);
       const response = await fetch("/api/profile", { method: "POST", body });
-      await response.json();
-      if (!response.ok) throw new Error(t("saveFailed"));
+      const result = await response.json().catch(() => null) as { error?: string } | null;
+      if (!response.ok) throw new Error(result?.error || t("saveFailed"));
       setSaved(true);
       window.setTimeout(() => {
         if (postSaveRedirect && isOrderRedirect(postSaveRedirect)) {
@@ -110,7 +113,7 @@ export function ProfileEditor({ initial, welcome, postSaveRedirect, countryChoic
       }, 500);
     } catch (reason) {
       console.error("Profile update failed", reason);
-      setError(t("saveFailed"));
+      setError(reason instanceof Error ? reason.message : t("saveFailed"));
     } finally {
       setBusy(false);
     }
