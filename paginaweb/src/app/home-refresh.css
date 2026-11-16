@@ -933,3 +933,18 @@
 .home-footer-newsletter-feedback.is-error {
   color: inherit;
 }
+
+.home-page .home-section.home-craft,
+.home-page .home-section.home-imperial {
+  background: var(--brand-black);
+  color: var(--brand-white);
+}
+.home-page .home-craft .home-copy-block h2,
+.home-page .home-craft .home-craft-subtitle,
+.home-page .home-craft .home-copy-block [data-copy],
+.home-page .home-imperial .home-imperial-copy,
+.home-page .home-imperial .home-imperial-copy h2,
+.home-page .home-imperial .home-imperial-copy h3,
+.home-page .home-imperial .home-imperial-copy [data-copy] {
+  color: var(--brand-white);
+}

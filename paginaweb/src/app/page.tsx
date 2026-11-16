@@ -157,6 +157,17 @@ export default async function Home() {
         </div>
       </section>
 
+      <section className="home-section home-scroll-band home-culture">
+        <div className="home-shell home-culture-grid">
+          <BandContent className="home-culture-copy">
+            <h2><strong data-inline>{t("cultureLine1")}</strong><strong data-inline>{t("cultureLine2")}</strong></h2>
+            <div data-copy>{t("cultureBody")}</div>
+            <Image src={`${assets}/uruguay.webp`} alt={t("countryAlt")} width={392} height={180} className="home-country-logo" />
+          </BandContent>
+          <BandContent className="home-image home-culture-image" delay={0.08}><Image src={`${assets}/culture.webp`} alt={t("cultureAlt")} fill sizes="(max-width: 768px) 100vw, 43vw" /></BandContent>
+        </div>
+      </section>
+
       <section className="home-section home-scroll-band home-imperial">
         <div className="home-shell home-imperial-grid">
           <BandContent className="home-image home-imperial-image"><Image src={`${assets}/mate-imperial.webp`} alt={t("imperialAlt")} fill sizes="(max-width: 768px) 100vw, 42vw" /></BandContent>
@@ -166,17 +177,6 @@ export default async function Home() {
             <div data-copy>{t("imperialBody1")}</div>
             <div data-copy>{t("imperialBody2")}</div>
           </BandContent>
-        </div>
-      </section>
-
-      <section className="home-section home-scroll-band home-culture">
-        <div className="home-shell home-culture-grid">
-          <BandContent className="home-culture-copy">
-            <h2><strong data-inline>{t("cultureLine1")}</strong><strong data-inline>{t("cultureLine2")}</strong></h2>
-            <div data-copy>{t("cultureBody")}</div>
-            <Image src={`${assets}/uruguay.webp`} alt={t("countryAlt")} width={392} height={180} className="home-country-logo" />
-          </BandContent>
-          <BandContent className="home-image home-culture-image" delay={0.08}><Image src={`${assets}/culture.webp`} alt={t("cultureAlt")} fill sizes="(max-width: 768px) 100vw, 43vw" /></BandContent>
         </div>
       </section>
 
