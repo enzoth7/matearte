@@ -1,104 +1,141 @@
 "use client";
-
-import { MotionConfig, motion, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useReducedMotion } from "motion/react";
 import { Link } from "@/i18n/navigation";
-
-const assets = "/assets/matearte/home-v2";
-
+const slides = [
+  {
+    key: "champions",
+    image: "hero-champions-enhanced.webp",
+    href: { pathname: "/catalogo", query: { coleccion: "uruguay" } },
+    action: "collection",
+  },
+  {
+    key: "custom",
+    image: "hero-custom.webp",
+    href: "/personalizados",
+    action: "custom",
+  },
+  {
+    key: "leather",
+    image: "hero-leather.webp",
+    href: "/catalogo",
+    action: "catalog",
+  },
+  {
+    key: "tradition",
+    image: "hero-tradition.webp",
+    href: "/catalogo",
+    action: "catalog",
+  },
+] as const;
 export function HomeHero() {
-  const t = useTranslations("home");
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const backdropVideoRef = useRef<HTMLVideoElement>(null);
+  const t = useTranslations("home.carousel");
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [visible, setVisible] = useState(true);
   const reduceMotion = useReducedMotion();
-
+  const touch = useRef<{ x: number; y: number } | null>(null);
   useEffect(() => {
-    const video = videoRef.current;
-    const backdropVideo = backdropVideoRef.current;
-    if (!video || !backdropVideo) return;
-
-    if (reduceMotion) {
-      video.pause();
-      backdropVideo.pause();
-      return;
-    }
-
-    const wideScreen = window.matchMedia("(min-width: 641px)");
-
-    const syncBackdrop = () => {
-      if (!wideScreen.matches || backdropVideo.readyState === 0) return;
-      if (Math.abs(backdropVideo.currentTime - video.currentTime) > 0.1) {
-        backdropVideo.currentTime = video.currentTime;
-      }
-    };
-
-    const playBackdrop = () => {
-      if (!wideScreen.matches) return;
-      syncBackdrop();
-      backdropVideo.play().catch(() => undefined);
-    };
-    const pauseBackdrop = () => backdropVideo.pause();
-
-    const updateBackdropPlayback = () => {
-      if (wideScreen.matches) playBackdrop();
-      else backdropVideo.pause();
-    };
-
-    video.addEventListener("play", playBackdrop);
-    video.addEventListener("pause", pauseBackdrop);
-    video.addEventListener("seeking", syncBackdrop);
-    video.addEventListener("timeupdate", syncBackdrop);
-    wideScreen.addEventListener("change", updateBackdropPlayback);
-
-    video.play().catch(() => undefined);
-    updateBackdropPlayback();
-
-    return () => {
-      video.removeEventListener("play", playBackdrop);
-      video.removeEventListener("pause", pauseBackdrop);
-      video.removeEventListener("seeking", syncBackdrop);
-      video.removeEventListener("timeupdate", syncBackdrop);
-      wideScreen.removeEventListener("change", updateBackdropPlayback);
-    };
-  }, [reduceMotion]);
-
+    const update = () => setVisible(!document.hidden);
+    update();
+    document.addEventListener("visibilitychange", update);
+    return () => document.removeEventListener("visibilitychange", update);
+  }, []);
+  useEffect(() => {
+    if (paused || hovered || focused || !visible || reduceMotion) return;
+    const timer = window.setTimeout(
+      () => setActive((value) => (value + 1) % slides.length),
+      5000,
+    );
+    return () => window.clearTimeout(timer);
+  }, [active, paused, hovered, focused, visible, reduceMotion]);
+  const select = (index: number) => {
+    setActive(index);
+    setPaused(true);
+  };
   return (
-    <MotionConfig reducedMotion="user">
-      <section className="home-hero" aria-labelledby="home-hero-title">
-        <motion.div
-          className="home-hero-media"
-          initial={reduceMotion ? false : { opacity: 0.25, scaleX: 1.04, scaleY: 1.04 }}
-          animate={reduceMotion ? undefined : { opacity: [0.25, 0.25, 1, 1], scaleX: [1.04, 1.04, 1, 1], scaleY: [1.04, 1.04, 1, 1] }}
-          transition={reduceMotion ? undefined : {
-            opacity: { duration: 2, times: [0, 0.04, 0.36, 1], ease: ["linear", "easeOut", "linear"], repeat: Infinity },
-            scaleX: { duration: 2, times: [0, 0.04, 0.36, 1], ease: ["linear", "easeOut", "linear"], repeat: Infinity },
-            scaleY: { duration: 2, times: [0, 0.04, 0.36, 1], ease: ["linear", "easeOut", "linear"], repeat: Infinity },
-          }}
+    <section
+      className="home-carousel"
+      aria-roledescription={t("carousel")}
+      aria-label={t("label")}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocusCapture={() => setFocused(true)}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget))
+          setFocused(false);
+      }}
+      onTouchStart={(event) => {
+        setPaused(true);
+        const point = event.touches[0];
+        touch.current = { x: point.clientX, y: point.clientY };
+      }}
+      onTouchEnd={(event) => {
+        const start = touch.current;
+        touch.current = null;
+        if (!start) return;
+        const point = event.changedTouches[0];
+        const dx = point.clientX - start.x;
+        if (
+          Math.abs(dx) > 50 &&
+          Math.abs(dx) > Math.abs(point.clientY - start.y)
+        )
+          select((active + (dx < 0 ? 1 : slides.length - 1)) % slides.length);
+      }}
+    >
+      {slides.map((slide, index) => (
+        <article
+          key={slide.key}
+          id={`hero-${slide.key}`}
+          className={`home-carousel-slide home-carousel-${slide.key}`}
+          data-active={index === active}
+          aria-hidden={index !== active}
+          inert={index !== active}
         >
-          <Image src={`${assets}/hero-overlay.webp`} alt={t("heroAlt")} fill sizes="100vw" className="home-hero-poster" priority />
-          <video ref={backdropVideoRef} className="home-hero-video-backdrop" src={`${assets}/hero-segment.mp4`} poster={`${assets}/hero-poster.webp`} muted loop playsInline preload="metadata" tabIndex={-1} aria-hidden="true" />
-          <video ref={videoRef} className="home-hero-video" src={`${assets}/hero-segment.mp4`} poster={`${assets}/hero-poster.webp`} autoPlay muted loop playsInline preload="metadata" tabIndex={-1} aria-hidden="true" />
-        </motion.div>
-        <div className="home-hero-scrim" />
-        <motion.div
-          className="home-hero-content"
-          initial={reduceMotion ? false : { opacity: 0, y: 18 }}
-          animate={reduceMotion ? undefined : { opacity: [0, 1, 1], y: [18, 0, 0] }}
-          transition={reduceMotion ? undefined : {
-            opacity: { duration: 2, times: [0, 0.275, 1], ease: ["easeOut", "linear"], repeat: Infinity },
-            y: { duration: 2, times: [0, 0.275, 1], ease: ["easeOut", "linear"], repeat: Infinity },
-          }}
-        >
-          <h1 id="home-hero-title"><span>{t("heroLine1")}</span><span>{t("heroLine2")}</span></h1>
-          <p>{t("heroBody")}</p>
-          <div className="home-hero-actions">
-            <Link className="home-button home-button-dark" href="/catalogo">{t("viewMates")}</Link>
-            <Link className="home-button home-button-light" href="/personalizados">{t("createMine")}</Link>
+          <Image
+            src={`/assets/matearte/home-v2/${slide.image}`}
+            alt={t(`${slide.key}.alt`)}
+            fill
+            sizes="100vw"
+            unoptimized={slide.key === "champions"}
+            preload={index === 0}
+            loading={index === 0 ? undefined : "eager"}
+          />
+          <div className="home-carousel-shade" />
+          <div className="home-carousel-copy">
+            {slide.key === "champions" ? (
+              <h1>{t("champions.title")}</h1>
+            ) : slide.key !== "tradition" ? (
+              <h2>{t(`${slide.key}.title`)}</h2>
+            ) : null}
+            <Link
+              className="home-button home-carousel-action"
+              href={slide.href}
+            >
+              {t(`actions.${slide.action}`)}
+            </Link>
           </div>
-        </motion.div>
-      </section>
-    </MotionConfig>
+        </article>
+      ))}
+      <div className="home-carousel-controls">
+        <nav aria-label={t("choose")}>
+          {slides.map((slide, index) => (
+            <button
+              key={slide.key}
+              type="button"
+              aria-controls={`hero-${slide.key}`}
+              aria-current={active === index ? "true" : undefined}
+              onClick={() => select(index)}
+            >
+              {t(`${slide.key}.label`)}
+            </button>
+          ))}
+        </nav>
+      </div>
+    </section>
   );
 }

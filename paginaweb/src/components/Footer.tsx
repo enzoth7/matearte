@@ -41,7 +41,7 @@ export async function Footer() {
     <footer className="home-footer">
       <div className="home-shell home-footer-main">
         <div className="home-footer-nav">
-          <p className="home-footer-label">{t("navigation")}</p>
+          <div data-copy className="home-footer-label">{t("navigation")}</div>
           {footerNavigation.map((item) => <Link key={item.href} href={item.href}>{navigation(item.label)}</Link>)}
           <FooterPurchasesDisclosure />
           <div className="home-footer-socials home-footer-socials-desktop">
@@ -51,12 +51,12 @@ export async function Footer() {
           </div>
         </div>
         <nav className="home-footer-purchases" aria-label={t("purchaseInfo")}>
-          <p className="home-footer-label">{t("purchases")}</p>
+          <div data-copy className="home-footer-label">{t("purchases")}</div>
           {purchaseLinks.map((item) => <Link key={item.href} href={item.href}>{t(item.label)}</Link>)}
         </nav>
         <div className="home-footer-newsletter">
-          <p className="home-footer-label">{t("newsTitle")}</p>
-          <p><span className="home-footer-copy-desktop">{t("newsDesktop")}</span><span className="home-footer-copy-mobile">{t("newsMobile")}</span></p>
+          <div data-copy className="home-footer-label">{t("newsTitle")}</div>
+          <div data-copy><strong data-inline className="home-footer-copy-desktop">{t("newsDesktop")}</strong><strong data-inline className="home-footer-copy-mobile">{t("newsMobile")}</strong></div>
           <NewsletterForm
             emailLabel={t("email")}
             nameLabel={t("name")}
@@ -72,7 +72,7 @@ export async function Footer() {
         <div className="home-footer-contact">
           <Link className="home-footer-label" href="/contacto">{t("writeUs")}</Link>
           <a href={whatsappUrl} target="_blank" rel="noreferrer" aria-label={t("whatsappLabel", { phone: es.contact.phoneDisplay })}>{es.contact.phoneDisplay}</a>
-          <p>25 de Mayo 1734<br />Paysandú, Uruguay</p>
+          <div data-copy>25 de Mayo 1734<br />Paysandú, Uruguay</div>
           <div className="home-footer-socials home-footer-socials-mobile">
             <a href={es.contact.instagramUrl} target="_blank" rel="noreferrer" aria-label={t("instagramLabel")}><InstagramLogo size={18} aria-hidden="true" /></a>
             <a href={es.contact.facebookUrl} target="_blank" rel="noreferrer" aria-label={t("facebookLabel")}><FacebookMark /></a>
@@ -82,7 +82,7 @@ export async function Footer() {
       </div>
       <div className="home-footer-bottom">
         <div className="home-shell">
-          <p>{t("rights", { year: new Date().getFullYear() })}</p>
+          <div data-copy>{t("rights", { year: new Date().getFullYear() })}</div>
           <a className="home-polarist" href="https://polarist.app/" target="_blank" rel="noreferrer">
             <Image src="/assets/matearte/home-v2/polarist.webp" alt="" width={20} height={20} />
             {t("createdBy")}

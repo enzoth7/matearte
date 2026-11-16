@@ -166,7 +166,10 @@ export function useCommerce() {
             .order("id").range(page * 100, page * 100 + 99);
           const extendedItems = `${itemFields},customization,production_notes,production_status`;
           let result: { data: unknown[] | null; count: number | null; error: { code?: string; message: string } | null } =
-            await readSales(`${fields},retail_shipping_minor,retail_rate_to_uyu`, extendedItems);
+            await readSales(`${fields},retail_shipping_minor,retail_rate_to_uyu,retail_payment_split`, extendedItems);
+          if (result.error?.code === "42703" && /retail_payment_split/i.test(result.error.message)) {
+            result = await readSales(`${fields},retail_shipping_minor,retail_rate_to_uyu`, extendedItems);
+          }
           if (result.error?.code === "42703" && /retail_(shipping_minor|rate_to_uyu)/i.test(result.error.message)) {
             result = await readSales(fields, extendedItems);
           }

@@ -52,6 +52,7 @@ export type LocalSale = {
   customer_name: string;
   sold_on: string;
   payment_method: string;
+  retail_payment_split?: { method: string; amountMinor: number }[] | null;
   total_minor: number;
   deposit_minor?: number | null;
   currency: string;

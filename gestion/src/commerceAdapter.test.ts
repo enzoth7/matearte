@@ -273,6 +273,23 @@ describe("integración de commerce en el estado compartido", () => {
       { amount: 25 * rate, sourceAmount: 25, sourceCurrency: currency },
     ]);
   });
+  it("desglosa el cobro inicial en dos medios sin duplicar ingresos y deja las ventas anteriores como pago único", () => {
+    const fixture = commerceFixture();
+    const historical = { id: "single-sale", sale_number: 49, channel: "Local" as const, customer_id: null,
+      customer_name: "Cliente", sold_on: "2026-11-14", payment_method: "Efectivo", total_minor: 110050,
+      currency: "UYU", created_at: "2026-11-14T12:00:00Z", local_sale_items: [] };
+    fixture.localSales = [{ ...historical, id: "split-sale", sale_number: 50, payment_method: "Efectivo",
+      total_minor: 110050, deposit_minor: null, retail_payment_split: [
+        { method: "Efectivo", amountMinor: 50000 }, { method: "Crédito", amountMinor: 60050 },
+      ] }, historical];
+    const state = adaptCommerce(fixture);
+    const split = state.orders.find(order => order.id === "split-sale")!;
+    expect(split.initialPaymentSplit).toEqual([{ method: "Efectivo", amount: 500 }, { method: "Crédito", amount: 600.5 }]);
+    expect(state.payments.filter(payment => payment.orderId === split.id).map(payment => [payment.method, payment.amount]))
+      .toEqual([["Efectivo", 500], ["Crédito", 600.5]]);
+    expect(state.payments.filter(payment => payment.orderId === historical.id)).toHaveLength(1);
+    expect(balance(state, split)).toBe(0);
+  });
   it("muestra en Ventas el estado del trabajo local que aparece en Minorista", () => {
     const fixture = commerceFixture();
     fixture.localSales = [{

@@ -59,7 +59,7 @@ function itemCopy(item: OrderItem, locale: Locale, labels: { custom: string; cat
   const baseSubtitle = item.selection_label || details.join(" — ") || (item.item_type === "design" ? labels.custom : labels.catalog);
   return {
     name: name || labels.piece,
-    subtitle: item.quantity > 1 ? `${baseSubtitle} · ${labels.units(item.quantity)}` : baseSubtitle,
+    subtitle: item.quantity > 1 ? `${baseSubtitle} , ${labels.units(item.quantity)}` : baseSubtitle,
   };
 }
 
@@ -185,10 +185,10 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
 
   if (paymentOutcome === "failure") {
     return (
-      <div role="status" className="order-status-feedback border border-black/15 bg-[var(--paper)] p-6 shadow-[var(--shadow-soft)] sm:p-8">
+      <div role="status" className="order-status-feedback border border-[var(--ink)]/15 bg-[var(--paper)] p-6 shadow-[var(--shadow-soft)] sm:p-8">
         <WarningCircle size={30} className="text-[var(--leather)]" aria-hidden="true" />
         <h2 className="display-font mt-4 text-3xl">{t("paymentNotCompletedTitle")}</h2>
-        <p className="mt-3 max-w-xl text-sm leading-7 text-black/60">{t("paymentNotCompletedBody")}</p>
+        <div data-copy className="mt-3 max-w-xl text-sm leading-7 text-[var(--ink)]/60">{t("paymentNotCompletedBody")}</div>
         <Link className="button-primary mt-6" href="/carrito">{t("backToCart")}</Link>
       </div>
     );
@@ -197,12 +197,12 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
   if (accessIssue) {
     const authenticationRequired = accessIssue === "auth";
     return (
-      <div role="status" className="order-status-feedback border border-black/15 bg-[var(--paper)] p-6 shadow-[var(--shadow-soft)] sm:p-8">
+      <div role="status" className="order-status-feedback border border-[var(--ink)]/15 bg-[var(--paper)] p-6 shadow-[var(--shadow-soft)] sm:p-8">
         {authenticationRequired
           ? <Clock size={30} className="text-[var(--leather)]" aria-hidden="true" />
           : <WarningCircle size={30} className="text-[var(--danger)]" aria-hidden="true" />}
         <h2 className="display-font mt-4 text-3xl">{authenticationRequired ? t("authRequiredTitle") : t("unavailableTitle")}</h2>
-        <p className="mt-3 max-w-xl text-sm leading-7 text-black/60">{authenticationRequired ? t("authRequiredBody") : t("unavailableBody")}</p>
+        <div data-copy className="mt-3 max-w-xl text-sm leading-7 text-[var(--ink)]/60">{authenticationRequired ? t("authRequiredBody") : t("unavailableBody")}</div>
         <div className="mt-6 max-w-sm">
           <GoogleAuthButton postLoginRedirect={`/pedidos/${orderId}`} />
         </div>
@@ -216,7 +216,7 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
       <div role="alert" className="order-status-feedback border border-[var(--danger)]/30 bg-[var(--paper)] p-6 shadow-[var(--shadow-soft)] sm:p-8">
         <WarningCircle size={30} className="text-[var(--danger)]" aria-hidden="true" />
         <h2 className="display-font mt-4 text-3xl">{t("loadTitle")}</h2>
-        <p className="mt-3 max-w-xl text-sm leading-7 text-black/60">{error}</p>
+        <div data-copy className="mt-3 max-w-xl text-sm leading-7 text-[var(--ink)]/60">{error}</div>
         <div className="mt-6 flex flex-wrap gap-3">
           <button type="button" className="button-primary cursor-pointer" onClick={() => setRetryKey((value) => value + 1)}>{t("retry")}</button>
           <Link className="button-secondary" href="/perfil">{t("back")}</Link>
@@ -227,18 +227,18 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
 
   if (!order) {
     return (
-      <div role="status" aria-live="polite" className="order-status-feedback overflow-hidden border border-black/15 bg-[var(--paper)] shadow-[var(--shadow-soft)]">
+      <div role="status" aria-live="polite" className="order-status-feedback overflow-hidden border border-[var(--ink)]/15 bg-[var(--paper)] shadow-[var(--shadow-soft)]">
         <div className="h-1.5 bg-[var(--leather)]" />
         <div className="grid gap-8 p-6 motion-safe:animate-pulse sm:p-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:p-10">
           <div>
-            <div className="h-3 w-28 rounded bg-black/10" />
-            <div className="mt-6 h-9 max-w-xl rounded bg-black/10" />
-            <div className="mt-4 h-4 w-52 rounded bg-black/10" />
-            <div className="mt-10 h-24 rounded bg-black/5" />
+            <div className="h-3 w-28 rounded bg-[var(--ink)]/10" />
+            <div className="mt-6 h-9 max-w-xl rounded bg-[var(--ink)]/10" />
+            <div className="mt-4 h-4 w-52 rounded bg-[var(--ink)]/10" />
+            <div className="mt-10 h-24 rounded bg-[var(--ink)]/5" />
           </div>
-          <div className="h-56 rounded bg-black/10" />
+          <div className="h-56 rounded bg-[var(--ink)]/10" />
         </div>
-        <span className="sr-only">{t("loading")}</span>
+        <strong data-inline className="sr-only">{t("loading")}</strong>
       </div>
     );
   }
@@ -281,7 +281,7 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
       <section className="order-status-mobile" aria-labelledby="order-detail-mobile-title">
         <header className="order-mobile-header">
           <h1 id="order-detail-mobile-title">{t("title")}</h1>
-          <p>{t("intro")}</p>
+          <div data-copy>{t("intro")}</div>
         </header>
 
         <div className="order-mobile-product-section">
@@ -297,8 +297,8 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
                     </div>
                     <div className="order-mobile-item-copy">
                       <h2>{copy.name}</h2>
-                      <p>{copy.subtitle}</p>
-                      <span>{money(item.total_minor)}</span>
+                      <div data-copy>{copy.subtitle}</div>
+                      <strong data-inline>{money(item.total_minor)}</strong>
                     </div>
                   </article>
                 );
@@ -321,8 +321,8 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
             </div>
             <div className="order-mobile-status-copy">
               <h2>{desktopStatusTitle}</h2>
-              <p>{desktopStatusDescription}</p>
-              {receiptRejectionReason&&<p className="mt-2 font-semibold text-[var(--danger)]">{t("receiptRejectionReason",{reason:receiptRejectionReason})}</p>}
+              <div data-copy>{desktopStatusDescription}</div>
+              {receiptRejectionReason&&<div data-copy className="mt-2 font-semibold text-[var(--danger)]">{t("receiptRejectionReason",{reason:receiptRejectionReason})}</div>}
               {argentinaNeedsTransfer && <Link href={{ pathname: "/transferencia/[id]", params: { id: order.id } }} className="mt-3 inline-block font-semibold underline underline-offset-4">{t("completeTransfer")}</Link>}
             </div>
           </div>
@@ -330,12 +330,12 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
 
         <aside className="order-mobile-summary" aria-label={t("summary")}>
           <div className="order-mobile-summary-heading">
-            <span aria-hidden="true" />
-            <p>{t("summary")}</p>
+            <strong data-inline aria-hidden="true" />
+            <div data-copy>{t("summary")}</div>
           </div>
           <dl className="order-mobile-summary-list">
             <div><dt>{t("productsTotal")}</dt><dd>{money(order.items_subtotal_minor)}</dd></div>
-            {order.discount_minor > 0 && <div><dt>{t("discount")}{order.discount_code ? ` · ${order.discount_code}` : ""}</dt><dd>−{money(order.discount_minor)}</dd></div>}
+            {order.discount_minor > 0 && <div><dt>{t("discount")}{order.discount_code ? ` , ${order.discount_code}` : ""}</dt><dd>−{money(order.discount_minor)}</dd></div>}
             <div><dt>{t("shippingDetail")}</dt><dd>{shippingDetail}</dd></div>
             {order.payment_fee_minor > 0 && <div><dt>{t("paymentFee")}</dt><dd>{money(order.payment_fee_minor)}</dd></div>}
             <div className="order-summary-purchase-total"><dt>{t("purchaseTotal")}</dt><dd>{money(order.total_minor)}</dd></div>
@@ -363,8 +363,8 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
                     </div>
                     <div className="order-desktop-item-copy">
                       <h2>{copy.name}</h2>
-                      <p>{copy.subtitle}</p>
-                      <span>{money(item.total_minor)}</span>
+                      <div data-copy>{copy.subtitle}</div>
+                      <strong data-inline>{money(item.total_minor)}</strong>
                     </div>
                   </article>
                 );
@@ -384,8 +384,8 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
             </div>
             <div>
               <h2 id="order-status-desktop-title">{desktopStatusTitle}</h2>
-              <p>{desktopStatusDescription}</p>
-              {receiptRejectionReason&&<p className="mt-2 font-semibold text-[var(--danger)]">{t("receiptRejectionReason",{reason:receiptRejectionReason})}</p>}
+              <div data-copy>{desktopStatusDescription}</div>
+              {receiptRejectionReason&&<div data-copy className="mt-2 font-semibold text-[var(--danger)]">{t("receiptRejectionReason",{reason:receiptRejectionReason})}</div>}
               {argentinaNeedsTransfer && <Link href={{ pathname: "/transferencia/[id]", params: { id: order.id } }} className="mt-3 inline-block font-semibold underline underline-offset-4">{t("completeTransfer")}</Link>}
             </div>
           </div>
@@ -393,12 +393,12 @@ export function OrderStatus({ orderId, paymentOutcome, exchangeRates }: { orderI
 
         <aside className="order-desktop-summary" aria-label={t("summary")}>
           <div className="order-desktop-summary-heading">
-            <span aria-hidden="true" />
-            <p>{t("summary")}</p>
+            <strong data-inline aria-hidden="true" />
+            <div data-copy>{t("summary")}</div>
           </div>
           <dl className="order-desktop-summary-list">
             <div><dt>{t("productsTotal")}</dt><dd>{money(order.items_subtotal_minor)}</dd></div>
-            {order.discount_minor > 0 && <div><dt>{t("discount")}{order.discount_code ? ` · ${order.discount_code}` : ""}</dt><dd>−{money(order.discount_minor)}</dd></div>}
+            {order.discount_minor > 0 && <div><dt>{t("discount")}{order.discount_code ? ` , ${order.discount_code}` : ""}</dt><dd>−{money(order.discount_minor)}</dd></div>}
             <div><dt>{t("shippingDetail")}</dt><dd>{shippingDetail}</dd></div>
             {order.payment_fee_minor > 0 && <div><dt>{t("paymentFee")}</dt><dd>{money(order.payment_fee_minor)}</dd></div>}
             <div className="order-summary-purchase-total"><dt>{t("purchaseTotal")}</dt><dd>{money(order.total_minor)}</dd></div>

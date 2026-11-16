@@ -47,7 +47,7 @@ const discountErrorTranslationKeys = {
 } as const;
 
 function MoneyValue({ amount, locale, exchangeRates, argentina = false }: { amount: number | null, locale: string, exchangeRates?: Record<string, number>; argentina?: boolean }) {
-  return <span>{amount === null ? "—" : formatMoney(amount, argentina ? "ARS" : "UYU", locale, exchangeRates)}</span>;
+  return <strong data-inline>{amount === null ? "—" : formatMoney(amount, argentina ? "ARS" : "UYU", locale, exchangeRates)}</strong>;
 }
 
 export function CheckoutForm({
@@ -417,17 +417,17 @@ export function CheckoutForm({
   const cartReady = subtotalMinor !== null && !cartError;
 
   // Campo class — igual al Figma: borde sutil, sin border-radius exagerado
-  const fieldClass = "mt-2 min-h-12 w-full rounded-lg border border-[#b8a88a]/60 bg-transparent px-4 text-[15px] text-[var(--walnut)] outline-none transition focus:border-[var(--leather)] focus:ring-2 focus:ring-[var(--rawhide)]/30";
+  const fieldClass = "mt-2 min-h-12 w-full rounded-lg border border-[#111111]/60 bg-transparent px-4 text-[15px] text-[var(--walnut)] outline-none transition focus:border-[var(--leather)] focus:ring-2 focus:ring-[var(--rawhide)]/30";
 
   const discountControl = (
     <div className="mt-3">
       <button type="button" aria-expanded={discountOpen} aria-controls="discount-code-panel"
         onClick={() => setDiscountOpen((current) => !current)}
-        className="flex min-h-12 w-full items-center justify-center rounded-xl border border-white bg-white px-5 text-sm font-bold text-[var(--walnut)] transition hover:bg-[#f7f0e5] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)]">
+        className="flex min-h-12 w-full items-center justify-center rounded-xl border border-[var(--paper)] bg-[var(--paper)] px-5 text-sm font-bold text-[var(--walnut)] transition hover:bg-[#FDFDFC] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)]">
         {t("discountToggle")}
       </button>
       {discountOpen && (
-        <div id="discount-code-panel" className="mt-3 rounded-xl border border-white/30 bg-black/10 p-4">
+        <div id="discount-code-panel" className="mt-3 rounded-xl border border-[var(--paper)]/30 bg-[var(--ink)]/10 p-4">
           <label htmlFor="discount-code" className="block text-sm font-bold text-[var(--paper)]">{t("discountCodeLabel")}</label>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             <input id="discount-code" name="discount-code" autoComplete="off" maxLength={32} disabled={discountBusy}
@@ -436,16 +436,16 @@ export function CheckoutForm({
                 setAppliedDiscount(null);
                 setDiscountError("");
               }}
-              className="min-h-12 min-w-0 flex-1 rounded-lg border border-white/50 bg-white px-4 text-sm font-semibold uppercase tracking-wide text-[var(--walnut)] outline-none focus:border-[var(--walnut)] focus:ring-2 focus:ring-white/60 disabled:opacity-70" />
+              className="min-h-12 min-w-0 flex-1 rounded-lg border border-[var(--paper)]/50 bg-[var(--paper)] px-4 text-sm font-semibold uppercase tracking-wide text-[var(--walnut)] outline-none focus:border-[var(--walnut)] focus:ring-2 focus:ring-[var(--paper)]/60 disabled:opacity-70" />
             <button type="button" disabled={discountBusy || discountCode.trim().length < 4 || !cartReady}
               onClick={() => void validateDiscount()}
-              className="min-h-12 rounded-lg border border-white/70 bg-transparent px-5 text-sm font-bold text-white transition hover:bg-white/10 focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50">
+              className="min-h-12 rounded-lg border border-[var(--paper)]/70 bg-transparent px-5 text-sm font-bold text-[var(--paper)] transition hover:bg-[var(--paper)]/10 focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50">
               {discountBusy ? t("discountValidating") : t("discountValidate")}
             </button>
           </div>
           <div aria-live="polite" className="mt-2 min-h-5 text-xs leading-5">
-            {discountError && <p role="alert" className="font-semibold text-white">{discountError}</p>}
-            {appliedDiscount && !discountError && <p className="font-semibold text-white">{t("discountApplied", { code: appliedDiscount.code })}</p>}
+            {discountError && <div data-copy role="alert" className="font-semibold text-[var(--paper)]">{discountError}</div>}
+            {appliedDiscount && !discountError && <div data-copy className="font-semibold text-[var(--paper)]">{t("discountApplied", { code: appliedDiscount.code })}</div>}
           </div>
         </div>
       )}
@@ -453,15 +453,15 @@ export function CheckoutForm({
   );
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-black/10 bg-[var(--paper)] shadow-[var(--shadow-soft)]">
+    <div className="overflow-hidden rounded-2xl border border-[var(--ink)]/10 bg-[var(--paper)] shadow-[var(--shadow-soft)]">
       {/* ── Header — dentro del card, con borde inferior ── */}
-      <header className="border-b border-black/[0.07] px-8 py-9 sm:px-10">
+      <header className="border-b border-[var(--ink)]/[0.07] px-8 py-9 sm:px-10">
         <h1 className="display-font text-5xl font-medium leading-none tracking-tight text-[var(--walnut)] sm:text-6xl">
           {t("title")}
         </h1>
-        <p className="mt-4 max-w-xl text-base leading-relaxed text-black/55">
+        <div data-copy className="mt-4 max-w-xl text-base leading-relaxed text-[var(--ink)]/55">
           {t("intro")}
-        </p>
+        </div>
       </header>
 
       {/* ── Form grid: columna izquierda + sidebar ── */}
@@ -488,17 +488,17 @@ export function CheckoutForm({
             </label>
             <label className="text-sm font-semibold text-[var(--walnut)]">
               {t("phone")}
-              <div className="mt-2 flex min-h-12 w-full rounded-lg border border-[#b8a88a]/60 bg-transparent transition focus-within:border-[var(--leather)] focus-within:ring-2 focus-within:ring-[var(--rawhide)]/30">
+              <div className="mt-2 flex min-h-12 w-full rounded-lg border border-[#111111]/60 bg-transparent transition focus-within:border-[var(--leather)] focus-within:ring-2 focus-within:ring-[var(--rawhide)]/30">
                 <select
                   aria-label={t("phoneCountryAria")}
                   suppressHydrationWarning
                   value={phoneCountry}
                   onChange={(event) => updatePhoneCountry(event.target.value)}
-                  className="min-w-0 w-[42%] shrink-0 rounded-l-lg border-r border-[#b8a88a]/60 bg-transparent px-2.5 text-xs text-[var(--walnut)] outline-none transition sm:w-[48%] sm:text-sm"
+                  className="min-w-0 w-[42%] shrink-0 rounded-l-lg border-r border-[#111111]/60 bg-transparent px-2.5 text-xs text-[var(--walnut)] outline-none transition sm:w-[48%] sm:text-sm"
                 >
                   {phoneCountryOptions.map((c) => (
-                    <option key={c.code} value={c.code} suppressHydrationWarning className="bg-[#fffdf8] text-[#17130f]">
-                      {c.code} ({c.callingCode}) · {c.name}
+                    <option key={c.code} value={c.code} suppressHydrationWarning className="bg-[#FDFDFC] text-[#111111]">
+                      {c.code} ({c.callingCode}) , {c.name}
                     </option>
                   ))}
                 </select>
@@ -521,11 +521,11 @@ export function CheckoutForm({
           {/* Modalidad de entrega */}
           <fieldset>
             <legend className="sr-only">{t("delivery")}</legend>
-            {ratesLoading && <p role="status" className="text-sm text-black/55">{t("loadingRates")}</p>}
+            {ratesLoading && <div data-copy role="status" className="text-sm text-[var(--ink)]/55">{t("loadingRates")}</div>}
             {ratesError && (
-              <div role="alert" className="rounded-xl border border-red-700/25 bg-red-50 p-4 text-sm text-red-800">
-                <p>{ratesError}</p>
-                <button type="button" onClick={() => void loadRates()} className="mt-3 min-h-10 border border-red-800 px-4 font-semibold">{t("retry")}</button>
+              <div role="alert" className="rounded-xl border border-[var(--ink)]/25 bg-[var(--paper)] p-4 text-sm text-[var(--ink)]">
+                <div data-copy>{ratesError}</div>
+                <button type="button" onClick={() => void loadRates()} className="mt-3 min-h-10 border border-[var(--ink)] px-4 font-semibold">{t("retry")}</button>
               </div>
             )}
             {!ratesLoading && !ratesError && (
@@ -533,14 +533,14 @@ export function CheckoutForm({
                 {rates.map((item) => (
                   <label
                     key={item.id}
-                    className={`relative flex cursor-pointer items-center justify-between gap-3 rounded-xl border px-5 py-4 text-left transition focus-within:ring-2 focus-within:ring-[var(--rawhide)]/50 ${rateId === item.id ? "border-[#6b7a4a] bg-[#6b7a4a] text-[var(--paper)]" : "border-[#6b7a4a]/30 bg-[var(--cream)] text-[var(--walnut)]"}`}
+                    className={`relative flex cursor-pointer items-center justify-between gap-3 rounded-xl border px-5 py-4 text-left transition focus-within:ring-2 focus-within:ring-[var(--rawhide)]/50 ${rateId === item.id ? "border-[#111111] bg-[#111111] text-[var(--paper)]" : "border-[#111111]/30 bg-[var(--cream)] text-[var(--walnut)]"}`}
                   >
                     <input type="radio" name="rate" required checked={rateId === item.id} onChange={() => setRateId(item.id)} className="sr-only" />
                     {rateId === item.id && <Check size={18} weight="bold" className="absolute top-3 right-3" aria-hidden="true" />}
                     <strong className="text-sm">{item.is_pickup ? t("pickupAtStore") : t("homeDelivery")}</strong>
-                    <span className={`text-sm font-medium ${rateId === item.id ? "text-white/90" : "text-black/55"}`}>
+                    <strong data-inline className={`text-sm font-medium ${rateId === item.id ? "text-[var(--paper)]/90" : "text-[var(--ink)]/55"}`}>
                       {item.is_pickup ? t("free") : t("payOnDelivery")}
-                    </span>
+                    </strong>
                   </label>
                 ))}
               </div>
@@ -555,25 +555,25 @@ export function CheckoutForm({
                 <input type="radio" name="purchase-region" checked={purchaseRegion === "uruguay"} onChange={() => selectRegion("uruguay")} className="sr-only" />
                 {purchaseRegion === "uruguay" && <Check size={16} weight="bold" className="absolute top-3 right-3 opacity-70" aria-hidden="true" />}
                 <MapPin size={20} className="shrink-0" aria-hidden="true" />
-                <span>
+                <strong data-inline>
                   <strong className="block text-sm">{t("uruguay")}</strong>
-                  <span className={`mt-0.5 block text-xs ${purchaseRegion === "uruguay" ? "text-white/65" : "text-black/50"}`}>{t("domesticOption")}</span>
-                </span>
+                  <strong data-inline className={`mt-0.5 block text-xs ${purchaseRegion === "uruguay" ? "text-[var(--paper)]/65" : "text-[var(--ink)]/50"}`}>{t("domesticOption")}</strong>
+                </strong>
               </label>
               <label className={`relative flex cursor-pointer items-center gap-3 rounded-xl border px-5 py-4 text-left transition focus-within:ring-2 focus-within:ring-[var(--rawhide)]/50 ${purchaseRegion === "argentina" ? "border-[var(--walnut)] bg-[var(--walnut)] text-[var(--paper)]" : "border-[var(--walnut)]/25 bg-[var(--paper)] text-[var(--walnut)]"}`}>
                 <input type="radio" name="purchase-region" checked={purchaseRegion === "argentina"} onChange={() => selectRegion("argentina")} className="sr-only" />
                 {purchaseRegion === "argentina" && <Check size={16} weight="bold" className="absolute top-3 right-3 opacity-70" aria-hidden="true" />}
                 <MapPin size={20} className="shrink-0" aria-hidden="true" />
-                <span><strong className="block text-sm">Argentina</strong><span className={`mt-0.5 block text-xs ${purchaseRegion === "argentina" ? "text-white/65" : "text-black/50"}`}>{t("argentinaOption")}</span></span>
+                <strong data-inline><strong className="block text-sm">Argentina</strong><strong data-inline className={`mt-0.5 block text-xs ${purchaseRegion === "argentina" ? "text-[var(--paper)]/65" : "text-[var(--ink)]/50"}`}>{t("argentinaOption")}</strong></strong>
               </label>
               <label className={`relative flex cursor-pointer items-center gap-3 rounded-xl border px-5 py-4 text-left transition focus-within:ring-2 focus-within:ring-[var(--rawhide)]/50 ${purchaseRegion === "international" ? "border-[var(--walnut)] bg-[var(--walnut)] text-[var(--paper)]" : "border-[var(--walnut)]/25 bg-[var(--paper)] text-[var(--walnut)]"}`}>
                 <input type="radio" name="purchase-region" checked={purchaseRegion === "international"} onChange={() => selectRegion("international")} className="sr-only" />
                 {purchaseRegion === "international" && <Check size={16} weight="bold" className="absolute top-3 right-3 opacity-70" aria-hidden="true" />}
                 <GlobeHemisphereWest size={20} className="shrink-0" aria-hidden="true" />
-                <span>
+                <strong data-inline>
                   <strong className="block text-sm">{t("abroad")}</strong>
-                  <span className={`mt-0.5 block text-xs ${purchaseRegion === "international" ? "text-white/65" : "text-black/50"}`}>{t("internationalOption")}</span>
-                </span>
+                  <strong data-inline className={`mt-0.5 block text-xs ${purchaseRegion === "international" ? "text-[var(--paper)]/65" : "text-[var(--ink)]/50"}`}>{t("internationalOption")}</strong>
+                </strong>
               </label>
             </div>
           </fieldset>}
@@ -633,31 +633,30 @@ export function CheckoutForm({
             </div>
           ))}
           <div className="mt-auto pt-6">
-            {!isWholesale && !isArgentina && !isInternational && subtotalMinor !== null && transferSubtotal !== null && transferSubtotal < subtotalMinor && <p className="text-sm font-bold text-[var(--walnut)]">{t("uruguayTransferDiscountNotice")}</p>}
-            <p className="text-[11px] leading-5 text-black/50">
+            {!isWholesale && !isArgentina && !isInternational && subtotalMinor !== null && transferSubtotal !== null && transferSubtotal < subtotalMinor && <div data-copy className="text-sm font-bold text-[var(--walnut)]">{t("uruguayTransferDiscountNotice")}</div>}
+            <div data-copy className="text-[11px] leading-5 text-[var(--ink)]/50">
               {t("purchasePolicyNotice")}{" "}<Link href="/compras/condiciones-de-compra" target="_blank" className="underline underline-offset-2">{t("purchasePolicyLink")}</Link>
-            </p>
+            </div>
           </div>
         </div>
 
         {/* ── Sidebar derecha — resumen o WhatsApp ── */}
-        <aside className="flex flex-col bg-[#908c76] p-7 text-[var(--paper)] sm:p-8 lg:p-10">
+        <aside className="purchase-summary flex flex-col bg-[#111111] p-7 text-[var(--paper)] sm:p-8 lg:p-10">
           {/* ── Resumen de compra (visible siempre) ── */}
-          <p className="eyebrow text-[0.65rem] text-[var(--paper)] opacity-80 before:w-5">{tCart("summary")}</p>
           <dl className="mt-6 space-y-3 text-sm">
             <div className="flex items-baseline justify-between gap-4">
-              <dt className="text-white/75">{tCart("subtotal")}</dt>
+              <dt className="text-[var(--paper)]/75">{tCart("subtotal")}</dt>
               <dd className="font-semibold"><MoneyValue amount={isArgentina ? argentinaSubtotal : subtotalMinor} argentina={isArgentina} locale={locale} exchangeRates={exchangeRates} /></dd>
             </div>
-            {isUruguayTransfer && subtotalMinor !== null && transferSubtotal !== null && transferSubtotal < subtotalMinor && <div className="flex items-baseline justify-between gap-4"><dt className="text-white/75">{t("uruguayTransferDiscount")}</dt><dd className="font-semibold">−<MoneyValue amount={subtotalMinor - transferSubtotal} locale={locale} exchangeRates={exchangeRates} /></dd></div>}
+            {isUruguayTransfer && subtotalMinor !== null && transferSubtotal !== null && transferSubtotal < subtotalMinor && <div className="flex items-baseline justify-between gap-4"><dt className="text-[var(--paper)]/75">{t("uruguayTransferDiscount")}</dt><dd className="font-semibold">−<MoneyValue amount={subtotalMinor - transferSubtotal} locale={locale} exchangeRates={exchangeRates} /></dd></div>}
             {appliedDiscount && (
               <div className="flex items-baseline justify-between gap-4" aria-live="polite">
-                <dt className="text-white/75">{t("discount")}</dt>
+                <dt className="text-[var(--paper)]/75">{t("discount")}</dt>
                 <dd className="font-semibold">−<MoneyValue amount={appliedDiscount.discountMinor} argentina={isArgentina} locale={locale} exchangeRates={exchangeRates} /></dd>
               </div>
             )}
             <div className="flex items-baseline justify-between gap-4">
-              <dt className="text-white/75">{tCart("shipping")}</dt>
+              <dt className="text-[var(--paper)]/75">{tCart("shipping")}</dt>
               <dd className="font-semibold">
                 {isInternational ? (
                   internationalShippingMinor !== null ? (
@@ -668,7 +667,7 @@ export function CheckoutForm({
                 )}
               </dd>
             </div>
-            <div className="border-t border-white/25 pt-4">
+            <div className="border-t border-[var(--paper)]/25 pt-4">
               <div className="flex items-baseline justify-between gap-4">
                 <dt className="font-semibold">{tCart("total")}</dt>
                 <dd className="text-2xl font-bold"><MoneyValue amount={isArgentina ? argentinaTotal : totalMinor} argentina={isArgentina} locale={locale} exchangeRates={exchangeRates} /></dd>
@@ -677,28 +676,28 @@ export function CheckoutForm({
           </dl>
 
           {!isInternational && isDelivery && !rate?.is_pickup && (
-            <p className="mt-4 text-xs leading-5 text-white/85">{isArgentina ? t("argentinaShippingNotice") : t("domesticShippingCostNotice")}</p>
+            <div data-copy className="mt-4 text-xs leading-5 text-[var(--paper)]/85">{isArgentina ? t("argentinaShippingNotice") : t("domesticShippingCostNotice")}</div>
           )}
 
           {isArgentina && argentinaBank && (
-            <section className="mt-6 border-t border-white/25 pt-6" aria-labelledby="argentina-bank-title">
+            <section className="mt-6 border-t border-[var(--paper)]/25 pt-6" aria-labelledby="argentina-bank-title">
               <div className="flex items-center gap-2">
                 <Bank size={22} aria-hidden="true" />
                 <h2 id="argentina-bank-title" className="text-base font-bold">{t("bankTransferTitle")}</h2>
               </div>
-              <p className="mt-2 text-xs leading-5 text-white/75">{t("argentinaBankInstructions")}</p>
-              <dl className="mt-4 space-y-3 rounded-xl border border-white/20 bg-black/10 p-4 text-sm">
-                <div><dt className="text-xs text-white/65">{t("argentinaAlias")}</dt><dd className="mt-1 break-all font-bold select-all">{argentinaBank.alias}</dd></div>
-                <div><dt className="text-xs text-white/65">CBU</dt><dd className="mt-1 break-all font-bold select-all">{argentinaBank.cbu}</dd></div>
-                <div><dt className="text-xs text-white/65">{t("argentinaBank")}</dt><dd className="mt-1 font-bold">{argentinaBank.bank_name}</dd></div>
-                {argentinaBank.account_holder && <div><dt className="text-xs text-white/65">{t("accountHolder")}</dt><dd className="mt-1 font-bold">{argentinaBank.account_holder}</dd></div>}
+              <div data-copy className="mt-2 text-xs leading-5 text-[var(--paper)]/75">{t("argentinaBankInstructions")}</div>
+              <dl className="mt-4 space-y-3 rounded-xl border border-[var(--paper)]/20 bg-[var(--ink)]/10 p-4 text-sm">
+                <div><dt className="text-xs text-[var(--paper)]/65">{t("argentinaAlias")}</dt><dd className="mt-1 break-all font-bold select-all">{argentinaBank.alias}</dd></div>
+                <div><dt className="text-xs text-[var(--paper)]/65">CBU</dt><dd className="mt-1 break-all font-bold select-all">{argentinaBank.cbu}</dd></div>
+                <div><dt className="text-xs text-[var(--paper)]/65">{t("argentinaBank")}</dt><dd className="mt-1 font-bold">{argentinaBank.bank_name}</dd></div>
+                {argentinaBank.account_holder && <div><dt className="text-xs text-[var(--paper)]/65">{t("accountHolder")}</dt><dd className="mt-1 font-bold">{argentinaBank.account_holder}</dd></div>}
               </dl>
-              <div className="mt-5 rounded-xl border border-white/25 bg-white/10 p-4">
+              <div className="mt-5 rounded-xl border border-[var(--paper)]/25 bg-[var(--paper)]/10 p-4">
                 <label htmlFor="argentina-checkout-receipt" className="block text-sm font-bold">{t("receiptLabel")}</label>
-                <p id="argentina-checkout-receipt-help" className="mt-1 text-xs leading-5 text-white/70">{t("receiptHelp")}</p>
-                <label className="mt-3 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-white/70 px-4 text-center text-sm font-semibold transition hover:bg-white/10 focus-within:outline-[3px] focus-within:outline-offset-2 focus-within:outline-[var(--paper)]">
+                <div data-copy id="argentina-checkout-receipt-help" className="mt-1 text-xs leading-5 text-[var(--paper)]/70">{t("receiptHelp")}</div>
+                <label className="mt-3 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--paper)]/70 px-4 text-center text-sm font-semibold transition hover:bg-[var(--paper)]/10 focus-within:outline-[3px] focus-within:outline-offset-2 focus-within:outline-[var(--paper)]">
                   <UploadSimple size={20} aria-hidden="true" />
-                  <span className="min-w-0 break-all">{receipt ? receipt.name : t("chooseReceipt")}</span>
+                  <strong data-inline className="min-w-0 break-all">{receipt ? receipt.name : t("chooseReceipt")}</strong>
                   <input id="argentina-checkout-receipt" type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf" aria-describedby="argentina-checkout-receipt-help" className="sr-only" required onChange={event => {
                     const next = event.target.files?.[0] || null;
                     if (next && next.size > 5 * 1024 * 1024) { setReceipt(null); setError(t("receiptTooLarge")); event.currentTarget.value = ""; return; }
@@ -706,7 +705,7 @@ export function CheckoutForm({
                     setError(""); setReceipt(next);
                   }} />
                 </label>
-                <button type="submit" disabled={busy || !domesticReady || !argentinaAvailable || !cartReady || !cartItems.length || !argentinaSubtotal || !receipt} className="mt-4 flex min-h-13 w-full items-center justify-center rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-[var(--paper)] transition hover:bg-[#4a2a1c] disabled:cursor-not-allowed disabled:opacity-50">
+                <button type="submit" disabled={busy || !domesticReady || !argentinaAvailable || !cartReady || !cartItems.length || !argentinaSubtotal || !receipt} className="mt-4 flex min-h-13 w-full items-center justify-center rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-[var(--paper)] transition hover:bg-[#1E120C] disabled:cursor-not-allowed disabled:opacity-50">
                   {busy ? t("uploadingReceipt") : t("argentinaAction")}
                 </button>
               </div>
@@ -715,16 +714,16 @@ export function CheckoutForm({
           )}
 
           {isWholesale && bankTransfer && (
-            <section className="mt-6 border-t border-white/25 pt-6" aria-labelledby="bank-transfer-title">
+            <section className="mt-6 border-t border-[var(--paper)]/25 pt-6" aria-labelledby="bank-transfer-title">
               <div className="flex items-center gap-2">
                 <Bank size={22} aria-hidden="true" />
                 <h2 id="bank-transfer-title" className="text-base font-bold">{t("bankTransferTitle")}</h2>
               </div>
-              <p className="mt-2 text-xs leading-5 text-white/75">{t("bankTransferBody")}</p>
-              <dl className="mt-4 space-y-3 rounded-xl border border-white/20 bg-black/10 p-4 text-sm">
-                <div><dt className="text-xs text-white/65">{t("accountHolder")}</dt><dd className="mt-1 font-bold">{bankTransfer.account_holder}</dd></div>
-                <div><dt className="text-xs text-white/65">{t("bankTransferAccount")}</dt><dd className="mt-1 font-bold break-words">{bankTransfer.transfer_account}</dd></div>
-                <div><dt className="text-xs text-white/65">{bankTransfer.cash_deposit_label}</dt><dd className="mt-1 font-bold break-words">{bankTransfer.cash_deposit_account}</dd></div>
+              <div data-copy className="mt-2 text-xs leading-5 text-[var(--paper)]/75">{t("bankTransferBody")}</div>
+              <dl className="mt-4 space-y-3 rounded-xl border border-[var(--paper)]/20 bg-[var(--ink)]/10 p-4 text-sm">
+                <div><dt className="text-xs text-[var(--paper)]/65">{t("accountHolder")}</dt><dd className="mt-1 font-bold">{bankTransfer.account_holder}</dd></div>
+                <div><dt className="text-xs text-[var(--paper)]/65">{t("bankTransferAccount")}</dt><dd className="mt-1 font-bold break-words">{bankTransfer.transfer_account}</dd></div>
+                <div><dt className="text-xs text-[var(--paper)]/65">{bankTransfer.cash_deposit_label}</dt><dd className="mt-1 font-bold break-words">{bankTransfer.cash_deposit_account}</dd></div>
               </dl>
 
               {!transferConfirmed ? (
@@ -732,17 +731,17 @@ export function CheckoutForm({
                   type="button"
                   disabled={!domesticReady || !bankTransfer || !cartReady}
                   onClick={() => setTransferConfirmed(true)}
-                  className="mt-5 flex min-h-12 w-full items-center justify-center rounded-xl border border-white/70 px-5 text-sm font-bold transition hover:bg-white/10 focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-5 flex min-h-12 w-full items-center justify-center rounded-xl border border-[var(--paper)]/70 px-5 text-sm font-bold transition hover:bg-[var(--paper)]/10 focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {t("transferMade")}
                 </button>
               ) : (
-                <div className="mt-5 rounded-xl border border-white/25 bg-white/10 p-4">
+                <div className="mt-5 rounded-xl border border-[var(--paper)]/25 bg-[var(--paper)]/10 p-4">
                   <label htmlFor="bank-transfer-receipt" className="block text-sm font-bold">{t("receiptLabel")}</label>
-                  <p id="bank-transfer-receipt-help" className="mt-1 text-xs leading-5 text-white/70">{t("receiptHelp")}</p>
-                  <label className="mt-3 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-white/70 px-4 text-center text-sm font-semibold transition hover:bg-white/10 focus-within:outline-[3px] focus-within:outline-offset-2 focus-within:outline-[var(--paper)]">
+                  <div data-copy id="bank-transfer-receipt-help" className="mt-1 text-xs leading-5 text-[var(--paper)]/70">{t("receiptHelp")}</div>
+                  <label className="mt-3 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--paper)]/70 px-4 text-center text-sm font-semibold transition hover:bg-[var(--paper)]/10 focus-within:outline-[3px] focus-within:outline-offset-2 focus-within:outline-[var(--paper)]">
                     <UploadSimple size={20} aria-hidden="true" />
-                    <span>{receipt ? receipt.name : t("chooseReceipt")}</span>
+                    <strong data-inline>{receipt ? receipt.name : t("chooseReceipt")}</strong>
                     <input
                       id="bank-transfer-receipt"
                       type="file"
@@ -773,7 +772,7 @@ export function CheckoutForm({
                   <button
                     type="submit"
                     disabled={busy || !domesticReady || !receipt || !cartReady}
-                    className="mt-4 flex min-h-13 w-full items-center justify-center rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-[var(--paper)] transition hover:bg-[#4a2a1c] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="mt-4 flex min-h-13 w-full items-center justify-center rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-[var(--paper)] transition hover:bg-[#1E120C] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {busy ? t("uploadingReceipt") : t("completeOrder")}
                   </button>
@@ -785,9 +784,8 @@ export function CheckoutForm({
           {/* ── Pago internacional — solo PayPal ── */}
           {isInternational && (
             paypalReady ? (
-              <div className="mt-6 border-t border-white/20 pt-6">
-                <p className="eyebrow text-[0.65rem] text-[var(--paper)] opacity-80 before:w-5">{t("securePayment")}</p>
-                <p className="mt-3 text-lg font-bold">US$ {paypalAmountUsd}</p>
+              <div className="mt-6 border-t border-[var(--paper)]/20 pt-6">
+                <div data-copy className="mt-3 text-lg font-bold">US$ {paypalAmountUsd}</div>
                 <div className="mt-5">
                   <PayPalCheckoutSection
                     orderId={paypalOrderId}
@@ -805,16 +803,16 @@ export function CheckoutForm({
 
           <div className="grow" />
 
-          {isArgentina && argentinaAvailable === false && <p role="status" className="mt-5 text-sm">{t("argentinaUnavailable")}</p>}
-          {cartError && <p role="alert" className="mt-5 rounded-lg border border-white/35 bg-black/15 p-3 text-sm font-semibold text-[var(--paper)]">{cartError}</p>}
-          {error && <p role="alert" className="mt-5 text-sm font-semibold text-[var(--paper)]">{error}</p>}
+          {isArgentina && argentinaAvailable === false && <div data-copy role="status" className="mt-5 text-sm">{t("argentinaUnavailable")}</div>}
+          {cartError && <div data-copy role="alert" className="mt-5 rounded-lg border border-[var(--paper)]/35 bg-[var(--ink)]/15 p-3 text-sm font-semibold text-[var(--paper)]">{cartError}</div>}
+          {error && <div data-copy role="alert" className="mt-5 text-sm font-semibold text-[var(--paper)]">{error}</div>}
 
           {!paypalReady && !isWholesale && !isArgentina && (
             <button
               type={isUruguayTransfer ? "button" : "submit"}
               onClick={isUruguayTransfer ? () => { setUruguayTransfer(false); setAppliedDiscount(null); setDiscountError(""); } : undefined}
               disabled={busy || !cartReady || (isArgentina ? !domesticReady || !argentinaAvailable || argentinaSubtotal === null : isInternational ? !internationalReady : !domesticReady)}
-              className="mt-8 flex min-h-13 w-full items-center justify-center gap-2.5 rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-[var(--paper)] transition hover:bg-[#4a2a1c] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-8 flex min-h-13 w-full items-center justify-center gap-2.5 rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-[var(--paper)] transition hover:bg-[#1E120C] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {!isInternational && !isArgentina && !busy && (
                 <Image
@@ -840,8 +838,8 @@ export function CheckoutForm({
             </button>
           )}
 
-          {!paypalReady && !isWholesale && !isArgentina && !isInternational && <button type="button" aria-pressed={isUruguayTransfer} disabled={busy || !cartReady || !domesticReady || !bankTransfer} onClick={() => { setUruguayTransfer(true); setAppliedDiscount(null); setDiscountError(""); }} className="mt-3 flex min-h-13 w-full items-center justify-center gap-2.5 rounded-xl border border-white bg-white px-6 text-sm font-bold text-[var(--walnut)] transition hover:bg-[#f7f0e5] disabled:opacity-50"><Bank size={22} aria-hidden="true" />{t("uruguayTransferAction")}</button>}
-          {isUruguayTransfer && bankTransfer && <section className="mt-4 rounded-xl border border-white/25 bg-white/10 p-4" aria-labelledby="uruguay-bank-title"><h2 id="uruguay-bank-title" className="text-base font-bold">{t("bankTransferTitle")}</h2><p className="mt-2 text-xs leading-5 text-white/75">{t("uruguayBankInstructions")}</p><dl className="mt-4 space-y-3 rounded-xl border border-white/20 bg-black/10 p-4 text-sm"><div><dt className="text-xs text-white/65">{t("accountHolder")}</dt><dd className="mt-1 font-bold">{bankTransfer.account_holder}</dd></div><div><dt className="text-xs text-white/65">{t("bankTransferAccount")}</dt><dd className="mt-1 font-bold select-all">{bankTransfer.transfer_account}</dd></div><div><dt className="text-xs text-white/65">{bankTransfer.cash_deposit_label}</dt><dd className="mt-1 font-bold select-all">{bankTransfer.cash_deposit_account}</dd></div></dl><label htmlFor="uruguay-transfer-receipt" className="mt-5 block text-sm font-bold">{t("receiptLabel")}</label><p className="mt-1 text-xs text-white/75">{t("receiptHelp")}</p><label className="mt-3 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-white/70 px-4 text-sm font-semibold"><UploadSimple size={20} aria-hidden="true" />{receipt?.name || t("chooseReceipt")}<input id="uruguay-transfer-receipt" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="sr-only" required onChange={event => { const next = event.target.files?.[0] || null; if (next && (next.size > 5 * 1024 * 1024 || !receiptTypes.has(next.type))) { setReceipt(null); setError(t(next.size > 5 * 1024 * 1024 ? "receiptTooLarge" : "receiptInvalidType")); event.currentTarget.value = ""; } else { setError(""); setReceipt(next); } }} /></label><button type="submit" disabled={busy || !receipt || !domesticReady || !cartReady} className="mt-4 flex min-h-13 w-full items-center justify-center rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-white disabled:opacity-50">{busy ? t("uploadingReceipt") : t("completeOrder")}</button></section>}
+          {!paypalReady && !isWholesale && !isArgentina && !isInternational && <button type="button" aria-pressed={isUruguayTransfer} disabled={busy || !cartReady || !domesticReady || !bankTransfer} onClick={() => { setUruguayTransfer(true); setAppliedDiscount(null); setDiscountError(""); }} className="mt-3 flex min-h-13 w-full items-center justify-center gap-2.5 rounded-xl border border-[var(--paper)] bg-[var(--paper)] px-6 text-sm font-bold text-[var(--walnut)] transition hover:bg-[#FDFDFC] disabled:opacity-50"><Bank size={22} aria-hidden="true" />{t("uruguayTransferAction")}</button>}
+          {isUruguayTransfer && bankTransfer && <section className="mt-4 rounded-xl border border-[var(--paper)]/25 bg-[var(--paper)]/10 p-4" aria-labelledby="uruguay-bank-title"><h2 id="uruguay-bank-title" className="text-base font-bold">{t("bankTransferTitle")}</h2><div data-copy className="mt-2 text-xs leading-5 text-[var(--paper)]/75">{t("uruguayBankInstructions")}</div><dl className="mt-4 space-y-3 rounded-xl border border-[var(--paper)]/20 bg-[var(--ink)]/10 p-4 text-sm"><div><dt className="text-xs text-[var(--paper)]/65">{t("accountHolder")}</dt><dd className="mt-1 font-bold">{bankTransfer.account_holder}</dd></div><div><dt className="text-xs text-[var(--paper)]/65">{t("bankTransferAccount")}</dt><dd className="mt-1 font-bold select-all">{bankTransfer.transfer_account}</dd></div><div><dt className="text-xs text-[var(--paper)]/65">{bankTransfer.cash_deposit_label}</dt><dd className="mt-1 font-bold select-all">{bankTransfer.cash_deposit_account}</dd></div></dl><label htmlFor="uruguay-transfer-receipt" className="mt-5 block text-sm font-bold">{t("receiptLabel")}</label><div data-copy className="mt-1 text-xs text-[var(--paper)]/75">{t("receiptHelp")}</div><label className="mt-3 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--paper)]/70 px-4 text-sm font-semibold"><UploadSimple size={20} aria-hidden="true" />{receipt?.name || t("chooseReceipt")}<input id="uruguay-transfer-receipt" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="sr-only" required onChange={event => { const next = event.target.files?.[0] || null; if (next && (next.size > 5 * 1024 * 1024 || !receiptTypes.has(next.type))) { setReceipt(null); setError(t(next.size > 5 * 1024 * 1024 ? "receiptTooLarge" : "receiptInvalidType")); event.currentTarget.value = ""; } else { setError(""); setReceipt(next); } }} /></label><button type="submit" disabled={busy || !receipt || !domesticReady || !cartReady} className="mt-4 flex min-h-13 w-full items-center justify-center rounded-xl bg-[var(--walnut)] px-6 text-sm font-bold text-[var(--paper)] disabled:opacity-50">{busy ? t("uploadingReceipt") : t("completeOrder")}</button></section>}
           {!paypalReady && !isWholesale && !isArgentina && discountControl}
         </aside>
       </form>

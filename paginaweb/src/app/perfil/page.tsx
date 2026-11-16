@@ -102,26 +102,26 @@ function ProfileCoupons({ id, coupons, labels, locale }: {
       {coupons.length ? (
         <div className="profile-coupons-list">
           <div className="profile-coupon-header">
-            <span>{labels.discountName}</span>
-            <span>{labels.status}</span>
-            <span>{labels.validUntil}</span>
-            <span>{labels.code}</span>
+            <strong data-inline>{labels.discountName}</strong>
+            <strong data-inline>{labels.status}</strong>
+            <strong data-inline>{labels.validUntil}</strong>
+            <strong data-inline>{labels.code}</strong>
           </div>
           {coupons.map((coupon) => (
             <article className="profile-coupon-row" key={coupon.id}>
               <div className="profile-coupon-name">
                 <h3>{coupon.title}</h3>
-                {coupon.designOnly && <p>{labels.designOnly}</p>}
+                {coupon.designOnly && <div data-copy>{labels.designOnly}</div>}
               </div>
               <div className="profile-coupon-status">
-                <span className="profile-coupon-mobile-label">{labels.status}</span>
-                <span className={`profile-coupon-status-badge ${coupon.available ? "is-available" : "is-unavailable"}`}>
+                <strong data-inline className="profile-coupon-mobile-label">{labels.status}</strong>
+                <strong data-inline className={`profile-coupon-status-badge ${coupon.available ? "is-available" : "is-unavailable"}`}>
                   {coupon.available ? labels.available : labels.unavailable}
-                </span>
+                </strong>
               </div>
               <div className="profile-coupon-validity">
-                <span className="profile-coupon-mobile-label">{labels.validUntil}</span>
-                <span>{coupon.validUntil ? date(`${coupon.validUntil}T12:00:00Z`, locale) : labels.welcomeValidity}</span>
+                <strong data-inline className="profile-coupon-mobile-label">{labels.validUntil}</strong>
+                <strong data-inline>{coupon.validUntil ? date(`${coupon.validUntil}T12:00:00Z`, locale) : labels.welcomeValidity}</strong>
               </div>
               <div className="profile-coupon-code-value">
                 <code>{coupon.code}</code>
@@ -130,7 +130,7 @@ function ProfileCoupons({ id, coupons, labels, locale }: {
             </article>
           ))}
         </div>
-      ) : <p className="profile-coupons-empty">{labels.empty}</p>}
+      ) : <div data-copy className="profile-coupons-empty">{labels.empty}</div>}
     </section>
   );
 }
@@ -155,25 +155,25 @@ async function AccountAccessRequired({ authError, redirect: redirectPath }: { au
             <div className="profile-guest-visual-scrim" aria-hidden="true" />
             <div className="profile-guest-visual-copy">
               <h1 id="profile-guest-title">{guestTitleOne}<br />{guestTitleTwo}</h1>
-              <p>{t("guestBody")}</p>
+              <div data-copy>{t("guestBody")}</div>
             </div>
           </div>
 
           <div className="profile-guest-access-column">
             <section className="profile-guest-login-card" aria-labelledby="profile-guest-login-title">
               <h2 id="profile-guest-login-title">{t("loginTitle")}</h2>
-              <p className="profile-guest-login-intro">{t("loginIntro")}</p>
+              <div data-copy className="profile-guest-login-intro">{t("loginIntro")}</div>
               <GoogleAuthButton variant="editorial" postLoginRedirect={redirectPath} />
-              <p className="profile-guest-login-note">{t("loginNote")}</p>
-              {authError && <p role="alert" className="profile-guest-auth-error">{t("loginError")}</p>}
+              <div data-copy className="profile-guest-login-note">{t("loginNote")}</div>
+              {authError && <div data-copy role="alert" className="profile-guest-auth-error">{t("loginError")}</div>}
             </section>
 
             <section className="profile-guest-benefits" aria-labelledby="profile-guest-benefits-title">
               <h2 id="profile-guest-benefits-title">{t("benefitsTitle")}</h2>
               <ul>
-                <li><Image src="/assets/matearte/profile-guest-desktop/point.svg" alt="" width={6} height={6} aria-hidden="true" /><span>{t("benefitOrders")}</span></li>
-                <li><Image src="/assets/matearte/profile-guest-desktop/point.svg" alt="" width={6} height={6} aria-hidden="true" /><span>{t("benefitDesigns")}</span></li>
-                <li><Image src="/assets/matearte/profile-guest-desktop/point.svg" alt="" width={6} height={6} aria-hidden="true" /><span>{t("benefitData")}</span></li>
+                <li><Image src="/assets/matearte/profile-guest-desktop/point.svg" alt="" width={6} height={6} aria-hidden="true" /><strong data-inline>{t("benefitOrders")}</strong></li>
+                <li><Image src="/assets/matearte/profile-guest-desktop/point.svg" alt="" width={6} height={6} aria-hidden="true" /><strong data-inline>{t("benefitDesigns")}</strong></li>
+                <li><Image src="/assets/matearte/profile-guest-desktop/point.svg" alt="" width={6} height={6} aria-hidden="true" /><strong data-inline>{t("benefitData")}</strong></li>
               </ul>
             </section>
           </div>
@@ -196,24 +196,24 @@ async function AccountAccessRequired({ authError, redirect: redirectPath }: { au
             <div className="profile-guest-mobile-visual-scrim" aria-hidden="true" />
             <div className="profile-guest-mobile-visual-copy">
               <h1 id="profile-guest-mobile-title">{guestTitleOne}<br />{guestTitleTwo}</h1>
-              <p>{t("guestBodyMobile")}</p>
+              <div data-copy>{t("guestBodyMobile")}</div>
             </div>
           </div>
 
           <section className="profile-guest-mobile-login-card" aria-labelledby="profile-guest-mobile-login-title">
             <h2 id="profile-guest-mobile-login-title">{t("loginTitle")}</h2>
-            <p className="profile-guest-mobile-login-intro">{t("loginIntro")}</p>
+            <div data-copy className="profile-guest-mobile-login-intro">{t("loginIntro")}</div>
             <GoogleAuthButton variant="editorial" postLoginRedirect={redirectPath} />
-            <p className="profile-guest-mobile-login-note">{t("loginNote")}</p>
-            {authError && <p role="alert" className="profile-guest-mobile-auth-error">{t("loginError")}</p>}
+            <div data-copy className="profile-guest-mobile-login-note">{t("loginNote")}</div>
+            {authError && <div data-copy role="alert" className="profile-guest-mobile-auth-error">{t("loginError")}</div>}
           </section>
 
           <section className="profile-guest-mobile-benefits" aria-labelledby="profile-guest-mobile-benefits-title">
             <h2 id="profile-guest-mobile-benefits-title">{t("benefitsTitle")}</h2>
             <ul>
-              <li><Image src="/assets/matearte/profile-guest-desktop/point.svg" alt="" width={5} height={5} aria-hidden="true" /><span>{t("benefitOrders")}</span></li>
-              <li><Image src="/assets/matearte/profile-guest-desktop/point.svg" alt="" width={5} height={5} aria-hidden="true" /><span>{t("benefitDesigns")}</span></li>
-              <li><Image src="/assets/matearte/profile-guest-desktop/point.svg" alt="" width={5} height={5} aria-hidden="true" /><span>{t("benefitData")}</span></li>
+              <li><Image src="/assets/matearte/profile-guest-desktop/point.svg" alt="" width={5} height={5} aria-hidden="true" /><strong data-inline>{t("benefitOrders")}</strong></li>
+              <li><Image src="/assets/matearte/profile-guest-desktop/point.svg" alt="" width={5} height={5} aria-hidden="true" /><strong data-inline>{t("benefitDesigns")}</strong></li>
+              <li><Image src="/assets/matearte/profile-guest-desktop/point.svg" alt="" width={5} height={5} aria-hidden="true" /><strong data-inline>{t("benefitData")}</strong></li>
             </ul>
           </section>
         </section>
@@ -362,7 +362,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   }
   const itemTitle = (item: OrderItem) => {
     const title = item.item_type === "design" ? item.title : localizeCatalogSnapshotTitle(item.title, locale);
-    return item.selection_label ? `${title.split(" — ")[0]} · ${item.selection_label}` : title;
+    return item.selection_label ? `${title.split(" — ")[0]} , ${item.selection_label}` : title;
   };
   const couponProps = {
     coupons,
@@ -396,7 +396,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                   <div className="profile-empty-account-title-row">
                     <h1 id="profile-empty-account-title">{t("greeting", { name: firstName })}</h1>
                     {profile?.country_code && (
-                      <span
+                      <strong data-inline
                         className={`profile-empty-country-flag flag:${profile.country_code}`}
                         role="img"
                         aria-label={t("flagLabel", { country: localizedCountry })}
@@ -406,9 +406,9 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                   </div>
 
                   <div className="profile-empty-account-details">
-                    <p><Image src="/assets/matearte/profile-empty-desktop/email.svg" alt="" width={18} height={18} aria-hidden="true" /><span>{user.email}</span></p>
-                    {location && <p><Image src="/assets/matearte/profile-empty-desktop/location.svg" alt="" width={19} height={19} aria-hidden="true" /><span>{location}</span></p>}
-                    {profile?.birth_date && <p><Image src="/assets/matearte/profile-empty-desktop/birthday.svg" alt="" width={19} height={19} aria-hidden="true" /><span>{birthdayDate(profile.birth_date, locale)}</span></p>}
+                    <div data-copy><Image src="/assets/matearte/profile-empty-desktop/email.svg" alt="" width={18} height={18} aria-hidden="true" /><strong data-inline>{user.email}</strong></div>
+                    {location && <div data-copy><Image src="/assets/matearte/profile-empty-desktop/location.svg" alt="" width={19} height={19} aria-hidden="true" /><strong data-inline>{location}</strong></div>}
+                    {profile?.birth_date && <div data-copy><Image src="/assets/matearte/profile-empty-desktop/birthday.svg" alt="" width={19} height={19} aria-hidden="true" /><strong data-inline>{birthdayDate(profile.birth_date, locale)}</strong></div>}
                   </div>
 
                   <div className="profile-empty-account-actions">
@@ -430,7 +430,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               <div className="profile-empty-orders-card">
                 <div className="profile-empty-orders-copy">
                   <h3>{t("emptyTitle").split("|")[0]}<br />{t("emptyTitle").split("|")[1]}</h3>
-                  <p>{t("emptyBody")}</p>
+                  <div data-copy>{t("emptyBody")}</div>
                   <Link href="/catalogo">{t("catalog")}</Link>
                 </div>
                 <div className="profile-empty-orders-image">
@@ -459,9 +459,9 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               <div className="profile-empty-mobile-account-copy">
                 <h1 id="profile-empty-mobile-account-title">{t("greeting", { name: firstName })}</h1>
                 <div className="profile-empty-mobile-details">
-                  <p><Image src="/assets/matearte/profile-empty-desktop/email.svg" alt="" width={18} height={18} aria-hidden="true" /><span>{user.email}</span></p>
-                  {location && <p><Image src="/assets/matearte/profile-empty-desktop/location.svg" alt="" width={19} height={19} aria-hidden="true" /><span>{location}</span></p>}
-                  {profile?.birth_date && <p><Image src="/assets/matearte/profile-empty-desktop/birthday.svg" alt="" width={19} height={19} aria-hidden="true" /><span>{birthdayDate(profile.birth_date, locale)}</span></p>}
+                  <div data-copy><Image src="/assets/matearte/profile-empty-desktop/email.svg" alt="" width={18} height={18} aria-hidden="true" /><strong data-inline>{user.email}</strong></div>
+                  {location && <div data-copy><Image src="/assets/matearte/profile-empty-desktop/location.svg" alt="" width={19} height={19} aria-hidden="true" /><strong data-inline>{location}</strong></div>}
+                  {profile?.birth_date && <div data-copy><Image src="/assets/matearte/profile-empty-desktop/birthday.svg" alt="" width={19} height={19} aria-hidden="true" /><strong data-inline>{birthdayDate(profile.birth_date, locale)}</strong></div>}
                 </div>
               </div>
 
@@ -489,7 +489,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                   />
                 </div>
                 <h3>{t("emptyTitle").split("|")[0]}<br />{t("emptyTitle").split("|")[1]}</h3>
-                <p>{t("emptyBody")}</p>
+                <div data-copy>{t("emptyBody")}</div>
                 <Link href="/catalogo">{t("catalog")}</Link>
               </div>
             </section>
@@ -515,7 +515,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                   <div className="profile-empty-account-title-row">
                     <h1 id="profile-orders-account-title">{t("greeting", { name: firstName })}</h1>
                     {profile?.country_code && (
-                      <span
+                      <strong data-inline
                         className={`profile-empty-country-flag flag:${profile.country_code}`}
                         role="img"
                         aria-label={t("flagLabel", { country: localizedCountry })}
@@ -525,9 +525,9 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                   </div>
 
                   <div className="profile-empty-account-details">
-                    <p><Image src="/assets/matearte/profile-empty-desktop/email.svg" alt="" width={18} height={18} aria-hidden="true" /><span>{user.email}</span></p>
-                    {location && <p><Image src="/assets/matearte/profile-empty-desktop/location.svg" alt="" width={19} height={19} aria-hidden="true" /><span>{location}</span></p>}
-                    {profile?.birth_date && <p><Image src="/assets/matearte/profile-empty-desktop/birthday.svg" alt="" width={19} height={19} aria-hidden="true" /><span>{birthdayDate(profile.birth_date, locale)}</span></p>}
+                    <div data-copy><Image src="/assets/matearte/profile-empty-desktop/email.svg" alt="" width={18} height={18} aria-hidden="true" /><strong data-inline>{user.email}</strong></div>
+                    {location && <div data-copy><Image src="/assets/matearte/profile-empty-desktop/location.svg" alt="" width={19} height={19} aria-hidden="true" /><strong data-inline>{location}</strong></div>}
+                    {profile?.birth_date && <div data-copy><Image src="/assets/matearte/profile-empty-desktop/birthday.svg" alt="" width={19} height={19} aria-hidden="true" /><strong data-inline>{birthdayDate(profile.birth_date, locale)}</strong></div>}
                   </div>
 
                   <div className="profile-empty-account-actions">
@@ -577,19 +577,19 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                         <h3 title={orderTitle}>{orderTitle}</h3>
                         <time dateTime={order.created_at}>{date(order.created_at, locale)}</time>
                         <div className="flex flex-col items-center justify-center gap-1 min-w-0">
-                          <span className="profile-order-status" title={orderStatusLabels[order.status] || statusLabel}>{statusLabel}</span>
+                          <strong data-inline className="profile-order-status" title={orderStatusLabels[order.status] || statusLabel}>{statusLabel}</strong>
                           {order.status === "shipped" && order.tracking_code && (
-                            <span className="text-[11px] text-[#705c53] truncate max-w-full text-center" title={[order.shipping_carrier, order.tracking_code].filter(Boolean).join(" · ")}>
-                              {[order.shipping_carrier, order.tracking_code].filter(Boolean).join(" · ")}
-                            </span>
+                            <strong data-inline className="text-[11px] text-[#1E120C] truncate max-w-full text-center" title={[order.shipping_carrier, order.tracking_code].filter(Boolean).join(" , ")}>
+                              {[order.shipping_carrier, order.tracking_code].filter(Boolean).join(" , ")}
+                            </strong>
                           )}
                         </div>
                       </div>
 
-                      <p className="profile-order-total">
-                        <span className="sr-only">{order.shipping_method === "international_coordination" ? `${t("subtotalNoShipping")}: ` : `${t("total")}: `}</span>
+                      <div data-copy className="profile-order-total">
+                        <strong data-inline className="sr-only">{order.shipping_method === "international_coordination" ? `${t("subtotalNoShipping")}: ` : `${t("total")}: `}</strong>
                         {formatOrderMoney(order, order.total_minor, locale, exchangeRates)}
-                      </p>
+                      </div>
 
                       <Link
                         className="profile-order-detail"
@@ -619,9 +619,9 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             <div className="profile-empty-mobile-account-copy">
               <h1 id="profile-orders-mobile-account-title">{t("greeting", { name: firstName })}</h1>
               <div className="profile-empty-mobile-details">
-                <p><Image src="/assets/matearte/profile-empty-desktop/email.svg" alt="" width={18} height={18} aria-hidden="true" /><span>{user.email}</span></p>
-                {location && <p><Image src="/assets/matearte/profile-empty-desktop/location.svg" alt="" width={19} height={19} aria-hidden="true" /><span>{location}</span></p>}
-                {profile?.birth_date && <p><Image src="/assets/matearte/profile-empty-desktop/birthday.svg" alt="" width={19} height={19} aria-hidden="true" /><span>{birthdayDate(profile.birth_date, locale)}</span></p>}
+                <div data-copy><Image src="/assets/matearte/profile-empty-desktop/email.svg" alt="" width={18} height={18} aria-hidden="true" /><strong data-inline>{user.email}</strong></div>
+                {location && <div data-copy><Image src="/assets/matearte/profile-empty-desktop/location.svg" alt="" width={19} height={19} aria-hidden="true" /><strong data-inline>{location}</strong></div>}
+                {profile?.birth_date && <div data-copy><Image src="/assets/matearte/profile-empty-desktop/birthday.svg" alt="" width={19} height={19} aria-hidden="true" /><strong data-inline>{birthdayDate(profile.birth_date, locale)}</strong></div>}
               </div>
             </div>
 
@@ -672,11 +672,11 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                         <time dateTime={order.created_at}>{compactDate(order.created_at, locale)}</time>
                         <h3 title={orderTitle}>{orderTitle}</h3>
                         <div className="flex flex-col items-start gap-1">
-                          <span className="profile-orders-mobile-status" title={orderStatusLabels[order.status] || statusLabel}>{statusLabel}</span>
+                          <strong data-inline className="profile-orders-mobile-status" title={orderStatusLabels[order.status] || statusLabel}>{statusLabel}</strong>
                           {order.status === "shipped" && order.tracking_code && (
-                            <span className="text-[11px] text-[#705c53] truncate max-w-full" title={[order.shipping_carrier, order.tracking_code].filter(Boolean).join(" · ")}>
-                              {[order.shipping_carrier, order.tracking_code].filter(Boolean).join(" · ")}
-                            </span>
+                            <strong data-inline className="text-[11px] text-[#1E120C] truncate max-w-full" title={[order.shipping_carrier, order.tracking_code].filter(Boolean).join(" , ")}>
+                              {[order.shipping_carrier, order.tracking_code].filter(Boolean).join(" , ")}
+                            </strong>
                           )}
                         </div>
                       </div>
@@ -685,10 +685,10 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                     <div className="profile-orders-mobile-divider" aria-hidden="true" />
 
                     <div className="profile-orders-mobile-card-footer">
-                      <p className="profile-orders-mobile-total">
-                        <span>{totalLabel}</span>
+                      <div data-copy className="profile-orders-mobile-total">
+                        <strong data-inline>{totalLabel}</strong>
                         <strong>{formatOrderMoney(order, order.total_minor, locale, exchangeRates)}</strong>
-                      </p>
+                      </div>
                       <Link
                         href={{ pathname: "/pedidos/[id]", params: { id: order.id } }}
                         aria-label={t("viewDetailAria", { number: order.order_number })}
@@ -707,7 +707,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
 
       <div className="profile-account-standard pb-24 pt-8 sm:pb-32 sm:pt-12">
         <div className="container-shell">
-        <section className="overflow-hidden border border-black/15 bg-[var(--paper)] shadow-[var(--shadow-soft)]" aria-labelledby="account-title">
+        <section className="overflow-hidden border border-[var(--ink)]/15 bg-[var(--paper)] shadow-[var(--shadow-soft)]" aria-labelledby="account-title">
           <div className="h-1.5 bg-[var(--leather)]" aria-hidden="true" />
           <div className="grid lg:grid-cols-[minmax(0,1fr)_21rem]">
             <div className="p-6 sm:p-8 lg:p-10">
@@ -716,15 +716,14 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                   {avatarUrl ? (
                     <Image src={avatarUrl} alt={t("avatarAlt", { name: name || firstName })} fill sizes="112px" className="object-cover" priority unoptimized />
                   ) : (
-                    <span className="display-font grid size-full place-items-center text-3xl font-semibold text-[var(--cream-deep)]" aria-label={t("initialsLabel", { name: name || firstName })}>{initials}</span>
+                    <strong data-inline className="display-font grid size-full place-items-center text-3xl font-semibold text-[var(--cream-deep)]" aria-label={t("initialsLabel", { name: name || firstName })}>{initials}</strong>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="eyebrow text-[var(--leather)]">{t("accountEyebrow")}</p>
                   <div className="mt-4 flex flex-wrap items-center gap-3">
                     <h1 id="account-title" className="display-font text-4xl font-medium tracking-[-0.025em] sm:text-5xl">{t("greeting", { name: firstName })}</h1>
                     {profile?.country_code && (
-                      <span
+                      <strong data-inline
                         className={`flag:${profile.country_code} inline-block rounded-[2px] shadow-sm [--CountryFlagIcon-height:1.65rem] sm:[--CountryFlagIcon-height:1.9rem]`}
                         role="img"
                         aria-label={t("flagLabel", { country: localizedCountry })}
@@ -732,10 +731,10 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                       />
                     )}
                   </div>
-                  <div className="mt-4 space-y-2 text-sm text-black/65">
-                    <p className="flex items-center gap-2"><EnvelopeSimple size={18} className="shrink-0 text-[var(--leather)]" aria-hidden="true" /><span className="truncate">{user.email}</span></p>
-                    {location && <p className="flex items-center gap-2"><MapPin size={18} className="shrink-0 text-[var(--leather)]" aria-hidden="true" /><span>{location}</span></p>}
-                    {profile?.birth_date && <p className="flex items-center gap-2"><Cake size={18} className="shrink-0 text-[var(--leather)]" aria-hidden="true" /><span>{birthdayDate(profile.birth_date, locale)}</span></p>}
+                  <div className="mt-4 space-y-2 text-sm text-[var(--ink)]/65">
+                    <div data-copy className="flex items-center gap-2"><EnvelopeSimple size={18} className="shrink-0 text-[var(--leather)]" aria-hidden="true" /><strong data-inline className="truncate">{user.email}</strong></div>
+                    {location && <div data-copy className="flex items-center gap-2"><MapPin size={18} className="shrink-0 text-[var(--leather)]" aria-hidden="true" /><strong data-inline>{location}</strong></div>}
+                    {profile?.birth_date && <div data-copy className="flex items-center gap-2"><Cake size={18} className="shrink-0 text-[var(--leather)]" aria-hidden="true" /><strong data-inline>{birthdayDate(profile.birth_date, locale)}</strong></div>}
                   </div>
                 </div>
               </div>
@@ -748,18 +747,18 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               </div>
             </div>
             <div className="bg-[var(--walnut)] p-6 text-[var(--paper)] sm:p-8 lg:p-9">
-              <p className="text-[0.68rem] font-semibold tracking-[0.16em] text-[var(--rawhide)] uppercase">{t("accountSummary")}</p>
+              <div data-copy className="text-[0.68rem] font-semibold tracking-[0.16em] text-[var(--rawhide)] uppercase">{t("accountSummary")}</div>
               <dl className="mt-6 divide-y divide-white/15">
                 <div className="flex items-center justify-between gap-5 py-4 first:pt-0">
-                  <dt className="flex items-center gap-3 text-sm text-white/75"><ShoppingBagOpen size={21} aria-hidden="true" />{t("ordersPlaced")}</dt>
+                  <dt className="flex items-center gap-3 text-sm text-[var(--paper)]/75"><ShoppingBagOpen size={21} aria-hidden="true" />{t("ordersPlaced")}</dt>
                   <dd className="display-font text-3xl tabular-nums">{orders.length}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-5 py-4">
-                  <dt className="flex items-center gap-3 text-sm text-white/75"><Clock size={21} aria-hidden="true" />{t("inProgress")}</dt>
+                  <dt className="flex items-center gap-3 text-sm text-[var(--paper)]/75"><Clock size={21} aria-hidden="true" />{t("inProgress")}</dt>
                   <dd className="display-font text-3xl tabular-nums">{activeCount}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-5 py-4 last:pb-0">
-                  <dt className="flex items-center gap-3 text-sm text-white/75"><CheckCircle size={21} aria-hidden="true" />{t("paid")}</dt>
+                  <dt className="flex items-center gap-3 text-sm text-[var(--paper)]/75"><CheckCircle size={21} aria-hidden="true" />{t("paid")}</dt>
                   <dd className="display-font text-3xl tabular-nums">{confirmedCount}</dd>
                 </div>
               </dl>
@@ -770,7 +769,6 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
         <section className="pt-12 sm:pt-16" aria-labelledby="orders-title">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="eyebrow text-[var(--leather)]">{t("history")}</p>
               <h2 id="orders-title" className="display-font mt-5 text-4xl sm:text-5xl">{t("myOrders")}</h2>
             </div>
             <Link className="button-secondary" href="/catalogo">{t("continueShopping")}</Link>
@@ -781,12 +779,12 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               {t("ordersLoadFailed")}
             </div>
           ) : orders.length === 0 ? (
-            <div className="mt-8 border border-black/15 bg-[var(--paper)] p-7 sm:p-10">
+            <div className="mt-8 border border-[var(--ink)]/15 bg-[var(--paper)] p-7 sm:p-10">
               <Receipt size={30} className="text-[var(--leather)]" aria-hidden="true" />
               <h3 className="display-font mt-5 text-3xl">{t("noPurchaseTitle")}</h3>
-              <p className="mt-3 max-w-lg text-sm leading-7 text-black/60">
+              <div data-copy className="mt-3 max-w-lg text-sm leading-7 text-[var(--ink)]/60">
                 {t("noPurchaseBody")}
-              </p>
+              </div>
               <Link className="button-primary mt-7" href="/catalogo">{t("catalog")}</Link>
             </div>
           ) : (
@@ -794,43 +792,43 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               {orders.map((order) => {
                 const items = order.order_items || [];
                 return (
-                  <article key={order.id} className="group overflow-hidden border border-black/15 bg-[var(--paper)] transition-[border-color,box-shadow] duration-200 hover:border-[var(--leather)]/45 hover:shadow-[var(--shadow-soft)]">
-                    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-black/10 bg-[var(--cream-deep)]/45 px-5 py-4 sm:px-7">
+                  <article key={order.id} className="group overflow-hidden border border-[var(--ink)]/15 bg-[var(--paper)] transition-[border-color,box-shadow] duration-200 hover:border-[var(--leather)]/45 hover:shadow-[var(--shadow-soft)]">
+                    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--ink)]/10 bg-[var(--cream-deep)]/45 px-5 py-4 sm:px-7">
                       <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
-                        <p className="text-xs font-bold tracking-[0.12em] text-[var(--walnut)] uppercase">{t("orderNumber", { number: order.order_number })}</p>
-                        <p className="text-xs text-black/55">{date(order.created_at, locale)}</p>
+                        <div data-copy className="text-xs font-bold tracking-[0.12em] text-[var(--walnut)] uppercase">{t("orderNumber", { number: order.order_number })}</div>
+                        <div data-copy className="text-xs text-[var(--ink)]/55">{date(order.created_at, locale)}</div>
                       </div>
                       <div className="flex flex-col items-end gap-1">
-                        <span className={`inline-flex min-h-8 items-center rounded-full border px-3 text-xs font-semibold ${orderStatusTone(order.status)}`}>
+                        <strong data-inline className={`inline-flex min-h-8 items-center rounded-full border px-3 text-xs font-semibold ${orderStatusTone(order.status)}`}>
                           {orderStatusLabels[order.status] || order.status}
-                        </span>
+                        </strong>
                         {order.status === "shipped" && order.tracking_code && (
-                          <span className="text-xs text-black/60" title={[order.shipping_carrier, order.tracking_code].filter(Boolean).join(" · ")}>
-                            {[order.shipping_carrier, order.tracking_code].filter(Boolean).join(" · ")}
-                          </span>
+                          <strong data-inline className="text-xs text-[var(--ink)]/60" title={[order.shipping_carrier, order.tracking_code].filter(Boolean).join(" , ")}>
+                            {[order.shipping_carrier, order.tracking_code].filter(Boolean).join(" , ")}
+                          </strong>
                         )}
                       </div>
                     </header>
                     <div className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_15rem] lg:items-center">
                       <div className="min-w-0">
-                        <p className="text-[0.68rem] font-semibold tracking-[0.12em] text-black/45 uppercase">{t("content")}</p>
+                        <div data-copy className="text-[0.68rem] font-semibold tracking-[0.12em] text-[var(--ink)]/45 uppercase">{t("content")}</div>
                         {items.length ? (
                           <ul className="mt-3 space-y-2" aria-label={t("itemsAria", { number: order.order_number })}>
                             {items.map((item) => (
-                              <li key={item.id} className="flex items-start gap-3 text-sm text-black/70">
+                              <li key={item.id} className="flex items-start gap-3 text-sm text-[var(--ink)]/70">
                                 <Package size={19} className="mt-0.5 shrink-0 text-[var(--leather)]" aria-hidden="true" />
-                                <span>{item.quantity > 1 ? `${item.quantity} × ` : ""}{itemTitle(item)}</span>
+                                <strong data-inline>{item.quantity > 1 ? `${item.quantity} × ` : ""}{itemTitle(item)}</strong>
                               </li>
                             ))}
                           </ul>
                         ) : (
-                          <p className="mt-3 text-sm text-black/60">{t("detailsAvailable")}</p>
+                          <div data-copy className="mt-3 text-sm text-[var(--ink)]/60">{t("detailsAvailable")}</div>
                         )}
                       </div>
-                      <div className="flex items-center justify-between gap-5 border-t border-black/10 pt-5 lg:block lg:border-l lg:border-t-0 lg:py-1 lg:pl-7 lg:text-right">
+                      <div className="flex items-center justify-between gap-5 border-t border-[var(--ink)]/10 pt-5 lg:block lg:border-l lg:border-t-0 lg:py-1 lg:pl-7 lg:text-right">
                         <div>
-                          <p className="text-[0.68rem] font-semibold tracking-[0.12em] text-black/45 uppercase">{order.shipping_method === "international_coordination" ? t("subtotalNoShipping") : t("total")}</p>
-                          <p className="display-font mt-1 text-3xl font-semibold tabular-nums">{formatOrderMoney(order, order.total_minor, locale, exchangeRates)}</p>
+                          <div data-copy className="text-[0.68rem] font-semibold tracking-[0.12em] text-[var(--ink)]/45 uppercase">{order.shipping_method === "international_coordination" ? t("subtotalNoShipping") : t("total")}</div>
+                          <div data-copy className="display-font mt-1 text-3xl font-semibold tabular-nums">{formatOrderMoney(order, order.total_minor, locale, exchangeRates)}</div>
                         </div>
                         <Link href={{ pathname: "/pedidos/[id]", params: { id: order.id } }} className="button-primary mt-0 gap-2 lg:mt-4 lg:w-full" aria-label={t("viewDetailAria", { number: order.order_number })}>
                           {t("viewDetail")} <ArrowRight size={17} aria-hidden="true" />

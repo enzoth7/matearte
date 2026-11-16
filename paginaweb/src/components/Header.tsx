@@ -114,7 +114,13 @@ export function Header() {
   }, [pathname]);
 
   useEffect(() => {
-    const syncGuestCartCount = () => {
+    const syncGuestCartCount = (event?: Event) => {
+      const remoteCount = (event as CustomEvent<{ count?: number }> | undefined)?.detail?.count;
+      if (typeof remoteCount === "number" && Number.isFinite(remoteCount)) {
+        cartCountRevision.current += 1;
+        setSession(prev => ({ ...prev, cartCount: remoteCount }));
+        return;
+      }
       try {
         const entries = readLocalCart();
         const count = entries.reduce((sum, item) => sum + (item.quantity || 1), 0);
@@ -138,8 +144,8 @@ export function Header() {
           <div className="cart-added-notice-content">
             {detail.imageSrc && <div className="cart-added-notice-image"><Image src={detail.imageSrc} alt="" fill sizes="(max-width: 479px) 84px, 104px" style={detail.imageStyle} unoptimized={detail.imageUnoptimized} /></div>}
             <div className="cart-added-notice-copy">
-              <span className="cart-added-notice-name">{detail.name}</span>
-              <span className="cart-added-notice-price">{detail.price}</span>
+              <strong data-inline className="cart-added-notice-name">{detail.name}</strong>
+              <strong data-inline className="cart-added-notice-price">{detail.price}</strong>
             </div>
           </div>
         </div>
@@ -199,7 +205,7 @@ export function Header() {
         <div className="home-header-inner">
           <Link className="home-header-brand" href="/" aria-label={t("homeLabel")}>
             <Image src="/assets/matearte/home-v2/logo.webp" alt="" width={48} height={48} priority />
-            <span><strong>MateArte</strong><small>{t("tagline")}</small></span>
+            <strong data-inline><strong>MateArte</strong><small>{t("tagline")}</small></strong>
           </Link>
           <nav className="home-header-nav home-header-navigation" aria-label={t("primaryNav")}>
             {navigation.map((item) => <Link key={item.href} href={item.href} className={isActive(item.href) ? "is-active" : undefined} aria-current={canonical !== "/" && isActive(item.href) ? "page" : undefined}>{t(item.label)}</Link>)}
@@ -208,7 +214,7 @@ export function Header() {
             <button type="button" className="home-header-icon home-header-search" aria-label={t("search")} aria-expanded={searchOpen} aria-controls="home-catalog-search" onClick={toggleSearch}><MagnifyingGlass size={19} aria-hidden="true" /></button>
             <CurrencySelector />
             <div className="home-header-language-wrap" ref={languageMenuRef}>
-              <button ref={languageButtonRef} type="button" className="home-header-language" aria-label={t("openLanguage", { language: language(locale) })} aria-haspopup="menu" aria-expanded={languageOpen} aria-controls="home-language-menu" onClick={() => setLanguageOpen((value) => !value)}><Globe size={18} aria-hidden="true" /><span>{locale.toUpperCase()}</span></button>
+              <button ref={languageButtonRef} type="button" className="home-header-language" aria-label={t("openLanguage", { language: language(locale) })} aria-haspopup="menu" aria-expanded={languageOpen} aria-controls="home-language-menu" onClick={() => setLanguageOpen((value) => !value)}><Globe size={18} aria-hidden="true" /><strong data-inline>{locale.toUpperCase()}</strong></button>
               {languageOpen && (
                 <div id="home-language-menu" className="home-language-menu" role="menu" aria-label={t("language")} onKeyDown={handleLanguageKeys}>
                   {localeOptions.map((option) => <a key={option} role="menuitem" href={languageHref(option)} hrefLang={option === "pt" ? "pt-BR" : option} aria-current={option === locale ? "true" : undefined} onClick={(event) => chooseLanguage(option, event)}>{language(option)}</a>)}
@@ -216,11 +222,11 @@ export function Header() {
               )}
             </div>
             <Link href="/perfil" className="home-header-icon" aria-label={session.authenticated ? t("openAccount") : t("signIn")}><UserCircle size={20} aria-hidden="true" /></Link>
-            <Link href="/carrito" className="home-header-icon home-header-cart" aria-label={session.cartCount ? t("cartCount", { count: session.cartCount }) : t("cart")}><ShoppingCart size={20} aria-hidden="true" />{session.cartCount > 0 && <span>{Math.min(99, session.cartCount)}</span>}</Link>
+            <Link href="/carrito" className="home-header-icon home-header-cart" aria-label={session.cartCount ? t("cartCount", { count: session.cartCount }) : t("cart")}><ShoppingCart size={20} aria-hidden="true" />{session.cartCount > 0 && <strong data-inline>{Math.min(99, session.cartCount)}</strong>}</Link>
           </nav>
           <div className="home-header-mobile-actions">
             <button type="button" className="home-header-mobile-search" aria-label={t("search")} aria-expanded={searchOpen} aria-controls="home-catalog-search" onClick={toggleSearch}><MagnifyingGlass size={23} aria-hidden="true" /></button>
-            <Link href="/carrito" className="home-header-mobile-cart" aria-label={session.cartCount ? t("cartCount", { count: session.cartCount }) : t("cart")}><ShoppingCart size={23} aria-hidden="true" />{session.cartCount > 0 && <span>{Math.min(99, session.cartCount)}</span>}</Link>
+            <Link href="/carrito" className="home-header-mobile-cart" aria-label={session.cartCount ? t("cartCount", { count: session.cartCount }) : t("cart")}><ShoppingCart size={23} aria-hidden="true" />{session.cartCount > 0 && <strong data-inline>{Math.min(99, session.cartCount)}</strong>}</Link>
             <button type="button" className="home-header-menu" aria-label={open ? t("closeMenu") : t("openMenu")} aria-expanded={open} aria-controls="home-menu-mobile" onClick={() => { setSearchOpen(false); setOpen((value) => !value); }}>
               {open ? <X size={25} aria-hidden="true" /> : <List size={25} aria-hidden="true" />}
             </button>
@@ -251,18 +257,18 @@ export function Header() {
           <button type="button" className="home-mobile-menu-backdrop" aria-label={t("closeMenu")} onClick={() => setOpen(false)} />
           <div id="home-menu-mobile" className="home-mobile-menu">
             <nav aria-label={t("mobileNav")}>
-              {navigation.map((item) => <Link key={item.href} href={item.href} onClick={() => setOpen(false)} aria-current={isActive(item.href) ? "page" : undefined}><span>{t(item.label)}</span></Link>)}
-              <Link href="/perfil" onClick={() => setOpen(false)}><span>{session.authenticated ? t("account") : t("signIn")}</span><UserCircle size={24} aria-hidden="true" /></Link>
-              <Link href="/carrito" onClick={() => setOpen(false)}><span>{t("cart")}</span><ShoppingCart size={24} aria-hidden="true" /></Link>
+              {navigation.map((item) => <Link key={item.href} href={item.href} onClick={() => setOpen(false)} aria-current={isActive(item.href) ? "page" : undefined}><strong data-inline>{t(item.label)}</strong></Link>)}
+              <Link href="/perfil" onClick={() => setOpen(false)}><strong data-inline>{session.authenticated ? t("account") : t("signIn")}</strong><UserCircle size={24} aria-hidden="true" /></Link>
+              <Link href="/carrito" onClick={() => setOpen(false)}><strong data-inline>{t("cart")}</strong><ShoppingCart size={24} aria-hidden="true" /></Link>
               <div className="home-mobile-languages" aria-label={t("language")}>
-                <span>{t("language")}</span>
+                <strong data-inline>{t("language")}</strong>
                 <div>{mobileLocaleOptions.map((option) => <a key={option} href={languageHref(option)} hrefLang={option === "pt" ? "pt-BR" : option} aria-label={language(option)} title={language(option)} aria-current={option === locale ? "true" : undefined} onClick={(event) => chooseLanguage(option, event)}><Image src={`/assets/matearte/flags/${option}.svg`} alt="" width={30} height={20} aria-hidden="true" /></a>)}<CurrencySelector /></div>
               </div>
             </nav>
           </div>
         </>
       )}
-      <Toaster position="top-right" visibleToasts={1} duration={2000} offset={{ top: 102, right: 24 }} mobileOffset={{ top: 84, right: 12, left: 12 }} />
+      <Toaster toastOptions={{ style: { background: "var(--paper)", color: "var(--ink)", borderColor: "var(--ink)" } }} position="top-right" visibleToasts={1} duration={2000} offset={{ top: 102, right: 24 }} mobileOffset={{ top: 84, right: 12, left: 12 }} />
     </>
   );
 }

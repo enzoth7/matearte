@@ -62,13 +62,11 @@ export async function HomeFeaturedProducts() {
                     className="home-featured-image"
                     style={{ objectPosition: collection.imagePosition }}
                   />
-                  <span className="home-featured-grain" aria-hidden="true" />
-                  <span className="home-featured-scrim" aria-hidden="true" />
+                </div>
                   <div className="home-featured-meta">
                     <h3 className="home-featured-card-title">{t(collection.nameKey)}</h3>
-                    <p className="home-featured-card-description">{t(collection.descriptionKey)}</p>
+                    <div data-copy className="home-featured-card-description">{t(collection.descriptionKey)}</div>
                   </div>
-                </div>
               </Link>
             </article>
           ))}

@@ -627,7 +627,9 @@ function UnifiedOrderDetailModal({ order, props, showAmounts, onClose }: { order
     production: orderProductionLabel(s.orders.find((entry) => entry.id === order.id) || order, s.products), rows: detailRows,
     delivery: {
       method: inPersonStockSale ? order.channel === "Feria" ? "Venta en feria" : "Venta en el local" : order.method === "Envío" ? "Envío" : order.method === "Retiro" ? "Retiro en el local" : "Venta en el local",
-      paymentMethod: localPaymentMethods,
+      paymentMethod: order.initialPaymentSplit?.length === 2
+        ? `Pago en dos medios: ${order.initialPaymentSplit.map(part => `${part.method} ${currencyMoney(part.amount / (order.retailRateToUyu ?? 1), order.originalCurrency ?? "UYU")}`).join(", ")}${[...new Set(orderPayments.filter(part => part.id.startsWith("local-receipt:")).map(part => part.method))].length ? `, cobros posteriores: ${[...new Set(orderPayments.filter(part => part.id.startsWith("local-receipt:")).map(part => part.method))].join(", ")}` : ""}`
+        : localPaymentMethods,
       customer: naturalCaseName(contact?.name || order.customerName || "Cliente sin nombre"),
       phone: phone ? <OrderContactPhone prefix={phoneParts.prefix} number={phoneParts.number} country={country} whatsappDigits={whatsappDigits} /> : undefined,
       email: contact?.email,

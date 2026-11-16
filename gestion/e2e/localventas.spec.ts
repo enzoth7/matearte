@@ -101,6 +101,47 @@ test('efectivo y transferencia cobran precio base; tarjeta cobra precio publicad
   await expect.poll(() => writes.find(write => write.table === 'gestion_create_local_sale_with_items')?.body.p_items[0].unit_price_minor).toBe(100050);
 });
 
+test('dos medios usan precio web y calculan el segundo importe al cambiar artículos', async ({ page }) => {
+  const { fixture, tables, writes } = await mockCommerce(page, { writable: true });
+  fixture.products[0].commerce_variants[0].base_price_minor = 100050;
+  fixture.products[0].commerce_variants[0].price_minor = 110050;
+  await page.goto('/comercial/registrar-min');
+  await page.getByLabel('Buscar producto').fill('SKU-1');
+  await page.getByRole('button', { name: /SKU-1 · Mate de catálogo/ }).click();
+  const price = page.locator('.local-sale-line input[type="number"]').first();
+  await expect(price).toHaveValue('1000.5');
+  await page.getByLabel('Forma de pago').selectOption('split');
+  await expect(price).toHaveValue('1100.5');
+  await page.getByLabel('Importe del primer medio').fill('500');
+  await expect(page.locator('.local-sale-split-remainder')).toContainText('$ 600,5');
+  await page.getByLabel('Cantidad').first().fill('2');
+  await expect(page.locator('.local-sale-split-remainder')).toContainText('$ 1.701');
+  await expect(page.getByLabel('Segundo medio')).not.toHaveValue('Efectivo');
+  await page.getByRole('button', { name: 'Guardar venta' }).click();
+  await expect.poll(() => writes.find(write => write.table === 'gestion_create_local_sale_with_split_payment')?.body.p_payments)
+    .toEqual([{ method: 'Efectivo', amountMinor: 50000 }, { method: 'Transferencia', amountMinor: 170100 }]);
+  expect(tables.local_sales.at(-1)?.retail_payment_split).toEqual([
+    { method: 'Efectivo', amountMinor: 50000 }, { method: 'Transferencia', amountMinor: 170100 },
+  ]);
+});
+
+test('dos medios con seña desglosan solo lo cobrado inicialmente', async ({ page }) => {
+  const { writes } = await mockCommerce(page, { writable: true });
+  await page.goto('/comercial/registrar-min');
+  await page.getByLabel('Buscar producto').fill('SKU-1');
+  await page.getByRole('button', { name: /SKU-1 · Mate de catálogo/ }).click();
+  await page.getByLabel('Forma de pago').selectOption('split');
+  await page.getByLabel('Con seña').check();
+  await page.getByLabel('Seña cobrada').fill('400');
+  await page.getByLabel('Importe del primer medio').fill('150');
+  await expect(page.locator('.local-sale-split-remainder')).toContainText('$ 250');
+  await page.getByRole('button', { name: 'Guardar venta' }).click();
+  await expect.poll(() => writes.find(write => write.table === 'gestion_create_local_sale_with_split_payment')?.body)
+    .toMatchObject({ p_deposit_minor: 40000, p_payments: [
+      { method: 'Efectivo', amountMinor: 15000 }, { method: 'Transferencia', amountMinor: 25000 },
+    ] });
+});
+
 test('una seña con débito conserva el precio publicado y el saldo pendiente', async ({ page }) => {
   const { fixture, tables, writes } = await mockCommerce(page, { writable: true });
   fixture.products[0].commerce_variants[0].base_price_minor = 100050;

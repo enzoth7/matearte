@@ -76,7 +76,7 @@
     "invalidEmail": "Digite um e-mail válido.",
     "subscribeError": "Não foi possível fazer sua inscrição. Tente novamente.",
     "consent": "Ao se inscrever, você aceita receber e-mails comerciais. Pode cancelar a inscrição a qualquer momento.",
-    "writeUs": "Fale conosco →",
+    "writeUs": "Fale conosco",
     "whatsappLabel": "Consultar pelo WhatsApp no número {phone}",
     "instagramLabel": "Instagram da MateArte",
     "facebookLabel": "Facebook da MateArte",
@@ -118,7 +118,7 @@
     "featuredSubtitle": "Cuias e acessórios artesanais prontos para acompanhar seus momentos.",
     "featuredCtaTitle": "Explore o Catálogo",
     "featuredCtaDesc": "Mais de 30 peças artesanais exclusivas.",
-    "featuredCtaAction": "Ver catálogo completo →",
+    "featuredCtaAction": "Ver catálogo completo",
     "craftTitleTop": "A Arte",
     "craftTitleMiddle": "por trás do",
     "craftTitleMate": "Mate",
@@ -173,7 +173,38 @@
     "shippingLine1": "Envios nacionais",
     "shippingLine2": "e internacionais",
     "shippingBody": "De Paysandú para o Uruguai e o mundo. Consulte nossa equipe sobre opções e prazos de entrega.",
-    "contactAction": "Dados de contato"
+    "contactAction": "Dados de contato",
+    "carousel": {
+      "carousel": "Carrossel",
+      "label": "Conheça a MateArte",
+      "choose": "Escolher cena",
+      "pause": "Pausar",
+      "play": "Reproduzir",
+      "actions": {
+        "collection": "Ver coleção",
+        "custom": "Criar o meu",
+        "catalog": "Ver catálogo"
+      },
+      "champions": {
+        "label": "Campeões",
+        "alt": "Mate artesanal ao lado da trave de um campo de futebol",
+        "title": "O MATE DOS\nCAMPEÕES"
+      },
+      "custom": {
+        "label": "Personalizados",
+        "alt": "Mate com nome gravado na borda e bomba de metal",
+        "title": "COM SEU\nNOME"
+      },
+      "leather": {
+        "label": "Couro",
+        "alt": "Botas, bolsa para mate e acessórios de couro na oficina MateArte",
+        "title": "COURO\nARTESANAL"
+      },
+      "tradition": {
+        "label": "Tradição",
+        "alt": "Água sendo servida no mate ao lado de uma sacola MateArte"
+      }
+    }
   },
   "catalog": {
     "metadataTitle": "Cuias uruguaias, bombas e materas de couro",
@@ -259,7 +290,6 @@
     "parrotBeak": "Bico de papagaio",
     "belt": "Cinto",
     "wallet": "Carteira",
-    "footwear": "Calçados",
     "boot": "Bota",
     "color": "Cor",
     "brown": "Marrom",
@@ -314,7 +344,7 @@
     "savedLocally": "Salvo neste dispositivo. Ao entrar, o item será unido ao seu carrinho.",
     "added": "Adicionado ao carrinho.",
     "addFailed": "Não foi possível adicionar.",
-    "goToCart": "Ir ao carrinho →",
+    "goToCart": "Ir ao carrinho",
     "addRetry": "Não foi possível adicionar. Tente novamente.",
     "checking": "Consultando preço…",
     "unavailableBody": "A peça ficará disponível para compra somente quando tiver SKU, preço, entrega e publicação completos.",
@@ -322,7 +352,7 @@
     "catalogReady": "Catálogo pronto; vendas temporariamente desativadas.",
     "referenceNote": "Estas opções são informativas. O preço final é confirmado na compra.",
     "galleryLabel": "Galeria do produto",
-    "galleryHint": "Deslize para explorar · {count} vistas",
+    "galleryHint": "Deslize para explorar , {count} vistas",
     "previousImage": "Imagem anterior",
     "nextImage": "Próxima imagem"
   },
@@ -347,17 +377,18 @@
     "title": "Personalize sua cuia online",
     "body": "A primeira loja virtual do Uruguai onde você pode personalizar sua cuia: escolha o modelo, experimente nomes, escudos e acabamentos e veja o resultado antes de pedir.",
     "action": "Criar minha cuia online",
-    "heroAlt": "Design de mate segurado por um artesão",
+    "heroAlt": "Detalhe de um mate de couro com virola gravada e aplique dourado",
+    "processAlt": "Mate personalizado com virola gravada sobre uma superfície de couro",
     "galleryLabel": "Exemplos de mates personalizados",
     "craftTitle": "O ofício continua humano.",
     "craftBody": "Crie e visualize sua cuia online. Antes de produzir, a MateArte confere os detalhes para confirmar que o design é viável com as técnicas e materiais escolhidos.",
-    "stepsTitle": "Como funciona o personalizador",
+    "stepsTitle": "Assim você cria seu mate",
     "stepOneTitle": "Escolha sua cuia",
     "stepOneBody": "Selecione o modelo e os acabamentos disponíveis para sua peça.",
     "stepTwoTitle": "Deixe do seu jeito",
     "stepTwoBody": "Acrescente nomes, escudos ou desenhos e visualize as mudanças online.",
     "stepThreeTitle": "Revisamos seu design",
-    "stepThreeBody": "Ao fazer o pedido, a equipe da MateArte confere os detalhes antes da produção.",
+    "stepThreeBody": "Antes da produção, a equipe da MateArte confere os detalhes do seu design.",
     "faqAction": "Ver perguntas frequentes",
     "catalogAction": "Ver cuias personalizadas do catálogo",
     "gallery1": "Design de mate com nome gravado",
@@ -462,7 +493,7 @@
     "mapTitle": "Destinos internacionais da MateArte Uruguai",
     "mapDescription": "Mapa do mundo com {count} países destacados para os quais a MateArte enviou suas peças.",
     "originTitle": "Uruguai",
-    "originSubtitle": "Oficina de origem · Paysandú",
+    "originSubtitle": "Oficina de origem , Paysandú",
     "destinationList": "Lista de destinos internacionais",
     "flagLabel": "Bandeira de {country}",
     "carouselLabel": "Carrossel de depoimentos, movimento para a {direction}",
@@ -511,7 +542,16 @@
     "toCalculate": "A calcular",
     "total": "Total",
     "continue": "Continuar",
-    "wholesaleDiscountNotice": "A partir de {threshold} mates, usamos o preço base sem ajuste e aplicamos {discount}% de desconto. O pagamento é concluído por transferência."
+    "wholesaleDiscountNotice": "A partir de {threshold} mates, usamos o preço base sem ajuste e aplicamos {discount}% de desconto. O pagamento é concluído por transferência.",
+    "relatedTitle": "Complete seu carrinho",
+    "relatedBrowse": "Produtos complementares, deslize para ver mais",
+    "viewProduct": "Ver produto",
+    "addItem": "Adicionar {item} ao carrinho",
+    "addingItem": "Adicionando {item}",
+    "addedItem": "{item} adicionado ao carrinho",
+    "addFailed": "Não foi possível adicionar o produto. Confira a disponibilidade e tente novamente.",
+    "unavailable": "Um item não está mais disponível online. Remova-o para continuar.",
+    "availableColors": "Cores disponíveis"
   },
   "checkout": {
     "argentinaOption": "Envio nacional",
@@ -534,7 +574,6 @@
     "argentinaReceiptReceived": "Recebemos seu comprovante e estamos revisando o pagamento.",
     "argentinaViewStatus": "Consulte o estado do pedido para ver os próximos passos.",
     "argentinaUploadFailed": "Não foi possível enviar o comprovante.",
-
     "metadataTitle": "Finalizar compra",
     "eyebrow": "Compra",
     "title": "Finalizar compra",
@@ -630,7 +669,7 @@
     "whatsappSubtitle": "Coordenação pessoal do envio e pagamento",
     "continueToPaypal": "Continuar com PayPal",
     "paypalSummary": "Você paga em dólares (USD). O custo de envio é combinado separadamente.",
-    "paypalShippingNote": "Subtotal dos produtos · Envio a combinar",
+    "paypalShippingNote": "Subtotal dos produtos , Envio a combinar",
     "paypalCancelled": "Pagamento cancelado. Você pode tentar novamente.",
     "paypalDeclined": "Meio de pagamento recusado. Tente outro.",
     "paypalPending": "Estamos verificando a confirmação do seu pagamento. Não pague novamente; consulte seus pedidos ou entre em contato se a confirmação não chegar.",
@@ -693,9 +732,9 @@
     "statuses": {
       "pending_payment": "Aguardando pagamento",
       "payment_verification_pending": "Comprovante aguardando verificação",
-      "paid_pending_review": "Pagamento recebido · revisando seu personalizado",
+      "paid_pending_review": "Pagamento recebido , revisando seu personalizado",
       "ready_for_fulfillment": "Preparando seu pedido",
-      "ready_for_production": "Personalizado aprovado · em produção",
+      "ready_for_production": "Personalizado aprovado , em produção",
       "shipped": "Pedido enviado",
       "delivered": "Pedido entregue",
       "payment_failed": "O pagamento não foi aprovado",

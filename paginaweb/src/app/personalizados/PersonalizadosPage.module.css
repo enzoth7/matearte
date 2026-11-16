@@ -1,0 +1,250 @@
+/* Personalizados, approved Figma frame 1030:393. The existing carousel is unchanged. */
+.page {
+  background: var(--brand-white);
+  color: var(--brand-black);
+}
+
+.page :global(.personalizados-mobile-craft h2),
+.page :global(.personalizados-desktop-craft h2) {
+  white-space: pre-line;
+}
+
+.page :global(.personalizados-mobile-hero-image),
+.page :global(.personalizados-desktop-hero-image) {
+  object-position: center 57.34%;
+  transform: none;
+}
+
+.page :global(.personalizados-mobile-hero-tint),
+.page :global(.personalizados-desktop-hero-tint) {
+  background: rgb(30 18 12 / 10%);
+}
+
+.page :global(.personalizados-mobile-hero-gradient),
+.page :global(.personalizados-desktop-hero-gradient) {
+  background: linear-gradient(90deg, rgb(30 18 12 / 78%), rgb(30 18 12 / 18%) 72%, rgb(30 18 12 / 0%));
+}
+
+.page :global(.personalizados-mobile-hero-copy) {
+  top: 64px;
+  gap: 24px;
+}
+
+.page :global(.personalizados-mobile-hero-copy h1) {
+  font-size: 50px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.page :global(.personalizados-mobile-hero-copy [data-copy]) {
+  font-size: 17px;
+  line-height: 26px;
+}
+
+.page :global(.personalizados-mobile-hero-copy a),
+.page :global(.personalizados-desktop-hero-copy a),
+.processAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: max-content;
+  min-width: 230px;
+  max-width: 100%;
+  min-height: 48px;
+  height: auto;
+  padding: 14px 24px;
+  border: 0;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: 0;
+  white-space: nowrap;
+  text-align: center;
+  text-decoration: none;
+}
+
+.page :global(.personalizados-mobile-hero-copy a:focus-visible),
+.page :global(.personalizados-desktop-hero-copy a:focus-visible) {
+  outline: 2px solid var(--brand-white);
+  outline-offset: 4px;
+}
+
+.page :global(.personalizados-mobile-craft) {
+  min-height: 0;
+  gap: 24px;
+  padding: 56px 24px;
+  background: var(--brand-black);
+}
+
+.page :global(.personalizados-mobile-craft h2) {
+  font-size: 42px;
+  font-weight: 500;
+  line-height: 44px;
+  letter-spacing: 0;
+}
+
+.page :global(.personalizados-mobile-craft [data-copy]) {
+  font-size: 17px;
+  line-height: 26px;
+}
+
+.process {
+  padding: 56px 24px 64px;
+  background: var(--brand-white);
+}
+
+.processInner {
+  display: grid;
+  max-width: 1200px;
+  gap: 36px;
+  margin-inline: auto;
+}
+
+.processPhoto {
+  position: relative;
+  min-width: 0;
+  margin: 0;
+  aspect-ratio: 342 / 390;
+  overflow: hidden;
+}
+
+.processPhoto img {
+  object-fit: cover;
+  object-position: center;
+}
+
+.processCopy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 28px;
+}
+
+.processCopy h2 {
+  margin: 0;
+  font-family: var(--font-newsreader), Georgia, serif;
+  font-size: 42px;
+  font-weight: 500;
+  line-height: 46px;
+  letter-spacing: 0;
+}
+
+.processSteps {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.processSteps li {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.processSteps h3 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 28px;
+}
+
+.processSteps li > div {
+  max-width: 530px;
+  font-size: 17px;
+  line-height: 26px;
+}
+
+.processAction {
+  background: var(--brand-black);
+  color: var(--brand-white);
+}
+
+.processAction:hover {
+  background: var(--brand-brown);
+}
+
+.processAction:focus-visible {
+  outline: 2px solid var(--brand-brown);
+  outline-offset: 4px;
+}
+
+@media (min-width: 1024px) {
+  .page :global(.personalizados-desktop-hero-copy) {
+    top: 152px;
+    left: max(24px, calc((100% - 1200px) / 2));
+    width: 560px;
+    gap: 28px;
+  }
+
+  .page :global(.personalizados-desktop-hero-copy h1) {
+    width: 560px;
+    font-size: 76px;
+    line-height: 76px;
+    letter-spacing: 0;
+  }
+
+  .page :global(.personalizados-desktop-hero-copy [data-copy]) {
+    width: 540px;
+    line-height: 29px;
+  }
+
+  .page :global(.personalizados-desktop-craft) {
+    height: auto;
+    padding-block: 72px;
+    background: var(--brand-black);
+  }
+
+  .page :global(.personalizados-desktop-craft-grid) {
+    width: min(calc(100% - 48px), 1200px);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: center;
+    gap: 80px;
+  }
+
+  .page :global(.personalizados-desktop-craft h2) {
+    grid-column: auto;
+    width: auto;
+    font-size: 58px;
+    font-weight: 500;
+    line-height: 60px;
+    letter-spacing: 0;
+  }
+
+  .page :global(.personalizados-desktop-craft-grid > div) {
+    grid-column: auto;
+  }
+
+  .page :global(.personalizados-desktop-craft [data-copy]) {
+    color: var(--brand-white);
+    line-height: 29px;
+  }
+
+  .process {
+    padding-block: 96px;
+  }
+
+  .processInner {
+    grid-template-columns: minmax(0, 536fr) minmax(0, 584fr);
+    gap: 80px;
+  }
+
+  .processPhoto {
+    min-height: 640px;
+    aspect-ratio: auto;
+  }
+
+  .processCopy,
+  .processSteps {
+    gap: 32px;
+  }
+
+  .processCopy h2 {
+    font-size: 56px;
+    line-height: 60px;
+  }
+}

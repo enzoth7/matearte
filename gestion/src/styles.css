@@ -3391,6 +3391,9 @@ dialog.local-mate-summary-dialog{width:min(920px,calc(100% - 24px));max-height:9
 .local-sale-customer-placeholder strong { color: var(--black); }
 .local-sale-customer-placeholder span { max-width: 350px; font-size: 13px; line-height: 1.45; }
 .local-sale-payment-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; }
+.local-sale-split-remainder { display: grid; align-content: end; gap: 7px; min-height: 70px; }
+.local-sale-split-remainder small { color: var(--muted); }
+.local-sale-split-remainder strong { font-size: 19px; }
 .local-sale-deposit-toggle { flex-direction: row; align-items: center; align-self: end; gap: 10px; min-height: 44px; cursor: pointer; }
 .local-sale-deposit-toggle input { margin: 0; padding: 0; flex: 0 0 18px; }
 .local-sale-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; padding: 14px 0 22px; }

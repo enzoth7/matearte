@@ -29,16 +29,15 @@ export default async function ClientesPage() {
         <div className="container-shell">
           <div className="international-section-heading">
             <div>
-              <p className="eyebrow text-[var(--leather)]">{t("eyebrow")}</p>
               <h1 id="destinations-heading" className="international-hero-title">{t("titleLine1")}<br />{t("titleLine2")}</h1>
             </div>
-            <p>
-              <span className="clientes-copy-desktop">{t("introDesktop")}</span>
-              <span className="clientes-copy-mobile">{t("introMobile")}</span>
-            </p>
+            <div data-copy>
+              <strong data-inline className="clientes-copy-desktop">{t("introDesktop")}</strong>
+              <strong data-inline className="clientes-copy-mobile">{t("introMobile")}</strong>
+            </div>
           </div>
           <InternationalWorldMap destinations={data.destinations} />
-          <p className="legal-note mt-10 max-w-3xl">{t("legalNote")}</p>
+          <div data-copy className="legal-note mt-10 max-w-3xl">{t("legalNote")}</div>
         </div>
       </section>
 
@@ -46,16 +45,15 @@ export default async function ClientesPage() {
 
       <section className="international-cta">
         <div className="container-shell international-cta-grid">
-          <p className="eyebrow text-[var(--leather)]">{t("ctaEyebrow")}</p>
           <h2 className="display-lg">
-            <span className="clientes-copy-desktop">{t("ctaDesktop")}</span>
-            <span className="clientes-copy-mobile">{t("ctaMobile1")}<br />{t("ctaMobile2")}<br />{t("ctaMobile3")}</span>
+            <strong data-inline className="clientes-copy-desktop">{t("ctaDesktop")}</strong>
+            <strong data-inline className="clientes-copy-mobile">{t("ctaMobile1")}<br />{t("ctaMobile2")}<br />{t("ctaMobile3")}</strong>
           </h2>
           <div>
-            <p>
-              <span className="clientes-copy-desktop">{t("ctaBodyDesktop")}</span>
-              <span className="clientes-copy-mobile">{t("ctaBodyMobile")}</span>
-            </p>
+            <div data-copy>
+              <strong data-inline className="clientes-copy-desktop">{t("ctaBodyDesktop")}</strong>
+              <strong data-inline className="clientes-copy-mobile">{t("ctaBodyMobile")}</strong>
+            </div>
             <Link className="button-primary mt-8" href="/contacto">{t("ctaAction")}</Link>
           </div>
         </div>

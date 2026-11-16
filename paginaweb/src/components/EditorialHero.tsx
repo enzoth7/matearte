@@ -29,7 +29,7 @@ export function EditorialHero() {
   }, [reduceMotion]);
 
   return (
-    <section ref={sectionRef} className="relative min-h-[calc(100svh-7rem)] overflow-hidden bg-[var(--ink)] text-white">
+    <section ref={sectionRef} className="relative min-h-[calc(100svh-7rem)] overflow-hidden bg-[var(--ink)] text-[var(--paper)]">
       <motion.div className="absolute -inset-y-16 inset-x-0" style={reduceMotion ? undefined : { y: imageY, scale: imageScale }}>
         <Image
           src={editorialMedia.hero.src}
@@ -60,19 +60,18 @@ export function EditorialHero() {
           />
         </div>
       )}
-      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(16,12,9,.93)_0%,rgba(16,12,9,.68)_38%,rgba(16,12,9,.12)_72%),linear-gradient(0deg,rgba(16,12,9,.72),transparent_55%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgb(17 17 17 / .93)_0%,rgb(17 17 17 / .68)_38%,rgb(17 17 17 / .12)_72%),linear-gradient(0deg,rgb(17 17 17 / .72),transparent_55%)]" />
       <div className="container-shell relative z-10 flex min-h-[calc(100svh-7rem)] flex-col justify-end py-12 md:py-16">
         <div>
-          <p className="hero-enter hero-enter-1 eyebrow text-[var(--rawhide)]">Paysandú · Uruguay</p>
           <h1 className="hero-enter hero-enter-2 display-xl mt-7">Una tradición que llega a vos.</h1>
-          <p className="hero-enter hero-enter-3 mt-7 max-w-xl text-base leading-8 text-white/75 md:text-lg">Mates, cuero y metal trabajados para acompañar historias, viajes, reuniones y rituales cotidianos.</p>
+          <div data-copy className="hero-enter hero-enter-3 mt-7 max-w-xl text-base leading-8 text-[var(--paper)]/75 md:text-lg">Mates, cuero y metal trabajados para acompañar historias, viajes, reuniones y rituales cotidianos.</div>
           <div className="hero-enter hero-enter-4 mt-9 flex flex-col gap-3 sm:flex-row">
             <Link className="button-primary" href="/catalogo">Explorar catálogo</Link>
             <Link className="button-light" href="/personalizados">Conocer personalizados</Link>
           </div>
         </div>
-        <div className="hero-enter hero-enter-5 mt-14 flex max-w-3xl flex-wrap gap-x-8 gap-y-3 border-t border-white/25 pt-5 text-[0.7rem] font-medium tracking-[0.14em] text-white/60 uppercase">
-          <span>Fabricación artesanal</span><span>Venta nacional</span><span>Envíos internacionales</span>
+        <div className="hero-enter hero-enter-5 mt-14 flex max-w-3xl flex-wrap gap-x-8 gap-y-3 border-t border-[var(--paper)]/25 pt-5 text-[0.7rem] font-medium tracking-[0.14em] text-[var(--paper)]/60 uppercase">
+          <strong data-inline>Fabricación artesanal</strong><strong data-inline>Venta nacional</strong><strong data-inline>Envíos internacionales</strong>
         </div>
       </div>
     </section>

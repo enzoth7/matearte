@@ -377,6 +377,7 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
       items, totalAmount: amountUyu(totalMinor), localItemsAmount: amountUyu(itemsMinor),
       shippingAmount: shippingMinor ? amountUyu(shippingMinor) : undefined,
       depositAmount: deposit == null ? undefined : amountUyu(deposit), paymentMethod: source.payment_method,
+      initialPaymentSplit: source.retail_payment_split?.map(part => ({ method: part.method, amount: amountUyu(part.amountMinor) })),
       ...(foreignSale ? {
         originalCurrency: source.currency, originalTotalAmount: totalMinor / 100, retailRateToUyu: rate,
         originalShippingAmount: shippingMinor / 100, originalDepositAmount: deposit == null ? undefined : deposit / 100,
@@ -409,10 +410,15 @@ export function adaptCommerce(snapshot: CommerceSnapshot, imageUrl: (path: strin
         reconciliationRequired: amount == null || (payment.currency === "USD" && originalMinor !== historicalUsd),
         date: commerceDate(payment.approved_at || payment.created_at), method: payment.provider,
       };
-    }).concat(localSales.filter((sale) => Number(sale.total_minor) > 0).map((sale) => ({
-      id: `local:${sale.id}`, orderId: sale.id, ...localPaymentAmount(sale, sale.total_minor),
-      date: sale.sold_on, method: sale.payment_method,
-    })), (snapshot.localReceipts || []).map((receipt) => ({
+    }).concat(localSales.filter((sale) => Number(sale.total_minor) > 0).flatMap((sale) =>
+      sale.retail_payment_split?.length === 2
+        ? sale.retail_payment_split.map((part, index) => ({
+          id: `local:${sale.id}:${index + 1}`, orderId: sale.id, ...localPaymentAmount(sale, part.amountMinor),
+          date: sale.sold_on, method: part.method,
+        }))
+        : [{ id: `local:${sale.id}`, orderId: sale.id, ...localPaymentAmount(sale, sale.total_minor),
+          date: sale.sold_on, method: sale.payment_method }]
+    ), (snapshot.localReceipts || []).map((receipt) => ({
       id: `local-receipt:${receipt.id}`, orderId: receipt.sale_id, ...localPaymentAmount(localSalesById.get(receipt.sale_id), receipt.amount_minor),
       date: receipt.paid_on, method: receipt.payment_method,
     }))),

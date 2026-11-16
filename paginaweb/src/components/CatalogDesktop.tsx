@@ -86,7 +86,7 @@ function CatalogDesktopCard({
     || product.name.toLocaleLowerCase().includes("estribo imperial");
 
   return (
-    <article className="catalog-product-card" data-scroll-reveal style={{ transitionDelay: `${index % 3 * 0.06}s` }}>
+    <article className="catalog-product-card" data-scroll-reveal suppressHydrationWarning style={{ transitionDelay: `${index % 3 * 0.06}s` }}>
       <Link href={{ pathname: "/producto/[slug]", params: { slug: product.slug }, query: activeColor ? { color: activeColor } : {} }}>
         <div className="catalog-product-media" data-clarity-unmask="true">
           {showBackground ? (

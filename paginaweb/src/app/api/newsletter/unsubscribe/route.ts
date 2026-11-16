@@ -3,11 +3,11 @@ import { verifyNewsletterUnsubscribeToken } from "@/lib/newsletter-unsubscribe";
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const html = (title: string, message: string, form = "") => new Response(`<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${title} · MateArte</title></head>
-<body style="margin:0;background:#f5efe3;color:#24150f;font-family:Arial,sans-serif;display:grid;min-height:100vh;place-items:center;padding:24px;box-sizing:border-box">
-  <main style="max-width:520px;background:#fffdf8;border:1px solid #ddccb5;padding:36px">
+<body style="margin:0;background:#FDFDFC;color:#1E120C;font-family:Arial,sans-serif;display:grid;min-height:100vh;place-items:center;padding:24px;box-sizing:border-box">
+  <main style="max-width:520px;background:#FDFDFC;border:1px solid #FDFDFC;padding:36px">
     <div style="font-family:Georgia,serif;font-size:30px;font-weight:bold">MateArte</div>
     <h1 style="font-family:Georgia,serif;font-size:28px">${title}</h1>
-    <p style="font-size:16px;line-height:1.6">${message}</p>${form}
+    <div style="font-size:16px;line-height:1.6">${message}</div>${form}
   </main>
 </body></html>`, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
 
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   return html(
     "¿Querés dejar de recibir Novedades?",
     "Tu cuenta y los correos sobre pedidos seguirán funcionando normalmente.",
-    `<form method="post" action="${action.pathname}${action.search}"><button type="submit" style="border:0;background:#351d13;color:#fff;padding:14px 22px;font-weight:bold;cursor:pointer">Dar de baja Novedades</button></form>`,
+    `<form method="post" action="${action.pathname}${action.search}"><button type="submit" style="border:0;background:#1E120C;color:#FDFDFC;padding:14px 22px;font-weight:bold;cursor:pointer">Dar de baja Novedades</button></form>`,
   );
 }
 

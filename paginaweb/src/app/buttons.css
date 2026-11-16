@@ -1,0 +1,64 @@
+/* Action buttons. Navigation, carousel controls and real product swatches
+   retain their own interaction styles. */
+body :is(.button-primary, .button-secondary, .button-light, .home-button,
+  .cart-mobile-checkout, .cart-desktop-checkout,
+  .product-mobile-primary, .product-mobile-secondary,
+  .product-desktop-primary, .product-desktop-secondary,
+  .catalog-personalize-copy a, .home-catalog-search form > button[type="submit"],
+  .contact-mobile-location-copy > a, .contact-desktop-location-copy > a,
+  .contact-mobile-cta > a, .contact-desktop-cta > a,
+  button[class*="bg-[var(--walnut)]"], button[class*="bg-[var(--paper)]"],
+  button[class*="bg-[#111111]"], button[class*="bg-[#FDFDFC]"] ) {
+  border-radius: 8px;
+  min-height: 48px;
+}
+
+body :is(.button-primary, .product-mobile-primary, .product-desktop-primary) {
+  background: #1E120C;
+  color: #FDFDFC;
+}
+body :is(.button-secondary, .button-light,
+  .product-mobile-secondary, .product-desktop-secondary,
+  .catalog-personalize-copy a,
+  .contact-mobile-location-copy > a, .contact-desktop-location-copy > a) {
+  background: #FDFDFC;
+  color: #111111;
+  border: 1px solid rgb(17 17 17 / .25);
+}
+body :is(.contact-mobile-cta > a, .contact-desktop-cta > a) {
+  background: #111111;
+  color: #FDFDFC;
+}
+
+/* The white surface separates the action from the dark purchase summary. */
+body :is(.cart-mobile-checkout, .cart-desktop-checkout,
+  .purchase-summary button, .purchase-summary button:hover) {
+  background: #FDFDFC;
+  color: #111111;
+  border: 1px solid #FDFDFC;
+  border-radius: 8px;
+  min-height: 48px;
+}
+body :is(.cart-mobile-checkout, .cart-desktop-checkout):hover {
+  background: #FDFDFC;
+  color: #1E120C;
+  border-color: #FDFDFC;
+}
+body .purchase-summary button:disabled {
+  opacity: .65;
+  cursor: not-allowed;
+}
+body :is(.cart-mobile-checkout, .cart-desktop-checkout,
+  .purchase-summary button):focus-visible {
+  outline: 2px solid #FDFDFC;
+  outline-offset: 4px;
+}
+body :is(.button-primary, .button-secondary, .button-light,
+  .product-mobile-primary, .product-mobile-secondary,
+  .product-desktop-primary, .product-desktop-secondary):focus-visible {
+  outline: 2px solid #1E120C;
+  outline-offset: 4px;
+}
+.clientes-page .international-cta-grid .button-primary {
+  border-radius: 8px;
+}

@@ -76,7 +76,7 @@
     "invalidEmail": "Enter a valid email address.",
     "subscribeError": "We could not subscribe you. Please try again.",
     "consent": "By subscribing, you agree to receive marketing emails. You can unsubscribe at any time.",
-    "writeUs": "Write to us →",
+    "writeUs": "Write to us",
     "whatsappLabel": "Ask us on WhatsApp at {phone}",
     "instagramLabel": "MateArte on Instagram",
     "facebookLabel": "MateArte on Facebook",
@@ -118,7 +118,7 @@
     "featuredSubtitle": "Mates and handcrafted accessories ready to accompany your ritual.",
     "featuredCtaTitle": "Explore the Catalog",
     "featuredCtaDesc": "More than 30 unique handcrafted pieces.",
-    "featuredCtaAction": "View full catalog →",
+    "featuredCtaAction": "View full catalog",
     "craftTitleTop": "The Art",
     "craftTitleMiddle": "behind the",
     "craftTitleMate": "Mate",
@@ -173,7 +173,38 @@
     "shippingLine1": "Domestic",
     "shippingLine2": "and international shipping",
     "shippingBody": "From Paysandú to Uruguay and the world. Ask our team about options and delivery times.",
-    "contactAction": "Contact details"
+    "contactAction": "Contact details",
+    "carousel": {
+      "carousel": "Carousel",
+      "label": "Discover MateArte",
+      "choose": "Choose a scene",
+      "pause": "Pause",
+      "play": "Play",
+      "actions": {
+        "collection": "View collection",
+        "custom": "Create mine",
+        "catalog": "View catalog"
+      },
+      "champions": {
+        "label": "Champions",
+        "alt": "Handcrafted mate beside a football goal",
+        "title": "THE MATE OF\nCHAMPIONS"
+      },
+      "custom": {
+        "label": "Personalized",
+        "alt": "Mate with an engraved name on the rim and a metal straw",
+        "title": "WITH YOUR\nNAME"
+      },
+      "leather": {
+        "label": "Leather",
+        "alt": "Leather boots, mate bag and accessories in the MateArte workshop",
+        "title": "HANDCRAFTED\nLEATHER"
+      },
+      "tradition": {
+        "label": "Tradition",
+        "alt": "Water being poured into a mate beside a MateArte bag"
+      }
+    }
   },
   "catalog": {
     "metadataTitle": "Uruguayan mate gourds, bombillas and leather materas",
@@ -259,7 +290,6 @@
     "parrotBeak": "Parrot beak",
     "belt": "Belt",
     "wallet": "Wallet",
-    "footwear": "Footwear",
     "boot": "Boot",
     "color": "Color",
     "brown": "Brown",
@@ -314,7 +344,7 @@
     "savedLocally": "Saved on this device. It will be merged into your cart when you sign in.",
     "added": "Added to cart.",
     "addFailed": "We couldn't add this item.",
-    "goToCart": "Go to cart →",
+    "goToCart": "Go to cart",
     "addRetry": "We couldn't add this item. Please try again.",
     "checking": "Checking price…",
     "unavailableBody": "This piece will be available to purchase only after its SKU, price, delivery and publication details are complete.",
@@ -322,7 +352,7 @@
     "catalogReady": "Catalog ready; sales are temporarily disabled.",
     "referenceNote": "These options are for reference only. The final price is confirmed at checkout.",
     "galleryLabel": "Product gallery",
-    "galleryHint": "Swipe to explore · {count} views",
+    "galleryHint": "Swipe to explore , {count} views",
     "previousImage": "Previous image",
     "nextImage": "Next image"
   },
@@ -347,17 +377,18 @@
     "title": "Customize your mate online",
     "body": "Uruguay's first online store where you can personalize your mate: choose a model, try names, crests and finishes, and preview it before ordering.",
     "action": "Create my mate online",
-    "heroAlt": "A custom mate held by an artisan",
+    "heroAlt": "Close-up of a leather mate with an engraved rim and gold detail",
+    "processAlt": "Personalized mate with an engraved rim on a leather surface",
     "galleryLabel": "Examples of custom mates",
     "craftTitle": "The craft remains human.",
     "craftBody": "Design and preview your mate online. Before production, MateArte checks the details to confirm the design works with the selected craft techniques and materials.",
-    "stepsTitle": "How the personalizer works",
+    "stepsTitle": "How to create your mate",
     "stepOneTitle": "Choose your mate",
     "stepOneBody": "Select the model and available finishes for your piece.",
     "stepTwoTitle": "Make it yours",
     "stepTwoBody": "Add names, crests or designs and preview your changes online.",
     "stepThreeTitle": "We review your design",
-    "stepThreeBody": "When you order, the MateArte team checks the details before production.",
+    "stepThreeBody": "Before production, the MateArte team checks the details of your design.",
     "faqAction": "Read frequently asked questions",
     "catalogAction": "Browse personalized mates",
     "gallery1": "Custom mate engraved with a name",
@@ -462,7 +493,7 @@
     "mapTitle": "MateArte Uruguay international destinations",
     "mapDescription": "World map highlighting {count} countries where MateArte has shipped its pieces.",
     "originTitle": "Uruguay",
-    "originSubtitle": "Workshop of origin · Paysandú",
+    "originSubtitle": "Workshop of origin , Paysandú",
     "destinationList": "List of international destinations",
     "flagLabel": "Flag of {country}",
     "carouselLabel": "Testimonial carousel moving to the {direction}",
@@ -511,7 +542,16 @@
     "toCalculate": "To be calculated",
     "total": "Total",
     "continue": "Continue",
-    "wholesaleDiscountNotice": "From {threshold} mates, the base price is used without the catalog adjustment and a {discount}% discount is applied. Payment is completed by bank transfer."
+    "wholesaleDiscountNotice": "From {threshold} mates, the base price is used without the catalog adjustment and a {discount}% discount is applied. Payment is completed by bank transfer.",
+    "relatedTitle": "Complete your cart",
+    "relatedBrowse": "Complementary products, scroll to see more",
+    "viewProduct": "View product",
+    "addItem": "Add {item} to cart",
+    "addingItem": "Adding {item}",
+    "addedItem": "{item} added to cart",
+    "addFailed": "We could not add this product. Check availability and try again.",
+    "unavailable": "An item is no longer available online. Remove it to continue.",
+    "availableColors": "Available colors"
   },
   "checkout": {
     "argentinaOption": "Domestic shipping",
@@ -534,7 +574,6 @@
     "argentinaReceiptReceived": "We received your receipt and are reviewing the payment.",
     "argentinaViewStatus": "Check your order status for the next steps.",
     "argentinaUploadFailed": "Could not upload the receipt.",
-
     "metadataTitle": "Checkout",
     "eyebrow": "Purchase",
     "title": "Checkout",
@@ -630,7 +669,7 @@
     "whatsappSubtitle": "Personal shipping and payment coordination",
     "continueToPaypal": "Continue with PayPal",
     "paypalSummary": "You'll pay in US dollars (USD). Shipping cost is coordinated separately.",
-    "paypalShippingNote": "Product subtotal · Shipping to be arranged",
+    "paypalShippingNote": "Product subtotal , Shipping to be arranged",
     "paypalCancelled": "Payment cancelled. You can try again.",
     "paypalDeclined": "Payment method declined. Please try another.",
     "paypalPending": "We are checking your payment confirmation. Do not pay again; check your orders or contact us if confirmation does not arrive.",
@@ -693,9 +732,9 @@
     "statuses": {
       "pending_payment": "Awaiting payment",
       "payment_verification_pending": "Receipt awaiting verification",
-      "paid_pending_review": "Payment received · reviewing your custom item",
+      "paid_pending_review": "Payment received , reviewing your custom item",
       "ready_for_fulfillment": "Preparing your order",
-      "ready_for_production": "Custom item approved · in production",
+      "ready_for_production": "Custom item approved , in production",
       "shipped": "Order shipped",
       "delivered": "Order collected",
       "payment_failed": "Payment was not approved",

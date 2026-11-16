@@ -62,6 +62,7 @@ dashboard/.codex-inspect-workbook.mjs
 # Private contact records (the GitHub repository is public)
 /Informacion/Todos_los_contactos.xlsx
 /Informacion/agenda_contactos_revision.json
+/Informacion/ProDiseño Noviembre/
 
 # Editors and operating systems
 .vscode/*

@@ -79,7 +79,6 @@ export function MateArteVideoStory() {
   return (
     <section ref={sectionRef} className="relative overflow-hidden bg-[var(--ink)] text-[var(--paper)]" aria-labelledby="video-story-title">
       <div className="container-shell pt-20 md:pt-28">
-        <p className="eyebrow text-[var(--rawhide)]">Archivo audiovisual</p>
         <div className="mt-7 flex items-start gap-5 md:items-end md:gap-10">
           <h2 id="video-story-title" className="display-lg max-w-[50rem]">Historias que se ven en movimiento.</h2>
           <Image
@@ -90,12 +89,12 @@ export function MateArteVideoStory() {
             className="h-20 w-auto shrink-0 object-contain md:h-28"
           />
         </div>
-        <p className="mt-7 max-w-2xl text-base leading-8 text-white/68">Tres miradas al oficio, la personalización y el vínculo de MateArte con la cultura uruguaya.</p>
+        <div data-copy className="mt-7 max-w-2xl text-base leading-8 text-[var(--paper)]/68">Tres miradas al oficio, la personalización y el vínculo de MateArte con la cultura uruguaya.</div>
       </div>
 
       <div className="container-shell grid min-h-[54rem] items-stretch gap-10 pb-20 pt-14 lg:grid-cols-12 lg:gap-0 lg:pb-0">
         <div className="min-w-0 flex flex-col justify-center lg:col-span-5 lg:pr-16">
-          <div role="tablist" aria-label="Historias audiovisuales" className="grid grid-cols-3 border-t border-white/18 lg:block lg:border-t-0">
+          <div role="tablist" aria-label="Historias audiovisuales" className="grid grid-cols-3 border-t border-[var(--paper)]/18 lg:block lg:border-t-0">
             {items.map((item, index) => {
               const selected = index === activeIndex;
               return (
@@ -107,15 +106,15 @@ export function MateArteVideoStory() {
                   aria-selected={selected}
                   aria-controls="video-story-panel"
                   onClick={() => selectItem(index)}
-                  className={`group grid min-h-14 w-full place-items-center border-b border-white/18 py-3 text-center transition-colors duration-200 lg:min-h-24 lg:grid-cols-[2.25rem_1fr] lg:place-items-stretch lg:items-center lg:gap-4 lg:border-t lg:py-5 lg:text-left ${selected ? "text-white" : "text-white/42 hover:text-white/72"}`}
+                  className={`group grid min-h-14 w-full place-items-center border-b border-[var(--paper)]/18 py-3 text-center transition-colors duration-200 lg:min-h-24 lg:grid-cols-[2.25rem_1fr] lg:place-items-stretch lg:items-center lg:gap-4 lg:border-t lg:py-5 lg:text-left ${selected ? "text-[var(--paper)]" : "text-[var(--paper)]/42 hover:text-[var(--paper)]/72"}`}
                 >
-                  <span className={`text-xs tracking-[0.18em] transition-colors ${selected ? "text-[var(--rawhide)]" : "text-current"}`}>0{index + 1}</span>
-                  <span className="display-font hidden text-2xl leading-tight lg:block lg:text-3xl">{item.title}</span>
+                  <strong data-inline className={`text-xs tracking-[0.18em] transition-colors ${selected ? "text-[var(--rawhide)]" : "text-current"}`}>0{index + 1}</strong>
+                  <strong data-inline className="display-font hidden text-2xl leading-tight lg:block lg:text-3xl">{item.title}</strong>
                 </button>
               );
             })}
           </div>
-          <p className="mt-8 hidden max-w-md text-xs leading-6 text-white/48 lg:block">Material provisto para esta presentación. Jugadores, AUF, marcas y piezas vinculadas requieren validación antes de la publicación final.</p>
+          <div data-copy className="mt-8 hidden max-w-md text-xs leading-6 text-[var(--paper)]/48 lg:block">Material provisto para esta presentación. Jugadores, AUF, marcas y piezas vinculadas requieren validación antes de la publicación final.</div>
         </div>
 
         <div id="video-story-panel" role="tabpanel" aria-labelledby={`video-tab-${active.id}`} className="relative min-h-[42rem] overflow-hidden lg:col-span-7 lg:min-h-[54rem]">
@@ -142,11 +141,10 @@ export function MateArteVideoStory() {
                 className="h-full w-full object-cover"
                 aria-label={`${active.eyebrow}: ${active.title}`}
               />
-              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(23,19,15,.5),transparent_35%),linear-gradient(0deg,rgba(23,19,15,.88),transparent_48%)]" />
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgb(17 17 17 / .5),transparent_35%),linear-gradient(0deg,rgb(17 17 17 / .88),transparent_48%)]" />
               <div className="absolute inset-x-0 bottom-0 z-10 p-6 md:p-10">
-                <p className="text-xs font-semibold tracking-[0.18em] text-[var(--rawhide)] uppercase">{active.eyebrow}</p>
-                <p className="display-font mt-3 max-w-xl text-3xl leading-tight text-white md:text-4xl">{active.title}</p>
-                <p className="mt-3 max-w-lg text-base leading-7 text-white/72">{active.description}</p>
+                <div data-copy className="display-font mt-3 max-w-xl text-3xl leading-tight text-[var(--paper)] md:text-4xl">{active.title}</div>
+                <div data-copy className="mt-3 max-w-lg text-base leading-7 text-[var(--paper)]/72">{active.description}</div>
               </div>
             </motion.div>
           </AnimatePresence>
@@ -154,7 +152,7 @@ export function MateArteVideoStory() {
           <div className="absolute right-5 top-5 z-20 flex gap-2 md:right-8 md:top-8">
             <button
               type="button"
-              className="flex size-11 items-center justify-center rounded-sm border border-white/35 bg-[color:rgb(23_19_15_/_0.68)] text-white backdrop-blur-sm transition-colors hover:border-[var(--rawhide)] hover:bg-[var(--walnut)]"
+              className="flex size-11 items-center justify-center rounded-sm border border-[var(--paper)]/35 bg-[color:rgb(17 17 17 / 0.68)] text-[var(--paper)] backdrop-blur-sm transition-colors hover:border-[var(--rawhide)] hover:bg-[var(--walnut)]"
               onClick={togglePlayback}
               aria-label={playing ? "Pausar video" : "Reproducir video"}
             >
@@ -162,7 +160,7 @@ export function MateArteVideoStory() {
             </button>
             <button
               type="button"
-              className="flex size-11 items-center justify-center rounded-sm border border-white/35 bg-[color:rgb(23_19_15_/_0.68)] text-white backdrop-blur-sm transition-colors hover:border-[var(--rawhide)] hover:bg-[var(--walnut)]"
+              className="flex size-11 items-center justify-center rounded-sm border border-[var(--paper)]/35 bg-[color:rgb(17 17 17 / 0.68)] text-[var(--paper)] backdrop-blur-sm transition-colors hover:border-[var(--rawhide)] hover:bg-[var(--walnut)]"
               onClick={toggleSound}
               aria-label={muted ? "Activar sonido" : "Silenciar video"}
             >
@@ -171,7 +169,7 @@ export function MateArteVideoStory() {
           </div>
 
         </div>
-        <p className="text-xs leading-6 text-white/48 lg:hidden">Material provisto para esta presentación. Jugadores, AUF, marcas y piezas vinculadas requieren validación antes de la publicación final.</p>
+        <div data-copy className="text-xs leading-6 text-[var(--paper)]/48 lg:hidden">Material provisto para esta presentación. Jugadores, AUF, marcas y piezas vinculadas requieren validación antes de la publicación final.</div>
       </div>
     </section>
   );

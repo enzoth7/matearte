@@ -43,7 +43,7 @@ import { flejeFinishCatalog, getFlejeFinish } from "../../personalizador/src/cat
 const saleCurrencies = ["ARS", "UYU", "USD", "BRL"] as const;
 type SaleCurrency = typeof saleCurrencies[number];
 type SaleLine = { id: string; product: Product; quantity: number; unitPriceMinor: number; foreignPrice?: string; priceEntered?: boolean; priceOverridden?: boolean; personalization?: LocalPersonalizationDraft; notes?: string };
-type LocalSaleDraft = { lines: SaleLine[]; articleTab: "articles" | "custom"; customerId: string; customerSearch: string; newCustomer: boolean; name: string; email: string; phone: string; birthDate: string; date: string; payment: string; hasDeposit: boolean; deposit: string; discountOn: boolean; discountText: string; channel: "Local" | "Feria" | "Instagram" | "Facebook" | "WhatsApp"; city: string; country: string; department: string; currency?: SaleCurrency; shipping?: string };
+type LocalSaleDraft = { lines: SaleLine[]; articleTab: "articles" | "custom"; customerId: string; customerSearch: string; newCustomer: boolean; name: string; email: string; phone: string; birthDate: string; date: string; payment: string; paymentMode?: "single" | "split"; secondPayment?: string; firstAmount?: string; hasDeposit: boolean; deposit: string; discountOn: boolean; discountText: string; channel: "Local" | "Feria" | "Instagram" | "Facebook" | "WhatsApp"; city: string; country: string; department: string; currency?: SaleCurrency; shipping?: string };
 const cents = (value: string) => Math.round(Number(value.replace(",", ".")) * 100);
 const categoryKey = (product: Product) => product.categoryCode || product.family;
 const isService = (product: Product) => categoryKey(product) === "servicios";
@@ -326,6 +326,10 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
   const [birthDate, setBirthDate] = useState("");
   const [date, setDate] = useState(today);
   const [payment, setPayment] = useState("Efectivo");
+  const [paymentMode, setPaymentMode] = useState<"single" | "split">("single");
+  const [secondPayment, setSecondPayment] = useState("Transferencia");
+  const [firstAmount, setFirstAmount] = useState("");
+  const pricingPayment = paymentMode === "split" ? "Crédito" : payment;
   const [currency, setCurrency] = useState<SaleCurrency>("UYU");
   const [shipping, setShipping] = useState("");
   const foreignSale = currency !== "UYU";
@@ -347,19 +351,19 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [draftNotice, setDraftNotice] = useState("");
-  const draftValue: LocalSaleDraft = { lines, articleTab, customerId, customerSearch, newCustomer, name, email, phone, birthDate, date, payment, hasDeposit, deposit, discountOn, discountText, channel, city, country, department, currency, shipping };
-  const draftHasContent = lines.length > 0 || Boolean(customerId || customerSearch || newCustomer || name || email || phone || birthDate || deposit || shipping) || foreignSale || date !== today || payment !== "Efectivo" || channel !== "Local" || hasDeposit || discountOn || discountText !== "10" || city !== "Paysandú" || country !== "Uruguay" || department !== "Paysandú";
+  const draftValue: LocalSaleDraft = { lines, articleTab, customerId, customerSearch, newCustomer, name, email, phone, birthDate, date, payment, paymentMode, secondPayment, firstAmount, hasDeposit, deposit, discountOn, discountText, channel, city, country, department, currency, shipping };
+  const draftHasContent = lines.length > 0 || Boolean(customerId || customerSearch || newCustomer || name || email || phone || birthDate || deposit || shipping) || foreignSale || date !== today || payment !== "Efectivo" || paymentMode === "split" || channel !== "Local" || hasDeposit || discountOn || discountText !== "10" || city !== "Paysandú" || country !== "Uruguay" || department !== "Paysandú";
   const draft = useOrderDraft(`minorista:${session?.user.id || s.activeUserId || s.user}`, draftValue,
     draftHasContent, (saved, isNew) => {
       setLines(saved.lines.map(line => {
         if (line.product.assembly) return line;
         const current = s.products.find(product => product.id === line.product.id);
         if (!current) return line;
-        return { ...line, product: current, unitPriceMinor: line.priceOverridden || line.personalization ? line.unitPriceMinor : salePriceMinor(current, saved.payment) };
+        return { ...line, product: current, unitPriceMinor: line.priceOverridden || line.personalization ? line.unitPriceMinor : salePriceMinor(current, saved.paymentMode === "split" ? "Crédito" : saved.payment) };
       }));
       setArticleTab(saved.articleTab); setCustomerId(saved.customerId); setCustomerSearch(saved.customerSearch);
       setNewCustomer(saved.newCustomer); setName(saved.name); setEmail(saved.email); setPhone(saved.phone);
-      setBirthDate(saved.birthDate); setDate(saved.date); setPayment(saved.payment); setHasDeposit(saved.hasDeposit);
+      setBirthDate(saved.birthDate); setDate(saved.date); setPayment(saved.payment); setPaymentMode(saved.paymentMode ?? "single"); setSecondPayment(saved.secondPayment ?? "Transferencia"); setFirstAmount(saved.firstAmount ?? ""); setHasDeposit(saved.hasDeposit);
       setCurrency(saved.currency ?? "UYU"); setShipping(saved.shipping ?? "");
       setDeposit(saved.deposit); setDiscountOn(saved.discountOn); setDiscountText(saved.discountText);
       setChannel(saved.channel); setCity(saved.city); setCountry(saved.country); setDepartment(saved.department);
@@ -400,9 +404,9 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
       (!category || categoryKey(product) === category) && matchesSaleProductSearch({
         name: product.name, sku: product.sku, variant: product.variant, category: product.family, description: product.searchText,
         material: product.leather, rim: product.rim, attributes: product.attributes, options: product.options,
-        price: salePriceMinor(product, payment) / 100,
+        price: salePriceMinor(product, pricingPayment) / 100,
       }, search)).slice(0, 50);
-  }, [s.products, search, category, channel, payment]);
+  }, [s.products, search, category, channel, pricingPayment]);
   const categoryProducts = useMemo(() => s.products.filter((product) => sellable(product) && categoryKey(product) === category)
     .sort((a, b) => `${a.name} ${a.variant}`.localeCompare(`${b.name} ${b.variant}`, "es")), [s.products, category, channel]);
   const pickTypes = useMemo(() => [...new Set(categoryProducts.map(retailType))].sort((a, b) => a.localeCompare(b, "es")), [categoryProducts]);
@@ -429,6 +433,9 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
   const shippingMinor = foreignSale ? cents(shipping) : 0;
   const totalMinor = itemsMinor + shippingMinor;
   const depositMinor = cents(deposit);
+  const initialPaidMinor = hasDeposit ? depositMinor : totalMinor;
+  const firstPaymentMinor = firstAmount.trim() ? cents(firstAmount) : 0;
+  const secondPaymentMinor = initialPaidMinor - firstPaymentMinor;
   const linePriceReady = (line: SaleLine) => !line.personalization || (Boolean(pricing) && !pricingLoading && (line.personalization.kind !== "bombilla" || Boolean(line.personalization.bombillaTechnique)) && (!line.product.assembly || priceMateAssembly(line.product.assembly, pricing?.rules).ready) && !calculateLocalPersonalizationPrice(line.personalization, pricing).missingRuleKeys.length);
   const customPricesReady = lines.every(linePriceReady);
   const linePriceAvailable = (line: SaleLine) => !line.personalization || (Boolean(pricing) && !pricingLoading && (!line.product.assembly || (!validateMateAssemblyCore(line.product.assembly) && !priceMateAssembly(line.product.assembly, pricing?.rules).missing.length)) && !calculateLocalPersonalizationPrice(line.personalization, pricing).missingRuleKeys.length);
@@ -440,21 +447,21 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
   const updateAssembly = (lineId: string, assembly: MateAssembly) => setLines(current => current.map(line => {
     if (line.id !== lineId || !line.personalization) return line;
     const product = mateAssemblyPresentation(assembly, pricing?.rules);
-    return { ...line, product, unitPriceMinor: salePriceMinor(product, payment), personalization: { ...line.personalization, selectedOptions: { tamano: assembly.tamano, interior: assembly.interior }, ...(assembly["tipo-virola"] === "sin-virola" ? { rimTechnique: "none" as const } : {}), ...(!assemblyHasFleje(assembly) ? { flejeTechnique: "none" as const } : {}) } };
+    return { ...line, product, unitPriceMinor: salePriceMinor(product, pricingPayment), personalization: { ...line.personalization, selectedOptions: { tamano: assembly.tamano, interior: assembly.interior }, ...(assembly["tipo-virola"] === "sin-virola" ? { rimTechnique: "none" as const } : {}), ...(!assemblyHasFleje(assembly) ? { flejeTechnique: "none" as const } : {}) } };
   }));
   const replaceCustomProduct = (lineId: string, product: Product) => setLines(current => current.map(line => {
     if (line.id !== lineId || !line.personalization || line.personalization.kind !== "mate") return line;
     const available = matePurchaseAxes(product);
     const selectedOptions = Object.fromEntries(available.map(axis => [axis.code, axis.values.some(option => option.value === line.personalization!.selectedOptions[axis.code])
       ? line.personalization!.selectedOptions[axis.code] : axis.values.length === 1 ? axis.values[0].value : ""]).filter(([, value]) => Boolean(value)));
-    return { ...line, product, unitPriceMinor: salePriceMinor(product, payment), personalization: { ...line.personalization, selectedOptions } };
+    return { ...line, product, unitPriceMinor: salePriceMinor(product, pricingPayment), personalization: { ...line.personalization, selectedOptions } };
   }));
   const add = (product: Product) => {
     if (isService(product) && channel !== "Local") { setError("Los servicios solo se registran como ventas de Local."); return; }
     setLines((current) => {
       const existing = current.find((line) => line.product.id === product.id && !line.personalization);
       return existing ? current.map((line) => line.id === existing.id ? { ...line, quantity: line.quantity + 1 } : line)
-        : [...current, { id: crypto.randomUUID(), product, quantity: 1, unitPriceMinor: salePriceMinor(product, payment), priceEntered: !hasVariableServicePrice(product) }];
+        : [...current, { id: crypto.randomUUID(), product, quantity: 1, unitPriceMinor: salePriceMinor(product, pricingPayment), priceEntered: !hasVariableServicePrice(product) }];
     });
     setSearch(""); setError("");
   };
@@ -463,7 +470,7 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
     const draft = createPersonalizationDraft(customKind, product);
     draft.selectedOptions = { ...draft.selectedOptions, ...selectedOptions };
     const id = crypto.randomUUID();
-    setLines((current) => [...current, { id, product, quantity: 1, unitPriceMinor: salePriceMinor(product, payment), priceEntered: true, personalization: draft }]);
+    setLines((current) => [...current, { id, product, quantity: 1, unitPriceMinor: salePriceMinor(product, pricingPayment), priceEntered: true, personalization: draft }]);
     setNewCustomLineId(id);
     setError("");
   };
@@ -500,6 +507,9 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
     if (foreignSale && lines.some(line => !Number.isSafeInteger(saleUnitMinor(line)) || saleUnitMinor(line) < 0 || saleUnitMinor(line) > 1_000_000_000)) { setError("Revisá los precios en la moneda de la venta."); return; }
     if (hasDeposit && (!Number.isInteger(depositMinor) || depositMinor <= 0 || depositMinor > totalMinor)) {
       setError("La seña debe ser mayor que cero y no superar el total de la venta."); return;
+    }
+    if (paymentMode === "split" && (payment === secondPayment || !Number.isSafeInteger(firstPaymentMinor) || firstPaymentMinor <= 0 || secondPaymentMinor <= 0)) {
+      setError("Elegí dos medios distintos e ingresá un primer importe menor que el cobro inicial."); return;
     }
     if (newCustomer && !name.trim()) { setError("Ingresá el nombre del cliente."); return; }
     setBusy(true); setError("");
@@ -588,12 +598,14 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
           } : null,
         });
       }
-      const { data, error } = await commerceSource.rpc("gestion_create_local_sale_with_items", {
+      const { data, error } = await commerceSource.rpc(paymentMode === "split" ? "gestion_create_local_sale_with_split_payment" : "gestion_create_local_sale_with_items", {
         p_customer_id: selectedCustomerId, p_sold_on: date, p_payment_method: payment,
         p_items: items,
         p_deposit_minor: hasDeposit ? depositMinor : null,
         p_channel: channel,
-        ...(foreignSale ? { p_currency: currency, p_rate_to_uyu: rate, p_shipping_minor: shippingMinor } : {}),
+        ...(paymentMode === "split" ? { p_currency: currency, p_rate_to_uyu: foreignSale ? rate : null, p_shipping_minor: shippingMinor,
+          p_payments: [{ method: payment, amountMinor: firstPaymentMinor }, { method: secondPayment, amountMinor: secondPaymentMinor }] } :
+          foreignSale ? { p_currency: currency, p_rate_to_uyu: rate, p_shipping_minor: shippingMinor } : {}),
       });
       if (error) throw new Error(error.code === "22023" ? error.message : "No se pudo guardar la venta. Revisá los datos e intentá nuevamente.");
       await draft.finish().catch(() => undefined);
@@ -643,13 +655,13 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
         {category !== "servicios" && <label>Variante<select aria-label="Variante" value={selectedProductId} disabled={!activeName || pickVariants.length <= 1} onChange={(event) => setSelectedProductId(event.target.value)}><option value="">{pickVariants.length === 1 ? (visibleVariant(pickVariants[0].variant) || "Sin variante") : "Primera variante"}</option>{pickVariants.length > 1 && pickVariants.map((product) => <option key={product.id} value={product.id}>{visibleVariant(product.variant) || "Única"}</option>)}</select></label>}
         <button type="button" className="secondary" disabled={!pickedProduct} onClick={() => { if (pickedProduct) add(pickedProduct); setSelectedProductId(""); }}>Agregar producto</button></div>}
       {search.trim() && <div className="local-sale-results">{matches.map((product) => <button type="button" key={product.id} onClick={() => add(product)}>
-        <strong>{product.sku} · {product.name}</strong><small>{hasVariableServicePrice(product) ? "Precio a definir en la venta" : [visibleVariant(product.variant), money(salePriceMinor(product, payment) / 100)].filter(Boolean).join(" · ")}</small>
+        <strong>{product.sku} · {product.name}</strong><small>{hasVariableServicePrice(product) ? "Precio a definir en la venta" : [visibleVariant(product.variant), money(salePriceMinor(product, pricingPayment) / 100)].filter(Boolean).join(" · ")}</small>
       </button>)}{!matches.length && <div className="empty">No hay variantes activas con esa búsqueda.</div>}</div>}
       {!!articleLines.length && <div className="local-sale-lines">{articleLines.map(renderLine)}</div>}
       </div> : <div id="local-panel-custom" role="tabpanel" aria-labelledby="local-tab-custom" className="local-sale-tab-panel">
         <p className="local-sale-custom-intro">Armá el artículo por sus características y diseñá el grabado de la virola y el fleje.</p>
         <label><span className="local-sale-custom-field-label">Categoría de artículo<span className="field-required" aria-hidden="true">*</span></span><select value={customKind} onChange={event => setCustomKind(event.target.value as PersonalizationKind | "")}><option value="">Elegir categoría</option><option value="mate">Mate</option><option value="matera">Matera</option><option value="bombilla">Bombilla</option></select></label>
-        {customKind === "mate" ? <MateAssemblyPicker pricing={pricing} onAdd={assembly => addCustom(mateAssemblyPresentation(assembly, pricing?.rules))} /> : customKind && <CustomArticlePicker key={customKind} products={customProducts} onAdd={addCustom} priceForProduct={product => salePriceMinor(product, payment) / 100} priceLabel={usesBasePrice(payment) ? "Precio base" : "Precio publicado"} showProductNames={customKind === "bombilla"} />}
+        {customKind === "mate" ? <MateAssemblyPicker pricing={pricing} onAdd={assembly => addCustom(mateAssemblyPresentation(assembly, pricing?.rules))} /> : customKind && <CustomArticlePicker key={customKind} products={customProducts} onAdd={addCustom} priceForProduct={product => salePriceMinor(product, pricingPayment) / 100} priceLabel={usesBasePrice(pricingPayment) ? "Precio base" : "Precio publicado"} showProductNames={customKind === "bombilla"} />}
         {customKind && customKind !== "mate" && !customProducts.length && <p className="local-sale-custom-empty">No hay {customKind === "matera" ? "materas" : "bombillas"} activos para venta local en el catálogo.</p>}
         {pricingError && <p role="alert">{pricingError} <button type="button" onClick={() => setPricingRefresh(value => value + 1)}>Reintentar precios</button></p>}
         {!!personalizedLines.length && <>
@@ -707,7 +719,13 @@ export function LocalSaleRegister({ s, session, refresh, go }: PageProps) {
       <div className="local-sale-payment-fields">
         <label>Fecha de venta<input type="date" max={today} value={date} onChange={(event) => setDate(event.target.value)} required /></label>
         <label>Canal de venta<select value={channel} onChange={(event) => { const next = event.target.value as typeof channel; if(next !== "Local" && lines.some((line) => isService(line.product))) { setError("Quitá los servicios antes de cambiar el canal de venta."); return; } setChannel(next); setCategory(""); setSelectedProductId(""); setError(""); }}>{(["Local", "Feria", "Instagram", "Facebook", "WhatsApp"] as const).filter((option) => option === "Local" || allowedSalesChannels(s).includes(option)).map((option) => <option key={option}>{option}</option>)}</select></label>
-        <label>Medio de pago<select value={payment} onChange={(event) => { const next = event.target.value; setPayment(next); setLines((current) => current.map((line) => line.product.assembly || hasVariableServicePrice(line.product) || line.priceOverridden ? line : { ...line, unitPriceMinor: salePriceMinor(line.product, next) })); }}>{["Efectivo", "Débito", "Crédito", "Transferencia"].map((method) => <option key={method}>{method}</option>)}</select></label>
+        <label>Forma de pago<select value={paymentMode} onChange={(event) => { const next = event.target.value as "single" | "split"; setPaymentMode(next); setFirstAmount(""); if (next === "split" && secondPayment === payment) setSecondPayment(payment === "Efectivo" ? "Transferencia" : "Efectivo"); setLines((current) => current.map((line) => line.product.assembly || hasVariableServicePrice(line.product) || line.priceOverridden ? line : { ...line, unitPriceMinor: salePriceMinor(line.product, next === "split" ? "Crédito" : payment) })); }}><option value="single">Pago único</option><option value="split">Pago en dos medios</option></select></label>
+        <label>{paymentMode === "split" ? "Primer medio" : "Medio de pago"}<select value={payment} onChange={(event) => { const next = event.target.value; setPayment(next); if (next === secondPayment) setSecondPayment(next === "Efectivo" ? "Transferencia" : "Efectivo"); if (paymentMode === "single") setLines((current) => current.map((line) => line.product.assembly || hasVariableServicePrice(line.product) || line.priceOverridden ? line : { ...line, unitPriceMinor: salePriceMinor(line.product, next) })); }}>{["Efectivo", "Débito", "Crédito", "Transferencia"].map((method) => <option key={method}>{method}</option>)}</select></label>
+        {paymentMode === "split" && <>
+          <label>Importe del primer medio ({currency})<input type="number" min="0.01" step="0.01" value={firstAmount} onChange={(event) => setFirstAmount(event.target.value)} required /></label>
+          <label>Segundo medio<select value={secondPayment} onChange={(event) => setSecondPayment(event.target.value)}>{["Efectivo", "Débito", "Crédito", "Transferencia"].filter((method) => method !== payment).map((method) => <option key={method}>{method}</option>)}</select></label>
+          <div className="local-sale-split-remainder"><small>Importe del segundo medio</small><strong>{Number.isSafeInteger(secondPaymentMinor) && secondPaymentMinor > 0 ? saleMoney(secondPaymentMinor / 100) : "Ingresá el primer importe"}</strong></div>
+        </>}
         <label>Moneda<select value={currency} onChange={event => changeCurrency(event.target.value as SaleCurrency)}>{saleCurrencies.map(option => <option key={option}>{option}</option>)}</select></label>
         {foreignSale && <label>Envío ({currency})<input type="number" min="0" max="10000000" step="0.01" value={shipping} onChange={event => setShipping(event.target.value)} placeholder="0" /></label>}
         <label className="local-sale-deposit-toggle"><input type="checkbox" checked={hasDeposit} onChange={(event) => setHasDeposit(event.target.checked)} />Con seña</label>

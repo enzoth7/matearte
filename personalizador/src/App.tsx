@@ -53,7 +53,7 @@ import { loadGuestDraft, loadGuestDraftIdentity, saveGuestDraft, saveGuestDraftI
 import { saveDesignPreviews } from "./services/designPreviews";
 import { shouldCompleteProfileInPersonalizer, shouldLeaveAccessAfterAuthentication } from "./lib/authRedirect";
 import { finishJourneyScreen, setJourneyScreen, startJourneyAnalytics, trackJourneyStep } from "../../shared/journeyAnalytics";
-import { analyticsPermission, saveAnalyticsPermission } from "../../shared/analyticsConsent";
+import { analyticsPermission } from "../../shared/analyticsConsent";
 
 type CustomizationPhase = "mate" | "virola" | "fleje";
 type PreviewView = "mate" | "virola" | "fleje";
@@ -491,15 +491,13 @@ function PersonalizerApp() {
   });
   const selectionStage = selectionStageFromPath(location.pathname);
   const [analyticsReady, setAnalyticsReady] = useState(false);
-  const [analyticsConsentNeeded, setAnalyticsConsentNeeded] = useState(false);
   useEffect(() => {
     const url = import.meta.env.VITE_SUPABASE_URL;
     if (!url) return;
     let active = true;
     void analyticsPermission().then((permission) => {
       if (!active) return;
-      if (permission === 'required') setAnalyticsConsentNeeded(true);
-      else if (permission === 'allowed') setAnalyticsReady(true);
+      if (permission === 'allowed') setAnalyticsReady(true);
     });
     return () => { active = false; };
   }, []);
@@ -1809,11 +1807,6 @@ function PersonalizerApp() {
       </div>
 
       <BrandFooter />
-
-      {analyticsConsentNeeded && <aside role="dialog" aria-label="Permiso de analítica" className="fixed bottom-3 left-3 right-3 z-[100] mx-auto max-w-xl rounded-xl border border-[#7a4a31] bg-white p-5 shadow-2xl">
-        <p className="mb-3 text-sm text-zinc-800">¿Permitís la medición de uso, mapas de interacción y grabaciones para mejorar el personalizador? <a className="underline" href="https://www.matearteuruguay.com/compras/politica-de-privacidad" target="_blank" rel="noreferrer">Política de privacidad</a></p>
-        <div className="flex flex-wrap justify-end gap-2"><button type="button" className="rounded-lg border border-[#7a4a31] px-3 py-2 text-sm" onClick={() => { saveAnalyticsPermission(false); setAnalyticsConsentNeeded(false); }}>Seguir sin analítica</button><button type="button" className="rounded-lg bg-[#7a4a31] px-3 py-2 text-sm font-semibold text-white" onClick={() => { saveAnalyticsPermission(true); setAnalyticsConsentNeeded(false); setAnalyticsReady(true); }}>Permitir analítica</button></div>
-      </aside>}
 
       {/* Save Success Toast */}
       {saveStatus === "saved" && (

@@ -45,6 +45,7 @@ function LogoCarousel({ items, label, className = "", intro = false }: { items: 
     <div
       className={`${styles.logoCarousel} ${className}`}
       role="region"
+      tabIndex={0}
       aria-label={label}
       data-enterprise-reveal={intro ? "up" : undefined}
       data-enterprise-intro={intro ? "" : undefined}
@@ -105,7 +106,7 @@ export default async function EmpresasPage() {
         <div className={styles.heroInner}>
           <div className={styles.heroCopy} data-enterprise-reveal="left" data-enterprise-intro data-enterprise-delay="1">
             <h1 id="enterprise-hero-title">{t("heroTitle1")}<br />{t("heroTitle2")}</h1>
-            <p>{t("heroBody")}</p>
+            <div data-copy>{t("heroBody")}</div>
             <Link className={styles.button} href="/contacto">{t("heroAction")}</Link>
           </div>
           <div className={styles.heroImage} data-enterprise-reveal="scale" data-enterprise-intro data-enterprise-delay="2">
@@ -114,7 +115,7 @@ export default async function EmpresasPage() {
         </div>
         <LogoCarousel items={companies} label={t("logoCarouselLabel")} className={styles.desktopLogos} intro />
         <div className={styles.mobileLogos} data-enterprise-reveal="up" data-enterprise-intro data-enterprise-delay="3">
-          {mobileRows.map((row, index) => <LogoCarousel items={row} label={`${t("logoCarouselLabel")} ${index + 1}`} key={index} />)}
+          {mobileRows.map((row, index) => <LogoCarousel items={row} label={`${t("logoCarouselLabel")} ${row[0].name}`} key={index} />)}
         </div>
       </section>
 
@@ -122,8 +123,8 @@ export default async function EmpresasPage() {
         <div className={styles.craftInner}>
           <div className={styles.craftCopy} data-enterprise-reveal="left">
             <h2 id="enterprise-craft-title">{t("craftTitle")}</h2>
-            <p className={styles.craftBody}>{t("craftBody")}</p>
-            <p className={styles.craftNote}>{t("craftNote")}</p>
+            <div data-copy className={styles.craftBody}>{t("craftBody")}</div>
+            <div data-copy className={styles.craftNote}>{t("craftNote")}</div>
           </div>
           <div className={styles.craftGallery}>
             <div className={styles.craftImage} data-enterprise-reveal="up" data-enterprise-delay="1">
@@ -140,14 +141,13 @@ export default async function EmpresasPage() {
         <div className={styles.processInner}>
           <div className={styles.processIntro} data-enterprise-reveal="left">
             <h2 id="enterprise-process-title">{t("processTitle1")}<br />{t("processTitle2")}</h2>
-            <p>{t("processBody")}</p>
+            <div data-copy>{t("processBody")}</div>
           </div>
           <div className={styles.steps}>
             {steps.map((step) => (
               <article className={styles.step} data-enterprise-reveal="up" data-enterprise-delay={step} key={step}>
-                <p className={styles.stepNumber}>0{step}</p>
                 <h3>{t(`step${step}Title`)}</h3>
-                <p>{t(`step${step}Body`)}</p>
+                <div data-copy>{t(`step${step}Body`)}</div>
               </article>
             ))}
           </div>
@@ -157,7 +157,7 @@ export default async function EmpresasPage() {
       <section className={styles.closing} aria-labelledby="enterprise-closing-title">
         <div className={styles.closingInner} data-enterprise-reveal="scale">
           <h2 id="enterprise-closing-title">{t("closingTitle1")}<br />{t("closingTitle2")}</h2>
-          <p>{t("closingBody")}</p>
+          <div data-copy>{t("closingBody")}</div>
           <Link className={styles.button} href="/contacto">{t("closingAction")}</Link>
         </div>
       </section>

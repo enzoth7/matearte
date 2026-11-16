@@ -6,9 +6,8 @@ export default async function NotFound() {
   return (
     <main id="contenido" className="section-space min-h-[65svh]">
       <div className="container-shell text-center">
-        <p className="eyebrow justify-center text-[var(--leather)]">404</p>
         <h1 className="display-lg mx-auto mt-7">{t("title")}</h1>
-        <p className="mt-6 text-black/60">{t("body")}</p>
+        <div data-copy className="mt-6 text-[var(--ink)]/60">{t("body")}</div>
         <Link className="button-primary mt-8" href="/catalogo">{t("action")}</Link>
       </div>
     </main>

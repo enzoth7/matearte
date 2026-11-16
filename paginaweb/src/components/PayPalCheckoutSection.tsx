@@ -24,7 +24,7 @@ export function PayPalCheckoutSection({ orderId, amountUsd, onSuccess, onError }
   return (
     <div className="w-full">
       {error && (
-        <div className="mb-4 rounded-lg bg-red-900/50 p-4 text-sm text-red-100">
+        <div role="alert" className="mb-4 rounded-lg bg-[var(--paper)] p-4 text-sm text-[var(--ink)]">
           {error}
         </div>
       )}

@@ -38,7 +38,7 @@ export function ProductCardSwatches({
         const colorBackground = getVariantColorBackground(v);
         const isHighlighted = highlightedVariantId === v.id;
         return (
-          <span
+          <strong data-inline
             key={v.id}
             role="button"
             tabIndex={0}
@@ -62,9 +62,9 @@ export function ProductCardSwatches({
               width: "0.875rem",
               borderRadius: "50%",
               background: colorBackground,
-              border: "1px solid rgba(0, 0, 0, 0.15)",
+              border: "1px solid rgb(17 17 17 / 0.15)",
               boxShadow: isHighlighted
-                ? "0 0 0 2px #fff, 0 0 0 3.5px #2d1d16"
+                ? "0 0 0 2px #FDFDFC, 0 0 0 3.5px #111111"
                 : "none",
               transform: isHighlighted ? "scale(1.15)" : "scale(1)",
               cursor: "pointer",

@@ -9,7 +9,10 @@ export function CartMerger() {
     fetch("/api/session", { cache: "no-store" }).then((response) => response.json()).then(async (session) => {
       if (!session.authenticated) return;
       const response = await fetch("/api/cart", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mergeKey: localMergeKey(), items }) });
-      if (response.ok) clearLocalCart();
+      if (response.ok) {
+        clearLocalCart();
+        window.dispatchEvent(new Event("matearte-cart-merged"));
+      }
     }).catch(() => undefined);
   }, []);
   return null;

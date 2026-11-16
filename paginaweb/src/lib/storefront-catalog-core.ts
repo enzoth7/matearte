@@ -199,6 +199,7 @@ export function storefrontProductFromRow(
 
   return {
     id: existing?.id ?? row.id,
+    saleMode: row.sale_mode,
     slug: row.editorial_slug,
     name: translatedName || (keepEditorialTranslation ? existing!.name : row.name),
     category: categoryCode,

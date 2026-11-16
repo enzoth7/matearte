@@ -21,6 +21,8 @@ import { siteUrl } from "@/lib/metadata";
 import "lenis/dist/lenis.css";
 import "country-flag-icons/3x2/flags.css";
 import "./globals.css";
+import "./home-refresh.css";
+import "./buttons.css";
 
 const newsreader = Newsreader({
   variable: "--font-newsreader",

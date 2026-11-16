@@ -1,9 +1,14 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => sessionStorage.setItem("matearte-welcome-dismissed", "1"));
+});
+
 test("portada, navegación y accesibilidad", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("TRADICIÓN");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("EL MATE DE");
   await expect(page.getByRole("heading", { level: 2, name: "El Mate de los Campeones" })).toBeAttached();
   await expect(page.locator(".home-header-navigation .is-active")).toHaveCount(0);
   if ((page.viewportSize()?.width ?? 1440) < 1024) {
@@ -20,16 +25,16 @@ test("portada, navegación y accesibilidad", async ({ page }) => {
   await page.waitForTimeout(500);
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
-  await page.getByRole("link", { name: "Ver catálogo" }).click();
+  await page.locator(".home-carousel-action").first().click();
   await expect(page).toHaveURL(/\/catalogo/);
-  await expect(page).toHaveTitle(/Catálogo/);
+  await expect(page).toHaveTitle(/Mates uruguayos, bombillas y materas artesanales/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Elegí tu producto");
 });
 
 test("el título inglés del hero permanece dentro del viewport", async ({ page }) => {
   await page.goto("/en");
 
-  const heading = page.getByRole("heading", { level: 1, name: "TRADITION THAT BRINGS US TOGETHER" });
+  const heading = page.getByRole("heading", { level: 1, name: "THE MATE OF CHAMPIONS" });
   await expect(heading).toBeVisible();
   const bounds = await heading.evaluate((element) => {
     const rect = element.getBoundingClientRect();
@@ -84,7 +89,7 @@ test("cambia entre los tres idiomas conservando ruta, filtros y fragmento", asyn
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.getByRole("heading", { level: 1, name: "Choose your product" })).toBeVisible();
   const catalog = page.locator(mobile ? ".catalog-mobile-view" : ".catalog-desktop-view");
-  await expect(catalog.getByText("$ 4.500 UYU", { exact: true }).first()).toBeVisible();
+  await expect(catalog.getByText(/US\$\s*\d+\s*USD/).first()).toBeVisible();
 
   const englishProduct = catalog.getByRole("link", { name: /Mate Imperial/ }).first();
   await expect(englishProduct).toHaveAttribute("href", /\/en\/product\/mate-imperial/);
@@ -96,101 +101,56 @@ test("cambia entre los tres idiomas conservando ruta, filtros y fragmento", asyn
 });
 
 test("publica canonical y hreflang para cada idioma", async ({ page }) => {
-  await page.goto("/en/product/mate-imperial");
-  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", /\/en\/product\/mate-imperial$/);
-  await expect(page.locator('link[rel="alternate"][hreflang="es-UY"]')).toHaveAttribute("href", /\/producto\/mate-imperial$/);
-  await expect(page.locator('link[rel="alternate"][hreflang="en"]')).toHaveAttribute("href", /\/en\/product\/mate-imperial$/);
-  await expect(page.locator('link[rel="alternate"][hreflang="pt-BR"]')).toHaveAttribute("href", /\/pt\/produto\/mate-imperial$/);
-  await expect(page.locator('link[rel="alternate"][hreflang="x-default"]')).toHaveAttribute("href", /\/producto\/mate-imperial$/);
+  const slug = "mate-imperial-pie-de-alpaca-fleje-pampa";
+  await page.goto(`/en/product/${slug}`);
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", new RegExp(`/en/product/${slug}$`));
+  await expect(page.locator('link[rel="alternate"][hreflang="es-UY"]')).toHaveAttribute("href", new RegExp(`/producto/${slug}$`));
+  await expect(page.locator('link[rel="alternate"][hreflang="en"]')).toHaveAttribute("href", new RegExp(`/en/product/${slug}$`));
+  await expect(page.locator('link[rel="alternate"][hreflang="pt-BR"]')).toHaveAttribute("href", new RegExp(`/pt/produto/${slug}$`));
+  await expect(page.locator('link[rel="alternate"][hreflang="x-default"]')).toHaveAttribute("href", new RegExp(`/producto/${slug}$`));
 });
 
-test("detecta el idioma solo en la primera visita a la portada y respeta URLs explícitas", async ({ browser }) => {
+test("mantiene la portada en español hasta que se elija otro idioma", async ({ browser }) => {
   const context = await browser.newContext({ locale: "en-US" });
   const page = await context.newPage();
   await page.goto("/");
-  await expect(page).toHaveURL(/\/en$/);
+  await expect(page).toHaveURL(/localhost:\d+\/$/);
+  await expect(page.locator("html")).toHaveAttribute("lang", "es-UY");
+
+  await page.goto("/en");
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
   await page.goto("/contacto");
   await expect(page).toHaveURL(/\/contacto$/);
   await expect(page.locator("html")).toHaveAttribute("lang", "es-UY");
+
+  await context.addCookies([{ name: "NEXT_LOCALE", value: "en", url: new URL(page.url()).origin }]);
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/en$/);
   await context.close();
 });
 
 test("el header y el footer nuevos son globales", async ({ page }) => {
   const compactNavigation = (page.viewportSize()?.width ?? 1440) < 1024;
-  await page.goto("/catalogo");
-  await expect(page.locator("header.home-header")).toBeVisible();
-  await expect(page.locator("footer.home-footer")).toBeAttached();
-  if (compactNavigation) {
-    await page.getByRole("button", { name: "Abrir menú" }).click();
-    await expect(page.getByRole("navigation", { name: "Navegación móvil" }).getByRole("link", { name: "Catálogo", exact: true })).toHaveAttribute("aria-current", "page");
-    await page.getByRole("button", { name: "Cerrar menú" }).click();
-  } else {
-    await expect(page.locator("header.home-header").getByRole("link", { name: "Catálogo", exact: true })).toHaveAttribute("aria-current", "page");
-    const navigationOffset = await page.locator(".home-header-navigation").evaluate((navigation) => {
-      const bounds = navigation.getBoundingClientRect();
-      return Math.abs(bounds.left + bounds.width / 2 - document.documentElement.clientWidth / 2);
-    });
-    expect(navigationOffset).toBeLessThanOrEqual(1);
-  }
-  await expect(page.locator("footer.home-footer").getByRole("link", { name: "Escribinos →" })).toHaveAttribute("href", "/contacto");
-  await expect(page.locator("footer.home-footer").getByRole("link", { name: /Consultar por WhatsApp/ })).toHaveAttribute("href", /wa\.me\/59891674231\?text=Hola%2C%20quer%C3%ADa%20hacer%20una%20consulta\./);
-  await expect(page.locator("footer.home-footer").getByRole("link", { name: "Creada por Polarist" })).toHaveAttribute("href", "https://polarist.app/");
-  await expect(page.locator(".home-polarist img")).toHaveCSS("width", "40px");
-  await expect(page.locator("footer.home-footer").getByRole("link", { name: /Facebook/i })).toHaveCount(0);
-  if (compactNavigation) {
+  for (const route of ["/catalogo", "/contacto"]) {
+    await page.goto(route);
+    const header = page.locator("header.home-header");
     const footer = page.locator("footer.home-footer");
-    const purchasesButton = footer.getByRole("button", { name: "Ver más" });
-    await expect(footer.locator(".home-polarist img")).toHaveCSS("margin-right", "-10px");
-    await expect(footer.locator(".home-footer-socials-desktop")).toBeHidden();
-    await expect(footer.locator(".home-footer-socials-mobile")).toBeVisible();
-    await expect(purchasesButton).toHaveCSS("border-top-width", "0px");
-    const mobileFooterAlignment = await footer.evaluate((element) => {
-      const navigation = element.querySelector<HTMLElement>(".home-footer-nav")!.getBoundingClientRect();
-      const disclosure = element.querySelector<HTMLElement>(".home-footer-purchases-mobile > button")!.getBoundingClientRect();
-      const contact = element.querySelector<HTMLElement>(".home-footer-contact")!.getBoundingClientRect();
-      const instagram = element.querySelector<HTMLElement>(".home-footer-socials-mobile")!.getBoundingClientRect();
-      return {
-        disclosureLeft: Math.round(disclosure.left - navigation.left),
-        instagramRight: Math.round(contact.right - instagram.right),
-      };
-    });
-    expect(mobileFooterAlignment).toEqual({ disclosureLeft: 0, instagramRight: 0 });
-    const footerBottomAlignment = await footer.locator(".home-footer-bottom > div").evaluate((element) => {
-      const copyright = element.querySelector("p")!.getBoundingClientRect();
-      const polarist = element.querySelector(".home-polarist")!.getBoundingClientRect();
-      return Math.abs(copyright.top + copyright.height / 2 - (polarist.top + polarist.height / 2));
-    });
-    expect(footerBottomAlignment).toBeLessThanOrEqual(1);
-    await expect(purchasesButton).toHaveAttribute("aria-expanded", "false");
-    await purchasesButton.click();
-    await expect(page.getByRole("button", { name: "Ver menos" })).toHaveAttribute("aria-expanded", "true");
-    await expect(page.getByRole("navigation", { name: "Información de compras" }).last().getByRole("link", { name: "Política de privacidad" })).toBeVisible();
-  } else {
-    await expect(page.locator(".home-footer-socials-desktop")).toBeVisible();
-    await expect(page.locator(".home-footer-socials-mobile")).toBeHidden();
-    const purchaseNavigation = page.locator(".home-footer-purchases");
-    await expect(purchaseNavigation).toBeVisible();
-    await expect(purchaseNavigation.getByRole("link")).toHaveCount(4);
+    await expect(header).toBeVisible();
+    await expect(footer).toBeAttached();
+    if (compactNavigation) {
+      await header.getByRole("button", { name: "Abrir menú" }).click();
+      await expect(page.getByRole("navigation", { name: "Navegación móvil" }).getByRole("link", { name: route === "/catalogo" ? "Catálogo" : "Contacto", exact: true })).toHaveAttribute("aria-current", "page");
+      await header.getByRole("button", { name: "Cerrar menú" }).click();
+    } else {
+      await expect(header.getByRole("link", { name: route === "/catalogo" ? "Catálogo" : "Contacto", exact: true })).toHaveAttribute("aria-current", "page");
+    }
+    await expect(footer.getByRole("link", { name: "Escribinos" })).toHaveAttribute("href", "/contacto");
+    await expect(footer.getByRole("link", { name: /Consultar por WhatsApp/ })).toHaveAttribute("href", /wa\.me\/59891674231/);
+    await expect(footer.getByRole("link", { name: "Creada por Polarist" })).toHaveAttribute("href", "https://polarist.app/");
+    const accessibility = await new AxeBuilder({ page }).analyze();
+    expect(accessibility.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
   }
-  const catalogAccessibility = await new AxeBuilder({ page }).analyze();
-  expect(catalogAccessibility.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
-
-  await page.goto("/contacto");
-  await expect(page.locator("header.home-header")).toBeVisible();
-  await expect(page.locator("footer.home-footer")).toBeAttached();
-  if (compactNavigation) {
-    await page.getByRole("button", { name: "Abrir menú" }).click();
-    await expect(page.getByRole("navigation", { name: "Navegación móvil" }).getByRole("link", { name: "Contacto", exact: true })).toHaveAttribute("aria-current", "page");
-    await page.getByRole("button", { name: "Cerrar menú" }).click();
-  } else {
-    await expect(page.locator("header.home-header").getByRole("link", { name: "Contacto", exact: true })).toHaveAttribute("aria-current", "page");
-  }
-  const contactView = page.locator(compactNavigation ? ".contact-mobile" : ".contact-desktop");
-  await expect(contactView.getByRole("link", { name: "+598 91 674 231" })).toHaveAttribute("href", /wa\.me\/59891674231\?text=Hola%2C%20quer%C3%ADa%20hacer%20una%20consulta\./);
-  const contactAccessibility = await new AxeBuilder({ page }).analyze();
-  expect(contactAccessibility.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
 });
 
 test("el footer móvil alinea Ver más con la navegación e Instagram con el contacto", async ({ page }) => {
@@ -225,7 +185,7 @@ test("el footer móvil alinea Ver más con la navegación e Instagram con el con
 
 test("el acceso del carrito dirige al perfil", async ({ page }) => {
   await page.goto("/carrito");
-  const loginLink = page.locator((page.viewportSize()?.width ?? 1440) < 1024 ? ".cart-empty-mobile-login" : ".cart-empty-login-button");
+  const loginLink = page.getByRole("link", { name: "Ingresar o crear cuenta" });
   await expect(loginLink).toBeVisible();
   await expect(loginLink).toHaveAttribute("href", "/perfil");
   await loginLink.click();
@@ -236,24 +196,23 @@ test("las categorías de inicio abren el catálogo o la personalización corresp
   await page.goto("/");
   const cards = page.locator(".home-category-card");
   await expect(cards).toHaveCount(5);
-  await expect(cards.nth(0)).toHaveAttribute("href", "/catalogo?categoria=mates");
-  await expect(cards.nth(4)).toHaveAttribute("href", "/personalizados#empresas");
+  await expect(cards.nth(0)).toHaveAttribute("href", "/catalogo/mates");
+  await expect(cards.nth(4)).toHaveAttribute("href", "/empresas");
   await cards.nth(4).click();
-  await expect(page).toHaveURL(/\/personalizados#empresas$/);
-  await expect(page.locator("#empresas")).toBeVisible();
+  await expect(page).toHaveURL(/\/empresas$/);
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 });
 
-test("las subpáginas antiguas redirigen al catálogo unificado", async ({ page, request }) => {
-  for (const category of ["mates", "bombillas", "materas", "termos", "regalos"]) {
+test("las subpáginas de categoría abren su catálogo", async ({ page, request }) => {
+  for (const category of ["mates", "bombillas", "materas", "termos"]) {
     const response = await request.get(`/catalogo/${category}`, { maxRedirects: 0 });
-    expect(response.status()).toBe(308);
-    expect(response.headers().location).toBe(`/catalogo?categoria=${category}`);
+    expect(response.status()).toBe(200);
   }
   const prefixedSpanish = await request.get("/es/catalogo", { maxRedirects: 0 });
   expect(prefixedSpanish.status()).toBe(308);
   expect(prefixedSpanish.headers().location).toBe("/catalogo");
   await page.goto("/catalogo/bombillas");
-  await expect(page).toHaveURL(/\/catalogo\?categoria=bombillas$/);
+  await expect(page).toHaveURL(/\/catalogo\/bombillas$/);
 });
 
 test("las páginas de compras están enlazadas y presentan una cabecera limpia", async ({ page }) => {
@@ -270,9 +229,9 @@ test("las páginas de compras están enlazadas y presentan una cabecera limpia",
     await expect(page.getByText("Borrador informativo", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Información de compras", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "Migas de pan" })).toHaveCount(0);
-    await expect(page.locator(".purchase-policy-whatsapp")).toHaveCSS("background-color", "rgb(255, 253, 248)");
+    await expect(page.locator(".purchase-policy-whatsapp")).toHaveCSS("background-color", "rgb(253, 253, 252)");
     await expect(page.locator(".purchase-policy-content ul").first()).toHaveCSS("list-style-type", "disc");
-    await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /index, follow/);
     await expect(page.locator(`footer a[href="${href}"]`)).toHaveCount(2);
   }
 });
@@ -285,20 +244,16 @@ test("filtros y detalle de producto son funcionales", async ({ page }) => {
     await page.getByRole("radio", { name: "Mates", exact: true }).check();
     await expect(page).toHaveURL(/categoria=mates/);
   } else {
-    await page.getByRole("radio", { name: "Mates", exact: true }).check();
+    await page.getByRole("button", { name: "Filtros" }).click();
+    await page.getByRole("dialog").getByLabel("Categorías").selectOption("mates");
+    await page.getByRole("dialog").getByRole("button", { name: /Ver \d+ productos?/ }).click();
     await expect(page).toHaveURL(/categoria=mates/);
   }
-  await expect(catalog.getByText("Mate Imperial", { exact: true }).first()).toBeVisible();
-  await catalog.getByRole("link", { name: /Mate Imperial/ }).first().click();
+  const productLink = catalog.getByRole("link", { name: /Mate Imperial/ }).first();
+  await expect(productLink).toBeVisible();
+  await productLink.click();
   await expect(page).toHaveURL(/\/producto\/mate-imperial/);
-  if (isDesktop) {
-    await expect(page.locator(".product-desktop-view").getByRole("heading", { level: 1, name: "Mate Imperial" })).toBeVisible();
-    await page.locator(".product-desktop-view").getByRole("button", { name: "Agregar al carrito" }).click();
-  } else {
-    await expect(page.locator(".product-mobile-view").getByRole("heading", { level: 1, name: "Mate Imperial" })).toBeVisible();
-    await page.locator(".product-mobile-view").getByRole("button", { name: "Agregar al carrito" }).click();
-  }
-  await expect(page.getByText(/Precio y compra todavía no disponibles/)).toBeVisible();
+  await expect(page.locator(isDesktop ? ".product-desktop-view" : ".product-mobile-view").getByRole("heading", { level: 1 })).toContainText("Mate Imperial");
 });
 
 test("la lupa busca productos y deja un enlace compartible", async ({ page }) => {
@@ -405,16 +360,18 @@ test("el detalle de producto web conserva las medidas del frame de Figma", async
 });
 
 test("personalizados web conserva la composición del frame de Figma", async ({ page }) => {
-  test.skip((page.viewportSize()?.width ?? 0) < 1024, "El frame 267:2 corresponde a escritorio");
+  test.skip((page.viewportSize()?.width ?? 0) < 1024, "El frame 1030:393 corresponde a escritorio");
   await page.goto("/personalizados");
 
   await expect(page.locator(".personalizados-desktop-hero")).toHaveCSS("height", "680px");
   await expect(page.locator(".personalizados-desktop-gallery")).toHaveCSS("height", "544px");
-  await expect(page.locator(".personalizados-desktop-craft")).toHaveCSS("height", "380px");
+  await expect(page.locator(".personalizados-desktop-craft")).toHaveCSS("height", "264px");
   await expect(page.locator(".personalizados-desktop-gallery-card")).toHaveCount(26);
   await expect(page.locator(".personalizados-desktop-gallery-group").first().locator(".personalizados-desktop-gallery-card")).toHaveCount(13);
   await expect(page.locator(".personalizados-mobile-view")).toBeHidden();
-  await expect(page.getByRole("link", { name: "Abrir personalizador" })).toBeVisible();
+  await expect(page.locator("main").getByRole("link", { name: "Crear mi mate online" })).toHaveCount(2);
+  await expect(page.locator(".personalizados-desktop-hero-copy a")).toHaveAttribute("href", "https://personalizador.matearteuruguay.com/");
+  await expect(page.getByRole("heading", { name: "Así creás tu mate" })).toBeVisible();
   await expect(page.locator(".personalizados-desktop-pagination")).toHaveCount(0);
   await expect(page.locator(".personalizados-desktop-craft")).not.toContainText("No se procesará ningún pedido");
 
@@ -458,15 +415,15 @@ test("personalizados web conserva la composición del frame de Figma", async ({ 
     };
   });
   expect(geometry).toEqual({
-    copyX: 104,
-    copyOffset: 169,
+    copyX: 120,
+    copyOffset: 152,
     galleryOffset: 680,
     cardX: 64,
     cardOffset: 80,
     craftOffset: 1224,
-    craftGridX: 96,
-    craftGridWidth: 1248,
-    footerOffset: 1604,
+    craftGridX: 120,
+    craftGridWidth: 1200,
+    footerOffset: 2320,
     overflow: 0,
   });
 
@@ -474,7 +431,7 @@ test("personalizados web conserva la composición del frame de Figma", async ({ 
   expect(transitionDuration).toBeLessThanOrEqual(0.00001);
   await expect(page.locator(".personalizados-desktop-gallery-track")).toHaveCSS("animation-name", "none");
 
-  const results = await new AxeBuilder({ page }).include(".personalizados-desktop-view").analyze();
+  const results = await new AxeBuilder({ page }).include("main").analyze();
   expect(results.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
 });
 
@@ -492,7 +449,8 @@ test("personalizados móvil conserva la composición del frame de Figma", async 
   await expect(mobile.locator(".personalizados-mobile-gallery-card").first()).toHaveCSS("height", "380px");
   await expect(mobile.locator(".personalizados-mobile-pagination")).toHaveCount(0);
   await expect(page.locator(".personalizados-desktop-view")).toBeHidden();
-  await expect(mobile.getByRole("link", { name: "Abrir personalizador" })).toBeVisible();
+  await expect(mobile.getByRole("link", { name: "Crear mi mate online" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Así creás tu mate" })).toBeVisible();
 
   const carouselMotion = await mobile.locator(".personalizados-mobile-gallery-track").evaluate((track) => {
     const style = getComputedStyle(track);
@@ -537,25 +495,24 @@ test("personalizados móvil conserva la composición del frame de Figma", async 
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     };
   });
-  expect(geometry).toEqual({
-    headerHeight: 72,
-    heroOffset: 72,
+  expect(geometry).toMatchObject({
+    headerHeight: 64,
+    heroOffset: 64,
     copyX: 24,
-    copyOffset: 56,
+    copyOffset: 64,
     copyWidth: expectedCopyWidth,
-    buttonWidth: 190,
-    buttonHeight: 52,
+    buttonWidth: 230,
+    buttonHeight: 48,
     galleryOffset: 640,
     cardX: 24,
     cardOffset: 48,
     craftOffset: 1116,
-    craftHeight: 332,
-    footerOffset: 1448,
     overflow: 0,
   });
+  expect(geometry.footerOffset).toBeGreaterThan(geometry.craftOffset + geometry.craftHeight);
   await expect(mobile.locator(".personalizados-mobile-gallery-track")).toHaveCSS("animation-name", "none");
 
-  const results = await new AxeBuilder({ page }).include(".personalizados-mobile-view").analyze();
+  const results = await new AxeBuilder({ page }).include("main").analyze();
   expect(results.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
 });
 

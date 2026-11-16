@@ -97,6 +97,7 @@ export type Order = {
   wholesaleCurrency?: "ARS" | "UYU";
   consignmentId?: string;
   paymentMethod?: string;
+  initialPaymentSplit?: { method: string; amount: number }[];
   number?: number;
   referenceCode?: string | null;
   status?: string;

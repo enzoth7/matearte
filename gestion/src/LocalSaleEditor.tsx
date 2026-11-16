@@ -54,7 +54,7 @@ export function LocalSaleEditor({ order, customers, products, depositAmount, onC
 
   const minor = (value: string) => Math.round(Number(value.replace(",", ".")) * 100);
   const itemsMinor = lines.reduce((sum, line) => sum + (Number(line.quantity) || 0) * (minor(line.price) || 0), 0);
-  const catalogPrice = (product: Product) => Math.round(salePriceMinor(product, payment === "Cuenta corriente" ? "Efectivo" : payment) / (order.retailRateToUyu ?? 1)) / 100;
+  const catalogPrice = (product: Product) => Math.round(salePriceMinor(product, order.initialPaymentSplit ? "Crédito" : payment === "Cuenta corriente" ? "Efectivo" : payment) / (order.retailRateToUyu ?? 1)) / 100;
   const patch = (id: string, changes: Partial<LineDraft>) => setLines((current) => current.map((line) => line.id === id ? { ...line, ...changes } : line));
   const skuProduct = products.find((product) => product.sku.trim().toUpperCase() === skuInput.trim().toUpperCase()
     && !product.wholesaleProductId && product.availableChannels?.includes("Local")
@@ -96,7 +96,8 @@ export function LocalSaleEditor({ order, customers, products, depositAmount, onC
     <form className="local-sale-editor" onSubmit={(event) => void save(event)}>
       <div className="form-grid">
         <div className="local-sale-original-date"><small>Fecha de venta</small><strong>{order.date.split("-").reverse().join("/")}</strong></div>
-        <div className="local-sale-original-date"><small>{payment === "Cuenta corriente" ? "Modalidad" : "Medio del cobro inicial"}</small><strong>{payment === "Cuenta corriente" ? "Fiado" : payment}</strong></div>
+        <div className="local-sale-original-date"><small>{payment === "Cuenta corriente" ? "Modalidad" : "Medio del cobro inicial"}</small><strong>{payment === "Cuenta corriente" ? "Fiado" : order.initialPaymentSplit?.length === 2
+          ? order.initialPaymentSplit.map(part => `${part.method} ${saleMoney(part.amount / (order.retailRateToUyu ?? 1))}`).join(", ") : payment}</strong></div>
         <div className="local-sale-original-date"><small>{payment === "Cuenta corriente" ? "Cobro inicial" : hasDeposit ? "Seña original" : "Cobro inicial"}</small><strong>{saleMoney(originalPaid)}</strong></div>
         <div className="wide local-sale-editor-customer-fields">
           <div className="local-sale-editor-customer-search">

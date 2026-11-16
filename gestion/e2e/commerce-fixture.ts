@@ -264,7 +264,7 @@ export async function mockCommerce(page: Page, options: { userId?: string; denie
         if (body.p_sold_on !== sale.sold_on || body.p_payment_method !== sale.payment_method || body.p_deposit_minor !== (sale.deposit_minor ?? null)) return respond({ message: 'El cobro inicial no se puede modificar' }, 400);
         return respond({ id: sale.id, items_total_minor: itemsTotal, charged_total_minor: sale.total_minor });
       }
-      if (table === 'create_local_sale_with_items' || table === 'create_channel_sale_with_items' || table === 'gestion_create_local_sale_with_items') {
+      if (table === 'create_local_sale_with_items' || table === 'create_channel_sale_with_items' || table === 'gestion_create_local_sale_with_items' || table === 'gestion_create_local_sale_with_split_payment') {
         const saleNumber = tables.local_sales.length + 19;
         const channel = table === 'create_local_sale_with_items' ? 'Local' : body.p_channel;
         const prefix = channel === 'Local' ? 'L' : channel === 'Feria' ? 'F' : 'R';
@@ -281,10 +281,18 @@ export async function mockCommerce(page: Page, options: { userId?: string; denie
         });
         const itemsTotal = items.reduce((sum: number, item: any) => sum + item.line_total_minor, 0);
         const charged = body.p_deposit_minor ?? itemsTotal + (body.p_shipping_minor ?? 0);
+        if (table === 'gestion_create_local_sale_with_split_payment' && (
+          !Array.isArray(body.p_payments) || body.p_payments.length !== 2 ||
+          body.p_payments[0].method === body.p_payments[1].method ||
+          body.p_payments[0].method !== body.p_payment_method ||
+          body.p_payments.some((part: any) => !Number.isSafeInteger(part.amountMinor) || part.amountMinor <= 0) ||
+          body.p_payments.reduce((sum: number, part: any) => sum + part.amountMinor, 0) !== charged
+        )) return respond({ message: 'Revisá el desglose del cobro inicial' }, 400);
         const row = { id: `sale-${saleNumber}`, sale_number: saleNumber, reference_code: `#${prefix}${String(referenceNumber).padStart(3, '0')}`, channel, customer_id: body.p_customer_id,
           customer_name: customer?.full_name || 'Cliente sin registrar', sold_on: body.p_sold_on,
           payment_method: body.p_payment_method, total_minor: charged, deposit_minor: body.p_deposit_minor, currency: body.p_currency ?? 'UYU',
           retail_shipping_minor: body.p_shipping_minor ?? 0, retail_rate_to_uyu: body.p_rate_to_uyu ?? null,
+          retail_payment_split: body.p_payments ?? null,
           created_at: new Date().toISOString(), local_sale_items: items };
         tables.local_sales.push(row);
         if (customer) {

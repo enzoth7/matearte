@@ -70,11 +70,11 @@ export default async function Home() {
       <section className="home-section home-scroll-band home-craft">
         <div className="home-shell home-craft-grid">
           <BandContent className="home-copy-block">
-            <h2 className="home-craft-title"><strong>{t("craftTitleTop")}</strong><span>{t("craftTitleMiddle")} <strong>{t("craftTitleMate")}</strong></span></h2>
-            <p className="home-craft-subtitle">{t("craftSubtitle")}</p>
-            <p className="home-craft-body-desktop">{t("craftDesktop")}</p>
-            <p className="home-craft-intro-mobile">{t("craftIntroMobile")}</p>
-            <p className="home-craft-body-mobile">{t("craftMobile")}</p>
+            <h2 className="home-craft-title">{t("craftTitleTop")} {t("craftTitleMiddle")} {t("craftTitleMate")}</h2>
+            <div data-copy className="home-craft-subtitle">{t("craftSubtitle")}</div>
+            <div data-copy className="home-craft-body-desktop">{t("craftDesktop")}</div>
+            <div data-copy className="home-craft-intro-mobile">{t("craftIntroMobile")}</div>
+            <div data-copy className="home-craft-body-mobile">{t("craftMobile")}</div>
           </BandContent>
           <div className="home-craft-gallery">
             <BandContent className="home-image home-craft-image" delay={0.06}>
@@ -93,9 +93,9 @@ export default async function Home() {
             <Image src={`${assets}/history.webp`} alt={t("historyAlt")} fill sizes="(max-width: 768px) 100vw, 44vw" />
           </BandContent>
           <BandContent className="home-history-copy" delay={0.08}>
-            <h2 className="home-history-title"><strong>{t("historyYears")}</strong><strong>{t("historyTradition")}</strong><span>{t("historyGeneration")}</span></h2>
-            <p className="home-history-body-desktop">{t("historyDesktop")}</p>
-            <p className="home-history-body-mobile">{t("historyMobile")}</p>
+            <h2 className="home-history-title"><strong>{t("historyYears")}</strong><strong>{t("historyTradition")}</strong><strong data-inline>{t("historyGeneration")}</strong></h2>
+            <div data-copy className="home-history-body-desktop">{t("historyDesktop")}</div>
+            <div data-copy className="home-history-body-mobile">{t("historyMobile")}</div>
             <Link className="home-button home-button-dark" href="/nosotros">{t("historyAction")}</Link>
           </BandContent>
         </div>
@@ -105,7 +105,7 @@ export default async function Home() {
         <div className="home-shell">
           <BandContent className="home-section-intro home-section-intro-center">
             <h2>{t("chooseTitle")}</h2>
-            <p>{t("chooseBody")}</p>
+            <div data-copy>{t("chooseBody")}</div>
           </BandContent>
           <div className="home-category-grid">
             {categories.map((category, index) => (
@@ -119,7 +119,7 @@ export default async function Home() {
                   <div className="home-image home-category-image">
                     <Image src={`${assets}/${category.image}`} alt={t(category.name)} fill sizes="(max-width: 768px) 50vw, 20vw" />
                   </div>
-                  <div className="home-category-copy"><h3>{t(category.name)}</h3><p>{t(category.copy)}</p></div>
+                  <div className="home-category-copy"><h3>{t(category.name)}</h3><div data-copy>{t(category.copy)}</div></div>
                 </Link>
               </BandContent>
             ))}
@@ -133,7 +133,7 @@ export default async function Home() {
           <BandContent className="home-image home-personalized-image"><Image src={`${assets}/personalizados.webp`} alt={t("customAlt")} fill sizes="(max-width: 768px) 100vw, 48vw" /></BandContent>
           <BandContent className="home-personalized-copy" delay={0.08}>
             <h2>{t("customTitle")}</h2>
-            <p>{t("customBody")}</p>
+            <div data-copy>{t("customBody")}</div>
             <Link className="home-button home-button-light" href="/personalizados">{t("customAction")}</Link>
           </BandContent>
         </div>
@@ -143,8 +143,8 @@ export default async function Home() {
         <div className="home-champions-shell">
           <BandContent className="home-champions-intro">
             <h2>{t("championsTitle")}</h2>
-            <p className="home-champions-copy-desktop">{t("championsDesktop")}</p>
-            <p className="home-champions-copy-mobile">{t("championsMobile")}</p>
+            <div data-copy className="home-champions-copy-desktop">{t("championsDesktop")}</div>
+            <div data-copy className="home-champions-copy-mobile">{t("championsMobile")}</div>
           </BandContent>
           <div className="home-champions-grid" tabIndex={0} aria-label={t("championsGallery")}>
             {champions.map((champion, index) => (
@@ -163,8 +163,8 @@ export default async function Home() {
           <BandContent className="home-imperial-copy" delay={0.08}>
             <h2>{t("imperialTitle")}</h2>
             <h3>{t("imperialSubtitle")}</h3>
-            <p>{t("imperialBody1")}</p>
-            <p>{t("imperialBody2")}</p>
+            <div data-copy>{t("imperialBody1")}</div>
+            <div data-copy>{t("imperialBody2")}</div>
           </BandContent>
         </div>
       </section>
@@ -172,8 +172,8 @@ export default async function Home() {
       <section className="home-section home-scroll-band home-culture">
         <div className="home-shell home-culture-grid">
           <BandContent className="home-culture-copy">
-            <h2><span>{t("cultureLine1")}</span><span>{t("cultureLine2")}</span></h2>
-            <p>{t("cultureBody")}</p>
+            <h2><strong data-inline>{t("cultureLine1")}</strong><strong data-inline>{t("cultureLine2")}</strong></h2>
+            <div data-copy>{t("cultureBody")}</div>
             <Image src={`${assets}/uruguay.webp`} alt={t("countryAlt")} width={392} height={180} className="home-country-logo" />
           </BandContent>
           <BandContent className="home-image home-culture-image" delay={0.08}><Image src={`${assets}/culture.webp`} alt={t("cultureAlt")} fill sizes="(max-width: 768px) 100vw, 43vw" /></BandContent>
@@ -185,11 +185,11 @@ export default async function Home() {
           <BandContent className="home-image home-visit-image"><Image src={`${assets}/store.webp`} alt={t("storeAlt")} fill sizes="(max-width: 768px) 100vw, 44vw" /></BandContent>
           <BandContent className="home-visit-copy" delay={0.08}>
             <h2>{t("visitTitle")}</h2>
-            <p>25 de Mayo 1734 · <span className="home-address-place">Paysandú, Uruguay</span></p>
+            <div data-copy>25 de Mayo 1734, <strong data-inline className="home-address-place">Paysandú, Uruguay</strong></div>
             <a className="home-button home-button-light" href="https://www.google.com/maps/search/?api=1&query=25+de+Mayo+1734+Paysandu+Uruguay" target="_blank" rel="noreferrer">{t("mapsAction")}</a>
             <div className="home-shipping">
-              <h2><span>{t("shippingLine1")}</span><span>{t("shippingLine2")}</span></h2>
-              <p>{t("shippingBody")}</p>
+              <h2><strong data-inline>{t("shippingLine1")}</strong><strong data-inline>{t("shippingLine2")}</strong></h2>
+              <div data-copy>{t("shippingBody")}</div>
               <Link className="home-button home-button-light" href="/contacto">{t("contactAction")}</Link>
             </div>
           </BandContent>

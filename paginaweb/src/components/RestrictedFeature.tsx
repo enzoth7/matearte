@@ -8,10 +8,9 @@ export function RestrictedFeature() {
     <section className="bg-[var(--walnut)] text-[var(--paper)]">
       <div className="container-shell grid min-h-[42rem] items-stretch lg:grid-cols-12">
         <div className="min-w-0 flex flex-col justify-center py-20 lg:col-span-5 lg:pr-16">
-          <p className="eyebrow text-[var(--rawhide)]">La tradición viaja</p>
           <h2 className="display-lg mt-7">MateArte en manos de la Celeste.</h2>
-          <p className="mt-7 max-w-xl text-base leading-8 text-white/68">La marca comparte estas imágenes como parte de su historia reciente: piezas personalizadas que llegaron a futbolistas uruguayos y llevaron el oficio de Paysandú a nuevos escenarios.</p>
-          <p className="mt-8 border-l border-[var(--rawhide)] pl-4 text-xs leading-6 text-white/50">Presentación interna. Identidad, imagen personal, clubes y federaciones requieren validación de derechos antes de una publicación definitiva.</p>
+          <div data-copy className="mt-7 max-w-xl text-base leading-8 text-[var(--paper)]/68">La marca comparte estas imágenes como parte de su historia reciente: piezas personalizadas que llegaron a futbolistas uruguayos y llevaron el oficio de Paysandú a nuevos escenarios.</div>
+          <div data-copy className="mt-8 text-xs leading-6 text-[var(--paper)]/50">Presentación interna. Identidad, imagen personal, clubes y federaciones requieren validación de derechos antes de una publicación definitiva.</div>
         </div>
         <div className="relative min-h-[28rem] min-w-0 lg:col-span-7">
           {enabled ? (
@@ -24,11 +23,11 @@ export function RestrictedFeature() {
               ))}
             </div>
           ) : (
-            <div className="flex h-full min-h-[28rem] items-center justify-center border-x border-white/15 bg-[linear-gradient(135deg,rgba(199,160,113,.12),transparent_55%)] p-8 text-center">
+            <div className="flex h-full min-h-[28rem] items-center justify-center border-x border-[var(--paper)]/15 bg-[linear-gradient(135deg,rgb(30 18 12 / .12),transparent_55%)] p-8 text-center">
               <div className="max-w-md">
-                <p className="display-font text-5xl text-[var(--rawhide)]">UY</p>
-                <p className="mt-5 text-sm font-semibold tracking-[0.18em] uppercase">Archivo reservado</p>
-                <p className="mt-3 text-sm leading-6 text-white/50">La composición está preparada para habilitar los recursos autorizados sin modificar el diseño.</p>
+                <div data-copy className="display-font text-5xl text-[var(--rawhide)]">UY</div>
+                <div data-copy className="mt-5 text-sm font-semibold tracking-[0.18em] uppercase">Archivo reservado</div>
+                <div data-copy className="mt-3 text-sm leading-6 text-[var(--paper)]/50">La composición está preparada para habilitar los recursos autorizados sin modificar el diseño.</div>
               </div>
             </div>
           )}

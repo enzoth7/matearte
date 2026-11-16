@@ -66,8 +66,8 @@ export function ProductGallery({ images }: { images: MediaAsset[] }) {
               data-clarity-unmask="true"
               className={`relative size-16 shrink-0 overflow-hidden rounded-md transition-all ${
                 activeIndex === i
-                  ? "ring-2 ring-[var(--ink)] ring-offset-2 ring-offset-[#f3efe6]"
-                  : "border border-black/15 hover:opacity-80"
+                  ? "ring-2 ring-[var(--ink)] ring-offset-2 ring-offset-[#FDFDFC]"
+                  : "border border-[var(--ink)]/15 hover:opacity-80"
               }`}
               onClick={() => {
                 if (!scroller.current) return;

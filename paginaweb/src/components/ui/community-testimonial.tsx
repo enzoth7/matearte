@@ -40,13 +40,13 @@ function CountryFlag({ code, label }: { code: TestimonialCountryCode; label: str
 export function TestimonialCard({ quote, authorName, authorTitle, countryCode }: TestimonialCardProps) {
   return (
     <blockquote className="testimonial-card">
-      <p>“{quote}”</p>
+      <div data-copy>“{quote}”</div>
       <footer>
         <CountryFlag code={countryCode} label={authorTitle} />
-        <span>
+        <strong data-inline>
           <strong>{authorName}</strong>
           <small>{authorTitle}</small>
-        </span>
+        </strong>
       </footer>
     </blockquote>
   );
@@ -81,11 +81,10 @@ export default function TestimonialsSection({ data }: TestimonialsSectionProps) 
       <div className="container-shell">
         <div className="testimonials-heading-grid">
           <div>
-            <p className="eyebrow text-[var(--rawhide)]">{t("voices")}</p>
             <h2 id="testimonials-heading" className="display-lg mt-7 text-[var(--paper)]">{data.title}</h2>
           </div>
           <div className="testimonials-heading-copy">
-            <p>{data.subtitle}</p>
+            <div data-copy>{data.subtitle}</div>
             <button
               type="button"
               className="testimonial-motion-control"

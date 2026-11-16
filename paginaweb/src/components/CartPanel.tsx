@@ -4,23 +4,32 @@ import { useStorefrontCurrency } from "./StorefrontCurrency";
 
 import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getLocalizedProducts } from "@/content/catalog-localization";
 import { products } from "@/data/catalog";
 import { Link } from "@/i18n/navigation";
-import type { Locale, Product } from "@/types/catalog";
-import { localCartEntryKey, readLocalCart, removeLocalCartItem, updateLocalCartItemQuantity } from "@/lib/browser-cart";
+import type { Locale, Product, Currency, Money } from "@/types/catalog";
+import { addLocalCartItem, localCartEntryKey, readLocalCart, removeLocalCartItem, updateLocalCartItemQuantity } from "@/lib/browser-cart";
 import { trackJourneyStep } from "../../../shared/journeyAnalytics";
 import { defaultCatalogTaxonomy, formatPurchaseSelectionLabel, normalizeCatalogValueMap, type CatalogValueMap } from "../../../shared/catalog-taxonomy";
 import { applyWholesaleMateDiscount, isWholesaleMateCategory, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
+
+import { Trash } from "@phosphor-icons/react";
+import { CartRecommendations } from "./CartRecommendations";
+import { complementFamily, recommendForCart, type CartCatalogProduct, type CartRecommendation, type RecommendationSource } from "@/lib/cart-recommendations";
+import { notifyCartAdded, countCartItems } from "@/lib/cart-feedback";
+import styles from "./Cart.module.css";
+import { cartOptionLabel } from "@/lib/cart-option-label";
 
 type RemoteItem = {
   id: string; item_type: "catalog" | "design"; quantity: number;
   unit_price_minor: number; base_unit_price_minor?: number; catalog_base_unit_price_minor?: number; currency: string;
   option_values_override?: CatalogValueMap;
-  variant: null | { id: string; name: string; base_price_minor?: number; price_minor: number; currency: string; active?: boolean; available_web?: boolean; option_values?: CatalogValueMap; product: { name: string; category?: string; category_code?: string | null; published?: boolean; commerce_product_images?: { storage_path: string; sort_order: number; variant_id: string | null; option_values?: CatalogValueMap }[] } };
+  variant: null | { id: string; name: string; base_price_minor?: number; price_minor: number; currency: string; active?: boolean; available_web?: boolean; option_values?: CatalogValueMap; product: { id?: string; editorial_slug?: string; attributes?: CatalogValueMap; name: string; category?: string; category_code?: string | null; published?: boolean; commerce_product_images?: { storage_path: string; sort_order: number; variant_id: string | null; option_values?: CatalogValueMap }[] } };
   design: null | { title: string };
 };
+const EMPTY_CATALOG: CartCatalogProduct[] = [];
+
 type Cart = { id: string; items: RemoteItem[] };
 
 function priceRemoteItems(items: RemoteItem[], settings: WholesaleDiscountSettings) {
@@ -40,6 +49,7 @@ function QuantityControl({
   decreaseLabel,
   increaseLabel,
   className,
+  disabled = false,
   onChange,
 }: {
   value: number;
@@ -47,31 +57,33 @@ function QuantityControl({
   decreaseLabel: string;
   increaseLabel: string;
   className: string;
+  disabled?: boolean;
   onChange: (value: number) => void;
 }) {
-  const [draft, setDraft] = useState(String(value));
-  useEffect(() => setDraft(String(value)), [value]);
+  const [draft, setDraft] = useState<string | null>(null);
 
   const commitDraft = () => {
-    const parsed = Number.parseInt(draft, 10);
+    const parsed = Number.parseInt(draft ?? String(value), 10);
     const next = Number.isFinite(parsed) ? Math.max(1, Math.min(99, parsed)) : value;
-    setDraft(String(next));
+    setDraft(null);
     if (next !== value) onChange(next);
   };
 
   return (
     <div className={className} role="group" aria-label={label}>
-      <button type="button" aria-label={decreaseLabel} onClick={() => onChange(value - 1)}>
-        <span aria-hidden="true">−</span>
+      <button type="button" disabled={disabled} aria-label={decreaseLabel} onClick={() => onChange(value - 1)}>
+        <strong data-inline aria-hidden="true">−</strong>
       </button>
       <input
         type="number"
+        disabled={disabled}
         min="1"
         max="99"
         step="1"
         inputMode="numeric"
         aria-label={label}
-        value={draft}
+        value={draft ?? String(value)}
+        onFocus={() => setDraft(String(value))}
         onChange={(event) => {
           const nextDraft = event.target.value;
           setDraft(nextDraft);
@@ -84,8 +96,8 @@ function QuantityControl({
           if (event.key === "Enter") event.currentTarget.blur();
         }}
       />
-      <button type="button" aria-label={increaseLabel} disabled={value >= 99} onClick={() => onChange(value + 1)}>
-        <span aria-hidden="true">+</span>
+      <button type="button" aria-label={increaseLabel} disabled={disabled || value >= 99} onClick={() => onChange(value + 1)}>
+        <strong data-inline aria-hidden="true">+</strong>
       </button>
     </div>
   );
@@ -95,28 +107,16 @@ import { formatMoney as money } from "@/lib/money";
 import { orderItemImagePath } from "@/lib/order-item-image";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 
-const normalizeProductName = (value: string) => value
-  .normalize("NFD")
-  .replace(/[\u0300-\u036f]/g, "")
-  .toLocaleLowerCase("es")
-  .replace(/[^a-z0-9]+/g, " ")
-  .trim();
-
 function itemTitle(item: RemoteItem, localizedProducts: Product[], fallback: string) {
   if (item.design?.title) return item.design.title;
-  const remoteName = normalizeProductName(item.variant?.product.name || "");
-  const sourceProduct = products.find((candidate) => {
-    const localName = normalizeProductName(candidate.name);
-    return remoteName && (localName.includes(remoteName) || remoteName.includes(localName));
-  });
+  const sourceProduct = products.find(candidate => candidate.slug === item.variant?.product.editorial_slug || candidate.variants.some(v => v.id === item.variant?.id));
   return localizedProducts.find((product) => product.id === sourceProduct?.id)?.name || item.variant?.product.name || fallback;
 }
 
-function itemSubtitle(item: RemoteItem, customDesign: string, catalogPiece: string) {
-  if (item.item_type === "design") return customDesign;
+function itemSubtitle(item: RemoteItem, locale: Locale) {
+  if (item.item_type === "design") return cartOptionLabel(item.option_values_override, locale);
   const options = { ...normalizeCatalogValueMap(item.variant?.option_values), ...normalizeCatalogValueMap(item.option_values_override) };
-  const selection = formatPurchaseSelectionLabel(defaultCatalogTaxonomy, options);
-  return selection === "Única" ? item.variant?.name || catalogPiece : selection;
+  return cartOptionLabel(options, locale);
 }
 
 function itemImage(item: RemoteItem) {
@@ -135,63 +135,22 @@ function itemImage(item: RemoteItem) {
     return supabase.storage.from("product-images").getPublicUrl(imagePath).data.publicUrl;
   }
 
-  const remoteName = normalizeProductName(item.variant?.product.name || "");
-  if (remoteName) {
-    const product = products.find((candidate) => {
-      const localName = normalizeProductName(candidate.name);
-      return localName.includes(remoteName) || remoteName.includes(localName);
-    });
-    const variantImage = product?.images.find(image => image.variantId === item.variant?.id);
-    const generalImage = product?.images.find(image => !image.variantId);
-    const imageSrc = variantImage?.src || generalImage?.src || product?.images[0]?.src;
-    if (imageSrc) return imageSrc;
-  }
+  const product = products.find(candidate => candidate.slug === item.variant?.product.editorial_slug || candidate.variants.some(v => v.id === item.variant?.id));
+  const imageSrc = product?.images.find(image => image.variantId === item.variant?.id)?.src || product?.images.find(image => !image.variantId)?.src || product?.images[0]?.src;
+  if (imageSrc) return imageSrc;
 
   return "/assets/matearte/profile-orders-desktop/catalog-fallback.webp";
 }
 
-function MobileEmptyCart({ showLogin }: { showLogin: boolean }) {
-  const t = useTranslations("cart");
-  return (
-    <div className="cart-empty-mobile-state">
-      <div className="cart-empty-mobile-image">
-        <Image
-          src="/assets/matearte/cart-desktop/empty-cart.webp"
-          alt={t("emptyAlt")}
-          fill
-          priority
-          sizes="308px"
-        />
-      </div>
-      <div className="cart-empty-mobile-message">
-        <div className="cart-empty-mobile-icon">
-          <Image src="/assets/matearte/cart-desktop/bag.svg" alt="" width={24} height={24} aria-hidden="true" />
-        </div>
-        <h2>{t("emptyTitle")}</h2>
-        <p>{t("emptyBody")}</p>
-      </div>
-      <div className="cart-empty-mobile-actions">
-        <Link className="cart-empty-mobile-primary" href="/catalogo">{t("explore")}</Link>
-        {showLogin && (
-          <Link className="cart-empty-mobile-login" href="/perfil">
-            {t("login")}
-          </Link>
-        )}
-      </div>
-    </div>
-  );
-}
-
-export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?: Record<string, number>; wholesaleSettings: WholesaleDiscountSettings }) {
+export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CATALOG }: { exchangeRates?: Record<string, number>; wholesaleSettings: WholesaleDiscountSettings; catalog?: CartCatalogProduct[] }) {
   const { currency: displayCurrency, rates: displayRates, arsPerUyu, arsUseBasePrice } = useStorefrontCurrency(exchangeRates);
   const locale = useLocale() as Locale;
   const t = useTranslations("cart");
 
   const format = (minor: number) => money(minor, "UYU", locale, displayRates, displayCurrency);
-  const localizedProducts = getLocalizedProducts(locale);
-  const titleFor = (item: RemoteItem) => itemTitle(item, localizedProducts, t("piece"));
-  const subtitleFor = (item: RemoteItem) => itemSubtitle(item, t("customDesign"), t("catalogPiece"));
-  const imageAltFor = (item: RemoteItem) => item.item_type === "design" ? "MateArte" : titleFor(item);
+  const localizedProducts = useMemo(() => getLocalizedProducts(locale), [locale]);
+  const titleFor = (item: RemoteItem) => catalog.find(p => p.variants.some(v => v.id === item.variant?.id))?.name ?? itemTitle(item, localizedProducts, t("piece"));
+  const subtitleFor = (item: RemoteItem) => itemSubtitle(item, locale);
   const [rawCart, setCart] = useState<Cart | null>(null);
   const useArsBase = displayCurrency === "ARS" && arsUseBasePrice;
   const cart = rawCart && useArsBase ? { ...rawCart, items: priceRemoteItems(rawCart.items.map(item => ({ ...item, base_unit_price_minor: item.item_type === "catalog" ? item.catalog_base_unit_price_minor ?? item.variant?.base_price_minor ?? item.base_unit_price_minor : item.base_unit_price_minor })), wholesaleSettings) } : rawCart;
@@ -199,19 +158,27 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
+  const [adding, setAdding] = useState("");
+  const [pendingQuantity, setPendingQuantity] = useState<Set<string>>(new Set());
+  const addLock = useRef(false);
+  const [confirmation, setConfirmation] = useState("");
+  const loadSequence = useRef(0);
   const quantityTimers = useRef(new Map<string, number>());
   const quantityVersions = useRef(new Map<string, number>());
   const quantityRequests = useRef(new Map<string, AbortController>());
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     const [cartResponse, sessionResponse] = await Promise.all([
       fetch("/api/cart", { cache: "no-store" }),
       fetch("/api/session", { cache: "no-store" }),
     ]);
     const session = await sessionResponse.json();
+    if (sequence !== loadSequence.current) return;
     setIsAuthenticated(!!session?.authenticated);
     if (cartResponse.status === 401) { setNeedsLogin(true); return; }
     const value = await cartResponse.json();
+    if (sequence !== loadSequence.current) return;
     if (!cartResponse.ok) throw new Error(t("loadFailed"));
     setCart(value); setNeedsLogin(false);
   }, [t]);
@@ -221,17 +188,30 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
     return () => window.clearTimeout(timer);
   }, [load]);
 
+  useEffect(() => {
+    const refreshMergedCart = () => { void load().catch(() => setError(t("loadFailed"))); };
+    window.addEventListener("matearte-cart-merged", refreshMergedCart);
+    return () => window.removeEventListener("matearte-cart-merged", refreshMergedCart);
+  }, [load, t]);
+
+  useEffect(() => {
+    if (rawCart && !needsLogin) window.dispatchEvent(new CustomEvent("matearte-cart-change", { detail: { count: countCartItems(rawCart.items) } }));
+  }, [rawCart, needsLogin]);
+
   useEffect(() => () => {
     quantityTimers.current.forEach((timer) => window.clearTimeout(timer));
     quantityRequests.current.forEach((controller) => controller.abort());
   }, []);
 
-  const checkoutHref = isAuthenticated ? "/checkout" : "/perfil?redirect=/checkout";
+  const checkoutHref = isAuthenticated ? "/checkout" as const : { pathname: "/perfil" as const, query: { redirect: "/checkout" } };
 
   const mutate = async (method: "PATCH" | "DELETE", itemId: string, quantity?: number) => {
     const timer = quantityTimers.current.get(itemId);
     if (timer) window.clearTimeout(timer);
+    quantityTimers.current.delete(itemId);
+    quantityVersions.current.set(itemId, (quantityVersions.current.get(itemId) || 0) + 1);
     quantityRequests.current.get(itemId)?.abort();
+    setPendingQuantity(current => { const next = new Set(current); next.delete(itemId); return next; });
     setBusy(itemId); setError("");
     try {
       const response = await fetch("/api/cart/items", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ itemId, quantity }) });
@@ -248,6 +228,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
       return;
     }
     const quantity = Math.max(1, Math.min(99, Math.trunc(requestedQuantity)));
+    setPendingQuantity(current => new Set(current).add(itemId));
     setError("");
     setCart((current) => current ? {
       ...current,
@@ -262,6 +243,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
     const version = (quantityVersions.current.get(itemId) || 0) + 1;
     quantityVersions.current.set(itemId, version);
     quantityTimers.current.set(itemId, window.setTimeout(async () => {
+      quantityTimers.current.delete(itemId);
       quantityRequests.current.get(itemId)?.abort();
       const controller = new AbortController();
       quantityRequests.current.set(itemId, controller);
@@ -281,6 +263,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
         await load().catch(() => undefined);
       } finally {
         if (quantityRequests.current.get(itemId) === controller) quantityRequests.current.delete(itemId);
+        if (quantityVersions.current.get(itemId) === version) setPendingQuantity(current => { const next = new Set(current); next.delete(itemId); return next; });
       }
     }, 300));
   };
@@ -318,6 +301,14 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
 
     for (const entry of entries) {
       const { variantId, quantity, optionValues } = entry;
+      const commercial = catalog.find(p => p.variants.some(v => v.id === variantId || v.commerceId === variantId));
+      if (commercial) {
+        const variant = commercial.variants.find(v => v.id === variantId || v.commerceId === variantId)!;
+        const selected = { ...variant.options, ...normalizeCatalogValueMap(optionValues) };
+        const label = formatPurchaseSelectionLabel(defaultCatalogTaxonomy, selected);
+        resolved.push({ lineKey: localCartEntryKey(entry), title: commercial.name, variantLabel: label === "Única" ? "" : label.replaceAll(` ${String.fromCharCode(183)} `, ", "), variantId, optionValues: selected, quantity, basePriceMinor: variant.price!.amountMinor, wholesaleBasePriceMinor: variant.basePrice?.amountMinor ?? variant.price!.amountMinor, priceMinor: variant.price!.amountMinor, availableWeb: variant.available === true, category: commercial.category, imageSrc: commercial.images.find(i => i.variantId === variantId)?.src ?? commercial.images[0]?.src ?? "/assets/matearte/profile-orders-desktop/catalog-fallback.webp" });
+        continue;
+      }
       const pByVariant = products.find(p => p.variants.some(v => v.id === variantId));
       const pByIdOrSlug = products.find(p => p.id === variantId || p.slug === variantId);
       const product = pByVariant || pByIdOrSlug;
@@ -334,7 +325,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
         resolved.push({
           lineKey: localCartEntryKey(entry),
           title: localizedName,
-          variantLabel: selectedLabel === "Única" ? variant?.label ?? "" : selectedLabel,
+          variantLabel: selectedLabel === "Única" ? "" : selectedLabel.replaceAll(` ${String.fromCharCode(183)} `, ", "),
           variantId,
           optionValues: normalizedOptions,
           quantity,
@@ -381,27 +372,22 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
           `)
           .in("id", missingUUIDs.map(m => m.variantId));
 
-        const supabaseUrlBase = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://agdkljuulwjwjasftcce.supabase.co").trim();
+
 
         for (const entry of missingUUIDs) {
           const { variantId, quantity, optionValues } = entry;
-          const vData = dbVariants?.find((v: any) => v.id === variantId);
+          const vData = dbVariants?.find((v) => v.id === variantId);
           if (vData) {
-            const rawProduct = vData.commerce_products as any;
+            const rawProduct = Array.isArray(vData.commerce_products)
+              ? vData.commerce_products[0]
+              : vData.commerce_products;
             const imagePath = orderItemImagePath({
               item_type: "catalog",
               source_variant_id: variantId,
               variant: { product: rawProduct, option_values: vData.option_values },
             });
 
-            // Try matching a local catalog image first for 100% reliable loading
-            const rawNameNorm = normalizeProductName(rawProduct?.name || "");
-            const localMatch = products.find(p => {
-              const pNameNorm = normalizeProductName(p.name);
-              return p.slug === rawProduct?.editorial_slug
-                || p.id === rawProduct?.editorial_slug
-                || (rawNameNorm && (pNameNorm.includes(rawNameNorm) || rawNameNorm.includes(pNameNorm)));
-            });
+            const localMatch = products.find(p => p.slug === rawProduct?.editorial_slug || p.id === rawProduct?.id || p.variants.some(v => v.id === variantId));
             const localVariantImage = localMatch?.images.find(image => image.variantId === variantId);
             const localGeneralImage = localMatch?.images.find(image => !image.variantId);
             const localImage = localVariantImage?.src || localGeneralImage?.src || localMatch?.images[0]?.src;
@@ -415,7 +401,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
             resolved.push({
               lineKey: localCartEntryKey(entry),
               title: rawProduct?.name || "Producto MateArte",
-              variantLabel: selectedLabel === "Única" ? vData.name || "" : selectedLabel,
+              variantLabel: selectedLabel === "Única" ? "" : selectedLabel.replaceAll(` ${String.fromCharCode(183)} `, ", "),
               variantId,
               optionValues: normalizedOptions,
               quantity,
@@ -427,37 +413,37 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
               imageSrc,
             });
           } else {
-            const fallbackP = products[0];
+
             resolved.push({
               lineKey: localCartEntryKey(entry),
-              title: fallbackP?.name || "Producto",
+              title: t("piece"),
               variantLabel: "",
               variantId,
               quantity,
-              basePriceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
-              wholesaleBasePriceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
-              priceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
+              basePriceMinor: 0,
+              wholesaleBasePriceMinor: 0,
+              priceMinor: 0,
               availableWeb: false,
-              imageSrc: fallbackP?.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.webp",
+              imageSrc: "/assets/matearte/profile-orders-desktop/catalog-fallback.webp",
             });
           }
         }
       } catch {
         for (const entry of missingUUIDs) {
           const { variantId, quantity, optionValues } = entry;
-          const fallbackP = products[0];
+
           resolved.push({
             lineKey: localCartEntryKey(entry),
-            title: fallbackP?.name || "Producto",
+            title: t("piece"),
             variantLabel: "",
             variantId,
             optionValues,
             quantity,
-            basePriceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
-            wholesaleBasePriceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
-            priceMinor: (fallbackP?.filterData?.priceUYU || 500) * 100,
+            basePriceMinor: 0,
+            wholesaleBasePriceMinor: 0,
+            priceMinor: 0,
             availableWeb: false,
-            imageSrc: fallbackP?.images[0]?.src || "/assets/matearte/profile-orders-desktop/catalog-fallback.webp",
+            imageSrc: "/assets/matearte/profile-orders-desktop/catalog-fallback.webp",
           });
         }
       }
@@ -471,10 +457,12 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
       category:item.category,
     })),wholesaleSettings);
     setLocalItems(resolved.map((item,index)=>({...item,priceMinor:adjusted[index].unitPriceMinor})));
-  }, [localizedProducts,wholesaleSettings]);
+  }, [catalog,localizedProducts,wholesaleSettings,t]);
 
   useEffect(() => {
     if (!needsLogin) return;
+    // The browser cart is an external store and must be loaded when this view mounts.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void resolveLocalCart();
     const handleCartChange = () => { void resolveLocalCart(); };
     window.addEventListener("matearte-cart-change", handleCartChange);
@@ -515,386 +503,92 @@ export function CartPanel({ exchangeRates, wholesaleSettings }: { exchangeRates?
     updateLocalCartItemQuantity(lineKey, quantity);
   };
 
-  if (needsLogin) {
-    if (localItems.length === 0) return (
-      <>
-      <MobileEmptyCart showLogin />
-      <div className="cart-empty-desktop-state cart-empty cart-empty-login">
-        <div className="cart-empty-copy">
-          <div className="cart-empty-icon">
-            <Image src="/assets/matearte/cart-desktop/bag.svg" alt="" width={24} height={24} aria-hidden="true" />
-          </div>
-          <div className="cart-empty-message">
-            <p className="display-font mt-5 text-4xl">{t("emptyTitle")}</p>
-            <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-black/60">{t("emptyBody")}</p>
-          </div>
-          <div className="cart-empty-actions">
-            <Link className="button-primary gap-2" href="/catalogo">{t("explore")}</Link>
-            <Link className="cart-empty-login-button" href="/perfil">{t("login")}</Link>
-          </div>
-        </div>
-        <div className="cart-empty-image">
-          <Image src="/assets/matearte/cart-desktop/empty-cart.webp" alt={t("emptyAlt")} fill priority sizes="221px" />
-        </div>
-      </div>
-      </>
-    );
+  const sources: RecommendationSource[] = needsLogin
+    ? localItems.map(i => ({ available: i.availableWeb, variantId: i.variantId, family: complementFamily({ id: "", slug: "", category: i.category ?? "", attributes: {} }), price: { amountMinor: i.basePriceMinor, currency: "UYU" } }))
+    : (cart?.items ?? []).map(i => ({ available: i.item_type === "design" || Boolean(i.variant?.active && i.variant.available_web !== false && i.variant.product.published), variantId: i.variant?.id, productId: i.variant?.product.id,
+      family: i.item_type === "design" ? "mate" : complementFamily({ id: i.variant?.product.id ?? "", slug: i.variant?.product.editorial_slug ?? "", category: i.variant?.product.category_code ?? i.variant?.product.category ?? "", attributes: i.variant?.product.attributes }),
+      price: { amountMinor: i.base_unit_price_minor ?? i.unit_price_minor, currency: i.currency as Currency } }));
+  const recommendations = recommendForCart(catalog, sources, displayRates, useArsBase);
+  const formatPrice = (price: Money) => money(price.amountMinor, price.currency, locale, displayRates, displayCurrency);
+  const addRecommendation = async (recommendation: CartRecommendation) => {
+    if (addLock.current || busy || pendingQuantity.size || !recommendation.product.quickVariantId) return;
+    addLock.current = true;
+    setAdding(recommendation.product.id); setError(""); setConfirmation("");
+    try {
+      // Recheck current availability and required options, also for visitors.
+      const check = await fetch(`/api/catalog/products?slug=${encodeURIComponent(recommendation.product.slug)}`, { cache: "no-store" });
+      const current = await check.json();
+      if (!check.ok || !current.available || !current.commerceEnabled || current.quickAddVariantId !== recommendation.product.quickVariantId) throw new Error();
+      const selectedOptions = normalizeCatalogValueMap(current.quickAddOptionValues);
+      const response = await fetch("/api/cart/items", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ itemType: "catalog", variantId: current.quickAddVariantId, quantity: 1, locale, optionValuesOverride: selectedOptions }) });
+      let count: number;
+      if (response.status === 401 && needsLogin) {
+        addLocalCartItem(current.quickAddVariantId, 1, selectedOptions);
+        await resolveLocalCart();
+        count = countCartItems(readLocalCart());
+      } else {
+        const next = await response.json();
+        if (!response.ok || !Array.isArray(next.items)) throw new Error();
+        setCart(next); setNeedsLogin(false); count = countCartItems(next.items);
+      }
+      const message = t("addedItem", { item: recommendation.product.name });
+      setConfirmation(message);
+      notifyCartAdded({ name: recommendation.product.name, price: formatPrice(recommendation.variant.price!), count, confirmation: message });
+    } catch { setError(t("addFailed")); }
+    finally { addLock.current = false; setAdding(""); }
+  };
 
-    const guestBaseSubtotal = localItems.reduce((sum, item) => sum + item.basePriceMinor * item.quantity, 0);
-    const guestSubtotal = localItems.reduce((sum, item) => sum + item.priceMinor * item.quantity, 0);
-    const guestSum = (base: boolean) => money(localItems.reduce((sum, item) => sum + toArsMinor(base ? item.basePriceMinor : item.priceMinor, arsPerUyu) * item.quantity, 0), "ARS");
-    const guestDiscountMinor = Math.max(0, guestBaseSubtotal - guestSubtotal);
-    const guestFormat = (minor: number) => money(minor, "UYU", locale, displayRates, displayCurrency);
-    const showGuestWholesaleNotice = wholesaleSettings.wholesale_mate_discount_enabled
-      && wholesaleSettings.wholesale_mate_discount_percent > 0
-      && localItems.some((item) => isWholesaleMateCategory(item.category));
-    const wholesaleNotice = t("wholesaleDiscountNotice", {
-      discount: wholesaleSettings.wholesale_mate_discount_percent,
-      threshold: wholesaleSettings.wholesale_mate_quantity_threshold,
-    });
-    const guestHasUnavailable = localItems.some((item) => !item.availableWeb);
-    const unavailableNotice = locale === "en" ? "An item is no longer available online. Remove it to continue." : locale === "pt" ? "Um item não está mais disponível online. Remova-o para continuar." : "Un producto ya no está disponible en la web. Quitalo para continuar.";
-    return (
-      <>
-        <div className="cart-populated-mobile-state">
-          <section className="cart-mobile-selection" aria-labelledby="cart-mobile-selection-title">
-            <h2 id="cart-mobile-selection-title" className="sr-only">{t("selectedItems")}</h2>
-            <div className="cart-mobile-selection-divider" aria-hidden="true" />
-            <div className="cart-mobile-items">
-              {localItems.map((item) => (
-                <article key={item.lineKey} className="cart-mobile-item">
-                  <div className="cart-mobile-item-row">
-                    <div className="cart-mobile-thumbnail">
-                      <Image src={item.imageSrc} alt={item.title} fill sizes="104px" unoptimized={item.imageSrc.startsWith("http") || item.imageSrc.startsWith("/imagenes/productos/")} />
-                    </div>
-                    <div className="cart-mobile-item-copy">
-                      <h3>{item.title}</h3>
-                      <p>{item.variantLabel || t("catalogPiece")}</p>
-                      <span>{t("unitPrice", { price: guestFormat(item.priceMinor) })}</span>
-                    </div>
-                  </div>
-                  <div className="cart-mobile-item-actions">
-                    <div className="cart-mobile-quantity">
-                      <span>{t("quantity")}</span>
-                      <QuantityControl
-                        className="cart-mobile-quantity-control"
-                        value={item.quantity}
-                        label={t("editQuantity", { item: item.title })}
-                        decreaseLabel={t("decreaseItem", { item: item.title })}
-                        increaseLabel={t("increaseItem", { item: item.title })}
-                        onChange={(quantity) => updateLocalItemQuantity(item.lineKey, quantity)}
-                      />
-                    </div>
-                    <button type="button" className="cart-mobile-remove" onClick={() => removeLocalItem(item.lineKey)}>
-                      <Image src="/assets/matearte/cart-desktop/remove.svg" alt="" width={16} height={16} aria-hidden="true" />
-                      {t("remove")}
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-            <div className="cart-mobile-selection-divider cart-mobile-selection-divider-bottom" aria-hidden="true" />
-            <Link className="cart-mobile-continue-shopping" href="/catalogo">{t("continueShopping")} <span aria-hidden="true">→</span></Link>
-          </section>
-          <aside className="cart-mobile-summary" aria-label={t("summaryLabel")}>
-            <div className="cart-mobile-summary-heading"><span aria-hidden="true" /><p>{t("summary")}</p></div>
-            <dl className="cart-mobile-summary-list">
-              <div><dt>{t("subtotal")}</dt><dd>{(displayCurrency === "ARS" ? guestSum(true) : guestFormat(guestBaseSubtotal))}</dd></div>
-              <div><dt>{t("shipping")}</dt><dd>{t("toCalculate")}</dd></div>
-              {guestDiscountMinor > 0 && <div className="cart-summary-discount"><dt>{t("wholesaleDiscount", { discount: wholesaleSettings.wholesale_mate_discount_percent })}</dt><dd>− {guestFormat(guestDiscountMinor)}</dd></div>}
-            </dl>
-            <div className="cart-mobile-summary-divider" aria-hidden="true" />
-            <div className="cart-mobile-total"><span>{t("total")}</span><strong>{(displayCurrency === "ARS" ? guestSum(false) : guestFormat(guestSubtotal))}</strong></div>
-            {guestHasUnavailable ? <p role="alert" className="cart-mobile-error">{unavailableNotice}</p> : <Link href={"/perfil?redirect=/checkout" as any} className="cart-mobile-checkout">{t("continue")}</Link>}
-            {showGuestWholesaleNotice && <p className="cart-wholesale-notice">{wholesaleNotice}</p>}
-          </aside>
-        </div>
-
-        <div className="cart-populated-desktop-state">
-          <section className="cart-desktop-selection" aria-labelledby="cart-selection-title">
-            <h2 id="cart-selection-title" className="sr-only">{t("selectedItems")}</h2>
-            <div className="cart-desktop-selection-divider" aria-hidden="true" />
-            <div className="cart-desktop-items">
-              {localItems.map((item) => (
-                <article key={item.lineKey} className="cart-desktop-item">
-                  <div className="cart-desktop-thumbnail">
-                    <Image src={item.imageSrc} alt={item.title} fill sizes="120px" unoptimized={item.imageSrc.startsWith("http") || item.imageSrc.startsWith("/imagenes/productos/")} />
-                  </div>
-                  <div className="cart-desktop-item-copy">
-                    <h3>{item.title}</h3>
-                    <p>{item.variantLabel || t("catalogPiece")}</p>
-                    <span>{t("unitPrice", { price: guestFormat(item.priceMinor) })}</span>
-                  </div>
-                  <div className="cart-desktop-quantity">
-                    <span>{t("quantity")}</span>
-                    <QuantityControl
-                      className="cart-desktop-quantity-control"
-                      value={item.quantity}
-                      label={t("editQuantity", { item: item.title })}
-                      decreaseLabel={t("decreaseItem", { item: item.title })}
-                      increaseLabel={t("increaseItem", { item: item.title })}
-                      onChange={(quantity) => updateLocalItemQuantity(item.lineKey, quantity)}
-                    />
-                  </div>
-                  <button type="button" className="cart-desktop-remove" onClick={() => removeLocalItem(item.lineKey)}>
-                    <Image src="/assets/matearte/cart-desktop/remove.svg" alt="" width={16} height={16} aria-hidden="true" />
-                    {t("remove")}
-                  </button>
-                </article>
-              ))}
-            </div>
-            <Link className="cart-desktop-continue-shopping" href="/catalogo">{t("continueShopping")} <span aria-hidden="true">→</span></Link>
-          </section>
-          <aside className="cart-desktop-summary" aria-label={t("summaryLabel")}>
-            <div className="cart-desktop-summary-heading"><span aria-hidden="true" /><p>{t("summary")}</p></div>
-            <dl className="cart-desktop-summary-list">
-              <div><dt>{t("subtotal")}</dt><dd>{(displayCurrency === "ARS" ? guestSum(true) : guestFormat(guestBaseSubtotal))}</dd></div>
-              <div><dt>{t("shipping")}</dt><dd>{t("toCalculate")}</dd></div>
-              {guestDiscountMinor > 0 && <div className="cart-summary-discount"><dt>{t("wholesaleDiscount", { discount: wholesaleSettings.wholesale_mate_discount_percent })}</dt><dd>− {guestFormat(guestDiscountMinor)}</dd></div>}
-            </dl>
-            <div className="cart-desktop-summary-divider" aria-hidden="true" />
-            <div className="cart-desktop-total"><span>{t("total")}</span><strong>{(displayCurrency === "ARS" ? guestSum(false) : guestFormat(guestSubtotal))}</strong></div>
-            {guestHasUnavailable ? <p role="alert" className="cart-desktop-error">{unavailableNotice}</p> : <Link href={"/perfil?redirect=/checkout" as any} className="cart-desktop-checkout">{t("continue")}</Link>}
-            {showGuestWholesaleNotice && <p className="cart-wholesale-notice">{wholesaleNotice}</p>}
-          </aside>
-        </div>
-      </>
-    );
-  }
-
-  if (!cart) return (
-    <div role="status" aria-live="polite" className="cart-loading grid gap-8 p-6 motion-safe:animate-pulse sm:p-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:p-10">
-      <div>
-        <div className="h-4 w-32 rounded bg-black/10" />
-        <div className="mt-8 h-28 rounded bg-black/5" />
-      </div>
-      <div className="h-56 rounded bg-black/10" />
-      <span className="sr-only">{t("loading")}</span>
+  if (!needsLogin && !cart) return <div className={styles.feedback} role={error ? "alert" : "status"}>{error || t("loading")}</div>;
+  const lines = needsLogin ? localItems.map(i => ({
+    key: i.lineKey, title: i.title, subtitle: cartOptionLabel(i.optionValues, locale) || i.variantLabel, image: i.imageSrc,
+    quantity: i.quantity, editable: true, price: i.priceMinor, basePrice: i.basePriceMinor, category: i.category,
+    available: i.availableWeb, currency: "UYU" as Currency,
+    change: (quantity: number) => updateLocalItemQuantity(i.lineKey, quantity), remove: () => removeLocalItem(i.lineKey),
+  })) : (cart?.items ?? []).map(i => ({
+    key: i.id, title: titleFor(i), subtitle: subtitleFor(i), image: itemImage(i), quantity: i.quantity,
+    editable: i.item_type === "catalog", price: i.unit_price_minor, basePrice: i.base_unit_price_minor ?? i.variant?.price_minor ?? i.unit_price_minor,
+    category: i.variant?.product.category_code ?? i.variant?.product.category, currency: i.currency as Currency,
+    available: i.item_type === "design" || Boolean(i.variant?.active && i.variant.available_web !== false && i.variant.product.published),
+    change: (quantity: number) => updateRemoteItemQuantity(i.id, quantity), remove: () => void mutate("DELETE", i.id),
+  }));
+  if (!lines.length) return <div className={styles.empty}>
+    <Image src="/assets/matearte/cart-desktop/empty-cart.webp" alt={t("emptyAlt")} width={221} height={221} />
+    <h2>{t("emptyTitle")}</h2><div>{t("emptyBody")}</div>
+    <Link className={styles.viewProduct} href="/catalogo">{t("explore")}</Link>
+    {needsLogin && <Link href="/perfil">{t("login")}</Link>}
+  </div>;
+  const sum = (base: boolean) => lines.reduce((total, i) => total + (base ? i.basePrice : i.price) * i.quantity, 0);
+  const sumDisplay = (base: boolean) => displayCurrency === "ARS"
+    ? money(lines.reduce((total, i) => total + toArsMinor(base ? i.basePrice : i.price, arsPerUyu) * i.quantity, 0), "ARS")
+    : format(sum(base));
+  const discount = sum(true) - sum(false);
+  const unavailable = lines.some(i => !i.available);
+  const showWholesaleNotice = wholesaleSettings.wholesale_mate_discount_enabled && wholesaleSettings.wholesale_mate_discount_percent > 0 && lines.some(i => isWholesaleMateCategory(i.category));
+  return <div className={styles.content}>
+    <div className={styles.purchase}>
+      <section className={styles.selection} aria-label={t("selectedItems")}>
+        <div className={styles.items}>{lines.map(item => <article key={item.key} className={styles.item}>
+          <div className={styles.thumbnail}><Image src={item.image} alt={item.title} fill sizes="104px" unoptimized={item.image.startsWith("http") || item.image.startsWith("/imagenes/")} /></div>
+          <div className={styles.itemCopy}><h2>{item.title}</h2>{item.subtitle && <div>{item.subtitle}</div>}<div>{item.price > 0 ? t("unitPrice", { price: formatPrice({ amountMinor: item.price, currency: item.currency }) }) : t("unavailable")}</div></div>
+          <div className={styles.actions}>
+            {item.editable ? <QuantityControl disabled={Boolean(adding) || busy === item.key} className={styles.quantity} value={item.quantity} label={t("editQuantity", { item: item.title })} decreaseLabel={t(item.quantity <= 1 ? "removeItem" : "decreaseItem", { item: item.title })} increaseLabel={t("increaseItem", { item: item.title })} onChange={item.change} /> : <output className={styles.staticQuantity} aria-label={t("units", { count: 1 })}>1</output>}
+            <button type="button" className={styles.remove} aria-label={t("removeItem", { item: item.title })} disabled={Boolean(adding) || busy === item.key} onClick={item.remove}><Trash size={20} weight="regular" aria-hidden="true" /></button>
+          </div>
+        </article>)}</div>
+        <Link className={styles.continueShopping} href="/catalogo">{t("continueShopping")}</Link>
+      </section>
+      <aside className={styles.summary} aria-labelledby="cart-summary-title">
+        <h2 id="cart-summary-title">{t("summary")}</h2>
+        <dl><div><dt>{t("subtotal")}</dt><dd>{sumDisplay(true)}</dd></div><div><dt>{t("shipping")}</dt><dd>{t("toCalculate")}</dd></div>
+          {discount > 0 && <div><dt>{t("wholesaleDiscount", { discount: wholesaleSettings.wholesale_mate_discount_percent })}</dt><dd>− {format(discount)}</dd></div>}
+        </dl>
+        <div className={styles.total}>{t("total")}: {sumDisplay(false)}</div>
+        {unavailable ? <div role="alert">{t("unavailable")}</div> : <Link className={styles.checkout} href={checkoutHref}>{t("continue")}</Link>}
+        {showWholesaleNotice && <div className={styles.wholesale}>{t("wholesaleDiscountNotice", { discount: wholesaleSettings.wholesale_mate_discount_percent, threshold: wholesaleSettings.wholesale_mate_quantity_threshold })}</div>}
+      </aside>
     </div>
-  );
-  if (cart.items.length === 0) return (
-    <>
-    <MobileEmptyCart showLogin={false} />
-    <div className="cart-empty-desktop-state cart-empty cart-empty-authenticated">
-      <div className="cart-empty-copy">
-        <div className="cart-empty-icon">
-          <Image src="/assets/matearte/cart-desktop/bag.svg" alt="" width={24} height={24} aria-hidden="true" />
-        </div>
-        <div className="cart-empty-message">
-          <p className="display-font mt-5 text-4xl">{t("emptyTitle")}</p>
-          <p className="mt-4 text-sm text-black/60">{t("emptyBody")}</p>
-        </div>
-        <div className="cart-empty-actions">
-          <Link className="button-primary gap-2" href="/catalogo">{t("explore")}</Link>
-        </div>
-      </div>
-      <div className="cart-empty-image">
-        <Image
-          src="/assets/matearte/cart-desktop/empty-cart.webp"
-          alt={t("emptyAlt")}
-          fill
-          priority
-          sizes="221px"
-        />
-      </div>
-    </div>
-    </>
-  );
-  const baseSubtotal = cart.items.reduce((sum, item) => sum + (item.base_unit_price_minor ?? item.variant?.price_minor ?? item.unit_price_minor) * item.quantity, 0);
-  const subtotal = cart.items.reduce((sum, item) => sum + item.unit_price_minor * item.quantity, 0);
-  const sumArs = (base: boolean) => cart.items.reduce((sum, item) => sum + toArsMinor(base ? (item.base_unit_price_minor ?? item.variant?.price_minor ?? item.unit_price_minor) : item.unit_price_minor, arsPerUyu) * item.quantity, 0);
-  const discountMinor = Math.max(0, baseSubtotal - subtotal);
-  const showWholesaleNotice = wholesaleSettings.wholesale_mate_discount_enabled
-    && wholesaleSettings.wholesale_mate_discount_percent > 0
-    && cart.items.some((item) => item.item_type === "catalog" && isWholesaleMateCategory(item.variant?.product.category_code || item.variant?.product.category));
-  const wholesaleNotice = t("wholesaleDiscountNotice", {
-    discount: wholesaleSettings.wholesale_mate_discount_percent,
-    threshold: wholesaleSettings.wholesale_mate_quantity_threshold,
-  });
-  const hasUnavailable = cart.items.some((item) => item.item_type === "catalog" && (!item.variant?.active || item.variant.available_web === false || !item.variant.product?.published));
-  const unavailableNotice = locale === "en" ? "An item is no longer available online. Remove it to continue." : locale === "pt" ? "Um item não está mais disponível online. Remova-o para continuar." : "Un producto ya no está disponible en la web. Quitalo para continuar.";
-  return (
-    <>
-      <div className="cart-populated-mobile-state">
-        <section className="cart-mobile-selection" aria-labelledby="cart-mobile-selection-title">
-          <h2 id="cart-mobile-selection-title" className="sr-only">{t("selectedItems")}</h2>
-          <div className="cart-mobile-selection-divider" aria-hidden="true" />
-          <div className="cart-mobile-items">
-            {cart.items.map((item) => (
-              <article key={item.id} className="cart-mobile-item">
-                <div className="cart-mobile-item-row">
-                  <div className="cart-mobile-thumbnail">
-                    <Image
-                      src={itemImage(item)}
-                      alt={imageAltFor(item)}
-                      fill
-                      loading={cart.items[0]?.id === item.id ? "eager" : "lazy"}
-                      sizes="104px"
-                      unoptimized={itemImage(item).startsWith("http") || itemImage(item).startsWith("/imagenes/productos/")}
-                    />
-                  </div>
-                  <div className="cart-mobile-item-copy">
-                    <h3>{titleFor(item)}</h3>
-                    <p>{subtitleFor(item)}</p>
-                    <span>{t("unitPrice", { price: format(item.unit_price_minor) })}</span>
-                  </div>
-                </div>
-                <div className="cart-mobile-item-actions">
-                  <div className="cart-mobile-quantity">
-                    <span id={`cart-mobile-quantity-${item.id}`}>{t("quantity")}</span>
-                    {item.item_type === "catalog" ? (
-                      <QuantityControl
-                        className="cart-mobile-quantity-control"
-                        value={item.quantity}
-                        label={t("editQuantity", { item: titleFor(item) })}
-                        decreaseLabel={item.quantity <= 1 ? t("removeItem", { item: titleFor(item) }) : t("decreaseItem", { item: titleFor(item) })}
-                        increaseLabel={t("increaseItem", { item: titleFor(item) })}
-                        onChange={(quantity) => updateRemoteItemQuantity(item.id, quantity)}
-                      />
-                    ) : (
-                      <div className="cart-mobile-quantity-control cart-mobile-quantity-static" aria-labelledby={`cart-mobile-quantity-${item.id}`}>
-                        <output aria-label={t("units", { count: 1 })}>1</output>
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    className="cart-mobile-remove"
-                    disabled={busy === item.id}
-                    onClick={() => void mutate("DELETE", item.id)}
-                  >
-                    <Image src="/assets/matearte/cart-desktop/remove.svg" alt="" width={16} height={16} aria-hidden="true" />
-                    {t("remove")}
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-          <div className="cart-mobile-selection-divider cart-mobile-selection-divider-bottom" aria-hidden="true" />
-          {error && <p role="alert" className="cart-mobile-error">{error}</p>}
-          <Link className="cart-mobile-continue-shopping" href="/catalogo">
-            {t("continueShopping")} <span aria-hidden="true">→</span>
-          </Link>
-        </section>
-
-        <aside className="cart-mobile-summary" aria-label={t("summaryLabel")}>
-          <div className="cart-mobile-summary-heading">
-            <span aria-hidden="true" />
-            <p>{t("summary")}</p>
-          </div>
-          <dl className="cart-mobile-summary-list">
-            <div>
-              <dt>{t("subtotal")}</dt>
-              <dd>{(displayCurrency === "ARS" ? money(sumArs(true), "ARS") : format(baseSubtotal))}</dd>
-            </div>
-            <div>
-              <dt>{t("shipping")}</dt>
-              <dd>{t("toCalculate")}</dd>
-            </div>
-            {discountMinor > 0 && (
-              <div className="cart-summary-discount">
-                <dt>{t("wholesaleDiscount", { discount: wholesaleSettings.wholesale_mate_discount_percent })}</dt>
-                <dd>− {(displayCurrency === "ARS" ? money(sumArs(true) - sumArs(false), "ARS") : format(discountMinor))}</dd>
-              </div>
-            )}
-          </dl>
-          <div className="cart-mobile-summary-divider" aria-hidden="true" />
-          <div className="cart-mobile-total">
-            <span>{t("total")}</span>
-            <strong>{(displayCurrency === "ARS" ? money(sumArs(false), "ARS") : format(subtotal))}</strong>
-          </div>
-          {hasUnavailable ? <p role="alert" className="cart-mobile-error">{unavailableNotice}</p> : <Link href={checkoutHref as any} className="cart-mobile-checkout">{t("continue")}</Link>}
-          {showWholesaleNotice && <p className="cart-wholesale-notice">{wholesaleNotice}</p>}
-        </aside>
-      </div>
-
-      <div className="cart-populated-desktop-state">
-        <section className="cart-desktop-selection" aria-labelledby="cart-selection-title">
-          <h2 id="cart-selection-title" className="sr-only">{t("selectedItems")}</h2>
-          <div className="cart-desktop-selection-divider" aria-hidden="true" />
-          <div className="cart-desktop-items">
-          {cart.items.map((item) => (
-            <article key={item.id} className="cart-desktop-item">
-              <div className="cart-desktop-thumbnail">
-                <Image
-                  src={itemImage(item)}
-                  alt={imageAltFor(item)}
-                  fill
-                  loading={cart.items[0]?.id === item.id ? "eager" : "lazy"}
-                  sizes="120px"
-                  unoptimized={itemImage(item).startsWith("http") || itemImage(item).startsWith("/imagenes/productos/")}
-                />
-              </div>
-              <div className="cart-desktop-item-copy">
-                <h3>{titleFor(item)}</h3>
-                <p>{subtitleFor(item)}</p>
-                <span>{t("unitPrice", { price: format(item.unit_price_minor) })}</span>
-              </div>
-              <div className="cart-desktop-quantity">
-                <span id={`cart-quantity-${item.id}`}>{t("quantity")}</span>
-                {item.item_type === "catalog" ? (
-                  <QuantityControl
-                    className="cart-desktop-quantity-control"
-                    value={item.quantity}
-                    label={t("editQuantity", { item: titleFor(item) })}
-                    decreaseLabel={item.quantity <= 1 ? t("removeItem", { item: titleFor(item) }) : t("decreaseItem", { item: titleFor(item) })}
-                    increaseLabel={t("increaseItem", { item: titleFor(item) })}
-                    onChange={(quantity) => updateRemoteItemQuantity(item.id, quantity)}
-                  />
-                ) : (
-                  <div className="cart-desktop-quantity-control cart-desktop-quantity-static" aria-labelledby={`cart-quantity-${item.id}`}>
-                    <output aria-label={t("units", { count: 1 })}>1</output>
-                  </div>
-                )}
-              </div>
-              <button
-                type="button"
-                className="cart-desktop-remove"
-                disabled={busy === item.id}
-                onClick={() => void mutate("DELETE", item.id)}
-              >
-                <Image src="/assets/matearte/cart-desktop/remove.svg" alt="" width={16} height={16} aria-hidden="true" />
-                {t("remove")}
-              </button>
-            </article>
-          ))}
-          </div>
-          {error && <p role="alert" className="cart-desktop-error">{error}</p>}
-          <Link className="cart-desktop-continue-shopping" href="/catalogo">
-            {t("continueShopping")} <span aria-hidden="true">→</span>
-          </Link>
-        </section>
-
-        <aside className="cart-desktop-summary" aria-label={t("summaryLabel")}>
-          <div className="cart-desktop-summary-heading">
-            <span aria-hidden="true" />
-            <p>{t("summary")}</p>
-          </div>
-          <dl className="cart-desktop-summary-list">
-            <div>
-              <dt>{t("subtotal")}</dt>
-              <dd>{(displayCurrency === "ARS" ? money(sumArs(true), "ARS") : format(baseSubtotal))}</dd>
-            </div>
-            <div>
-              <dt>{t("shipping")}</dt>
-              <dd>{t("toCalculate")}</dd>
-            </div>
-            {discountMinor > 0 && (
-              <div className="cart-summary-discount">
-                <dt>{t("wholesaleDiscount", { discount: wholesaleSettings.wholesale_mate_discount_percent })}</dt>
-                <dd>− {(displayCurrency === "ARS" ? money(sumArs(true) - sumArs(false), "ARS") : format(discountMinor))}</dd>
-              </div>
-            )}
-          </dl>
-          <div className="cart-desktop-summary-divider" aria-hidden="true" />
-          <div className="cart-desktop-total">
-            <span>{t("total")}</span>
-            <strong>{(displayCurrency === "ARS" ? money(sumArs(false), "ARS") : format(subtotal))}</strong>
-          </div>
-          {hasUnavailable ? <p role="alert" className="cart-desktop-error">{unavailableNotice}</p> : <Link href={checkoutHref as any} className="cart-desktop-checkout">{t("continue")}</Link>}
-          {showWholesaleNotice && <p className="cart-wholesale-notice">{wholesaleNotice}</p>}
-        </aside>
-      </div>
-    </>
-  );
+    {error && <div role="alert" className={styles.feedback}>{error}</div>}
+    <div role="status" aria-live="polite" className="sr-only">{confirmation}</div>
+    <CartRecommendations recommendations={recommendations} adding={adding} blocked={Boolean(busy) || pendingQuantity.size > 0} onAdd={item => void addRecommendation(item)} format={formatPrice} />
+  </div>;
 }

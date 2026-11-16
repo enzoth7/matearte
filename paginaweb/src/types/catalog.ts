@@ -83,6 +83,7 @@ export type ProductVariant = {
 };
 
 export type Product = {
+  saleMode?: "standard" | "made_to_order";
   id: string;
   slug: string;
   name: string;

@@ -24,12 +24,11 @@ export function InternationalWorldMap({ destinations }: InternationalWorldMapPro
   const originInfo = {
     mapId: "uy",
     name: t("originTitle", { defaultValue: "Uruguay" }),
-    region: t("originSubtitle", { defaultValue: "Taller de origen · Paysandú" }),
+    region: t("originSubtitle", { defaultValue: "Taller de origen , Paysandú" }),
   };
   const [activeId, setActiveId] = useState(destinations[0].mapId);
   const destinationById = new Map<string, DestinationCountry>(destinations.map((destination) => [destination.mapId, destination]));
   const activeDestination = activeId === "uy" ? originInfo : (destinationById.get(activeId) ?? destinations[0]);
-  const activeIndex = activeDestination.mapId === "uy" ? "★" : String(destinations.findIndex((item) => item.mapId === activeDestination.mapId) + 1).padStart(2, "0");
 
   return (
     <div className="international-map-layout">
@@ -61,17 +60,16 @@ export function InternationalWorldMap({ destinations }: InternationalWorldMapPro
                 data-active={isActive || undefined}
                 onMouseEnter={isOrigin ? () => setActiveId("uy") : destination ? () => setActiveId(destination.mapId) : undefined}
               >
-                <title>{isOrigin ? `${originInfo.name} · ${originInfo.region}` : destination ? `${destination.name} · ${destination.region}` : location.name}</title>
+                <title>{isOrigin ? `${originInfo.name} , ${originInfo.region}` : destination ? `${destination.name} , ${destination.region}` : location.name}</title>
               </path>
             );
           })}
         </svg>
         <div className="international-map-caption" aria-live="polite">
-          <span className="international-map-caption-index">{activeIndex}</span>
-          <span>
+          <div className="international-map-caption-copy">
             <strong>{activeDestination.name}</strong>
             <small>{activeDestination.region}</small>
-          </span>
+          </div>
         </div>
       </div>
 
@@ -90,9 +88,9 @@ export function InternationalWorldMap({ destinations }: InternationalWorldMapPro
                 onMouseEnter={() => setActiveId(destination.mapId)}
               >
                 {Flag ? (
-                  <span className="international-destination-flag" aria-hidden="true">
+                  <div className="international-destination-flag" aria-hidden="true">
                     <Flag className="international-flag-icon" />
-                  </span>
+                  </div>
                 ) : null}
                 <strong>{destination.name}</strong>
               </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
+import { CheckCircle, WarningCircle } from "@phosphor-icons/react";
 import { subscribeToNewsletter } from "@/app/actions/newsletter";
 import { initialNewsletterState } from "@/lib/newsletter";
 
@@ -76,21 +77,22 @@ export function NewsletterForm({
         <button type="submit" disabled={pending}>
           {pending ? subscribingLabel : (
             <>
-              <span className="home-footer-button-desktop">{subscribeLabel}</span>
-              <span className="home-footer-button-mobile">{subscribeMobileLabel}</span>
+              <strong data-inline className="home-footer-button-desktop">{subscribeLabel}</strong>
+              <strong data-inline className="home-footer-button-mobile">{subscribeMobileLabel}</strong>
             </>
           )}
         </button>
       </div>
-      <p id={`${fieldPrefix}-consent`} className="home-footer-newsletter-consent">{consentMessage}</p>
-      <p
+      <div data-copy id={`${fieldPrefix}-consent`} className="home-footer-newsletter-consent">{consentMessage}</div>
+      <div data-copy
         id={`${fieldPrefix}-feedback`}
         className={`home-footer-newsletter-feedback${state.status === "error" || state.status === "invalid" || state.status === "invalid_name" ? " is-error" : ""}`}
         role={state.status === "error" || state.status === "invalid" || state.status === "invalid_name" ? "alert" : "status"}
         aria-live="polite"
       >
+        {feedback && (state.status === "success" ? <CheckCircle size={20} aria-hidden="true" /> : <WarningCircle size={20} aria-hidden="true" />)}
         {feedback}
-      </p>
+      </div>
     </form>
   );
 }

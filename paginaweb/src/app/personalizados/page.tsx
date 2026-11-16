@@ -3,8 +3,8 @@ import Image from "next/image";
 import { getLocale, getTranslations } from "next-intl/server";
 import { JsonLd } from "@/components/JsonLd";
 import { localizedPageMetadata } from "@/i18n/metadata";
-import { Link } from "@/i18n/navigation";
 import { buildPageStructuredData } from "@/lib/seo";
+import styles from "./PersonalizadosPage.module.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
@@ -59,23 +59,24 @@ export default async function PersonalizadosPage() {
   const locale = await getLocale();
   const t = await getTranslations("customPage");
   return (
-    <main id="contenido" className="personalizados-page">
+    <main id="contenido" className={`personalizados-page ${styles.page}`}>
       <JsonLd data={buildPageStructuredData({ locale, href: "/personalizados", name: t("metadataTitle"), description: t("metadataDescription"), homeLabel: "MateArte" })} />
       <div className="personalizados-mobile-view">
         <section className="personalizados-mobile-hero">
           <Image
-            src={`${mobileAssets}/hero1.webp`}
+            src={`${desktopAssets}/personalizado-02.webp`}
             alt={t("heroAlt")}
             fill
             sizes="100vw"
             className="personalizados-mobile-hero-image"
+            quality={95}
             priority
           />
           <div className="personalizados-mobile-hero-tint" aria-hidden="true" />
           <div className="personalizados-mobile-hero-gradient" aria-hidden="true" />
           <div className="personalizados-mobile-hero-copy">
             <h1>{t("title")}</h1>
-            <p>{t("body")}</p>
+            <div data-copy>{t("body")}</div>
             <a href={personalizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
           </div>
         </section>
@@ -102,25 +103,26 @@ export default async function PersonalizadosPage() {
 
         <section className="personalizados-mobile-craft">
           <h2 data-scroll-reveal>{t("craftTitle")}</h2>
-          <p data-scroll-reveal style={{ transitionDelay: "0.07s" }}>{t("craftBody")}</p>
+          <div data-copy data-scroll-reveal style={{ transitionDelay: "0.07s" }}>{t("craftBody")}</div>
         </section>
       </div>
 
       <div className="personalizados-desktop-view">
         <section className="personalizados-desktop-hero">
           <Image
-            src={`${desktopAssets}/hero1.webp`}
+            src={`${desktopAssets}/personalizado-02.webp`}
             alt={t("heroAlt")}
             fill
             sizes="100vw"
             className="personalizados-desktop-hero-image"
+            quality={95}
             priority
           />
           <div className="personalizados-desktop-hero-tint" aria-hidden="true" />
           <div className="personalizados-desktop-hero-gradient" aria-hidden="true" />
           <div className="personalizados-desktop-hero-copy">
             <h1>{t("title")}</h1>
-            <p>{t("body")}</p>
+            <div data-copy>{t("body")}</div>
             <a href={personalizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
           </div>
         </section>
@@ -149,24 +151,32 @@ export default async function PersonalizadosPage() {
           <div className="personalizados-desktop-craft-grid" data-scroll-reveal>
           <h2>{t("craftTitle")}</h2>
             <div>
-              <p>{t("craftBody")}</p>
+              <div data-copy>{t("craftBody")}</div>
             </div>
           </div>
         </section>
       </div>
 
-      <section className="personalizados-steps" aria-labelledby="personalizados-steps-title">
-        <div className="personalizados-steps-inner">
-          <h2 id="personalizados-steps-title" data-scroll-reveal>{t("stepsTitle")}</h2>
-          <ol>
-            <li data-scroll-reveal><h3>{t("stepOneTitle")}</h3><p>{t("stepOneBody")}</p></li>
-            <li data-scroll-reveal style={{ transitionDelay: "0.07s" }}><h3>{t("stepTwoTitle")}</h3><p>{t("stepTwoBody")}</p></li>
-            <li data-scroll-reveal style={{ transitionDelay: "0.14s" }}><h3>{t("stepThreeTitle")}</h3><p>{t("stepThreeBody")}</p></li>
-          </ol>
-          <div className="personalizados-steps-actions">
-            <a className="personalizados-steps-primary" href={personalizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
-            <Link className="personalizados-steps-secondary" href="/preguntas-frecuentes">{t("faqAction")}</Link>
-            <Link className="personalizados-steps-secondary" href={{ pathname: "/catalogo/[categoria]", params: { categoria: "personalizados" } }}>{t("catalogAction")}</Link>
+      <section className={styles.process} aria-labelledby="personalizados-steps-title">
+        <div className={styles.processInner}>
+          <figure className={styles.processPhoto}>
+            <Image
+              src="/assets/matearte/og/matearte-personalizados-v2.jpg"
+              alt={t("processAlt")}
+              fill
+              quality={95}
+              // Account for the landscape photo cropped into the portrait frame.
+              sizes="(min-width: 1024px) 1220px, calc(218vw - 105px)"
+            />
+          </figure>
+          <div className={styles.processCopy}>
+            <h2 id="personalizados-steps-title">{t("stepsTitle")}</h2>
+            <ol className={styles.processSteps} role="list">
+              <li><h3>{t("stepOneTitle")}</h3><div>{t("stepOneBody")}</div></li>
+              <li><h3>{t("stepTwoTitle")}</h3><div>{t("stepTwoBody")}</div></li>
+              <li><h3>{t("stepThreeTitle")}</h3><div>{t("stepThreeBody")}</div></li>
+            </ol>
+            <a className={styles.processAction} href={personalizerUrl} target="_blank" rel="noreferrer">{t("action")}</a>
           </div>
         </div>
       </section>
