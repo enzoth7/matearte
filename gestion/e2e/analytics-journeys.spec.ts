@@ -7,15 +7,19 @@ for (const userId of owners) {
     await mockCommerce(page, { userId });
     await page.route('**/rest/v1/rpc/gestion_logs_context', (route) => route.fulfill({ json: { canViewLogs: false } }));
     const requests: Record<string, unknown>[] = [];
+    let markedOn = '';
     await page.route('**/functions/v1/analytics-admin', async (route) => {
       const body = route.request().postDataJSON() as Record<string, unknown>;
       requests.push(body);
-      if (body.action === 'markChange') return route.fulfill({ json: { saved: true } });
+      if (body.action === 'markChange') {
+        markedOn = String(body.changedOn);
+        return route.fulfill({ json: { saved: true } });
+      }
       return route.fulfill({ json: {
         steps: [{ journey: 'catalog', step: 'entry', sessions: 20 }, { journey: 'catalog', step: 'catalog', sessions: 15 }, { journey: 'catalog', step: 'product', sessions: 10 }, { journey: 'catalog', step: 'cart', sessions: 4 }],
         daily: [{ day: '2026-11-04', journey: 'catalog', step: 'product', sessions: 10, screen_samples: 10, visible_ms: 120000, scroll_25: 8, scroll_50: 6, scroll_75: 4, scroll_90: 2 }],
         vercel: [{ day: '2026-11-04', site: 'web', status: 'complete', pageviews: 70, daily_visitors: 40, pages: [], error: null }],
-        changes: [], activated_on: '2026-11-01', ga4: { status: 'ready', activeUsers: 12, sessions: 18, pageViews: 70, engagementSeconds: 600, scrolledUsers: 5 }, clarityUrl: 'https://clarity.microsoft.com/projects/view/example',
+        changes: markedOn ? [{ id: 'today-change', changed_on: markedOn, journey: 'catalog', description: 'Cambio de prueba' }] : [], activated_on: '2026-11-01', ga4: { status: 'ready', activeUsers: 12, sessions: 18, pageViews: 70, engagementSeconds: 600, scrolledUsers: 5 }, clarityUrl: 'https://clarity.microsoft.com/projects/view/example',
       } });
     });
     await page.goto('/analitica/recorridos');
@@ -43,6 +47,10 @@ for (const userId of owners) {
     await subnav.getByRole('link', { name: 'Cambios' }).click();
     await expect(page).toHaveURL(/\/analitica\/cambios$/);
     await expect(page.getByRole('heading', { name: 'Marcar un cambio' })).toBeVisible();
+    await page.getByLabel('Descripción').fill('Cambio de prueba');
+    await page.getByRole('button', { name: 'Marcar cambio' }).click();
+    await expect(page.getByText('Cambio de prueba', { exact: false }).last()).toBeVisible();
+    await expect.poll(() => requests.at(-1)?.end).toBe(markedOn);
     await subnav.getByRole('link', { name: 'Recorridos' }).click();
     await page.getByLabel('Dispositivo').selectOption('mobile');
     await expect.poll(() => requests.at(-1)?.device).toBe('mobile');

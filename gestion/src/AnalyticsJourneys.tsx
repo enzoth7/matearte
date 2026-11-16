@@ -84,7 +84,8 @@ export function AnalyticsJourneys({ section }: { section: AnalyticsSection }) {
   const [saving, setSaving] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const today = todayUy();
-  const end = shift(today, -1), start = shift(end, 1 - days);
+  const end = section === 'changes' ? today : shift(today, -1);
+  const start = shift(end, 1 - days);
 
   useEffect(() => {
     let active = true;
@@ -113,7 +114,7 @@ export function AnalyticsJourneys({ section }: { section: AnalyticsSection }) {
     finally { setSaving(false); }
   };
   return <div className="analytics-journeys">
-    <div className="analytics-toolbar"><label>Período <select value={days} onChange={(event) => setDays(Number(event.target.value))}><option value={7}>7 días completos</option><option value={30}>30 días completos</option><option value={90}>90 días completos</option></select></label>{section === 'journeys' && <label>Dispositivo <select value={device} onChange={(event) => setDevice(event.target.value)}><option value="">Todos</option><option value="mobile">Móvil</option><option value="tablet">Tableta</option><option value="desktop">Escritorio</option></select></label>}<div>Del {dateLabel(start)} al {dateLabel(end)}</div></div>
+    <div className="analytics-toolbar"><label>Período <select value={days} onChange={(event) => setDays(Number(event.target.value))}><option value={7}>{section === 'changes' ? 'Últimos 7 días' : '7 días completos'}</option><option value={30}>{section === 'changes' ? 'Últimos 30 días' : '30 días completos'}</option><option value={90}>{section === 'changes' ? 'Últimos 90 días' : '90 días completos'}</option></select></label>{section === 'journeys' && <label>Dispositivo <select value={device} onChange={(event) => setDevice(event.target.value)}><option value="">Todos</option><option value="mobile">Móvil</option><option value="tablet">Tableta</option><option value="desktop">Escritorio</option></select></label>}<div>Del {dateLabel(start)} al {dateLabel(end)}</div></div>
     {error && <div className="analytics-error" role="alert"><div>{error}</div><button type="button" onClick={() => setRefresh((value) => value + 1)}>Reintentar</button></div>}
     {loading && <div role="status" className="analytics-loading-state">Cargando datos de Analítica...</div>}
     {!loading && report && <div className="analytics-panel">
