@@ -542,6 +542,10 @@
   .home-header .home-header-inner {
     height: 64px;
   }
+  .home-mobile-menu,
+  .home-mobile-menu-backdrop {
+    top: 64px;
+  }
   .home-header .home-header-inner {
     width: 100%;
     padding-inline: 16px;

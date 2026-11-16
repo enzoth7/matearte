@@ -2742,7 +2742,7 @@
 
   .profile-empty-mobile-card :is(p,[data-copy]) {
     margin-top: 8px;
-    color: #111111;
+    color: #FDFDFC;
     font-size: 13px;
     font-weight: 400;
     line-height: 20px;
@@ -2756,10 +2756,11 @@
     align-items: center;
     justify-content: center;
     margin-top: 16px;
+    border: 1px solid #FDFDFC;
     border-radius: 8px;
     padding: 16px 24px;
-    background: #111111;
-    color: #FDFDFC;
+    background: #FDFDFC;
+    color: #111111;
     font-size: 14px;
     font-weight: 600;
     letter-spacing: 0.2px;
@@ -2769,7 +2770,7 @@
     transition: background-color 180ms ease, color 180ms ease;
   }
 
-  .profile-empty-mobile-card > a:active { background: #1E120C; }
+  .profile-empty-mobile-card > a:active { background: #1E120C; color: #FDFDFC; }
 
   .profile-empty-mobile-card > a:focus-visible {
     outline: 3px solid #FDFDFC;
@@ -10199,15 +10200,18 @@ body:has(.rural-campaign-page) .whatsapp-fab {
 @media (min-width: 1024px) { .profile-empty-desktop { height: auto; min-height: 900px; overflow: visible; padding-bottom: 120px; } }
 @media (max-width: 1023px) { .profile-coupons h2 { font-size: 34px; line-height: 38px; } .profile-coupons-list { margin-top: 24px; } }
 @media (max-width: 900px) {
-  .profile-coupon-header, .profile-coupon-row { grid-template-columns: minmax(0, 1fr) minmax(140px, 42%); column-gap: 16px; }
+  .profile-coupon-header, .profile-coupon-row { grid-template-columns: minmax(0, 1fr) minmax(150px, 44%); column-gap: 12px; }
   .profile-coupon-header :is(span,[data-inline]):nth-child(2), .profile-coupon-header :is(span,[data-inline]):nth-child(3) { display: none; }
+  .profile-coupon-row { align-items: start; row-gap: 14px; }
   .profile-coupon-name { grid-column: 1; grid-row: 1; }
-  .profile-coupon-code-value { grid-column: 2; grid-row: 1; }
-  .profile-coupon-status { display: flex; grid-column: 1 / -1; grid-row: 2; align-items: center; gap: 8px; }
-  .profile-coupon-validity { display: flex; grid-column: 1 / -1; grid-row: 3; flex-wrap: wrap; column-gap: 8px; }
+  .profile-coupon-code-value { grid-column: 2; grid-row: 1; align-self: start; padding-top: 3px; }
+  .profile-coupon-status,
+  .profile-coupon-validity { display: grid; grid-column: 1 / -1; grid-template-columns: 108px minmax(0, 1fr); align-items: center; gap: 12px; }
+  .profile-coupon-status { grid-row: 2; }
+  .profile-coupon-validity { grid-row: 3; }
   .profile-coupon-mobile-label { display: inline; font-weight: 600; }
 }
-@media (max-width: 600px) { .profile-coupon-row { padding-block: 22px; } .profile-coupon-name h3 { font-size: 25px; } .profile-coupon-code-value code { font-size: 13px; letter-spacing: 0; } }
+@media (max-width: 600px) { .profile-coupon-row { padding-block: 22px; } .profile-coupon-name h3 { font-size: 23px; } .profile-coupon-code-value code { font-size: 12px; letter-spacing: 0; } .profile-coupon-copy { width: 28px; height: 28px; } }
 @media (prefers-reduced-motion: reduce) { .profile-coupon-copy { transition: none; } }
 .profile-coupons-container { box-sizing: border-box; padding: 0 48px 96px; background: #FDFDFC; color: #111111; }
 .profile-coupons-shell { width: min(100%, 1232px); margin-inline: auto; }
