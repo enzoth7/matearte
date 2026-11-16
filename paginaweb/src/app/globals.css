@@ -10187,24 +10187,24 @@ body:has(.rural-campaign-page) .whatsapp-fab {
 .profile-coupons { margin-top: 48px; }
 .profile-coupons h2 { margin: 0; color: #111111; font-family: var(--font-newsreader), Georgia, serif; font-size: 36px; font-weight: 500; letter-spacing: -.25px; line-height: 40px; }
 .profile-coupons-list { margin-top: 28px; }
-.profile-coupon-header, .profile-coupon-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 150px) minmax(140px, 190px) minmax(240px, 320px); gap: 24px; }
-.profile-coupon-header { align-items: center; border-bottom: 1px solid rgb(17 17 17 / 18%); padding-bottom: 14px; color: #1E120C; font-size: 14px; font-weight: 600; }
-.profile-coupon-row { align-items: center; padding: 24px 0; }
+.profile-coupon-header, .profile-coupon-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 150px) minmax(140px, 190px) minmax(170px, 240px); gap: 24px; }
+.profile-coupon-header { align-items: center; border-bottom: 1px solid rgb(17 17 17 / 18%); padding-bottom: 14px; color: #111111; font-family: var(--font-outfit), sans-serif; font-size: 15px; font-weight: 600; line-height: 1.4; }
+.profile-coupon-row { align-items: center; padding: 24px 0; color: #111111; font-family: var(--font-outfit), sans-serif; font-size: 16px; font-weight: 400; line-height: 1.5; }
 .profile-coupon-row:not(:last-child) { border-bottom: 1px solid rgb(17 17 17 / 18%); }
 .profile-coupons-empty { margin: 28px 0 0; border-top: 1px solid #FDFDFC; padding-top: 24px; color: #1E120C; font-size: 15px; }
 .profile-coupon-name { min-width: 0; }
-.profile-coupon-name h3 { margin: 0 0 8px; font-family: var(--font-newsreader), Georgia, serif; font-size: 29px; font-weight: 500; line-height: 1.15; }
-.profile-coupon-name :is(p,[data-copy]) { margin: 0; color: #1E120C; font-size: 15px; line-height: 1.5; }
+.profile-coupon-name h3 { margin: 0; font: inherit; }
+.profile-coupon-name :is(p,[data-copy]) { margin: 4px 0 0; color: #1E120C; font-size: 14px; line-height: 1.5; }
 .profile-coupon-name :is(p,[data-copy]) + :is(p,[data-copy]) { margin-top: 4px; }
 .profile-coupon-status { min-width: 0; }
-.profile-coupon-status-badge { display: inline-flex; align-items: center; min-height: 28px; padding: 0; font-size: 13px; font-weight: 600; line-height: 1.3; white-space: nowrap; }
+.profile-coupon-status-badge { font: inherit; }
 .profile-coupon-status-badge.is-available { color: #111111; }
 .profile-coupon-status-badge.is-unavailable { color: #1E120C; }
-.profile-coupon-validity { min-width: 0; color: #1E120C; font-size: 15px; line-height: 1.5; }
-.profile-coupon-validity > strong:last-child { font-weight: 400; }
+.profile-coupon-validity { min-width: 0; }
 .profile-coupon-mobile-label { display: none; }
+.profile-coupon-code { min-width: 0; }
 .profile-coupon-code-value { display: flex; min-width: 0; align-items: center; justify-content: flex-start; gap: 6px; }
-.profile-coupon-code-value code { min-width: 0; overflow-wrap: anywhere; color: #111111; font-family: var(--font-outfit), sans-serif; font-size: 15px; font-weight: 600; letter-spacing: 0.04em; }
+.profile-coupon-code-value code { min-width: 0; overflow-wrap: anywhere; color: #111111; font: inherit; }
 .profile-coupon-copy { display: inline-flex; width: 36px; height: 40px; flex: none; align-items: center; justify-content: center; border: 0; border-radius: 4px; padding: 0; background: transparent; color: #1E120C; cursor: pointer; touch-action: manipulation; transition: color 160ms ease, transform 100ms ease; }
 .profile-coupon-copy:hover { color: #111111; }
 .profile-coupon-copy:active { transform: scale(0.97); }
@@ -10213,18 +10213,13 @@ body:has(.rural-campaign-page) .whatsapp-fab {
 @media (min-width: 1024px) { .profile-empty-desktop { height: auto; min-height: 900px; overflow: visible; padding-bottom: 120px; } }
 @media (max-width: 1023px) { .profile-coupons h2 { font-size: 34px; line-height: 38px; } .profile-coupons-list { margin-top: 24px; } }
 @media (max-width: 900px) {
-  .profile-coupon-header, .profile-coupon-row { grid-template-columns: minmax(0, 1fr) minmax(150px, 44%); column-gap: 12px; }
-  .profile-coupon-header :is(span,[data-inline]):nth-child(2), .profile-coupon-header :is(span,[data-inline]):nth-child(3) { display: none; }
-  .profile-coupon-row { align-items: start; row-gap: 14px; }
-  .profile-coupon-name { grid-column: 1; grid-row: 1; }
-  .profile-coupon-code-value { grid-column: 2; grid-row: 1; align-self: start; padding-top: 3px; }
-  .profile-coupon-status,
-  .profile-coupon-validity { display: grid; grid-column: 1 / -1; grid-template-columns: 108px minmax(0, 1fr); align-items: center; gap: 12px; }
-  .profile-coupon-status { grid-row: 2; }
-  .profile-coupon-validity { grid-row: 3; }
-  .profile-coupon-mobile-label { display: inline; font-weight: 600; }
+  .profile-coupon-header { display: none; }
+  .profile-coupon-row { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .profile-coupon-row:first-of-type { border-top: 1px solid rgb(17 17 17 / 18%); }
+  .profile-coupon-name, .profile-coupon-status, .profile-coupon-validity, .profile-coupon-code { min-width: 0; }
+  .profile-coupon-mobile-label { display: block; margin-bottom: 3px; font-size: 14px; font-weight: 600; line-height: 1.4; }
 }
-@media (max-width: 600px) { .profile-coupon-row { padding-block: 22px; } .profile-coupon-name h3 { font-size: 23px; } .profile-coupon-code-value code { font-size: 12px; letter-spacing: 0; } .profile-coupon-copy { width: 28px; height: 28px; } }
+@media (max-width: 600px) { .profile-coupon-row { padding-block: 22px; } }
 @media (prefers-reduced-motion: reduce) { .profile-coupon-copy { transition: none; } }
 .profile-coupons-container { box-sizing: border-box; padding: 0 48px 96px; background: #FDFDFC; color: #111111; }
 .profile-coupons-shell { width: min(100%, 1232px); margin-inline: auto; }

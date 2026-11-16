@@ -110,22 +110,26 @@ function ProfileCoupons({ id, coupons, labels, locale }: {
           {coupons.map((coupon) => (
             <article className="profile-coupon-row" key={coupon.id}>
               <div className="profile-coupon-name">
+                <strong data-inline className="profile-coupon-mobile-label">{labels.discountName}</strong>
                 <h3>{coupon.title}</h3>
                 {coupon.designOnly && <div data-copy>{labels.designOnly}</div>}
               </div>
               <div className="profile-coupon-status">
                 <strong data-inline className="profile-coupon-mobile-label">{labels.status}</strong>
-                <strong data-inline className={`profile-coupon-status-badge ${coupon.available ? "is-available" : "is-unavailable"}`}>
+                <div data-inline className={`profile-coupon-status-badge ${coupon.available ? "is-available" : "is-unavailable"}`}>
                   {coupon.available ? labels.available : labels.unavailable}
-                </strong>
+                </div>
               </div>
               <div className="profile-coupon-validity">
                 <strong data-inline className="profile-coupon-mobile-label">{labels.validUntil}</strong>
-                <strong data-inline>{coupon.validUntil ? date(`${coupon.validUntil}T12:00:00Z`, locale) : labels.welcomeValidity}</strong>
+                <div data-inline>{coupon.validUntil ? date(`${coupon.validUntil}T12:00:00Z`, locale) : labels.welcomeValidity}</div>
               </div>
-              <div className="profile-coupon-code-value">
-                <code>{coupon.code}</code>
-                {coupon.available && <CouponCopyButton code={coupon.code} copyLabel={labels.copy} copiedLabel={labels.copied} failedLabel={labels.copyFailed} />}
+              <div className="profile-coupon-code">
+                <strong data-inline className="profile-coupon-mobile-label">{labels.code}</strong>
+                <div className="profile-coupon-code-value">
+                  <code>{coupon.code.toLowerCase()}</code>
+                  {coupon.available && <CouponCopyButton code={coupon.code.toLowerCase()} copyLabel={labels.copy} copiedLabel={labels.copied} failedLabel={labels.copyFailed} />}
+                </div>
               </div>
             </article>
           ))}
