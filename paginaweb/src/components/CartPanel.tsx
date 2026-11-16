@@ -12,7 +12,7 @@ import type { Locale, Product, Currency, Money } from "@/types/catalog";
 import { addLocalCartItem, localCartEntryKey, readLocalCart, removeLocalCartItem, updateLocalCartItemQuantity } from "@/lib/browser-cart";
 import { trackJourneyStep } from "../../../shared/journeyAnalytics";
 import { defaultCatalogTaxonomy, formatPurchaseSelectionLabel, normalizeCatalogValueMap, type CatalogValueMap } from "../../../shared/catalog-taxonomy";
-import { applyWholesaleMateDiscount, isWholesaleMateCategory, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
+import { applyWholesaleMateDiscount, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
 
 import { Trash } from "@phosphor-icons/react";
 import { CartRecommendations } from "./CartRecommendations";
@@ -20,6 +20,7 @@ import { complementFamily, recommendForCart, type CartCatalogProduct, type CartR
 import { notifyCartAdded, countCartItems } from "@/lib/cart-feedback";
 import styles from "./Cart.module.css";
 import { cartOptionLabel } from "@/lib/cart-option-label";
+import drawerStyles from "./CartDrawer.module.css";
 
 type RemoteItem = {
   id: string; item_type: "catalog" | "design"; quantity: number;
@@ -142,7 +143,7 @@ function itemImage(item: RemoteItem) {
   return "/assets/matearte/profile-orders-desktop/catalog-fallback.webp";
 }
 
-export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CATALOG }: { exchangeRates?: Record<string, number>; wholesaleSettings: WholesaleDiscountSettings; catalog?: CartCatalogProduct[] }) {
+export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CATALOG, mode = "page", onClose }: { exchangeRates?: Record<string, number>; wholesaleSettings: WholesaleDiscountSettings; catalog?: CartCatalogProduct[]; mode?: "page" | "drawer"; onClose?: () => void }) {
   const { currency: displayCurrency, rates: displayRates, arsPerUyu, arsUseBasePrice } = useStorefrontCurrency(exchangeRates);
   const locale = useLocale() as Locale;
   const t = useTranslations("cart");
@@ -162,6 +163,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CA
   const [pendingQuantity, setPendingQuantity] = useState<Set<string>>(new Set());
   const addLock = useRef(false);
   const [confirmation, setConfirmation] = useState("");
+  const [installmentCount, setInstallmentCount] = useState<6 | 12>(12);
   const loadSequence = useRef(0);
   const quantityTimers = useRef(new Map<string, number>());
   const quantityVersions = useRef(new Map<string, number>());
@@ -257,7 +259,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CA
         const value = await response.json();
         if (!response.ok) throw new Error(value.error);
         if (quantityVersions.current.get(itemId) === version) setCart(value);
-      } catch (reason) {
+      } catch {
         if (controller.signal.aborted) return;
         setError(t("updateFailed"));
         await load().catch(() => undefined);
@@ -538,7 +540,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CA
     finally { addLock.current = false; setAdding(""); }
   };
 
-  if (!needsLogin && !cart) return <div className={styles.feedback} role={error ? "alert" : "status"}>{error || t("loading")}</div>;
+  if (!needsLogin && !cart) return <div className={mode === "drawer" ? drawerStyles.feedback : styles.feedback} role={error ? "alert" : "status"}>{error || t("loading")}</div>;
   const lines = needsLogin ? localItems.map(i => ({
     key: i.lineKey, title: i.title, subtitle: cartOptionLabel(i.optionValues, locale) || i.variantLabel, image: i.imageSrc,
     quantity: i.quantity, editable: true, price: i.priceMinor, basePrice: i.basePriceMinor, category: i.category,
@@ -551,7 +553,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CA
     available: i.item_type === "design" || Boolean(i.variant?.active && i.variant.available_web !== false && i.variant.product.published),
     change: (quantity: number) => updateRemoteItemQuantity(i.id, quantity), remove: () => void mutate("DELETE", i.id),
   }));
-  if (!lines.length) return <div className={styles.empty}>
+  if (!lines.length) return <div className={mode === "drawer" ? drawerStyles.empty : styles.empty}>
     <Image src="/assets/matearte/cart-desktop/empty-cart.webp" alt={t("emptyAlt")} width={221} height={221} />
     <h2>{t("emptyTitle")}</h2><div>{t("emptyBody")}</div>
     <Link className={styles.viewProduct} href="/catalogo">{t("explore")}</Link>
@@ -563,7 +565,56 @@ export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CA
     : format(sum(base));
   const discount = sum(true) - sum(false);
   const unavailable = lines.some(i => !i.available);
-  const showWholesaleNotice = wholesaleSettings.wholesale_mate_discount_enabled && wholesaleSettings.wholesale_mate_discount_percent > 0 && lines.some(i => isWholesaleMateCategory(i.category));
+  if (mode === "drawer") {
+    const totalMinor = displayCurrency === "ARS"
+      ? lines.reduce((total, item) => total + toArsMinor(item.price, arsPerUyu) * item.quantity, 0)
+      : sum(false);
+    const targetMinor = displayCurrency === "ARS" ? totalMinor : displayCurrency === "UYU" ? totalMinor : Math.round(totalMinor / ((displayRates as Record<string, number>)[displayCurrency] || 1));
+    const installmentAmount = (targetMinor / installmentCount / 100).toLocaleString(locale === "en" ? "en-US" : locale === "pt" ? "pt-BR" : "es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const installmentPrice = displayCurrency === "USD" ? `US$ ${installmentAmount}` : displayCurrency === "BRL" ? `R$ ${installmentAmount}` : `$ ${installmentAmount} ${displayCurrency}`;
+    return <div className={drawerStyles.content}>
+      <section className={drawerStyles.items} aria-label={t("selectedItems")}>
+        {lines.map(item => <article key={item.key} className={drawerStyles.item}>
+          <div className={drawerStyles.thumbnail}><Image src={item.image} alt={item.title} fill sizes="(max-width: 600px) 96px, 104px" unoptimized={item.image.startsWith("http") || item.image.startsWith("/imagenes/")} /></div>
+          <div className={drawerStyles.itemBody}>
+            <h3>{item.title}</h3>
+            {item.subtitle && <div className={drawerStyles.options}>{item.subtitle}</div>}
+            <div className={drawerStyles.unitPrice}>{item.price > 0 ? t("unitPrice", { price: formatPrice({ amountMinor: item.price, currency: item.currency }) }) : t("unavailable")}</div>
+            <div className={drawerStyles.itemActions}>
+              {item.editable ? <QuantityControl disabled={Boolean(adding) || busy === item.key} className={drawerStyles.quantity} value={item.quantity} label={t("editQuantity", { item: item.title })} decreaseLabel={t(item.quantity <= 1 ? "removeItem" : "decreaseItem", { item: item.title })} increaseLabel={t("increaseItem", { item: item.title })} onChange={item.change} /> : <output className={drawerStyles.staticQuantity} aria-label={t("units", { count: item.quantity })}>{item.quantity}</output>}
+              <button type="button" className={drawerStyles.remove} aria-label={t("removeItem", { item: item.title })} disabled={Boolean(adding) || busy === item.key} onClick={item.remove}><Trash size={20} aria-hidden="true" /></button>
+            </div>
+          </div>
+        </article>)}
+      </section>
+      <div className={drawerStyles.offer}><strong>{t("firstPurchaseOffer")}</strong><div>{t("subscriberCodeHint")}</div></div>
+      <section className={drawerStyles.summary} aria-label={t("summaryLabel")}>
+        <h3>{t("summary")}</h3>
+        <dl><div><dt>{t("subtotal")}</dt><dd>{sumDisplay(true)}</dd></div><div><dt>{t("shipping")}</dt><dd>{t("toCalculate")}</dd></div>
+          {discount > 0 && <div><dt>{t("wholesaleDiscount")}</dt><dd>− {format(discount)}</dd></div>}
+        </dl>
+        <div className={drawerStyles.total}><strong>{t("total")}</strong><strong>{sumDisplay(false)}</strong></div>
+      </section>
+      <div className={drawerStyles.installments}>
+        <div role="status" aria-live="polite">{t("installments", { count: installmentCount, price: installmentPrice })}</div>
+        <div className={drawerStyles.installmentChoices} role="group" aria-label={t("installmentOptions")}>
+          {([12, 6] as const).map(count => <button key={count} type="button" aria-pressed={installmentCount === count} onClick={() => setInstallmentCount(count)}>{count}</button>)}
+        </div>
+      </div>
+      {unavailable ? <div role="alert" className={drawerStyles.feedback}>{t("unavailable")}</div> : <Link className={drawerStyles.cartLink} href="/carrito" onClick={onClose}>{t("goToCart")}</Link>}
+      <div className={drawerStyles.secure}><Image src="/assets/matearte/cart-drawer/secure.svg" alt="" width={20} height={22} />{t("securePayment")}</div>
+      <div className={drawerStyles.paymentLogos} aria-label={t("paymentMethods")}>
+        <Image src="/assets/matearte/cart-drawer/oca.svg" alt="OCA" width={58} height={28} />
+        <Image src="/assets/matearte/cart-drawer/mercado_pago.png" alt="Mercado Pago" width={40} height={28} />
+        <Image src="/assets/matearte/cart-drawer/visa.png" alt="Visa" width={42} height={28} />
+        <Image src="/assets/matearte/cart-drawer/mastercard.png" alt="Mastercard" width={50} height={28} />
+        <Image src="/assets/matearte/cart-drawer/paypal.png" alt="PayPal" width={36} height={28} />
+        <Image src="/assets/matearte/cart-drawer/bank.svg" alt={t("bankTransfer")} width={31} height={28} />
+      </div>
+      {error && <div role="alert" className={drawerStyles.feedback}>{error}</div>}
+      <div role="status" aria-live="polite" className="sr-only">{confirmation}</div>
+    </div>;
+  }
   return <div className={styles.content}>
     <div className={styles.purchase}>
       <section className={styles.selection} aria-label={t("selectedItems")}>
@@ -584,7 +635,6 @@ export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CA
         </dl>
         <div className={styles.total}>{t("total")}: {sumDisplay(false)}</div>
         {unavailable ? <div role="alert">{t("unavailable")}</div> : <Link className={styles.checkout} href={checkoutHref}>{t("continue")}</Link>}
-        {showWholesaleNotice && <div className={styles.wholesale}>{t("wholesaleDiscountNotice", { discount: wholesaleSettings.wholesale_mate_discount_percent, threshold: wholesaleSettings.wholesale_mate_quantity_threshold })}</div>}
       </aside>
     </div>
     {error && <div role="alert" className={styles.feedback}>{error}</div>}

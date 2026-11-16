@@ -51,9 +51,11 @@
     "openAccount": "Abrir minha conta",
     "signIn": "Entrar",
     "cart": "Carrinho",
+    "yourCart": "Seu carrinho",
     "cartCount": "Carrinho, {count, plural, one {# item} other {# itens}}",
     "openMenu": "Abrir menu",
-    "closeMenu": "Fechar menu"
+    "closeMenu": "Fechar menu",
+    "closeCart": "Fechar carrinho"
   },
   "language": {
     "es": "Español",
@@ -542,7 +544,6 @@
     "toCalculate": "A calcular",
     "total": "Total",
     "continue": "Continuar",
-    "wholesaleDiscountNotice": "A partir de {threshold} mates, usamos o preço base sem ajuste e aplicamos {discount}% de desconto. O pagamento é concluído por transferência.",
     "relatedTitle": "Complete seu carrinho",
     "relatedBrowse": "Produtos complementares, deslize para ver mais",
     "viewProduct": "Ver produto",
@@ -551,7 +552,15 @@
     "addedItem": "{item} adicionado ao carrinho",
     "addFailed": "Não foi possível adicionar o produto. Confira a disponibilidade e tente novamente.",
     "unavailable": "Um item não está mais disponível online. Remova-o para continuar.",
-    "availableColors": "Cores disponíveis"
+    "availableColors": "Cores disponíveis",
+    "firstPurchaseOffer": "Primeira compra: 10% de desconto",
+    "subscriberCodeHint": "Use seu código de assinante antes de pagar",
+    "installments": "{count} parcelas de {price}",
+    "installmentOptions": "Escolher quantidade de parcelas",
+    "goToCart": "Ir para o carrinho",
+    "securePayment": "Pagamento seguro com Mercado Pago ou transferência",
+    "paymentMethods": "Formas de pagamento disponíveis",
+    "bankTransfer": "Transferência bancária"
   },
   "checkout": {
     "argentinaOption": "Envio nacional",

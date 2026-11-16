@@ -51,9 +51,11 @@
     "openAccount": "Open my account",
     "signIn": "Sign in",
     "cart": "Cart",
+    "yourCart": "Your cart",
     "cartCount": "Cart, {count, plural, one {# item} other {# items}}",
     "openMenu": "Open menu",
-    "closeMenu": "Close menu"
+    "closeMenu": "Close menu",
+    "closeCart": "Close cart"
   },
   "language": {
     "es": "Español",
@@ -542,7 +544,6 @@
     "toCalculate": "To be calculated",
     "total": "Total",
     "continue": "Continue",
-    "wholesaleDiscountNotice": "From {threshold} mates, the base price is used without the catalog adjustment and a {discount}% discount is applied. Payment is completed by bank transfer.",
     "relatedTitle": "Complete your cart",
     "relatedBrowse": "Complementary products, scroll to see more",
     "viewProduct": "View product",
@@ -551,7 +552,15 @@
     "addedItem": "{item} added to cart",
     "addFailed": "We could not add this product. Check availability and try again.",
     "unavailable": "An item is no longer available online. Remove it to continue.",
-    "availableColors": "Available colors"
+    "availableColors": "Available colors",
+    "firstPurchaseOffer": "First purchase: 10% off",
+    "subscriberCodeHint": "Use your subscriber code before paying",
+    "installments": "{count} payments of {price}",
+    "installmentOptions": "Choose number of payments",
+    "goToCart": "Go to cart",
+    "securePayment": "Secure payment with Mercado Pago or bank transfer",
+    "paymentMethods": "Available payment methods",
+    "bankTransfer": "Bank transfer"
   },
   "checkout": {
     "argentinaOption": "Domestic shipping",

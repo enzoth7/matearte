@@ -5,6 +5,8 @@ import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from "react";
+import { createPortal } from "react-dom";
+import { useLenis } from "lenis/react";
 import { Toaster, toast } from "sonner";
 import { Link, useRouter } from "@/i18n/navigation";
 import { canonicalPathname, localizeCurrentPathname } from "@/i18n/paths";
@@ -13,6 +15,9 @@ import { CART_ADDED_EVENT, type CartAddedDetail } from "@/lib/cart-feedback";
 import { CurrencySelector } from "./StorefrontCurrency";
 import { persistLocalePreference } from "@/lib/locale-preference";
 import type { Locale } from "@/types/catalog";
+import type { WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
+import { CartPanel } from "./CartPanel";
+import drawerStyles from "./CartDrawer.module.css";
 
 const navigation = [
   { label: "catalog", href: "/catalogo" },
@@ -26,8 +31,9 @@ const navigation = [
 const localeOptions: Locale[] = ["es", "en", "pt"];
 const mobileLocaleOptions: Locale[] = ["es", "pt", "en"];
 
-export function Header() {
+export function Header({ wholesaleSettings, exchangeRates }: { wholesaleSettings: WholesaleDiscountSettings; exchangeRates: Record<string, number> }) {
   const [open, setOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [languageOpen, setLanguageOpen] = useState(false);
@@ -43,13 +49,30 @@ export function Header() {
   const languageButtonRef = useRef<HTMLButtonElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const cartButtonRef = useRef<HTMLButtonElement>(null);
+  const cartCloseRef = useRef<HTMLButtonElement>(null);
+  const cartPanelRef = useRef<HTMLElement>(null);
+  const lenis = useLenis();
   const cartCountRevision = useRef(0);
   const canonical = canonicalPathname(pathname, locale);
 
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
+    document.body.style.overflow = open || cartOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
-  }, [open]);
+  }, [open, cartOpen]);
+
+  useEffect(() => {
+    if (!cartOpen) return;
+    cartCloseRef.current?.focus();
+    const trigger = cartButtonRef.current;
+    return () => trigger?.focus();
+  }, [cartOpen]);
+
+  useEffect(() => {
+    if (!cartOpen || !lenis) return;
+    lenis.stop();
+    return () => lenis.start();
+  }, [cartOpen, lenis]);
 
   useEffect(() => {
     headerRef.current?.setAttribute("data-hydrated", "true");
@@ -62,6 +85,7 @@ export function Header() {
         setLanguageOpen(false);
         setOpen(false);
         setSearchOpen(false);
+        setCartOpen(false);
       }
     };
     const closeOnOutsideClick = (event: PointerEvent) => {
@@ -159,6 +183,7 @@ export function Header() {
 
   const toggleSearch = () => {
     setOpen(false);
+    setCartOpen(false);
     if (searchOpen) {
       setSearchOpen(false);
       return;
@@ -185,6 +210,7 @@ export function Header() {
     persistLocalePreference(targetLocale);
     setLanguageOpen(false);
     setOpen(false);
+    setCartOpen(false);
     // A locale change must refresh the root document so `html[lang]` and server messages update together.
     window.location.assign(languageHref(targetLocale));
   };
@@ -222,11 +248,11 @@ export function Header() {
               )}
             </div>
             <Link href="/perfil" className="home-header-icon" aria-label={session.authenticated ? t("openAccount") : t("signIn")}><UserCircle size={20} aria-hidden="true" /></Link>
-            <Link href="/carrito" className="home-header-icon home-header-cart" aria-label={session.cartCount ? t("cartCount", { count: session.cartCount }) : t("cart")}><ShoppingCart size={20} aria-hidden="true" />{session.cartCount > 0 && <strong data-inline>{Math.min(99, session.cartCount)}</strong>}</Link>
+            <button ref={cartButtonRef} type="button" className="home-header-icon home-header-cart" aria-label={session.cartCount ? t("cartCount", { count: session.cartCount }) : t("cart")} aria-haspopup="dialog" aria-expanded={cartOpen} aria-controls="cart-drawer" onClick={() => { setOpen(false); setSearchOpen(false); setCartOpen(true); }}><ShoppingCart size={20} aria-hidden="true" />{session.cartCount > 0 && <strong data-inline>{Math.min(99, session.cartCount)}</strong>}</button>
           </nav>
           <div className="home-header-mobile-actions">
             <button type="button" className="home-header-mobile-search" aria-label={t("search")} aria-expanded={searchOpen} aria-controls="home-catalog-search" onClick={toggleSearch}><MagnifyingGlass size={23} aria-hidden="true" /></button>
-            <Link href="/carrito" className="home-header-mobile-cart" aria-label={session.cartCount ? t("cartCount", { count: session.cartCount }) : t("cart")}><ShoppingCart size={23} aria-hidden="true" />{session.cartCount > 0 && <strong data-inline>{Math.min(99, session.cartCount)}</strong>}</Link>
+            <button type="button" className="home-header-mobile-cart" aria-label={session.cartCount ? t("cartCount", { count: session.cartCount }) : t("cart")} aria-haspopup="dialog" aria-expanded={cartOpen} aria-controls="cart-drawer" onClick={() => { setOpen(false); setSearchOpen(false); setCartOpen(true); }}><ShoppingCart size={23} aria-hidden="true" />{session.cartCount > 0 && <strong data-inline>{Math.min(99, session.cartCount)}</strong>}</button>
             <button type="button" className="home-header-menu" aria-label={open ? t("closeMenu") : t("openMenu")} aria-expanded={open} aria-controls="home-menu-mobile" onClick={() => { setSearchOpen(false); setOpen((value) => !value); }}>
               {open ? <X size={25} aria-hidden="true" /> : <List size={25} aria-hidden="true" />}
             </button>
@@ -268,6 +294,26 @@ export function Header() {
           </div>
         </>
       )}
+      {cartOpen && createPortal(<div className={drawerStyles.layer} onWheel={(event) => {
+        if (!cartPanelRef.current?.contains(event.target as Node)) cartPanelRef.current?.scrollBy({ top: event.deltaY });
+      }}>
+        <button type="button" tabIndex={-1} className={drawerStyles.backdrop} aria-label={t("closeCart")} onClick={() => setCartOpen(false)} />
+        <section ref={cartPanelRef} id="cart-drawer" data-lenis-prevent className={drawerStyles.panel} role="dialog" aria-modal="true" aria-labelledby="cart-drawer-title" onKeyDown={(event) => {
+          if (event.key !== "Tab") return;
+          const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled)'));
+          if (!controls.length) return;
+          const first = controls[0], last = controls[controls.length - 1];
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        }}>
+          <header className={drawerStyles.header}>
+            <h2 id="cart-drawer-title">{t("yourCart")}</h2>
+            {session.cartCount > 0 && <strong className={drawerStyles.count}>{Math.min(99, session.cartCount)}</strong>}
+            <button ref={cartCloseRef} type="button" className={drawerStyles.close} aria-label={t("closeCart")} onClick={() => setCartOpen(false)}><X size={26} aria-hidden="true" /></button>
+          </header>
+          <CartPanel mode="drawer" wholesaleSettings={wholesaleSettings} exchangeRates={exchangeRates} onClose={() => setCartOpen(false)} />
+        </section>
+      </div>, document.body)}
       <Toaster toastOptions={{ style: { background: "var(--paper)", color: "var(--ink)", borderColor: "var(--ink)" } }} position="top-right" visibleToasts={1} duration={2000} offset={{ top: 102, right: 24 }} mobileOffset={{ top: 84, right: 12, left: 12 }} />
     </>
   );

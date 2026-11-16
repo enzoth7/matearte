@@ -87,7 +87,7 @@ describe("CartPanel integration",()=>{
     await screen.findByText("Total: $ 16.000 UYU");
     fireEvent.click(screen.getAllByRole("button",{name:"Quitar Bombilla del carrito"}).at(-1)!);
     await screen.findByText("Total: $ 15.000 UYU");
-    expect(changes).toContain(2);expect(changes.at(-1)).toBe(3);
+    expect(changes).toContain(2);await waitFor(()=>expect(changes.at(-1)).toBe(3));
     window.removeEventListener("matearte-cart-change",listener);
   });
   it("does not report success or change the cart on API failure",async()=>{
@@ -106,5 +106,17 @@ describe("CartPanel integration",()=>{
     const selection=screen.getByRole("region",{name:messages.cart.selectedItems});
     expect(within(selection).getAllByText(/5.000 UYU c\/u/)).toHaveLength(1);
     expect(selection.textContent).not.toContain(String.fromCharCode(183));
+  });
+  it("drawer uses the real cart and recalculates quantities and installment estimates",async()=>{
+    authenticated=true;
+    render(<NextIntlClientProvider locale="es" messages={messages}><CartPanel mode="drawer" wholesaleSettings={DEFAULT_WHOLESALE_DISCOUNT_SETTINGS} /></NextIntlClientProvider>);
+    expect(await screen.findByRole("link",{name:"Ir al carrito"})).toHaveAttribute("href","/carrito");
+    expect(screen.getByText("12 cuotas de $ 416,67 UYU")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button",{name:"6"}));
+    expect(screen.getByText("6 cuotas de $ 833,33 UYU")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("spinbutton",{name:"Editar cantidad de Mate"}),{target:{value:"2"}});
+    await waitFor(()=>expect(screen.getAllByText("$ 10.000 UYU")).toHaveLength(2));
+    expect(screen.getByText("6 cuotas de $ 1.666,67 UYU")).toBeInTheDocument();
+    expect(screen.getByRole("button",{name:"Quitar Mate del carrito"})).toBeEnabled();
   });
 });
