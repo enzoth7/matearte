@@ -51,8 +51,12 @@ async function readLocalCustomers(client: NonNullable<typeof commerceSource>, ca
   return { rows, latest, fullReadAt: fullRead ? Date.now() : cache!.fullReadAt };
 }
 
+/** Volver a la pestaña solo recarga todo si la última lectura tiene más de esto; "Actualizar" y guardar siempre recargan. */
+export const FOCUS_REFRESH_MIN_MS = 10 * 60_000;
+
 export function useCommerce() {
   const epoch = useRef(0);
+  const lastLoadRef = useRef(0);
   const busyRef = useRef(false);
   const pendingRefresh = useRef(false);
   const pendingFullRefresh = useRef(false);
@@ -79,7 +83,7 @@ export function useCommerce() {
 
   useEffect(() => {
     let cancelled = false;
-    epoch.current++; busyRef.current = false; localCustomerCache.current = null;
+    epoch.current++; busyRef.current = false; localCustomerCache.current = null; lastLoadRef.current = 0;
     pendingRefresh.current = false; pendingFullRefresh.current = false;
     setSnapshot(null); setPortal(null); setLoadedAt(null); setState(loadState());
     if (!session || !commerceSource) { setAccess("login"); return; }
@@ -128,7 +132,7 @@ export function useCommerce() {
       setLoading(true);
       try {
         const dashboard = await readConsigneeDashboard();
-        setPortal(dashboard); setLoadedAt(new Date()); setError("");
+        setPortal(dashboard); lastLoadRef.current = Date.now(); setLoadedAt(new Date()); setError("");
       } catch (failure) {
         setPortal(null);
         setAccess("denied");
@@ -272,7 +276,7 @@ export function useCommerce() {
         canViewAnalytics: membership.data?.access_user_id === "t1" || (membership.data?.allowed_paths || []).some((path: string) => path.startsWith("/analitica/")),
         ...auditAvailability(membership.data ? session!.user.id : undefined, logs),
       }));
-      setSnapshot(next); setLoadedAt(new Date()); setError("");
+      setSnapshot(next); lastLoadRef.current = Date.now(); setLoadedAt(new Date()); setError("");
     } catch (error) {
       if (requestEpoch !== epoch.current) return;
       setError(error instanceof Error ? error.message : typeof error === "object" && error && "message" in error ? String(error.message) : "No se pudo leer el comercio. Volvé a intentar.");
@@ -293,13 +297,17 @@ export function useCommerce() {
     if (access !== "ready" && access !== "portal") return;
     if (document.visibilityState === "visible") void refresh();
     // Returning to a tab can emit both focus and visibilitychange. Coalesce
-    // them, and never download the commerce snapshot while the tab is hidden.
+    // them, never download the commerce snapshot while the tab is hidden, and
+    // skip it when the last read is recent: each full read costs egress, and
+    // saving or pressing "Actualizar" already refresh on demand.
     let focusTimer: ReturnType<typeof setTimeout> | undefined;
     const refreshWhenVisible = () => {
       clearTimeout(focusTimer);
       if (document.visibilityState !== "visible") return;
       focusTimer = setTimeout(() => {
-        if (document.visibilityState === "visible" && !busyRef.current) void refresh();
+        if (document.visibilityState !== "visible" || busyRef.current) return;
+        if (Date.now() - lastLoadRef.current < FOCUS_REFRESH_MIN_MS) return;
+        void refresh();
       }, 150);
     };
     window.addEventListener("focus", refreshWhenVisible);
@@ -312,7 +320,7 @@ export function useCommerce() {
   }, [refresh, access]);
 
   const signOut = async () => {
-    epoch.current++; busyRef.current = false; localCustomerCache.current = null;
+    epoch.current++; busyRef.current = false; localCustomerCache.current = null; lastLoadRef.current = 0;
     pendingRefresh.current = false; pendingFullRefresh.current = false;
     setState(loadState()); setSnapshot(null); setPortal(null); setLoadedAt(null); setAccess("login");
     await commerceSource?.auth.signOut({ scope: "local" });

@@ -70,7 +70,7 @@ function missingStructuredCatalogColumn(error: { message?: string; code?: string
 }
 
 /** Segundos que se reutilizan los datos del catálogo antes de volver a consultar Supabase. */
-const CATALOG_REVALIDATE_SECONDS = 120;
+const CATALOG_REVALIDATE_SECONDS = 900;
 
 /**
  * Productos publicados con variantes y fotos, más la taxonomía, compartidos entre visitas durante

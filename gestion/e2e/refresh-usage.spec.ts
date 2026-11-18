@@ -9,12 +9,13 @@ async function visibility(page: Page, state: "visible" | "hidden") {
   }, state);
 }
 
-test("Gestión solo actualiza al entrar, volver o pedirlo; nunca por quedar abierta", async ({ page }) => {
+test("Gestión solo actualiza al entrar, al volver tras 10 minutos o al pedirlo; nunca por quedar abierta", async ({ page }) => {
   await mockCommerce(page);
   await page.clock.install();
   let snapshots = 0;
   page.on("request", request => {
-    if (new URL(request.url()).pathname === "/rest/v1/shipping_rates") snapshots++;
+    // Una lectura completa del comercio pide los tipos de cambio exactamente una vez.
+    if (request.method() === "GET" && new URL(request.url()).pathname === "/rest/v1/commerce_exchange_rates") snapshots++;
   });
   await page.goto("/inicio/resumen");
   await expect(page.getByRole("button", { name: "Actualizar", exact: true })).toBeEnabled();
@@ -28,6 +29,13 @@ test("Gestión solo actualiza al entrar, volver o pedirlo; nunca por quedar abie
   await page.clock.runFor(60_000);
   expect(snapshots).toBe(initial);
 
+  // Volver antes de 10 minutos no descarga nada: los datos todavía son recientes.
+  await visibility(page, "visible");
+  await page.clock.runFor(200);
+  expect(snapshots).toBe(initial);
+
+  await visibility(page, "hidden");
+  await page.clock.runFor(10 * 60_000);
   await visibility(page, "visible");
   await page.clock.runFor(200);
   await expect.poll(() => snapshots).toBe(initial + 1);
@@ -44,7 +52,8 @@ test("guardar un producto refresca los datos compartidos sin esperar un interval
   const { fixture } = await mockCommerce(page, { writable: true });
   let snapshots = 0;
   page.on("request", request => {
-    if (new URL(request.url()).pathname === "/rest/v1/shipping_rates") snapshots++;
+    // Una lectura completa del comercio pide los tipos de cambio exactamente una vez.
+    if (request.method() === "GET" && new URL(request.url()).pathname === "/rest/v1/commerce_exchange_rates") snapshots++;
   });
   await page.goto("/productos/catalogo");
   await expect(page.getByRole("button", { name: "Actualizar", exact: true })).toBeEnabled();
