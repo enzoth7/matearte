@@ -35,6 +35,7 @@ describe("traducciones públicas", () => {
         "not_found",
         "not_started",
         "not_subscribed",
+        "sale_better",
       ]);
     }
   });

@@ -12,6 +12,8 @@ import { normalizeCatalogValueMap } from "../../../../../shared/catalog-taxonomy
 import { applyWholesaleMateDiscount, isWholesaleMateEligible, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
 import { discountErrorMessage, discountReasonFromError, normalizeDiscountCode, type ValidatedDiscount } from "@/lib/discounts";
 import { discountCategorySubtotals } from "../../../../../shared/discount-scope";
+import { activeStorewideSalePercent, lowestPriceMinor, salePriceMinor } from "../../../../../shared/storewide-sale";
+import { resolveCouponAgainstSale } from "@/lib/storewide-sale-checkout";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type PublishedPricingCatalog = { versionId: string; version: number; rules: Record<string, number> };
@@ -21,7 +23,7 @@ export async function POST(request: Request) {
   if (!user) return apiError("Necesitás iniciar sesión.", 401);
   let reservedCheckoutKey: string | null = null;
   try {
-    const { data: publicSettings } = await client.from("commerce_settings").select("commerce_enabled,mercado_pago_enabled,reservation_minutes,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories").eq("singleton", true).single();
+    const { data: publicSettings } = await client.from("commerce_settings").select("commerce_enabled,mercado_pago_enabled,reservation_minutes,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories,storewide_sale_enabled,storewide_sale_percent,storewide_sale_valid_from,storewide_sale_valid_until").eq("singleton", true).single();
     if (!publicSettings?.commerce_enabled || !publicSettings.mercado_pago_enabled) return apiError("El comercio todavía no está habilitado.", 503);
     const body = await readJson(request);
     const discountCode = normalizeDiscountCode(body.discountCode);
@@ -96,7 +98,23 @@ export async function POST(request: Request) {
       return apiError("Este carrito mayorista se completa mediante transferencia bancaria.", 409);
     }
     const adjustedPrices = applyWholesaleMateDiscount(checkoutItemsBeforeWholesale, publicSettings as WholesaleDiscountSettings);
-    const checkoutItems = checkoutItemsBeforeWholesale.map((item,index) => ({ ...item, unitPriceMinor: adjustedPrices[index].unitPriceMinor }));
+    // El descuento general no se acumula con un código: gana el que más descuenta y la base solo recibe el código cuando gana.
+    const salePercent = activeStorewideSalePercent(publicSettings);
+    const couponResolution = await resolveCouponAgainstSale(admin, {
+      userId: user.id,
+      code: discountCode,
+      salePercent,
+      lines: checkoutItemsBeforeWholesale.map((item) => ({
+        itemType: item.itemType, category: item.category, quantity: item.quantity,
+        listUnitMinor: item.unitPriceMinor, saleUnitMinor: salePriceMinor(item.unitPriceMinor, salePercent),
+      })),
+    });
+    const effectiveDiscountCode = couponResolution.useCode ? discountCode : "";
+    const appliedSalePercent = effectiveDiscountCode ? 0 : salePercent;
+    const checkoutItems = checkoutItemsBeforeWholesale.map((item,index) => ({
+      ...item,
+      unitPriceMinor: lowestPriceMinor(adjustedPrices[index].unitPriceMinor, salePriceMinor(item.unitPriceMinor, appliedSalePercent)),
+    }));
     const itemsSubtotalMinor = checkoutItems.reduce((total, item) => total + item.unitPriceMinor * item.quantity, 0);
     const designSubtotalMinor = checkoutItems
       .filter((item) => item.itemType === "design")
@@ -104,10 +122,10 @@ export async function POST(request: Request) {
     const paymentFeeMinor = 0;
     const reservationExpiresAt = new Date(Date.now() + Number(publicSettings.reservation_minutes || 30) * 60_000).toISOString();
     let discount: ValidatedDiscount | null = null;
-    if (discountCode) {
+    if (effectiveDiscountCode) {
       const { data, error: discountError } = await admin.rpc("reserve_commerce_discount_scoped", {
         p_user_id: user.id,
-        p_code: discountCode,
+        p_code: effectiveDiscountCode,
         p_items_subtotal_minor: itemsSubtotalMinor,
         p_design_subtotal_minor: designSubtotalMinor,
         p_category_subtotals: discountCategorySubtotals(checkoutItems),
@@ -125,7 +143,7 @@ export async function POST(request: Request) {
       userId: user.id,
       cartId: cart.id,
       shippingRateId: shippingRate.id,
-      customer: { fullName, phone, department, city, address, email: user.email, pricingVersionId },
+      customer: { fullName, phone, department, city, address, email: user.email, pricingVersionId, storewideSalePercent: appliedSalePercent },
       items: checkoutItems,
       paymentFeeMinor,
       discountMinor,

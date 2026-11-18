@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { calculateDesignPriceMinor } from "@/lib/design-pricing";
-import { applyWholesaleMateDiscount, DEFAULT_WHOLESALE_DISCOUNT_SETTINGS, isWholesaleMateEligible, wholesaleMateQuantity, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
+import { applyWholesaleMateDiscount, DEFAULT_WHOLESALE_DISCOUNT_SETTINGS, isWholesaleDiscountCategory, isWholesaleMateEligible, wholesaleMateQuantity, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
+import { activeStorewideSalePercent, lowestPriceMinor, salePriceMinor } from "../../../shared/storewide-sale";
 import { catalogPurchaseAxes, normalizeCatalogValueMap, optionSignature, type CatalogTaxonomy, type CatalogValueMap } from "../../../shared/catalog-taxonomy";
 import { loadPublicCatalogTaxonomy } from "@/lib/catalog-taxonomy-live";
 
@@ -44,11 +45,12 @@ export async function readPricedCart(client: SupabaseClient, userId: string) {
   const designPrices = new Map<string, number>();
   const { data: wholesaleData, error: wholesaleError } = await client
     .from("commerce_settings")
-    .select("wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories")
+    .select("wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories,storewide_sale_enabled,storewide_sale_percent,storewide_sale_valid_from,storewide_sale_valid_until")
     .eq("singleton", true)
     .single();
   if (wholesaleError) throw wholesaleError;
   const wholesaleSettings = (wholesaleData || DEFAULT_WHOLESALE_DISCOUNT_SETTINGS) as WholesaleDiscountSettings;
+  const salePercent = activeStorewideSalePercent(wholesaleData);
 
   if (designIds.length) {
     const [{ data: designs, error: designsError }, { data: catalog, error: catalogError }] = await Promise.all([
@@ -91,11 +93,20 @@ export async function readPricedCart(client: SupabaseClient, userId: string) {
       },
     };
   });
-  const adjustedLines = applyWholesaleMateDiscount(pricedItems.map((item) => item.wholesale_price_line), wholesaleSettings);
   const wholesaleLines = pricedItems.map((item) => item.wholesale_price_line);
+  const wholesaleAdjustedLines = applyWholesaleMateDiscount(wholesaleLines, wholesaleSettings);
+  // Descuentos que no se acumulan: cada línea se cobra al precio más bajo entre el mayorista y el general.
+  const adjustedLines = wholesaleAdjustedLines.map((line, index) => ({
+    ...line,
+    unitPriceMinor: lowestPriceMinor(line.unitPriceMinor, salePriceMinor(wholesaleLines[index].unitPriceMinor, salePercent)),
+  }));
   const wholesaleEligible = isWholesaleMateEligible(wholesaleLines, wholesaleSettings);
   const publishedSubtotalMinor = wholesaleLines.reduce((sum, line) => sum + line.unitPriceMinor * line.quantity, 0);
-  const wholesaleSubtotalMinor = adjustedLines.reduce((sum, line) => sum + line.unitPriceMinor * line.quantity, 0);
+  const wholesaleSavingsMinor = wholesaleEligible
+    ? wholesaleLines.reduce((sum, line, index) => sum + (isWholesaleDiscountCategory(line.category, wholesaleSettings) && line.itemType === "catalog"
+      ? Math.max(0, line.unitPriceMinor - adjustedLines[index].unitPriceMinor) * line.quantity : 0), 0)
+    : 0;
+  const finalSubtotalMinor = adjustedLines.reduce((sum, line) => sum + line.unitPriceMinor * line.quantity, 0);
 
   return {
     ...cart,
@@ -105,8 +116,13 @@ export async function readPricedCart(client: SupabaseClient, userId: string) {
       mate_quantity: wholesaleMateQuantity(wholesaleLines),
       threshold: wholesaleSettings.wholesale_mate_quantity_threshold,
       discount_percent: wholesaleSettings.wholesale_mate_discount_percent,
-      savings_minor: Math.max(0, publishedSubtotalMinor - wholesaleSubtotalMinor),
+      savings_minor: wholesaleSavingsMinor,
       checkout_mode: wholesaleEligible ? "bank_transfer" : "standard",
+    },
+    storewide_sale: {
+      active: salePercent > 0,
+      percent: salePercent,
+      savings_minor: salePercent > 0 ? Math.max(0, publishedSubtotalMinor - finalSubtotalMinor - wholesaleSavingsMinor) : 0,
     },
     items: pricedItems.map((item,index) => {
       const { wholesale_price_line: _wholesalePriceLine, ...publicItem } = item;
@@ -114,6 +130,9 @@ export async function readPricedCart(client: SupabaseClient, userId: string) {
         ...publicItem,
         base_unit_price_minor: item.unit_price_minor,
         catalog_base_unit_price_minor: item.wholesale_price_line.baseUnitPriceMinor,
+        catalog_base_sale_unit_price_minor: item.item_type === "catalog"
+          ? salePriceMinor(item.wholesale_price_line.baseUnitPriceMinor, salePercent)
+          : adjustedLines[index].unitPriceMinor,
         unit_price_minor: adjustedLines[index].unitPriceMinor,
       };
     }),

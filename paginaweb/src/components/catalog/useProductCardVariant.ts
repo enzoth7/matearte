@@ -58,6 +58,8 @@ export function useProductCardVariant(
     ? priceVariant.price.amountMinor / 100
     : product.filterData.priceUYU;
   const priceIsFrom = matchingColorVariants.length > 1;
+  // El descuento general solo se muestra en productos que se pueden comprar en la web.
+  const priceIsPurchasable = Boolean(product.variants?.some((v) => v.commerceId && v.available !== false && v.price?.amountMinor));
 
   const hasMultipleVariants = Boolean(product.variants && product.variants.length > 1);
   const colorVariants = hasMultipleVariants
@@ -86,6 +88,7 @@ export function useProductCardVariant(
     variantImage,
     displayedPrice,
     priceIsFrom,
+    priceIsPurchasable,
     activeColor,
     swatchesToShow,
     hoveredVariantId,

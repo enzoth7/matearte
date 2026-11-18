@@ -1,7 +1,8 @@
 import { buildGoogleMerchantFeedForOffers } from "@/lib/google-merchant-feed";
 import { discoveredSources, resolveDiscoveredOffers, type DiscoveredSource } from "@/lib/google-merchant-discovered";
 import { siteUrl } from "@/lib/metadata";
-import { getStorefrontProducts } from "@/lib/storefront-catalog";
+import { getStorefrontProducts, getStorewideSale } from "@/lib/storefront-catalog";
+import { activeStorewideSalePercent } from "../../../../../shared/storewide-sale";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export async function GET(_request: Request, context: { params: Promise<{ source
   const settings = discoveredSources[source];
   const products = await getStorefrontProducts(settings.locale);
   const { offers, unresolvedIds } = resolveDiscoveredOffers(products, source);
-  const feed = buildGoogleMerchantFeedForOffers(offers, siteUrl, settings.locale);
+  const feed = buildGoogleMerchantFeedForOffers(offers, siteUrl, settings.locale, activeStorewideSalePercent(await getStorewideSale()));
 
   // An empty catalog indicates a temporary failure. Individual unpublished products leave the feed normally.
   if (feed.itemCount === 0) {

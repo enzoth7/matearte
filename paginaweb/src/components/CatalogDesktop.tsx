@@ -13,6 +13,7 @@ import type { CatalogColorId, Product } from "@/types/catalog";
 import { Link } from "@/i18n/navigation";
 import { ProductCardSwatches } from "@/components/catalog/ProductCardSwatches";
 import { useProductCardVariant } from "@/components/catalog/useProductCardVariant";
+import { CatalogSalePrice, useStorewideSale } from "@/components/StorewideSale";
 import { catalogCoverStyle } from "@/lib/catalog-cover";
 
 const assetRoot = "/assets/matearte/catalog-desktop";
@@ -61,11 +62,13 @@ function CatalogDesktopCard({
   consultLabel,
 }: DesktopCardProps) {
   const { currency, rates } = useStorefrontCurrency(exchangeRates);
+  const sale = useStorewideSale();
   const {
     highlightedVariantId,
     variantImage,
     displayedPrice,
     priceIsFrom,
+    priceIsPurchasable,
     activeColor,
     swatchesToShow,
     setHoveredVariantId,
@@ -114,7 +117,7 @@ function CatalogDesktopCard({
         </div>
         <div className="catalog-product-meta">
           <h2>{product.name}</h2>
-          <div className="catalog-product-price">{priceIsFrom ? `${locale==='en'?'From':locale==='pt'?'A partir de':'Desde'} ` : ''}{formatCatalogPrice(displayedPrice, consultLabel, locale, rates, currency)}</div>
+          <div className="catalog-product-price">{priceIsFrom ? `${locale==='en'?'From':locale==='pt'?'A partir de':'Desde'} ` : ''}<CatalogSalePrice list={formatCatalogPrice(displayedPrice, consultLabel, locale, rates, currency)} current={sale.active && priceIsPurchasable && displayedPrice !== undefined ? formatCatalogPrice(sale.priceUyu(displayedPrice), consultLabel, locale, rates, currency) : null} /></div>
           <ProductCardSwatches
             variants={swatchesToShow}
             highlightedVariantId={highlightedVariantId}

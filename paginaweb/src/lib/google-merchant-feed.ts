@@ -1,5 +1,6 @@
 import type { Locale, Product, ProductVariant } from "@/types/catalog";
 import { merchantMaterial } from "@/lib/merchant-material";
+import { salePriceMinor } from "../../../shared/storewide-sale";
 
 const BRAND = "MateArte";
 const FALLBACK_PRODUCT_IMAGE = "/assets/matearte/01-marca/LogoOriginal-4k.webp";
@@ -111,7 +112,7 @@ function shippingWeightGrams(product: Product, variant: ProductVariant) {
   return fallbackShippingWeightGrams[product.category] ?? DEFAULT_FALLBACK_SHIPPING_WEIGHT_GRAMS;
 }
 
-function itemXml(product: Product, siteUrl: string, offerId = product.id, locale: Locale = "es", referencePriceMinor?: number) {
+function itemXml(product: Product, siteUrl: string, offerId = product.id, locale: Locale = "es", referencePriceMinor?: number, salePercent = 0) {
   const variant = preferredVariant(product, referencePriceMinor);
   const images = productImages(product, siteUrl);
   const title = cleanText(product.name, 150);
@@ -136,6 +137,7 @@ function itemXml(product: Product, siteUrl: string, offerId = product.id, locale
     "    <g:condition>new</g:condition>",
     "    <g:availability>in_stock</g:availability>",
     `    <g:price>${xml(formatPrice(variant.price.amountMinor, variant.price.currency))}</g:price>`,
+    ...(salePercent > 0 ? [`    <g:sale_price>${xml(formatPrice(salePriceMinor(variant.price.amountMinor, salePercent), variant.price.currency))}</g:sale_price>`] : []),
     `    <g:brand>${BRAND}</g:brand>`,
     `    <g:product_type>${xml(readableCategory(product.category))}</g:product_type>`,
     ...(material ? [`    <g:material>${xml(material)}</g:material>`] : []),
@@ -156,9 +158,9 @@ export type GoogleMerchantFeed = {
 
 type FeedOffer = { id: string; product: Product; referencePriceMinor?: number };
 
-function buildFeed(offers: FeedOffer[], siteUrl: string, locale: Locale): GoogleMerchantFeed {
+function buildFeed(offers: FeedOffer[], siteUrl: string, locale: Locale, salePercent = 0): GoogleMerchantFeed {
   const items = offers
-    .map(({ id, product, referencePriceMinor }) => itemXml(product, siteUrl, id, locale, referencePriceMinor))
+    .map(({ id, product, referencePriceMinor }) => itemXml(product, siteUrl, id, locale, referencePriceMinor, salePercent))
     .filter((item): item is string => Boolean(item));
   const baseUrl = siteUrl.replace(/\/$/, "");
   return {
@@ -183,8 +185,9 @@ export function buildGoogleMerchantFeedForOffers(
   offers: FeedOffer[],
   siteUrl: string,
   locale: Locale,
+  salePercent = 0,
 ): GoogleMerchantFeed {
-  return buildFeed(offers, siteUrl, locale);
+  return buildFeed(offers, siteUrl, locale, salePercent);
 }
 
 /**
@@ -194,6 +197,7 @@ export function buildGoogleMerchantFeedForOffers(
 export function buildGoogleMerchantFeed(
   products: Product[],
   siteUrl: string,
+  salePercent = 0,
 ): GoogleMerchantFeed {
-  return buildFeed(products.map((product) => ({ id: product.id, product })), siteUrl, "es");
+  return buildFeed(products.map((product) => ({ id: product.id, product })), siteUrl, "es", salePercent);
 }

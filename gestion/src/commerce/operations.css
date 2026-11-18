@@ -1806,3 +1806,13 @@ td small { display: block; }
   .local-production-views [data-local-preview="virola"] { max-width: 280px; margin: auto; }
   .recovered-production-views [data-local-preview] { height: 13rem; }
 }
+
+
+/* Mensajes de la barra negra de la web (Marketing, Avisos). */
+.top-bar-messages-workspace { display: grid; grid-template-columns: minmax(19rem, 25rem) minmax(0, 1fr); gap: 1.25rem; align-items: start; margin-top: 1.5rem; }
+.top-bar-messages-workspace .action-column { width: auto; white-space: nowrap; }
+.top-bar-messages-workspace .action-column button + button { margin-left: .4rem; }
+@media (max-width: 900px) {
+  .top-bar-messages-workspace { grid-template-columns: 1fr; }
+  .top-bar-messages-workspace .action-column { white-space: normal; }
+}

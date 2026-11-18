@@ -510,6 +510,13 @@
     "contactBody": "Antes de comprar, você pode confirmar qualquer condição específica diretamente com a MateArte.",
     "whatsappAction": "Consultar pelo WhatsApp"
   },
+  "storewideSale": {
+    "label": "Desconto da loja",
+    "was": "Preço anterior",
+    "now": "Preço com desconto",
+    "cartDiscount": "Desconto de {percent}%",
+    "subscribeAction": "Clique aqui"
+  },
   "cart": {
     "metadataTitle": "Carrinho",
     "eyebrow": "Compra",
@@ -660,6 +667,7 @@
       "not_applicable": "O desconto não pode ser aplicado ao subtotal desta compra.",
       "not_subscribed": "Confirme sua inscrição para usar este desconto.",
       "first_purchase_only": "Este desconto é apenas para a primeira compra.",
+      "sale_better": "O desconto geral da loja é maior que o deste código, então o desconto geral é aplicado.",
       "invalid": "Não foi possível validar o código de desconto."
     },
     "internationalNotice": "O pagamento do envio é combinado separadamente.",

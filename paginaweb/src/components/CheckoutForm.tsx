@@ -20,7 +20,7 @@ type Rate = { id: string; name: string; rate_minor: number; is_pickup: boolean; 
 type CustomerForm = { fullName: string; phone: string; department: string; city: string; address: string };
 type InitialDestination = { international: boolean; country: string; city: string };
 type PurchaseRegion = "uruguay" | "argentina" | "international";
-type CartItem = { quantity: number; unit_price_minor: number; item_type?: string; catalog_base_unit_price_minor?: number; variant?: { product?: { category_code?: string | null; category?: string | null } } | null };
+type CartItem = { quantity: number; unit_price_minor: number; base_unit_price_minor?: number; catalog_base_sale_unit_price_minor?: number; item_type?: string; catalog_base_unit_price_minor?: number; variant?: { product?: { category_code?: string | null; category?: string | null } } | null };
 type WholesaleState = { eligible: boolean; mate_quantity: number; threshold: number; discount_percent: number; savings_minor: number; checkout_mode: string };
 type BankTransferDetails = { account_holder: string; transfer_account: string; cash_deposit_account: string; cash_deposit_label: string };
 type ArgentinaBankDetails = { bank_name: string; account_holder: string; cbu: string; alias: string };
@@ -31,6 +31,8 @@ type AppliedDiscount = {
   discountMinor: number;
   itemsSubtotalMinor: number;
   discountedItemsSubtotalMinor: number;
+  /** El código descuenta más que el descuento general: se cobra a precio de lista menos el código. */
+  saleSuspended?: boolean;
 };
 
 const departments = ["Artigas", "Canelones", "Cerro Largo", "Colonia", "Durazno", "Flores", "Florida", "Lavalleja", "Maldonado", "Montevideo", "Paysandú", "Río Negro", "Rivera", "Rocha", "Salto", "San José", "Soriano", "Tacuarembó", "Treinta y Tres"];
@@ -43,6 +45,7 @@ const discountErrorTranslationKeys = {
   already_used: "discountErrors.already_used",
   in_use: "discountErrors.in_use",
   not_applicable: "discountErrors.not_applicable",
+  sale_better: "discountErrors.sale_better",
   invalid: "discountErrors.invalid",
 } as const;
 
@@ -67,6 +70,7 @@ export function CheckoutForm({
   const { arsPerUyu, arsUseBasePrice } = useStorefrontCurrency();
   const t = useTranslations("checkout");
   const tCart = useTranslations("cart");
+  const tSale = useTranslations("storewideSale");
   const phoneCountryOptions = useMemo(
     () => initialPhoneCountryOptions || countryPhoneOptionsForLocale(locale),
     [initialPhoneCountryOptions, locale]
@@ -102,6 +106,7 @@ export function CheckoutForm({
   const [discountBusy, setDiscountBusy] = useState(false);
   const [discountError, setDiscountError] = useState("");
   const [wholesale, setWholesale] = useState<WholesaleState | null>(null);
+  const [storewideSale, setStorewideSale] = useState<{ active: boolean; percent: number } | null>(null);
   const [bankTransfer, setBankTransfer] = useState<BankTransferDetails | null>(null);
   const [transferConfirmed, setTransferConfirmed] = useState(false);
   const [uruguayTransfer, setUruguayTransfer] = useState(false);
@@ -118,11 +123,28 @@ export function CheckoutForm({
   const isDelivery = Boolean(rate && !rate.is_pickup);
   const isWholesale = Boolean(wholesale?.eligible);
   const isArgentina = !isWholesale && isDelivery && purchaseRegion === "argentina";
-  const argentinaSubtotal = subtotalMinor !== null && arsPerUyu > 0 ? cartItems.reduce((sum, item) => sum + toArsMinor(arsUseBasePrice && item.item_type === "catalog" ? item.catalog_base_unit_price_minor ?? item.unit_price_minor : item.unit_price_minor, arsPerUyu) * item.quantity, 0) : null;
+  // El descuento general no se acumula con un código: si el código gana, se vuelve al precio de lista.
+  const saleSuspended = Boolean(appliedDiscount?.saleSuspended);
+  const listUnit = (item: CartItem) => Number(item.base_unit_price_minor ?? item.unit_price_minor);
+  const chargedUnit = (item: CartItem) => saleSuspended ? listUnit(item) : Number(item.unit_price_minor);
+  const listSubtotalMinor = subtotalMinor === null ? null : cartItems.reduce((sum, item) => sum + listUnit(item) * item.quantity, 0);
+  const baseSubtotalMinor = subtotalMinor === null ? null : saleSuspended ? listSubtotalMinor : subtotalMinor;
+  const arsUnit = (item: CartItem, list: boolean) => item.item_type === "catalog" && arsUseBasePrice
+    ? (list || saleSuspended ? item.catalog_base_unit_price_minor : item.catalog_base_sale_unit_price_minor ?? item.catalog_base_unit_price_minor) ?? chargedUnit(item)
+    : list || saleSuspended ? listUnit(item) : Number(item.unit_price_minor);
+  const argentinaSubtotal = subtotalMinor !== null && arsPerUyu > 0 ? cartItems.reduce((sum, item) => sum + toArsMinor(arsUnit(item, false), arsPerUyu) * item.quantity, 0) : null;
+  const argentinaListSubtotal = subtotalMinor !== null && arsPerUyu > 0 ? cartItems.reduce((sum, item) => sum + toArsMinor(arsUnit(item, true), arsPerUyu) * item.quantity, 0) : null;
   const isInternational = !isWholesale && isDelivery && purchaseRegion === "international";
   const isUruguayTransfer = !isWholesale && !isArgentina && !isInternational && uruguayTransfer;
-  const transferSubtotal = subtotalMinor === null || !transferDiscount ? null : cartItems.reduce((sum, item) => sum + uruguayTransferUnitPriceMinor(item.unit_price_minor,
-    appliesUruguayTransferDiscount({ item_type: item.item_type, category: item.variant?.product?.category_code || item.variant?.product?.category }, transferDiscount)) * item.quantity, 0);
+  // La transferencia (10%) y el descuento general no se suman: rige el precio más bajo.
+  const transferSubtotal = subtotalMinor === null || !transferDiscount ? null : cartItems.reduce((sum, item) => {
+    const transferUnit = uruguayTransferUnitPriceMinor(listUnit(item),
+      appliesUruguayTransferDiscount({ item_type: item.item_type, category: item.variant?.product?.category_code || item.variant?.product?.category }, transferDiscount));
+    return sum + (saleSuspended ? transferUnit : Math.min(Number(item.unit_price_minor), transferUnit)) * item.quantity;
+  }, 0);
+  const saleDiscountMinor = !saleSuspended && storewideSale?.active && !isWholesale
+    ? Math.max(0, isArgentina ? (argentinaListSubtotal ?? 0) - (argentinaSubtotal ?? 0) : (listSubtotalMinor ?? 0) - (subtotalMinor ?? 0))
+    : 0;
 
   const internationalShippingCalc = useMemo(() => {
     if (!isInternational || !international.country) return null;
@@ -144,11 +166,11 @@ export function CheckoutForm({
 
   const discountMinor = isArgentina ? 0 : appliedDiscount?.discountMinor || 0;
   const argentinaTotal = argentinaSubtotal === null ? null : argentinaSubtotal - (appliedDiscount?.discountMinor || 0);
-  const totalMinor = subtotalMinor === null
+  const totalMinor = baseSubtotalMinor === null
     ? null
     : isInternational
-      ? (internationalShippingMinor === null ? null : subtotalMinor - discountMinor + internationalShippingMinor)
-      : (shippingMinor === null ? null : (isUruguayTransfer ? transferSubtotal ?? subtotalMinor : subtotalMinor) - discountMinor + shippingMinor);
+      ? (internationalShippingMinor === null ? null : baseSubtotalMinor - discountMinor + internationalShippingMinor)
+      : (shippingMinor === null ? null : (isUruguayTransfer ? transferSubtotal ?? baseSubtotalMinor : baseSubtotalMinor) - discountMinor + shippingMinor);
 
   const loadRates = useCallback(async () => {
     setRatesLoading(true);
@@ -189,6 +211,7 @@ export function CheckoutForm({
       const nextBankTransfer = value.bank_transfer && typeof value.bank_transfer === "object" ? value.bank_transfer as BankTransferDetails : null;
       const nextTransferDiscount = value.uruguay_transfer_discount && typeof value.uruguay_transfer_discount === "object" ? value.uruguay_transfer_discount as UruguayTransferDiscount : null;
       setWholesale(nextWholesale);
+      setStorewideSale(value.storewide_sale && typeof value.storewide_sale === "object" ? value.storewide_sale as { active: boolean; percent: number } : null);
       setBankTransfer(nextBankTransfer);
       setTransferDiscount(nextTransferDiscount);
       if (!nextTransferDiscount) setCartError(tCart("loadFailed"));
@@ -633,7 +656,7 @@ export function CheckoutForm({
             </div>
           ))}
           <div className="mt-auto pt-6">
-            {!isWholesale && !isArgentina && !isInternational && subtotalMinor !== null && transferSubtotal !== null && transferSubtotal < subtotalMinor && <div data-copy className="text-sm font-bold text-[var(--walnut)]">{t("uruguayTransferDiscountNotice")}</div>}
+            {!isWholesale && !isArgentina && !isInternational && baseSubtotalMinor !== null && transferSubtotal !== null && transferSubtotal < baseSubtotalMinor && <div data-copy className="text-sm font-bold text-[var(--walnut)]">{t("uruguayTransferDiscountNotice")}</div>}
             <div data-copy className="text-[11px] leading-5 text-[var(--ink)]/50">
               {t("purchasePolicyNotice")}{" "}<Link href="/compras/condiciones-de-compra" target="_blank" className="underline underline-offset-2">{t("purchasePolicyLink")}</Link>
             </div>
@@ -646,9 +669,10 @@ export function CheckoutForm({
           <dl className="mt-6 space-y-3 text-sm">
             <div className="flex items-baseline justify-between gap-4">
               <dt className="text-[var(--paper)]/75">{tCart("subtotal")}</dt>
-              <dd className="font-semibold"><MoneyValue amount={isArgentina ? argentinaSubtotal : subtotalMinor} argentina={isArgentina} locale={locale} exchangeRates={exchangeRates} /></dd>
+              <dd className="font-semibold"><MoneyValue amount={saleDiscountMinor > 0 ? (isArgentina ? argentinaListSubtotal : listSubtotalMinor) : isArgentina ? argentinaSubtotal : baseSubtotalMinor} argentina={isArgentina} locale={locale} exchangeRates={exchangeRates} /></dd>
             </div>
-            {isUruguayTransfer && subtotalMinor !== null && transferSubtotal !== null && transferSubtotal < subtotalMinor && <div className="flex items-baseline justify-between gap-4"><dt className="text-[var(--paper)]/75">{t("uruguayTransferDiscount")}</dt><dd className="font-semibold">−<MoneyValue amount={subtotalMinor - transferSubtotal} locale={locale} exchangeRates={exchangeRates} /></dd></div>}
+            {saleDiscountMinor > 0 && storewideSale && <div className="flex items-baseline justify-between gap-4"><dt className="text-[var(--paper)]/75">{tSale("cartDiscount", { percent: storewideSale.percent })}</dt><dd className="font-semibold">−<MoneyValue amount={saleDiscountMinor} argentina={isArgentina} locale={locale} exchangeRates={exchangeRates} /></dd></div>}
+            {isUruguayTransfer && baseSubtotalMinor !== null && transferSubtotal !== null && transferSubtotal < baseSubtotalMinor && <div className="flex items-baseline justify-between gap-4"><dt className="text-[var(--paper)]/75">{t("uruguayTransferDiscount")}</dt><dd className="font-semibold">−<MoneyValue amount={baseSubtotalMinor - transferSubtotal} locale={locale} exchangeRates={exchangeRates} /></dd></div>}
             {appliedDiscount && (
               <div className="flex items-baseline justify-between gap-4" aria-live="polite">
                 <dt className="text-[var(--paper)]/75">{t("discount")}</dt>

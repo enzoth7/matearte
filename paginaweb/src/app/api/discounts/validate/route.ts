@@ -6,6 +6,7 @@ import { getArgentinaBasePricing, getArgentinaSettings } from "@/lib/argentina-s
 import { appliesUruguayTransferDiscount, uruguayTransferUnitPriceMinor, type UruguayTransferDiscount } from "@/lib/uruguay-transfer-pricing";
 import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
 import { discountCategorySubtotals } from "../../../../../../shared/discount-scope";
+import { couponBeatsSale, lowestPriceMinor, salePriceMinor, saleSavingsMinor } from "../../../../../../shared/storewide-sale";
 
 export async function POST(request: Request) {
   const { user } = await requireUser();
@@ -37,14 +38,19 @@ export async function POST(request: Request) {
       categories: transferSettings.data.uruguay_transfer_discount_categories,
       designs: transferSettings.data.uruguay_transfer_discount_designs,
     } : null;
+    // El código se valida sobre los precios sin descuento general; después se compara con él.
+    const salePercent = Number(cart.storewide_sale?.percent) || 0;
     const pricedItems = cart.items.map(item => {
       const variant = item.variant as unknown as { product?: { category_code?: string; category?: string } } | null;
-      const publishedUnitPriceMinor = Number(item.unit_price_minor);
+      const publishedUnitPriceMinor = Number(item.base_unit_price_minor ?? item.unit_price_minor);
+      const unitPriceMinor = uruguayTransfer
+        ? uruguayTransferUnitPriceMinor(publishedUnitPriceMinor, appliesUruguayTransferDiscount({ item_type: item.item_type, category: variant?.product?.category_code || variant?.product?.category }, transferDiscount!))
+        : Number(useBasePrice && argentina && item.item_type === "catalog" ? item.catalog_base_unit_price_minor ?? publishedUnitPriceMinor : publishedUnitPriceMinor);
+      const saleUnitMinor = uruguayTransfer
+        ? lowestPriceMinor(unitPriceMinor, salePriceMinor(publishedUnitPriceMinor, salePercent))
+        : salePriceMinor(unitPriceMinor, salePercent);
       return { itemType: item.item_type, category: variant?.product?.category_code || variant?.product?.category,
-        unitPriceMinor: uruguayTransfer
-          ? uruguayTransferUnitPriceMinor(publishedUnitPriceMinor, appliesUruguayTransferDiscount({ item_type: item.item_type, category: variant?.product?.category_code || variant?.product?.category }, transferDiscount!))
-          : Number(useBasePrice && argentina && item.item_type === "catalog" ? item.catalog_base_unit_price_minor ?? publishedUnitPriceMinor : publishedUnitPriceMinor),
-        quantity: Number(item.quantity) };
+        unitPriceMinor, saleUnitMinor, quantity: Number(item.quantity) };
     });
     const subtotalMinor = pricedItems.reduce((sum, item) => sum + item.unitPriceMinor * item.quantity, 0);
     const designSubtotalMinor = pricedItems.filter(item => item.itemType === "design")
@@ -58,7 +64,15 @@ export async function POST(request: Request) {
       p_category_subtotals: categorySubtotals,
     });
     if (error || !data) throw error || new Error("discount:invalid");
-    if (!argentina) return apiOk(data as ValidatedDiscount);
+    // El descuento general no se acumula con un código: gana el que más descuenta.
+    const saleActive = salePercent > 0;
+    if (saleActive) {
+      const savings = saleSavingsMinor(pricedItems.map(item => ({ itemType: item.itemType, category: item.category, quantity: item.quantity, listUnitMinor: item.unitPriceMinor, saleUnitMinor: item.saleUnitMinor })));
+      if (!couponBeatsSale(Number((data as ValidatedDiscount).discountMinor), savings)) {
+        return apiError(discountErrorMessage("sale_better"), 422, { reason: "sale_better" });
+      }
+    }
+    if (!argentina) return apiOk({ ...(data as ValidatedDiscount), saleSuspended: saleActive });
 
     const arsItems = pricedItems.map(item => ({ ...item,
       unitPriceMinor: toArsMinor(item.unitPriceMinor, Number(settings!.ars_per_uyu)),
@@ -68,7 +82,7 @@ export async function POST(request: Request) {
       .reduce((sum, item) => sum + item.unitPriceMinor * item.quantity, 0);
     const arsCategories = discountCategorySubtotals(arsItems);
     const discountMinor = argentinaDiscountMinor(data as ValidatedDiscount, arsSubtotal, arsDesignSubtotal, arsCategories, Number(settings!.ars_per_uyu));
-    return apiOk({ ...data, discountMinor, itemsSubtotalMinor: arsSubtotal, discountedItemsSubtotalMinor: arsSubtotal - discountMinor, currency: "ARS" });
+    return apiOk({ ...data, discountMinor, itemsSubtotalMinor: arsSubtotal, discountedItemsSubtotalMinor: arsSubtotal - discountMinor, currency: "ARS", saleSuspended: saleActive });
   } catch (error) {
     const reason = discountReasonFromError(error);
     return apiError(discountErrorMessage(reason), 422, { reason });

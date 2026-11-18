@@ -6,11 +6,13 @@ import type { CartRecommendation } from "@/lib/cart-recommendations";
 import type { Money } from "@/types/catalog";
 import { getVariantColorBackground } from "@/lib/catalog-filters";
 import styles from "./Cart.module.css";
+import { SalePrice, useStorewideSale } from "./StorewideSale";
 
 export function CartRecommendations({ recommendations, adding, blocked, onAdd, format }: {
   recommendations: CartRecommendation[]; adding: string; blocked?: boolean; onAdd: (item: CartRecommendation) => void; format: (price: Money) => string;
 }) {
   const t = useTranslations("cart");
+  const sale = useStorewideSale();
   if (!recommendations.length) return null;
   return <section className={styles.related} aria-labelledby="cart-related-title">
     <h2 id="cart-related-title">{t("relatedTitle")}</h2>
@@ -23,7 +25,7 @@ export function CartRecommendations({ recommendations, adding, blocked, onAdd, f
             <strong aria-hidden="true">{adding === item.product.id ? "…" : "+"}</strong>
           </button>}
         </div>
-        <div className={styles.productCopy}><h3>{item.product.name}</h3><div>{format(item.variant.price!)}</div>
+        <div className={styles.productCopy}><h3>{item.product.name}</h3><div>{sale.active ? <SalePrice list={format(item.variant.price!)} current={format({ ...item.variant.price!, amountMinor: sale.priceMinor(item.variant.price!.amountMinor) })} /> : format(item.variant.price!)}</div>
           {item.product.variants.some(v => v.color) && <ul className={styles.swatches} aria-label={t("availableColors")}>
             {item.product.variants.filter((v,index,all) => v.available === true && v.color && all.findIndex(other => other.color === v.color) === index).map(v => <li key={v.id} title={v.label} aria-label={v.label} style={{ background: getVariantColorBackground(v) }} />)}
           </ul>}

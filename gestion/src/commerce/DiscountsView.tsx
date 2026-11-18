@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from './supabase';
 import { allDiscountProducts, readDiscountScope, validDiscountScope, type DiscountCategory, type DiscountScope } from '../../../shared/discount-scope';
 import { DiscountProductsSelector } from './DiscountProductsSelector';
+import { StorewideSalePanel } from './StorewideSaleView';
 
 export type DiscountKind = 'percentage' | 'fixed';
 export type CommerceDiscount = DiscountScope & {
@@ -189,6 +190,8 @@ export function Discounts({ onNotice }: { onNotice: (value: string) => void }) {
   };
 
   return (
+    <>
+    <StorewideSalePanel onNotice={onNotice} />
     <div className="discounts-workspace">
       <section className="panel discount-form-panel" aria-labelledby="discount-form-title">
         <div className="panel-heading">
@@ -235,5 +238,6 @@ export function Discounts({ onNotice }: { onNotice: (value: string) => void }) {
         ))}
       </section>
     </div>
+    </>
   );
 }

@@ -13,6 +13,8 @@ import type { Locale } from "@/types/catalog";
 import { DEFAULT_WHOLESALE_DISCOUNT_SETTINGS, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
 import { defaultCatalogTaxonomy } from "../../../shared/catalog-taxonomy";
 import { loadPublicCatalogTaxonomy } from "@/lib/catalog-taxonomy-live";
+import { DEFAULT_STOREWIDE_SALE, readStorewideSale, type StorewideSaleSettings } from "../../../shared/storewide-sale";
+import type { TopBarMessageRow } from "../../../shared/top-bar-messages";
 
 const storefrontSelection = `
   id,
@@ -166,6 +168,49 @@ export async function getExchangeRates(): Promise<Record<string, number>> {
   } catch (reason) {
     console.error("[storefront-catalog] No se pudieron cargar las cotizaciones, usando fallbacks.", reason);
     return { USD: 41, BRL: 7.5 };
+  }
+}
+
+/** El descuento general se consulta cada minuto: el cobro lo decide la base de datos, esto solo lo muestra. */
+const loadStorewideSale = unstable_cache(async () => {
+  const client = createPublicSupabase();
+  const { data, error } = await client
+    .from("commerce_settings")
+    .select("storewide_sale_enabled,storewide_sale_percent,storewide_sale_valid_from,storewide_sale_valid_until")
+    .eq("singleton", true)
+    .single();
+  if (error) throw error;
+  return readStorewideSale(data);
+}, ["storefront-storewide-sale-v1"], { revalidate: 60, tags: ["catalog"] });
+
+export async function getStorewideSale(): Promise<StorewideSaleSettings> {
+  try {
+    return await loadStorewideSale();
+  } catch (reason) {
+    console.error("[storefront-catalog] No se pudo cargar el descuento general.", reason);
+    return DEFAULT_STOREWIDE_SALE;
+  }
+}
+
+/** Mensajes de la barra negra; se editan en Gestión y se consultan cada minuto. */
+const loadTopBarMessages = unstable_cache(async () => {
+  const client = createPublicSupabase();
+  const { data, error } = await client
+    .from("site_top_bar_messages")
+    .select("id,text_es,text_en,text_pt,action,action_label,link_url,sort_order,enabled")
+    .eq("enabled", true)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as TopBarMessageRow[];
+}, ["storefront-top-bar-messages-v1"], { revalidate: 60, tags: ["catalog"] });
+
+export async function getTopBarMessages(): Promise<TopBarMessageRow[]> {
+  try {
+    return await loadTopBarMessages();
+  } catch (reason) {
+    console.error("[storefront-catalog] No se pudieron cargar los mensajes de la barra.", reason);
+    return [];
   }
 }
 

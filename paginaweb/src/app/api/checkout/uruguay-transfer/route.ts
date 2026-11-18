@@ -4,6 +4,9 @@ import { assertValidCartSelections, assertWebAvailableCart, readCart } from "@/l
 import { calculateDesignPriceMinor } from "@/lib/design-pricing";
 import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
 import { discountErrorMessage, discountReasonFromError, normalizeDiscountCode } from "@/lib/discounts";
+import { appliesUruguayTransferDiscount, uruguayTransferUnitPriceMinor } from "@/lib/uruguay-transfer-pricing";
+import { activeStorewideSalePercent, lowestPriceMinor, salePriceMinor } from "../../../../../../shared/storewide-sale";
+import { resolveCouponAgainstSale } from "@/lib/storewide-sale-checkout";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
@@ -48,7 +51,8 @@ export async function POST(request: Request) {
     if (existing.error) throw existing.error;
     if (existing.data) {
       if (existing.data.customer_snapshot?.purchaseFlow !== "uruguay_retail_transfer") return apiError("Identificador de pedido inválido.", 409);
-      if (discountCode && existing.data.discount_code !== discountCode) return apiError(discountErrorMessage("invalid_reservation"), 422, { reason: "invalid_reservation" });
+      // Si el descuento general ganó, el pedido original no tiene código y el reintento sigue siendo el mismo pedido.
+      if (discountCode && existing.data.discount_code && existing.data.discount_code !== discountCode) return apiError(discountErrorMessage("invalid_reservation"), 422, { reason: "invalid_reservation" });
       return apiOk({
         orderId: existing.data.id,
         orderNumber: existing.data.order_number,
@@ -82,7 +86,7 @@ export async function POST(request: Request) {
 
     const [{ data: settings, error: settingsError }, { data: shippingRate, error: shippingError }] = await Promise.all([
       admin.from("commerce_settings")
-        .select("commerce_enabled")
+        .select("commerce_enabled,uruguay_transfer_discount_enabled,uruguay_transfer_discount_categories,uruguay_transfer_discount_designs,storewide_sale_enabled,storewide_sale_percent,storewide_sale_valid_from,storewide_sale_valid_until")
         .eq("singleton", true)
         .single(),
       admin.from("shipping_rates").select("id,is_pickup").eq("id", shippingRateId).eq("active", true).maybeSingle(),
@@ -111,6 +115,31 @@ export async function POST(request: Request) {
       if (Object.keys(designPrices).length !== designIds.length) throw new Error("No se pudo verificar uno de los diseños.");
     }
 
+    // El 10% de la transferencia y el descuento general no se suman: rige el precio más bajo. Y el descuento
+    // general tampoco se suma a un código: gana el que más descuenta y la base solo recibe el código cuando gana.
+    const transferDiscount = {
+      enabled: Boolean(settings.uruguay_transfer_discount_enabled),
+      categories: (settings.uruguay_transfer_discount_categories || []) as string[],
+      designs: Boolean(settings.uruguay_transfer_discount_designs),
+    };
+    const salePercent = activeStorewideSalePercent(settings);
+    const couponResolution = await resolveCouponAgainstSale(admin, {
+      userId: user.id,
+      code: discountCode,
+      salePercent,
+      lines: cart.items.map((item) => {
+        const variant = item.variant as unknown as { price_minor?: number; product?: { category?: string; category_code?: string | null } } | null;
+        const category = variant?.product?.category_code || variant?.product?.category || null;
+        const listUnit = item.item_type === "design" ? designPrices[String(item.design_id)] : Number(variant?.price_minor);
+        const transferUnit = uruguayTransferUnitPriceMinor(listUnit, appliesUruguayTransferDiscount({ item_type: item.item_type, category }, transferDiscount));
+        return {
+          itemType: item.item_type, category, quantity: Number(item.quantity) || 1,
+          listUnitMinor: transferUnit, saleUnitMinor: lowestPriceMinor(transferUnit, salePriceMinor(listUnit, salePercent)),
+        };
+      }),
+    });
+    const effectiveDiscountCode = couponResolution.useCode ? discountCode : "";
+
     const receiptId = randomUUID();
     uploadedPath = `${user.id}/${idempotencyKey}/${receiptId}.${extensionFor(receipt.type)}`;
     const upload = await admin.storage.from("bank-transfer-receipts").upload(uploadedPath, bytes, {
@@ -132,7 +161,7 @@ export async function POST(request: Request) {
       p_receipt_original_name: receipt.name.slice(0, 240) || `comprobante.${extensionFor(receipt.type)}`,
       p_receipt_mime_type: receipt.type,
       p_receipt_byte_size: receipt.size,
-      p_discount_code: discountCode || null,
+      p_discount_code: effectiveDiscountCode || null,
     });
     if (orderError || !result) throw new Error(orderError?.message || "No se pudo crear el pedido.");
     if (result.existing) {

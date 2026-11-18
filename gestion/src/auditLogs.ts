@@ -34,6 +34,7 @@ export const auditFields: Record<string, string> = {
  category: 'Categoría', category_code: 'Categoría', supplier: 'Proveedor', purchased_on: 'Fecha de compra', due_day: 'Día de vencimiento',
  valid_from: 'Vigente desde', valid_until: 'Vigente hasta', discount_type: 'Tipo de descuento',
  catalog_price_adjustment_percent: 'Ajuste de catálogo (%)', wholesale_mate_discount_percent: 'Descuento mayorista (%)',
+  storewide_sale_enabled: 'Descuento general', storewide_sale_percent: 'Descuento general (%)', storewide_sale_valid_from: 'Descuento general desde', storewide_sale_valid_until: 'Descuento general hasta',
  uruguay_transfer_discount_enabled: 'Descuento por transferencia', catalog_price_adjustment_enabled: 'Ajuste de catálogo',
 };
 export function auditFieldLabel(key: string, event: AuditEvent): string {

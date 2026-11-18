@@ -9,6 +9,7 @@ export type DiscountReason =
   | "not_subscribed"
   | "first_purchase_only"
   | "invalid_reservation"
+  | "sale_better"
   | "invalid";
 
 export type ValidatedDiscount = {
@@ -49,5 +50,6 @@ export const discountErrorMessage = (reason: DiscountReason) => ({
   not_subscribed: "Confirmá tu suscripción para usar este descuento.",
   first_purchase_only: "Este descuento es solo para la primera compra.",
   invalid_reservation: "No se pudo reservar el descuento.",
+  sale_better: "El descuento general de la tienda es mayor que el de este código, así que se aplica el descuento general.",
   invalid: "No se pudo validar el código de descuento.",
 })[reason];

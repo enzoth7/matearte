@@ -16,7 +16,9 @@ import { CurrencySelector } from "./StorefrontCurrency";
 import { persistLocalePreference } from "@/lib/locale-preference";
 import type { Locale } from "@/types/catalog";
 import type { WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
+import type { TopBarMessageRow } from "../../../shared/top-bar-messages";
 import { CartPanel } from "./CartPanel";
+import { StorewideSaleBar } from "./StorewideSale";
 import drawerStyles from "./CartDrawer.module.css";
 
 const navigation = [
@@ -31,7 +33,7 @@ const navigation = [
 const localeOptions: Locale[] = ["es", "en", "pt"];
 const mobileLocaleOptions: Locale[] = ["es", "pt", "en"];
 
-export function Header({ wholesaleSettings, exchangeRates }: { wholesaleSettings: WholesaleDiscountSettings; exchangeRates: Record<string, number> }) {
+export function Header({ wholesaleSettings, exchangeRates, topBarMessages = [] }: { wholesaleSettings: WholesaleDiscountSettings; exchangeRates: Record<string, number>; topBarMessages?: TopBarMessageRow[] }) {
   const [open, setOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -227,6 +229,7 @@ export function Header({ wholesaleSettings, exchangeRates }: { wholesaleSettings
 
   return (
     <>
+      <StorewideSaleBar rows={topBarMessages} />
       <header ref={headerRef} className="home-header">
         <div className="home-header-inner">
           <Link className="home-header-brand" href="/" aria-label={t("homeLabel")}>

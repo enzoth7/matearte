@@ -948,3 +948,12 @@
 .home-page .home-imperial .home-imperial-copy [data-copy] {
   color: var(--brand-white);
 }
+
+
+/* El menú móvil baja lo que mide la barra del descuento general mientras se ve. */
+@media (max-width: 1023px) {
+  .home-mobile-menu,
+  .home-mobile-menu-backdrop {
+    top: calc(64px + var(--storewide-bar-offset, 0px));
+  }
+}

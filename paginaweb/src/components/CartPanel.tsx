@@ -12,7 +12,9 @@ import type { Locale, Product, Currency, Money } from "@/types/catalog";
 import { addLocalCartItem, localCartEntryKey, readLocalCart, removeLocalCartItem, updateLocalCartItemQuantity } from "@/lib/browser-cart";
 import { trackJourneyStep } from "../../../shared/journeyAnalytics";
 import { defaultCatalogTaxonomy, formatPurchaseSelectionLabel, normalizeCatalogValueMap, type CatalogValueMap } from "../../../shared/catalog-taxonomy";
-import { applyWholesaleMateDiscount, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
+import { applyWholesaleMateDiscount, isWholesaleMateEligible, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
+import { lowestPriceMinor, salePriceMinor } from "../../../shared/storewide-sale";
+import { SalePrice, useStorewideSale } from "./StorewideSale";
 
 import { Trash } from "@phosphor-icons/react";
 import { CartRecommendations } from "./CartRecommendations";
@@ -33,15 +35,28 @@ const EMPTY_CATALOG: CartCatalogProduct[] = [];
 
 type Cart = { id: string; items: RemoteItem[] };
 
-function priceRemoteItems(items: RemoteItem[], settings: WholesaleDiscountSettings) {
-  const adjusted = applyWholesaleMateDiscount(items.map((item) => ({
+// Los descuentos no se acumulan: cada línea se muestra al precio más bajo entre el mayorista y el general.
+function priceRemoteItems(items: RemoteItem[], settings: WholesaleDiscountSettings, salePercent: number) {
+  const lines = items.map((item) => ({
     itemType: item.item_type,
     quantity: item.quantity,
     unitPriceMinor: item.base_unit_price_minor ?? item.variant?.price_minor ?? item.unit_price_minor,
     baseUnitPriceMinor: item.catalog_base_unit_price_minor ?? item.variant?.base_price_minor ?? item.base_unit_price_minor ?? item.unit_price_minor,
     category: item.variant?.product.category_code || item.variant?.product.category || null,
+  }));
+  const adjusted = applyWholesaleMateDiscount(lines, settings);
+  return items.map((item, index) => ({ ...item, unit_price_minor: lowestPriceMinor(adjusted[index].unitPriceMinor, salePriceMinor(lines[index].unitPriceMinor, salePercent)) }));
+}
+
+function priceLocalItems(items: Array<{ quantity: number; basePriceMinor: number; wholesaleBasePriceMinor: number; category?: string | null }>, settings: WholesaleDiscountSettings, salePercent: number) {
+  const adjusted = applyWholesaleMateDiscount(items.map((item) => ({
+    itemType: "catalog" as const,
+    quantity: item.quantity,
+    unitPriceMinor: item.basePriceMinor,
+    baseUnitPriceMinor: item.wholesaleBasePriceMinor,
+    category: item.category,
   })), settings);
-  return items.map((item, index) => ({ ...item, unit_price_minor: adjusted[index].unitPriceMinor }));
+  return adjusted.map((line, index) => lowestPriceMinor(line.unitPriceMinor, salePriceMinor(items[index].basePriceMinor, salePercent)));
 }
 
 function QuantityControl({
@@ -147,6 +162,8 @@ export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CA
   const { currency: displayCurrency, rates: displayRates, arsPerUyu, arsUseBasePrice } = useStorefrontCurrency(exchangeRates);
   const locale = useLocale() as Locale;
   const t = useTranslations("cart");
+  const saleCopy = useTranslations("storewideSale");
+  const sale = useStorewideSale();
 
   const format = (minor: number) => money(minor, "UYU", locale, displayRates, displayCurrency);
   const localizedProducts = useMemo(() => getLocalizedProducts(locale), [locale]);
@@ -154,7 +171,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CA
   const subtitleFor = (item: RemoteItem) => itemSubtitle(item, locale);
   const [rawCart, setCart] = useState<Cart | null>(null);
   const useArsBase = displayCurrency === "ARS" && arsUseBasePrice;
-  const cart = rawCart && useArsBase ? { ...rawCart, items: priceRemoteItems(rawCart.items.map(item => ({ ...item, base_unit_price_minor: item.item_type === "catalog" ? item.catalog_base_unit_price_minor ?? item.variant?.base_price_minor ?? item.base_unit_price_minor : item.base_unit_price_minor })), wholesaleSettings) } : rawCart;
+  const cart = rawCart && useArsBase ? { ...rawCart, items: priceRemoteItems(rawCart.items.map(item => ({ ...item, base_unit_price_minor: item.item_type === "catalog" ? item.catalog_base_unit_price_minor ?? item.variant?.base_price_minor ?? item.base_unit_price_minor : item.base_unit_price_minor })), wholesaleSettings, sale.percent) } : rawCart;
   const [needsLogin, setNeedsLogin] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState("");
@@ -237,6 +254,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CA
       items: priceRemoteItems(
         current.items.map((item) => item.id === itemId ? { ...item, quantity } : item),
         wholesaleSettings,
+        sale.percent,
       ),
     } : current);
 
@@ -288,8 +306,8 @@ export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CA
 
   const [rawLocalItems, setLocalItems] = useState<LocalResolvedItem[]>([]);
   const localBaseItems = useArsBase ? rawLocalItems.map(item => ({ ...item, basePriceMinor: item.wholesaleBasePriceMinor })) : rawLocalItems;
-  const localAdjusted = applyWholesaleMateDiscount(localBaseItems.map(item => ({ itemType: "catalog" as const, quantity: item.quantity, unitPriceMinor: item.basePriceMinor, baseUnitPriceMinor: item.wholesaleBasePriceMinor, category: item.category })), wholesaleSettings);
-  const localItems = localBaseItems.map((item, index) => ({ ...item, priceMinor: localAdjusted[index].unitPriceMinor }));
+  const localPrices = priceLocalItems(localBaseItems, wholesaleSettings, sale.percent);
+  const localItems = localBaseItems.map((item, index) => ({ ...item, priceMinor: localPrices[index] }));
 
   const resolveLocalCart = useCallback(async () => {
     const entries = readLocalCart();
@@ -451,15 +469,9 @@ export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CA
       }
     }
 
-    const adjusted = applyWholesaleMateDiscount(resolved.map(item=>({
-      itemType:"catalog" as const,
-      quantity:item.quantity,
-      unitPriceMinor:item.basePriceMinor,
-      baseUnitPriceMinor:item.wholesaleBasePriceMinor,
-      category:item.category,
-    })),wholesaleSettings);
-    setLocalItems(resolved.map((item,index)=>({...item,priceMinor:adjusted[index].unitPriceMinor})));
-  }, [catalog,localizedProducts,wholesaleSettings,t]);
+    const prices = priceLocalItems(resolved, wholesaleSettings, sale.percent);
+    setLocalItems(resolved.map((item,index)=>({...item,priceMinor:prices[index]})));
+  }, [catalog,localizedProducts,wholesaleSettings,sale.percent,t]);
 
   useEffect(() => {
     if (!needsLogin) return;
@@ -493,14 +505,8 @@ export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CA
     const quantity = Math.max(1, Math.min(99, Math.trunc(newQuantity)));
     setLocalItems((current) => {
       const next = current.map((item) => item.lineKey === lineKey ? { ...item, quantity } : item);
-      const adjusted = applyWholesaleMateDiscount(next.map((item) => ({
-        itemType: "catalog" as const,
-        quantity: item.quantity,
-        unitPriceMinor: item.basePriceMinor,
-        baseUnitPriceMinor: item.wholesaleBasePriceMinor,
-        category: item.category,
-      })), wholesaleSettings);
-      return next.map((item, index) => ({ ...item, priceMinor: adjusted[index].unitPriceMinor }));
+      const prices = priceLocalItems(next, wholesaleSettings, sale.percent);
+      return next.map((item, index) => ({ ...item, priceMinor: prices[index] }));
     });
     updateLocalCartItemQuantity(lineKey, quantity);
   };
@@ -535,7 +541,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CA
       }
       const message = t("addedItem", { item: recommendation.product.name });
       setConfirmation(message);
-      notifyCartAdded({ name: recommendation.product.name, price: formatPrice(recommendation.variant.price!), count, confirmation: message });
+      notifyCartAdded({ name: recommendation.product.name, price: formatPrice(sale.active ? { ...recommendation.variant.price!, amountMinor: sale.priceMinor(recommendation.variant.price!.amountMinor) } : recommendation.variant.price!), count, confirmation: message });
     } catch { setError(t("addFailed")); }
     finally { addLock.current = false; setAdding(""); }
   };
@@ -543,11 +549,11 @@ export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CA
   if (!needsLogin && !cart) return <div className={mode === "drawer" ? drawerStyles.feedback : styles.feedback} role={error ? "alert" : "status"}>{error || t("loading")}</div>;
   const lines = needsLogin ? localItems.map(i => ({
     key: i.lineKey, title: i.title, subtitle: cartOptionLabel(i.optionValues, locale) || i.variantLabel, image: i.imageSrc,
-    quantity: i.quantity, editable: true, price: i.priceMinor, basePrice: i.basePriceMinor, category: i.category,
+    itemType: "catalog" as const, quantity: i.quantity, editable: true, price: i.priceMinor, basePrice: i.basePriceMinor, category: i.category,
     available: i.availableWeb, currency: "UYU" as Currency,
     change: (quantity: number) => updateLocalItemQuantity(i.lineKey, quantity), remove: () => removeLocalItem(i.lineKey),
   })) : (cart?.items ?? []).map(i => ({
-    key: i.id, title: titleFor(i), subtitle: subtitleFor(i), image: itemImage(i), quantity: i.quantity,
+    key: i.id, title: titleFor(i), subtitle: subtitleFor(i), image: itemImage(i), itemType: i.item_type, quantity: i.quantity,
     editable: i.item_type === "catalog", price: i.unit_price_minor, basePrice: i.base_unit_price_minor ?? i.variant?.price_minor ?? i.unit_price_minor,
     category: i.variant?.product.category_code ?? i.variant?.product.category, currency: i.currency as Currency,
     available: i.item_type === "design" || Boolean(i.variant?.active && i.variant.available_web !== false && i.variant.product.published),
@@ -564,6 +570,13 @@ export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CA
     ? money(lines.reduce((total, i) => total + toArsMinor(base ? i.basePrice : i.price, arsPerUyu) * i.quantity, 0), "ARS")
     : format(sum(base));
   const discount = sum(true) - sum(false);
+  const wholesaleOn = isWholesaleMateEligible(lines.map(item => ({ itemType: item.itemType, quantity: item.quantity, unitPriceMinor: item.basePrice, category: item.category })), wholesaleSettings);
+  const discountLabel = wholesaleOn ? t("wholesaleDiscount", { discount: wholesaleSettings.wholesale_mate_discount_percent }) : saleCopy("cartDiscount", { percent: sale.percent });
+  const unitPrice = (item: (typeof lines)[number]) => {
+    if (item.price <= 0) return t("unavailable");
+    const current = t("unitPrice", { price: formatPrice({ amountMinor: item.price, currency: item.currency }) });
+    return item.price < item.basePrice ? <SalePrice list={formatPrice({ amountMinor: item.basePrice, currency: item.currency })} current={current} /> : current;
+  };
   const unavailable = lines.some(i => !i.available);
   if (mode === "drawer") {
     const totalMinor = displayCurrency === "ARS"
@@ -579,7 +592,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CA
           <div className={drawerStyles.itemBody}>
             <h3>{item.title}</h3>
             {item.subtitle && <div className={drawerStyles.options}>{item.subtitle}</div>}
-            <div className={drawerStyles.unitPrice}>{item.price > 0 ? t("unitPrice", { price: formatPrice({ amountMinor: item.price, currency: item.currency }) }) : t("unavailable")}</div>
+            <div className={drawerStyles.unitPrice}>{unitPrice(item)}</div>
             <div className={drawerStyles.itemActions}>
               {item.editable ? <QuantityControl disabled={Boolean(adding) || busy === item.key} className={drawerStyles.quantity} value={item.quantity} label={t("editQuantity", { item: item.title })} decreaseLabel={t(item.quantity <= 1 ? "removeItem" : "decreaseItem", { item: item.title })} increaseLabel={t("increaseItem", { item: item.title })} onChange={item.change} /> : <output className={drawerStyles.staticQuantity} aria-label={t("units", { count: item.quantity })}>{item.quantity}</output>}
               <button type="button" className={drawerStyles.remove} aria-label={t("removeItem", { item: item.title })} disabled={Boolean(adding) || busy === item.key} onClick={item.remove}><Trash size={20} aria-hidden="true" /></button>
@@ -591,7 +604,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CA
       <section className={drawerStyles.summary} aria-label={t("summaryLabel")}>
         <h3>{t("summary")}</h3>
         <dl><div><dt>{t("subtotal")}</dt><dd>{sumDisplay(true)}</dd></div><div><dt>{t("shipping")}</dt><dd>{t("toCalculate")}</dd></div>
-          {discount > 0 && <div><dt>{t("wholesaleDiscount")}</dt><dd>− {format(discount)}</dd></div>}
+          {discount > 0 && <div><dt>{discountLabel}</dt><dd>− {format(discount)}</dd></div>}
         </dl>
         <div className={drawerStyles.total}><strong>{t("total")}</strong><strong>{sumDisplay(false)}</strong></div>
       </section>
@@ -620,7 +633,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CA
       <section className={styles.selection} aria-label={t("selectedItems")}>
         <div className={styles.items}>{lines.map(item => <article key={item.key} className={styles.item}>
           <div className={styles.thumbnail}><Image src={item.image} alt={item.title} fill sizes="104px" unoptimized={item.image.startsWith("http") || item.image.startsWith("/imagenes/")} /></div>
-          <div className={styles.itemCopy}><h2>{item.title}</h2>{item.subtitle && <div>{item.subtitle}</div>}<div>{item.price > 0 ? t("unitPrice", { price: formatPrice({ amountMinor: item.price, currency: item.currency }) }) : t("unavailable")}</div></div>
+          <div className={styles.itemCopy}><h2>{item.title}</h2>{item.subtitle && <div>{item.subtitle}</div>}<div>{unitPrice(item)}</div></div>
           <div className={styles.actions}>
             {item.editable ? <QuantityControl disabled={Boolean(adding) || busy === item.key} className={styles.quantity} value={item.quantity} label={t("editQuantity", { item: item.title })} decreaseLabel={t(item.quantity <= 1 ? "removeItem" : "decreaseItem", { item: item.title })} increaseLabel={t("increaseItem", { item: item.title })} onChange={item.change} /> : <output className={styles.staticQuantity} aria-label={t("units", { count: 1 })}>1</output>}
             <button type="button" className={styles.remove} aria-label={t("removeItem", { item: item.title })} disabled={Boolean(adding) || busy === item.key} onClick={item.remove}><Trash size={20} weight="regular" aria-hidden="true" /></button>
@@ -631,7 +644,7 @@ export function CartPanel({ exchangeRates, wholesaleSettings, catalog = EMPTY_CA
       <aside className={styles.summary} aria-labelledby="cart-summary-title">
         <h2 id="cart-summary-title">{t("summary")}</h2>
         <dl><div><dt>{t("subtotal")}</dt><dd>{sumDisplay(true)}</dd></div><div><dt>{t("shipping")}</dt><dd>{t("toCalculate")}</dd></div>
-          {discount > 0 && <div><dt>{t("wholesaleDiscount", { discount: wholesaleSettings.wholesale_mate_discount_percent })}</dt><dd>− {format(discount)}</dd></div>}
+          {discount > 0 && <div><dt>{discountLabel}</dt><dd>− {format(discount)}</dd></div>}
         </dl>
         <div className={styles.total}>{t("total")}: {sumDisplay(false)}</div>
         {unavailable ? <div role="alert">{t("unavailable")}</div> : <Link className={styles.checkout} href={checkoutHref}>{t("continue")}</Link>}

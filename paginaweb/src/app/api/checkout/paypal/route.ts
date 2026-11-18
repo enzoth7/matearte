@@ -5,6 +5,8 @@ import { calculateDesignPriceMinor } from "@/lib/design-pricing";
 import { createAdminSupabase, requireUser } from "@/lib/supabase/server";
 import { applyWholesaleMateDiscount, isWholesaleMateEligible, type WholesaleDiscountSettings } from "@/lib/wholesale-pricing";
 import { discountErrorMessage, discountReasonFromError, normalizeDiscountCode } from "@/lib/discounts";
+import { activeStorewideSalePercent, salePriceMinor } from "../../../../../../shared/storewide-sale";
+import { resolveCouponAgainstSale } from "@/lib/storewide-sale-checkout";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const text = (value: unknown, maximum: number) => typeof value === "string" ? value.trim().slice(0, maximum) : "";
@@ -16,7 +18,7 @@ export async function POST(request: Request) {
   try {
     const { data: settings } = await client
       .from("commerce_settings")
-      .select("commerce_enabled,paypal_enabled,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories")
+      .select("commerce_enabled,paypal_enabled,wholesale_mate_discount_enabled,wholesale_mate_quantity_threshold,wholesale_mate_discount_percent,wholesale_discount_categories,storewide_sale_enabled,storewide_sale_percent,storewide_sale_valid_from,storewide_sale_valid_until")
       .eq("singleton", true)
       .single();
     if (!settings?.commerce_enabled || !settings?.paypal_enabled) return apiError("PayPal no está habilitado.", 503);
@@ -90,6 +92,20 @@ export async function POST(request: Request) {
     const checkoutItems = checkoutItemsBeforeWholesale.map((item,index) => ({ ...item, unitPriceMinor: adjustedPrices[index].unitPriceMinor }));
     const totalWeightGrams = checkoutItems.reduce((total, item) => total + item.peso * item.quantity, 0);
 
+    // El descuento general no se acumula con un código: la base lo apaga cuando el pedido trae uno,
+    // así que el código solo se envía si descuenta más.
+    const salePercent = activeStorewideSalePercent(settings);
+    const couponResolution = await resolveCouponAgainstSale(admin, {
+      userId: user.id,
+      code: discountCode,
+      salePercent,
+      lines: checkoutItemsBeforeWholesale.map((item) => ({
+        itemType: item.itemType, category: item.category, quantity: item.quantity,
+        listUnitMinor: item.unitPriceMinor, saleUnitMinor: salePriceMinor(item.unitPriceMinor, salePercent),
+      })),
+    });
+    const effectiveDiscountCode = couponResolution.useCode ? discountCode : "";
+
     // Fetch exchange rates and international shipping rates in parallel
     const [{ data: rates }, { data: intlRatesData }] = await Promise.all([
       admin.from("commerce_exchange_rates").select("currency_code, rate_to_uyu").eq("currency_code", "USD").single(),
@@ -116,7 +132,7 @@ export async function POST(request: Request) {
       p_idempotency_key: idempotencyKey,
       p_shipping_minor: shippingMinor,
       p_peso: totalWeightGrams,
-      p_discount_code: discountCode || null,
+      p_discount_code: effectiveDiscountCode || null,
       p_usd_rate: usdRate,
     });
     if (orderError || !result) throw new Error(orderError?.message || "No se pudo crear la solicitud internacional.");

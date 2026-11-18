@@ -4,6 +4,8 @@ import { NextIntlClientProvider } from "next-intl";
 import messages from "../../messages/es.json";
 import { CartPanel } from "./CartPanel";
 import { CartMerger } from "./CartMerger";
+import { StorewideSaleProvider } from "./StorewideSale";
+import { DEFAULT_STOREWIDE_SALE } from "../../../shared/storewide-sale";
 import { DEFAULT_WHOLESALE_DISCOUNT_SETTINGS } from "@/lib/wholesale-pricing";
 import { readLocalCart } from "@/lib/browser-cart";
 import type { CartCatalogProduct } from "@/lib/cart-recommendations";
@@ -49,6 +51,19 @@ beforeEach(()=>{
 });
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
 describe("CartPanel integration",()=>{
+  it("muestra el precio anterior tachado, el descuento general y el total rebajado",async()=>{
+    render(<NextIntlClientProvider locale="es" messages={messages}><StorewideSaleProvider settings={{...DEFAULT_STOREWIDE_SALE,storewide_sale_enabled:true,storewide_sale_percent:20}}><CartPanel catalog={catalog} wholesaleSettings={DEFAULT_WHOLESALE_DISCOUNT_SETTINGS} /></StorewideSaleProvider></NextIntlClientProvider>);
+    await screen.findByText("Total: $ 4.000 UYU");
+    expect(document.querySelector("del")?.textContent).toContain("$ 5.000 UYU");
+    expect(document.querySelector("ins")?.textContent).toContain("$ 4.000 UYU");
+    expect(screen.getByText("Descuento del 20%")).toBeInTheDocument();
+    expect(screen.getByText("Subtotal").nextElementSibling).toHaveTextContent("$ 5.000 UYU");
+  });
+  it("sin descuento general no tacha ningún precio",async()=>{
+    show();
+    await screen.findByText("Total: $ 5.000 UYU");
+    expect(document.querySelector("del")).toBeNull();
+  });
   it("refreshes after the visitor cart is merged on sign-in",async()=>{
     authenticated=true;
     localStorage.setItem("matearte_visitor_cart_v1",JSON.stringify([{variantId:"Bombilla-variant",quantity:1}]));

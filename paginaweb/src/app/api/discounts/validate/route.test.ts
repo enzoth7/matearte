@@ -82,3 +82,38 @@ it("quotes a fixed UYU coupon in rounded ARS using Argentina's priced categories
     discountedItemsSubtotalMinor: 2400000,
   });
 });
+
+const saleCart = () => ({
+  wholesale: { eligible: false },
+  storewide_sale: { active: true, percent: 20 },
+  items: [{ item_type: "catalog", unit_price_minor: 8000, base_unit_price_minor: 10000, quantity: 2, variant: { product: { category_code: "mates" } } }],
+});
+const couponRequest = () => new Request("https://store.test/api/discounts/validate", {
+  method: "POST", headers: { "content-type": "application/json" },
+  body: JSON.stringify({ code: "MATE10", currency: "UYU" }),
+});
+
+it("validates the code on list prices and keeps the general discount when it saves more", async () => {
+  mock.cart.mockResolvedValue(saleCart());
+  mock.rpc.mockResolvedValue({ data: { discountMinor: 4000 }, error: null });
+  const response = await POST(couponRequest());
+  expect(mock.rpc).toHaveBeenCalledWith("validate_commerce_discount_scoped", expect.objectContaining({ p_items_subtotal_minor: 20000 }));
+  expect(response.status).toBe(422);
+  expect(await response.json()).toMatchObject({ details: { reason: "sale_better" } });
+});
+
+it("uses the code and flags the general discount as suspended when the code saves more", async () => {
+  mock.cart.mockResolvedValue(saleCart());
+  mock.rpc.mockResolvedValue({ data: { discountMinor: 4001, itemsSubtotalMinor: 20000, discountedItemsSubtotalMinor: 15999 }, error: null });
+  const response = await POST(couponRequest());
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ discountMinor: 4001, saleSuspended: true });
+});
+
+it("does not suspend anything when the general discount is off", async () => {
+  mock.cart.mockResolvedValue({ ...saleCart(), storewide_sale: { active: false, percent: 0 } });
+  mock.rpc.mockResolvedValue({ data: { discountMinor: 100 }, error: null });
+  const response = await POST(couponRequest());
+  expect(response.status).toBe(200);
+  expect((await response.json()).saleSuspended).toBe(false);
+});

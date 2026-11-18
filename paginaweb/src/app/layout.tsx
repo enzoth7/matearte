@@ -18,7 +18,8 @@ import SmoothScroll from "@/components/ui/smooth-scroll";
 import { localeConfig } from "@/i18n/config";
 import { defaultSocialImage, localizedAlternates } from "@/i18n/metadata";
 import { siteUrl } from "@/lib/metadata";
-import { getExchangeRates, getWholesaleDiscountSettings } from "@/lib/storefront-catalog";
+import { getExchangeRates, getStorewideSale, getTopBarMessages, getWholesaleDiscountSettings } from "@/lib/storefront-catalog";
+import { StorewideSaleProvider } from "@/components/StorewideSale";
 import "lenis/dist/lenis.css";
 import "country-flag-icons/3x2/flags.css";
 import "./globals.css";
@@ -93,12 +94,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const locale = await getLocale();
   const messages = await getMessages();
   const common = await getTranslations("common");
-  const [arsPerUyu, arsUseBasePrice, wholesaleSettings, exchangeRates] = await Promise.all([getArgentinaDisplayRate(), getArgentinaBasePricing(), getWholesaleDiscountSettings(), getExchangeRates()]);
+  const [arsPerUyu, arsUseBasePrice, wholesaleSettings, exchangeRates, storewideSale, topBarMessages] = await Promise.all([getArgentinaDisplayRate(), getArgentinaBasePricing(), getWholesaleDiscountSettings(), getExchangeRates(), getStorewideSale(), getTopBarMessages()]);
   const preferredCurrency = (await cookies()).get("MATEARTE_CURRENCY")?.value === "ARS" ? "ARS" : "UYU";
   return (
     <html lang={localeConfig[locale].htmlLang} className={`${newsreader.variable} ${outfit.variable}`}>
       <body>
         <NextIntlClientProvider locale={locale} messages={messages}>
+          <StorewideSaleProvider settings={storewideSale}>
           <StorefrontCurrency initialCurrency={preferredCurrency} arsPerUyu={arsPerUyu} arsUseBasePrice={arsUseBasePrice}>
           <CartMerger />
           <JourneyTracker />
@@ -106,12 +108,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <LanguageNotice />
           <ScrollRevealController />
           <SmoothScroll>
-            <Header key={locale} wholesaleSettings={wholesaleSettings} exchangeRates={exchangeRates} />
+            <Header key={locale} wholesaleSettings={wholesaleSettings} exchangeRates={exchangeRates} topBarMessages={topBarMessages} />
             {children}
             <Footer />
           </SmoothScroll>
           <WhatsAppFab />
         </StorefrontCurrency>
+          </StorewideSaleProvider>
         </NextIntlClientProvider>
         <Analytics />
         <SpeedInsights />

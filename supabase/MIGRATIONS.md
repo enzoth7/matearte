@@ -1,5 +1,17 @@
 # Historial de migraciones de Matearte
 
+## Mensajes de la barra negra
+
+`20261118171637_site_top_bar_messages.sql` se aplicó al proyecto remoto el 18 de noviembre de 2026, por pedido de Enzo. Crea `site_top_bar_messages` (texto en español, inglés y portugués, acción, orden y visibilidad) con lectura pública de los mensajes visibles y escritura solo para administradores de comercio. Carga los tres mensajes iniciales: suscripción, transferencia y medios de pago. Se editan en Gestión, Marketing, Avisos.
+
+## Descuento general de la tienda
+
+`20261118161927_storewide_sale_price.sql` se aplicó al proyecto remoto `agdkljuulwjwjasftcce` el 18 de noviembre de 2026, por pedido de Enzo, y quedó **apagado**: `commerce_settings.storewide_sale_enabled` es `false`. Agrega el porcentaje y las fechas en `commerce_settings` y tres funciones (`storewide_sale_percent`, `storewide_sale_price`, `web_unit_price`). Cambia el precio que cobran Uruguay por transferencia, Argentina, PayPal, mayorista por transferencia y pedido internacional; Mercado Pago cobra los precios que arma el servidor web. Los pedidos de Gestión no cambian.
+
+Reglas: el precio rebajado se redondea al peso entero y no se acumula con la transferencia (10%), el mayorista ni los códigos; se cobra el precio más bajo. Si el pedido trae un código, la base apaga el descuento general para esa transacción (`app.storewide_sale_off`); la web decide cuál conviene más al cliente y solo envía el código cuando descuenta más.
+
+La migración parchea las definiciones vigentes de las funciones de cobro con reemplazos exactos y falla si alguna definición cambió. Antes de aplicarla se probó cada camino dentro de una transacción revertida: pedido internacional, PayPal con y sin código, PayPal mayorista, transferencia en Uruguay con 20% y con 5%, mayorista por transferencia y Argentina. Para activarlo, usar Marketing, Descuentos, Descuento general en la web.
+
 ## Alta de productos por MCP
 
 El 6 de noviembre de 2026 se aplicaron `20261106143342_gestion_mcp_catalog_and_bridge.sql` y `20261106144604_gestion_mcp_enforce_oauth_boundary.sql` en producción. La versión 16 de `gestion-mcp` habilitó el alta en borrador para Richard. Se verificó que la clave de firma esté reservada al servidor y que la API de datos exija la firma para llamadas OAuth. La actualización de herramientas en ChatGPT y el estado de Supabase Auth se detallan en [MCP de Gestión](../gestion/docs/mcp-solo-lectura.md).

@@ -6,12 +6,13 @@ import { Discounts } from './DiscountsView';
 import { TaxonomyManager } from './TaxonomyManager';
 import { InternationalShipping } from './InternationalShippingView';
 import { Announcements } from './Announcements';
+import { TopBarMessagesPanel } from './TopBarMessagesView';
 
 export function CommerceSection({ path, notify, commerce }: PageProps & { path: string }) {
   const [shipping, setShipping] = useState('Simulador internacional');
   return <div className="commerce-tools">
     {path === 'marketing/descuentos' && <Discounts onNotice={notify} />}
-    {path === 'marketing/avisos' && <Announcements onNotice={notify} />}
+    {path === 'marketing/avisos' && <><Announcements onNotice={notify} /><TopBarMessagesPanel onNotice={notify} /></>}
     {path === 'productos/categorias' && <TaxonomyManager onNotice={notify} />}
     {path === 'productos/ajustes' && <Settings onNotice={notify} section="pricing" />}
     {path === 'finanzas/monedas' && <Rates onNotice={notify} wholesaleRate={commerce?.wholesale?.exchangeRate} />}

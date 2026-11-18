@@ -47,12 +47,14 @@ type CommerceData = {
 };
 
 import { formatCatalogPrice } from "@/lib/catalog-filters";
+import { CatalogSalePrice, useStorewideSale } from "@/components/StorewideSale";
 
 export function ProductDesktop({ product, exchangeRates }: { product: Product; exchangeRates?: Record<string, number> }) {
   const { currency: displayCurrency, rates: displayRates, arsUseBasePrice } = useStorefrontCurrency(exchangeRates);
   const locale = useLocale();
   const t = useTranslations("product");
   const common = useTranslations("common");
+  const sale = useStorewideSale();
   
   const formatPrice = (amount: number) => formatCatalogPrice(amount, undefined, locale, displayRates, displayCurrency);
   const [commerce, setCommerce] = useState<CommerceData | null>(null);
@@ -78,11 +80,16 @@ export function ProductDesktop({ product, exchangeRates }: { product: Product; e
   const activeVariantId = catalogVariant?.id;
   const commerceVariant = commerce?.available ? commerce.product?.variants.find(v => v.id === activeVariantId) : undefined;
   
-  const displayedPrice = commerceVariant
-    ? formatPrice((displayCurrency === "ARS" && arsUseBasePrice ? commerceVariant.base_price_minor ?? commerceVariant.price_minor : commerceVariant.price_minor) / 100)
+  const priceUyu = commerceVariant
+    ? (displayCurrency === "ARS" && arsUseBasePrice ? commerceVariant.base_price_minor ?? commerceVariant.price_minor : commerceVariant.price_minor) / 100
     : catalogVariant?.price
-    ? formatPrice(catalogVariant.price.amountMinor / 100)
-    : variantSelection.displayedPrice === undefined ? common("consult") : formatPrice(variantSelection.displayedPrice);
+    ? catalogVariant.price.amountMinor / 100
+    : variantSelection.displayedPrice;
+  const listPrice = priceUyu === undefined ? common("consult") : formatPrice(priceUyu);
+  // El descuento general solo se muestra en productos que se pueden comprar en la web.
+  const purchasable = Boolean(commerceVariant || catalogVariant?.commerceId || pricedProduct.variants.some((variant) => variant.commerceId && variant.available !== false));
+  const salePrice = sale.active && purchasable && priceUyu !== undefined ? formatPrice(sale.priceUyu(priceUyu)) : null;
+  const displayedPrice = salePrice ?? listPrice;
     
   const galleryImages = variantSelection.images.map(img => ({
     ...img,
@@ -150,7 +157,7 @@ export function ProductDesktop({ product, exchangeRates }: { product: Product; e
         <div className="product-desktop-information">
           <h1 id="product-desktop-title">{product.name}</h1>
           <p className="product-desktop-summary">{product.summary}</p>
-          <p className="product-desktop-price">{displayedPrice}</p>
+          <div className="product-desktop-price"><CatalogSalePrice list={listPrice} current={salePrice} /></div>
 
           <div className="product-desktop-rule product-desktop-rule-actions" aria-hidden="true" />
 
