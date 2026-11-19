@@ -13,3 +13,5 @@
 - Prohibidas expresamente las secuencias decorativas 01, 02, 03 y similares para presentar pasos, tarjetas o secciones. Tampoco generarlas mediante contadores CSS, pseudoelementos o ceros añadidos con código. Usar títulos descriptivos sin números.
 
 - Verificar contraste del botón completo contra su contenedor, además del contraste del texto: nunca negro o marrón oscuro sobre un panel negro. En resúmenes de compra y paneles oscuros, usar botón blanco con texto negro, también al pasar el cursor. Los botones deshabilitados deben seguir siendo reconocibles.
+
+- Quedan prohibidas las barras de scroll horizontales en tablas, tarjetas y vistas. Las tablas y los cuadros se estiran al máximo ancho disponible para que todo entre en la vista; si no alcanza, se achica la letra y el espaciado (sin bajar de 12 px) o se permite que el texto pase a varias líneas, antes que desplazar en horizontal.

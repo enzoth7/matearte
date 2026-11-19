@@ -458,6 +458,7 @@ main {
 @media (min-width: 1251px) {
   main.customers-page { max-width: 1900px; padding-left: 24px; padding-right: 24px; }
   main.ad-reports-main { max-width: none; padding-left: 24px; padding-right: 24px; }
+  main.crm-main { max-width: none; padding-left: 24px; padding-right: 24px; }
   main.marketing-campaigns-main { max-width: none; padding-left: 24px; padding-right: 24px; }
 }
 .welcome {

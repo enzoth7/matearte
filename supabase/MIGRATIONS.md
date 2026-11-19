@@ -1,5 +1,19 @@
 # Historial de migraciones de Matearte
 
+## CRM de WhatsApp
+
+`20261119180000_crm_whatsapp_schema.sql` se aplicó al proyecto remoto `agdkljuulwjwjasftcce` el 19 de noviembre de 2026, por pedido de Enzo. Crea el esquema `crm` con las tablas del asistente de WhatsApp (`crm-whatsapp-ia`), la cola `crm.comandos` y `crm.estado_asistente`. No toca ninguna tabla de Gestión.
+
+Seguridad: el rol `crm_app` (sin acceso hasta que Enzo le pone contraseña) es el dueño de las tablas y solo tiene permiso sobre `crm`; lo usa el servidor del asistente. `anon` y `authenticated` no ven el esquema. Gestión lee con `public.crm_panel()` y pide acciones con `public.crm_encolar()`, que exigen permiso de página `/crm/...` mediante `private.gestion_has_page_access`. Se verificó: 11 tablas de `crm_app` con RLS, sin uso del esquema para `anon` ni `authenticated`, `crm_panel` sin ejecución para `anon` y un usuario sin permiso sin acceso.
+
+`20261119190000_crm_panel_bigint.sql` corrige un desborde de entero en `crm_panel` (el filtro de 30 días). Se verificó con la sesión de t1: 1 cliente, 21 mensajes y el estado del asistente. Ese mismo día, la contraseña de `crm_app` se activó con su huella SCRAM, generada en la PC del CRM: la contraseña no salió de esa PC.
+
+`20261119200000_crm_cierre_y_notas.sql` suma a la cola las acciones `cerrar` (Ha dicho que sí con importe, No sigue con motivo) y `nota`, que piden permiso de `/crm/clientes`, y hace que `crm_panel` devuelva las notas de cada cliente.
+
+`20261119210000_crm_guardar_campo.sql` suma `guardar_campo` ({ruta, valor}): Gestión edita la configuración del asistente campo por campo. La base solo acepta una lista cerrada de rutas; las del negocio piden `/crm/ajustes` y las demás `/crm/agente`. El servidor del asistente vuelve a validar cada valor.
+
+`20261119220000_crm_conexiones.sql` suma el pedido `conexiones` (volver a comprobar, números permitidos del modo prueba y desvincular el móvil) y la ruta `plantilla` (mensaje aprobado) en `guardar_campo`; los dos piden `/crm/ajustes`. Las claves siguen sin pasar por Gestión: solo se publica si están guardadas y sus últimos 4 caracteres.
+
 ## Mensajes de la barra negra
 
 `20261118171637_site_top_bar_messages.sql` se aplicó al proyecto remoto el 18 de noviembre de 2026, por pedido de Enzo. Crea `site_top_bar_messages` (texto en español, inglés y portugués, acción, orden y visibilidad) con lectura pública de los mensajes visibles y escritura solo para administradores de comercio. Carga los tres mensajes iniciales: suscripción, transferencia y medios de pago. Se editan en Gestión, Marketing, Avisos.

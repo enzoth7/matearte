@@ -3,6 +3,7 @@ import { CommerceSection } from "./commerce/CommerceSection";
 import { ChannelOrigin } from "./ChannelOrigin";
 import { Links } from "./Links";
 import { MarketingSection } from "./MarketingSection";
+import { CrmSection } from "./crm/CrmSection";
 import { AnalyticsJourneys, type AnalyticsSection } from "./AnalyticsJourneys";
 import { FinanceExpenses, FinanceFixedExpenses } from "./FinanceExpenses";
 import { FinanceIncome } from "./FinanceIncome";
@@ -31,6 +32,7 @@ import {
   Bell,
   UserSwitch,
   Leaf,
+  ChatCircleDots,
 } from "@phosphor-icons/react";
 import { areas, resolvePath } from "./navigation";
 import { accessUserId, accessUserIds, canAccess, firstVisiblePath, visibleAreas } from "./access";
@@ -59,6 +61,7 @@ import { Card, Badge, Modal } from "./ui";
 const icons = [
   House,
   Handshake,
+  ChatCircleDots,
   Storefront,
   Megaphone,
   ChartBar,
@@ -119,6 +122,7 @@ function Content(
   if (key === "marketing/sorteo") return <SorteoView />;
   if (key === "consignaciones/resumen") return <Consignments {...props} />;
   if (key === "consignaciones/usuarios") return <ConsigneeUsers s={s} commerce={props.commerce} go={go} />;
+  if (area === "crm") return <CrmSection page={page} notify={props.notify} />;
   if (area === "marketing") return <MarketingSection page={page} notify={props.notify} s={s} go={go} commerce={props.commerce} />;
   if (area === "analitica") return <AnalyticsJourneys section={analyticsSections[page]} />;
   if (key === "finanzas/egresos") return <FinanceExpenses notify={props.notify} editable={canAccess(s, "/finanzas/egresos")} openingEditable={canAccess(s, "/finanzas/egresos")} />;
@@ -496,7 +500,7 @@ export default function App() {
             </div>
           </div>
         </header>
-        <main id="main" className={path === "/clientes/base" ? "customers-page" : path === "/marketing/pauta" ? "ad-reports-main" : path === "/marketing/campanas" || path === "/marketing/segmentos" ? "marketing-campaigns-main" : undefined}>
+        <main id="main" className={path.startsWith("/crm/") ? "crm-main" : path === "/clientes/base" ? "customers-page" : path === "/marketing/pauta" ? "ad-reports-main" : path === "/marketing/campanas" || path === "/marketing/segmentos" ? "marketing-campaigns-main" : undefined}>
           
           {storageError && (
             <div className="error" role="alert">

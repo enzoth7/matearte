@@ -20,6 +20,19 @@ export const areas = [
     ],
   },
   {
+    id: "crm",
+    name: "CRM",
+    hint: "WhatsApp con el asistente",
+    pages: [
+      ["inicio", "Inicio"],
+      ["clientes", "Clientes"],
+      ["seguimiento", "Seguimiento"],
+      ["leads", "Leads"],
+      ["agente", "Agente"],
+      ["ajustes", "Ajustes"],
+    ],
+  },
+  {
     id: "consignaciones",
     name: "Consignaciones",
     hint: "Mercadería y cuenta de consignatarios",
