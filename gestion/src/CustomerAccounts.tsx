@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { arsMoney, currencyMoney, money, orderName, paid, wholesalePaidOriginal, type State } from "./data";
-import { accountMoney, accountOrderBalance, accountOrderTotal, customerAccounts, receiptAvailableMinor, type CustomerAccount } from "./customerAccountModel";
+import { arsMoney, currencyMoney, money, orderName, paid, wholesalePaidOriginal } from "./data";
+import { accountMoney, accountOrderBalance, accountOrderTotal, customerAccounts, type CustomerAccount } from "./customerAccountModel";
+import { accountMovements, withRunningBalance } from "./customerAccountMovements";
 import { CustomerAccountAllocationForm, CustomerAccountReceiptForm, FiadoSaleForm } from "./CustomerAccountForms";
 import type { PageProps } from "./pages";
 import { Badge, Modal, Stats, Table } from "./ui";
@@ -8,53 +9,6 @@ import { formatDate } from "./dateFormat";
 import { consignmentSummary } from "./consignmentModel";
 
 type AccountFilter = "saldo" | "mayoristas" | "senas" | "fiados" | "favor" | "todos";
-type Movement = {
-  id: string; date: string; label: string; detail: string; orderId?: string;
-  charge?: number; collection?: number; receiptId?: string; availableMinor?: number;
-};
-
-function accountMovements(account: CustomerAccount, state: State): Movement[] {
-  const orderIds = new Set(account.orders.map((order) => order.id));
-  const movements: Movement[] = account.orders.filter((order) => !order.consignmentId).map((order) => ({
-    id: `order:${order.id}`, date: order.date, label: order.source === "wholesale" ? "Pedido mayorista" : order.paymentMethod === "Cuenta corriente" ? "Venta fiada" : order.depositAmount != null ? "Pedido con seña" : "Venta local",
-    detail: orderName(order), orderId: order.id, charge: accountOrderTotal(state, order) ?? undefined,
-  }));
-  for (const payment of state.payments.filter((entry) => orderIds.has(entry.orderId))) {
-    movements.push({ id: `payment:${payment.id}`, date: payment.date, label: "Cobro del pedido",
-      detail: payment.method, orderId: payment.orderId, collection: account.currency === "ARS" ? payment.sourceCurrency === "ARS" ? payment.sourceAmount : undefined : payment.amount ?? undefined });
-  }
-  for (const order of account.orders.filter((entry) => entry.source === "wholesale" && (entry.wholesaleOpeningPaidArg || 0) > 0)) {
-    movements.push({ id: `opening:${order.id}`, date: "", label: "Cobrado antes del registro",
-      detail: "Fecha anterior no disponible", orderId: order.id, collection: order.wholesaleOpeningPaidArg! });
-  }
-  for (const receipt of account.receipts) {
-    movements.push({ id: `receipt:${receipt.id}`, date: receipt.paidOn, label: "Entrega a cuenta",
-      detail: `${receipt.paymentMethod}${receipt.note ? `, ${receipt.note}` : ""}`,
-      collection: (account.currency === "ARS" ? receipt.sourceAmountMinor : receipt.amountMinor) / 100, receiptId: receipt.id,
-      availableMinor: receiptAvailableMinor(account, receipt.id) });
-  }
-  for (const allocation of account.allocations) {
-    const order = account.orders.find((entry) => entry.id === allocation.orderId || entry.wholesaleSaleId === allocation.orderId);
-    movements.push({ id: `allocation:${allocation.id}`, date: allocation.allocatedAt.slice(0, 10),
-      label: "Saldo aplicado a un pedido", detail: accountMoney(account, (account.currency === "ARS" ? allocation.sourceAmountMinor || 0 : allocation.amountMinor) / 100), orderId: order?.id });
-  }
-  for (const consignment of account.consignments) {
-    const order = account.orders.find((entry) => entry.wholesaleSaleId === consignment.orderId);
-    for (const line of (state.consignmentLines || []).filter((entry) => entry.consignmentId === consignment.id)) {
-      for (const movement of (state.consignmentMovements || []).filter((entry) => entry.lineId === line.id && entry.kind === "kept")) {
-        movements.push({ id: `consignment:${movement.id}`, date: movement.occurredOn,
-          label: "Unidades conservadas de consignación", detail: `${line.title}, ${movement.quantity} u.`,
-          orderId: order?.id, charge: movement.quantity * line.unitPriceMinor / 100 });
-      }
-    }
-    for (const allocation of account.consignmentAllocations.filter((entry) => entry.consignmentId === consignment.id)) {
-      movements.push({ id: `consignment-allocation:${allocation.id}`, date: allocation.allocatedAt.slice(0, 10),
-        label: "Saldo aplicado a consignación", detail: order ? orderName(order) : "Consignación",
-        orderId: order?.id });
-    }
-  }
-  return movements.sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
-}
 
 function accountKind(account: CustomerAccount): string {
   const kinds = [account.wholesalePending > 0 && "Mayorista", account.depositPending > 0 && "Con seña",
@@ -68,7 +22,7 @@ function AccountDetail({ account, props, onClose }: { account: CustomerAccount; 
   const [allocationReceiptId, setAllocationReceiptId] = useState<string | null>(null);
   const [fiadoOpen, setFiadoOpen] = useState(false);
   const openOrders = account.orders.filter((order) => !order.consignmentId && (accountOrderBalance(s, order) ?? 1) > 0);
-  const movements = accountMovements(account, s);
+  const movements = withRunningBalance(account, accountMovements(account, s));
   const net = account.pending - account.credit;
   const changed = async () => { await props.refresh?.(true); setReceiptOpen(false); setAllocationReceiptId(null); setFiadoOpen(false); };
   return <Modal title={`Cuenta de ${account.customer.name} en ${account.currency}`} className="customer-account-detail-modal" onClose={onClose}>
@@ -107,6 +61,9 @@ function AccountDetail({ account, props, onClose }: { account: CustomerAccount; 
       { label: "Cargo", render: (movement) => movement.charge != null ? accountMoney(account, movement.charge) : "—" },
       { label: "Entrega", render: (movement) => movement.collection != null ? accountMoney(account, movement.collection) : "—" },
       { label: "Disponible", render: (movement) => movement.receiptId ? <div className="account-credit-action"><strong>{accountMoney(account, (movement.availableMinor || 0) / 100)}</strong>{(movement.availableMinor || 0) > 0 && <button type="button" className="secondary" onClick={() => setAllocationReceiptId(movement.receiptId!)}>Asignar</button>}</div> : "—" },
+      { label: "Saldo", render: (movement) => movement.balance < 0
+        ? <strong>A favor {accountMoney(account, -movement.balance)}</strong>
+        : <strong>{accountMoney(account, movement.balance)}</strong> },
     ]} />
     {receiptOpen && <CustomerAccountReceiptForm account={account} rate={props.commerce?.wholesale?.exchangeRate || 0} onClose={() => setReceiptOpen(false)} onChanged={changed} />}
     {allocationReceiptId && <CustomerAccountAllocationForm account={account} receiptId={allocationReceiptId} state={s} onClose={() => setAllocationReceiptId(null)} onChanged={changed} />}
