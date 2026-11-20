@@ -1,4 +1,5 @@
 import { AuditLogs } from "./AuditLogsView";
+import { CommercialOpportunities } from "./CommercialOpportunities";
 import { CommerceSection } from "./commerce/CommerceSection";
 import { ChannelOrigin } from "./ChannelOrigin";
 import { Links } from "./Links";
@@ -118,6 +119,7 @@ function Content(
     );
   const [area, page] = path.split("/").filter(Boolean);
   const key = `${area}/${page}`;
+  if (key === "comercial/consultas") return <CommercialOpportunities />;
   if (["marketing/descuentos", "marketing/avisos", "productos/categorias", "productos/ajustes", "administracion/canales", "finanzas/monedas", "entregas/tarifas"].includes(key)) return <CommerceSection {...props} path={key} />;
   if (key === "marketing/sorteo") return <SorteoView />;
   if (key === "consignaciones/resumen") return <Consignments {...props} />;
@@ -514,7 +516,7 @@ export default function App() {
               
             </div>
           )}
-          {(s.activeUserId !== "t5" || !path.startsWith("/marketing/")) && <div className="source-status">
+          {path !== "/comercial/consultas" && (s.activeUserId !== "t5" || !path.startsWith("/marketing/")) && <div className="source-status">
             <small>{live.loadedAt ? `Actualizado ${live.loadedAt.toLocaleTimeString("es-UY", { hour: "2-digit", minute: "2-digit" })}` : "Leyendo datos del comercio…"}</small>
             <button className="text-button" disabled={live.loading} onClick={() => void live.refresh()}>{live.loading ? "Actualizando…" : "Actualizar"}</button>
           </div>}

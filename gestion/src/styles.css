@@ -4404,3 +4404,41 @@ dialog.consignment-action-modal { width: min(660px, calc(100% - 24px)); }
 @media (max-width: 500px) { .consignment-detail-modal .stats.strip { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 700px) { .consignment-detail-actions { margin-inline: -30px; padding: 12px 20px; } .consignment-detail-actions button { flex: 1 1 150px; } }
 @media (max-width: 700px) { .consignment-draft-line { grid-template-columns: repeat(2, minmax(0, 1fr)); } .consignment-draft-line > strong { grid-column: 1 / -1; } }
+
+/* Marketing · Calendario */
+.mkt-cal-page{display:grid;gap:18px;--cal-violet:#6d3fc0;--cal-violet-soft:#efe8fb}
+.mkt-cal-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.mkt-cal-year{display:flex;align-items:center;gap:10px}
+.mkt-cal-year strong{min-width:56px;text-align:center;font-size:22px;font-variant-numeric:tabular-nums}
+.mkt-cal-note{margin:0;color:var(--muted);line-height:1.5}
+.mkt-cal-months{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.mkt-cal-month{border:1px solid var(--line);border-radius:12px;padding:12px 12px 10px;background:var(--white)}
+.mkt-cal-month h3{margin:0 0 8px;font-size:15px;font-weight:600;text-transform:capitalize}
+.mkt-cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;text-align:center}
+.mkt-cal-weekday{font-size:11px;color:var(--muted);padding-bottom:3px}
+.mkt-cal-day,.mkt-cal-blank{aspect-ratio:1;display:grid;place-items:center;font-size:12.5px;border-radius:50%;font-variant-numeric:tabular-nums}
+.mkt-cal-day{border:0;background:transparent;color:var(--black);padding:0;font-family:inherit}
+.mkt-cal-day.has-event{background:var(--cal-violet);color:var(--white);font-weight:600;cursor:pointer}
+.mkt-cal-day.has-event:hover{filter:brightness(1.12)}
+.mkt-cal-day.has-event:focus-visible{outline:2px solid var(--black);outline-offset:2px}
+.mkt-cal-day.is-today{background:var(--black);color:var(--white);font-weight:600}
+.mkt-cal-day.is-today.has-event{box-shadow:0 0 0 2px var(--white),0 0 0 4px var(--cal-violet)}
+.mkt-cal-list h2{margin:0 0 10px;font-size:17px}
+.mkt-cal-list ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.mkt-cal-list button{display:grid;grid-template-columns:110px 1fr;gap:2px 12px;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--white);color:var(--black);text-align:left;cursor:pointer;font-family:inherit}
+.mkt-cal-list button:hover{border-color:var(--cal-violet);background:var(--cal-violet-soft)}
+.mkt-cal-list-date{color:var(--cal-violet);font-weight:600;font-size:13px;text-transform:capitalize}
+.mkt-cal-list-name{font-weight:500}
+.mkt-cal-list small{grid-column:2;color:var(--muted)}
+.mkt-cal-overlay{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:16px;background:rgb(23 20 18 / .45)}
+.mkt-cal-dialog{width:min(480px,100%);max-height:calc(100dvh - 32px);overflow:auto;background:var(--white);border-radius:14px;padding:20px;box-shadow:0 20px 50px rgb(23 20 18 / .25)}
+.mkt-cal-dialog-head{display:flex;justify-content:space-between;align-items:start;gap:12px;margin-bottom:6px}
+.mkt-cal-dialog-head small{color:var(--cal-violet);font-weight:600;text-transform:capitalize}
+.mkt-cal-dialog-head h2{margin:2px 0 0;font-size:21px}
+.mkt-cal-event{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+.mkt-cal-event h3{margin:0 0 6px;font-size:16px}
+.mkt-cal-event p{margin:8px 0 0;line-height:1.5}
+.mkt-cal-idea{padding:10px 12px;border-radius:10px;background:var(--surface-warm)}
+@media(max-width:1100px){.mkt-cal-months{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px){.mkt-cal-months{grid-template-columns:repeat(2,minmax(0,1fr))}.mkt-cal-list ul{grid-template-columns:1fr}}
+@media(max-width:480px){.mkt-cal-months{grid-template-columns:1fr}.mkt-cal-list button{grid-template-columns:96px 1fr}}

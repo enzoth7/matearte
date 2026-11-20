@@ -6,6 +6,14 @@ El servidor MCP de Gestión está en `supabase/functions/gestion-mcp/`. Su URL e
 
 Ofrece herramientas para identificar la cuenta, enumerar fuentes y consultar registros comerciales, clientes, productos, producción, entregas, finanzas, inventario y Marketing. Las listas tienen paginación y límites. Los importes cuyo nombre termina en `_minor` están en centésimos. Las páginas de Gestión que todavía no tienen una fuente conectada tampoco tienen datos reales para consultar en el MCP.
 
+## Oportunidades y correos comerciales
+
+La fuente `oportunidades_comerciales` está activa en la versión 23 del MCP y comparte los datos de Comercial / Consultas y oportunidades. En `consultar_registros` se puede buscar por empresa y filtrar por país, mercado, región, prioridad, estado y disponibilidad de correo. Cada registro incluye la actividad, la propuesta, el contacto institucional y los enlaces de origen.
+
+Richard puede pedirle a su agente que consulte prospectos y prepare correos. Cuando le indica que envíe, el agente llama a `reservar_contacto_comercial`, usa la herramienta de su propia casilla si la reserva habilita el envío y confirma el identificador del mensaje con `registrar_resultado_contacto`. Gestión muestra entonces la empresa como contactada. Cuando el proveedor no confirma el resultado, el agente revisa Enviados antes de liberar o cerrar la reserva.
+
+Si las herramientas nuevas todavía no aparecen, actualizar la conexión de MateArte Gestión en la cuenta de Richard. La casilla que Richard elija debe estar conectada a su agente con permiso de envío.
+
 ## Escritura de gastos para Richard
 
 El servidor anuncia `listar_opciones_gastos` y `registrar_gastos` con una lista estable de herramientas para que ChatGPT pueda descubrirlas. Solo la cuenta de Gestión de Richard puede ejecutarlas: cada llamada comprueba su ID antes de acceder a Finanzas. La segunda herramienta crea entre 1 y 25 gastos por llamada en `purchases`, que alimenta Compras y Finanzas. Usa su token OAuth y las políticas RLS existentes; no se amplían permisos de base de datos para otras cuentas. `quien_soy` informa `puede_registrar_gastos` según la cuenta conectada.

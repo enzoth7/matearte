@@ -50,6 +50,7 @@ describe("estado sin registros ficticios", () => {
     expect(resolvePath("/clientes/analitica")?.page[1]).toBe("Análisis de clientes");
     expect(resolvePath("/marketing/pauta")?.page[1]).toBe("Informes de pauta");
     expect(resolvePath("/marketing/email-templates")?.page[1]).toBe("Email templates");
+    expect(resolvePath("/marketing/calendario")?.page[1]).toBe("Calendario");
     paths.forEach((path) => expect(resolvePath(path)).not.toBeNull());
     expect(resolvePath("/administracion/comercio")).toBeNull();
     expect(resolvePath("/administracion/links")?.page[1]).toBe("Links");

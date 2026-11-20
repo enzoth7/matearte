@@ -247,7 +247,7 @@ function AssetCard({ asset, link }: { asset: PrivateAsset; link?: AssetLink }) {
 
 function FlejePrintFallback({ previews, links }: { previews: PrivateAsset[]; links: Record<string, AssetLink> }) {
   return <div className="customer-assets production-print-fleje-fallback">
-    {previews.filter(asset => asset.role === 'fleje_front' || asset.role === 'fleje_back').map(asset => <AssetCard key={asset.key} asset={asset} link={links[asset.key]} />)}
+    {previews.filter(asset => asset.role === 'fleje_full' || asset.role === 'fleje_front' || asset.role === 'fleje_back').map(asset => <AssetCard key={asset.key} asset={asset} link={links[asset.key]} />)}
   </div>;
 }
 
@@ -570,7 +570,7 @@ export function PersonalizedOrders({ onNotice, state }: { onNotice: (value: stri
                         <div><dt>Técnica</dt><dd>{summary.fleje.technique}</dd></div>
                         <div><dt>Terminación</dt><dd>{summary.fleje.finish}</dd></div>
                       </dl>
-                      <div className="fleje-sides"><SurfaceSide title="Frente" side={summary.fleje.front} /><SurfaceSide title="Reverso" side={summary.fleje.back} /></div>
+                      <div className="fleje-sides">{summary.fleje.continuous ? <SurfaceSide title="Fleje completo, posiciones según plano" side={{ text: [summary.fleje.front.text, summary.fleje.back.text].filter(Boolean).join(", "), images: [...summary.fleje.front.images, ...summary.fleje.back.images] }} /> : <><SurfaceSide title="Frente" side={summary.fleje.front} /><SurfaceSide title="Reverso" side={summary.fleje.back} /></>}</div>
                     </SpecCard>
                   ) : <section className="personalization-card unavailable"><h4>Fleje</h4><div>Este modelo no lleva fleje.</div></section>}
                 </div> : <div className="surface-grid surface-grid--single">

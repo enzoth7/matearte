@@ -14,6 +14,14 @@ export interface CrmMensaje {
 }
 
 export interface CrmLead {
+  fuente?: {
+    tipo: string;
+    campana?: string;
+    anuncio?: string;
+    anuncioId?: string;
+    plataforma?: string;
+    utmContent?: string;
+  } | null;
   id: string;
   telefono: string;
   nombre: string;
@@ -71,6 +79,17 @@ export function clientesReales(leads: CrmLead[]): CrmLead[] {
 }
 
 export const nombreDe = (l: CrmLead) => l.datos.nombre_real || l.nombre;
+export function anuncioDe({ fuente }: CrmLead) {
+  if (fuente?.tipo !== "anuncio") return "";
+  return fuente.anuncio || fuente.utmContent || fuente.anuncioId || fuente.campana || "Anuncio sin identificar";
+}
+
+export function filtroAnuncio(l: CrmLead) {
+  const nombre = anuncioDe(l);
+  if (!nombre) return "Sin anuncio";
+  const id = l.fuente?.anuncioId;
+  return id && id !== nombre ? `${nombre} (${id})` : nombre;
+}
 export const canalDe = (l: CrmLead) => (l.datos.canal === "Instagram" ? "Instagram" : "WhatsApp");
 
 export function interesDe(l: CrmLead): Interes | null {

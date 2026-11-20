@@ -140,7 +140,7 @@ export type PrivateAsset = {
   mimeType: string;
   byteSize: number | null;
   kind: 'preview' | 'upload';
-  role?: 'mate' | 'virola' | 'fleje_front' | 'fleje_back' | 'workshop_reference';
+  role?: 'mate' | 'virola' | 'fleje_front' | 'fleje_back' | 'fleje_full' | 'workshop_reference';
 };
 
 export type SurfaceSideSummary = {
@@ -169,6 +169,7 @@ export type PersonalizationSummary = {
     personalized: boolean;
   };
   fleje: {
+    continuous: boolean;
     available: boolean;
     technique: string;
     finish: string;
@@ -342,6 +343,7 @@ export function collectPrivateAssets(snapshotValue: unknown): PrivateAsset[] {
   const previewNames: Record<string, string> = {
     mate: 'Mate completo.png',
     virola: 'Virola.png',
+    fleje_full: 'Fleje - vuelta completa.png',
     fleje_front: 'Fleje - frente.png',
     fleje_back: 'Fleje - reverso.png',
   };
@@ -435,6 +437,7 @@ export function summarizePersonalization(item: PersonalizedOrderItem): Personali
       personalized: rimFinishActive || rimTexts.length > 0 || rimImages.length > 0,
     },
     fleje: {
+      continuous: asRecord(fleje.continuous).version === 1,
       available: flejeAvailable,
       technique: flejeTechnique,
       finish: flejeFinishActive ? humanizeId(fleje.finishId, 'Terminación seleccionada') : 'Liso (sin personalizar)',

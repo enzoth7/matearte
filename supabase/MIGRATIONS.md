@@ -1,5 +1,19 @@
 # Historial de migraciones de Matearte
 
+## Referencias de campaña de WhatsApp
+
+`20261120033454_web_referencias.sql` se aplicó al proyecto de MateArte el 20 de noviembre de 2026. Guarda el código de la consulta, los parámetros de campaña y la fecha. El servidor web inserta, el rol `crm_app` lee y la tabla tiene seguridad por fila. Se verificaron los permisos y se revirtió la transacción de prueba.
+
+## Oportunidades comerciales
+
+`20261120030916_commercial_opportunities.sql` se aplicó al proyecto de MateArte el 20 de noviembre de 2026. La tabla alimenta Comercial / Consultas y oportunidades y la fuente `oportunidades_comerciales` del MCP. La lectura usa el permiso de esa página. Richard puede reservar un destinatario y registrar el resultado del envío desde su propia casilla. Las bajas de Marketing bloquean la reserva.
+
+Se importaron 106 empresas desde el CSV privado. Las pruebas de reserva, reintento, envío confirmado, cancelación y baja se ejecutaron con registros de prueba en una transacción revertida.
+
+`20261120031700_commercial_opportunity_status.sql` agrega el estado «No hubo respuesta» y permite editar el estado desde la vista de oportunidades. Conserva la referencia de los correos enviados y bloquea un segundo envío a través del MCP aunque cambie el estado manual. Se verificaron los cambios de estado y los reintentos con una transacción revertida.
+
+`20261120032236_commercial_opportunity_email_drafts.sql` agrega la apertura personalizada de los correos comerciales. Se cargaron 106 textos y se verificó su lectura desde Consultas y oportunidades con el permiso de esa página.
+
 ## CRM de WhatsApp
 
 `20261119180000_crm_whatsapp_schema.sql` se aplicó al proyecto remoto `agdkljuulwjwjasftcce` el 19 de noviembre de 2026, por pedido de Enzo. Crea el esquema `crm` con las tablas del asistente de WhatsApp (`crm-whatsapp-ia`), la cola `crm.comandos` y `crm.estado_asistente`. No toca ninguna tabla de Gestión.

@@ -26,6 +26,7 @@ type Dataset = {
 
 // Explicit columns keep payment payloads, auth data and other hidden fields out of MCP results.
 const datasets = {
+  oportunidades_comerciales: { table: "commercial_opportunities", columns: "id,empresa,correo,actividad,ubicacion,pais,mercado,region,prioridad,estado,canal,destinatario,propuesta,senal,motivo,fuente_comercial,fuente_contacto,proxima_accion,fecha_revision,contactada_en,tiene_correo", key: "id", order: "empresa", search: "empresa", date: "fecha_revision", path: "/comercial/consultas", description: "Prospección comercial de MateArte. Incluye correo institucional, propuesta y fuentes. Para enviar con la casilla conectada de Richard, reservar_contacto_comercial y luego registrar_resultado_contacto." },
   pedidos_web: { table: "orders", columns: "id,order_number,reference_code,status,channel,currency,total_minor,shipping_minor,discount_minor,paid_at,created_at,customer_snapshot,shipping_snapshot,shipping_method,shipping_carrier,tracking_code", key: "id", order: "created_at", search: "customer_name", date: "created_at", path: "/comercial/pedidos", description: "Pedidos web, envíos, estados e importes; excluye canales internos para evitar duplicados.", webOrdersOnly: true },
   articulos_web: { table: "order_items", columns: "id,order_id,title,sku,quantity,unit_price_minor,total_minor,item_type,immutable_snapshot,requires_review,review_status,production_status,completed_at,created_at,orders!inner(channel,reference_code)", key: "id", order: "created_at", search: "title", date: "created_at", path: "/produccion/resumen", description: "Artículos exclusivamente de pedidos web, personalización y producción.", webOrdersOnly: true, parentOrders: true },
   pedidos: { table: "orders", columns: "id,order_number,reference_code,customer_name,status,channel,currency,total_minor,deposit_minor,shipping_minor,discount_minor,paid_at,sold_on,created_at,shipping_method,shipping_carrier,tracking_code,shipped_at,delivered_at", key: "id", order: "created_at", search: "customer_name", date: "created_at", path: "/comercial/pedidos", description: "Pedidos de todos los canales, estado, despacho y entrega. No sumar con pedidos_web: son los mismos pedidos. Para totales locales usar resumir_ventas_locales." },
@@ -82,6 +83,7 @@ const datasets = {
 const datasetNames = Object.keys(datasets) as [keyof typeof datasets, ...(keyof typeof datasets)[]];
 // Only these exact fields can be filtered; callers cannot choose SQL or columns.
 const filters: Partial<Record<keyof typeof datasets, Record<string, string>>> = {
+  oportunidades_comerciales: { estado: "estado", pais: "pais", mercado: "mercado", region: "region", prioridad: "prioridad", con_correo: "tiene_correo" },
   pedidos: { canal: "channel", estado: "status", referencia: "reference_code" },
   pedidos_web: { estado: "status", referencia: "reference_code" },
   ventas_locales: { canal: "channel", referencia: "reference_code" },
@@ -181,20 +183,43 @@ Deno.serve(pipeline(
     const handler = createMcpHandler(() => {
       const server = new McpServer({
         name: "matearte-gestion",
-        version: "1.4.0",
+        version: "1.5.0",
       });
 
       server.registerTool("quien_soy", {
         title: "Cuenta conectada",
         description: "Comprueba qué cuenta de Gestión está conectada y qué operaciones de Finanzas, Inventario y catálogo puede realizar.",
         inputSchema: z.object({}), annotations: readOnly,
-      }, async () => result({ nombre: member.display_name, perfil: "propietario", solo_lectura: !canWrite, puede_registrar_gastos: canWrite, puede_registrar_productos: canWrite, puede_gestionar_finanzas: canWrite, puede_gestionar_costos: canWrite }));
+      }, async () => result({ nombre: member.display_name, perfil: "propietario", solo_lectura: !canWrite, puede_registrar_gastos: canWrite, puede_registrar_productos: canWrite, puede_gestionar_finanzas: canWrite, puede_gestionar_costos: canWrite, puede_registrar_contacto_comercial: canWrite }));
 
       server.registerTool("listar_fuentes", {
         title: "Fuentes disponibles",
         description: "Enumera las fuentes de Gestión que se pueden consultar. Úsala antes de elegir una fuente.",
         inputSchema: z.object({}), annotations: readOnly,
       }, async () => result({ primera_pagina: 1, importes: "Los campos _minor son centésimos; no mezclar monedas ni sumar cobros y asignaciones de los mismos pagos. Para totales de ventas de local/feria/redes usar resumir_ventas_locales.", fuentes: Object.entries(datasets).filter(([, entry]) => canWrite || !(entry as Dataset).richardOnly).map(([name, entry]) => { const dataset: Dataset = entry; return { nombre: name, descripcion: dataset.description, pagina: `https://matearte-gestion.vercel.app${dataset.path}`, campo_busqueda: dataset.search ?? null, campo_fecha: dataset.date ?? null, filtros_exactos: Object.keys(filters[name as keyof typeof datasets] ?? {}) }; }), secciones_sin_registros: ["Inventario: Stock de productos", "Inventario: Movimientos y reservas", "Inventario: Reposición", "Inventario: Proveedores"] }));
+
+      server.registerTool("reservar_contacto_comercial", {
+        title: "Reservar una oportunidad para el envío de Richard",
+        description: "Solo Richard. Cuando Richard pida enviar la propuesta a esta empresa, usar una clave UUID nueva por intento. Esta herramienta no envía correo. Enviar desde su casilla conectada exclusivamente si puede_enviar=true. Si el resultado es incierto o la reserva ya existe, revisar Enviados antes de actuar. Tras enviar, registrar la referencia con registrar_resultado_contacto. Para preparar borradores alcanza con consultar_registros.",
+        inputSchema: z.object({ oportunidad_id: z.uuid(), clave_envio: z.uuid() }), annotations: writeTool,
+      }, async ({ oportunidad_id, clave_envio }) => {
+        if (!canWrite) return failure({ error: "Se requiere la cuenta de Richard." });
+        const { data, error } = await supabase.rpc("gestion_reservar_contacto_comercial", { p_id: oportunidad_id, p_clave: clave_envio });
+        return error ? failure({ error: queryErrorMessage(error) }) : result(data);
+      });
+
+      server.registerTool("registrar_resultado_contacto", {
+        title: "Registrar el resultado de un correo comercial",
+        description: "Solo Richard. Usar la oportunidad y la clave de la reserva. Marcar enviado solo cuando el proveedor haya confirmado el envío, con el ID del mensaje. Si se comprobó que no salió, liberar la reserva con enviado=false. Ante un resultado incierto, revisar Enviados en la casilla y mantener la reserva. Esta operación no envía correos.",
+        inputSchema: z.object({ oportunidad_id: z.uuid(), clave_envio: z.uuid(), enviado: z.boolean(), referencia_mensaje: z.string().trim().min(1).max(300).optional() }), annotations: writeTool,
+      }, async ({ oportunidad_id, clave_envio, enviado, referencia_mensaje }) => {
+        if (!canWrite) return failure({ error: "Se requiere la cuenta de Richard." });
+        if (enviado && !referencia_mensaje) return failure({ error: "Falta el identificador del correo enviado." });
+        const { data, error } = await supabase.rpc("gestion_resolver_contacto_comercial", {
+          p_id: oportunidad_id, p_clave: clave_envio, p_enviado: enviado, p_referencia: referencia_mensaje ?? null,
+        });
+        return error ? failure({ error: queryErrorMessage(error) }) : result(data);
+      });
 
         server.registerTool("listar_opciones_gastos", {
           title: "Categorías disponibles para registrar gastos",
@@ -780,6 +805,11 @@ Deno.serve(pipeline(
           limite: z.number().int().min(1).max(50).default(20),
           pagina: pageSchema,
           canal: z.string().min(1).max(60).optional(),
+          pais: z.string().min(1).max(100).optional(),
+          mercado: z.enum(["Uruguay", "Exterior"]).optional(),
+          region: z.enum(["Europa", "Estados Unidos", "Uruguay"]).optional(),
+          prioridad: z.enum(["Alta", "Media", "Exploratoria"]).optional(),
+          con_correo: z.boolean().optional(),
           estado: z.string().min(1).max(60).optional(),
           pedido_id: z.uuid().optional(),
           cliente_id: z.uuid().optional(),

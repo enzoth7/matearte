@@ -9,7 +9,7 @@ import { TablaCrm, type ColumnaCrm } from "./TablaCrm";
 import { cargarPanel, pedirYEsperar, type TipoPedido } from "./crmApi";
 import { Agente, Ajustes } from "./CrmAgente";
 import {
-  canalDe, categoriaDe, categoriasBuscadas, clientesReales, conSeccion, costeMetaUsd, etapaDe, interesDe, nombreDe,
+  anuncioDe, canalDe, categoriaDe, categoriasBuscadas, clientesReales, conSeccion, costeMetaUsd, etapaDe, filtroAnuncio, interesDe, nombreDe,
   paraRetomar, puntajePotencial, sePuedeRetomar, seccionesDe, ventanaHasta, type CrmLead, type CrmPanel, type Interes,
 } from "./crmModel";
 import "./crm.css";
@@ -362,6 +362,8 @@ function Charla({ lead, notify, recargar, cerrar }: { lead: CrmLead; notify: Not
             <h3>Ficha</h3>
             <dl className="crm-fila-datos">
               <div><dt>Quiere</dt><dd>{quiere || "—"}</dd></div>
+              {anuncioDe(lead) && <div><dt>Anuncio</dt><dd>{filtroAnuncio(lead)}</dd></div>}
+              {lead.fuente?.campana && <div><dt>Campaña</dt><dd>{lead.fuente.campana}</dd></div>}
               <div><dt>Siguiente</dt><dd className={lead.estado === "persona" && !lead.cierre ? "crm-atencion" : ""}>{siguiente}</dd></div>
             </dl>
             <div className="crm-telefono">
@@ -472,6 +474,7 @@ function Leads({ panel, abrir }: { panel: CrmPanel; abrir: Abrir }) {
   const columnas: ColumnaCrm<CrmLead>[] = [
     { id: "cliente", titulo: "Cliente", ancho: 9, celda: (l) => <NombreBoton l={l} abrir={abrir} />, orden: nombreDe },
     { id: "canal", titulo: "Canal", ancho: 6, celda: (l) => <Badge tone="green">{canalDe(l)}</Badge>, filtro: canalDe },
+    { id: "anuncio", titulo: "Anuncio", ancho: 8, celda: (l) => <div title={anuncioDe(l) ? l.fuente?.anuncioId : undefined}>{anuncioDe(l) || "—"}</div>, filtro: filtroAnuncio },
     { id: "telefono", titulo: "Teléfono", ancho: 8, celda: (l) => `+${l.telefono}` },
     { id: "fecha", titulo: "Fecha", ancho: 7, celda: (l) => fecha(l.creado_en), orden: (l) => l.creado_en, filtro: (l) => fecha(l.creado_en) },
     { id: "llego", titulo: "Llegó", ancho: 6, celda: (l) => hora(l.creado_en) },
@@ -491,6 +494,9 @@ function Leads({ panel, abrir }: { panel: CrmPanel; abrir: Abrir }) {
       leads.map((l) => ({
         Cliente: nombreDe(l),
         Canal: canalDe(l),
+        Anuncio: anuncioDe(l),
+        "ID del anuncio": anuncioDe(l) ? l.fuente?.anuncioId ?? "" : "",
+        Campaña: l.fuente?.campana ?? "",
         Teléfono: `+${l.telefono}`,
         Fecha: fecha(l.creado_en),
         Llegó: hora(l.creado_en),
@@ -518,7 +524,9 @@ function Leads({ panel, abrir }: { panel: CrmPanel; abrir: Abrir }) {
       <div className="crm-barra">
         <button type="button" className="crm-excel" onClick={excel} disabled={!leads.length}>Descargar en Excel (CSV)</button>
       </div>
-      <TablaCrm filas={leads} columnas={columnas} vacio="Todavía no hay leads." ordenInicial={{ id: "fecha", desc: true }} />
+      <div className="crm-leads-tabla">
+        <TablaCrm filas={leads} columnas={columnas} vacio="Todavía no hay leads." ordenInicial={{ id: "fecha", desc: true }} />
+      </div>
     </>
   );
 }

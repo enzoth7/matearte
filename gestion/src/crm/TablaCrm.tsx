@@ -90,7 +90,7 @@ export function TablaCrm<T extends { id: string }>({ filas, columnas, vacio, ord
             visibles.map((f) => (
               <tr key={f.id}>
                 {columnas.map((c) => (
-                  <td key={c.id} className={c.derecha ? "derecha" : ""}>{c.celda(f)}</td>
+                  <td key={c.id} data-columna={c.titulo} className={c.derecha ? "derecha" : ""}>{c.celda(f)}</td>
                 ))}
               </tr>
             ))

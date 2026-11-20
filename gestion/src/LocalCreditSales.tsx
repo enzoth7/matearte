@@ -13,6 +13,7 @@ const personalizedCategories = [
   { code: "mates-personalizados", label_es: "Mates personalizados" },
   { code: "bombillas-personalizadas", label_es: "Bombillas personalizadas" },
   { code: "materas-personalizadas", label_es: "Materas personalizadas" },
+  { code: "saldo", label_es: "Saldo" },
 ];
 
 export function LocalCreditSales(props: PageProps) {

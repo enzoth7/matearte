@@ -11,6 +11,7 @@ import { AdReports } from "./AdReportsPage";
 import { EmailTemplatesPage } from "./EmailTemplatesPage";
 import { CampaignsPage } from "./CampaignsPage";
 import { SegmentsPage } from "./SegmentsPage";
+import { CalendarPage } from "./CalendarPage";
 import { Badge } from "./ui";
 
 type Contact = { id: string; name: string | null; source: string; channel: string | null; country: string | null; created_at: string; has_account: boolean; subscription_status: string };
@@ -375,5 +376,6 @@ export function MarketingSection({ page, notify }: { page: string; notify: (mess
   if (page === "email-templates") return <EmailTemplatesPage />;
   if (page === "segmentos") return <SegmentsPage notify={notify} />;
   if (page === "suscripcion") return <Subscription notify={notify} />;
+  if (page === "calendario") return <CalendarPage />;
   return <CampaignsPage notify={notify} />;
 }

@@ -126,6 +126,21 @@ th[aria-sort] { color: var(--black); }
 /* Tablas más compactas: letra 13px, celdas que nunca se pisan. */
 .crm-tabla table { font-size: 13px; line-height: 18px; }
 .crm-tabla th { padding: 10px 8px; font-size: 11px; line-height: 14px; }
+.crm-leads-tabla .crm-tabla th { font-size: 12px; }
+.crm-leads-tabla .crm-th { flex-wrap: wrap; }
+.crm-leads-tabla .crm-filtro-boton { height: 48px; border-radius: 8px; color: #111111; background: #FDFDFC; }
+.crm-leads-tabla .crm-filtro-boton.activo { background: #1E120C; color: #FDFDFC; }
+.crm-leads-tabla { min-width: 0; container-type: inline-size; }
+@container (max-width: 760px) {
+  .crm-leads-tabla table, .crm-leads-tabla thead, .crm-leads-tabla tbody { display: block; }
+  .crm-leads-tabla colgroup { display: none; }
+  .crm-leads-tabla tr { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); }
+  .crm-leads-tabla thead th:not(:has(button)) { display: none; }
+  .crm-leads-tabla .crm-tabla td { border: 0; text-align: left; }
+  .crm-leads-tabla tbody tr + tr { border-top: 1px solid var(--line); }
+  .crm-leads-tabla td[data-columna]::before { content: attr(data-columna); display: block; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .crm-leads-tabla .crm-filtro-menu { min-width: 0; max-width: none; width: 130px; overflow-wrap: anywhere; left: auto; right: -10px; }
+}
 .crm-tabla td { padding: 12px 8px; white-space: normal; overflow: hidden; }
 .crm-tabla td > *, .crm-tabla .badge { max-width: 100%; }
 .crm-tabla .badge { white-space: normal; overflow-wrap: anywhere; }
