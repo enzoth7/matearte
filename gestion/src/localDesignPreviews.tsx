@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { domToBlob } from 'modern-screenshot';
 import { ConfiguratorPreview } from '../../personalizador/src/components/ConfiguratorPreview';
-import { ContinuousFlejePreview } from '../../personalizador/src/components/ContinuousFlejePreview';
 import { FlatFlejePreview } from '../../personalizador/src/components/FlatFlejePreview';
 import { rimIconCatalog } from '../../personalizador/src/catalog/rimIconCatalog';
 import { normalizeFlejeCustomization, type FlejeSideCustomization } from '../../personalizador/src/types/personalizer';
@@ -17,8 +16,7 @@ export function SavedDesignViews({ snapshot, exporting = false, uniformGrid = fa
   const model = snapshot.assembly?.selections?.['tipo-mate'] || c.modelId || 'camionero';
   return <div className={uniformGrid ? "customer-assets recovered-production-views" : exporting ? "customer-assets" : "local-production-views"}>
     {c.capabilities?.hasRim !== false && <section className="customer-asset local-production-rim"><h4>Virola</h4><div data-local-preview="virola" style={exporting ? {width:600,height:600,background:"#fbf3de"} : undefined}><ConfiguratorPreview model={model} rim={c.rim} engravingTypeId={c.engravingTypeId} /></div></section>}
-    {c.capabilities?.hasFleje && snapshot.flejeConfiguration?.continuous && <section className="customer-asset local-production-fleje"><h4>Fleje completo</h4><div data-local-preview="fleje_full" style={exporting ? { width:1998, height:239 } : undefined}><ContinuousFlejePreview config={normalizeFlejeCustomization(snapshot.flejeConfiguration)} /></div></section>}
-    {c.capabilities?.hasFleje && snapshot.flejeConfiguration && !snapshot.flejeConfiguration.continuous && (['front','back'] as const).map(side => <section className="customer-asset local-production-fleje" key={side}><h4>{side === 'front' ? 'Fleje, frente' : 'Fleje, reverso'}</h4><div data-local-preview={`fleje_${side}`} style={exporting ? {width:900,background:"#fbf3de"} : undefined}><FlatFlejePreview flejeConfig={snapshot.flejeConfiguration} activeSide={side} visibleSides={[side]} showLabels={false} /></div></section>)}
+    {c.capabilities?.hasFleje && snapshot.flejeConfiguration && (['front','back'] as const).map(side => <section className="customer-asset local-production-fleje" key={side}><h4>{side === 'front' ? 'Fleje · frente' : 'Fleje · reverso'}</h4><div data-local-preview={`fleje_${side}`} style={exporting ? {width:900,background:"#fbf3de"} : undefined}><FlatFlejePreview flejeConfig={snapshot.flejeConfiguration} activeSide={side} visibleSides={[side]} showLabels={false} /></div></section>)}
   </div>;
 }
 async function resolveImages(snapshot: Snapshot) {
@@ -40,7 +38,7 @@ export function RecoveredDesignViews({snapshot, uniformGrid = false}:{snapshot:S
   const [resolved,setResolved]=useState<Snapshot>(null);
   const [error,setError]=useState('');
   useEffect(()=>{let active=true; resolveImages(snapshot).then(value=>{if(active)setResolved(value)}).catch(()=>{if(active)setError('No se pudieron cargar las imágenes del diseño.')});return()=>{active=false}},[snapshot]);
-  return resolved ? <SavedDesignViews snapshot={resolved} uniformGrid={uniformGrid}/> : <div role="status">{error || 'Cargando diseño guardado…'}</div>;
+  return resolved ? <SavedDesignViews snapshot={resolved} uniformGrid={uniformGrid}/> : <p>{error || 'Cargando diseño guardado…'}</p>;
 }
 
 function flejePrintImages(config: FlejeSideCustomization) {
@@ -80,7 +78,6 @@ export function FlejePrintReferences({ snapshot, fallback }: { snapshot: Snapsho
   if (!resolved?.flejeConfiguration) return <div data-fleje-print-pending="true" />;
   const fleje = normalizeFlejeCustomization(resolved.flejeConfiguration);
   if ([fleje.sides.front, fleje.sides.back].some(side => flejePrintImages(side).some(icon => !icon.src))) return <>{fallback}</>;
-  if (fleje.continuous) return <div className="production-print-fleje-continuous" data-print-ready="true"><ContinuousFlejePreview config={fleje} /></div>;
   return <div className="production-print-fleje-references" data-print-ready="true">
     <FlejePrintSide title="Frente" config={fleje.sides.front} onImageError={() => setFailed(true)} />
     <FlejePrintSide title="Reverso" config={fleje.sides.back} onImageError={() => setFailed(true)} />
