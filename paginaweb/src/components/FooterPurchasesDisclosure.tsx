@@ -36,6 +36,7 @@ export function FooterPurchasesDisclosure() {
       >
         <nav aria-label={t("purchaseInfo")}>
           {purchaseLinks.map((item) => <Link key={item.href} href={item.href}>{t(item.label)}</Link>)}
+          <Link href="/guias">{t("guides")}</Link>
         </nav>
       </div>
     </div>

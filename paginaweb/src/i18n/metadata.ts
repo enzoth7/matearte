@@ -6,7 +6,8 @@ import { localizeCanonicalPath } from "@/i18n/paths";
 type DynamicRouteHref =
   | { pathname: "/producto/[slug]"; params: { slug: string } }
   | { pathname: "/catalogo/[categoria]"; params: { categoria: string } }
-  | { pathname: "/pedidos/[id]"; params: { id: string } };
+  | { pathname: "/pedidos/[id]"; params: { id: string } }
+  | { pathname: "/guias/[slug]"; params: { slug: string } };
 
 export type RouteHref = keyof typeof localizedPathnames | DynamicRouteHref;
 

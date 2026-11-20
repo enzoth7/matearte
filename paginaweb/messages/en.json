@@ -91,7 +91,8 @@
     "privacy": "Privacy policy",
     "purchaseTerms": "Purchase terms",
     "faq": "FAQ",
-    "shipping": "Domestic and international shipping"
+    "shipping": "Domestic and international shipping",
+    "guides": "Guides"
   },
   "notFound": {
     "title": "This piece is not in the collection.",
@@ -489,8 +490,8 @@
     "ctaMobile1": "A piece from Uruguay,",
     "ctaMobile2": "made to find its way",
     "ctaMobile3": "to you.",
-    "ctaBodyDesktop": "Ask us about customization and international shipping options. Availability and cost are confirmed directly.",
-    "ctaBodyMobile": "Ask us about customization and international shipping. We'll reply directly.",
+    "ctaBodyDesktop": "Ask us about customization. International purchases are paid on the website with PayPal, shipping included.",
+    "ctaBodyMobile": "Ask us about customization. International orders are paid with PayPal, shipping included.",
     "ctaAction": "Talk to MateArte",
     "mapTitle": "MateArte Uruguay international destinations",
     "mapDescription": "World map highlighting {count} countries where MateArte has shipped its pieces.",
@@ -615,7 +616,6 @@
     "choose": "Choose…",
     "address": "Address",
     "internationalPurchase": "International purchase",
-    "internationalBody": "We'll save your order with a reference number and prepare a WhatsApp message containing every item. We'll coordinate international shipping and payment there.",
     "country": "Country",
     "city": "City",
     "optional": "optional",
@@ -645,10 +645,8 @@
     "bankTransferFailed": "We couldn't save the order and its receipt.",
     "bankTransferUnavailable": "We couldn't load the bank details. Please retry before transferring.",
     "personalAttention": "Personal assistance",
-    "coordinateWhatsapp": "Coordinate on WhatsApp",
     "whatsappSummary": "The message will include your order number, destination, items and subtotal before shipping.",
     "preparing": "Preparing order…",
-    "coordinateAction": "Coordinate on WhatsApp",
     "contactUs": "Contact us",
     "mercadoPagoAction": "Go to Mercado Pago",
     "discount": "Discount",
@@ -690,8 +688,7 @@
     "paypalCancelled": "Payment cancelled. You can try again.",
     "paypalDeclined": "Payment method declined. Please try another.",
     "paypalPending": "We are checking your payment confirmation. Do not pay again; check your orders or contact us if confirmation does not arrive.",
-    "paypalError": "We couldn't process the payment. Please try again.",
-    "orWhatsapp": "or coordinate via WhatsApp"
+    "paypalError": "We couldn't process the payment. Please try again."
   },
   "auth": {
     "openGoogle": "Opening Google…",
@@ -717,7 +714,7 @@
     "retry": "Try again",
     "back": "Back to my orders",
     "loading": "Checking the confirmed status…",
-    "internationalStatus": "Your international purchase has been registered. We're coordinating shipping and payment on WhatsApp.",
+    "internationalStatus": "Your international purchase has been registered and we're reviewing it.",
     "processingFallback": "We're processing your order information.",
     "processingPayment": "Processing payment",
     "updatesAutomatically": "This page will update when your order status changes.",
@@ -881,5 +878,15 @@
     "welcomeCouponIntro": "Use code",
     "welcomeCouponOutro": "on your first purchase.",
     "welcomeCouponCart": "Go to cart"
+  },
+  "guidesPage": {
+    "title": "Guides",
+    "metaTitle": "Guides on mates and leather",
+    "intro": "How to cure and care for your mate, which model to choose and how to order gifts for your company, told from our workshop in Paysandú.",
+    "metaDescription": "How to cure and care for your mate, which model to choose, how to care for leather and how to order personalized corporate gifts.",
+    "read": "Read the guide",
+    "faq": "Frequently asked questions",
+    "more": "Keep reading",
+    "home": "Home"
   }
 }

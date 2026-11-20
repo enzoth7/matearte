@@ -22,6 +22,9 @@ export function useStructuredVariantSelection(product: Product) {
       const values = axis.values.map(option => option.value);
       if (axis.code === "color" && requestedColor && values.includes(requestedColor)) next.color = requestedColor;
       else if (values.length === 1) next[axis.code] = values[0];
+      // Conversión: cada grupo arranca con una opción elegida («Mediano» si existe, si no la primera) para
+      // que «Agregar al carrito» esté activo desde el principio. El cliente la cambia si quiere.
+      else if (values.length > 1) next[axis.code] = (axis.values.find(option => /^median/i.test(String(option.label))) ?? axis.values[0]).value;
     });
     setSelected(next);
   }, [axes]);

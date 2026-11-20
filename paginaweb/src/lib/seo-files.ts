@@ -1,3 +1,4 @@
+import { guias, slugsDeGuia } from "@/content/guias";
 import type { MetadataRoute } from "next";
 import { products } from "@/data/catalog";
 import { localizedPathname, type RouteHref } from "@/i18n/metadata";
@@ -127,6 +128,21 @@ export function buildSitemapFile(catalogProducts = products): MetadataRoute.Site
       images: inCategory.slice(0, 3).flatMap((product) => product.images.slice(0, 1).map((image) => absoluteUrl(image.src))),
     }));
   });
+  // Guías: cada traducción tiene su propio slug, así que los hreflang se arman por guía.
+  const guideEntries = [
+    ...locales.map((locale) => ({
+      url: absoluteUrl(localizedPathname(locale, "/guias")),
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+      alternates: { languages: languageLinks("/guias") },
+    })),
+    ...guias.es.flatMap((guia) => {
+      const slugs = slugsDeGuia(guia.id);
+      const ruta = (locale: (typeof locales)[number]) => absoluteUrl(localizedPathname(locale, { pathname: "/guias/[slug]", params: { slug: slugs[locale] } }));
+      const languages = { "es-UY": ruta("es"), en: ruta("en"), "pt-BR": ruta("pt"), "x-default": ruta("es") };
+      return locales.map((locale) => ({ url: ruta(locale), changeFrequency: "monthly" as const, priority: 0.6, alternates: { languages } }));
+    }),
+  ];
   const productEntries = catalogProducts.flatMap((product) => {
     const href = { pathname: "/producto/[slug]" as const, params: { slug: product.slug } };
     const lastModified = toDate(product.lastModifiedAt);
@@ -140,5 +156,5 @@ export function buildSitemapFile(catalogProducts = products): MetadataRoute.Site
     }));
   });
 
-  return [...staticEntries, ...categoryEntries, ...productEntries];
+  return [...staticEntries, ...guideEntries, ...categoryEntries, ...productEntries];
 }

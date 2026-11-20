@@ -53,6 +53,7 @@ export async function Footer() {
         <nav className="home-footer-purchases" aria-label={t("purchaseInfo")}>
           <div data-copy className="home-footer-label">{t("purchases")}</div>
           {purchaseLinks.map((item) => <Link key={item.href} href={item.href}>{t(item.label)}</Link>)}
+          <Link href="/guias">{t("guides")}</Link>
         </nav>
         <div className="home-footer-newsletter">
           <div data-copy className="home-footer-label">{t("newsTitle")}</div>

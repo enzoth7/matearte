@@ -43,7 +43,16 @@ function organizationNode(description: string) {
       "@type": "PostalAddress",
       streetAddress: "25 de Mayo 1734",
       addressLocality: "Paysandú",
+      addressRegion: "Paysandú",
+      postalCode: "60000",
       addressCountry: "UY",
+    },
+    geo: { "@type": "GeoCoordinates", latitude: -32.3222743341629, longitude: -58.0697469439803 },
+    openingHoursSpecification: {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+      opens: "10:00",
+      closes: "19:00",
     },
     contactPoint: {
       "@type": "ContactPoint",
@@ -309,6 +318,7 @@ function productOffers(product: Product, url: string, locale: AppLocale) {
       availability: "https://schema.org/InStock",
       itemCondition: "https://schema.org/NewCondition",
       seller: { "@id": organizationId },
+      hasMerchantReturnPolicy: politicaDeDevolucion(product),
     };
   };
   if (priced.length === 1) return offer(priced[0]);
@@ -322,6 +332,22 @@ function productOffers(product: Product, url: string, locale: AppLocale) {
     offerCount: priced.length,
     availability: "https://schema.org/InStock",
     offers: priced.map(offer),
+  };
+}
+
+function politicaDeDevolucion(product: Product) {
+  if (product.category === "personalizados" || product.category === "regalos") {
+    return { "@type": "MerchantReturnPolicy", applicableCountry: "UY", returnPolicyCategory: "https://schema.org/MerchantReturnNotPermitted" };
+  }
+  return {
+    "@type": "MerchantReturnPolicy",
+    applicableCountry: "UY",
+    returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+    merchantReturnDays: 10,
+    returnMethod: ["https://schema.org/ReturnByMail", "https://schema.org/ReturnInStore"],
+    returnFees: "https://schema.org/ReturnShippingFees",
+    refundType: "https://schema.org/FullRefund",
+    merchantReturnLink: absoluteUrl("/compras/condiciones-de-compra"),
   };
 }
 
@@ -374,7 +400,10 @@ export function buildProductStructuredData(
   };
 }
 
-export function productSeoCopy(product: Product, locale: AppLocale) {
+export function productSeoCopy(original: Product, locale: AppLocale) {
+  const unica = original.variants.length === 1 ? specValue(original.variants[0].label.trim(), locale) : "";
+  const yaLoDice = !unica || original.name.toLocaleLowerCase(locale).includes(unica.toLocaleLowerCase(locale));
+  const product = yaLoDice ? original : { ...original, name: `${original.name} ${unica}` };
   const titles: Record<AppLocale, Record<string, string>> = {
     es: {
       mates: `${product.name} uruguayo artesanal`,
@@ -434,13 +463,23 @@ export function productSeoCopy(product: Product, locale: AppLocale) {
       carteras: `${product.name}, bolsa artesanal de couro`,
     },
   };
+  // La plantilla del sitio ya agrega «| MateArte Uruguay»: la marca no se repite en el título.
   const fallbackTitles: Record<AppLocale, string> = {
-    es: `${product.name} de MateArte Uruguay`,
-    en: `${product.name} by MateArte Uruguay`,
-    pt: `${product.name} da MateArte Uruguai`,
+    es: `${product.name} artesanal`,
+    en: `${product.name}, handcrafted`,
+    pt: `${product.name} artesanal`,
   };
+  // Descripciones muy cortas (menos de 70 caracteres) se completan con el origen y los envíos.
+  const sufijo: Record<AppLocale, string> = {
+    es: "Hecho a mano en Paysandú, Uruguay. Envíos a todo el país y al exterior.",
+    en: "Handmade in Paysandú, Uruguay. Shipping across Uruguay and worldwide.",
+    pt: "Feito à mão em Paysandú, Uruguai. Envios para todo o país e o exterior.",
+  };
+  const base = truncateForMeta(product.description);
+  const texto = product.description.trim();
+  const description = base.length >= 70 ? base : truncateForMeta(texto ? `${texto.replace(/[.s]*$/, ".")} ${sufijo[locale]}` : sufijo[locale]);
   return {
     title: titles[locale][product.category as CategorySlug] ?? fallbackTitles[locale],
-    description: truncateForMeta(product.description),
+    description,
   };
 }

@@ -24,8 +24,14 @@ export function ProductSpecsBox({ product, selectedOptions, activeVariant }: Pro
   const locale: Locale = rawLocale === "en" || rawLocale === "pt" ? rawLocale : "es";
   const details = [...(product.attributeDetails ?? catalogAttributeDetails(defaultCatalogTaxonomy, product.attributes ?? {}))];
   const extraAttributes: CatalogValueMap = {};
-  if (!details.some(detail => detail.code === "material")) {
-    const material = product.materials?.[0] ?? product.filterData?.materials?.[0];
+  // Todos los materiales que se marcan en Gestión (por ejemplo Cuero y Charol), no solo el primero.
+  const materiales = [...new Set((product.filterData?.materials ?? []).map(String))];
+  if (materiales.length > 0) {
+    const i = details.findIndex(detail => detail.code === "material");
+    if (i >= 0) details.splice(i, 1);
+    extraAttributes.material = materiales;
+  } else if (!details.some(detail => detail.code === "material")) {
+    const material = product.materials?.[0];
     if (material) extraAttributes.material = material;
   }
   if (product.category === "mates" && !details.some(detail => detail.code === "tipo-mate")) {

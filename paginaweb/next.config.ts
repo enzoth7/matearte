@@ -5,7 +5,19 @@ import { productSlugRedirectRules } from "./src/lib/product-slug-redirects";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
+// Cabeceras de seguridad básicas para todo el sitio (la web no se muestra dentro de otros sitios).
+const cabecerasDeSeguridad = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+];
+
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  async headers() {
+    return [{ source: "/:path*", headers: cabecerasDeSeguridad }];
+  },
   // Catalog taxonomy is shared with the commerce admin one directory above.
   turbopack: {
     root: resolve(__dirname, ".."),

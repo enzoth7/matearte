@@ -19,6 +19,13 @@ El sitio está en español, inglés y portugués de Brasil. Los precios se muest
 - Clientes y envíos internacionales: https://www.matearteuruguay.com/clientes
 - Contacto: https://www.matearteuruguay.com/contacto
 
+## Guías
+
+- Cómo curar un mate de calabaza: https://www.matearteuruguay.com/guias/como-curar-un-mate
+- Qué mate elegir (imperial, criollo, torpedo, camionero, estribo): https://www.matearteuruguay.com/guias/que-mate-elegir
+- Cómo cuidar el cuero del mate y la matera: https://www.matearteuruguay.com/guias/cuidado-del-cuero
+- Regalos empresariales personalizados (desde 30 unidades, 7 a 14 días hábiles): https://www.matearteuruguay.com/guias/regalos-para-empresas
+
 ## English pages
 
 - Catalog: https://www.matearteuruguay.com/en/catalog
@@ -27,6 +34,7 @@ El sitio está en español, inglés y portugués de Brasil. Los precios se muest
 - About: https://www.matearteuruguay.com/en/about
 - Customers: https://www.matearteuruguay.com/en/customers
 - Contact: https://www.matearteuruguay.com/en/contact
+- Guides: https://www.matearteuruguay.com/en/guides (how to cure a gourd mate, which mate to choose, leather care, corporate gifts)
 
 ## Páginas em português
 
@@ -36,6 +44,7 @@ El sitio está en español, inglés y portugués de Brasil. Los precios se muest
 - Sobre nós: https://www.matearteuruguay.com/pt/sobre-nos
 - Clientes: https://www.matearteuruguay.com/pt/clientes
 - Contato: https://www.matearteuruguay.com/pt/contato
+- Guias: https://www.matearteuruguay.com/pt/guias (como curar uma cuia, qual cuia escolher, cuidado com o couro, presentes corporativos)
 
 ## Productos
 
@@ -48,4 +57,4 @@ Cada producto tiene su página en https://www.matearteuruguay.com/producto/<nomb
 - Correo: matearte.ventas@gmail.com
 - Instagram: https://www.instagram.com/matearteuruguay/
 
-Los pedidos internacionales y sus envíos se coordinan directamente con MateArte. Las páginas de condiciones de compra, envíos, términos y privacidad son públicas e indexables.
+Las compras desde el exterior se hacen en la tienda web: el pago y el envío al exterior se gestionan por PayPal. Las páginas de condiciones de compra, envíos, términos y privacidad son públicas e indexables.

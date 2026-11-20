@@ -91,7 +91,8 @@
     "privacy": "Política de privacidad",
     "purchaseTerms": "Condiciones de compra",
     "faq": "Preguntas frecuentes",
-    "shipping": "Envíos nacionales e internacionales"
+    "shipping": "Envíos nacionales e internacionales",
+    "guides": "Guías"
   },
   "notFound": {
     "title": "Esta pieza no está en la colección.",
@@ -489,8 +490,8 @@
     "ctaMobile1": "Una pieza de Uruguay,",
     "ctaMobile2": "hecha para llegar",
     "ctaMobile3": "hasta vos.",
-    "ctaBodyDesktop": "Consultanos por personalización y opciones de envío internacional. La disponibilidad y el costo se confirman de forma directa.",
-    "ctaBodyMobile": "Consultanos por personalización y opciones de envío internacional. Te respondemos de forma directa.",
+    "ctaBodyDesktop": "Consultanos por personalización. Las compras al exterior se pagan en la web con PayPal, con el envío incluido.",
+    "ctaBodyMobile": "Consultanos por personalización. Al exterior pagás con PayPal, con el envío incluido.",
     "ctaAction": "Hablar con MateArte",
     "mapTitle": "Destinos internacionales de MateArte Uruguay",
     "mapDescription": "Mapa del mundo con {count} países destacados a los que MateArte ha enviado sus piezas.",
@@ -615,7 +616,6 @@
     "choose": "Elegir…",
     "address": "Dirección",
     "internationalPurchase": "Compra internacional",
-    "internationalBody": "Guardaremos el pedido con un número y prepararemos un mensaje de WhatsApp con todos los artículos. Allí coordinamos el envío internacional y la forma de pago.",
     "country": "País",
     "city": "Ciudad",
     "optional": "opcional",
@@ -645,10 +645,8 @@
     "bankTransferFailed": "No se pudo guardar el pedido y su comprobante.",
     "bankTransferUnavailable": "No pudimos cargar los datos bancarios. Reintentá antes de transferir.",
     "personalAttention": "Atención personal",
-    "coordinateWhatsapp": "Coordiná por WhatsApp",
     "whatsappSummary": "El mensaje incluirá el número de pedido, tu destino, los artículos y el subtotal sin envío.",
     "preparing": "Preparando pedido…",
-    "coordinateAction": "Coordinar por WhatsApp",
     "contactUs": "Contactarte con nosotros",
     "mercadoPagoAction": "Ir a Mercado Pago",
     "discount": "Descuento",
@@ -690,8 +688,7 @@
     "paypalCancelled": "Pago cancelado. Podés intentar de nuevo.",
     "paypalDeclined": "Medio de pago rechazado. Probá con otro.",
     "paypalPending": "Estamos verificando la confirmación de tu pago. No vuelvas a pagar; revisá tus pedidos o contactanos si la confirmación no llega.",
-    "paypalError": "No se pudo procesar el pago. Intentá nuevamente.",
-    "orWhatsapp": "o coordiná por WhatsApp"
+    "paypalError": "No se pudo procesar el pago. Intentá nuevamente."
   },
   "auth": {
     "openGoogle": "Abriendo Google…",
@@ -717,7 +714,7 @@
     "retry": "Intentar nuevamente",
     "back": "Volver a mis pedidos",
     "loading": "Consultando el estado confirmado…",
-    "internationalStatus": "Tu compra internacional quedó registrada. Estamos coordinando el envío y el pago por WhatsApp.",
+    "internationalStatus": "Tu compra internacional quedó registrada y la estamos revisando.",
     "processingFallback": "Estamos procesando la información de tu pedido.",
     "processingPayment": "Procesando el pago",
     "updatesAutomatically": "Esta pantalla se actualizará cuando cambie la situación del pedido.",
@@ -881,5 +878,15 @@
     "welcomeCouponIntro": "Usá el código",
     "welcomeCouponOutro": "en tu primera compra.",
     "welcomeCouponCart": "Ir al carrito"
+  },
+  "guidesPage": {
+    "title": "Guías",
+    "metaTitle": "Guías sobre mates y cuero",
+    "intro": "Cómo curar y cuidar tu mate, qué modelo elegir y cómo pedir regalos para tu empresa, contado desde nuestro taller de Paysandú.",
+    "metaDescription": "Cómo curar y cuidar tu mate, qué modelo elegir, cómo cuidar el cuero y cómo pedir regalos personalizados para empresas.",
+    "read": "Leer la guía",
+    "faq": "Preguntas frecuentes",
+    "more": "Para seguir",
+    "home": "Inicio"
   }
 }

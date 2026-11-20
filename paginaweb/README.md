@@ -36,7 +36,7 @@ El catálogo se obtiene desde Supabase en cada visita. Los productos editoriales
 
 El backend recalcula productos y diseños; no confía en importes enviados por el navegador. Los precios de catálogo ya incluyen el ajuste global configurado en Commerce Admin, por lo que no se agrega una comisión separada al finalizar la compra. Para pagos nacionales crea primero la preferencia de Mercado Pago y guarda el pedido solamente cuando el webhook firmado confirma un pago aprobado. Los intentos no concretados no generan pedidos, pagos ni notificaciones. El envío nacional se excluye del cobro online y se paga al recibir.
 
-Los pedidos internacionales se crean con estado de revisión manual y abren WhatsApp con número de pedido, destino, artículos y subtotal. No generan una preferencia de Mercado Pago.
+Los pedidos internacionales se pagan con PayPal: el checkout calcula el envío internacional según el país y el peso (`src/lib/international-shipping.ts`) y lo incluye en el mismo pago. No generan una preferencia de Mercado Pago ni se coordinan por WhatsApp.
 
 Los pedidos personalizados guardan un snapshot inmutable con las vistas PNG y los originales activos utilizados al comprar. Gestión permite consultar las vistas y los originales mediante enlaces firmados temporales.
 

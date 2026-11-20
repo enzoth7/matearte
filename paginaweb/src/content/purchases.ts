@@ -61,11 +61,11 @@ export const purchasePolicies: Record<Locale, Record<"terms" | "privacy" | "purc
     },
     shipping: {
       title: "Envíos nacionales e internacionales",
-      description: "Información sobre entregas y coordinación internacional de MateArte Uruguay.",
-      introduction: "Opciones de entrega dentro de Uruguay y coordinación personalizada para destinos del exterior.",
+      description: "Información sobre entregas en Uruguay y envíos al exterior de MateArte Uruguay.",
+      introduction: "Opciones de entrega dentro de Uruguay y envíos al exterior con pago por PayPal.",
       sections: [
         { title: "Retiro y envíos dentro de Uruguay", paragraphs: ["Durante el checkout se muestran las modalidades activas para el destino indicado. Si elegís envío, pagás a la agencia al recibir el pedido. Se cobra el costo real de la entrega, que varía según el destino y el peso; no se suma al pago en línea y no hay una tarifa única publicada."], items: ["El retiro disponible se identifica expresamente como una opción sin costo.", "El importe de la entrega nacional depende de lo que cobre la agencia de transporte.", "Los plazos de preparación y entrega deben confirmarse para cada pedido."] },
-        { title: "Envíos internacionales", paragraphs: ["Las compras con destino fuera de Uruguay se registran como una solicitud para revisión manual. El sitio prepara un mensaje de WhatsApp con el número de pedido, el destino, los artículos y el subtotal sin envío."], items: ["El costo de envío y la forma de pago se coordinan personalmente.", "La producción o el despacho comienzan después de completar esa coordinación."] },
+        { title: "Envíos internacionales", paragraphs: ["Las compras con destino fuera de Uruguay se pagan en la web con PayPal. El pago y el envío al exterior se gestionan por PayPal: el costo del envío se calcula en el checkout según el país y el peso del pedido, y se incluye en el mismo pago."], items: ["Pagás el pedido y el envío juntos, con PayPal, desde el checkout.", "El pedido queda confirmado cuando PayPal confirma el pago."] },
         { title: "Seguimiento", paragraphs: ["La información disponible del pedido puede consultarse desde la cuenta. Para detalles de preparación, transportista o entrega, se utilizan los canales de contacto de MateArte."] },
       ],
     },
@@ -110,11 +110,11 @@ export const purchasePolicies: Record<Locale, Record<"terms" | "privacy" | "purc
     },
     shipping: {
       title: "Domestic and international shipping",
-      description: "Information about deliveries and international coordination at MateArte Uruguay.",
-      introduction: "Delivery options within Uruguay and personalized coordination for international destinations.",
+      description: "Information about deliveries in Uruguay and international shipping at MateArte Uruguay.",
+      introduction: "Delivery options within Uruguay and international shipping paid through PayPal.",
       sections: [
         { title: "Pickup and shipping within Uruguay", paragraphs: ["Checkout shows the delivery methods available for your destination. If you choose shipping, you pay the carrier upon delivery. The actual charge varies by destination and weight; it is not added to the online payment and there is no single published rate."], items: ["Available pickup is expressly identified as a free option.", "The domestic delivery charge depends on the carrier's rate.", "Preparation and delivery times must be confirmed for each order."] },
-        { title: "International shipping", paragraphs: ["Purchases with a destination outside Uruguay are registered as requests for manual review. The website prepares a WhatsApp message with the order number, destination, items and subtotal excluding shipping."], items: ["Shipping cost and payment method are coordinated personally.", "Production or dispatch begins after that coordination is complete."] },
+        { title: "International shipping", paragraphs: ["Purchases with a destination outside Uruguay are paid on the website with PayPal. Payment and international shipping are handled through PayPal: the shipping cost is calculated at checkout based on the country and the weight of the order, and it is included in the same payment."], items: ["You pay for the order and the shipping together, with PayPal, at checkout.", "The order is confirmed once PayPal confirms the payment."] },
         { title: "Tracking", paragraphs: ["Available order information can be viewed from the account. MateArte's contact channels are used for preparation, carrier or delivery details."] },
       ],
     },
@@ -159,11 +159,11 @@ export const purchasePolicies: Record<Locale, Record<"terms" | "privacy" | "purc
     },
     shipping: {
       title: "Envios nacionais e internacionais",
-      description: "Informações sobre entregas e coordenação internacional da MateArte Uruguai.",
-      introduction: "Opções de entrega dentro do Uruguai e coordenação personalizada para destinos no exterior.",
+      description: "Informações sobre entregas no Uruguai e envios internacionais da MateArte Uruguai.",
+      introduction: "Opções de entrega dentro do Uruguai e envios internacionais com pagamento pelo PayPal.",
       sections: [
         { title: "Retirada e envios dentro do Uruguai", paragraphs: ["Durante o checkout são exibidas as modalidades disponíveis para o destino informado. Se você escolher o envio, paga à transportadora no recebimento. O custo real varia conforme o destino e o peso; não é somado ao pagamento online e não há uma tarifa única publicada."], items: ["A retirada disponível é identificada expressamente como uma opção sem custo.", "O valor da entrega nacional depende da tarifa da transportadora.", "Os prazos de preparação e entrega devem ser confirmados para cada pedido."] },
-        { title: "Envios internacionais", paragraphs: ["As compras com destino fora do Uruguai são registradas como solicitações para revisão manual. O site prepara uma mensagem de WhatsApp com o número do pedido, o destino, os itens e o subtotal sem envio."], items: ["O custo de envio e a forma de pagamento são coordenados pessoalmente.", "A produção ou o despacho começa depois de concluir essa coordenação."] },
+        { title: "Envios internacionais", paragraphs: ["As compras com destino fora do Uruguai são pagas no site com PayPal. O pagamento e o envio internacional são feitos pelo PayPal: o custo do envio é calculado no checkout conforme o país e o peso do pedido e entra no mesmo pagamento."], items: ["Você paga o pedido e o envio juntos, com PayPal, no checkout.", "O pedido fica confirmado quando o PayPal confirma o pagamento."] },
         { title: "Acompanhamento", paragraphs: ["As informações disponíveis do pedido podem ser consultadas na conta. Para detalhes de preparação, transportadora ou entrega, são utilizados os canais de contato da MateArte."] },
       ],
     },

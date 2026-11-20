@@ -34,12 +34,14 @@ describe("useStructuredVariantSelection", () => {
       { code: "tamano", label: "Tamaño", values: [{ value: "chico", label: "Chico" }, { value: "mediano", label: "Mediano" }, { value: "grande", label: "Grande" }] },
       { code: "interior", label: "Interior", values: [{ value: "calabaza", label: "Calabaza" }] },
     ]);
-    expect(result.current.complete).toBe(false);
-
-    act(() => result.current.select("tamano", "mediano"));
-
+    // Arranca con «Mediano» elegido: «Agregar al carrito» queda activo desde el principio.
     expect(result.current.selected.tamano).toBe("mediano");
     expect(result.current.activeVariant?.id).toBe("v-todos");
+    expect(result.current.complete).toBe(true);
+
+    act(() => result.current.select("tamano", "grande"));
+
+    expect(result.current.selected.tamano).toBe("grande");
     expect(result.current.complete).toBe(true);
   });
 });

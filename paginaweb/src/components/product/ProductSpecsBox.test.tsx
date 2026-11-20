@@ -36,6 +36,12 @@ describe("ProductSpecsBox", () => {
     expect(container.firstChild).toBeNull();
   });
 
+  it("muestra todos los materiales marcados en Gestión, no solo el primero", () => {
+    const product: Product = { ...emptyProduct, category: "botas", materials: ["Cuero"], filterData: { materials: ["cuero", "charol"] } as Product["filterData"] };
+    renderBox(product);
+    expect(screen.getByText("Cuero, Charol")).toBeTruthy();
+  });
+
   it("muestra título y atributos básicos en español", () => {
     const product: Product = {
       ...emptyProduct,

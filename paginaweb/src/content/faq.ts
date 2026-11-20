@@ -76,7 +76,7 @@ export const faqPages: Record<Locale, FaqPage> = {
       {
         question: "¿Hacen envíos fuera de Uruguay?",
         answer: [
-          "Sí. Los pedidos internacionales se registran en la tienda y nuestro equipo coordina por WhatsApp el envío y la forma de pago según el destino.",
+          "Sí. Las compras al exterior se hacen en la web y se pagan con PayPal: el pago y el envío se gestionan por PayPal, con el costo del envío calculado en el checkout según el país y el peso.",
         ],
       },
     ],
@@ -153,7 +153,7 @@ export const faqPages: Record<Locale, FaqPage> = {
       {
         question: "Do you ship outside Uruguay?",
         answer: [
-          "Yes. International orders are registered in the store, and our team coordinates shipping and payment by WhatsApp according to the destination.",
+          "Yes. International purchases are made on the website and paid with PayPal: payment and shipping are handled through PayPal, with the shipping cost calculated at checkout based on the country and weight.",
         ],
       },
     ],
@@ -230,7 +230,7 @@ export const faqPages: Record<Locale, FaqPage> = {
       {
         question: "Vocês enviam para fora do Uruguai?",
         answer: [
-          "Sim. Os pedidos internacionais são registrados na loja, e nossa equipe coordena pelo WhatsApp o envio e a forma de pagamento conforme o destino.",
+          "Sim. As compras internacionais são feitas no site e pagas com PayPal: o pagamento e o envio são feitos pelo PayPal, com o custo do envio calculado no checkout conforme o país e o peso.",
         ],
       },
     ],

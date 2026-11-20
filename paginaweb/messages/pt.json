@@ -91,7 +91,8 @@
     "privacy": "Política de privacidade",
     "purchaseTerms": "Condições de compra",
     "faq": "Perguntas frequentes",
-    "shipping": "Envios nacionais e internacionais"
+    "shipping": "Envios nacionais e internacionais",
+    "guides": "Guias"
   },
   "notFound": {
     "title": "Esta peça não está na coleção.",
@@ -489,8 +490,8 @@
     "ctaMobile1": "Uma peça do Uruguai,",
     "ctaMobile2": "feita para chegar",
     "ctaMobile3": "até você.",
-    "ctaBodyDesktop": "Consulte-nos sobre personalização e opções de envio internacional. A disponibilidade e o custo são confirmados diretamente.",
-    "ctaBodyMobile": "Consulte-nos sobre personalização e envio internacional. Respondemos diretamente.",
+    "ctaBodyDesktop": "Consulte-nos sobre personalização. As compras internacionais são pagas no site com PayPal, com o envio incluído.",
+    "ctaBodyMobile": "Consulte-nos sobre personalização. No exterior, você paga com PayPal, com o envio incluído.",
     "ctaAction": "Falar com a MateArte",
     "mapTitle": "Destinos internacionais da MateArte Uruguai",
     "mapDescription": "Mapa do mundo com {count} países destacados para os quais a MateArte enviou suas peças.",
@@ -615,7 +616,6 @@
     "choose": "Escolher…",
     "address": "Endereço",
     "internationalPurchase": "Compra internacional",
-    "internationalBody": "Salvaremos o pedido com um número e prepararemos uma mensagem de WhatsApp com todos os itens. Por lá, coordenamos o envio internacional e a forma de pagamento.",
     "country": "País",
     "city": "Cidade",
     "optional": "opcional",
@@ -645,10 +645,8 @@
     "bankTransferFailed": "Não foi possível salvar o pedido e o comprovante.",
     "bankTransferUnavailable": "Não foi possível carregar os dados bancários. Tente novamente antes de transferir.",
     "personalAttention": "Atendimento pessoal",
-    "coordinateWhatsapp": "Combine pelo WhatsApp",
     "whatsappSummary": "A mensagem incluirá o número do pedido, seu destino, os itens e o subtotal sem envio.",
     "preparing": "Preparando pedido…",
-    "coordinateAction": "Combinar pelo WhatsApp",
     "contactUs": "Fale conosco",
     "mercadoPagoAction": "Ir para o Mercado Pago",
     "discount": "Desconto",
@@ -690,8 +688,7 @@
     "paypalCancelled": "Pagamento cancelado. Você pode tentar novamente.",
     "paypalDeclined": "Meio de pagamento recusado. Tente outro.",
     "paypalPending": "Estamos verificando a confirmação do seu pagamento. Não pague novamente; consulte seus pedidos ou entre em contato se a confirmação não chegar.",
-    "paypalError": "Não foi possível processar o pagamento. Tente novamente.",
-    "orWhatsapp": "ou combine pelo WhatsApp"
+    "paypalError": "Não foi possível processar o pagamento. Tente novamente."
   },
   "auth": {
     "openGoogle": "Abrindo o Google…",
@@ -717,7 +714,7 @@
     "retry": "Tentar novamente",
     "back": "Voltar aos meus pedidos",
     "loading": "Consultando o status confirmado…",
-    "internationalStatus": "Sua compra internacional foi registrada. Estamos coordenando o envio e o pagamento pelo WhatsApp.",
+    "internationalStatus": "Sua compra internacional foi registrada e estamos revisando.",
     "processingFallback": "Estamos processando as informações do seu pedido.",
     "processingPayment": "Processando o pagamento",
     "updatesAutomatically": "Esta página será atualizada quando o status do pedido mudar.",
@@ -881,5 +878,15 @@
     "welcomeCouponIntro": "Use o código",
     "welcomeCouponOutro": "na sua primeira compra.",
     "welcomeCouponCart": "Ir para o carrinho"
+  },
+  "guidesPage": {
+    "title": "Guias",
+    "metaTitle": "Guias sobre cuias e couro",
+    "intro": "Como curar e cuidar da sua cuia, qual modelo escolher e como pedir presentes para a sua empresa, contado da nossa oficina em Paysandú.",
+    "metaDescription": "Como curar e cuidar da sua cuia, qual modelo escolher, como cuidar do couro e como pedir presentes corporativos personalizados.",
+    "read": "Ler o guia",
+    "faq": "Perguntas frequentes",
+    "more": "Continue lendo",
+    "home": "Início"
   }
 }

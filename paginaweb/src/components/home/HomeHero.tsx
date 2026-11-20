@@ -101,9 +101,12 @@ export function HomeHero() {
             alt={t(`${slide.key}.alt`)}
             fill
             sizes="100vw"
-            unoptimized={slide.key === "champions"}
+            // La primera imagen es la más importante de la página (LCP): se optimiza en calidad alta en vez de
+            // servir el original, y las demás diapositivas se bajan con prioridad baja para no competir con ella.
+            quality={slide.key === "champions" ? 95 : undefined}
             preload={index === 0}
             loading={index === 0 ? undefined : "eager"}
+            fetchPriority={index === 0 ? "high" : "low"}
           />
           <div className="home-carousel-shade" />
           <div className="home-carousel-copy">

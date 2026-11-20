@@ -11,6 +11,8 @@ export const localizedPathnames = {
     "/contacto": { es: "/contacto", en: "/contact", pt: "/contato" },
     "/sorteo": "/sorteo",
     "/preguntas-frecuentes": { es: "/preguntas-frecuentes", en: "/faq", pt: "/perguntas-frequentes" },
+    "/guias": { es: "/guias", en: "/guides", pt: "/guias" },
+    "/guias/[slug]": { es: "/guias/[slug]", en: "/guides/[slug]", pt: "/guias/[slug]" },
     "/carrito": { es: "/carrito", en: "/cart", pt: "/carrinho" },
     "/checkout": { es: "/checkout", en: "/checkout", pt: "/finalizar-compra" },
     "/perfil": { es: "/perfil", en: "/account", pt: "/perfil" },
